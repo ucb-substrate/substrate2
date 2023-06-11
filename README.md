@@ -13,12 +13,6 @@ clone this repository, and then add `substrate` as a dependency in your project'
 substrate = { path = "/path/to/substrate" }
 ```
 
-Ensure that your `~/.cargo/config.toml` file contains the following lines:
-```toml
-[net]
-git-fetch-with-cli = true
-```
-
 Substrate is developed and tested using the latest version of Rust.
 
 Please note that all APIs are under development and may change without warning.
@@ -71,7 +65,7 @@ For larger feature additions, please discuss your ideas with us before implement
 Contributions can be submitted by opening a pull request against the `main` branch
 of this repository.
 
-Please see `docs/CONTRIBUTING.md` for more information.
+Please see [the contributing guide](docs/CONTRIBUTING.md) for more information.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion
 in the work by you shall be licensed under the BSD 3-Clause license, without any additional terms or conditions.
