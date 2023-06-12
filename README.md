@@ -1,6 +1,6 @@
 # Substrate 2
 
-![CI](https://github.com/github/docs/actions/workflows/ci-main.yml/badge.svg)
+![CI](https://github.com/substrate-labs/substrate2/actions/workflows/ci-main.yml/badge.svg)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 21st century design automation tools.
