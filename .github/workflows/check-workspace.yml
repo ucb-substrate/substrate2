@@ -1,0 +1,35 @@
+name: Check workspace
+
+on:
+  workflow_call:
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+  check-workspace:
+    name: Build, lint, and test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.70.0
+        id: toolchain
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Cache workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: ". -> target"
+      - name: Install `cargo-hack`
+        uses: taiki-e/install-action@cargo-hack
+      - name: Check formatting
+        run: |
+          cargo fmt --check
+      - name: Check lint
+        run: |
+          cargo hack --feature-powerset --exclude-no-default-features clippy --locked -- -D warnings
+      - name: Test
+        run: cargo test --locked --all-features
