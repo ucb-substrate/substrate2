@@ -1,3 +1,4 @@
+pub use crate::bbox::Bbox;
 pub use crate::corner::Corner;
 pub use crate::dims::Dims;
 pub use crate::dir::Dir;
