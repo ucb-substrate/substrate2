@@ -6,11 +6,11 @@
 
 Substrate is a library, and cannot be run by itself.
 To use Substrate, [install Rust](https://www.rust-lang.org/tools/install),
-clone this repository, and then add `substrate` as a dependency in your project's Cargo.toml:
+and add `substrate` as a dependency in your project's Cargo.toml:
 
 ```toml
 [dependencies]
-substrate = { path = "/path/to/substrate" }
+substrate = { git = "https://github.com/substrate-labs/substrate2", branch = "main" }
 ```
 
 Substrate is developed and tested using the latest version of Rust.
