@@ -1,4 +1,4 @@
-name: Pull Request Security Audit
+name: Pull request security audit
 
 on:
   push:
