@@ -60,7 +60,6 @@ jobs:
         id: toolchain
         with:
           toolchain: stable
-          components: clippy
       - name: Clone `cargo-workspaces`
         uses: actions/checkout@v3
         with:
@@ -90,12 +89,33 @@ jobs:
     needs: [ check-workspace ]
     steps:
       - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+        with:
+          toolchain: stable
+      - name: Cache workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: |
+            ./docs/api -> target
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - name: Install `just`
+        run: |
+          git clone 'https://mpr.makedeb.org/just'
+          cd just
+          makedeb -si
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: docs/substrate/yarn.lock
+      - run: just build && flyctl deploy --remote-only
         working-directory: docs/api
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      - run: flyctl deploy --remote-only
+      - run: yarn build && flyctl deploy --remote-only
         working-directory: docs/substrate
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
