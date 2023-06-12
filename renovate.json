@@ -3,6 +3,6 @@
   "extends": [
     "config:base"
   ],
-  "prHourlyLimit": 4,
+  "prHourlyLimit": 0,
   "dependencyDashboard": true
 }
