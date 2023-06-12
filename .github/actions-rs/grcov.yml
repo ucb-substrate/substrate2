@@ -1,0 +1,4 @@
+output-type: lcov
+output-file: ./lcov.info
+branch: true
+ignore-not-existing: true
