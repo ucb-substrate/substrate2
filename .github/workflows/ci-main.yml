@@ -81,5 +81,22 @@ jobs:
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes
   coverage:
-    name: Check workspace
+    name: Report coverage
     uses: ./.github/workflows/coverage.yml
+  deploy-docs:
+    name: Deploy documentation
+    runs-on: ubuntu-22.04
+    environment: main
+    needs: [ check-workspace ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        working-directory: docs/api
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - run: flyctl deploy --remote-only
+        working-directory: docs/substrate
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        
