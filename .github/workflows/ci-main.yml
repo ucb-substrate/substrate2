@@ -81,4 +81,5 @@ jobs:
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes
   coverage:
+    name: Check workspace
     uses: ./.github/workflows/coverage.yml
