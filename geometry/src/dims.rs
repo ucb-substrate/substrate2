@@ -96,7 +96,7 @@ impl Dims {
 
     /// Converts this dimension object into a [`Rect`].
     ///
-    /// See [`Rect::with_dims`] for more information.
+    /// See [`Rect::from_dims`] for more information.
     #[inline]
     pub fn into_rect(self) -> Rect {
         Rect::from_dims(self)
@@ -167,5 +167,13 @@ impl std::ops::MulAssign<i64> for Dims {
     fn mul_assign(&mut self, rhs: i64) {
         self.w *= rhs;
         self.h *= rhs;
+    }
+}
+
+impl From<Rect> for Dims {
+    /// Obtains [`Dims`] from the given [`Rect`] using [`Rect::dims`].
+    #[inline]
+    fn from(value: Rect) -> Self {
+        value.dims()
     }
 }

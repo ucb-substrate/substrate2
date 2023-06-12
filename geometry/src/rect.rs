@@ -98,6 +98,31 @@ impl Rect {
         Self::new(Point::new(left, bot), Point::new(right, top))
     }
 
+    /// Creates a rectangle from all 4 sides (left, bottom, right, top),
+    /// but returns `None` if the given sides would make the rectangle empty.
+    ///
+    /// The rectangle is empty if the left edge is beyond the right edge,
+    /// or if the bottom edge is above the top edge.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides_option(15, 20, 30, 40);
+    /// assert_eq!(rect, Some(Rect::from_sides(15, 20, 30, 40)));
+    ///
+    /// let rect = Rect::from_sides_option(10, 20, 0, 40);
+    /// assert_eq!(rect, None);
+    /// ```
+    #[inline]
+    pub fn from_sides_option(left: i64, bot: i64, right: i64, top: i64) -> Option<Self> {
+        if left > right || bot > top {
+            None
+        } else {
+            Some(Self::from_sides(left, bot, right, top))
+        }
+    }
+
     /// Creates a zero-area empty rectangle containing the given `(x, y)` coordinates.
     ///
     /// # Example
@@ -725,24 +750,159 @@ impl Rect {
         }
     }
 
-    /// Shrinks the rectangle by `amount` on all sides.
+    /// Shrinks the rectangle by `amount` on all sides,
+    /// returning `None` if the shrunk rectangle is empty.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.shrink_all(20), Some(Rect::from_sides(20, 20, 80, 180)));
+    /// assert_eq!(rect.shrink_all(105), None);
+    /// ```
     #[inline]
-    pub fn shrink(&self, amount: i64) -> Self {
-        assert!(2 * amount <= self.width());
-        assert!(2 * amount <= self.height());
-        Self::new(
-            Point::new(self.p0.x + amount, self.p0.y + amount),
-            Point::new(self.p1.x - amount, self.p1.y - amount),
+    pub fn shrink_all(&self, amount: i64) -> Option<Self> {
+        Self::from_sides_option(
+            self.p0.x + amount,
+            self.p0.y + amount,
+            self.p1.x - amount,
+            self.p1.y - amount,
         )
     }
 
-    /// Returns the dimensions of the rectangle as [`Dims`].
+    /// Shrinks the rectangle by `amount` on both sides associated with the direction `dir`.
+    /// Returns [`None`] if shrinking would make the rectangle invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.shrink_dir(Dir::Horiz, 20), Some(Rect::from_sides(20, 0, 80, 200)));
+    /// assert_eq!(rect.shrink_dir(Dir::Vert, 20), Some(Rect::from_sides(0, 20, 100, 180)));
+    /// assert_eq!(rect.shrink_dir(Dir::Vert, 120), None);
+    /// ```
+    #[inline]
+    pub fn shrink_dir(&self, dir: Dir, amount: i64) -> Option<Self> {
+        match dir {
+            Dir::Horiz => Self::from_sides_option(
+                self.p0.x + amount,
+                self.p0.y,
+                self.p1.x - amount,
+                self.p1.y,
+            ),
+            Dir::Vert => Self::from_sides_option(
+                self.p0.x,
+                self.p0.y + amount,
+                self.p1.x,
+                self.p1.y - amount,
+            ),
+        }
+    }
+
+    /// Shrinks the rectangle by `amount` on the given side.
+    /// Returns [`None`] if shrinking would make the rectangle invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.shrink_side(Side::Top, 20), Some(Rect::from_sides(0, 0, 100, 180)));
+    /// assert_eq!(rect.shrink_side(Side::Bot, 20), Some(Rect::from_sides(0, 20, 100, 200)));
+    /// assert_eq!(rect.shrink_side(Side::Left, 20), Some(Rect::from_sides(20, 0, 100, 200)));
+    /// assert_eq!(rect.shrink_side(Side::Right, 20), Some(Rect::from_sides(0, 0, 80, 200)));
+    /// assert_eq!(rect.shrink_side(Side::Right, 210), None);
+    /// ```
+    #[inline]
+    pub fn shrink_side(&self, side: Side, amount: i64) -> Option<Self> {
+        match side {
+            Side::Top => {
+                Self::from_sides_option(self.p0.x, self.p0.y, self.p1.x, self.p1.y - amount)
+            }
+            Side::Bot => {
+                Self::from_sides_option(self.p0.x, self.p0.y + amount, self.p1.x, self.p1.y)
+            }
+            Side::Right => {
+                Self::from_sides_option(self.p0.x, self.p0.y, self.p1.x - amount, self.p1.y)
+            }
+            Side::Left => {
+                Self::from_sides_option(self.p0.x + amount, self.p0.y, self.p1.x, self.p1.y)
+            }
+        }
+    }
+
+    /// Shrinks the rectangle by `amount` at the given corner.
+    /// Returns [`None`] if shrinking would make the rectangle invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.shrink_corner(Corner::LowerLeft, 20), Some(Rect::from_sides(20, 20, 100, 200)));
+    /// assert_eq!(rect.shrink_corner(Corner::LowerRight, 20), Some(Rect::from_sides(0, 20, 80, 200)));
+    /// assert_eq!(rect.shrink_corner(Corner::UpperLeft, 20), Some(Rect::from_sides(20, 0, 100, 180)));
+    /// assert_eq!(rect.shrink_corner(Corner::UpperRight, 20), Some(Rect::from_sides(0, 0, 80, 180)));
+    /// assert_eq!(rect.shrink_corner(Corner::UpperRight, 110), None);
+    /// ```
+    #[inline]
+    pub fn shrink_corner(self, corner: Corner, amount: i64) -> Option<Self> {
+        match corner {
+            Corner::LowerLeft => Self::from_sides_option(
+                self.p0.x + amount,
+                self.p0.y + amount,
+                self.p1.x,
+                self.p1.y,
+            ),
+            Corner::LowerRight => Self::from_sides_option(
+                self.p0.x,
+                self.p0.y + amount,
+                self.p1.x - amount,
+                self.p1.y,
+            ),
+            Corner::UpperLeft => Self::from_sides_option(
+                self.p0.x + amount,
+                self.p0.y,
+                self.p1.x,
+                self.p1.y - amount,
+            ),
+            Corner::UpperRight => Self::from_sides_option(
+                self.p0.x,
+                self.p0.y,
+                self.p1.x - amount,
+                self.p1.y - amount,
+            ),
+        }
+    }
+
+    /// Returns the dimensions of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.dims(), Dims::new(80, 180));
+    /// ```
     #[inline]
     pub fn dims(&self) -> Dims {
         Dims::new(self.width(), self.height())
     }
 
     /// Returns the desired corner of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.corner(Corner::LowerLeft), Point::new(20, 20));
+    /// assert_eq!(rect.corner(Corner::LowerRight), Point::new(100, 20));
+    /// assert_eq!(rect.corner(Corner::UpperLeft), Point::new(20, 200));
+    /// assert_eq!(rect.corner(Corner::UpperRight), Point::new(100, 200));
+    /// ```
     pub fn corner(&self, corner: Corner) -> Point {
         match corner {
             Corner::LowerLeft => self.p0,
@@ -752,6 +912,18 @@ impl Rect {
         }
     }
 
+    /// Returns the desired side of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.side(Side::Bot), 20);
+    /// assert_eq!(rect.side(Side::Left), 20);
+    /// assert_eq!(rect.side(Side::Top), 200);
+    /// assert_eq!(rect.side(Side::Right), 100);
+    /// ```
     #[inline]
     pub fn side(&self, side: Side) -> i64 {
         match side {
@@ -762,6 +934,18 @@ impl Rect {
         }
     }
 
+    /// Returns the desired edge of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.edge(Side::Bot), Edge::new(Side::Bot, 20, Span::new(20, 100)));
+    /// assert_eq!(rect.edge(Side::Top), Edge::new(Side::Top, 200, Span::new(20, 100)));
+    /// assert_eq!(rect.edge(Side::Left), Edge::new(Side::Left, 20, Span::new(20, 200)));
+    /// assert_eq!(rect.edge(Side::Right), Edge::new(Side::Right, 100, Span::new(20, 200)));
+    /// ```
     #[inline]
     pub fn edge(&self, side: Side) -> Edge {
         Edge::new(side, self.side(side), self.span(side.edge_dir()))
@@ -770,11 +954,41 @@ impl Rect {
     /// Snaps the corners of this rectangle to the given grid.
     ///
     /// Note that the rectangle may have zero area after snapping.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(17, 23, 101, 204);
+    /// assert_eq!(rect.snap_to_grid(5), Rect::from_sides(15, 25, 100, 205));
+    ///
+    /// let rect = Rect::from_sides(16, 17, 101, 104);
+    /// assert_eq!(rect.snap_to_grid(5), Rect::from_sides(15, 15, 100, 105));
+    ///
+    /// let rect = Rect::from_sides(16, 17, 17, 18);
+    /// assert_eq!(rect.snap_to_grid(5), Rect::from_sides(15, 15, 15, 20));
+    /// ```
     #[inline]
     pub fn snap_to_grid(&self, grid: i64) -> Self {
         Self::new(self.p0.snap_to_grid(grid), self.p1.snap_to_grid(grid))
     }
 
+    /// Based on `clip`, cuts a hole in this rectangle and returns the four surrounding pieces.
+    ///
+    /// Assumes that `clip` is entirely contained by this rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 100);
+    /// let clip = Rect::from_sides(20, 20, 80, 80);
+    /// assert_eq!(rect.cutout(clip), [
+    ///     Rect::from_sides(0, 80, 100, 100),
+    ///     Rect::from_sides(0, 0, 100, 20),
+    ///     Rect::from_sides(0, 0, 20, 100),
+    ///     Rect::from_sides(80, 0, 100, 100),
+    /// ]);
     pub fn cutout(&self, clip: Rect) -> [Rect; 4] {
         let src = *self;
         let t_span = Span::new(clip.top(), src.top());
@@ -824,6 +1038,7 @@ impl Transform for Rect {
 }
 
 impl From<Dims> for Rect {
+    /// Converts the [`Dims`] to a [`Rect`] as described in [`Rect::from_dims`].
     #[inline]
     fn from(value: Dims) -> Self {
         Self::from_dims(value)

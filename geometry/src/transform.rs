@@ -7,7 +7,7 @@ use crate::orientation::wrap_angle;
 use crate::point::Point;
 
 /// A 2x2 rotation-matrix and two-entry translation vector,
-/// used for relative movement of [Point]s and [Shape](super::Shape)s.
+/// used for relative movement of geometry.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Transformation {
     /// The transformation matrix represented in row-major order.
