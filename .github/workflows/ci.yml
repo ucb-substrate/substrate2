@@ -1,0 +1,11 @@
+name: CI
+
+on:
+  pull_request:
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+  check-workspace:
+    uses: ./.github/workflows/check-workspace.yml

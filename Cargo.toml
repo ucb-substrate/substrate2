@@ -1,0 +1,27 @@
+[workspace]
+
+members = [
+    "cache",
+    "cli",
+    "codegen",
+    "dex",
+    "diagnostics",
+    "digital",
+    "drc",
+    "gds",
+    "geometry",
+    "layout",
+    "lef",
+    "lvs",
+    "par",
+    "pex",
+    "sbm",
+    "scg",
+    "schematic",
+    "sde",
+    "sim",
+    "subfile",
+    "substrate",
+    "tests",
+    "timing",
+]
