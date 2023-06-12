@@ -1,0 +1,29 @@
+{
+  "bootstrap-sha": "dc78bd1f120da39c03400a7e7e889b7d8f1ca37b",
+  "plugins": ["cargo-workspace"],
+  "release-type": "rust",
+  "packages": {
+    "cache": {},
+    "cli": {},
+    "codegen": {},
+    "dex": {},
+    "diagnostics": {},
+    "digital": {},
+    "drc": {},
+    "gds": {},
+    "geometry": {},
+    "layout": {},
+    "lef": {},
+    "lvs": {},
+    "par": {},
+    "pex": {},
+    "sbm": {},
+    "scg": {},
+    "schematic": {},
+    "sde": {},
+    "sim": {},
+    "subfile": {},
+    "substrate": {},
+    "timing": {}
+  }
+}

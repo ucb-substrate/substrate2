@@ -1,0 +1,2 @@
+[registries]
+substrate = { index = "https://github.com/substrate-labs/crates-index" }
