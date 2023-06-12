@@ -24,13 +24,17 @@ jobs:
           workspaces: ". -> target"
       - name: Build
         run: cargo +nightly build --verbose --locked --all-features
+        env:
+          RUSTFLAGS: -Cinstrument-coverage
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:
           CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests -Cinstrument-coverage'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests -Cinstrument-coverage'
+          LLVM_PROFILE_FILE: grcov-%p-%m.profraw
       - name: rust-grcov
+        id: grcov
         uses: actions-rs/grcov@v0.1.6
       - name: Codecov
         uses: codecov/codecov-action@v3.1.4
