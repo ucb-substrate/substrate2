@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+  check-workspace:
+    uses: ./.github/workflows/check-workspace.yml
