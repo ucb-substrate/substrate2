@@ -15,3 +15,5 @@ env:
 jobs:
   check-workspace:
     uses: ./.github/workflows/check-workspace.yml
+  coverage:
+    uses: ./.github/workflows/coverage.yml
