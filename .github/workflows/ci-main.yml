@@ -102,10 +102,7 @@ jobs:
             ./docs/api -> target
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Install `just`
-        run: |
-          git clone 'https://mpr.makedeb.org/just'
-          cd just
-          makedeb -si
+        run: cargo install just
       - uses: actions/setup-node@v3
         with:
           node-version: 18
