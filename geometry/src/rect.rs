@@ -532,24 +532,58 @@ impl Rect {
         self.span(dir).length()
     }
 
-    /// Returns the direction in which the rectangle is longer, choosing [`Dir::Vert`] if the sides
+    /// Returns the direction in which the rectangle is longer, choosing [`Dir::Horiz`] if the sides
     /// are equal.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.longer_dir(), Dir::Vert);
+    /// let rect = Rect::from_sides(0, 0, 200, 100);
+    /// assert_eq!(rect.longer_dir(), Dir::Horiz);
+    /// let rect = Rect::from_sides(0, 0, 100, 100);
+    /// assert_eq!(rect.longer_dir(), Dir::Horiz);
+    /// ```
     #[inline]
     pub fn longer_dir(&self) -> Dir {
-        if self.width() > self.height() {
-            Dir::Horiz
-        } else {
+        if self.height() > self.width() {
             Dir::Vert
+        } else {
+            Dir::Horiz
         }
     }
 
-    /// Returns the direction in which the rectangle is longer, choosing [`Dir::Vert`] if the sides
+    /// Returns the direction in which the rectangle is shorter, choosing [`Dir::Vert`] if the sides
     /// are equal.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.shorter_dir(), Dir::Horiz);
+    /// let rect = Rect::from_sides(0, 0, 200, 100);
+    /// assert_eq!(rect.shorter_dir(), Dir::Vert);
+    /// let rect = Rect::from_sides(0, 0, 100, 100);
+    /// assert_eq!(rect.shorter_dir(), Dir::Vert);
+    /// ```
     #[inline]
     pub fn shorter_dir(&self) -> Dir {
         !self.longer_dir()
     }
 
+    /// Computes the rectangular union of this `Rect` with another `Rect`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let r1 = Rect::from_sides(0, 0, 100, 200);
+    /// let r2 = Rect::from_sides(-50, 20, 120, 160);
+    /// assert_eq!(r1.union(r2), Rect::from_sides(-50, 0, 120, 200));
+    /// ```
     pub fn union(self, other: Self) -> Self {
         Rect::new(
             Point::new(self.p0.x.min(other.p0.x), self.p0.y.min(other.p0.y)),
@@ -557,6 +591,22 @@ impl Rect {
         )
     }
 
+    /// Computes the rectangular intersection of this `Rect` with another `Rect`.
+    ///
+    /// Returns `None` if the intersection is empty.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let r1 = Rect::from_sides(0, 0, 100, 200);
+    /// let r2 = Rect::from_sides(-50, 20, 120, 160);
+    /// assert_eq!(r1.intersection(r2), Some(Rect::from_sides(0, 20, 100, 160)));
+    ///
+    /// let r1 = Rect::from_sides(0, 0, 100, 200);
+    /// let r2 = Rect::from_sides(120, -60, 240, 800);
+    /// assert_eq!(r1.intersection(r2), None);
+    /// ```
     pub fn intersection(self, other: Self) -> Option<Self> {
         let pmin = Point::new(self.p0.x.max(other.p0.x), self.p0.y.max(other.p0.y));
         let pmax = Point::new(self.p1.x.min(other.p1.x), self.p1.y.min(other.p1.y));
@@ -571,26 +621,32 @@ impl Rect {
     }
 
     /// Expands the rectangle by `amount` on all sides.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.expand_all(20), Rect::from_sides(-20, -20, 120, 220));
+    /// ```
     #[inline]
-    pub fn expand(&self, amount: i64) -> Self {
+    pub fn expand_all(&self, amount: i64) -> Self {
         Self::new(
             Point::new(self.p0.x - amount, self.p0.y - amount),
             Point::new(self.p1.x + amount, self.p1.y + amount),
         )
     }
 
-    /// Shrinks the rectangle by `amount` on all sides.
-    #[inline]
-    pub fn shrink(&self, amount: i64) -> Self {
-        assert!(2 * amount <= self.width());
-        assert!(2 * amount <= self.height());
-        Self::new(
-            Point::new(self.p0.x + amount, self.p0.y + amount),
-            Point::new(self.p1.x - amount, self.p1.y - amount),
-        )
-    }
-
     /// Expands the rectangle by `amount` on both sides associated with the direction `dir`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.expand_dir(Dir::Horiz, 20), Rect::from_sides(-20, 0, 120, 200));
+    /// assert_eq!(rect.expand_dir(Dir::Vert, 20), Rect::from_sides(0, -20, 100, 220));
+    /// ```
     #[inline]
     pub fn expand_dir(&self, dir: Dir, amount: i64) -> Self {
         match dir {
@@ -606,6 +662,17 @@ impl Rect {
     }
 
     /// Expands the rectangle by `amount` on the given side.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.expand_side(Side::Top, 20), Rect::from_sides(0, 0, 100, 220));
+    /// assert_eq!(rect.expand_side(Side::Bot, 20), Rect::from_sides(0, -20, 100, 200));
+    /// assert_eq!(rect.expand_side(Side::Left, 20), Rect::from_sides(-20, 0, 100, 200));
+    /// assert_eq!(rect.expand_side(Side::Right, 20), Rect::from_sides(0, 0, 120, 200));
+    /// ```
     #[inline]
     pub fn expand_side(&self, side: Side, amount: i64) -> Self {
         match side {
@@ -626,6 +693,47 @@ impl Rect {
                 Point::new(self.p1.x, self.p1.y),
             ),
         }
+    }
+
+    /// Expands the rectangle by `amount` at the given corner.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.expand_corner(Corner::LowerLeft, 20), Rect::from_sides(-20, -20, 100, 200));
+    /// assert_eq!(rect.expand_corner(Corner::LowerRight, 20), Rect::from_sides(0, -20, 120, 200));
+    /// assert_eq!(rect.expand_corner(Corner::UpperLeft, 20), Rect::from_sides(-20, 0, 100, 220));
+    /// assert_eq!(rect.expand_corner(Corner::UpperRight, 20), Rect::from_sides(0, 0, 120, 220));
+    /// ```
+    #[inline]
+    pub fn expand_corner(self, corner: Corner, amount: i64) -> Self {
+        match corner {
+            Corner::LowerLeft => {
+                Self::from_sides(self.p0.x - amount, self.p0.y - amount, self.p1.x, self.p1.y)
+            }
+            Corner::LowerRight => {
+                Self::from_sides(self.p0.x, self.p0.y - amount, self.p1.x + amount, self.p1.y)
+            }
+            Corner::UpperLeft => {
+                Self::from_sides(self.p0.x - amount, self.p0.y, self.p1.x, self.p1.y + amount)
+            }
+            Corner::UpperRight => {
+                Self::from_sides(self.p0.x, self.p0.y, self.p1.x + amount, self.p1.y + amount)
+            }
+        }
+    }
+
+    /// Shrinks the rectangle by `amount` on all sides.
+    #[inline]
+    pub fn shrink(&self, amount: i64) -> Self {
+        assert!(2 * amount <= self.width());
+        assert!(2 * amount <= self.height());
+        Self::new(
+            Point::new(self.p0.x + amount, self.p0.y + amount),
+            Point::new(self.p1.x - amount, self.p1.y - amount),
+        )
     }
 
     /// Returns the dimensions of the rectangle as [`Dims`].
