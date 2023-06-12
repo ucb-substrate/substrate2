@@ -2,6 +2,7 @@
 //!
 //! A crate for 2-D geometric operations relevant to integrated circuit layout.
 pub mod bbox;
+pub mod contains;
 pub mod corner;
 pub mod dims;
 pub mod dir;
