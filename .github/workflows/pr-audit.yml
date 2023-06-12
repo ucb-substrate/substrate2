@@ -1,4 +1,4 @@
-name: Pull request security audit
+name: Cargo audit
 
 on:
   push:
