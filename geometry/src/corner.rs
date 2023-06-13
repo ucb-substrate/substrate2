@@ -1,10 +1,32 @@
+//! Describes the corners of axis-aligned rectangles.
+//!
+//! # Examples
+//!
+//! You can access the corners of a [`Rect`](crate::rect::Rect):
+//!
+//! ```
+//! # use geometry::prelude::*;
+//! let rect = Rect::from_sides(10, 20, 30, 40);
+//! assert_eq!(rect.corner(Corner::LowerRight), Point::new(30, 20));
+//! ```
+//!
+//! You can also increase the size of a [`Rect`](crate::rect::Rect) by pushing out one of its corners:
+//!
+//! ```
+//! # use geometry::prelude::*;
+//! let rect = Rect::from_sides(10, 20, 30, 40);
+//! assert_eq!(rect.expand_corner(Corner::UpperLeft, 100), Rect::from_sides(-90, 20, 30, 140));
+//! ```
+
 use array_map::Indexable;
-/// An enumeration of the corners of an axis-aligned rectangle.
 use serde::{Deserialize, Serialize};
 
 use crate::dir::Dir;
 use crate::side::Side;
 
+/// An enumeration of the corners of an axis-aligned rectangle.
+///
+/// See the [module-level documentation](crate::corner) for examples.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 #[repr(u8)]
 #[derive(Indexable)]
