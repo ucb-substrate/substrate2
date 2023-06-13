@@ -7,11 +7,11 @@ use crate::corner::Corner;
 use crate::dims::Dims;
 use crate::dir::Dir;
 use crate::edge::Edge;
+use crate::intersect::Intersect;
 use crate::point::Point;
 use crate::side::Side;
 use crate::span::Span;
 use crate::transform::{Transform, Transformation, Translate};
-use crate::trim::Trim;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -1011,10 +1011,10 @@ impl Bbox for Rect {
     }
 }
 
-impl Trim<Rect> for Rect {
+impl Intersect<Rect> for Rect {
     type Output = Self;
 
-    fn trim(&self, bounds: &Rect) -> Option<Self::Output> {
+    fn intersect(self, bounds: &Rect) -> Option<Self::Output> {
         self.intersection(*bounds)
     }
 }

@@ -23,11 +23,27 @@ impl Dims {
         Self { w, h }
     }
     /// Creates a new [`Dims`] with width and height equal to `value`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(Dims::square(100), Dims::new(100, 100));
+    /// ```
     pub fn square(value: i64) -> Self {
         Self { w: value, h: value }
     }
 
     /// Returns the dimension in the specified direction.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let dims = Dims::new(100, 200);
+    /// assert_eq!(dims.dim(Dir::Vert), 200);
+    /// assert_eq!(dims.dim(Dir::Horiz), 100);
+    /// ```
     pub fn dim(&self, dir: Dir) -> i64 {
         match dir {
             Dir::Vert => self.h,
@@ -38,6 +54,18 @@ impl Dims {
     /// Returns the direction of the longer dimension.
     ///
     /// If the width and height are equal, returns [`Dir::Horiz`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let dims = Dims::new(100, 200);
+    /// assert_eq!(dims.longer_dir(), Dir::Vert);
+    /// let dims = Dims::new(200, 100);
+    /// assert_eq!(dims.longer_dir(), Dir::Horiz);
+    /// let dims = Dims::new(100, 100);
+    /// assert_eq!(dims.longer_dir(), Dir::Horiz);
+    /// ```
     pub fn longer_dir(&self) -> Dir {
         if self.w >= self.h {
             Dir::Horiz
