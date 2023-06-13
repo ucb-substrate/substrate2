@@ -106,6 +106,7 @@ impl Transformation {
         Self { a, b }
     }
 
+    /// The point representing the translation of this transformation.
     pub fn offset_point(&self) -> Point {
         Point {
             x: self.b[0].round() as i64,

@@ -9,7 +9,9 @@ use crate::transform::{Transform, Transformation, Translate};
 /// A point in two-dimensional space.
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
+    /// The x-coordinate of the point.
     pub x: i64,
+    /// The y-coordinate of the point.
     pub y: i64,
 }
 
@@ -52,17 +54,20 @@ impl Point {
         }
     }
 
+    /// Snaps the x and y coordinates of this point to the nearest multiple of `grid`.
     #[inline]
     pub fn snap_to_grid(&self, grid: i64) -> Self {
         self.snap_x_to_grid(grid).snap_y_to_grid(grid)
     }
 
+    /// Snaps only the x-coordinate of this point to the nearest multiple of `grid`.
     #[inline]
     pub fn snap_x_to_grid(&self, grid: i64) -> Self {
         let x = snap_to_grid(self.x, grid);
         Self { x, y: self.y }
     }
 
+    /// Snaps only the y-coordinate of this point to the nearest multiple of `grid`.
     #[inline]
     pub fn snap_y_to_grid(&self, grid: i64) -> Self {
         let y = snap_to_grid(self.y, grid);

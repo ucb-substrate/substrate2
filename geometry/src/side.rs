@@ -10,9 +10,13 @@ use serde::{Deserialize, Serialize};
 #[repr(u8)]
 #[derive(Indexable)]
 pub enum Side {
+    /// The left side.
     Left,
+    /// The bottom side.
     Bot,
+    /// The right side.
     Right,
+    /// The top side.
     Top,
 }
 

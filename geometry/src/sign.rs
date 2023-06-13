@@ -15,12 +15,25 @@ pub enum Sign {
 }
 
 impl Sign {
+    /// Converts this sign to +1 (if positive) or -1 (if negative).
     #[inline]
-    pub fn as_int(&self) -> i64 {
+    pub const fn as_int(&self) -> i64 {
         match self {
             Self::Pos => 1,
             Self::Neg => -1,
         }
+    }
+
+    /// Returns true if the sign is positive.
+    #[inline]
+    pub const fn is_pos(&self) -> bool {
+        matches!(self, Sign::Pos)
+    }
+
+    /// Returns true if the sign is negative.
+    #[inline]
+    pub const fn is_neg(&self) -> bool {
+        matches!(self, Sign::Neg)
     }
 }
 

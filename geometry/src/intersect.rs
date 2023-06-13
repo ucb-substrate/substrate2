@@ -2,6 +2,7 @@
 
 /// Trait for calculating the intersection with another geometric object.
 pub trait Intersect<T: ?Sized> {
+    /// The type of the output shape representing the intersection.
     type Output;
     /// Calculates the intersection of this shape with `other`.
     ///

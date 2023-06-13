@@ -1,3 +1,5 @@
+//! The edges of rectangular geometry.
+
 use serde::{Deserialize, Serialize};
 
 use crate::dir::Dir;

@@ -8,6 +8,8 @@
 //! # use geometry::prelude::*;
 //! let rect = Rect::from_sides(10, 20, 30, 40);
 //! ```
+#![warn(missing_docs)]
+
 pub mod bbox;
 pub mod contains;
 pub mod corner;

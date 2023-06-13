@@ -1,3 +1,5 @@
+//! A horizontal and vertical rectangular dimension with no specified location.
+
 use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};

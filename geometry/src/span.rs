@@ -193,7 +193,7 @@ impl Span {
             stop = max(stop, span.stop);
         }
 
-        debug_assert!(start <= stop);
+        assert!(start <= stop);
 
         Span { start, stop }
     }
@@ -222,6 +222,7 @@ impl Span {
         merged_spans.into_iter()
     }
 
+    /// Calculates the smallest interval containing this span and `other`.
     pub fn union(self, other: Self) -> Self {
         use std::cmp::{max, min};
         Self {
@@ -230,6 +231,69 @@ impl Span {
         }
     }
 
+    /// Calculates the minimal bounding interval of all spans provided.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let spans = vec![
+    ///     Span::new(10, 40),
+    ///     Span::new(35, 60),
+    ///     Span::new(20, 30),
+    ///     Span::new(-10, 5),
+    /// ];
+    /// assert_eq!(Span::union_all(spans.into_iter()), Span::new(-10, 60));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the provided iterator has no elements.
+    /// If your iterator may be empty, consider using [`Span::union_all_option`].
+    pub fn union_all<T>(spans: impl Iterator<Item = T>) -> Self
+    where
+        T: Into<Self>,
+    {
+        spans
+            .fold(None, |acc: Option<Span>, s| match acc {
+                Some(acc) => Some(acc.union(s.into())),
+                None => Some(s.into()),
+            })
+            .unwrap()
+    }
+
+    /// Calculates the minimal bounding interval of all `Option<Span>`s provided.
+    ///
+    /// All `None` elements in the iterator are ignored.
+    /// If the iterator has no `Some(_)` elements, this function returns [`None`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let spans = vec![
+    ///     Some(Span::new(10, 40)),
+    ///     Some(Span::new(35, 60)),
+    ///     None,
+    ///     Some(Span::new(20, 30)),
+    ///     None,
+    ///     Some(Span::new(-10, 5)),
+    /// ];
+    /// assert_eq!(Span::union_all_option(spans.into_iter()), Some(Span::new(-10, 60)));
+    /// ```
+    pub fn union_all_option<T>(spans: impl Iterator<Item = T>) -> Option<Self>
+    where
+        T: Into<Option<Self>>,
+    {
+        spans
+            .filter_map(|s| s.into())
+            .fold(None, |acc, s| match acc {
+                Some(acc) => Some(acc.union(s)),
+                None => Some(s),
+            })
+    }
+
+    /// Calculates the intersection of this span with `other`.
     pub fn intersection(self, other: Self) -> Option<Self> {
         let _start = std::cmp::max(self.start(), other.start());
         let _stop = std::cmp::min(self.stop(), other.stop());
