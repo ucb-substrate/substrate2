@@ -5,7 +5,7 @@ pub trait Intersect<T: ?Sized> {
     type Output;
     /// Calculates the intersection of this shape with `other`.
     ///
-    /// If no part of this shape lies within `bounds`,
+    /// If no part of this shape lies within `other`,
     /// returns [`None`].
-    fn intersect(self, bounds: &T) -> Option<Self::Output>;
+    fn intersect(self, other: &T) -> Option<Self::Output>;
 }

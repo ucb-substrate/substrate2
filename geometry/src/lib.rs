@@ -17,3 +17,4 @@ pub mod sign;
 pub mod snap;
 pub mod span;
 pub mod transform;
+pub mod union;

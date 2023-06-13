@@ -1,6 +1,8 @@
 /// A one-dimensional span.
 use serde::{Deserialize, Serialize};
 
+use crate::contains::{Containment, Contains};
+use crate::intersect::Intersect;
 use crate::sign::Sign;
 use crate::snap::snap_to_grid;
 
@@ -98,9 +100,25 @@ impl Span {
         }
     }
 
-    /// Gets the shortest distance to a point.
-    pub fn distance_to(&self, point: i64) -> i64 {
-        std::cmp::min((point - self.start()).abs(), (point - self.stop()).abs())
+    /// Gets the shortest distance between this span and a point.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let span = Span::new(10, 20);
+    /// assert_eq!(span.dist_to(4), 6);
+    /// assert_eq!(span.dist_to(12), 0);
+    /// assert_eq!(span.dist_to(27), 7);
+    /// ```
+    pub fn dist_to(&self, point: i64) -> i64 {
+        if point < self.start() {
+            self.start() - point
+        } else if point > self.stop() {
+            point - self.stop()
+        } else {
+            0
+        }
     }
 
     /// Creates a new [`Span`] with center `center` and length `span`.
@@ -204,8 +222,14 @@ impl Span {
         }
     }
 
-    pub fn contains(self, other: Self) -> bool {
-        self.union(other) == self
+    pub fn intersection(self, other: Self) -> Option<Self> {
+        let _start = std::cmp::max(self.start(), other.start());
+        let _stop = std::cmp::min(self.stop(), other.stop());
+        if _start > _stop {
+            None
+        } else {
+            Some(Self::new(_start, _stop))
+        }
     }
 
     /// Returns a new [`Span`] representing the union of the current span with the given point.
@@ -245,11 +269,44 @@ impl Span {
         }
     }
 
-    pub fn min_distance(self, other: Span) -> i64 {
+    /// The minimum separation between this span and `other`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let s1 = Span::new(10, 20);
+    /// let s2 = Span::new(30, 50);
+    /// let s3 = Span::new(25, 40);
+    /// assert_eq!(s1.dist_to_span(s2), 10);
+    /// assert_eq!(s1.dist_to_span(s3), 5);
+    /// assert_eq!(s2.dist_to_span(s3), 0);
+    /// assert_eq!(s3.dist_to_span(s3), 0);
+    /// ```
+    pub fn dist_to_span(self, other: Span) -> i64 {
         std::cmp::max(
             0,
             self.union(other).length() - self.length() - other.length(),
         )
+    }
+}
+
+impl Intersect<Span> for Span {
+    type Output = Self;
+    fn intersect(self, other: &Span) -> Option<Self::Output> {
+        self.intersection(*other)
+    }
+}
+
+impl Contains<Span> for Span {
+    fn contains(&self, other: &Span) -> Containment {
+        if other.start() >= self.start() && other.stop() <= self.stop() {
+            Containment::Full
+        } else if other.start() <= self.stop() || other.stop() >= self.start() {
+            Containment::Partial
+        } else {
+            Containment::None
+        }
     }
 }
 

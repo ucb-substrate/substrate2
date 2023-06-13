@@ -53,19 +53,19 @@ impl Transformation {
         TransformationBuilder::default()
     }
 
-    /// Creates a transform from a location and [`Orientation`].
-    pub fn with_loc_and_orientation(loc: Point, orientation: impl Into<Orientation>) -> Self {
+    /// Creates a transform from an offset and [`Orientation`].
+    pub fn with_offset_and_orientation(offset: Point, orientation: impl Into<Orientation>) -> Self {
         Self::builder()
-            .point(loc)
+            .point(offset)
             .orientation(orientation.into())
             .build()
     }
 
-    /// Creates a transform from a location, angle, and a bool indicating
+    /// Creates a transform from an offset, angle, and a bool indicating
     /// whether or not to reflect vertically.
-    pub fn with_opts(loc: Point, reflect_vert: bool, angle: Option<f64>) -> Self {
+    pub fn with_opts(offset: Point, reflect_vert: bool, angle: Option<f64>) -> Self {
         Self::builder()
-            .point(loc)
+            .point(offset)
             .reflect_vert(reflect_vert)
             .angle_opt(angle)
             .build()
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn cascade_identity_preserves_transformation() {
         for orientation in Named::all_rectangular() {
-            let tf = Transformation::with_loc_and_orientation(Point::new(520, 130), orientation);
+            let tf = Transformation::with_offset_and_orientation(Point::new(520, 130), orientation);
             let casc = Transformation::cascade(tf, Transformation::identity());
             assert_eq!(
                 tf, casc,
@@ -251,24 +251,25 @@ mod tests {
     }
 
     #[test]
-    fn transformation_loc_and_orientation_preserves_components() {
+    fn transformation_offset_and_orientation_preserves_components() {
         let pt = Point::new(8930, 730);
         for orientation in Named::all_rectangular() {
             println!("Testing orientation {:?}", orientation);
-            let tf = Transformation::with_loc_and_orientation(pt, orientation);
+            let tf = Transformation::with_offset_and_orientation(pt, orientation);
             assert_eq!(tf.orientation(), orientation.into());
             assert_eq!(tf.offset_point(), pt);
         }
     }
 
     #[test]
-    fn transformation_equivalent_to_loc_and_orientation() {
+    fn transformation_equivalent_to_offset_and_orientation() {
         for orientation in Named::all_rectangular() {
             println!("Testing orientation {:?}", orientation);
-            let tf1 = Transformation::with_loc_and_orientation(Point::new(380, 340), orientation);
+            let tf1 =
+                Transformation::with_offset_and_orientation(Point::new(380, 340), orientation);
             assert_eq!(tf1.orientation(), orientation.into());
             let tf2 =
-                Transformation::with_loc_and_orientation(tf1.offset_point(), tf1.orientation());
+                Transformation::with_offset_and_orientation(tf1.offset_point(), tf1.orientation());
             assert_eq!(tf1, tf2);
         }
     }
@@ -277,61 +278,61 @@ mod tests {
     fn point_transformations_work() {
         let pt = Point::new(2, 1);
 
-        let pt_reflect_vert = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_reflect_vert = pt.transform(Transformation::with_offset_and_orientation(
             Point::zero(),
             Named::ReflectVert,
         ));
         assert_eq!(pt_reflect_vert, Point::new(2, -1));
 
-        let pt_reflect_horiz = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_reflect_horiz = pt.transform(Transformation::with_offset_and_orientation(
             Point::zero(),
             Named::ReflectHoriz,
         ));
         assert_eq!(pt_reflect_horiz, Point::new(-2, 1));
 
-        let pt_r90 = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_r90 = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(23, 11),
             Named::R90,
         ));
         assert_eq!(pt_r90, Point::new(22, 13));
 
-        let pt_r180 = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_r180 = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(-50, 10),
             Named::R180,
         ));
         assert_eq!(pt_r180, Point::new(-52, 9));
 
-        let pt_r270 = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_r270 = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(80, 90),
             Named::R270,
         ));
         assert_eq!(pt_r270, Point::new(81, 88));
 
-        let pt_r90cw = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_r90cw = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(5, 13),
             Named::R90Cw,
         ));
         assert_eq!(pt_r90cw, Point::new(6, 11));
 
-        let pt_r180cw = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_r180cw = pt.transform(Transformation::with_offset_and_orientation(
             Point::zero(),
             Named::R180Cw,
         ));
         assert_eq!(pt_r180cw, Point::new(-2, -1));
 
-        let pt_r270cw = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_r270cw = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(1, 100),
             Named::R270Cw,
         ));
         assert_eq!(pt_r270cw, Point::new(0, 102));
 
-        let pt_flip_yx = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_flip_yx = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(-65, -101),
             Named::FlipYx,
         ));
         assert_eq!(pt_flip_yx, Point::new(-64, -99));
 
-        let pt_flip_minus_yx = pt.transform(Transformation::with_loc_and_orientation(
+        let pt_flip_minus_yx = pt.transform(Transformation::with_offset_and_orientation(
             Point::new(1, -5),
             Named::FlipMinusYx,
         ));
