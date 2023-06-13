@@ -57,7 +57,7 @@ version = "0.0.0"
 
 [[package]]
 name = "geometry"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "array_map",
  "serde",
