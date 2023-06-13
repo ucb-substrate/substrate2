@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 
-use super::{cell::SchematicCell, interface::Port, HasSchematic};
+use super::{interface::Port, HasSchematic};
 
 #[derive(Debug, Clone)]
 pub struct Instance {
@@ -11,7 +11,7 @@ pub struct Instance {
     pub ports: HashMap<ArcStr, Port>,
 }
 
-pub trait SchematicInstance<T>: Into<Instance>
+pub trait SchematicInstance<T>: Into<Instance> + Clone
 where
     T: HasSchematic,
 {

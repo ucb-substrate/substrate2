@@ -1,12 +1,14 @@
+use std::fmt::Debug;
+
 use slotmap::{new_key_type, SlotMap};
 
-use super::{cell::SchematicCell, context::SchematicCtx, HasSchematic};
+use super::HasSchematic;
 
 new_key_type! { pub struct SignalKey; }
 
 pub struct Net(usize);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Port {
     key: SignalKey,
 }
@@ -17,11 +19,14 @@ impl Port {
     }
 }
 
-pub trait AnalogInterface<T>: Clone
+pub trait AnalogInterface<T>: Clone + Debug
 where
     T: HasSchematic,
 {
-    fn register(&mut self, ctx: &mut SignalMap);
+    type Uninitialized;
+
+    fn initialize(intf: Self::Uninitialized, map: &mut SignalMap) -> Self;
+    fn uninitialized(self) -> Self::Uninitialized;
 }
 
 pub trait Connectable {

@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use arcstr::ArcStr;
+
 use super::{
     instance::Instance,
     interface::{AnalogInterface, Connectable, Port, SignalMap},
@@ -8,8 +12,11 @@ pub trait SchematicCell<T>
 where
     T: HasSchematic,
 {
-    fn new(intf: <T as HasSchematic>::Interface) -> Self;
-    fn add_instance(&mut self, inst: impl Into<Instance>);
+    fn new(intf: <T::Interface as AnalogInterface<T>>::Uninitialized) -> Self;
+    fn add_instance<I, N>(&mut self, name: N, inst: Arc<I::Cell>) -> I::Instance
+    where
+        I: HasSchematic,
+        N: Into<ArcStr>;
     fn instances(&self) -> &Vec<Instance>;
     fn signal_map(&self) -> &SignalMap;
     fn signal_map_mut(&mut self) -> &mut SignalMap;
@@ -19,11 +26,14 @@ where
 
     fn interface(&self) -> &T::Interface;
 
-    fn register_interface<I>(&mut self, intf: &mut I) -> I
+    fn initialize_interface<I>(
+        &mut self,
+        intf: <I::Interface as AnalogInterface<I>>::Uninitialized,
+    ) -> I::Interface
     where
-        I: AnalogInterface<T>,
+        I: HasSchematic,
     {
-        intf.register(self.signal_map_mut())
+        I::Interface::initialize(intf, self.signal_map_mut())
     }
 
     fn connect(&mut self, a: impl Connectable, b: impl Connectable) {

@@ -1,14 +1,6 @@
 use std::sync::Arc;
 
-use arcstr::ArcStr;
-use slotmap::{new_key_type, SlotMap};
-
-use super::{
-    cell::SchematicCell,
-    instance::SchematicInstance,
-    interface::{AnalogInterface, Port},
-    HasSchematic,
-};
+use super::HasSchematic;
 
 #[derive(Default)]
 pub struct SchematicCtx {}
@@ -18,11 +10,11 @@ impl SchematicCtx {
         Self::default()
     }
 
-    pub fn generate<T>(&mut self, name: impl Into<ArcStr>, block: T) -> T::Instance
+    pub fn generate<T>(&mut self, block: T) -> Arc<T::Cell>
     where
         T: HasSchematic,
     {
         let cell = block.schematic(self);
-        T::Instance::new(name, cell.interface().clone(), Arc::new(cell))
+        Arc::new(cell)
     }
 }
