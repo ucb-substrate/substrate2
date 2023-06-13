@@ -14,6 +14,15 @@ pub enum Dir {
 }
 
 impl Dir {
+    /// Returns the other direction.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(Dir::Vert.other(), Dir::Horiz);
+    /// assert_eq!(Dir::Horiz.other(), Dir::Vert);
+    /// ```
     pub fn other(&self) -> Self {
         match *self {
             Self::Horiz => Self::Vert,
@@ -23,6 +32,19 @@ impl Dir {
 }
 
 impl Display for Dir {
+    /// Displays the direction in a human-readable format.
+    ///
+    /// Currently, [`Dir::Horiz`] becomes `horizontal`;
+    /// [`Dir::Vert`] becomes `vertical`.
+    /// However, users should not rely on these particular strings.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(format!("{}", Dir::Horiz), "horizontal");
+    /// assert_eq!(format!("{}", Dir::Vert), "vertical");
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Self::Horiz => write!(f, "horizontal"),
@@ -33,7 +55,15 @@ impl Display for Dir {
 
 impl std::ops::Not for Dir {
     type Output = Self;
-    /// The opposite direction.
+    /// Returns the other direction.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(!Dir::Vert, Dir::Horiz);
+    /// assert_eq!(!Dir::Horiz, Dir::Vert);
+    /// ```
     fn not(self) -> Self::Output {
         self.other()
     }

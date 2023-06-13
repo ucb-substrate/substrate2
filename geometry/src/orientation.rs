@@ -9,10 +9,10 @@ use crate::transform::Transformation;
 /// A named orientation.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
-pub enum Named {
+pub enum NamedOrientation {
     /// No rotations or reflections.
     #[default]
-    Default,
+    R0,
     /// Reflect vertically (ie. about the x-axis).
     ReflectVert,
     /// Reflect horizontally (ie. about the y-axis).
@@ -35,7 +35,9 @@ pub enum Named {
     FlipMinusYx,
 }
 
-/// An orientation of a cell instance.
+/// An orientation of a geometric object.
+///
+/// Captures reflection and rotation, but not position or scaling.
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Orientation {
     /// Reflect vertically.
@@ -48,7 +50,7 @@ pub struct Orientation {
     pub(crate) angle: f64,
 }
 
-/// An orientation of a cell instance, represented as raw bytes.
+/// An orientation of a geometric object, represented as raw bytes.
 #[derive(Debug, Default, Copy, Clone, Eq, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct OrientationBytes {
     /// Reflect vertically.
@@ -70,11 +72,13 @@ impl From<Orientation> for OrientationBytes {
     }
 }
 
-impl Named {
+impl NamedOrientation {
     /// Returns a slice of all 8 possible named rectangular orientations.
+    ///
+    /// Users should not rely upon the order of the orientations returned.
     pub fn all_rectangular() -> [Self; 8] {
         [
-            Self::Default,
+            Self::R0,
             Self::ReflectVert,
             Self::ReflectHoriz,
             Self::R90,
@@ -92,11 +96,11 @@ impl Named {
     }
 }
 
-impl From<Named> for Orientation {
-    fn from(value: Named) -> Self {
-        use Named::*;
+impl From<NamedOrientation> for Orientation {
+    fn from(value: NamedOrientation) -> Self {
+        use NamedOrientation::*;
         let (reflect_vert, angle) = match value {
-            Default => (false, 0.),
+            R0 => (false, 0.),
             R90 | R270Cw => (false, 90.),
             R180 | R180Cw => (false, 180.),
             R270 | R90Cw => (false, 270.),
@@ -120,7 +124,7 @@ impl Orientation {
 
     /// Applies the reflection and rotation specified in
     /// [`Orientation`] `o` to this orientation.
-    pub fn apply(&mut self, o: impl Into<Orientation>) {
+    pub fn apply(mut self, o: impl Into<Orientation>) -> Self {
         let o = o.into();
         match (self.reflect_vert, o.reflect_vert) {
             (false, false) => {
@@ -140,66 +144,66 @@ impl Orientation {
         }
 
         // Keep the angle between 0 and 360 degrees.
-        self.wrap_angle();
+        self.wrap_angle()
     }
 
     /// Reflects the orientation vertically.
     #[inline]
-    pub fn reflect_vert(&mut self) {
-        self.apply(Named::ReflectVert);
+    pub fn reflect_vert(self) -> Self {
+        self.apply(NamedOrientation::ReflectVert)
     }
 
     /// Reflects the orientation horizontally.
     #[inline]
-    pub fn reflect_horiz(&mut self) {
-        self.apply(Named::ReflectHoriz);
+    pub fn reflect_horiz(self) -> Self {
+        self.apply(NamedOrientation::ReflectHoriz)
     }
 
     /// Rotates the orientation 90 degrees counter-clockwise.
     #[inline]
-    pub fn r90(&mut self) {
-        self.apply(Named::R90);
+    pub fn r90(self) -> Self {
+        self.apply(NamedOrientation::R90)
     }
 
     /// Rotates the orientation 180 degrees.
     #[inline]
-    pub fn r180(&mut self) {
-        self.apply(Named::R180);
+    pub fn r180(self) -> Self {
+        self.apply(NamedOrientation::R180)
     }
 
     /// Rotates the orientation 180 degrees counter-clockwise.
     #[inline]
-    pub fn r270(&mut self) {
-        self.apply(Named::R270);
+    pub fn r270(self) -> Self {
+        self.apply(NamedOrientation::R270)
     }
 
     /// Rotates the orientation 90 degrees clockwise.
     #[inline]
-    pub fn r90cw(&mut self) {
-        self.apply(Named::R90Cw);
+    pub fn r90cw(self) -> Self {
+        self.apply(NamedOrientation::R90Cw)
     }
 
     /// Rotates the orientation 180 degrees clockwise.
-    pub fn r180cw(&mut self) {
-        self.apply(Named::R180Cw);
+    pub fn r180cw(self) -> Self {
+        self.apply(NamedOrientation::R180Cw)
     }
 
     /// Rotates the orientation 270 degrees clockwise.
     #[inline]
-    pub fn r270cw(&mut self) {
-        self.apply(Named::R270Cw);
+    pub fn r270cw(self) -> Self {
+        self.apply(NamedOrientation::R270Cw)
     }
 
     /// Flips the orientation around the line `y = x`.
     #[inline]
-    pub fn flip_yx(&mut self) {
-        self.apply(Named::FlipYx);
+    pub fn flip_yx(self) -> Self {
+        self.apply(NamedOrientation::FlipYx)
     }
 
     /// Flips the orientation around the line `y = -x`.
     #[inline]
-    pub fn flip_minus_yx(&mut self) {
-        self.apply(Named::FlipMinusYx);
+    pub fn flip_minus_yx(self) -> Self {
+        self.apply(NamedOrientation::FlipMinusYx)
     }
 
     /// Returns the angle associated with this orientation.
@@ -210,39 +214,34 @@ impl Orientation {
 
     /// Wraps the given angle to the interval `[0, 360)` degrees.
     #[inline]
-    fn wrap_angle(&mut self) {
-        self.angle = wrap_angle(self.angle);
+    fn wrap_angle(mut self) -> Self {
+        self.angle = crate::wrap_angle(self.angle);
+        self
     }
 
+    /// Returns the orientation represented by the given transformation.
+    ///
+    /// Captures the rotation and reflection encoded by the [`Transformation`],
+    /// discarding the transformation's translation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let tf = Transformation::identity();
+    /// assert_eq!(Orientation::from_transformation(tf), NamedOrientation::R0.into());
+    /// ```
     #[inline]
     pub fn from_transformation(value: Transformation) -> Self {
         value.orientation()
     }
 
     /// Returns a slice of all 8 possible rectangular orientations.
+    ///
+    /// Users should not rely upon the order of the orientations returned.
     pub fn all_rectangular() -> [Self; 8] {
-        Named::all_rectangular().map(Self::from)
+        NamedOrientation::all_rectangular().map(Self::from)
     }
-}
-
-/// Wraps the given angle to the interval `[0, 360)` degrees.
-///
-/// # Examples
-///
-/// ```
-/// use geometry::orientation::wrap_angle;
-///
-/// assert_eq!(wrap_angle(10.), 10.);
-/// assert_eq!(wrap_angle(-10.), 350.);
-/// assert_eq!(wrap_angle(-740.), 340.);
-/// assert_eq!(wrap_angle(-359.), 1.);
-/// assert_eq!(wrap_angle(-1.), 359.);
-/// assert_eq!(wrap_angle(725.), 5.);
-/// assert_eq!(wrap_angle(360.), 0.);
-/// assert_eq!(wrap_angle(-360.), 0.);
-/// ```
-pub fn wrap_angle(angle: f64) -> f64 {
-    ((angle % 360.) + 360.) % 360.
 }
 
 #[cfg(test)]
@@ -253,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_named_all_rectangular() {
-        let opts: [OrientationBytes; 8] = Named::all_rectangular()
+        let opts: [OrientationBytes; 8] = NamedOrientation::all_rectangular()
             .map(|n| n.into_orientation())
             .map(OrientationBytes::from);
         let mut set = HashSet::new();

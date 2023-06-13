@@ -94,19 +94,19 @@ impl Dims {
         }
     }
 
-    /// Returns the width (ie. the horizontal dimension).
+    /// Returns the width (i.e. the horizontal dimension).
     #[inline]
     pub fn width(&self) -> i64 {
         self.w
     }
 
-    /// Returns the height (ie. the vertical dimension).
+    /// Returns the height (i.e. the vertical dimension).
     #[inline]
     pub fn height(&self) -> i64 {
         self.h
     }
 
-    /// Returns the width (ie. the horizontal dimension).
+    /// Returns the width (i.e. the horizontal dimension).
     ///
     /// A shorthand for [`Dims::width`].
     #[inline]
@@ -114,7 +114,7 @@ impl Dims {
         self.width()
     }
 
-    /// Returns the height (ie. the vertical dimension).
+    /// Returns the height (i.e. the vertical dimension).
     ///
     /// A shorthand for [`Dims::height`].
     #[inline]
@@ -203,5 +203,16 @@ impl From<Rect> for Dims {
     #[inline]
     fn from(value: Rect) -> Self {
         value.dims()
+    }
+}
+
+impl From<Point> for Dims {
+    /// Create a new dimension object from a point.
+    ///
+    /// The width field of the resulting [`Dims`] will be the point's x-coordinate.
+    /// The height field of the resulting [`Dims`] will be the point's y-coordinate.
+    #[inline]
+    fn from(value: Point) -> Self {
+        Self::new(value.x, value.y)
     }
 }
