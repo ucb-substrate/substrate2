@@ -44,41 +44,6 @@ impl Point {
         Self { x: 0, y: 0 }
     }
 
-    /// Creates a new [`Point`] that serves as an offset in direction `dir`.
-    ///
-    /// The coordinate in direction `dir` will be set to `value`;
-    /// the other coordinate will be set to 0.
-    ///
-    /// This method may be useful for translating a structure
-    /// along only one axis by distance `value`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use geometry::prelude::*;
-    /// let point = Point::offset(25, Dir::Vert);
-    /// assert_eq!(point, Point::new(0, 25));
-    ///
-    /// let point = Point::offset(-37, Dir::Horiz);
-    /// assert_eq!(point, Point::new(-37, 0));
-    /// ```
-    ///
-    /// To create a translation by 30 units along the y-axis:
-    ///
-    /// ```
-    /// # use geometry::prelude::*;
-    /// let point = Point::offset(30, Dir::Vert);
-    /// let tf = Transformation::from_offset(point);
-    /// ```
-    ///
-    /// See also: [`Transformation::translate`].
-    pub fn offset(value: i64, dir: Dir) -> Self {
-        match dir {
-            Dir::Horiz => Self { x: value, y: 0 },
-            Dir::Vert => Self { x: 0, y: value },
-        }
-    }
-
     /// Gets the coordinate associated with direction `dir`.
     pub fn coord(&self, dir: Dir) -> i64 {
         match dir {
