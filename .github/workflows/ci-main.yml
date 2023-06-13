@@ -82,8 +82,8 @@ jobs:
   coverage:
     name: Report coverage
     uses: ./.github/workflows/coverage.yml
-  deploy-docs:
-    name: Deploy documentation
+  deploy-api-docs:
+    name: Deploy API documentation
     runs-on: ubuntu-22.04
     environment: main
     needs: [ check-workspace ]
@@ -103,17 +103,26 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Install `just`
         run: cargo install just
+      - run: just build && flyctl deploy --remote-only --detach
+        working-directory: docs/api
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+  deploy-docs:
+    name: Deploy documentation
+    runs-on: ubuntu-22.04
+    environment: main
+    needs: [ check-workspace ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: superfly/flyctl-actions/setup-flyctl@master
       - uses: actions/setup-node@v3
         with:
           node-version: 18
           cache: 'yarn'
           cache-dependency-path: docs/substrate/yarn.lock
-      - run: just build && flyctl deploy --remote-only --detach
-        working-directory: docs/api
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
       - run: yarn install && yarn build && flyctl deploy --remote-only --detach
         working-directory: docs/substrate
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
+        
         
