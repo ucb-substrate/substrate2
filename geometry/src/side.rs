@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 #[repr(u8)]
 #[derive(Indexable)]
 pub enum Side {
-    Top,
-    Right,
-    Bot,
     Left,
+    Bot,
+    Right,
+    Top,
 }
 
 impl Side {
@@ -68,6 +68,16 @@ impl Side {
     }
 
     /// Returns the side corresponding with the given [`Dir`] and [`Sign`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(Side::with_dir_and_sign(Dir::Horiz, Sign::Neg), Side::Left);
+    /// assert_eq!(Side::with_dir_and_sign(Dir::Vert, Sign::Neg), Side::Bot);
+    /// assert_eq!(Side::with_dir_and_sign(Dir::Horiz, Sign::Pos), Side::Right);
+    /// assert_eq!(Side::with_dir_and_sign(Dir::Vert, Sign::Pos), Side::Top);
+    /// ```
     pub fn with_dir_and_sign(dir: Dir, sign: Sign) -> Side {
         match dir {
             Dir::Horiz => match sign {
@@ -82,10 +92,20 @@ impl Side {
     }
 
     /// Returns sides that bound the given direction.
-    pub fn with_dir(dir: Dir) -> impl Iterator<Item = Side> {
+    ///
+    /// Users should not rely upon the order of the sides returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(Side::with_dir(Dir::Horiz), [Side::Left, Side::Right]);
+    /// assert_eq!(Side::with_dir(Dir::Vert), [Side::Bot, Side::Top]);
+    /// ```
+    pub fn with_dir(dir: Dir) -> [Side; 2] {
         match dir {
-            Dir::Horiz => [Side::Left, Side::Right].into_iter(),
-            Dir::Vert => [Side::Bot, Side::Top].into_iter(),
+            Dir::Horiz => [Side::Left, Side::Right],
+            Dir::Vert => [Side::Bot, Side::Top],
         }
     }
 }
@@ -133,11 +153,11 @@ where
 
 impl<T> Sides<T> {
     /// Creates a new [`Sides`] with with the provided values for each side.
-    pub const fn new(top: T, right: T, bot: T, left: T) -> Self {
+    pub const fn new(left: T, bot: T, right: T, top: T) -> Self {
         // IMPORTANT: the ordering of array elements here must match
         // the ordering of variants in the [`Side`] enum.
         Self {
-            inner: ArrayMap::new([top, right, bot, left]),
+            inner: ArrayMap::new([left, bot, right, top]),
         }
     }
 

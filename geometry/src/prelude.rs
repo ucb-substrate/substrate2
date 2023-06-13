@@ -6,6 +6,7 @@ pub use crate::edge::Edge;
 pub use crate::orientation::{NamedOrientation, Orientation};
 pub use crate::point::Point;
 pub use crate::rect::Rect;
-pub use crate::side::Side;
+pub use crate::side::{Side, Sides};
+pub use crate::sign::Sign;
 pub use crate::span::Span;
 pub use crate::transform::{Transform, Transformation};

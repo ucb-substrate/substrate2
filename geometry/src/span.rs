@@ -1,4 +1,6 @@
-/// A one-dimensional span.
+//! A one-dimensional span.
+//!
+//! A span represents the closed interval `[start, stop]`.
 use serde::{Deserialize, Serialize};
 
 use crate::contains::{Containment, Contains};
@@ -6,6 +8,9 @@ use crate::intersect::Intersect;
 use crate::sign::Sign;
 use crate::snap::snap_to_grid;
 
+/// A closed interval of coordinates in one dimension.
+///
+/// Represents the range `[start, stop]`.
 #[derive(
     Debug, Default, Clone, Copy, Hash, Ord, PartialOrd, Serialize, Deserialize, PartialEq, Eq,
 )]
@@ -20,16 +25,18 @@ impl Span {
     /// # Panics
     ///
     /// This function panics if `stop` is less than 0.
-    pub fn until(stop: i64) -> Self {
-        debug_assert!(stop >= 0);
+    pub const fn until(stop: i64) -> Self {
+        assert!(stop >= 0);
         Self { start: 0, stop }
     }
 
     /// Creates a new [`Span`] between two integers.
     ///
+    /// # Safety
+    ///
     /// The caller must ensure that `start` is less
     /// than or equal to `stop`.
-    pub const fn new_unchecked(start: i64, stop: i64) -> Self {
+    pub const unsafe fn new_unchecked(start: i64, stop: i64) -> Self {
         Self { start, stop }
     }
 
@@ -45,18 +52,20 @@ impl Span {
     }
 
     /// Creates a span of zero length encompassing the given point.
-    pub fn from_point(x: i64) -> Self {
+    pub const fn from_point(x: i64) -> Self {
         Self { start: x, stop: x }
     }
 
-    pub fn with_start_and_length(start: i64, length: i64) -> Self {
+    /// Creates a span of the given length starting from `start`.
+    pub const fn with_start_and_length(start: i64, length: i64) -> Self {
         Self {
             stop: start + length,
             start,
         }
     }
 
-    pub fn with_stop_and_length(stop: i64, length: i64) -> Self {
+    /// Creates a span of the given length ending at `stop`.
+    pub const fn with_stop_and_length(stop: i64, length: i64) -> Self {
         Self {
             start: stop - length,
             stop,
@@ -67,7 +76,7 @@ impl Span {
     ///
     /// If `sign` is [`Sign::Pos`], `point` is treated as the ending/stopping point of the span.
     /// If `sign` is [`Sign::Neg`], `point` is treated as the beginning/starting point of the span.
-    pub fn with_point_and_length(sign: Sign, point: i64, length: i64) -> Self {
+    pub const fn with_point_and_length(sign: Sign, point: i64, length: i64) -> Self {
         match sign {
             Sign::Pos => Self::with_stop_and_length(point, length),
             Sign::Neg => Self::with_start_and_length(point, length),
@@ -75,17 +84,16 @@ impl Span {
     }
 
     /// Creates a new [`Span`] expanded by `amount` in the direction indicated by `pos`.
-    pub fn expand(mut self, pos: bool, amount: i64) -> Self {
-        if pos {
-            self.stop += amount;
-        } else {
-            self.start -= amount;
+    pub const fn expand(mut self, sign: Sign, amount: i64) -> Self {
+        match sign {
+            Sign::Pos => self.stop += amount,
+            Sign::Neg => self.start -= amount,
         }
         self
     }
 
     /// Creates a new [`Span`] expanded by `amount` in both directions.
-    pub fn expand_all(mut self, amount: i64) -> Self {
+    pub const fn expand_all(mut self, amount: i64) -> Self {
         self.stop += amount;
         self.start -= amount;
         self
@@ -93,7 +101,7 @@ impl Span {
 
     /// Gets the starting ([`Sign::Neg`]) or stopping ([`Sign::Pos`]) point of a span.
     #[inline]
-    pub fn point(&self, sign: Sign) -> i64 {
+    pub const fn point(&self, sign: Sign) -> i64 {
         match sign {
             Sign::Neg => self.start(),
             Sign::Pos => self.stop(),
@@ -143,31 +151,31 @@ impl Span {
 
     /// Gets the center of the span.
     #[inline]
-    pub fn center(&self) -> i64 {
+    pub const fn center(&self) -> i64 {
         (self.start + self.stop) / 2
     }
 
     /// Gets the length of the span.
     #[inline]
-    pub fn length(&self) -> i64 {
+    pub const fn length(&self) -> i64 {
         self.stop - self.start
     }
 
     /// Gets the start of the span.
     #[inline]
-    pub fn start(&self) -> i64 {
+    pub const fn start(&self) -> i64 {
         self.start
     }
 
     /// Gets the stop of the span.
     #[inline]
-    pub fn stop(&self) -> i64 {
+    pub const fn stop(&self) -> i64 {
         self.stop
     }
 
     /// Checks if the span intersects with the [`Span`] `other`.
     #[inline]
-    pub fn intersects(&self, other: &Self) -> bool {
+    pub const fn intersects(&self, other: &Self) -> bool {
         !(other.stop < self.start || self.stop < other.start)
     }
 
@@ -254,7 +262,8 @@ impl Span {
         }
     }
 
-    pub fn shrink_all(self, amount: i64) -> Self {
+    /// Shrinks the span by the given amount on all sides.
+    pub const fn shrink_all(self, amount: i64) -> Self {
         assert!(self.length() >= 2 * amount);
         Self {
             start: self.start + amount,
@@ -262,7 +271,8 @@ impl Span {
         }
     }
 
-    pub fn translate(self, amount: i64) -> Self {
+    /// Translates the span by the given amount.
+    pub const fn translate(self, amount: i64) -> Self {
         Self {
             start: self.start + amount,
             stop: self.stop + amount,

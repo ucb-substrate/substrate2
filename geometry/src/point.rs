@@ -15,7 +15,7 @@ pub struct Point {
 
 impl Point {
     /// Creates a new [`Point`] from (x,y) coordinates.
-    pub fn new(x: i64, y: i64) -> Self {
+    pub const fn new(x: i64, y: i64) -> Self {
         Self { x, y }
     }
 
@@ -23,7 +23,7 @@ impl Point {
     ///
     /// If `dir` is [`Dir::Horiz`], `a` becomes the x-coordinate and `b` becomes the y-coordinate.
     /// If `dir` is [`Dir::Vert`], `a` becomes the y-coordinate and `b` becomes the x-coordinate.
-    pub fn from_dir_coords(dir: Dir, a: i64, b: i64) -> Self {
+    pub const fn from_dir_coords(dir: Dir, a: i64, b: i64) -> Self {
         match dir {
             Dir::Horiz => Self::new(a, b),
             Dir::Vert => Self::new(b, a),
@@ -40,12 +40,12 @@ impl Point {
     /// assert_eq!(origin, Point::new(0, 0));
     /// ```
     #[inline]
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self { x: 0, y: 0 }
     }
 
     /// Gets the coordinate associated with direction `dir`.
-    pub fn coord(&self, dir: Dir) -> i64 {
+    pub const fn coord(&self, dir: Dir) -> i64 {
         match dir {
             Dir::Horiz => self.x,
             Dir::Vert => self.y,

@@ -2,10 +2,13 @@
 
 use std::fmt::Display;
 
+use array_map::Indexable;
 use serde::{Deserialize, Serialize};
 
 /// An enumeration of axis-aligned directions.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[repr(u8)]
+#[derive(Indexable)]
 pub enum Dir {
     /// The horizontal, or x-aligned, direction.
     Horiz,
@@ -23,7 +26,7 @@ impl Dir {
     /// assert_eq!(Dir::Vert.other(), Dir::Horiz);
     /// assert_eq!(Dir::Horiz.other(), Dir::Vert);
     /// ```
-    pub fn other(&self) -> Self {
+    pub const fn other(&self) -> Self {
         match *self {
             Self::Horiz => Self::Vert,
             Self::Vert => Self::Horiz,

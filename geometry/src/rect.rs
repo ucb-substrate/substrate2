@@ -9,7 +9,7 @@ use crate::dir::Dir;
 use crate::edge::Edge;
 use crate::intersect::Intersect;
 use crate::point::Point;
-use crate::side::Side;
+use crate::side::{Side, Sides};
 use crate::span::Span;
 use crate::transform::{Transform, Transformation, Translate};
 
@@ -60,7 +60,7 @@ impl Rect {
     /// let rect = Rect::from_sides(0, 0, 55, 45);
     /// assert_eq!(rect.center(), Point::new(27, 22));
     /// ```
-    pub fn center(&self) -> Point {
+    pub const fn center(&self) -> Point {
         Point::new((self.p0.x + self.p1.x) / 2, (self.p0.y + self.p1.y) / 2)
     }
 
@@ -77,7 +77,7 @@ impl Rect {
     /// assert_eq!(rect.right(), 25);
     /// ```
     #[inline]
-    pub fn from_point(p: Point) -> Self {
+    pub const fn from_point(p: Point) -> Self {
         Self { p0: p, p1: p }
     }
 
@@ -93,9 +93,38 @@ impl Rect {
     /// assert_eq!(rect.right(), 30);
     /// assert_eq!(rect.top(), 40);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This method panics if `left > right` or if `bot > top`.
+    ///
+    /// If you want sides to be sorted for you, consider using [`Rect::new`] instead.
     #[inline]
     pub fn from_sides(left: i64, bot: i64, right: i64, top: i64) -> Self {
+        assert!(
+            left <= right,
+            "Rect::from_sides requires that left ({}) <= right ({})",
+            left,
+            right
+        );
+        assert!(
+            bot <= top,
+            "Rect::from_sides requires that bot ({}) <= top ({})",
+            bot,
+            top
+        );
         Self::new(Point::new(left, bot), Point::new(right, top))
+    }
+
+    /// Creates a rectangle from all 4 sides (left, bottom, right, top), without checking
+    /// that `left <= right` and `bot <= top`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `left <= right` and that `bot <= top`.
+    #[inline]
+    pub const unsafe fn from_sides_unchecked(left: i64, bot: i64, right: i64, top: i64) -> Self {
+        Self::new_unchecked(Point::new(left, bot), Point::new(right, top))
     }
 
     /// Creates a rectangle from all 4 sides (left, bottom, right, top),
@@ -135,18 +164,31 @@ impl Rect {
     /// assert_eq!(rect.left(), 25);
     /// assert_eq!(rect.right(), 25);
     /// ```
-    pub fn from_xy(x: i64, y: i64) -> Self {
+    pub const fn from_xy(x: i64, y: i64) -> Self {
         let p = Point::new(x, y);
         Self::from_point(p)
     }
 
     /// Creates a new rectangle from the given opposite corner points.
     ///
-    /// # Example
+    /// # Examples
+    ///
+    /// Create a rectangle from the lower left and upper right corners:
     ///
     /// ```
     /// # use geometry::prelude::*;
     /// let rect = Rect::new(Point::new(15, 20), Point::new(30, 40));
+    /// assert_eq!(rect.left(), 15);
+    /// assert_eq!(rect.bot(), 20);
+    /// assert_eq!(rect.right(), 30);
+    /// assert_eq!(rect.top(), 40);
+    /// ```
+    ///
+    /// Create a rectangle from the lower right and upper left corners:
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::new(Point::new(30, 20), Point::new(15, 40));
     /// assert_eq!(rect.left(), 15);
     /// assert_eq!(rect.bot(), 20);
     /// assert_eq!(rect.right(), 30);
@@ -158,6 +200,20 @@ impl Rect {
             p0: Point::new(p0.x.min(p1.x), p0.y.min(p1.y)),
             p1: Point::new(p0.x.max(p1.x), p0.y.max(p1.y)),
         }
+    }
+
+    /// Creates a new rectangle from a lower-left corner and an upper-right corner,
+    /// without checking that coordinates are ordered correctly.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `p0` is the lower-left corner and that
+    /// `p1` is the upper-right corner. In other words, you must ensure that
+    /// `p0.x <= p1.x` and `p0.y <= p1.y`.
+    ///
+    #[inline]
+    pub const unsafe fn new_unchecked(p0: Point, p1: Point) -> Self {
+        Self { p0, p1 }
     }
 
     /// Creates a rectangle from horizontal and vertical [`Span`]s.
@@ -174,7 +230,7 @@ impl Rect {
     /// assert_eq!(rect.right(), 30);
     /// assert_eq!(rect.top(), 40);
     /// ```
-    pub fn from_spans(h: Span, v: Span) -> Self {
+    pub const fn from_spans(h: Span, v: Span) -> Self {
         Self {
             p0: Point::new(h.start(), v.start()),
             p1: Point::new(h.stop(), v.stop()),
@@ -191,7 +247,7 @@ impl Rect {
     /// assert_eq!(rect.bot(), 20);
     /// ```
     #[inline]
-    pub fn bot(&self) -> i64 {
+    pub const fn bot(&self) -> i64 {
         self.p0.y
     }
 
@@ -205,7 +261,7 @@ impl Rect {
     /// assert_eq!(rect.top(), 40);
     /// ```
     #[inline]
-    pub fn top(&self) -> i64 {
+    pub const fn top(&self) -> i64 {
         self.p1.y
     }
 
@@ -219,7 +275,7 @@ impl Rect {
     /// assert_eq!(rect.left(), 10);
     /// ```
     #[inline]
-    pub fn left(&self) -> i64 {
+    pub const fn left(&self) -> i64 {
         self.p0.x
     }
 
@@ -233,7 +289,7 @@ impl Rect {
     /// assert_eq!(rect.right(), 30);
     /// ```
     #[inline]
-    pub fn right(&self) -> i64 {
+    pub const fn right(&self) -> i64 {
         self.p1.x
     }
 
@@ -246,8 +302,27 @@ impl Rect {
     /// let rect = Rect::from_sides(10, 20, 30, 40);
     /// assert_eq!(rect.hspan(), Span::new(10, 30));
     /// ```
-    pub fn hspan(&self) -> Span {
-        Span::new(self.p0.x, self.p1.x)
+    pub const fn hspan(&self) -> Span {
+        unsafe {
+            // SAFETY: A valid Rect has p0.x <= p1.x
+            Span::new_unchecked(self.p0.x, self.p1.x)
+        }
+    }
+
+    /// Returns the vertical span of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(10, 20, 30, 40);
+    /// assert_eq!(rect.vspan(), Span::new(20, 40));
+    /// ```
+    pub const fn vspan(&self) -> Span {
+        unsafe {
+            // SAFETY: A valid Rect has p0.y <= p1.y
+            Span::new_unchecked(self.p0.y, self.p1.y)
+        }
     }
 
     /// Returns a new [`Rect`] with the given `hspan` and the same vertical span.
@@ -305,19 +380,6 @@ impl Rect {
         }
     }
 
-    /// Returns the vertical span of the rectangle.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use geometry::prelude::*;
-    /// let rect = Rect::from_sides(10, 20, 30, 40);
-    /// assert_eq!(rect.vspan(), Span::new(20, 40));
-    /// ```
-    pub fn vspan(&self) -> Span {
-        Span::new(self.p0.y, self.p1.y)
-    }
-
     /// Returns the horizontal width of the rectangle.
     ///
     /// # Example
@@ -328,7 +390,7 @@ impl Rect {
     /// assert_eq!(rect.width(), 20);
     /// ```
     #[inline]
-    pub fn width(&self) -> i64 {
+    pub const fn width(&self) -> i64 {
         self.hspan().length()
     }
 
@@ -342,7 +404,7 @@ impl Rect {
     /// assert_eq!(rect.height(), 30);
     /// ```
     #[inline]
-    pub fn height(&self) -> i64 {
+    pub const fn height(&self) -> i64 {
         self.vspan().length()
     }
 
@@ -356,35 +418,42 @@ impl Rect {
     /// assert_eq!(rect.area(), 600);
     /// ```
     #[inline]
-    pub fn area(&self) -> i64 {
+    pub const fn area(&self) -> i64 {
         self.width() * self.height()
     }
 
-    /// Returns the lower edge of the rectangle in the given direction.
+    /// Returns the lowest/leftmost coordinate of the rectangle in the given direction.
+    ///
+    /// For [`Dir::Horiz`], this is the left edge's x-coordinate.
+    /// For [`Dir::Vert`], this is the bottom edge's y-coordinate.
     ///
     /// # Example
     ///
     /// ```
     /// # use geometry::prelude::*;
     /// let rect = Rect::from_sides(10, 20, 30, 50);
-    /// assert_eq!(rect.lower_edge(Dir::Vert), 20);
-    /// assert_eq!(rect.lower_edge(Dir::Horiz), 10);
+    /// assert_eq!(rect.lower_coord(Dir::Vert), 20);
+    /// assert_eq!(rect.lower_coord(Dir::Horiz), 10);
     /// ```
-    pub fn lower_edge(&self, dir: Dir) -> i64 {
+    pub const fn lower_coord(&self, dir: Dir) -> i64 {
         self.span(dir).start()
     }
 
-    /// Returns the upper edge of the rectangle in the given direction.
+    /// Returns the highest/rightmost coordinate of the rectangle in the given direction.
+    ///
+    /// For [`Dir::Horiz`], this is the right edge's x-coordinate.
+    /// For [`Dir::Vert`], this is the top edge's y-coordinate.
     ///
     /// # Example
     ///
     /// ```
     /// # use geometry::prelude::*;
     /// let rect = Rect::from_sides(10, 20, 30, 50);
-    /// assert_eq!(rect.upper_edge(Dir::Vert), 50);
-    /// assert_eq!(rect.upper_edge(Dir::Horiz), 30);
+    /// assert_eq!(rect.upper_coord(Dir::Vert), 50);
+    /// assert_eq!(rect.upper_coord(Dir::Horiz), 30);
     /// ```
-    pub fn upper_edge(&self, dir: Dir) -> i64 {
+    #[inline]
+    pub const fn upper_coord(&self, dir: Dir) -> i64 {
         self.span(dir).stop()
     }
 
@@ -398,7 +467,7 @@ impl Rect {
     /// assert_eq!(rect.span(Dir::Vert), Span::new(20, 50));
     /// assert_eq!(rect.span(Dir::Horiz), Span::new(10, 30));
     /// ```
-    pub fn span(&self, dir: Dir) -> Span {
+    pub const fn span(&self, dir: Dir) -> Span {
         match dir {
             Dir::Horiz => self.hspan(),
             Dir::Vert => self.vspan(),
@@ -409,12 +478,12 @@ impl Rect {
     ///
     /// For [`Dir::Horiz`], returns the sorted x-coordinates of all **vertical** edges.
     /// For [`Dir::Vert`], returns the sorted y-coordinates of all **horizontal** edges.
-    fn sorted_edges(&self, other: Self, dir: Dir) -> [i64; 4] {
+    fn sorted_coords(&self, other: Self, dir: Dir) -> [i64; 4] {
         let mut edges = [
-            self.lower_edge(dir),
-            self.upper_edge(dir),
-            other.lower_edge(dir),
-            other.upper_edge(dir),
+            self.lower_coord(dir),
+            self.upper_coord(dir),
+            other.lower_coord(dir),
+            other.upper_coord(dir),
         ];
         edges.sort();
         edges
@@ -443,8 +512,12 @@ impl Rect {
     /// ```
     #[inline]
     pub fn inner_span(&self, other: Self, dir: Dir) -> Span {
-        let edges = self.sorted_edges(other, dir);
-        Span::new(edges[1], edges[2])
+        let edges = self.sorted_coords(other, dir);
+        unsafe {
+            // SAFETY: sorted_coords returns edges in sorted order,
+            // so edges[1] <= edges[2].
+            Span::new_unchecked(edges[1], edges[2])
+        }
     }
 
     /// Returns the span between the outer two edges of two rectangles along the given direction.
@@ -470,8 +543,12 @@ impl Rect {
     /// ```
     #[inline]
     pub fn outer_span(&self, other: Self, dir: Dir) -> Span {
-        let edges = self.sorted_edges(other, dir);
-        Span::new(edges[0], edges[3])
+        let edges = self.sorted_coords(other, dir);
+        unsafe {
+            // SAFETY: sorted_coords returns edges in sorted order,
+            // so edges[0] <= edges[3].
+            Span::new_unchecked(edges[0], edges[3])
+        }
     }
 
     /// Returns the edge of a rectangle closest to the coordinate `x` along a given direction.
@@ -553,7 +630,7 @@ impl Rect {
     /// assert_eq!(rect.length(Dir::Vert), 100);
     /// ```
     ///
-    pub fn length(&self, dir: Dir) -> i64 {
+    pub const fn length(&self, dir: Dir) -> i64 {
         self.span(dir).length()
     }
 
@@ -572,7 +649,7 @@ impl Rect {
     /// assert_eq!(rect.longer_dir(), Dir::Horiz);
     /// ```
     #[inline]
-    pub fn longer_dir(&self) -> Dir {
+    pub const fn longer_dir(&self) -> Dir {
         if self.height() > self.width() {
             Dir::Vert
         } else {
@@ -580,8 +657,34 @@ impl Rect {
         }
     }
 
+    /// Returns the direction in which the rectangle is longer, returning [`None`] if the sides
+    /// are equal.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.longer_dir_strict(), Some(Dir::Vert));
+    /// let rect = Rect::from_sides(0, 0, 200, 100);
+    /// assert_eq!(rect.longer_dir_strict(), Some(Dir::Horiz));
+    /// let rect = Rect::from_sides(0, 0, 100, 100);
+    /// assert_eq!(rect.longer_dir_strict(), None);
+    /// ```
+    #[inline]
+    pub fn longer_dir_strict(&self) -> Option<Dir> {
+        use std::cmp::Ordering;
+        match self.height().cmp(&self.width()) {
+            Ordering::Less => Some(Dir::Horiz),
+            Ordering::Equal => None,
+            Ordering::Greater => Some(Dir::Vert),
+        }
+    }
+
     /// Returns the direction in which the rectangle is shorter, choosing [`Dir::Vert`] if the sides
     /// are equal.
+    ///
+    /// This always returns the opposite of [`Rect::longer_dir`].
     ///
     /// # Example
     ///
@@ -595,8 +698,29 @@ impl Rect {
     /// assert_eq!(rect.shorter_dir(), Dir::Vert);
     /// ```
     #[inline]
-    pub fn shorter_dir(&self) -> Dir {
-        !self.longer_dir()
+    pub const fn shorter_dir(&self) -> Dir {
+        self.longer_dir().other()
+    }
+
+    /// Returns the direction in which the rectangle is shorter, choosing [`None`] if the sides
+    /// are equal.
+    ///
+    /// This always returns the opposite of [`Rect::longer_dir_strict`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// assert_eq!(rect.shorter_dir_strict(), Some(Dir::Horiz));
+    /// let rect = Rect::from_sides(0, 0, 200, 100);
+    /// assert_eq!(rect.shorter_dir_strict(), Some(Dir::Vert));
+    /// let rect = Rect::from_sides(0, 0, 100, 100);
+    /// assert_eq!(rect.shorter_dir_strict(), None);
+    /// ```
+    #[inline]
+    pub fn shorter_dir_strict(&self) -> Option<Dir> {
+        self.longer_dir_strict().as_ref().map(Dir::other)
     }
 
     /// Computes the rectangular union of this `Rect` with another `Rect`.
@@ -614,6 +738,65 @@ impl Rect {
             Point::new(self.p0.x.min(other.p0.x), self.p0.y.min(other.p0.y)),
             Point::new(self.p1.x.max(other.p1.x), self.p1.y.max(other.p1.y)),
         )
+    }
+
+    /// Calculates the rectangular union of all rectangles provided.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rects = vec![
+    ///     Rect::from_sides(10, 20, 30, 40),
+    ///     Rect::from_sides(-10, 25, 20, 35),
+    ///     Rect::from_sides(15, 20, 25, 60),
+    /// ];
+    /// assert_eq!(Rect::union_all(rects.into_iter()), Rect::from_sides(-10, 20, 30, 60));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the provided iterator has no elements.
+    /// If your iterator may be empty, consider using [`Rect::union_all_option`].
+    pub fn union_all<T>(rects: impl Iterator<Item = T>) -> Self
+    where
+        T: Into<Self>,
+    {
+        rects
+            .fold(None, |acc: Option<Rect>, r| match acc {
+                Some(acc) => Some(acc.union(r.into())),
+                None => Some(r.into()),
+            })
+            .unwrap()
+    }
+
+    /// Calculates the rectangular union of all `Option<Rect>`s provided.
+    ///
+    /// All `None` elements in the iterator are ignored.
+    /// If the iterator has no `Some(_)` elements, this function returns [`None`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rects = vec![
+    ///     Some(Rect::from_sides(10, 20, 30, 40)),
+    ///     Some(Rect::from_sides(-10, 25, 20, 35)),
+    ///     None,
+    ///     Some(Rect::from_sides(15, 20, 25, 60)),
+    /// ];
+    /// assert_eq!(Rect::union_all_option(rects.into_iter()), Some(Rect::from_sides(-10, 20, 30, 60)));
+    /// ```
+    pub fn union_all_option<T>(rects: impl Iterator<Item = T>) -> Option<Self>
+    where
+        T: Into<Option<Self>>,
+    {
+        rects
+            .filter_map(|r| r.into())
+            .fold(None, |acc, r| match acc {
+                Some(acc) => Some(acc.union(r)),
+                None => Some(r),
+            })
     }
 
     /// Computes the rectangular intersection of this `Rect` with another `Rect`.
@@ -750,8 +933,28 @@ impl Rect {
         }
     }
 
-    /// Shrinks the rectangle by `amount` on all sides,
-    /// returning `None` if the shrunk rectangle is empty.
+    /// Expands the rectangle by some (possibly different) amount on each side.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// let sides = Sides::new(10, 20, 30, 40);
+    /// assert_eq!(rect.expand_sides(sides), Rect::from_sides(-10, -20, 130, 240));
+    /// ```
+    pub fn expand_sides(&self, sides: Sides<i64>) -> Self {
+        Self::from_sides(
+            self.p0.x - sides[Side::Left],
+            self.p0.y - sides[Side::Bot],
+            self.p1.x + sides[Side::Right],
+            self.p1.y + sides[Side::Top],
+        )
+    }
+
+    /// Shrinks the rectangle by `amount` on all sides.
+    ///
+    /// Returns [`None`] if shrinking would make the rectangle invalid.
     ///
     /// # Example
     ///
@@ -772,6 +975,7 @@ impl Rect {
     }
 
     /// Shrinks the rectangle by `amount` on both sides associated with the direction `dir`.
+    ///
     /// Returns [`None`] if shrinking would make the rectangle invalid.
     ///
     /// # Example
@@ -802,6 +1006,7 @@ impl Rect {
     }
 
     /// Shrinks the rectangle by `amount` on the given side.
+    ///
     /// Returns [`None`] if shrinking would make the rectangle invalid.
     ///
     /// # Example
@@ -833,7 +1038,29 @@ impl Rect {
         }
     }
 
+    /// Shrinks the rectangle by some (possibly different) amount on each side.
+    ///
+    /// Returns [`None`] if shrinking would make the rectangle invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 200);
+    /// let sides = Sides::new(10, 20, 30, 40);
+    /// assert_eq!(rect.shrink_sides(sides), Some(Rect::from_sides(10, 20, 70, 160)));
+    /// ```
+    pub fn shrink_sides(&self, sides: Sides<i64>) -> Option<Self> {
+        Self::from_sides_option(
+            self.p0.x + sides[Side::Left],
+            self.p0.y + sides[Side::Bot],
+            self.p1.x - sides[Side::Right],
+            self.p1.y - sides[Side::Top],
+        )
+    }
+
     /// Shrinks the rectangle by `amount` at the given corner.
+    ///
     /// Returns [`None`] if shrinking would make the rectangle invalid.
     ///
     /// # Example
@@ -1053,9 +1280,9 @@ mod tests {
     fn sorted_edges() {
         let r1 = Rect::from_sides(10, 25, 30, 50);
         let r2 = Rect::from_sides(20, 15, 70, 35);
-        assert_eq!(r1.sorted_edges(r2, Dir::Horiz), [10, 20, 30, 70]);
-        assert_eq!(r1.sorted_edges(r2, Dir::Vert), [15, 25, 35, 50]);
-        assert_eq!(r2.sorted_edges(r1, Dir::Horiz), [10, 20, 30, 70]);
-        assert_eq!(r2.sorted_edges(r1, Dir::Vert), [15, 25, 35, 50]);
+        assert_eq!(r1.sorted_coords(r2, Dir::Horiz), [10, 20, 30, 70]);
+        assert_eq!(r1.sorted_coords(r2, Dir::Vert), [15, 25, 35, 50]);
+        assert_eq!(r2.sorted_coords(r1, Dir::Horiz), [10, 20, 30, 70]);
+        assert_eq!(r2.sorted_coords(r1, Dir::Vert), [15, 25, 35, 50]);
     }
 }
