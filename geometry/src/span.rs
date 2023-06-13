@@ -99,9 +99,9 @@ impl Span {
         self
     }
 
-    /// Gets the starting ([`Sign::Neg`]) or stopping ([`Sign::Pos`]) point of a span.
+    /// Gets the starting ([`Sign::Neg`]) or stopping ([`Sign::Pos`]) endpoint of a span.
     #[inline]
-    pub const fn point(&self, sign: Sign) -> i64 {
+    pub const fn endpoint(&self, sign: Sign) -> i64 {
         match sign {
             Sign::Neg => self.start(),
             Sign::Pos => self.stop(),
@@ -130,6 +130,32 @@ impl Span {
     }
 
     /// Creates a new [`Span`] with center `center` and length `span`.
+    ///
+    /// `span` must be a positive, even integer.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let span = Span::from_center_span(0, 40);
+    /// assert_eq!(span, Span::new(-20, 20));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Passing an odd `span` to this method results in a panic:
+    ///
+    /// ```should_panic
+    /// # use geometry::prelude::*;
+    /// let span = Span::from_center_span(0, 25);
+    /// ```
+    ///
+    /// Passing a negative `span` to this method also results in a panic:
+    ///
+    /// ```should_panic
+    /// # use geometry::prelude::*;
+    /// let span = Span::from_center_span(0, -200);
+    /// ```
     pub fn from_center_span(center: i64, span: i64) -> Self {
         assert!(span >= 0);
         assert_eq!(span % 2, 0);
@@ -199,6 +225,7 @@ impl Span {
     }
 
     /// Merges adjacent spans when `merge_fn` evaluates to true.
+    #[doc(hidden)]
     pub fn merge_adjacent(
         spans: impl IntoIterator<Item = Self>,
         mut merge_fn: impl FnMut(Span, Span) -> bool,
