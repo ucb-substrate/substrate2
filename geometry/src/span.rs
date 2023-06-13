@@ -165,6 +165,21 @@ impl Span {
 
     /// Creates a new [`Span`] with center `center` and length `span` and snap the edges to the
     /// grid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let span = Span::from_center_span_gridded(0, 40, 5);
+    /// assert_eq!(span, Span::new(-20, 20));
+    ///
+    /// let span = Span::from_center_span_gridded(35, 40, 5);
+    /// assert_eq!(span, Span::new(15, 55));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `span` is negative, odd, or not an integer multiple of `grid`.
     pub fn from_center_span_gridded(center: i64, span: i64, grid: i64) -> Self {
         assert!(span >= 0);
         assert_eq!(span % 2, 0);
