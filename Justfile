@@ -16,6 +16,7 @@ lint-fix:
 fmt:
   cargo fmt
 
+# Checks that code is formatted correctly
 check-fmt:
   cargo fmt --check
 
