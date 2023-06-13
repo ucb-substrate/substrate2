@@ -20,6 +20,21 @@ pub enum Corner {
 }
 
 impl Corner {
+    /// Gets the [`Side`] corresponding to the given [`Dir`] for this corner.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// assert_eq!(Corner::LowerLeft.side(Dir::Horiz), Side::Left);
+    /// assert_eq!(Corner::LowerLeft.side(Dir::Vert), Side::Bot);
+    /// assert_eq!(Corner::LowerRight.side(Dir::Horiz), Side::Right);
+    /// assert_eq!(Corner::LowerRight.side(Dir::Vert), Side::Bot);
+    /// assert_eq!(Corner::UpperLeft.side(Dir::Horiz), Side::Left);
+    /// assert_eq!(Corner::UpperLeft.side(Dir::Vert), Side::Top);
+    /// assert_eq!(Corner::UpperRight.side(Dir::Horiz), Side::Right);
+    /// assert_eq!(Corner::UpperRight.side(Dir::Vert), Side::Top);
+    /// ```
     pub fn side(&self, dir: Dir) -> Side {
         use Corner::*;
         use Dir::*;
