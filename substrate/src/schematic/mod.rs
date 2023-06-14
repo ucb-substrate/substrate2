@@ -1,7 +1,4 @@
-use self::{
-    cell::SchematicCell, context::SchematicCtx, instance::SchematicInstance,
-    interface::AnalogInterface,
-};
+use self::{cell::SchematicCell, context::SchematicCtx, interface::AnalogInterface};
 use crate::block::Block;
 
 pub mod cell;
@@ -11,8 +8,6 @@ pub mod interface;
 
 pub trait HasSchematic: Block {
     type Interface: AnalogInterface<Self>;
-    type Cell: SchematicCell<Self>;
-    type Instance: SchematicInstance<Self>;
 
-    fn schematic(&self, ctx: &mut SchematicCtx) -> Self::Cell;
+    fn schematic(&self, ctx: &mut SchematicCtx) -> SchematicCell<Self>;
 }

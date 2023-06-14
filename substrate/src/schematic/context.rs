@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::HasSchematic;
+use super::{cell::SchematicCell, HasSchematic};
 
 #[derive(Default)]
 pub struct SchematicCtx {}
@@ -10,7 +10,7 @@ impl SchematicCtx {
         Self::default()
     }
 
-    pub fn generate<T>(&mut self, block: T) -> Arc<T::Cell>
+    pub fn generate<T>(&mut self, block: T) -> Arc<SchematicCell<T>>
     where
         T: HasSchematic,
     {

@@ -1,5 +1,6 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
+use arcstr::ArcStr;
 use slotmap::{new_key_type, SlotMap};
 
 use super::HasSchematic;
@@ -27,6 +28,7 @@ where
 
     fn initialize(intf: Self::Uninitialized, map: &mut SignalMap) -> Self;
     fn uninitialized(self) -> Self::Uninitialized;
+    fn ports(&self) -> HashMap<ArcStr, Port>;
 }
 
 pub trait Connectable {
@@ -103,7 +105,7 @@ impl SignalMap {
         self.union(a.key(), b.key());
     }
 
-    pub fn connected(&mut self, a: impl Connectable, b: impl Connectable) -> bool {
+    pub fn connected(&self, a: impl Connectable, b: impl Connectable) -> bool {
         self.find(a.key()) == self.find(b.key())
     }
 }
