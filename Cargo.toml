@@ -7,7 +7,6 @@ members = [
     "cli",
     "codegen",
     "dex",
-    "diagnostics",
     "digital",
     "drc",
     "gds",
