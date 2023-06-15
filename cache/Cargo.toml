@@ -7,3 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1.0.164", features = ["derive"] }
+flexbuffers = "2.0.0"
+sha2 = "0.10.6"
+reqwest = { version = "0.11.18", features = ["blocking"] }
