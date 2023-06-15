@@ -1,14 +1,21 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+pub struct SourceLoc {
+    file: String,
+    line: u32,
+    col: u32,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub struct GeneratedLoc {}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub struct LinkedFiles {}
+
+pub struct Diagnostic {
+    source_loc: SourceLoc,
+    generated_loc: Option<GeneratedLoc>,
+    level: Level,
+}
+
+pub enum Level {
+    Info,
+    Warning,
+    Error,
 }
