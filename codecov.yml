@@ -15,6 +15,6 @@ coverage:
         threshold: 0%
         branches: 
           - main
-        if_ci_failed: error #success, failure, error, ignore
+        if_ci_failed: error
         informational: true
         only_pulls: false
