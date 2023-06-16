@@ -74,7 +74,7 @@ fn home_dir_inner() -> Option<PathBuf> {
 /// - The value of the `SUBSTRATE_HOME` environment variable, if it is
 ///   an absolute path.
 /// - The value of the current working directory joined with the value
-///   of the `SUBSTRATE_HOME` environment variable, if `CARGO_HOME` is a
+///   of the `SUBSTRATE_HOME` environment variable, if `SUBSTRATE_HOME` is a
 ///   relative directory.
 /// - The `.substrate` directory in the user's home directory, as reported
 ///   by the `home_dir` function.

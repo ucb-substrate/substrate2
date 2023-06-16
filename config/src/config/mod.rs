@@ -1,7 +1,7 @@
 //! Substrate's config system.
 //!
 //! The `Config` object contains general information about the environment,
-//! and provides access to Cargo's configuration files.
+//! and provides access to Substrate's configuration files.
 //!
 //! ## Config value API
 //!
@@ -56,7 +56,7 @@ use std::str::FromStr;
 use anyhow::Result;
 
 use self::ConfigValue as CV;
-use crate::{paths, toml as cargo_toml};
+use crate::{paths, toml as substrate_toml};
 use anyhow::{anyhow, bail, Context as _};
 use lazycell::LazyCell;
 use serde::Deserialize;
@@ -104,7 +104,7 @@ pub struct Config {
     home_path: PathBuf,
     /// A collection of configuration options
     values: LazyCell<HashMap<String, ConfigValue>>,
-    /// The current working directory of cargo
+    /// The current working directory of Substrate
     cwd: PathBuf,
     /// Directory where config file searching should stop (inclusive).
     search_stop_path: Option<PathBuf>,
@@ -206,8 +206,7 @@ impl Config {
     ) -> Result<Option<ConfigValue>> {
         log::trace!("get cv {:?}", key);
         if key.is_root() {
-            // Returning the entire root table (for example `cargo config get`
-            // with no key). The definition here shouldn't matter.
+            // Returning the entire root table.
             return Ok(Some(CV::Table(
                 vals.clone(),
                 Definition::Path(PathBuf::new()),
@@ -513,7 +512,7 @@ impl Config {
             })?;
             Ok(())
         })
-        .with_context(|| "could not load Cargo configuration")?;
+        .with_context(|| "could not load Substrate configuration")?;
 
         match cfg {
             CV::Table(map, _) => Ok(map),
@@ -551,7 +550,7 @@ impl Config {
         }
         let contents = fs::read_to_string(path)
             .with_context(|| format!("failed to read configuration file `{}`", path.display()))?;
-        let toml = cargo_toml::parse_document(&contents, path, self).with_context(|| {
+        let toml = substrate_toml::parse_document(&contents, path, self).with_context(|| {
             format!("could not parse TOML configuration in `{}`", path.display())
         })?;
         let def = Definition::Path(path.into());

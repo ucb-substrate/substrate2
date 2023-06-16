@@ -24,7 +24,7 @@ pub trait Env {
 ///
 /// Implementations should be provided by whatever testing framework the caller
 /// is using. Code that is not performing in-process threaded testing requiring
-/// isolated rustup/cargo directories does not need this trait or the _from
+/// isolated Substrate directories does not need this trait or the _from
 /// functions.
 pub struct OsEnv;
 impl Env for OsEnv {
@@ -60,7 +60,7 @@ pub fn substrate_home_with_env(env: &dyn Env) -> io::Result<PathBuf> {
 /// as environment variables and user home metadata are normally process global
 /// state. See the [`OsEnv`] trait.
 pub fn substrate_home_with_cwd_env(env: &dyn Env, cwd: &Path) -> io::Result<PathBuf> {
-    match env.var_os("CARGO_HOME").filter(|h| !h.is_empty()) {
+    match env.var_os("SUBSTRATE_HOME").filter(|h| !h.is_empty()) {
         Some(home) => {
             let home = PathBuf::from(home);
             if home.is_absolute() {
@@ -71,6 +71,8 @@ pub fn substrate_home_with_cwd_env(env: &dyn Env, cwd: &Path) -> io::Result<Path
         }
         _ => home_dir_with_env(env)
             .map(|p| p.join(".substrate"))
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "could not find Substrate home dir")),
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, "could not find Substrate home dir")
+            }),
     }
 }
