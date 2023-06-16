@@ -4,6 +4,7 @@ resolver = "2"
 
 members = [
     "cache",
+    "config",
     "cli",
     "codegen",
     "dex",
