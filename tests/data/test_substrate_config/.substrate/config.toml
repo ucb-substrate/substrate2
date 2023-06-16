@@ -1,0 +1,10 @@
+[cache]
+[cache.providers.bwrc]
+method = "Http"
+addr = "substratecache.eecs.berkeley.edu"
+port = 1234
+
+[cache.providers.public]
+method = "Http"
+addr = "cache.substratelabs.io"
+port = 1234

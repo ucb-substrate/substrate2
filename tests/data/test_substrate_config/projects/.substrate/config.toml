@@ -1,0 +1,34 @@
+[cache]
+local_path = ".substrate/cache"
+project = "sram22" # Optional, uses `local_path` directly
+                   # by default (otherwise appends `project`)
+enable = true # Optional, false by default
+write_through_on_hit = true # Optional, true by default
+provider_hierarchy = ["bwrc", "public"]
+
+[cache.projects.bwrc]
+project = "my_project_id_on_bwrcrepo"
+
+[cache.projects.public]
+project = "sram22"
+
+[rex]
+provider = "dex" # Can also refer to other REX provide plugins like `bsub`
+
+[dex]
+# File containing any environment variables needed for running DEX
+env_file = ".env" # Optional, defaults to a `.env` file at the project root
+shell = "bash"
+method = "HTTP" # Can be via HTTP or file system
+
+# Optional, defaults to the work directory
+scratch_dir = "/scratch/rahulkumar/sram22"
+work_dir = "/tools/C/rahulkumar/sram22"
+
+# If specified, sources the given bashrc before execution
+bashrc = "/tools/C/rahulkumar/priv/sky130/drc/.bashrc"
+
+[dex.machine1]
+address = "machine1.eecs.berkeley.edu"
+# Machine-specific overrides
+bashrc = "/tools/C/rohankumar/priv/sky130/.bashrc" 
