@@ -1,3 +1,10 @@
+//! Home directory utilities for Windows.
+//
+// ## LICENSING
+//
+// Based on Cargo's [`home` crate](https://github.com/rust-lang/cargo/tree/master/crates/home)
+// with substantial modifications.
+
 use std::env;
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;

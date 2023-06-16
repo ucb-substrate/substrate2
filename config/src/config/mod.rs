@@ -41,6 +41,12 @@
 //! includes the definition location. The `get()` method uses serde to
 //! translate from `ConfigValue` and environment variables to the caller's
 //! desired type.
+//!
+//
+// ## LICENSING
+//
+// Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
+// with substantial modifications.
 
 use std::borrow::Cow;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -56,7 +62,7 @@ use std::str::FromStr;
 use anyhow::Result;
 
 use self::ConfigValue as CV;
-use crate::{paths, toml as substrate_toml};
+use crate::paths;
 use anyhow::{anyhow, bail, Context as _};
 use lazycell::LazyCell;
 use serde::Deserialize;
@@ -550,9 +556,12 @@ impl Config {
         }
         let contents = fs::read_to_string(path)
             .with_context(|| format!("failed to read configuration file `{}`", path.display()))?;
-        let toml = substrate_toml::parse_document(&contents, path, self).with_context(|| {
-            format!("could not parse TOML configuration in `{}`", path.display())
-        })?;
+        let toml = contents
+            .parse()
+            .map_err(|e| anyhow::Error::from(e).context("could not parse input as TOML"))
+            .with_context(|| {
+                format!("could not parse TOML configuration in `{}`", path.display())
+            })?;
         let def = Definition::Path(path.into());
         let value = CV::from_toml(def, toml::Value::Table(toml)).with_context(|| {
             format!(

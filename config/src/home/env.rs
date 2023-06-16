@@ -1,4 +1,9 @@
 //! Lower-level utilities for mocking the process environment.
+//
+// ## LICENSING
+//
+// Based on Cargo's [`home` crate](https://github.com/rust-lang/cargo/tree/master/crates/home)
+// with substantial modifications.
 
 use std::{
     ffi::OsString,

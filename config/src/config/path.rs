@@ -1,3 +1,10 @@
+//! Configuration path utilities.
+//
+// ## LICENSING
+//
+// Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
+// with substantial modifications.
+
 use super::{Config, UnmergedStringList, Value};
 use serde::{de::Error, Deserialize};
 use std::path::PathBuf;

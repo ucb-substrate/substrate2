@@ -7,6 +7,11 @@
 //! debugging). The `Value<T>` type here can be used to deserialize a `T` value
 //! from configuration, but also record where it was deserialized from when it
 //! was read.
+//
+// ## LICENSING
+//
+// Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
+// with substantial modifications.
 
 use crate::config::Config;
 use serde::de;

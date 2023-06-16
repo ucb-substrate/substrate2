@@ -14,6 +14,12 @@
 //! The [`env`] module contains utilities for mocking the process environment
 //! by Substrate.
 //!
+//
+// ## LICENSING
+//
+// Based on Cargo's [`home` crate](https://github.com/rust-lang/cargo/tree/master/crates/home)
+// with substantial modifications.
+
 pub mod env;
 
 #[cfg(target_os = "windows")]

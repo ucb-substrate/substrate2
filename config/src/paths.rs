@@ -1,4 +1,8 @@
 //! Various utilities for working with files and paths.
+//
+// ## LICENSING
+//
+// Based on Cargo's utility functions with substantial modifications.
 
 use anyhow::{Context, Result};
 use std::fs;

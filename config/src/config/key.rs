@@ -1,3 +1,10 @@
+//! Key type for querying/merging configuration values.
+//
+// ## LICENSING
+//
+// Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
+// with substantial modifications.
+
 use std::borrow::Cow;
 use std::fmt;
 
