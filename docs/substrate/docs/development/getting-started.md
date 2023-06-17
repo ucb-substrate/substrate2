@@ -16,7 +16,7 @@ sidebar_position: 1
 ## Documentation
 
 1. Install NodeJS. We recommend using a version manager like [nvm](https://github.com/nvm-sh/nvm).
-1. Install [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable).
+1. Install [yarn](https://classic.yarnpkg.com/lang/en/docs/install/).
 1. Change into the `docs/substrate` directory inside your cloned `substrate2` repo.
 1. Run `yarn install`.
 1. Run `yarn start`. Ensure that the documentation website opens in your browser and that there are no errors logged.
