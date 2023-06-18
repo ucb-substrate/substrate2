@@ -43,7 +43,7 @@ The above example doesn't specify port geometry as this has not yet been designe
 to enforce that geometry is specified in some manner.
 :::
 
-## Layout-Schematic Matching
+## Layout-schematic matching
 
 In the example above, `ctx.get_schematic_cell::<VDivider>()` is used to grab the schematic from the layout generator. However, the schematic is not always generated before the layout.
 
