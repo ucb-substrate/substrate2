@@ -1,0 +1,8 @@
+{
+  "label": "Design",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "A detailed breakdown of Substrate's core design decisions. Note that the designs and code included in this section are not API documentation, but rather are a conceptual outline of how certain features are/should be implemented."
+  }
+}
