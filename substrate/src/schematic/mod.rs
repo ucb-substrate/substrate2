@@ -5,6 +5,7 @@ pub mod cell;
 pub mod context;
 pub mod instance;
 pub mod interface;
+pub mod parallel;
 
 pub trait HasSchematic: Block {
     type Interface: AnalogInterface<Self>;
