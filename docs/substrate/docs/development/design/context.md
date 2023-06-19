@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Context
 
-Substrate uses a global context that is passed around as an immutable reference.
+Substrate uses a global context that is passed around as an immutable reference with interior mutability.
 The `Context` object stores important runtime configuration such as the process 
 in which to generate the block and the tool plugins to be used. It also contains 
 a cache of generated blocks and design script results to avoid duplicate computation.

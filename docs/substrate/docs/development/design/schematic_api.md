@@ -12,16 +12,13 @@ Specifically, creating a voltage divider schematic looks something like this:
 ```rust
 impl HasSchematic for VDivider {
   type Data = VDividerData;
-  fn schematic(&self, ctx: &Context) -> SubstrateResult<SchematicCell> {
-    let mut cell = ctx.schematic_cell_builder::<VDivider>();
-
-    let r1: InstancePtr<Resistor> = cell.instantiate("r1", Resistor { r: 10 });
+  fn schematic(&self, cell: &mut SchematicBuilder<VDivider>) -> SubstrateResult<Self::Data> {
+    let r1: SchematicInstancePtr<Resistor> = cell.instantiate(Resistor { r: 10 });
 
     cell.connect(cell.io.vdd, r1.io.p);
     cell.connect(cell.io.vout, r1.io.n);
 
-    let r2: InstancePtr<Resistor> = cell.instantiate_and_connect(
-        "r2",
+    let r2: SchematicInstancePtr<Resistor> = cell.instantiate_and_connect(
         Resistor { r: 20 },
         Wire<ResistorIo> {
           p: r1.io.n,
@@ -29,10 +26,12 @@ impl HasSchematic for VDivider {
         }
     );
 
-    Ok(cell.finish(VDividerData { r1, r2 }))
+    Ok(VDividerData { r1, r2 })
   }
 }
 ```
+
+Choosing a unique name in `instantiate` should not be required since there are other ways to address instances (explained in the [Nested node access](#nested-node-access) section). If names are not unique, Substrate should automatically uniquify them. Names default to the block name unless otherwise specified.
 
 ## Cells
 
@@ -40,41 +39,37 @@ Schematic cells consist of a set of instances, their connections, and extra
 data defined by the user that is used to access instances and other computation results from other views or cells.
 
 ```rust
-// Basically just `SchematicCell` without the `data` field
-pub struct SchematicCellBuilder<T> {
-  // ... Fields relevant to schematic storage (i.e. instances and connections)
-  block: T,
-  io: Wire<Flipped<T::Io>>,
-}
-
 pub struct SchematicCell<T> {
   // ... Fields relevant to schematic storage (i.e. instances and connections)
   block: T,
   data: T::Data,
   io: Wire<Flipped<T::Io>>,
 }
+
+pub struct SchematicBuilder<T> {
+  // ... Fields relevant to schematic storage (i.e. instances and connections)
+  cell: SchematicCell<T>,
+  ctx: Arc<RwLock<Context>>
+}
 ```
-
-The `SchematicCellBuilder` is necessary since the user-defined `T::Data` may not be 
-constructable until after the schematic is constructed and all the instances have been 
-created. Hence, the data is specified with `SchematicCellBuilder::finish`. 
-
-This also helps since the cell should not be modifiable once it is returned from 
-the `schematic` function of a block.
 
 The `block` field is used to store the parameters used to create a cell, in case this needs to be accessed for layout/schematic matching.
 
-### `SchematicCellBuilder`
+### `SchematicBuilder`
 
-Calling `cell.instantiate::<T>` creates an instance, initializes its interface by assigning its ports unique IDs, adds it to the cell, and returns an `SchematicInstancePtr<T>` (explained in more detail in the [Instances](#instances) section).
+Calling `cell.instantiate::<T>` creates an instance, initializes its interface by assigning its ports unique IDs, adds it to the contained cell, and returns an `SchematicInstancePtr<T>` (explained in more detail in the [Instances](#instances) section).
 
 Note that because an instance needs to have a newly initialized IO for it to be meaningful, we do not want the cell to allow adding instances outside of calling `cell.instantiate::<T>`.
 
 :::info
-Parallelizing several `cell.instantiate` calls within a single `schematic` function is a bit difficult,
-so instantiation is serialized by default. `SchematicCellBuilder` should support `cell.instantiate_all`,
-which generates several instances in parallel.
+We can parallelize calls to `instantiate` by kicking off generation in the background, and only blocking
+when `InstancePtr` is dereferenced. In schematic generation, we have the additional benefit that, for the most
+part, the only thing we need from the instance is its IO. So, we really only need to block when we try to access
+extra data contained in the instance's cell.
 
+`SchematicBuilder` should support `cell.instantiate_all`,
+which generates several instances in parallel (really just is syntactic sugar
+for calling generate a bunch of times).
 A macro can be used to make `cell.instantiate_all` generic across various tuple sizes.
 :::
 
