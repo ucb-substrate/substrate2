@@ -8,6 +8,7 @@ arcstr = "1.1.5"
 serde = { version = "1.0.164", features = ["derive"] }
 slotmap = "1.0.6"
 state = "0.6.0"
+once_cell = "1.18.0"
 
 [features]
 test = []

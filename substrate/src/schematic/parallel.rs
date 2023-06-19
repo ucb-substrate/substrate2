@@ -1,73 +1,88 @@
-use std::{
-    cell::{OnceCell, RefCell},
-    ops::{Deref, DerefMut},
-    thread::{self, JoinHandle},
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Arc, thread, time::Duration};
+
+use once_cell::sync::OnceCell;
+
+#[derive(Default)]
+pub struct Context {
+    cells: HashMap<Params, Arc<OnceCell<Cell>>>,
+}
+
+impl Context {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn generate(&mut self, params: Params) -> Instance {
+        let cell = if let Some(cell) = self.cells.get(&params) {
+            cell.clone()
+        } else {
+            let cell = Arc::new(OnceCell::new());
+
+            self.cells.insert(params, cell.clone());
+
+            let cell2 = cell.clone();
+
+            thread::spawn(move || {
+                println!("Generating cell with params {:?}", params);
+                thread::sleep(Duration::from_secs(1));
+                println!("Finished generating cell with params {:?}", params);
+                cell2
+                    .set(Cell {
+                        width: params.width,
+                        height: params.height,
+                        area: params.width * params.height,
+                    })
+                    .unwrap();
+            });
+
+            cell
+        };
+        Instance { cell, loc: 0 }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct Params {
+    width: usize,
+    height: usize,
+}
+
+#[derive(Debug)]
+pub struct Cell {
+    width: usize,
+    height: usize,
+    area: usize,
+}
 
 #[derive(Debug, Clone)]
-pub struct Instance(usize);
-
-pub struct InstancePtr {
-    handle: RefCell<Option<JoinHandle<Instance>>>,
-    inst: OnceCell<Instance>,
+pub struct Instance {
+    cell: Arc<OnceCell<Cell>>,
+    loc: usize,
 }
 
-#[allow(clippy::new_ret_no_self)]
 impl Instance {
-    pub fn new(val: usize) -> InstancePtr {
-        let handle = thread::spawn(move || {
-            println!("Start generating instance {}", val);
-            thread::sleep(Duration::from_secs(1));
-            println!("Done generating instance {}", val);
-            Instance(val)
-        });
-
-        InstancePtr {
-            handle: RefCell::new(Some(handle)),
-            inst: OnceCell::new(),
-        }
+    pub fn cell(&self) -> &Cell {
+        self.cell.wait()
     }
 
-    pub fn increment(&mut self) {
-        self.0 += 1
+    pub fn move_right(&mut self, x: usize) {
+        self.loc += x;
     }
 
-    pub fn get(&self) -> usize {
-        self.0
+    pub fn loc(&self) -> usize {
+        self.loc
     }
-}
 
-impl Clone for InstancePtr {
-    fn clone(&self) -> Self {
-        Self {
-            handle: RefCell::new(None),
-            inst: OnceCell::from((**self).clone()),
-        }
+    pub fn width(&self) -> usize {
+        self.cell().width
     }
-}
 
-impl Deref for InstancePtr {
-    type Target = Instance;
-
-    fn deref(&self) -> &Self::Target {
-        if let Some(inst) = self.inst.get() {
-            inst
-        } else {
-            let handle = self.handle.take().unwrap();
-            self.inst.set(handle.join().unwrap()).unwrap();
-            self.inst.get().unwrap()
-        }
+    pub fn height(&self) -> usize {
+        self.cell().height
     }
-}
 
-impl DerefMut for InstancePtr {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        if self.inst.get().is_none() {
-            let handle = self.handle.take().unwrap();
-            self.inst.set(handle.join().unwrap()).unwrap();
-        }
-        self.inst.get_mut().unwrap()
+    pub fn area(&self) -> usize {
+        self.cell().area
     }
 }
 
@@ -75,32 +90,45 @@ impl DerefMut for InstancePtr {
 mod tests {
     use std::{thread, time::Duration};
 
-    use super::Instance;
+    use super::{Context, Params};
 
     #[test]
     fn test_instance_generation() {
-        let mut inst1 = Instance::new(1);
-        let inst2 = Instance::new(2);
+        let mut ctx = Context::new();
 
-        assert_eq!(inst1.get(), 1);
-        inst1.increment();
-        assert_eq!(inst1.get(), 2);
+        let params1 = Params {
+            width: 5,
+            height: 10,
+        };
+        let mut inst1 = ctx.generate(params1);
+        let mut inst2 = inst1.clone();
+        let inst3 = ctx.generate(params1);
 
-        let inst3 = Instance::new(3);
+        inst1.move_right(5);
+
+        let params2 = Params {
+            width: 10,
+            height: 7,
+        };
+        let inst4 = ctx.generate(params2);
+        let inst5 = ctx.generate(params1);
 
         println!("Sleeping 2 seconds...");
         thread::sleep(Duration::from_secs(2));
-        println!("Finished sleeping, all generation should be complete.");
+        println!("Finished sleeping. All generation should have completed.");
 
-        assert_eq!(inst2.get(), 2);
-        assert_eq!(inst3.get(), 3);
+        inst2.move_right(inst1.width());
 
-        let inst4 = Instance::new(4);
-        let mut inst5 = inst4.clone();
+        assert_eq!(inst1.area(), 50);
+        assert_eq!(inst2.area(), 50);
+        assert_eq!(inst3.area(), 50);
+        assert_eq!(inst4.area(), 70);
+        assert_eq!(inst5.area(), 50);
 
-        assert_eq!(inst4.get(), inst5.get());
-        inst5.increment();
-        assert_eq!(inst4.get(), 4);
-        assert_eq!(inst5.get(), 5);
+        assert_eq!(inst1.loc(), 5);
+        assert_eq!(inst2.loc(), 5);
+        assert_eq!(inst3.loc(), 0);
+        assert_eq!(inst4.loc(), 0);
+        assert_eq!(inst5.loc(), 0);
     }
 }

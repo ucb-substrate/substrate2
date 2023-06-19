@@ -515,6 +515,7 @@ name = "substrate"
 version = "0.0.0"
 dependencies = [
  "arcstr",
+ "once_cell",
  "serde",
  "slotmap",
  "state",
