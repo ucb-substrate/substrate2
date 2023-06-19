@@ -3,8 +3,7 @@ sidebar_position: 1
 ---
 
 # Overview
-
-At a high level, Substrate generators are called **blocks** and are defined as any type that implements the `Block` trait.
+At a high level, Substrate generators are called _blocks_ and are defined as any type that implements the `Block` trait.
 
 ```rust
 pub trait Block: Serialize + Deserialize {
@@ -21,12 +20,12 @@ pub trait Block: Serialize + Deserialize {
 
 pub trait HasSchematic: Block {
   type Data;
-  fn schematic(&self, ctx: &Context) -> Result<SchematicCell<Self>>;
+  fn schematic(&self, cell: &mut SchematicBuilder<Self>) -> Result<Self::Data>;
 }
 
 pub trait HasLayout: Block {
   type Data;
-  fn layout(&self, ctx: &Context) -> Result<LayoutCell<Self>>;
+  fn layout(&self, cell: &mut LayoutBuilder<Self>) -> Result<Self::Data>;
 }
 ```
 
@@ -71,17 +70,15 @@ impl Block for VDivider {
 
 impl HasSchematic for VDivider {
   type Data = ();
-  fn schematic(&self, ctx: &Context) -> SubstrateResult<SchematicCell> {
-    let mut cell = ctx.schematic_cell_builder::<VDivider>();
-
-    let r1 = cell.instantiate("r1", Resistor { r: 10 })?;
-    let r2 = cell.instantiate("r2", Resistor { r: 20 })?;
+  fn schematic(&self, cell: &mut SchematicBuilder<Self>) -> SubstrateResult<Self::Data> {
+    let r1 = cell.instantiate(Resistor { r: 10 })?;
+    let r2 = cell.instantiate(Resistor { r: 20 })?;
 
     cell.connect(cell.io.vdd, r1.io.p);
     cell.connect_all([cell.io.vout, r1.io.n, r2.io.p);
     cell.connect(cell.io.vss, r2.io.n);
 
-    Ok(cell.finish(()))
+    Ok(())
   }
 }
 ```
