@@ -10,6 +10,7 @@
 //! ```
 #![warn(missing_docs)]
 
+pub mod align;
 pub mod bbox;
 pub mod contains;
 pub mod corner;
