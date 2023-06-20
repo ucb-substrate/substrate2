@@ -1241,26 +1241,30 @@ impl Bbox for Rect {
 impl Intersect<Rect> for Rect {
     type Output = Self;
 
-    fn intersect(self, bounds: &Rect) -> Option<Self::Output> {
+    fn intersect(&self, bounds: &Rect) -> Option<Self::Output> {
         self.intersection(*bounds)
     }
 }
 
 impl Translate for Rect {
-    fn translate(self, p: Point) -> Self {
-        Self::new(self.p0.translate(p), self.p1.translate(p))
+    fn translate(&mut self, p: Point) -> &mut Self {
+        self.p0.translate(p);
+        self.p1.translate(p);
+
+        self
     }
 }
 
 impl Transform for Rect {
-    fn transform(self, trans: Transformation) -> Self {
-        let (p0, p1) = (self.p0, self.p1);
-        let p0p = p0.transform(trans);
-        let p1p = p1.transform(trans);
+    fn transform(&mut self, trans: Transformation) -> &mut Self {
+        let (mut p0, mut p1) = (self.p0, self.p1);
+        p0.transform(trans);
+        p1.transform(trans);
 
-        let p0 = Point::new(std::cmp::min(p0p.x, p1p.x), std::cmp::min(p0p.y, p1p.y));
-        let p1 = Point::new(std::cmp::max(p0p.x, p1p.x), std::cmp::max(p0p.y, p1p.y));
-        Rect { p0, p1 }
+        self.p0 = Point::new(std::cmp::min(p0.x, p1.x), std::cmp::min(p0.y, p1.y));
+        self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));
+
+        self
     }
 }
 

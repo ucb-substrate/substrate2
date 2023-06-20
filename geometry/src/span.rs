@@ -409,7 +409,7 @@ impl Span {
 
 impl Intersect<Span> for Span {
     type Output = Self;
-    fn intersect(self, other: &Span) -> Option<Self::Output> {
+    fn intersect(&self, other: &Span) -> Option<Self::Output> {
         self.intersection(*other)
     }
 }

@@ -215,16 +215,44 @@ fn matvec(a: &[[f64; 2]; 2], b: &[f64; 2]) -> [f64; 2] {
 /// A trait for specifying how an object is changed by a transformation.
 pub trait Transform {
     /// Applies matrix-vector [`Transformation`] `trans`.
+    fn transform(&mut self, trans: Transformation) -> &mut Self;
+}
+
+/// A trait for specifying how an object is changed by a transformation.
+///
+/// Takes in an owned copy of the shape and returns the transformed version.
+pub trait TransformOwned: Transform + Sized {
+    /// Applies matrix-vector [`Transformation`] `trans`.
     ///
     /// Creates a new shape at a location equal to the transformation of our own.
-    fn transform(self, trans: Transformation) -> Self;
+    fn transform_owned(mut self, trans: Transformation) -> Self {
+        self.transform(trans);
+        self
+    }
 }
+
+impl<T: Transform + Sized> TransformOwned for T {}
 
 /// A trait for specifying how a shape is translated by a [`Point`].
 pub trait Translate {
     /// Translates the shape by a [`Point`] through mutation.
-    fn translate(self, p: Point) -> Self;
+    fn translate(&mut self, p: Point) -> &mut Self;
 }
+
+/// A trait for specifying how a shape is translated by a [`Point`].
+///
+/// Takes in an owned copy of the shape and returns the translated version.
+pub trait TranslateOwned: Translate + Sized {
+    /// Translates the shape by a [`Point`] through mutation.
+    ///
+    /// Creates a new shape at a location equal to the translation of our own.
+    fn translate_owned(mut self, p: Point) -> Self {
+        self.translate(p);
+        self
+    }
+}
+
+impl<T: Translate + Sized> TranslateOwned for T {}
 
 #[cfg(test)]
 mod tests {
@@ -286,61 +314,61 @@ mod tests {
     fn point_transformations_work() {
         let pt = Point::new(2, 1);
 
-        let pt_reflect_vert = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_reflect_vert = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::ReflectVert,
         ));
         assert_eq!(pt_reflect_vert, Point::new(2, -1));
 
-        let pt_reflect_horiz = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_reflect_horiz = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::ReflectHoriz,
         ));
         assert_eq!(pt_reflect_horiz, Point::new(-2, 1));
 
-        let pt_r90 = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_r90 = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(23, 11),
             NamedOrientation::R90,
         ));
         assert_eq!(pt_r90, Point::new(22, 13));
 
-        let pt_r180 = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_r180 = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(-50, 10),
             NamedOrientation::R180,
         ));
         assert_eq!(pt_r180, Point::new(-52, 9));
 
-        let pt_r270 = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_r270 = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(80, 90),
             NamedOrientation::R270,
         ));
         assert_eq!(pt_r270, Point::new(81, 88));
 
-        let pt_r90cw = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_r90cw = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(5, 13),
             NamedOrientation::R90Cw,
         ));
         assert_eq!(pt_r90cw, Point::new(6, 11));
 
-        let pt_r180cw = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_r180cw = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::R180Cw,
         ));
         assert_eq!(pt_r180cw, Point::new(-2, -1));
 
-        let pt_r270cw = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_r270cw = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(1, 100),
             NamedOrientation::R270Cw,
         ));
         assert_eq!(pt_r270cw, Point::new(0, 102));
 
-        let pt_flip_yx = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_flip_yx = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(-65, -101),
             NamedOrientation::FlipYx,
         ));
         assert_eq!(pt_flip_yx, Point::new(-64, -99));
 
-        let pt_flip_minus_yx = pt.transform(Transformation::from_offset_and_orientation(
+        let pt_flip_minus_yx = pt.transform_owned(Transformation::from_offset_and_orientation(
             Point::new(1, -5),
             NamedOrientation::FlipMinusYx,
         ));
