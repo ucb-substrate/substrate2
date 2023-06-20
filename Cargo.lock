@@ -340,6 +340,9 @@ version = "0.0.0"
 [[package]]
 name = "substrate"
 version = "0.0.0"
+dependencies = [
+ "geometry",
+]
 
 [[package]]
 name = "syn"
