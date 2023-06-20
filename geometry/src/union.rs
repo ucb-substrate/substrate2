@@ -5,5 +5,5 @@ pub trait Union<T: ?Sized> {
     /// The type of the output shape representing the union.
     type Output;
     /// Calculates the union of this shape with `other`.
-    fn union(self, other: &T) -> Self::Output;
+    fn union(&self, other: &T) -> Self::Output;
 }

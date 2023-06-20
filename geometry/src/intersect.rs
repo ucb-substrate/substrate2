@@ -8,5 +8,5 @@ pub trait Intersect<T: ?Sized> {
     ///
     /// If no part of this shape lies within `other`,
     /// returns [`None`].
-    fn intersect(self, other: &T) -> Option<Self::Output>;
+    fn intersect(&self, other: &T) -> Option<Self::Output>;
 }
