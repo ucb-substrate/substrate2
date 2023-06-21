@@ -28,7 +28,7 @@ pub struct RawInstance {
 }
 
 #[derive(Debug, Clone)]
-pub struct Instance<T: Block> {
+pub struct Instance<T> {
     block: T,
     bbox: Rect,
     loc: Point,
@@ -58,13 +58,13 @@ impl<T: Block> From<Instance<T>> for RawInstance {
     }
 }
 
-impl<T: Block> Translate for Instance<T> {
+impl<T> Translate for Instance<T> {
     fn translate(&mut self, p: Point) {
         self.loc.translate(p);
     }
 }
 
-impl<T: Block> Bbox for Instance<T> {
+impl<T> Bbox for Instance<T> {
     fn bbox(&self) -> Option<Rect> {
         Some(self.bbox.translate_owned(self.loc))
     }
@@ -186,6 +186,26 @@ impl<T: Draw + AlignRect> Tileable for T {}
 pub trait RefTileable: DrawRef + AlignRect {}
 impl<T: DrawRef + AlignRect> RefTileable for T {}
 
+#[derive(Debug, Clone)]
+pub struct Tile<T> {
+    inner: T,
+    rect: Rect,
+}
+
+impl<T: Bbox> Tile<T> {
+    pub fn from_bbox(inner: T) -> Self {
+        let rect = inner.bbox().unwrap();
+        Self { inner, rect }
+    }
+}
+
+impl<T: Translate> Translate for Tile<T> {
+    fn translate(&mut self, p: Point) {
+        self.inner.translate(p);
+        self.rect.translate(p);
+    }
+}
+
 pub enum RawTileKind<'a> {
     Ref(&'a mut dyn RefTileable),
     RefNoDraw(&'a mut dyn AlignRect),
@@ -254,7 +274,8 @@ impl<'a> ArrayTiler<'a> {
 }
 
 impl<'a> Draw for ArrayTiler<'a> {
-    fn draw(self, ctx: &mut Context) {
+    fn draw(mut self, ctx: &mut Context) {
+        self.apply();
         for tile in self.tiles.into_iter() {
             match tile.tile {
                 RawTileKind::Ref(tile) => tile.draw_ref(ctx),
