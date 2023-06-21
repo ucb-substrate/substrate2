@@ -21,6 +21,9 @@ use tracing::{span, Level};
 
 pub(crate) mod validation;
 
+#[cfg(test)]
+pub(crate) mod tests;
+
 /// An expression, often used in parameter assignments.
 pub enum Expr {
     /// A numeric literal.
@@ -204,9 +207,13 @@ impl Library {
     }
 
     /// Adds the given cell to the library.
-    pub fn add_cell(&mut self, cell: Cell) {
+    ///
+    /// Returns the ID of the newly added cell.
+    pub fn add_cell(&mut self, cell: Cell) -> CellId {
         self.cell_id += 1;
-        self.cells.insert(CellId(self.cell_id), cell);
+        let id = CellId(self.cell_id);
+        self.cells.insert(id, cell);
+        id
     }
 }
 
@@ -284,5 +291,23 @@ impl Instance {
     #[inline]
     pub fn set_param(&mut self, param: impl Into<ArcStr>, value: Expr) {
         self.params.insert(param.into(), value);
+    }
+}
+
+impl From<Decimal> for Expr {
+    fn from(value: Decimal) -> Self {
+        Self::NumericLiteral(value)
+    }
+}
+
+impl From<ArcStr> for Expr {
+    fn from(value: ArcStr) -> Self {
+        Self::StringLiteral(value)
+    }
+}
+
+impl From<bool> for Expr {
+    fn from(value: bool) -> Self {
+        Self::BoolLiteral(value)
     }
 }

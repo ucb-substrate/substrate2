@@ -169,10 +169,16 @@ impl Display for Cause {
 }
 
 impl Library {
+    /// Check whether or not this library is valid.
     pub fn validate(&self) -> IssueSet<ValidatorIssue> {
         let _guard = span!(Level::INFO, "validating SCIR Library").entered();
         let mut issues = IssueSet::new();
         self.validate1(&mut issues);
+
+        if issues.has_error() {
+            return issues;
+        }
+
         self.validate2(&mut issues);
         issues
     }
@@ -384,6 +390,7 @@ mod tests {
         let mut lib = Library::new();
         lib.add_cell(c1);
         lib.add_cell(c2);
-        lib.validate();
+        let issues = lib.validate();
+        assert!(issues.has_error() || issues.has_warning());
     }
 }
