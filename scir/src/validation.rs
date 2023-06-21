@@ -1,3 +1,8 @@
+//! SCIR validation utilities.
+//!
+//! This module provides helpers for ensuring that SCIR libraries
+//! and cells are valid.
+
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
@@ -5,6 +10,7 @@ use diagnostics::{Diagnostic, IssueSet, Severity};
 
 use super::*;
 
+/// An issue identified during validation of an SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ValidatorIssue {
     cause: Cause,
@@ -92,10 +98,20 @@ impl Diagnostic for ValidatorIssue {
 }
 
 impl ValidatorIssue {
-    pub fn new(cause: Cause, severity: Severity) -> Self {
+    /// Creates a new validator issue from the given cause and severity.
+    pub(crate) fn new(cause: Cause, severity: Severity) -> Self {
         Self { cause, severity }
     }
 
+    /// Gets the underlying cause of this issue.
+    #[inline]
+    pub fn cause(&self) -> &Cause {
+        &self.cause
+    }
+
+    /// Creates a new validator issue and logs it immediately.
+    ///
+    /// The log level will be selected according to the given severity.
     pub(crate) fn new_and_log(cause: Cause, severity: Severity) -> Self {
         let result = Self::new(cause, severity);
         match severity {
