@@ -1,7 +1,5 @@
 //! Unions of geometric objects.
 
-use crate::{bbox::Bbox, rect::Rect};
-
 /// Trait for calculating the union with another geometric object.
 pub trait Union<T: ?Sized> {
     /// The type of the output shape representing the union.
@@ -64,5 +62,58 @@ impl<T: BoundingUnion<Option<T>, Output = T> + Clone> BoundingUnion<Option<T>> f
         } else {
             other.clone()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{rect::Rect, span::Span, union::BoundingUnion};
+
+    #[test]
+    fn union_works_for_option_rects() {
+        let r1 = Rect::from_sides(0, 0, 100, 200);
+        let r2 = Rect::from_sides(-50, 20, 120, 160);
+        assert_eq!(r1.bounding_union(&r2), Rect::from_sides(-50, 0, 120, 200));
+
+        let r1 = Rect::from_sides(0, 0, 100, 200);
+        let r2 = None;
+        assert_eq!(r1.bounding_union(&r2), Rect::from_sides(0, 0, 100, 200));
+        assert_eq!(r2.bounding_union(&r1), Rect::from_sides(0, 0, 100, 200));
+
+        let r1 = Some(Rect::from_sides(0, 0, 100, 200));
+        let r2: Option<Rect> = None;
+        assert_eq!(
+            r1.bounding_union(&r2),
+            Some(Rect::from_sides(0, 0, 100, 200))
+        );
+        assert_eq!(
+            r2.bounding_union(&r1),
+            Some(Rect::from_sides(0, 0, 100, 200))
+        );
+
+        let r1: Option<Rect> = None;
+        let r2: Option<Rect> = None;
+        assert_eq!(r1.bounding_union(&r2), None,);
+    }
+
+    #[test]
+    fn union_works_for_option_spans() {
+        let r1 = Span::new(0, 100);
+        let r2 = Span::new(-50, 120);
+        assert_eq!(r1.bounding_union(&r2), Span::new(-50, 120));
+
+        let r1 = Span::new(0, 100);
+        let r2 = None;
+        assert_eq!(r1.bounding_union(&r2), Span::new(0, 100));
+        assert_eq!(r2.bounding_union(&r1), Span::new(0, 100));
+
+        let r1 = Some(Span::new(0, 100));
+        let r2: Option<Span> = None;
+        assert_eq!(r1.bounding_union(&r2), Some(Span::new(0, 100)));
+        assert_eq!(r2.bounding_union(&r1), Some(Span::new(0, 100)));
+
+        let r1: Option<Span> = None;
+        let r2: Option<Span> = None;
+        assert_eq!(r1.bounding_union(&r2), None,);
     }
 }

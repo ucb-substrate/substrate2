@@ -276,7 +276,7 @@ impl<T: Translate + Sized> TranslateOwned for T {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::orientation::NamedOrientation;
+    use crate::{orientation::NamedOrientation, rect::Rect};
 
     #[test]
     fn matvec_works() {
@@ -392,5 +392,75 @@ mod tests {
             NamedOrientation::FlipMinusYx,
         ));
         assert_eq!(pt_flip_minus_yx, Point::new(0, -7));
+    }
+
+    #[test]
+    fn translate_works_for_tuples() {
+        let mut tuple = (
+            Rect::from_sides(0, 0, 100, 200),
+            Rect::from_sides(50, -50, 150, 0),
+        );
+        tuple.translate(Point::new(5, 10));
+        assert_eq!(
+            tuple,
+            (
+                Rect::from_sides(5, 10, 105, 210),
+                Rect::from_sides(55, -40, 155, 10)
+            )
+        );
+    }
+
+    #[test]
+    fn translate_works_for_vecs() {
+        let mut v = vec![
+            Rect::from_sides(0, 0, 100, 200),
+            Rect::from_sides(50, -50, 150, 0),
+        ];
+        v.translate(Point::new(5, 10));
+        assert_eq!(
+            v,
+            vec![
+                Rect::from_sides(5, 10, 105, 210),
+                Rect::from_sides(55, -40, 155, 10)
+            ]
+        );
+    }
+
+    #[test]
+    fn transform_works_for_tuples() {
+        let mut tuple = (
+            Rect::from_sides(0, 0, 100, 200),
+            Rect::from_sides(50, -50, 150, 0),
+        );
+        tuple.transform(Transformation::from_offset_and_orientation(
+            Point::zero(),
+            NamedOrientation::R90,
+        ));
+        assert_eq!(
+            tuple,
+            (
+                Rect::from_sides(-200, 0, 0, 100),
+                Rect::from_sides(0, 50, 50, 150)
+            )
+        );
+    }
+
+    #[test]
+    fn transform_works_for_vecs() {
+        let mut v = vec![
+            Rect::from_sides(0, 0, 100, 200),
+            Rect::from_sides(50, -50, 150, 0),
+        ];
+        v.transform(Transformation::from_offset_and_orientation(
+            Point::zero(),
+            NamedOrientation::R90,
+        ));
+        assert_eq!(
+            v,
+            vec![
+                Rect::from_sides(-200, 0, 0, 100),
+                Rect::from_sides(0, 50, 50, 150)
+            ]
+        );
     }
 }
