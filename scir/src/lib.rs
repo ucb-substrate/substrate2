@@ -182,6 +182,10 @@ pub struct Instance {
 
 /// A cell.
 pub struct Cell {
+    /// The last node ID used.
+    ///
+    /// Initialized to 0 upon cell creation.
+    node_id: u64,
     pub(crate) name: ArcStr,
     pub(crate) ports: Vec<Port>,
     pub(crate) nodes: HashMap<NodeId, NodeInfo>,
@@ -217,6 +221,7 @@ impl Cell {
     /// Creates a new cell with the given name.
     pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
+            node_id: 0,
             name: name.into(),
             ports: Vec::new(),
             nodes: HashMap::new(),
@@ -224,5 +229,60 @@ impl Cell {
             primitives: Vec::new(),
             params: HashMap::new(),
         }
+    }
+
+    /// Creates a new node in this cell.
+    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> NodeId {
+        self.node_id += 1;
+        let id = NodeId(self.node_id);
+        self.nodes.insert(id, NodeInfo { name: name.into() });
+        id
+    }
+
+    /// Exposes the given node as a port.
+    pub fn expose_port(&mut self, node: NodeId) {
+        self.ports.push(Port { node });
+    }
+
+    /// Add the given instance to the cell.
+    #[inline]
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.instances.push(instance);
+    }
+
+    /// Add the given [`PrimitiveDevice`] to the cell.
+    #[inline]
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        self.primitives.push(device);
+    }
+
+    /// Add the given parameter to the cell.
+    #[inline]
+    pub fn add_param(&mut self, name: impl Into<ArcStr>, param: Param) {
+        self.params.insert(name.into(), param);
+    }
+}
+
+impl Instance {
+    /// Create an instance of the given cell with the given name.
+    pub fn new(name: impl Into<ArcStr>, cell: CellId) -> Self {
+        Self {
+            cell,
+            name: name.into(),
+            connections: HashMap::new(),
+            params: HashMap::new(),
+        }
+    }
+
+    /// Connect the given port of the child cell to the given node in the parent cell.
+    #[inline]
+    pub fn connect(&mut self, name: impl Into<ArcStr>, node: NodeId) {
+        self.connections.insert(name.into(), node);
+    }
+
+    /// Set the value of the given parameter.
+    #[inline]
+    pub fn set_param(&mut self, param: impl Into<ArcStr>, value: Expr) {
+        self.params.insert(param.into(), value);
     }
 }
