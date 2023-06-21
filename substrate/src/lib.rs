@@ -1,3 +1,5 @@
+pub mod tiler;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }

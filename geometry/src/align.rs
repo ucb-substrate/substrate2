@@ -58,7 +58,7 @@ pub trait AlignRect: Translate {
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
-    fn align(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) -> &mut Self {
+    fn align(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) {
         match mode {
             AlignMode::Left => {
                 self.translate(Point::new(orect.left() - srect.left() + offset, 0));
@@ -97,7 +97,6 @@ pub trait AlignRect: Translate {
                 self.translate(Point::new(0, orect.top() - srect.top() + offset));
             }
         }
-        self
     }
 }
 
@@ -120,7 +119,7 @@ pub trait AlignBbox: AlignRect + Bbox {
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
-    fn align_bbox(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) -> &mut Self {
+    fn align_bbox(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) {
         self.align(mode, self.bbox().unwrap(), other.bbox().unwrap(), offset)
     }
 }

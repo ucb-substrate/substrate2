@@ -218,6 +218,32 @@ pub trait Transform {
     fn transform(&mut self, trans: Transformation) -> &mut Self;
 }
 
+macro_rules! transform_tuple_impls {
+    ( $( ( $name:ident, $idx:tt ) )+ ) => {
+        impl<$($name: Transform),+> Transform for ($($name,)+)
+        {
+            fn transform(&mut self, trans: Transformation) -> &mut Self {
+                $(self.$idx.transform(trans);)+
+                self
+            }
+        }
+    };
+}
+
+transform_tuple_impls! { (A, 0) }
+transform_tuple_impls! { (A, 0) (B, 1) }
+transform_tuple_impls! { (A, 0) (B, 1) (C, 2) }
+transform_tuple_impls! { (A, 0) (B, 1) (C, 2) (D, 3) }
+
+impl<T: Transform> Transform for Vec<T> {
+    fn transform(&mut self, trans: Transformation) -> &mut Self {
+        for i in self.iter_mut() {
+            i.transform(trans);
+        }
+        self
+    }
+}
+
 /// A trait for specifying how an object is changed by a transformation.
 ///
 /// Takes in an owned copy of the shape and returns the transformed version.
@@ -236,7 +262,31 @@ impl<T: Transform + Sized> TransformOwned for T {}
 /// A trait for specifying how a shape is translated by a [`Point`].
 pub trait Translate {
     /// Translates the shape by a [`Point`] through mutation.
-    fn translate(&mut self, p: Point) -> &mut Self;
+    fn translate(&mut self, p: Point);
+}
+
+macro_rules! translate_tuple_impls {
+    ( $( ( $name:ident, $idx:tt ) )+ ) => {
+        impl<$($name: Translate),+> Translate for ($($name,)+)
+        {
+            fn translate(&mut self, p: Point) {
+                $(self.$idx.translate(p);)+
+            }
+        }
+    };
+}
+
+translate_tuple_impls! { (A, 0) }
+translate_tuple_impls! { (A, 0) (B, 1) }
+translate_tuple_impls! { (A, 0) (B, 1) (C, 2) }
+translate_tuple_impls! { (A, 0) (B, 1) (C, 2) (D, 3) }
+
+impl<T: Translate> Translate for Vec<T> {
+    fn translate(&mut self, p: Point) {
+        for i in self.iter_mut() {
+            i.translate(p);
+        }
+    }
 }
 
 /// A trait for specifying how a shape is translated by a [`Point`].

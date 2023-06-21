@@ -12,6 +12,7 @@ use crate::point::Point;
 use crate::side::{Side, Sides};
 use crate::span::Span;
 use crate::transform::{Transform, Transformation, Translate};
+use crate::union::BboxUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -723,23 +724,6 @@ impl Rect {
         self.longer_dir_strict().as_ref().map(Dir::other)
     }
 
-    /// Computes the rectangular union of this `Rect` with another `Rect`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use geometry::prelude::*;
-    /// let r1 = Rect::from_sides(0, 0, 100, 200);
-    /// let r2 = Rect::from_sides(-50, 20, 120, 160);
-    /// assert_eq!(r1.union(r2), Rect::from_sides(-50, 0, 120, 200));
-    /// ```
-    pub fn union(self, other: Self) -> Self {
-        Rect::new(
-            Point::new(self.p0.x.min(other.p0.x), self.p0.y.min(other.p0.y)),
-            Point::new(self.p1.x.max(other.p1.x), self.p1.y.max(other.p1.y)),
-        )
-    }
-
     /// Calculates the rectangular union of all rectangles provided.
     ///
     /// # Example
@@ -764,7 +748,7 @@ impl Rect {
     {
         rects
             .fold(None, |acc: Option<Rect>, r| match acc {
-                Some(acc) => Some(acc.union(r.into())),
+                Some(acc) => Some(acc.union(&r.into())),
                 None => Some(r.into()),
             })
             .unwrap()
@@ -794,7 +778,7 @@ impl Rect {
         rects
             .filter_map(|r| r.into())
             .fold(None, |acc, r| match acc {
-                Some(acc) => Some(acc.union(r)),
+                Some(acc) => Some(acc.union(&r)),
                 None => Some(r),
             })
     }
@@ -1247,11 +1231,9 @@ impl Intersect<Rect> for Rect {
 }
 
 impl Translate for Rect {
-    fn translate(&mut self, p: Point) -> &mut Self {
+    fn translate(&mut self, p: Point) {
         self.p0.translate(p);
         self.p1.translate(p);
-
-        self
     }
 }
 
@@ -1265,6 +1247,50 @@ impl Transform for Rect {
         self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));
 
         self
+    }
+}
+
+impl BboxUnion<Rect> for Rect {
+    type Output = Rect;
+    fn union(&self, other: &Rect) -> Self::Output {
+        Rect::new(
+            Point::new(self.p0.x.min(other.p0.x), self.p0.y.min(other.p0.y)),
+            Point::new(self.p1.x.max(other.p1.x), self.p1.y.max(other.p1.y)),
+        )
+    }
+}
+
+impl BboxUnion<Option<Rect>> for Rect {
+    type Output = Rect;
+    fn union(&self, other: &Option<Rect>) -> Self::Output {
+        if let Some(r) = other {
+            r.union(self)
+        } else {
+            *self
+        }
+    }
+}
+
+impl BboxUnion<Rect> for Option<Rect> {
+    type Output = Rect;
+    fn union(&self, other: &Rect) -> Self::Output {
+        if let Some(r) = self {
+            r.union(other)
+        } else {
+            *other
+        }
+    }
+}
+
+impl BboxUnion<Option<Rect>> for Option<Rect> {
+    type Output = Option<Rect>;
+
+    fn union(&self, other: &Option<Rect>) -> Self::Output {
+        if let Some(other) = other {
+            Some(self.union(other))
+        } else {
+            *self
+        }
     }
 }
 

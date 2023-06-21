@@ -76,11 +76,9 @@ impl Point {
 }
 
 impl Translate for Point {
-    fn translate(&mut self, p: Point) -> &mut Self {
+    fn translate(&mut self, p: Point) {
         self.x += p.x;
         self.y += p.y;
-
-        self
     }
 }
 
