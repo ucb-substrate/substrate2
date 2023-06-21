@@ -12,6 +12,7 @@ use crate::point::Point;
 use crate::side::{Side, Sides};
 use crate::span::Span;
 use crate::transform::{Transform, Transformation, Translate};
+use crate::union::BoundingUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -1247,24 +1248,27 @@ impl Intersect<Rect> for Rect {
 }
 
 impl Translate for Rect {
-    fn translate(&mut self, p: Point) -> &mut Self {
+    fn translate(&mut self, p: Point) {
         self.p0.translate(p);
         self.p1.translate(p);
-
-        self
     }
 }
 
 impl Transform for Rect {
-    fn transform(&mut self, trans: Transformation) -> &mut Self {
+    fn transform(&mut self, trans: Transformation) {
         let (mut p0, mut p1) = (self.p0, self.p1);
         p0.transform(trans);
         p1.transform(trans);
 
         self.p0 = Point::new(std::cmp::min(p0.x, p1.x), std::cmp::min(p0.y, p1.y));
         self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));
+    }
+}
 
-        self
+impl BoundingUnion<Rect> for Rect {
+    type Output = Rect;
+    fn bounding_union(&self, other: &Rect) -> Self::Output {
+        self.union(*other)
     }
 }
 
@@ -1281,7 +1285,7 @@ mod tests {
     use crate::prelude::*;
 
     #[test]
-    fn sorted_edges() {
+    fn sorted_coords_works() {
         let r1 = Rect::from_sides(10, 25, 30, 50);
         let r2 = Rect::from_sides(20, 15, 70, 35);
         assert_eq!(r1.sorted_coords(r2, Dir::Horiz), [10, 20, 30, 70]);
