@@ -2,6 +2,9 @@
 
 #![warn(missing_docs)]
 
+#[cfg(test)]
+pub(crate) mod tests;
+
 use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
@@ -131,5 +134,15 @@ impl Severity {
     #[inline]
     pub fn is_error(&self) -> bool {
         matches!(*self, Self::Error)
+    }
+}
+
+impl Display for Severity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Info => write!(f, "info"),
+            Self::Warning => write!(f, "warning"),
+            Self::Error => write!(f, "error"),
+        }
     }
 }
