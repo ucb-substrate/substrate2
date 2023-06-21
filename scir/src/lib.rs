@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use arcstr::ArcStr;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
@@ -23,7 +25,7 @@ pub enum BoolValue {
 }
 
 pub enum NumericExpr {
-    Literal(ArcStr),
+    Literal(Decimal),
     Param(ArcStr),
     BinOp {
         op: BinOp,
@@ -39,16 +41,38 @@ pub enum BinOp {
     Div,
 }
 
-pub enum ParamType {
-    String,
-    Number,
-    Bool,
+pub enum Param {
+    String { default: Option<ArcStr> },
+    Number { default: Option<Decimal> },
+    Bool { default: Option<bool> },
+}
+
+impl Param {
+    pub fn has_default(&self) -> bool {
+        match self {
+            Self::String { default } => default.is_some(),
+            Self::Number { default } => default.is_some(),
+            Self::Bool { default } => default.is_some(),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NodeId(u64);
 #[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CellId(u64);
+
+impl Display for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "node{}", self.0)
+    }
+}
+
+impl Display for CellId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "cell{}", self.0)
+    }
+}
 
 pub enum PrimitiveDevice {
     Res2 {
@@ -65,21 +89,22 @@ pub enum PrimitiveDevice {
     },
 }
 
+impl PrimitiveDevice {
+    pub fn nodes(&self) -> impl IntoIterator<Item = NodeId> {
+        match self {
+            Self::Res2 { pos, neg, .. } => vec![*pos, *neg],
+            Self::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
+        }
+    }
+}
+
 pub struct Library {
     cell_id: u64,
     cells: HashMap<CellId, Cell>,
 }
 
-pub enum Direction {
-    Input,
-    Output,
-    InOut,
-}
-
 pub struct Port {
-    name: ArcStr,
     node: NodeId,
-    dir: Direction,
 }
 
 pub struct NodeInfo {
@@ -105,12 +130,12 @@ pub struct Instance {
 }
 
 pub struct Cell {
-    name: ArcStr,
-    ports: Vec<Port>,
-    nodes: HashMap<NodeId, NodeInfo>,
-    instances: Vec<Instance>,
-    primitives: Vec<PrimitiveDevice>,
-    params: HashMap<ArcStr, ParamType>,
+    pub(crate) name: ArcStr,
+    pub(crate) ports: Vec<Port>,
+    pub(crate) nodes: HashMap<NodeId, NodeInfo>,
+    pub(crate) instances: Vec<Instance>,
+    pub(crate) primitives: Vec<PrimitiveDevice>,
+    pub(crate) params: HashMap<ArcStr, Param>,
 }
 
 impl Library {
@@ -124,6 +149,13 @@ impl Library {
     pub fn add_cell(&mut self, cell: Cell) {
         self.cell_id += 1;
         self.cells.insert(CellId(self.cell_id), cell);
+    }
+}
+
+impl Default for Library {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
 
