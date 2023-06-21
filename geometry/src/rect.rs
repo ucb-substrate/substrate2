@@ -12,6 +12,7 @@ use crate::point::Point;
 use crate::side::{Side, Sides};
 use crate::span::Span;
 use crate::transform::{Transform, Transformation, Translate};
+use crate::union::BoundingUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -1241,26 +1242,33 @@ impl Bbox for Rect {
 impl Intersect<Rect> for Rect {
     type Output = Self;
 
-    fn intersect(self, bounds: &Rect) -> Option<Self::Output> {
+    fn intersect(&self, bounds: &Rect) -> Option<Self::Output> {
         self.intersection(*bounds)
     }
 }
 
 impl Translate for Rect {
-    fn translate(self, p: Point) -> Self {
-        Self::new(self.p0.translate(p), self.p1.translate(p))
+    fn translate(&mut self, p: Point) {
+        self.p0.translate(p);
+        self.p1.translate(p);
     }
 }
 
 impl Transform for Rect {
-    fn transform(self, trans: Transformation) -> Self {
-        let (p0, p1) = (self.p0, self.p1);
-        let p0p = p0.transform(trans);
-        let p1p = p1.transform(trans);
+    fn transform(&mut self, trans: Transformation) {
+        let (mut p0, mut p1) = (self.p0, self.p1);
+        p0.transform(trans);
+        p1.transform(trans);
 
-        let p0 = Point::new(std::cmp::min(p0p.x, p1p.x), std::cmp::min(p0p.y, p1p.y));
-        let p1 = Point::new(std::cmp::max(p0p.x, p1p.x), std::cmp::max(p0p.y, p1p.y));
-        Rect { p0, p1 }
+        self.p0 = Point::new(std::cmp::min(p0.x, p1.x), std::cmp::min(p0.y, p1.y));
+        self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));
+    }
+}
+
+impl BoundingUnion<Rect> for Rect {
+    type Output = Rect;
+    fn bounding_union(&self, other: &Rect) -> Self::Output {
+        self.union(*other)
     }
 }
 
@@ -1277,7 +1285,7 @@ mod tests {
     use crate::prelude::*;
 
     #[test]
-    fn sorted_edges() {
+    fn sorted_coords_works() {
         let r1 = Rect::from_sides(10, 25, 30, 50);
         let r2 = Rect::from_sides(20, 15, 70, 35);
         assert_eq!(r1.sorted_coords(r2, Dir::Horiz), [10, 20, 30, 70]);

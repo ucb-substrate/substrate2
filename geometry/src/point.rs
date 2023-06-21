@@ -76,20 +76,19 @@ impl Point {
 }
 
 impl Translate for Point {
-    fn translate(self, p: Point) -> Self {
-        Self::new(self.x + p.x, self.y + p.y)
+    fn translate(&mut self, p: Point) {
+        self.x += p.x;
+        self.y += p.y;
     }
 }
 
 impl Transform for Point {
-    fn transform(self, trans: Transformation) -> Self {
+    fn transform(&mut self, trans: Transformation) {
         let xf = self.x as f64;
         let yf = self.y as f64;
         let x = trans.a[0][0] * xf + trans.a[0][1] * yf + trans.b[0];
         let y = trans.a[1][0] * xf + trans.a[1][1] * yf + trans.b[1];
-        Self {
-            x: x.round() as i64,
-            y: y.round() as i64,
-        }
+        self.x = x.round() as i64;
+        self.y = y.round() as i64;
     }
 }

@@ -7,6 +7,7 @@ use crate::contains::{Containment, Contains};
 use crate::intersect::Intersect;
 use crate::sign::Sign;
 use crate::snap::snap_to_grid;
+use crate::union::BoundingUnion;
 
 /// A closed interval of coordinates in one dimension.
 ///
@@ -409,7 +410,7 @@ impl Span {
 
 impl Intersect<Span> for Span {
     type Output = Self;
-    fn intersect(self, other: &Span) -> Option<Self::Output> {
+    fn intersect(&self, other: &Span) -> Option<Self::Output> {
         self.intersection(*other)
     }
 }
@@ -423,6 +424,13 @@ impl Contains<Span> for Span {
         } else {
             Containment::None
         }
+    }
+}
+
+impl BoundingUnion<Span> for Span {
+    type Output = Span;
+    fn bounding_union(&self, other: &Span) -> Self::Output {
+        self.union(*other)
     }
 }
 

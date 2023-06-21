@@ -251,7 +251,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_named_all_rectangular() {
+    fn orientations_convert_to_unique_bytes() {
         let opts: [OrientationBytes; 8] = NamedOrientation::all_rectangular()
             .map(|n| n.into_orientation())
             .map(OrientationBytes::from);

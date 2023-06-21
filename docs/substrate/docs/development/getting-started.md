@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # Getting Started
 
+Follow the instructions below to set up your development environment for Substrate.
+
 ## Substrate Core
 
 1. [Install Rust.](https://www.rust-lang.org/tools/install) Make sure you have at least version 1.70.0.
