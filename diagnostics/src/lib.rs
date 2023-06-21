@@ -1,13 +1,22 @@
+//! Utilities for collecting diagnostics.
+
+#![warn(missing_docs)]
+
 use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
 /// A diagnostic issue that should be reported to users.
 pub trait Diagnostic: Debug + Display {
-    fn help(&self) -> Option<String> {
+    /// Returns an optional help message that should indicate
+    /// what users need to do to resolve an issue.
+    fn help(&self) -> Option<Box<dyn Display>> {
         None
     }
 
+    /// Returns the severity of this issue.
+    ///
+    /// The default implementation returns [`Severity::default`].
     fn severity(&self) -> Severity {
         Default::default()
     }
@@ -16,7 +25,9 @@ pub trait Diagnostic: Debug + Display {
 /// An enumeration of possible severity levels.
 #[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Severity {
+    /// An informational message.
     Info,
+    /// A warning.
     #[default]
     Warning,
     /// An error. Often, but not always, fatal.

@@ -10,6 +10,7 @@
 //!
 //! SCIR modules are very simple: each node is a single net.
 //! There are no buses/arrays.
+#![warn(missing_docs)]
 
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -119,16 +120,26 @@ impl Display for CellId {
 pub enum PrimitiveDevice {
     /// An ideal 2-terminal resistor.
     Res2 {
+        /// The positive terminal.
         pos: NodeId,
+        /// The negative terminal.
         neg: NodeId,
+        /// The value of the resistance, in Ohms.
         value: Expr,
     },
     /// A 3-terminal resistor.
     Res3 {
+        /// The positive terminal.
         pos: NodeId,
+        /// The negative terminal.
         neg: NodeId,
+        /// The substrate/body terminal.
         sub: NodeId,
+        /// The value of the resistance, in Ohms.
         value: Expr,
+        /// The name of the resistor model to use.
+        ///
+        /// The available resistor models are usually specified by a PDK.
         model: Option<ArcStr>,
     },
 }
