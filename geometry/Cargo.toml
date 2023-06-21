@@ -7,3 +7,4 @@ edition = "2021"
 serde = { version = "1", features = ["derive"] }
 array_map = { version = "0.4", features = ["derive", "serde", "std"] }
 thiserror = "1.0.40"
+impl-trait-for-tuples = "0.2.2"

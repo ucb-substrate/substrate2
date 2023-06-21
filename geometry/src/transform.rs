@@ -1,5 +1,6 @@
 //! Transformation types and traits.
 
+use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
 use super::orientation::Orientation;
@@ -213,9 +214,18 @@ fn matvec(a: &[[f64; 2]; 2], b: &[f64; 2]) -> [f64; 2] {
 }
 
 /// A trait for specifying how an object is changed by a transformation.
+#[impl_for_tuples(32)]
 pub trait Transform {
     /// Applies matrix-vector [`Transformation`] `trans`.
-    fn transform(&mut self, trans: Transformation) -> &mut Self;
+    fn transform(&mut self, trans: Transformation);
+}
+
+impl<T: Transform> Transform for Vec<T> {
+    fn transform(&mut self, trans: Transformation) {
+        for i in self.iter_mut() {
+            i.transform(trans);
+        }
+    }
 }
 
 /// A trait for specifying how an object is changed by a transformation.
@@ -234,9 +244,18 @@ pub trait TransformOwned: Transform + Sized {
 impl<T: Transform + Sized> TransformOwned for T {}
 
 /// A trait for specifying how a shape is translated by a [`Point`].
+#[impl_for_tuples(32)]
 pub trait Translate {
     /// Translates the shape by a [`Point`] through mutation.
-    fn translate(&mut self, p: Point) -> &mut Self;
+    fn translate(&mut self, p: Point);
+}
+
+impl<T: Translate> Translate for Vec<T> {
+    fn translate(&mut self, p: Point) {
+        for i in self.iter_mut() {
+            i.translate(p);
+        }
+    }
 }
 
 /// A trait for specifying how a shape is translated by a [`Point`].

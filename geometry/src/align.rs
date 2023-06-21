@@ -58,7 +58,7 @@ pub trait AlignRect: Translate {
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
-    fn align(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) -> &mut Self {
+    fn align(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) {
         match mode {
             AlignMode::Left => {
                 self.translate(Point::new(orect.left() - srect.left() + offset, 0));
@@ -94,10 +94,9 @@ pub trait AlignRect: Translate {
                 self.translate(Point::new(0, orect.bot() - srect.top() + offset));
             }
             AlignMode::Above => {
-                self.translate(Point::new(0, orect.top() - srect.top() + offset));
+                self.translate(Point::new(0, orect.top() - srect.bot() + offset));
             }
         }
-        self
     }
 }
 
@@ -120,9 +119,73 @@ pub trait AlignBbox: AlignRect + Bbox {
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
-    fn align_bbox(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) -> &mut Self {
-        self.align(mode, self.bbox().unwrap(), other.bbox().unwrap(), offset)
+    fn align_bbox(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) {
+        self.align(mode, self.bbox().unwrap(), other.bbox().unwrap(), offset);
     }
 }
 
 impl<T: AlignRect + Bbox> AlignBbox for T {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        align::{AlignBbox, AlignMode, AlignRect},
+        rect::Rect,
+    };
+
+    #[test]
+    fn align_and_align_bbox_work() {
+        let mut rect1 = Rect::from_sides(0, 0, 100, 200);
+        let mut rect1_bbox = Rect::from_sides(0, 0, 100, 200);
+        let rect2 = Rect::from_sides(500, 600, 700, 700);
+        rect1.align(AlignMode::Left, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::Left, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(500, 0, 600, 200));
+        assert_eq!(rect1_bbox, Rect::from_sides(500, 0, 600, 200));
+
+        rect1.align(AlignMode::Right, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::Right, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(600, 0, 700, 200));
+        assert_eq!(rect1_bbox, Rect::from_sides(600, 0, 700, 200));
+
+        rect1.align(AlignMode::Bottom, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::Bottom, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(600, 600, 700, 800));
+        assert_eq!(rect1_bbox, Rect::from_sides(600, 600, 700, 800));
+
+        rect1.align(AlignMode::Top, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::Top, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(600, 500, 700, 700));
+        assert_eq!(rect1_bbox, Rect::from_sides(600, 500, 700, 700));
+
+        rect1.align(AlignMode::ToTheLeft, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::ToTheLeft, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(400, 500, 500, 700));
+        assert_eq!(rect1_bbox, Rect::from_sides(400, 500, 500, 700));
+
+        rect1.align(AlignMode::ToTheRight, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::ToTheRight, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(700, 500, 800, 700));
+        assert_eq!(rect1_bbox, Rect::from_sides(700, 500, 800, 700));
+
+        rect1.align(AlignMode::Beneath, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::Beneath, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(700, 400, 800, 600));
+        assert_eq!(rect1_bbox, Rect::from_sides(700, 400, 800, 600));
+
+        rect1.align(AlignMode::Above, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::Above, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(700, 700, 800, 900));
+        assert_eq!(rect1_bbox, Rect::from_sides(700, 700, 800, 900));
+
+        rect1.align(AlignMode::CenterHorizontal, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::CenterHorizontal, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(550, 700, 650, 900));
+        assert_eq!(rect1_bbox, Rect::from_sides(550, 700, 650, 900));
+
+        rect1.align(AlignMode::CenterVertical, rect1, rect2, 0);
+        rect1_bbox.align_bbox(AlignMode::CenterVertical, rect2, 0);
+        assert_eq!(rect1, Rect::from_sides(550, 550, 650, 750));
+        assert_eq!(rect1_bbox, Rect::from_sides(550, 550, 650, 750));
+    }
+}
