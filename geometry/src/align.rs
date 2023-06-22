@@ -66,7 +66,8 @@ pub trait AlignRectMut: TranslateMut {
     /// along the alignment axis.
     ///
     /// For center alignments, if the centers are a non-integer number of units apart,
-    /// the translation amount is rounded down to the nearest integer.
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     fn align_mut(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) {
         match mode {
             AlignMode::Left => {
@@ -139,7 +140,8 @@ pub trait AlignRect: AlignRectMut + Sized {
     /// along the alignment axis.
     ///
     /// For center alignments, if the centers are a non-integer number of units apart,
-    /// the translation amount is rounded down to the nearest integer.
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     ///
     /// Creates a new shape at the aligned location of the original.
     fn align(mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) -> Self {
@@ -170,7 +172,8 @@ pub trait AlignBboxMut: AlignRectMut + Bbox {
     /// along the alignment axis.
     ///
     /// For center alignments, if the centers are a non-integer number of units apart,
-    /// the translation amount is rounded down to the nearest integer.
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     fn align_bbox_mut(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) {
         self.align_mut(mode, self.bbox().unwrap(), other.bbox().unwrap(), offset);
     }
@@ -199,7 +202,8 @@ pub trait AlignBbox: AlignBboxMut + Sized {
     /// along the alignment axis.
     ///
     /// For center alignments, if the centers are a non-integer number of units apart,
-    /// the translation amount is rounded down to the nearest integer.
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     ///
     /// Creates a new shape at the aligned location of the original.
     fn align_bbox(mut self, mode: AlignMode, other: impl Bbox, offset: i64) -> Self {

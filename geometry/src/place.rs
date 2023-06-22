@@ -45,7 +45,8 @@ pub enum PlaceMode {
 pub trait PlaceRectMut: TranslateMut {
     /// Places an object at the given point.
     ///
-    /// For center alignments, the center's coordinates are rounded down to the nearest integer.
+    /// For center alignments, the center's non-integer coordinates are rounded down to the nearest integer.
+    /// This behavior is subject to change and should not be relied upon.
     fn place_mut(&mut self, mode: PlaceMode, srect: Rect, pt: Point) {
         match mode {
             PlaceMode::Corner(corner) => {
@@ -112,7 +113,8 @@ impl<T: TranslateMut> PlaceRectMut for T {}
 pub trait PlaceRect: PlaceRectMut + Sized {
     /// Places an object at the given point.
     ///
-    /// For center alignments, the center's coordinates are rounded down to the nearest integer.
+    /// For center alignments, the center's non-integer coordinates are rounded down to the nearest integer.
+    /// This behavior is subject to change and should not be relied upon.
     ///
     /// Creates a new shape at the placed location.
     fn place(mut self, mode: PlaceMode, srect: Rect, pt: Point) -> Self {
@@ -137,7 +139,8 @@ impl<T: PlaceRectMut + Sized> PlaceRect for T {}
 pub trait PlaceBboxMut: PlaceRectMut + Bbox {
     /// Places an object at the given point using its bounding box.
     ///
-    /// For center alignments, the center's coordinates are rounded down to the nearest integer.
+    /// For center alignments, the center's non-integer coordinates are rounded down to the nearest integer.
+    /// This behavior is subject to change and should not be relied upon.
     fn place_bbox_mut(&mut self, mode: PlaceMode, pt: Point) {
         self.place_mut(mode, self.bbox().unwrap(), pt)
     }
@@ -160,7 +163,8 @@ impl<T: PlaceRectMut + Bbox> PlaceBboxMut for T {}
 pub trait PlaceBbox: PlaceBboxMut + Sized {
     /// Places an object at the given point using its boudning box.
     ///
-    /// For center alignments, the center's coordinates are rounded down to the nearest integer.
+    /// For center alignments, the center's non-integer coordinates are rounded down to the nearest integer.
+    /// This behavior is subject to change and should not be relied upon.
     ///
     /// Creates a new shape at the placed location.
     fn place_bbox(mut self, mode: PlaceMode, pt: Point) -> Self {
