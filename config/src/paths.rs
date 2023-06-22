@@ -18,6 +18,7 @@ pub fn ancestors<'a>(path: &'a Path, stop_root_at: Option<&Path>) -> PathAncesto
     PathAncestors::new(path, stop_root_at)
 }
 
+/// An iterator over parent paths from the current directory to a certain stopping directory.
 pub struct PathAncestors<'a> {
     current: Option<&'a Path>,
     stop_at: Option<PathBuf>,

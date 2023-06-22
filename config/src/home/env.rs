@@ -24,7 +24,7 @@ pub trait Env {
 
 /// Implements Env for the OS context, both Unix style and Windows.
 ///
-/// This is trait permits in-process testing by providing a control point to
+/// This trait permits in-process testing by providing a control point to
 /// allow in-process divergence on what is normally process wide state.
 ///
 /// Implementations should be provided by whatever testing framework the caller
@@ -44,6 +44,7 @@ impl Env for OsEnv {
     }
 }
 
+/// The current OS context.
 pub const OS_ENV: OsEnv = OsEnv;
 
 /// Returns the path of the current user's home directory from [`Env::home_dir`].
