@@ -25,6 +25,12 @@ pub enum Cause {
         id2: CellId,
         name: ArcStr,
     },
+    /// Two instances in the same cell have the same name.
+    DuplicateInstanceNames {
+        inst_name: ArcStr,
+        cell_id: CellId,
+        cell_name: ArcStr,
+    },
     /// Two signals in a cell have the same name.
     DuplicateSignalNames {
         id1: SignalId,
@@ -173,6 +179,11 @@ impl Display for Cause {
                 "duplicate cell names: found two or more cells named `{}`",
                 name
             ),
+            Self::DuplicateInstanceNames { inst_name, cell_name, .. } => write!(
+                f,
+                "duplicate instance names: found two or more instances named `{}` in cell `{}`",
+                inst_name, cell_name,
+            ),
             Self::DuplicateSignalNames {
                 name, cell_name, ..
             } => write!(
@@ -181,40 +192,114 @@ impl Display for Cause {
                 name, cell_name
             ),
             Self::ShortedPorts { name, cell_name, .. } =>
-                write!(f, "shorted ports: port `{}` in cell `{}` is connected to a signal already used by another port", name, cell_name),
+                write!(
+                    f,
+                    "shorted ports: port `{}` in cell `{}` is connected to a signal already used by another port",
+                    name,
+                    cell_name
+                ),
 
             Self::MissingSignal { id, cell_name, .. } =>
-                write!(f, "invalid signal ID {} in cell `{}`", id, cell_name),
+                write!(
+                    f,
+                    "invalid signal ID {} in cell `{}`",
+                    id,
+                    cell_name
+                ),
 
             Self::MissingChildCell { child_cell_id, parent_cell_name, instance_name, .. } =>
-                write!(f, "missing child cell: instance `{}` in cell `{}` references cell ID `{}`, but no cell with this ID was found in the library", instance_name, parent_cell_name, child_cell_id),
+                write!(
+                    f,
+                    "missing child cell: instance `{}` in cell `{}` references cell ID `{}`, but no cell with this ID was found in the library",
+                    instance_name,
+                    parent_cell_name,
+                    child_cell_id
+                ),
 
             Self::UnconnectedPort { child_cell_name, port, parent_cell_name, instance_name, .. } =>
-                write!(f, "unconnected port: instance `{}` in cell `{}` does not specify a connection for port `{}` of cell `{}`", instance_name, parent_cell_name, port, child_cell_name),
+                write!(
+                    f,
+                    "unconnected port: instance `{}` in cell `{}` does not specify a connection for port `{}` of cell `{}`",
+                    instance_name,
+                    parent_cell_name,
+                    port,
+                    child_cell_name
+                ),
 
             Self::ExtraPort { child_cell_name, port, parent_cell_name, instance_name, .. } =>
-                write!(f, "extra port: instance `{}` in cell `{}` specifies a connection for port `{}` of cell `{}`, but this cell has no such port", instance_name, parent_cell_name, port, child_cell_name),
+                write!(
+                    f,
+                    "extra port: instance `{}` in cell `{}` specifies a connection for port `{}` of cell `{}`, but this cell has no such port",
+                    instance_name,
+                    parent_cell_name,
+                    port,
+                    child_cell_name
+                ),
 
             Self::MissingParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
-                write!(f, "unspecified parameter: instance `{}` in cell `{}` does not specify a value for parameter `{}` of cell `{}`, and this parameter does not have a default value", instance_name, parent_cell_name, param, child_cell_name),
+                write!(
+                    f,
+                    "unspecified parameter: instance `{}` in cell `{}` does not specify a value for parameter `{}` of cell `{}`, and this parameter does not have a default value",
+                    instance_name,
+                    parent_cell_name,
+                    param,
+                    child_cell_name
+                ),
 
             Self::ExtraParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
-                write!(f, "extra param: instance `{}` in cell `{}` specifies a value for parameter `{}` of cell `{}`, but this cell has no such parameter", instance_name, parent_cell_name, param, child_cell_name),
+                write!(
+                    f,
+                    "extra param: instance `{}` in cell `{}` specifies a value for parameter `{}` of cell `{}`, but this cell has no such parameter",
+                    instance_name,
+                    parent_cell_name,
+                    param,
+                    child_cell_name
+                ),
 
             Self::IndexOutOfBounds {idx, width, cell_name, .. } =>
-                write!(f, "index out of bounds: attempted to access index {} of signal with width {} in cell `{}`", idx, width, cell_name),
+                write!(
+                    f,
+                    "index out of bounds: attempted to access index {} of signal with width {} in cell `{}`",
+                    idx,
+                    width,
+                    cell_name
+                ),
 
             Self::MissingIndex { signal_name, cell_name, .. } =>
-                write!(f, "missing index on use of bus signal `{}` in cell `{}`", signal_name, cell_name),
+                write!(
+                    f,
+                    "missing index on use of bus signal `{}` in cell `{}`",
+                    signal_name,
+                    cell_name
+                ),
 
             Self::IndexedWire { signal_name, cell_name, .. } =>
-                write!(f, "attempted to index a single-bit wire: signal `{}` in cell `{}`", signal_name, cell_name),
+                write!(
+                    f,
+                    "attempted to index a single-bit wire: signal `{}` in cell `{}`",
+                    signal_name,
+                    cell_name
+                ),
 
             Self::PortWidthMismatch { expected_width, actual_width, instance_name, port, parent_cell_name, child_cell_name, .. } =>
-                write!(f, "mismatched port width: instance `{}` in cell `{}` specifies a connection to port `{}` of cell `{}` of width {}, but the expected width is {}", instance_name, parent_cell_name, port, child_cell_name, actual_width, expected_width),
+                write!(
+                    f,
+                    "mismatched port width: instance `{}` in cell `{}` specifies a connection to port `{}` of cell `{}` of width {}, but the expected width is {}",
+                    instance_name,
+                    parent_cell_name,
+                    port,
+                    child_cell_name,
+                    actual_width,
+                    expected_width
+                ),
 
             Self::PrimitiveWidthMismatch { width, parent_cell_name, .. } =>
-                write!(f, "mismatched primitive device width: cell `{}` specifies a connection of width {} to a primitive device, but the expected width is 1", parent_cell_name, width),
+                write!(
+                    f,
+                    "mismatched primitive device width: cell `{}` specifies a connection of width {} to a primitive device, but the expected width is 1",
+                    parent_cell_name,
+                    width
+                ),
         }
     }
 }
@@ -286,7 +371,19 @@ impl Library {
             )
         };
 
+        let mut inst_names = HashSet::new();
         for instance in cell.instances.iter() {
+            if inst_names.contains(&instance.name) {
+                issues.add(ValidatorIssue::new_and_log(
+                    Cause::DuplicateInstanceNames {
+                        inst_name: instance.name.clone(),
+                        cell_id: id,
+                        cell_name: cell.name.clone(),
+                    },
+                    Severity::Warning,
+                ));
+            }
+            inst_names.insert(instance.name.clone());
             for concat in instance.connections.values() {
                 for part in concat.parts.iter() {
                     let signal = match cell.signals.get(&part.signal()) {
