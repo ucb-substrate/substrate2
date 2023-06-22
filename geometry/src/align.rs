@@ -58,6 +58,9 @@ pub trait AlignRect: Translate {
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
+    ///
+    /// For center alignments, if the centers are a non-integer number of units apart,
+    /// the translation amount is rounded down to the nearest integer.
     fn align(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) {
         match mode {
             AlignMode::Left => {
@@ -119,6 +122,10 @@ pub trait AlignBbox: AlignRect + Bbox {
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
+    ///
+    ///
+    /// For center alignments, if the centers are a non-integer number of units apart,
+    /// the translation amount is rounded down to the nearest integer.
     fn align_bbox(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) {
         self.align(mode, self.bbox().unwrap(), other.bbox().unwrap(), offset);
     }
