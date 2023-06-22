@@ -47,3 +47,31 @@ fn issue_set_counters() {
     assert!(issues.has_error());
     assert!(issues.has_warning());
 }
+
+#[test]
+fn default_severity_is_warning() {
+    assert_eq!(Severity::default(), Severity::Warning);
+}
+
+#[test]
+fn severity_as_tracing_level() {
+    assert_eq!(Severity::Info.as_tracing_level(), tracing::Level::INFO);
+    assert_eq!(Severity::Warning.as_tracing_level(), tracing::Level::WARN);
+    assert_eq!(Severity::Error.as_tracing_level(), tracing::Level::ERROR);
+}
+
+#[test]
+fn severity_is_error() {
+    assert!(!Severity::Info.is_error());
+    assert!(!Severity::Warning.is_error());
+    assert!(Severity::Error.is_error());
+}
+
+#[test]
+fn default_help_is_none() {
+    assert!(TestIssue {
+        severity: Severity::Warning,
+    }
+    .help()
+    .is_none());
+}
