@@ -59,7 +59,7 @@ impl Slice {
     }
 
     /// The width of this slice.
-    /// 
+    ///
     /// Returns 1 if this slice represents a single bit wire.
     #[inline]
     pub fn width(&self) -> usize {

@@ -108,6 +108,23 @@ pub enum Cause {
         cell_id: CellId,
         cell_name: ArcStr,
     },
+    /// An instance specified a connection of incorrect width.
+    PortWidthMismatch {
+        expected_width: usize,
+        actual_width: usize,
+        instance_name: ArcStr,
+        port: ArcStr,
+        parent_cell_id: CellId,
+        parent_cell_name: ArcStr,
+        child_cell_id: CellId,
+        child_cell_name: ArcStr,
+    },
+    /// Incorrect width in a connection to a primitive device.
+    PrimitiveWidthMismatch {
+        width: usize,
+        parent_cell_id: CellId,
+        parent_cell_name: ArcStr,
+    },
 }
 
 impl Diagnostic for ValidatorIssue {
@@ -192,6 +209,12 @@ impl Display for Cause {
 
             Self::IndexedWire { signal_name, cell_name, .. } =>
                 write!(f, "attempted to index a single-bit wire: signal `{}` in cell `{}`", signal_name, cell_name),
+
+            Self::PortWidthMismatch { expected_width, actual_width, instance_name, port, parent_cell_name, child_cell_name, .. } =>
+                write!(f, "mismatched port width: instance `{}` in cell `{}` specifies a connection to port `{}` of cell `{}` of width {}, but the expected width is {}", instance_name, parent_cell_name, port, child_cell_name, actual_width, expected_width),
+
+            Self::PrimitiveWidthMismatch { width, parent_cell_name, .. } =>
+                write!(f, "mismatched primitive device width: cell `{}` specifies a connection of width {} to a primitive device, but the expected width is 1", parent_cell_name, width),
         }
     }
 }
@@ -375,19 +398,40 @@ impl Library {
             for port in child.ports.iter() {
                 let name = &child.signals[&port.signal].name;
                 child_ports.insert(name.clone());
-                if !instance.connections.contains_key(name) {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::UnconnectedPort {
-                            child_cell_id: instance.cell,
-                            child_cell_name: child.name.clone(),
-                            port: name.clone(),
-                            parent_cell_name: cell.name.clone(),
-                            parent_cell_id: id,
-                            instance_name: instance.name.clone(),
-                        },
-                        Severity::Error,
-                    );
-                    issues.add(issue);
+                match instance.connections.get(name) {
+                    Some(conn) => {
+                        let expected_width = child.signals[&port.signal].width.unwrap_or(1);
+                        if conn.width() != expected_width {
+                            let issue = ValidatorIssue::new_and_log(
+                                Cause::PortWidthMismatch {
+                                    expected_width,
+                                    actual_width: conn.width(),
+                                    port: name.clone(),
+                                    instance_name: instance.name.clone(),
+                                    child_cell_id: instance.cell,
+                                    child_cell_name: child.name.clone(),
+                                    parent_cell_name: cell.name.clone(),
+                                    parent_cell_id: id,
+                                },
+                                Severity::Error,
+                            );
+                            issues.add(issue);
+                        }
+                    }
+                    None => {
+                        let issue = ValidatorIssue::new_and_log(
+                            Cause::UnconnectedPort {
+                                child_cell_id: instance.cell,
+                                child_cell_name: child.name.clone(),
+                                port: name.clone(),
+                                parent_cell_name: cell.name.clone(),
+                                parent_cell_id: id,
+                                instance_name: instance.name.clone(),
+                            },
+                            Severity::Error,
+                        );
+                        issues.add(issue);
+                    }
                 }
             }
 
@@ -440,6 +484,22 @@ impl Library {
                             parent_cell_name: cell.name.clone(),
                             parent_cell_id: id,
                             instance_name: instance.name.clone(),
+                        },
+                        Severity::Warning,
+                    );
+                    issues.add(issue);
+                }
+            }
+        }
+
+        for device in cell.primitives.iter() {
+            for slice in device.nodes() {
+                if slice.width() != 1 {
+                    let issue = ValidatorIssue::new_and_log(
+                        Cause::PrimitiveWidthMismatch {
+                            width: slice.width(),
+                            parent_cell_id: id,
+                            parent_cell_name: cell.name.clone(),
                         },
                         Severity::Warning,
                     );

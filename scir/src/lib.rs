@@ -188,6 +188,13 @@ impl Concat {
     pub fn new(parts: Vec<Slice>) -> Self {
         Self { parts }
     }
+
+    /// The width of this concatenation.
+    ///
+    /// Equal to the sum of the widths of all constituent slices.
+    pub fn width(&self) -> usize {
+        self.parts.iter().map(Slice::width).sum()
+    }
 }
 
 impl From<Vec<Slice>> for Concat {
@@ -335,7 +342,9 @@ impl Cell {
     /// It is not possible to expose only a portion of a bus.
     /// Create two separate buses instead.
     pub fn expose_port(&mut self, signal: impl Into<SignalId>) {
-        self.ports.push(Port { signal: signal.into() });
+        self.ports.push(Port {
+            signal: signal.into(),
+        });
     }
 
     /// Add the given instance to the cell.
