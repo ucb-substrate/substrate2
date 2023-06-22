@@ -215,15 +215,15 @@ fn matvec(a: &[[f64; 2]; 2], b: &[f64; 2]) -> [f64; 2] {
 
 /// A trait for specifying how an object is changed by a transformation.
 #[impl_for_tuples(32)]
-pub trait Transform {
+pub trait TransformMut {
     /// Applies matrix-vector [`Transformation`] `trans`.
-    fn transform(&mut self, trans: Transformation);
+    fn transform_mut(&mut self, trans: Transformation);
 }
 
-impl<T: Transform> Transform for Vec<T> {
-    fn transform(&mut self, trans: Transformation) {
+impl<T: TransformMut> TransformMut for Vec<T> {
+    fn transform_mut(&mut self, trans: Transformation) {
         for i in self.iter_mut() {
-            i.transform(trans);
+            i.transform_mut(trans);
         }
     }
 }
@@ -231,29 +231,29 @@ impl<T: Transform> Transform for Vec<T> {
 /// A trait for specifying how an object is changed by a transformation.
 ///
 /// Takes in an owned copy of the shape and returns the transformed version.
-pub trait TransformOwned: Transform + Sized {
+pub trait Transform: TransformMut + Sized {
     /// Applies matrix-vector [`Transformation`] `trans`.
     ///
-    /// Creates a new shape at a location equal to the transformation of our own.
-    fn transform_owned(mut self, trans: Transformation) -> Self {
-        self.transform(trans);
+    /// Creates a new shape at a location equal to the transformation of the original.
+    fn transform(mut self, trans: Transformation) -> Self {
+        self.transform_mut(trans);
         self
     }
 }
 
-impl<T: Transform + Sized> TransformOwned for T {}
+impl<T: TransformMut + Sized> Transform for T {}
 
 /// A trait for specifying how a shape is translated by a [`Point`].
 #[impl_for_tuples(32)]
-pub trait Translate {
+pub trait TranslateMut {
     /// Translates the shape by a [`Point`] through mutation.
-    fn translate(&mut self, p: Point);
+    fn translate_mut(&mut self, p: Point);
 }
 
-impl<T: Translate> Translate for Vec<T> {
-    fn translate(&mut self, p: Point) {
+impl<T: TranslateMut> TranslateMut for Vec<T> {
+    fn translate_mut(&mut self, p: Point) {
         for i in self.iter_mut() {
-            i.translate(p);
+            i.translate_mut(p);
         }
     }
 }
@@ -261,17 +261,17 @@ impl<T: Translate> Translate for Vec<T> {
 /// A trait for specifying how a shape is translated by a [`Point`].
 ///
 /// Takes in an owned copy of the shape and returns the translated version.
-pub trait TranslateOwned: Translate + Sized {
+pub trait Translate: TranslateMut + Sized {
     /// Translates the shape by a [`Point`] through mutation.
     ///
-    /// Creates a new shape at a location equal to the translation of our own.
-    fn translate_owned(mut self, p: Point) -> Self {
-        self.translate(p);
+    /// Creates a new shape at a location equal to the translation of the original.
+    fn translate(mut self, p: Point) -> Self {
+        self.translate_mut(p);
         self
     }
 }
 
-impl<T: Translate + Sized> TranslateOwned for T {}
+impl<T: TranslateMut + Sized> Translate for T {}
 
 #[cfg(test)]
 mod tests {
@@ -333,61 +333,61 @@ mod tests {
     fn point_transformations_work() {
         let pt = Point::new(2, 1);
 
-        let pt_reflect_vert = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_reflect_vert = pt.transform(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::ReflectVert,
         ));
         assert_eq!(pt_reflect_vert, Point::new(2, -1));
 
-        let pt_reflect_horiz = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_reflect_horiz = pt.transform(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::ReflectHoriz,
         ));
         assert_eq!(pt_reflect_horiz, Point::new(-2, 1));
 
-        let pt_r90 = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_r90 = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(23, 11),
             NamedOrientation::R90,
         ));
         assert_eq!(pt_r90, Point::new(22, 13));
 
-        let pt_r180 = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_r180 = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(-50, 10),
             NamedOrientation::R180,
         ));
         assert_eq!(pt_r180, Point::new(-52, 9));
 
-        let pt_r270 = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_r270 = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(80, 90),
             NamedOrientation::R270,
         ));
         assert_eq!(pt_r270, Point::new(81, 88));
 
-        let pt_r90cw = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_r90cw = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(5, 13),
             NamedOrientation::R90Cw,
         ));
         assert_eq!(pt_r90cw, Point::new(6, 11));
 
-        let pt_r180cw = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_r180cw = pt.transform(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::R180Cw,
         ));
         assert_eq!(pt_r180cw, Point::new(-2, -1));
 
-        let pt_r270cw = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_r270cw = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(1, 100),
             NamedOrientation::R270Cw,
         ));
         assert_eq!(pt_r270cw, Point::new(0, 102));
 
-        let pt_flip_yx = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_flip_yx = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(-65, -101),
             NamedOrientation::FlipYx,
         ));
         assert_eq!(pt_flip_yx, Point::new(-64, -99));
 
-        let pt_flip_minus_yx = pt.transform_owned(Transformation::from_offset_and_orientation(
+        let pt_flip_minus_yx = pt.transform(Transformation::from_offset_and_orientation(
             Point::new(1, -5),
             NamedOrientation::FlipMinusYx,
         ));
@@ -400,7 +400,7 @@ mod tests {
             Rect::from_sides(0, 0, 100, 200),
             Rect::from_sides(50, -50, 150, 0),
         );
-        tuple.translate(Point::new(5, 10));
+        tuple.translate_mut(Point::new(5, 10));
         assert_eq!(
             tuple,
             (
@@ -416,7 +416,7 @@ mod tests {
             Rect::from_sides(0, 0, 100, 200),
             Rect::from_sides(50, -50, 150, 0),
         ];
-        v.translate(Point::new(5, 10));
+        v.translate_mut(Point::new(5, 10));
         assert_eq!(
             v,
             vec![
@@ -432,7 +432,7 @@ mod tests {
             Rect::from_sides(0, 0, 100, 200),
             Rect::from_sides(50, -50, 150, 0),
         );
-        tuple.transform(Transformation::from_offset_and_orientation(
+        tuple.transform_mut(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::R90,
         ));
@@ -451,7 +451,7 @@ mod tests {
             Rect::from_sides(0, 0, 100, 200),
             Rect::from_sides(50, -50, 150, 0),
         ];
-        v.transform(Transformation::from_offset_and_orientation(
+        v.transform_mut(Transformation::from_offset_and_orientation(
             Point::zero(),
             NamedOrientation::R90,
         ));

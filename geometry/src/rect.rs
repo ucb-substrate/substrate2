@@ -11,7 +11,7 @@ use crate::intersect::Intersect;
 use crate::point::Point;
 use crate::side::{Side, Sides};
 use crate::span::Span;
-use crate::transform::{Transform, Transformation, Translate};
+use crate::transform::{TransformMut, Transformation, TranslateMut};
 use crate::union::BoundingUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
@@ -1263,18 +1263,18 @@ impl Intersect<Rect> for Rect {
     }
 }
 
-impl Translate for Rect {
-    fn translate(&mut self, p: Point) {
-        self.p0.translate(p);
-        self.p1.translate(p);
+impl TranslateMut for Rect {
+    fn translate_mut(&mut self, p: Point) {
+        self.p0.translate_mut(p);
+        self.p1.translate_mut(p);
     }
 }
 
-impl Transform for Rect {
-    fn transform(&mut self, trans: Transformation) {
+impl TransformMut for Rect {
+    fn transform_mut(&mut self, trans: Transformation) {
         let (mut p0, mut p1) = (self.p0, self.p1);
-        p0.transform(trans);
-        p1.transform(trans);
+        p0.transform_mut(trans);
+        p1.transform_mut(trans);
 
         self.p0 = Point::new(std::cmp::min(p0.x, p1.x), std::cmp::min(p0.y, p1.y));
         self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));

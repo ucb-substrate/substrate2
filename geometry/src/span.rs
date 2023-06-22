@@ -416,7 +416,7 @@ impl Span {
     /// let span = Span::new(0, 100);
     /// assert!(span.has_integer_center());
     ///
-    /// let rect = Span::new(0, 99);
+    /// let span = Span::new(0, 99);
     /// assert!(!span.has_integer_center());
     /// ```
     pub fn has_integer_center(&self) -> bool {

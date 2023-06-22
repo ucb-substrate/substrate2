@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::dims::Dims;
 use crate::dir::Dir;
 use crate::snap::snap_to_grid;
-use crate::transform::{Transform, Transformation, Translate};
+use crate::transform::{TransformMut, Transformation, TranslateMut};
 
 /// A point in two-dimensional space.
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -76,15 +76,15 @@ impl Point {
     }
 }
 
-impl Translate for Point {
-    fn translate(&mut self, p: Point) {
+impl TranslateMut for Point {
+    fn translate_mut(&mut self, p: Point) {
         self.x += p.x;
         self.y += p.y;
     }
 }
 
-impl Transform for Point {
-    fn transform(&mut self, trans: Transformation) {
+impl TransformMut for Point {
+    fn transform_mut(&mut self, trans: Transformation) {
         let xf = self.x as f64;
         let yf = self.y as f64;
         let x = trans.a[0][0] * xf + trans.a[0][1] * yf + trans.b[0];
