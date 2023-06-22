@@ -176,6 +176,9 @@ dependencies = [
 [[package]]
 name = "layout"
 version = "0.0.0"
+dependencies = [
+ "geometry",
+]
 
 [[package]]
 name = "lazycell"
