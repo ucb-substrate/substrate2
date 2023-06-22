@@ -19,6 +19,7 @@ pub mod dir;
 pub mod edge;
 pub mod intersect;
 pub mod orientation;
+pub mod place;
 pub mod point;
 pub mod prelude;
 pub mod rect;

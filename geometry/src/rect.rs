@@ -1231,6 +1231,22 @@ impl Rect {
             Rect::from_spans(r_span, src.vspan()),
         ]
     }
+
+    /// Returns whether the rectangle's center has integer coordinates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(0, 0, 100, 100);
+    /// assert!(rect.has_integer_center());
+    ///
+    /// let rect = Rect::from_sides(0, 0, 99, 100);
+    /// assert!(!rect.has_integer_center());
+    /// ```
+    pub fn has_integer_center(&self) -> bool {
+        self.vspan().has_integer_center() && self.hspan().has_integer_center()
+    }
 }
 
 impl Bbox for Rect {

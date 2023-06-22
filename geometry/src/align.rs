@@ -2,7 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{bbox::Bbox, point::Point, rect::Rect, transform::Translate};
+use crate::{
+    bbox::Bbox,
+    point::Point,
+    rect::Rect,
+    transform::{Translate, TranslateMut},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// An enumeration of possible alignment modes between two geometric shapes.
@@ -54,11 +59,15 @@ pub enum AlignMode {
 /// rect1.align_mut(AlignMode::Left, rect1_alt, rect2, 0);
 /// assert_eq!(rect1, Rect::from_sides(495, 0, 595, 200));
 /// ```
-pub trait AlignRectMut: Translate {
+pub trait AlignRectMut: TranslateMut {
     /// Align `self` based on the relationship between `srect` and `orect`.
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
+    ///
+    /// For center alignments, if the centers are a non-integer number of units apart,
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     fn align_mut(&mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) {
         match mode {
             AlignMode::Left => {
@@ -124,11 +133,15 @@ impl<T: Translate> AlignRectMut for T {}
 /// let rect1_alt = rect1.shrink_all(5).unwrap();
 /// assert_eq!(rect1.align(AlignMode::Left, rect1_alt, rect2, 0), Rect::from_sides(495, 0, 595, 200));
 /// ```
-pub trait AlignRect: AlignRectMut {
+pub trait AlignRect: AlignRectMut + Sized {
     /// Align `self` based on the relationship between `srect` and `orect`.
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
+    ///
+    /// For center alignments, if the centers are a non-integer number of units apart,
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     ///
     /// Creates a new shape at the aligned location of the original.
     fn align(mut self, mode: AlignMode, srect: Rect, orect: Rect, offset: i64) -> Self {
@@ -137,7 +150,7 @@ pub trait AlignRect: AlignRectMut {
     }
 }
 
-impl<T: AlignRectMut> AlignRect for T {}
+impl<T: AlignRectMut + Sized> AlignRect for T {}
 
 /// A geometric shape that can be aligned with another shape using their bounding boxes.
 ///
@@ -152,17 +165,21 @@ impl<T: AlignRectMut> AlignRect for T {}
 /// assert_eq!(rect1.left(), rect2.left());
 /// assert_eq!(rect1, Rect::from_sides(500, 0, 600, 200));
 /// ```
-pub trait AlignBboxMut: AlignRect + Bbox {
+pub trait AlignBboxMut: AlignRectMut + Bbox {
     /// Align `self` using its bounding box and the bounding box of `other`.
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
+    ///
+    /// For center alignments, if the centers are a non-integer number of units apart,
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     fn align_bbox_mut(&mut self, mode: AlignMode, other: impl Bbox, offset: i64) {
         self.align_mut(mode, self.bbox().unwrap(), other.bbox().unwrap(), offset);
     }
 }
 
-impl<T: AlignRect + Bbox> AlignBboxMut for T {}
+impl<T: AlignRectMut + Bbox> AlignBboxMut for T {}
 
 /// A geometric shape that can be aligned with another shape using their bounding boxes.
 ///
@@ -178,11 +195,15 @@ impl<T: AlignRect + Bbox> AlignBboxMut for T {}
 /// assert_eq!(rect1.left(), rect2.left());
 /// assert_eq!(rect1, Rect::from_sides(500, 0, 600, 200));
 /// ```
-pub trait AlignBbox: AlignBboxMut {
+pub trait AlignBbox: AlignBboxMut + Sized {
     /// Align `self` using its bounding box and the bounding box of `other`.
     ///
     /// `offset` represents an offset from the base alignment in the positive direction
     /// along the alignment axis.
+    ///
+    /// For center alignments, if the centers are a non-integer number of units apart,
+    /// the translation amount is rounded down to the nearest integer. This behavior is subject
+    /// to change and should not be relied upon.
     ///
     /// Creates a new shape at the aligned location of the original.
     fn align_bbox(mut self, mode: AlignMode, other: impl Bbox, offset: i64) -> Self {
@@ -191,7 +212,7 @@ pub trait AlignBbox: AlignBboxMut {
     }
 }
 
-impl<T: AlignBboxMut> AlignBbox for T {}
+impl<T: AlignBboxMut + Sized> AlignBbox for T {}
 
 #[cfg(test)]
 mod tests {
