@@ -25,24 +25,24 @@ pub enum Cause {
         id2: CellId,
         name: ArcStr,
     },
-    /// Two nodes in a cell have the same name.
-    DuplicateNodeNames {
-        id1: NodeId,
-        id2: NodeId,
+    /// Two signals in a cell have the same name.
+    DuplicateSignalNames {
+        id1: SignalId,
+        id2: SignalId,
         name: ArcStr,
         cell_id: CellId,
         cell_name: ArcStr,
     },
-    /// A node is listed as a port more than once.
+    /// A signal is listed as a port more than once.
     ShortedPorts {
-        node: NodeId,
+        signal: SignalId,
         name: ArcStr,
         cell_id: CellId,
         cell_name: ArcStr,
     },
-    /// A node identifier is used but not declared.
-    MissingNode {
-        id: NodeId,
+    /// A signal identifier is used but not declared.
+    MissingSignal {
+        id: SignalId,
         cell_id: CellId,
         cell_name: ArcStr,
     },
@@ -88,6 +88,25 @@ pub enum Cause {
         parent_cell_id: CellId,
         parent_cell_name: ArcStr,
         instance_name: ArcStr,
+    },
+    /// A bus index is out of bounds given the width of the bus.
+    IndexOutOfBounds {
+        idx: usize,
+        width: usize,
+        cell_id: CellId,
+        cell_name: ArcStr,
+    },
+    /// Used a bus without indexing into it.
+    MissingIndex {
+        signal_name: ArcStr,
+        cell_id: CellId,
+        cell_name: ArcStr,
+    },
+    /// Attempted to index a single wire.
+    IndexedWire {
+        signal_name: ArcStr,
+        cell_id: CellId,
+        cell_name: ArcStr,
     },
 }
 
@@ -137,18 +156,18 @@ impl Display for Cause {
                 "duplicate cell names: found two or more cells named `{}`",
                 name
             ),
-            Self::DuplicateNodeNames {
+            Self::DuplicateSignalNames {
                 name, cell_name, ..
             } => write!(
                 f,
-                "duplicate node names: found two or more nodes named `{}` in cell `{}`",
+                "duplicate signal names: found two or more signals named `{}` in cell `{}`",
                 name, cell_name
             ),
             Self::ShortedPorts { name, cell_name, .. } =>
-                write!(f, "shorted ports: port `{}` in cell `{}` is connected to a node already used by another port", name, cell_name),
+                write!(f, "shorted ports: port `{}` in cell `{}` is connected to a signal already used by another port", name, cell_name),
 
-            Self::MissingNode { id, cell_name, .. } =>
-                write!(f, "invalid node ID {} in cell `{}`", id, cell_name),
+            Self::MissingSignal { id, cell_name, .. } =>
+                write!(f, "invalid signal ID {} in cell `{}`", id, cell_name),
 
             Self::MissingChildCell { child_cell_id, parent_cell_name, instance_name, .. } =>
                 write!(f, "missing child cell: instance `{}` in cell `{}` references cell ID `{}`, but no cell with this ID was found in the library", instance_name, parent_cell_name, child_cell_id),
@@ -164,6 +183,15 @@ impl Display for Cause {
 
             Self::ExtraParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
                 write!(f, "extra param: instance `{}` in cell `{}` specifies a value for parameter `{}` of cell `{}`, but this cell has no such parameter", instance_name, parent_cell_name, param, child_cell_name),
+
+            Self::IndexOutOfBounds {idx, width, cell_name, .. } =>
+                write!(f, "index out of bounds: attempted to access index {} of signal with width {} in cell `{}`", idx, width, cell_name),
+
+            Self::MissingIndex { signal_name, cell_name, .. } =>
+                write!(f, "missing index on use of bus signal `{}` in cell `{}`", signal_name, cell_name),
+
+            Self::IndexedWire { signal_name, cell_name, .. } =>
+                write!(f, "attempted to index a single-bit wire: signal `{}` in cell `{}`", signal_name, cell_name),
         }
     }
 }
@@ -186,7 +214,7 @@ impl Library {
     fn validate1(&self, issues: &mut IssueSet<ValidatorIssue>) {
         let _guard = span!(
             Level::INFO,
-            "validation pass 1 (checking node and port identifier validity)"
+            "validation pass 1 (checking signal and port identifier validity)"
         )
         .entered();
 
@@ -224,10 +252,10 @@ impl Library {
             span!(Level::INFO, "validating SCIR cell (pass 1)", cell.id = %id, cell.name = %cell.name)
                 .entered();
 
-        let invalid_node = |node_id: NodeId| {
+        let invalid_signal = |signal_id: SignalId| {
             ValidatorIssue::new_and_log(
-                Cause::MissingNode {
-                    id: node_id,
+                Cause::MissingSignal {
+                    id: signal_id,
                     cell_id: id,
                     cell_name: cell.name.clone(),
                 },
@@ -236,33 +264,77 @@ impl Library {
         };
 
         for instance in cell.instances.iter() {
-            for node in instance.connections.values().copied() {
-                if !cell.nodes.contains_key(&node) {
-                    issues.add(invalid_node(node));
+            for concat in instance.connections.values() {
+                for part in concat.parts.iter() {
+                    let signal = match cell.signals.get(&part.signal()) {
+                        Some(signal) => signal,
+                        None => {
+                            issues.add(invalid_signal(part.signal()));
+                            continue;
+                        }
+                    };
+
+                    // check out of bounds indexing.
+                    match (signal.width, part.range()) {
+                        (Some(width), Some(range)) => {
+                            if range.end > width {
+                                issues.add(ValidatorIssue::new_and_log(
+                                    Cause::IndexOutOfBounds {
+                                        idx: range.end,
+                                        width,
+                                        cell_id: id,
+                                        cell_name: cell.name.clone(),
+                                    },
+                                    Severity::Error,
+                                ));
+                            }
+                        }
+                        (Some(_), None) => {
+                            issues.add(ValidatorIssue::new_and_log(
+                                Cause::MissingIndex {
+                                    signal_name: signal.name.clone(),
+                                    cell_id: id,
+                                    cell_name: cell.name.clone(),
+                                },
+                                Severity::Error,
+                            ));
+                        }
+                        (None, Some(_)) => {
+                            issues.add(ValidatorIssue::new_and_log(
+                                Cause::IndexedWire {
+                                    signal_name: signal.name.clone(),
+                                    cell_id: id,
+                                    cell_name: cell.name.clone(),
+                                },
+                                Severity::Error,
+                            ));
+                        }
+                        (None, None) => {}
+                    }
                 }
             }
         }
 
         for device in cell.primitives.iter() {
-            for node in device.nodes() {
-                if !cell.nodes.contains_key(&node) {
-                    issues.add(invalid_node(node));
+            for slice in device.nodes() {
+                if !cell.signals.contains_key(&slice.signal()) {
+                    issues.add(invalid_signal(slice.signal()));
                 }
             }
         }
 
-        let mut port_nodes = HashSet::with_capacity(cell.ports.len());
+        let mut port_signals = HashSet::with_capacity(cell.ports.len());
         for port in cell.ports.iter() {
-            if !cell.nodes.contains_key(&port.node) {
-                issues.add(invalid_node(port.node));
+            if !cell.signals.contains_key(&port.signal) {
+                issues.add(invalid_signal(port.signal));
                 continue;
             }
 
-            if !port_nodes.insert(port.node) {
+            if !port_signals.insert(port.signal) {
                 let issue = ValidatorIssue::new_and_log(
                     Cause::ShortedPorts {
-                        node: port.node,
-                        name: cell.nodes.get(&port.node).unwrap().name.clone(),
+                        signal: port.signal,
+                        name: cell.signals.get(&port.signal).unwrap().name.clone(),
                         cell_id: id,
                         cell_name: cell.name.clone(),
                     },
@@ -301,7 +373,7 @@ impl Library {
 
             // Check for missing ports
             for port in child.ports.iter() {
-                let name = &child.nodes[&port.node].name;
+                let name = &child.signals[&port.signal].name;
                 child_ports.insert(name.clone());
                 if !instance.connections.contains_key(name) {
                     let issue = ValidatorIssue::new_and_log(
