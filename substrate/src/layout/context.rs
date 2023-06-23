@@ -14,6 +14,7 @@ pub struct LayoutContext {
 }
 
 impl LayoutContext {
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
     }

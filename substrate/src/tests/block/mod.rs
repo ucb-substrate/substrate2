@@ -1,7 +1,7 @@
 use geometry::{prelude::Bbox, rect::Rect};
 use serde::{Deserialize, Serialize};
 
-use crate::{block::Block, context::Context, layout::builder::CellBuilder};
+use crate::{block::Block, context::Context};
 
 pub(crate) mod layout;
 

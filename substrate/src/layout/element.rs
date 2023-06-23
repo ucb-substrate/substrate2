@@ -9,7 +9,6 @@ use geometry::{
     prelude::{Bbox, Orientation, Point},
     rect::Rect,
     transform::{Transform, Transformation},
-    union::BoundingUnion,
 };
 use serde::{Deserialize, Serialize};
 
@@ -87,6 +86,7 @@ pub struct RawInstance {
 }
 
 impl RawInstance {
+    /// Returns the current transformation of `self`.
     pub fn transformation(&self) -> Transformation {
         Transformation::from_offset_and_orientation(self.loc, self.orientation)
     }

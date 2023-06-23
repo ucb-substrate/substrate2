@@ -1,5 +1,5 @@
 use geometry::{
-    prelude::{AlignBbox, AlignMode, AlignRect},
+    prelude::{AlignBbox, AlignMode},
     rect::Rect,
 };
 

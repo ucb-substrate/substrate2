@@ -30,7 +30,7 @@ jobs:
           cargo fmt --check
       - name: Lint
         run: |
-          cargo hack --feature-powerset --exclude-no-default-features clippy --locked -- -D warnings
+          cargo hack --feature-powerset clippy --locked -- -D warnings
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features -- -D warnings

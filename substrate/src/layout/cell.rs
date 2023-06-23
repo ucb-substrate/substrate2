@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use geometry::{
     prelude::{Bbox, Orientation, Point},
-    transform::{Transform, TransformMut, Transformation, Translate, TranslateMut},
+    transform::{Transform, TransformMut, Transformation, TranslateMut},
 };
 use once_cell::sync::OnceCell;
 
@@ -73,6 +73,7 @@ impl<T: HasLayout> Instance<T> {
         self.try_cell().as_ref().unwrap()
     }
 
+    /// Returns the current transformation of `self`.
     pub fn transformation(&self) -> Transformation {
         Transformation::from_offset_and_orientation(self.loc, self.orientation)
     }
