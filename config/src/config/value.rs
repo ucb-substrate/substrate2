@@ -31,6 +31,7 @@ pub struct Value<T> {
     pub definition: Definition,
 }
 
+/// Optional value type.
 pub type OptValue<T> = Option<Value<T>>;
 
 // Deserializing `Value<T>` is pretty special, and serde doesn't have built-in

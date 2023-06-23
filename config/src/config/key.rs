@@ -33,6 +33,7 @@ pub struct ConfigKey {
 impl ConfigKey {
     /// Creates a new blank configuration key which is ready to get built up by
     /// using `push` and `push_sensitive`.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> ConfigKey {
         ConfigKey {
             env: "SUBSTRATE".to_string(),
@@ -44,6 +45,7 @@ impl ConfigKey {
     ///
     /// The `key` specified is expected to be a period-separated toml
     /// configuration key.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(key: &str) -> ConfigKey {
         let mut cfg = ConfigKey::new();
         for part in key.split('.') {
