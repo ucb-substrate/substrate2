@@ -68,9 +68,9 @@ use serde::Deserialize;
 
 use de::Deserializer;
 pub use environment::Env;
-use key::ConfigKey;
+pub use key::ConfigKey;
 pub use path::ConfigRelativePath;
-use value::{Definition, OptValue, Value};
+pub use value::{Definition, OptValue, Value};
 
 mod de;
 mod environment;
@@ -384,7 +384,7 @@ impl Config {
 
     /// Get a string config value.
     ///
-    /// See [`get`] for more details.
+    /// See [`Config::get`] for more details.
     pub fn get_string(&self, key: &str) -> Result<OptValue<String>> {
         self.get::<Option<Value<String>>>(key)
     }
