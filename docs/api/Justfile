@@ -1,5 +1,5 @@
 build:
-  cargo d --no-deps --workspace --target-dir ./target
+  cargo d --no-deps --workspace --all-features --target-dir ./target
   echo "<meta http-equiv=\"refresh\" content=\"0; url=substrate\">" > ./target/doc/index.html
 
 open: build

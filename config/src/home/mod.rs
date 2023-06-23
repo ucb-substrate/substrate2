@@ -11,7 +11,7 @@
 //! This crate provides an additional function, [`substrate_home`],
 //! which is the canonical way to determine the
 //! location that Substrate stores its data.
-//! The [`env`] module contains utilities for mocking the process environment
+//! The [`mod@env`] module contains utilities for mocking the process environment
 //! by Substrate.
 //!
 //
