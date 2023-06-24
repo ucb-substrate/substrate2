@@ -66,4 +66,6 @@ fn test_layout_generation_and_data_propagation() {
         cell.data.inv2.bbox(),
         Some(Rect::from_sides(110, 0, 210, 200))
     );
+
+    assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 210, 200)));
 }

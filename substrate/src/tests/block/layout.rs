@@ -35,6 +35,9 @@ impl HasLayout for Buffer {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
+        cell.draw(inv1.clone());
+        cell.draw(inv2.clone());
+
         Ok(BufferData { inv1, inv2 })
     }
 }

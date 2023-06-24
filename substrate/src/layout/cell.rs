@@ -8,7 +8,11 @@ use geometry::{
 };
 use once_cell::sync::OnceCell;
 
-use super::{element::RawCell, HasLayout};
+use super::{
+    draw::Draw,
+    element::{RawCell, RawInstance},
+    HasLayout,
+};
 use crate::error::Result;
 
 /// A generic layout cell.
@@ -22,11 +26,11 @@ pub struct Cell<T: HasLayout> {
     pub block: T,
     /// Extra data created during layout generation.
     pub data: T::Data,
-    raw: RawCell,
+    pub(crate) raw: Arc<RawCell>,
 }
 
 impl<T: HasLayout> Cell<T> {
-    pub(crate) fn new(block: T, data: T::Data, raw: RawCell) -> Self {
+    pub(crate) fn new(block: T, data: T::Data, raw: Arc<RawCell>) -> Self {
         Self { block, data, raw }
     }
 }
@@ -44,8 +48,8 @@ impl<T: HasLayout> Bbox for Cell<T> {
 #[allow(dead_code)]
 pub struct Instance<T: HasLayout> {
     cell: Arc<OnceCell<Result<Cell<T>>>>,
-    loc: Point,
-    orientation: Orientation,
+    pub(crate) loc: Point,
+    pub(crate) orientation: Orientation,
 }
 
 impl<T: HasLayout> Instance<T> {
@@ -98,5 +102,11 @@ impl<T: HasLayout> TransformMut for Instance<T> {
         let new_transform = Transformation::cascade(self.transformation(), trans);
         self.loc = new_transform.offset_point();
         self.orientation = new_transform.orientation();
+    }
+}
+
+impl<I: HasLayout> Draw for Instance<I> {
+    fn draw<T: super::draw::DrawContainer + ?Sized>(self, container: &mut T) {
+        RawInstance::from(self).draw(container);
     }
 }

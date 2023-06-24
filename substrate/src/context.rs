@@ -11,7 +11,7 @@ use crate::layout::{cell::Cell, HasLayout};
 
 /// The global context.
 ///
-/// Stores configuration such as the PDK and tool pluging to use during generation.
+/// Stores configuration such as the PDK and tool plugins to use during generation.
 #[derive(Debug, Default, Clone)]
 pub struct Context {
     inner: Arc<RwLock<ContextInner>>,
@@ -37,7 +37,7 @@ impl Context {
         inner_mut.layout.gen_mut().generate(block.clone(), move || {
             let mut cell_builder = CellBuilder::new(id, context_clone);
             let data = block.layout(&mut cell_builder);
-            data.map(|data| Cell::new(block, data, cell_builder.into()))
+            data.map(|data| Cell::new(block, data, Arc::new(cell_builder.into())))
         })
     }
 }

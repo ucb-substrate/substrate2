@@ -12,7 +12,7 @@ use geometry::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::{builder::CellBuilder, draw::DrawContainer, HasLayout};
+use super::{builder::CellBuilder, cell::Instance, draw::DrawContainer, HasLayout};
 
 /// A context-wide unique identifier for a cell.
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -97,6 +97,16 @@ impl Bbox for RawInstance {
         self.cell
             .bbox()
             .map(|rect| rect.transform(self.transformation()))
+    }
+}
+
+impl<T: HasLayout> From<Instance<T>> for RawInstance {
+    fn from(value: Instance<T>) -> Self {
+        Self {
+            cell: value.cell().raw.clone(),
+            loc: value.loc,
+            orientation: value.orientation,
+        }
     }
 }
 
