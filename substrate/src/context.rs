@@ -27,6 +27,7 @@ impl Context {
     pub(crate) fn new() -> Self {
         Self::default()
     }
+
     pub(crate) fn generate_layout<T: HasLayout>(
         &mut self,
         block: T,
@@ -34,7 +35,7 @@ impl Context {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
-        inner_mut.layout.gen_mut().generate(block.clone(), move || {
+        inner_mut.layout.gen.generate(block.clone(), move || {
             let mut cell_builder = CellBuilder::new(id, context_clone);
             let data = block.layout(&mut cell_builder);
             data.map(|data| Cell::new(block, data, Arc::new(cell_builder.into())))

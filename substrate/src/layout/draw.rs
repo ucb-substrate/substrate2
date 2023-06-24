@@ -6,8 +6,10 @@ use super::element::{Element, Shape};
 pub trait DrawContainer {
     /// Draws a basic layout element.
     fn draw_element(&mut self, element: Element);
+
     /// Draws a blockage.
     fn draw_blockage(&mut self, shape: Shape);
+
     /// Draws an arbitrary drawable object.
     fn draw(&mut self, obj: impl Draw) {
         obj.draw(self);

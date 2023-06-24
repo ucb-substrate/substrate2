@@ -29,9 +29,11 @@ impl<T> CellBuilder<T> {
             context,
         }
     }
+
     pub(crate) fn into_cell(self) -> RawCell {
         self.cell
     }
+
     /// Generate an instance of `block`.
     ///
     /// Returns immediately, allowing generation to complete in the background. Attempting to

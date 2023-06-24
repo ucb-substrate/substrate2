@@ -12,13 +12,13 @@ use once_cell::sync::OnceCell;
 
 use crate::error::Error;
 
-/// Abstraction for generating values in the background and caching them
+/// An abstraction for generating values in the background and caching them
 /// based on hashable keys.
 #[derive(Default, Debug, Clone)]
 pub(crate) struct Generator {
     /// A map from key type to another map from key to value handle.
     ///
-    /// The contained maps have type `K -> HashMap<K, Arc<OnceCell<V>>`.
+    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<K, Arc<OnceCell<V>>`.
     cells: HashMap<TypeId, Arc<Mutex<dyn Any + Send + Sync>>>,
 }
 
@@ -36,7 +36,7 @@ impl Generator {
     ///
     /// # Panics
     ///
-    /// Panics if a different `V` is associated with type `K`.
+    /// Panics if a different type `V` is already associated with type `K`.
     pub(crate) fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         key: K,

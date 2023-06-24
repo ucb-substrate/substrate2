@@ -10,17 +10,13 @@ use super::element::CellId;
 #[derive(Debug, Default, Clone)]
 pub struct LayoutContext {
     next_id: CellId,
-    gen: Generator,
+    pub(crate) gen: Generator,
 }
 
 impl LayoutContext {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn gen_mut(&mut self) -> &mut Generator {
-        &mut self.gen
     }
 
     pub(crate) fn get_id(&mut self) -> CellId {
