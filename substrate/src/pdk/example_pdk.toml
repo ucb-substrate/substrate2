@@ -1,25 +1,41 @@
 [pdk]
 name = "example_pdk"
 
-[layers.met1]
-family = true
-primary = "met1_drawing"
-pin = "met1_pin"
+[layers.diff]
+# available layer kinds are base, obstruction, routing, and cut
+kind = "base"
 
-[layers.met1_drawing]
+[layers.met1]
+kind = "routing"
+
+[layers.met1.drawing]
 gds = (1, 2)
 
-[layers.met1_pin]
+[layers.met1.pin]
 gds = (1, 3)
 
 [layers.via1]
+kind = "cut"
+
+[layers.via1.drawing]
 gds = (3, 4)
 
 [layers.met2]
+kind = "routing"
+
+[layers.met2.drawing]
 gds = (5, 6)
+name = "met2_drawing"
+
+[layers.met2.pin]
+gds = (5, 8)
+name = "met2_pin"
 
 
 [vias.via1]
+top = "met2"
+bot = "met1"
+
 [[vias.via1.geometry]]
 rect = (-100, -100, 100, 100)
 layer = "met1"
