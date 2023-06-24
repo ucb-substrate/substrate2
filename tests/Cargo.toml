@@ -7,3 +7,8 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+arcstr = "1"
+
+geometry = { version = "0.1", registry = "substrate", path = "../geometry" }
+substrate = { version = "0.0", registry = "substrate", path = "../substrate" }

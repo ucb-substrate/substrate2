@@ -1,17 +1,18 @@
-use geometry::{prelude::Bbox, rect::Rect};
 use serde::{Deserialize, Serialize};
+
+use geometry::{prelude::Bbox, rect::Rect};
 
 use crate::{block::Block, context::Context};
 
-pub(crate) mod layout;
+pub mod layout;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-pub(crate) struct Inverter {
+pub struct Inverter {
     strength: usize,
 }
 
 impl Inverter {
-    pub(crate) fn new(strength: usize) -> Self {
+    pub fn new(strength: usize) -> Self {
         Self { strength }
     }
 }
@@ -27,12 +28,12 @@ impl Block for Inverter {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-pub(crate) struct Buffer {
+pub struct Buffer {
     strength: usize,
 }
 
 impl Buffer {
-    pub(crate) fn new(strength: usize) -> Self {
+    pub fn new(strength: usize) -> Self {
         Self { strength }
     }
 }

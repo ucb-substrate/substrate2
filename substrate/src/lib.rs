@@ -8,4 +8,4 @@ pub(crate) mod generator;
 pub mod layout;
 
 #[cfg(test)]
-pub(crate) mod tests;
+pub mod tests;
