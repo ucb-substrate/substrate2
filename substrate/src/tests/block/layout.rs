@@ -20,9 +20,9 @@ impl HasLayout for Inverter {
     }
 }
 
-pub(crate) struct BufferData {
-    pub(crate) inv1: Instance<Inverter>,
-    pub(crate) inv2: Instance<Inverter>,
+pub struct BufferData {
+    pub inv1: Instance<Inverter>,
+    pub inv2: Instance<Inverter>,
 }
 
 impl HasLayout for Buffer {

@@ -1,4 +1,4 @@
-//! Substrate's layout generation framework.
+//! Substrate's layout generator framework.
 
 use crate::block::Block;
 use crate::error::Result;
@@ -12,6 +12,18 @@ pub mod draw;
 pub mod element;
 
 /// A block that has a layout.
+///
+/// # Examples
+///
+/// ## Simple
+/// ```
+#[doc = include_str!("../../docs/layout/inverter.md")]
+/// ```
+///
+/// ## With data
+/// ```
+#[doc = include_str!("../../docs/layout/buffer.md")]
+/// ```
 pub trait HasLayout: Block {
     /// Extra data to be stored with the block's generated cell.
     ///
