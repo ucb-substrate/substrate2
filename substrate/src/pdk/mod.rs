@@ -97,16 +97,19 @@ impl LayerMap for ExampleLayers {
                 id: self.met1.id,
                 name: arcstr::literal!("met1"),
                 gds: Some((1, 2)),
+                pin: None,
             },
             LayerInfo {
                 id: self.via1.id,
                 name: arcstr::literal!("via1"),
                 gds: Some((3, 4)),
+                pin: None,
             },
             LayerInfo {
                 id: self.met2.id,
                 name: arcstr::literal!("met2"),
                 gds: Some((5, 6)),
+                pin: None,
             },
         ]
     }
@@ -188,6 +191,7 @@ impl Layer for Met1 {
             id: self.id,
             name: arcstr::literal!("met1"),
             gds: Some((1, 2)),
+            pin: None,
         }
     }
 
@@ -204,6 +208,7 @@ impl Layer for Via1 {
             id: self.id,
             name: arcstr::literal!("via1"),
             gds: Some((5, 6)),
+            pin: None,
         }
     }
     fn from_info(info: LayerInfo) -> Self
@@ -222,6 +227,7 @@ impl Layer for Met2 {
             id: self.id,
             name: arcstr::literal!("met2"),
             gds: Some((5, 6)),
+            pin: None,
         }
     }
     fn from_info(info: LayerInfo) -> Self
