@@ -23,6 +23,7 @@ pub mod place;
 pub mod point;
 pub mod prelude;
 pub mod rect;
+pub mod shape;
 pub mod side;
 pub mod sign;
 pub mod snap;

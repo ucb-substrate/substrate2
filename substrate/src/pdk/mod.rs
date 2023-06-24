@@ -1,5 +1,7 @@
 use arcstr::ArcStr;
 
+pub mod example_pdk;
+
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct LayerId(u64);
 
@@ -43,7 +45,7 @@ pub trait LayerMap {
 }
 
 pub trait Layer {
-    fn as_info(&self) -> LayerInfo;
+    fn info(&self) -> LayerInfo;
     fn from_info(info: LayerInfo) -> Self
     where
         Self: Sized;
@@ -53,11 +55,13 @@ pub struct FlatLayerMap {
     layers: Vec<LayerInfo>,
 }
 
+// Subject to change.
 #[derive(Debug, Clone)]
 pub struct LayerInfo {
-    id: LayerId,
-    name: ArcStr,
-    gds: Option<(u16, u16)>,
+    pub id: LayerId,
+    pub name: ArcStr,
+    pub gds: Option<(u16, u16)>,
+    pub pin: Option<LayerId>,
 }
 
 // BEGIN GENERATED
@@ -87,7 +91,7 @@ impl LayerMap for ExampleLayers {
     }
 
     fn flatten(&self) -> Vec<LayerInfo> {
-        // TODO: clean this up by making this use `Layer::as_info`.
+        // TODO: clean this up by making this use `Layer::info`.
         vec![
             LayerInfo {
                 id: self.met1.id,
@@ -159,8 +163,8 @@ impl LayerMap for DerivedLayers {
 impl From<ExampleLayers> for DerivedLayers {
     fn from(value: ExampleLayers) -> Self {
         Self {
-            met1: value.met1.as_info(),
-            via1: value.via1.as_info(),
+            met1: value.met1.info(),
+            via1: value.via1.info(),
         }
     }
 }
@@ -179,7 +183,7 @@ pub struct Met2 {
 }
 
 impl Layer for Met1 {
-    fn as_info(&self) -> LayerInfo {
+    fn info(&self) -> LayerInfo {
         LayerInfo {
             id: self.id,
             name: arcstr::literal!("met1"),
@@ -195,7 +199,7 @@ impl Layer for Met1 {
     }
 }
 impl Layer for Via1 {
-    fn as_info(&self) -> LayerInfo {
+    fn info(&self) -> LayerInfo {
         LayerInfo {
             id: self.id,
             name: arcstr::literal!("via1"),
@@ -213,7 +217,7 @@ impl Layer for Via1 {
     }
 }
 impl Layer for Met2 {
-    fn as_info(&self) -> LayerInfo {
+    fn info(&self) -> LayerInfo {
         LayerInfo {
             id: self.id,
             name: arcstr::literal!("met2"),
@@ -244,6 +248,12 @@ impl AsRef<LayerId> for Met2 {
     #[inline]
     fn as_ref(&self) -> &LayerId {
         &self.id
+    }
+}
+
+impl ExampleLayers {
+    pub fn get_m1(&self) -> &dyn Layer {
+        &self.met1
     }
 }
 // END GENERATED

@@ -10,6 +10,7 @@ pub use crate::orientation::{NamedOrientation, Orientation};
 pub use crate::place::{PlaceBbox, PlaceMode, PlaceRect};
 pub use crate::point::Point;
 pub use crate::rect::Rect;
+pub use crate::shape::Shape;
 pub use crate::side::{Side, Sides};
 pub use crate::sign::Sign;
 pub use crate::span::Span;
