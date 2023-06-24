@@ -25,7 +25,7 @@ test:
   cargo test --locked --all-features
 
 check-all:
-    cargo hack --feature-powerset --exclude-no-default-features clippy --locked -- -D warnings
+    cargo hack --feature-powerset clippy --locked -- -D warnings
 
 check-docs:
     cargo hack --all rustdoc --all-features -- -D warnings

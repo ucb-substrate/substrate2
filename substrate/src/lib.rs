@@ -1,14 +1,11 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+//! The Substrate analog circuit generator framework.
+#![warn(missing_docs)]
+
+pub mod block;
+pub mod context;
+pub mod error;
+pub(crate) mod generator;
+pub mod layout;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub(crate) mod tests;
