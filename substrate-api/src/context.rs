@@ -12,6 +12,12 @@ use crate::layout::{cell::Cell, HasLayout};
 /// The global context.
 ///
 /// Stores configuration such as the PDK and tool plugins to use during generation.
+///
+/// # Examples
+///
+/// ```
+#[doc = include_str!("../docs/layout/generate.md")]
+/// ```
 #[derive(Debug, Default, Clone)]
 pub struct Context {
     inner: Arc<RwLock<ContextInner>>,
@@ -23,15 +29,15 @@ pub(crate) struct ContextInner {
 }
 
 impl Context {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
+    /// Creates a new global context.
+    pub fn new() -> Self {
         Self::default()
     }
 
-    pub(crate) fn generate_layout<T: HasLayout>(
-        &mut self,
-        block: T,
-    ) -> Arc<OnceCell<Result<Cell<T>>>> {
+    /// Generates a cell for `block` in the background.
+    ///
+    /// Returns a handle to the cell being generated.
+    pub fn generate_layout<T: HasLayout>(&mut self, block: T) -> Arc<OnceCell<Result<Cell<T>>>> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();

@@ -19,6 +19,12 @@ use crate::error::Result;
 ///
 /// Stores its underlying block, extra data created during generation, as well as a raw cell
 /// containing its primitive elements.
+///
+/// # Examples
+///
+/// ```
+#[doc = include_str!("../../docs/layout/generate.md")]
+/// ```
 #[derive(Default, Clone)]
 #[allow(dead_code)]
 pub struct Cell<T: HasLayout> {

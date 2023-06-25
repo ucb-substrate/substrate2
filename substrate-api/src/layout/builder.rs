@@ -38,6 +38,12 @@ impl<T> CellBuilder<T> {
     ///
     /// Returns immediately, allowing generation to complete in the background. Attempting to
     /// acceess the generated instance's cell will block until generation is complete.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    #[doc = include_str!("../../docs/layout/buffer.md")]
+    /// ```
     pub fn generate<I: HasLayout>(&mut self, block: I) -> Instance<I> {
         let cell = self.context.generate_layout(block);
         Instance::new(cell)
