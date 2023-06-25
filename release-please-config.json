@@ -25,6 +25,7 @@
     "sim": {},
     "subfile": {},
     "substrate": {},
+    "substrate_api": {},
     "timing": {}
   }
 }

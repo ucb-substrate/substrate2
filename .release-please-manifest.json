@@ -21,5 +21,6 @@
   "sim": "0.0.0",
   "subfile": "0.0.0",
   "substrate": "0.0.0",
+  "substrate_api": "0.0.0",
   "timing": "0.0.0"
 }
