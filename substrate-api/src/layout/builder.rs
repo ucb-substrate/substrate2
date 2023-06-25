@@ -2,27 +2,27 @@
 
 use std::marker::PhantomData;
 
-use crate::context::Context;
 use crate::error::Result;
+use crate::{context::Context, pdk::Pdk};
 
+use super::HasLayoutImpl;
 use super::{
     cell::Instance,
     draw::DrawContainer,
     element::{CellId, Element, RawCell, Shape},
-    HasLayout,
 };
 
 /// A layout cell builder.
 ///
-/// Constructed once for each invocation of [`HasLayout::layout`].
-pub struct CellBuilder<T> {
+/// Constructed once for each invocation of [`HasLayoutImpl::layout`].
+pub struct CellBuilder<PDK, T> {
     phantom: PhantomData<T>,
     cell: RawCell,
-    context: Context,
+    context: Context<PDK>,
 }
 
-impl<T> CellBuilder<T> {
-    pub(crate) fn new(id: CellId, context: Context) -> Self {
+impl<PDK: Pdk, T> CellBuilder<PDK, T> {
+    pub(crate) fn new(id: CellId, context: Context<PDK>) -> Self {
         Self {
             phantom: PhantomData,
             cell: RawCell::new(id),
@@ -42,9 +42,14 @@ impl<T> CellBuilder<T> {
     /// # Examples
     ///
     /// ```
-    #[doc = include_str!("../../docs/layout/buffer.md")]
+    #[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
+    #[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
+    #[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
+    #[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
+    #[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
+    #[doc = include_str!("../../../docs/api/code/layout/buffer.md")]
     /// ```
-    pub fn generate<I: HasLayout>(&mut self, block: I) -> Instance<I> {
+    pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.context.generate_layout(block);
         Instance::new(cell)
     }
@@ -53,14 +58,14 @@ impl<T> CellBuilder<T> {
     ///
     /// Blocks on generation, returning only once the instance's cell is populated. Useful for
     /// handling errors thrown by the generation of a cell immediately.
-    pub fn generate_blocking<I: HasLayout>(&mut self, block: I) -> Result<Instance<I>> {
+    pub fn generate_blocking<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Result<Instance<I>> {
         let cell = self.context.generate_layout(block);
         let res = cell.wait().as_ref().map(|_| ()).map_err(|e| e.clone());
         res.map(|_| Instance::new(cell))
     }
 }
 
-impl<T> DrawContainer for CellBuilder<T> {
+impl<PDK, T> DrawContainer for CellBuilder<PDK, T> {
     fn draw_element(&mut self, element: Element) {
         self.cell.draw_element(element);
     }

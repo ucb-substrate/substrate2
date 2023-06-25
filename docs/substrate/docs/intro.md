@@ -40,7 +40,8 @@ impl Block for Inverter {
 # use serde::{Serialize, Deserialize};
 # use geometry::prelude::Rect;
 # use substrate::block::Block;
-# use substrate::layout::{draw::DrawContainer, element::Shape, HasLayout};
+# use substrate::layout::{draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl};
+# use substrate::pdk::Pdk;
 # 
 # #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 # pub struct Inverter {
@@ -59,13 +60,17 @@ impl Block for Inverter {
 #         arcstr::format!("inverter_{}", self.strength)
 #     }
 # }
+# pub struct ExamplePdk;
+# impl Pdk for ExamplePdk {}
 // hidden-rust-doc-end
 impl HasLayout for Inverter {
     type Data = ();
+}
 
+impl HasLayoutImpl<ExamplePdk> for Inverter {
     fn layout(
         &self,
-        cell: &mut substrate::layout::builder::CellBuilder<Self>,
+        cell: &mut substrate::layout::builder::CellBuilder<ExamplePdk, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(Rect::from_sides(0, 0, 100, 200)));
         Ok(())

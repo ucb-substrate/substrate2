@@ -198,7 +198,7 @@ impl Config {
 
     /// Get a configuration value by key.
     ///
-    /// This does NOT look at environment variables. See [`get_cv_with_env`] for
+    /// This does NOT look at environment variables. See [`Config::get_cv_with_env`] for
     /// a variant that supports environment variables.
     fn get_cv(&self, key: &ConfigKey) -> Result<Option<ConfigValue>> {
         self.get_cv_helper(key, self.values()?)
@@ -415,7 +415,7 @@ impl Config {
 
     /// Get a list of strings.
     ///
-    /// NOTE: this does **not** support environment variables. Use [`get`] instead
+    /// NOTE: this does **not** support environment variables. Use [`Config::get`] instead
     /// if you want that.
     fn _get_list(&self, key: &ConfigKey) -> Result<OptValue<Vec<(String, Definition)>>> {
         match self.get_cv(key)? {

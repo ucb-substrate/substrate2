@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
 
-use crate::{block::Block, context::Context};
+use crate::{block::Block, context::Context, tests::pdk::ExamplePdkA};
 
 pub mod layout;
 
@@ -50,7 +50,7 @@ impl Block for Buffer {
 
 #[test]
 fn test_layout_generation_and_data_propagation() {
-    let mut ctx = Context::new();
+    let mut ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_layout(Buffer::new(5));
     let cell = handle.wait().as_ref().unwrap();
 
