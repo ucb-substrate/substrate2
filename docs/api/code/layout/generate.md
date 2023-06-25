@@ -1,6 +1,3 @@
-# fn test_layout_generation_and_data_propagation() {
-# use substrate::layout::cell::Cell;
-# use substrate::context::Context;
 let mut ctx = Context::new(ExamplePdk);
 let handle = ctx.generate_layout(Buffer::new(5));
 let cell: &Cell<Buffer> = handle.wait().as_ref().unwrap();
@@ -20,4 +17,3 @@ assert_eq!(
 );
 
 assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 210, 200)));
-# }

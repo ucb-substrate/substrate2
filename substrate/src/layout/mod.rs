@@ -1,5 +1,24 @@
 //! Substrate's layout generator framework.
-
+///
+/// # Examples
+///
+/// ## Simple
+/// ```
+#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/inverter.md")]
+/// ```
+///
+/// ## With data
+/// ```
+#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/buffer.md")]
+/// ```
 use crate::block::Block;
 use crate::error::Result;
 use crate::pdk::Pdk;
@@ -22,26 +41,6 @@ pub trait HasLayout: Block {
 }
 
 /// A block that has a layout for process design kit `PDK`.
-///
-/// # Examples
-///
-/// ## Simple
-/// ```
-#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.md")]
-/// ```
-///
-/// ## With data
-/// ```
-#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/buffer.md")]
-/// ```
 pub trait HasLayoutImpl<PDK: Pdk>: HasLayout {
     /// Generates the block's layout.
     fn layout(&self, cell: &mut CellBuilder<PDK, Self>) -> Result<Self::Data>;

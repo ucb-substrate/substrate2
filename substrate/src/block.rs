@@ -6,6 +6,13 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
 /// A block that can be instantiated by Substrate.
+///
+/// # Examples
+///
+/// ```
+#[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
+#[doc = include_str!("../../docs/api/code/block/inverter.md")]
+/// ```
 pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + Sync + Any {
     // TODO: type Io: AnalogIO;
 
