@@ -9,7 +9,7 @@ pub trait Analysis {
     type Output;
 }
 
-pub trait Simulator: Clone {
+pub trait Simulator: Send + Sync {
     type Input;
     type Options;
     type Output;
@@ -23,6 +23,7 @@ pub trait Simulator: Clone {
     fn simulate<A>(&self, config: &SimulationConfig, options: Self::Options, input: A) -> A::Output
     where
         A: Analysis + SupportedBy<Self>,
+        Self: Sized,
     {
         let mut inputs = Vec::new();
         input.into_input(&mut inputs);
