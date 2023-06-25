@@ -901,6 +901,7 @@ dependencies = [
  "arcstr",
  "crossbeam-channel",
  "geometry",
+ "impl-trait-for-tuples",
  "once_cell",
  "serde",
  "substrate",
