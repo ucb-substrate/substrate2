@@ -24,6 +24,7 @@ members = [
     "sim",
     "subfile",
     "substrate",
+    "substrate-api",
     "tests",
     "timing",
     "netlist/spice",
