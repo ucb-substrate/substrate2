@@ -194,7 +194,7 @@ dependencies = [
  "serde",
  "substrate",
  "substrate_api",
- "syn 1.0.109",
+ "syn 2.0.22",
 ]
 
 [[package]]
