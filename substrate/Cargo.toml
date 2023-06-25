@@ -1,11 +1,11 @@
 [package]
 name = "substrate"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 duplicate = "1"
 
-geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
-codegen = { version = "0.0.0", registry = "substrate", path = "../codegen" }
-substrate_api = { version = "0.0.0", registry = "substrate", path = "../substrate-api" }
+geometry = { version = "0.2.0", registry = "substrate", path = "../geometry" }
+codegen = { version = "0.1.0", registry = "substrate", path = "../codegen" }
+substrate_api = { version = "0.1.0", registry = "substrate", path = "../substrate-api" }
