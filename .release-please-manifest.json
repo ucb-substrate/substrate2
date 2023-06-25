@@ -22,5 +22,6 @@
   "subfile": "0.0.0",
   "substrate": "0.0.0",
   "substrate-api": "0.0.0",
+  "tests": "0.0.0",
   "timing": "0.0.0"
 }

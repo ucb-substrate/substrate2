@@ -26,6 +26,7 @@
     "subfile": {},
     "substrate": {},
     "substrate-api": {},
+    "tests": {},
     "timing": {}
   }
 }
