@@ -198,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "curl",
@@ -347,7 +347,7 @@ version = "0.0.0"
 
 [[package]]
 name = "geometry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "array_map",
  "impl-trait-for-tuples",
@@ -791,7 +791,7 @@ dependencies = [
 
 [[package]]
 name = "scir"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "diagnostics",
