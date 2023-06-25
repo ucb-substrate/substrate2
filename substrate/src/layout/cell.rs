@@ -23,7 +23,13 @@ use crate::error::Result;
 /// # Examples
 ///
 /// ```
-#[doc = include_str!("../../docs/layout/generate.md")]
+#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/buffer.md.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/generate.md")]
 /// ```
 #[derive(Default, Clone)]
 #[allow(dead_code)]

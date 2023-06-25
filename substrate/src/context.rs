@@ -6,8 +6,10 @@ use once_cell::sync::OnceCell;
 
 use crate::error::Result;
 use crate::layout::builder::CellBuilder;
+use crate::layout::cell::Cell;
 use crate::layout::context::LayoutContext;
-use crate::layout::{cell::Cell, HasLayout};
+use crate::layout::HasLayoutImpl;
+use crate::pdk::Pdk;
 
 /// The global context.
 ///
@@ -16,11 +18,27 @@ use crate::layout::{cell::Cell, HasLayout};
 /// # Examples
 ///
 /// ```
-#[doc = include_str!("../docs/layout/generate.md")]
+#[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
+#[doc = include_str!("../../docs/api/code/pdk/pdk.md.hidden")]
+#[doc = include_str!("../../docs/api/code/block/inverter.md.hidden")]
+#[doc = include_str!("../../docs/api/code/layout/inverter.md.hidden")]
+#[doc = include_str!("../../docs/api/code/block/buffer.md.hidden")]
+#[doc = include_str!("../../docs/api/code/layout/buffer.md.hidden")]
+#[doc = include_str!("../../docs/api/code/layout/generate.md")]
 /// ```
-#[derive(Debug, Default, Clone)]
-pub struct Context {
+#[derive(Debug)]
+pub struct Context<PDK> {
+    pdk: Arc<PDK>,
     inner: Arc<RwLock<ContextInner>>,
+}
+
+impl<PDK> Clone for Context<PDK> {
+    fn clone(&self) -> Self {
+        Self {
+            pdk: self.pdk.clone(),
+            inner: self.inner.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -28,16 +46,22 @@ pub(crate) struct ContextInner {
     layout: LayoutContext,
 }
 
-impl Context {
+impl<PDK: Pdk> Context<PDK> {
     /// Creates a new global context.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(pdk: PDK) -> Self {
+        Self {
+            pdk: Arc::new(pdk),
+            inner: Default::default(),
+        }
     }
 
     /// Generates a cell for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: HasLayout>(&mut self, block: T) -> Arc<OnceCell<Result<Cell<T>>>> {
+    pub fn generate_layout<T: HasLayoutImpl<PDK>>(
+        &mut self,
+        block: T,
+    ) -> Arc<OnceCell<Result<Cell<T>>>> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();

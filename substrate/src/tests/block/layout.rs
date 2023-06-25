@@ -3,18 +3,34 @@ use geometry::{
     rect::Rect,
 };
 
-use crate::layout::{cell::Instance, draw::DrawContainer, element::Shape, HasLayout};
+use crate::{
+    layout::{cell::Instance, draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl},
+    tests::pdk::{ExamplePdkA, ExamplePdkB},
+};
 
 use super::{Buffer, Inverter};
 
 impl HasLayout for Inverter {
     type Data = ();
+}
 
+impl HasLayoutImpl<ExamplePdkA> for Inverter {
     fn layout(
         &self,
-        cell: &mut crate::layout::builder::CellBuilder<Self>,
+        cell: &mut crate::layout::builder::CellBuilder<ExamplePdkA, Self>,
     ) -> crate::error::Result<Self::Data> {
         cell.draw(Shape::new(Rect::from_sides(0, 0, 100, 200)));
+
+        Ok(())
+    }
+}
+
+impl HasLayoutImpl<ExamplePdkB> for Inverter {
+    fn layout(
+        &self,
+        cell: &mut crate::layout::builder::CellBuilder<ExamplePdkB, Self>,
+    ) -> crate::error::Result<Self::Data> {
+        cell.draw(Shape::new(Rect::from_sides(0, 0, 200, 100)));
 
         Ok(())
     }
@@ -27,10 +43,12 @@ pub struct BufferData {
 
 impl HasLayout for Buffer {
     type Data = BufferData;
+}
 
+impl HasLayoutImpl<ExamplePdkA> for Buffer {
     fn layout(
         &self,
-        cell: &mut crate::layout::builder::CellBuilder<Self>,
+        cell: &mut crate::layout::builder::CellBuilder<ExamplePdkA, Self>,
     ) -> crate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
