@@ -1,0 +1,84 @@
+[pdk]
+name = "example_pdk"
+
+[layers.diff]
+# available layer kinds are base, obstruction, routing, and cut
+routing_kind = "base"
+
+[layers.met1]
+routing_kind = "routing"
+
+[layers.met1.drawing]
+gds = [1, 2]
+name = "met1_drawing"
+
+[layers.met1.pin]
+gds = [1, 3]
+name = "met1_pin"
+
+[layers.via1]
+routing_kind = "cut"
+
+[layers.via1.drawing]
+gds = [3, 4]
+name = "via1_drawing"
+
+[layers.met2]
+routing_kind = "routing"
+
+[layers.met2.drawing]
+gds = [5, 6]
+name = "met2_drawing"
+
+[layers.met2.pin]
+gds = [5, 8]
+name = "met2_pin"
+
+
+[vias.via1]
+top = "met2"
+bot = "met1"
+
+[[vias.via1.geometry]]
+rect = [-100, -100, 100, 100]
+layer = "met1"
+
+[[vias.via1.geometry]]
+rect = [-50, -50, 50, 50]
+layer = "via1"
+
+[[vias.via1.geometry]]
+rect = [-100, -100, 100, 100]
+layer = "met2"
+
+[mos]
+
+[mos.nmos_svt]
+# sizes are (w, l, nf)
+sizes = [[600, 150, 1], [605, 150, 1], [610, 150, 1]]
+supply = "1.8"
+kind = "nmos"
+
+[mos.nhv]
+# sizes are (w, l, nf)
+sizes = [[600, 150, 1], [605, 150, 1], [610, 150, 1]]
+supply = "3.3"
+kind = "nmos"
+
+[stdcell]
+
+[stdcell.sky130_fd_sc_hd__and2_1]
+function = "and2"
+scale = 1
+gds = "/path/to/sky130_fd_sc_hd__and2_1.gds"
+spice = "/path/to/sky130_fd_sc_hd__and2_1.spice"
+lib = "/path/to/sky130_fd_sc_hd__and2_1.lib"
+
+[corners]
+
+# naming convention for this made up PDK is NMOS/PMOS/Resistor
+[corners.ttt]
+sim_includes = ["/path/to/nmos_typ.spice", "/path/to/pmos_typ.spice", "/path/to/res_typ.spice"]
+
+[corners.sfs]
+sim_includes = ["/path/to/nmos_slow.spice", "/path/to/pmos_fast.spice", "/path/to/res_slow.spice"]

@@ -5,3 +5,14 @@ edition = "2021"
 publish = false
 
 [dependencies]
+darling = "0.14"
+syn = "1"
+quote = "1"
+paste = "1"
+proc-macro2 = "1"
+proc-macro-crate = "1"
+
+substrate_api = { version = "0.0.0", registry = "substrate", path = "../substrate-api" }
+
+[lib]
+proc-macro = true

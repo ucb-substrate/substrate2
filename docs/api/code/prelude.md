@@ -1,3 +1,4 @@
+use substrate_api as substrate;
 use serde::{Serialize, Deserialize};
 use geometry::prelude::*;
 use substrate::block::Block;
