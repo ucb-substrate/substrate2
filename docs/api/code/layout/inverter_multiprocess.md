@@ -2,7 +2,6 @@ impl HasLayout for Inverter {
     type Data = ();
 }
 
-
 impl HasLayoutImpl<ExamplePdkA> for Inverter {
     fn layout(
         &self,
@@ -23,3 +22,4 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         Ok(())
     }
 }
+

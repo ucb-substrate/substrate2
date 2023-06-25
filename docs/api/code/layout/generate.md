@@ -17,3 +17,4 @@ assert_eq!(
 );
 
 assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 210, 200)));
+

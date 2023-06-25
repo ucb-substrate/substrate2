@@ -21,3 +21,4 @@ impl HasLayoutImpl<ExamplePdk> for Buffer {
         Ok(BufferData { inv1, inv2 })
     }
 }
+
