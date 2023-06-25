@@ -6,6 +6,7 @@ pub mod context;
 pub mod error;
 pub(crate) mod generator;
 pub mod layout;
+pub mod pdk;
 
 #[cfg(test)]
 pub mod tests;

@@ -12,7 +12,9 @@ use geometry::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::{builder::CellBuilder, cell::Instance, draw::DrawContainer, HasLayout};
+use crate::pdk::Pdk;
+
+use super::{builder::CellBuilder, cell::Instance, draw::DrawContainer, HasLayout, HasLayoutImpl};
 
 /// A context-wide unique identifier for a cell.
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -68,8 +70,8 @@ impl Bbox for RawCell {
     }
 }
 
-impl<T: HasLayout> From<CellBuilder<T>> for RawCell {
-    fn from(value: CellBuilder<T>) -> Self {
+impl<PDK: Pdk, T: HasLayoutImpl<PDK>> From<CellBuilder<PDK, T>> for RawCell {
+    fn from(value: CellBuilder<PDK, T>) -> Self {
         value.into_cell()
     }
 }
