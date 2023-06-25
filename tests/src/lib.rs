@@ -1,4 +1,5 @@
 //! Substrate integration tests.
-#![warn(missing_docs)]
 
 pub mod external;
+#[cfg(test)]
+pub mod substrate;

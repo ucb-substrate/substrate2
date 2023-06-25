@@ -1,4 +1,4 @@
-use crate::pdk::Pdk;
+use substrate::pdk::Pdk;
 
 pub struct ExamplePdkA;
 

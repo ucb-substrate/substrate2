@@ -2,7 +2,10 @@
 name = "substrate"
 version = "0.0.0"
 edition = "2021"
-publish = false
 
 [dependencies]
+duplicate = "1"
+
+geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
+codegen = { version = "0.0.0", registry = "substrate", path = "../codegen" }
 substrate_api = { version = "0.0.0", registry = "substrate", path = "../substrate-api" }
