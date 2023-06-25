@@ -1,6 +1,6 @@
 [package]
 name = "tests"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2021"
 publish = false
 
@@ -10,5 +10,5 @@ publish = false
 serde = { version = "1", features = ["derive"] }
 arcstr = "1"
 
-geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
-substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
+geometry = { version = "0.2.0", registry = "substrate", path = "../geometry" }
+substrate = { version = "0.1.0", registry = "substrate", path = "../substrate" }
