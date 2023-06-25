@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
 
-use crate::{block::Block, context::Context, tests::pdk::ExamplePdkA};
+use substrate::{block::Block, context::Context};
+
+use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
 
 pub mod layout;
 
@@ -69,4 +71,20 @@ fn test_layout_generation_and_data_propagation() {
     );
 
     assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 210, 200)));
+
+    let mut ctx = Context::new(ExamplePdkB);
+    let handle = ctx.generate_layout(Buffer::new(5));
+    let cell = handle.wait().as_ref().unwrap();
+
+    assert_eq!(
+        cell.data.inv1.bbox(),
+        Some(Rect::from_sides(0, 0, 200, 100))
+    );
+
+    assert_eq!(
+        cell.data.inv2.bbox(),
+        Some(Rect::from_sides(210, 0, 410, 100))
+    );
+
+    assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 410, 100)));
 }

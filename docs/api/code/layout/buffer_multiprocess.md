@@ -7,10 +7,11 @@ impl HasLayout for Buffer {
     type Data = BufferData;
 }
 
-impl HasLayoutImpl<ExamplePdk> for Buffer {
+#[supported_pdks(ExamplePdkA, ExamplePdkB)]
+impl HasLayoutImpl<T> for Buffer {
     fn layout(
         &self,
-        cell: &mut substrate::layout::builder::CellBuilder<ExamplePdk, Self>,
+        cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
@@ -21,4 +22,3 @@ impl HasLayoutImpl<ExamplePdk> for Buffer {
         Ok(BufferData { inv1, inv2 })
     }
 }
-

@@ -7,6 +7,3 @@ pub mod error;
 pub(crate) mod generator;
 pub mod layout;
 pub mod pdk;
-
-#[cfg(test)]
-pub(crate) mod tests;

@@ -3,10 +3,12 @@ use geometry::{
     rect::Rect,
 };
 
-use crate::{
+use substrate::{
     layout::{cell::Instance, draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl},
-    tests::pdk::{ExamplePdkA, ExamplePdkB},
+    supported_pdks,
 };
+
+use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
 
 use super::{Buffer, Inverter};
 
@@ -17,8 +19,8 @@ impl HasLayout for Inverter {
 impl HasLayoutImpl<ExamplePdkA> for Inverter {
     fn layout(
         &self,
-        cell: &mut crate::layout::builder::CellBuilder<ExamplePdkA, Self>,
-    ) -> crate::error::Result<Self::Data> {
+        cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkA, Self>,
+    ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(Rect::from_sides(0, 0, 100, 200)));
 
         Ok(())
@@ -28,8 +30,8 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
 impl HasLayoutImpl<ExamplePdkB> for Inverter {
     fn layout(
         &self,
-        cell: &mut crate::layout::builder::CellBuilder<ExamplePdkB, Self>,
-    ) -> crate::error::Result<Self::Data> {
+        cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkB, Self>,
+    ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(Rect::from_sides(0, 0, 200, 100)));
 
         Ok(())
@@ -45,11 +47,12 @@ impl HasLayout for Buffer {
     type Data = BufferData;
 }
 
-impl HasLayoutImpl<ExamplePdkA> for Buffer {
+#[supported_pdks(ExamplePdkA, ExamplePdkB)]
+impl HasLayoutImpl<T> for Buffer {
     fn layout(
         &self,
-        cell: &mut crate::layout::builder::CellBuilder<ExamplePdkA, Self>,
-    ) -> crate::error::Result<Self::Data> {
+        cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
+    ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
