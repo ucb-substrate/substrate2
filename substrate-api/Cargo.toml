@@ -13,5 +13,5 @@ geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
 
 [dev-dependencies]
 crossbeam-channel = "0.5"
-toml = "0.4"
+toml = "0.7"
 substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
