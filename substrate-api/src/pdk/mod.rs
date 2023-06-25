@@ -1,25 +1,31 @@
+//! PDK-provided data structures.
+
 use std::collections::HashMap;
 
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
+/// Top-level specification of a PDK.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PdkSpec {
     pdk: PdkDef,
     layers: LayerFamilies,
 }
 
+/// PDK declaration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PdkDef {
     name: ArcStr,
 }
 
+/// A collection of layer families.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct LayerFamilies {
     inner: HashMap<ArcStr, LayerFamily>,
 }
 
+/// A single layer family, composed of individual [`Layer`]s.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayerFamily {
     routing_kind: RoutingKind,
@@ -27,19 +33,27 @@ pub struct LayerFamily {
     elements: HashMap<ArcStr, Layer>,
 }
 
+/// A single layer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layer {
     name: ArcStr,
     gds: Option<(i16, i16)>,
 }
 
+/// An enumeration of possible uses of a layer for routing.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RoutingKind {
+    /// A low-level layer not directly used for routing.
+    ///
+    /// Examples: poly, diffusion, high threshold implant.
     #[default]
     Base,
+    /// A routing metal layer.
     Routing,
+    /// A cut used to connect metal layers.
     Cut,
+    /// Indicates a routing obstruction.
     Obstruction,
 }
 
