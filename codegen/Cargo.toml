@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-darling = "0.14"
+darling = "0.20"
 syn = "1"
 quote = "1"
 paste = "1"
