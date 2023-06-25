@@ -3,7 +3,7 @@
 
 mod pdk;
 
-use pdk::supported_pdks_impl;
+use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
 
 /// Enumerates PDKs supported by a certain layout implementation of a block.

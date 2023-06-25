@@ -15,7 +15,7 @@ use super::{
 /// A layout cell builder.
 ///
 /// Constructed once for each invocation of [`HasLayoutImpl::layout`].
-pub struct CellBuilder<PDK, T> {
+pub struct CellBuilder<PDK: Pdk, T> {
     phantom: PhantomData<T>,
     cell: RawCell,
     context: Context<PDK>,
@@ -65,7 +65,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     }
 }
 
-impl<PDK, T> DrawContainer for CellBuilder<PDK, T> {
+impl<PDK: Pdk, T> DrawContainer for CellBuilder<PDK, T> {
     fn draw_element(&mut self, element: Element) {
         self.cell.draw_element(element);
     }

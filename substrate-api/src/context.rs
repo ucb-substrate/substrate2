@@ -9,6 +9,8 @@ use crate::layout::builder::CellBuilder;
 use crate::layout::cell::Cell;
 use crate::layout::context::LayoutContext;
 use crate::layout::HasLayoutImpl;
+use crate::pdk::layers::LayerContext;
+use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 
 /// The global context.
@@ -27,15 +29,17 @@ use crate::pdk::Pdk;
 #[doc = include_str!("../../docs/api/code/layout/generate.md")]
 /// ```
 #[derive(Debug)]
-pub struct Context<PDK> {
+pub struct Context<PDK: Pdk> {
     pdk: Arc<PDK>,
+    layers: Arc<PDK::Layers>,
     inner: Arc<RwLock<ContextInner>>,
 }
 
-impl<PDK> Clone for Context<PDK> {
+impl<PDK: Pdk> Clone for Context<PDK> {
     fn clone(&self) -> Self {
         Self {
             pdk: self.pdk.clone(),
+            layers: self.layers.clone(),
             inner: self.inner.clone(),
         }
     }
@@ -49,8 +53,13 @@ pub(crate) struct ContextInner {
 impl<PDK: Pdk> Context<PDK> {
     /// Creates a new global context.
     pub fn new(pdk: PDK) -> Self {
+        // Instantiate PDK layers.
+        let mut layer_ctx = LayerContext::new();
+        let layers = Arc::new(PDK::Layers::new(&mut layer_ctx));
+
         Self {
             pdk: Arc::new(pdk),
+            layers,
             inner: Default::default(),
         }
     }

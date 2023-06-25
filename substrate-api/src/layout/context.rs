@@ -20,8 +20,7 @@ impl LayoutContext {
     }
 
     pub(crate) fn get_id(&mut self) -> CellId {
-        let tmp = self.next_id;
-        self.next_id += 1;
-        tmp
+        self.next_id.increment();
+        self.next_id
     }
 }
