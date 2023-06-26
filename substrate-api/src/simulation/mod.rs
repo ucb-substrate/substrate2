@@ -21,7 +21,7 @@ pub trait Simulator: Send + Sync {
     type Options;
     /// The output type produced by this simulator.
     type Output;
-    
+
     /// Simulates the given set of analyses.
     fn simulate_inputs(
         &self,
