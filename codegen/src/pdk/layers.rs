@@ -1,3 +1,4 @@
+use convert_case::{Case, Casing};
 use darling::{ast, FromDeriveInput, FromMeta};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -37,6 +38,7 @@ impl ToTokens for LayersInputReceiver {
         let mut layer_idents = Vec::new();
         let mut field_idents = Vec::new();
         let mut has_pin_impls = Vec::new();
+
         for f in fields {
             let field_ident = f
                 .ident
@@ -187,29 +189,30 @@ impl ToTokens for LayerInputReceiver {
             .expect("Should never be enum")
             .fields;
 
-        let mut id_field = None;
-
         let field_list = fields
             .into_iter()
             .filter_map(|f| {
                 let field_ident = &f.ident;
 
-                if f.attrs.iter().any(|attr| attr.path().is_ident("id")) {
-                    id_field = Some(field_ident);
-                    return None;
-                }
                 if let Some(attr) = f.attrs.iter().find(|attr| attr.path().is_ident("value")) {
                     let value =
                         LayerValue::from_meta(&attr.meta).expect("could not parse custom value");
                     Some(quote!(#field_ident: #value))
+                } else if field_ident
+                    .as_ref()
+                    .map(|field_ident| field_ident == "id")
+                    .unwrap_or(false)
+                {
+                    None
                 } else {
-                    panic!("each field must be either an ID or value");
+                    panic!("each field other than `id` must have a value");
                 }
             })
             .collect::<Vec<_>>();
 
-        let id_field = id_field.expect("should have at least one ID field");
-        let name = name.clone().unwrap_or(ident.to_string().to_lowercase());
+        let name = name
+            .clone()
+            .unwrap_or(ident.to_string().to_case(Case::Snake));
         let gds = if let Some((a, b)) = gds.as_ref().and_then(|gds| {
             gds.split_once('/').map(|(a, b)| {
                 (
@@ -227,17 +230,24 @@ impl ToTokens for LayerInputReceiver {
             impl #imp ::substrate::pdk::layers::Layer for #ident #ty #wher {
                 fn new(ctx: &mut ::substrate::pdk::layers::LayerContext) -> Self {
                     Self {
-                        #id_field: ctx.new_layer(),
+                        id: ctx.new_layer(),
                         #( #field_list ),*
                     }
                 }
 
                 fn info(&self) -> ::substrate::pdk::layers::LayerInfo {
                     ::substrate::pdk::layers::LayerInfo {
-                        id: self.#id_field,
+                        id: self.id,
                         name: arcstr::literal!(#name),
                         gds: #gds,
                     }
+                }
+            }
+
+            impl #imp AsRef<::substrate::pdk::layers::LayerId> for #ident #ty #wher {
+                #[inline]
+                fn as_ref(&self) -> &LayerId {
+                    &self.id
                 }
             }
         });

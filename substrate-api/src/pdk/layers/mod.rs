@@ -15,6 +15,13 @@ impl LayerId {
     }
 }
 
+impl AsRef<LayerId> for LayerId {
+    #[inline]
+    fn as_ref(&self) -> &LayerId {
+        self
+    }
+}
+
 /// A context used for assigning identifiers to user-defined layers.
 #[derive(Default, Debug, Clone)]
 pub struct LayerContext {
@@ -44,6 +51,13 @@ pub struct LayerInfo {
     /// Layers without a GDS layer will not be exported but can be used
     /// like normal within Substrate.
     pub gds: Option<(u16, u16)>,
+}
+
+impl AsRef<LayerId> for LayerInfo {
+    #[inline]
+    fn as_ref(&self) -> &LayerId {
+        &self.id
+    }
 }
 
 /// A PDK layer.
