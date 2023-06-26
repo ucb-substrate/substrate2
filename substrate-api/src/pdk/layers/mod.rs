@@ -61,7 +61,7 @@ impl AsRef<LayerId> for LayerInfo {
 }
 
 /// A PDK layer.
-pub trait Layer {
+pub trait Layer: Copy {
     /// Instantiates the identifiers and data contained within this layer.
     fn new(ctx: &mut LayerContext) -> Self;
     /// Converts a PDK layer object to a general format that Substrate can use.

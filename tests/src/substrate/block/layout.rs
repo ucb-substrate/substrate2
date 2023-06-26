@@ -6,7 +6,10 @@ use geometry::{
 
 use substrate::{
     layout::{cell::Instance, draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl},
-    pdk::{layers::LayerId, PdkLayers},
+    pdk::{
+        layers::{Layer, LayerInfo},
+        PdkLayers,
+    },
     supported_pdks,
 };
 
@@ -24,7 +27,7 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            &cell.ctx.layers.polya,
+            cell.ctx.layers.polya,
             Rect::from_sides(0, 0, 100, 200),
         ));
 
@@ -38,7 +41,7 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            &cell.ctx.layers.polyb,
+            cell.ctx.layers.polyb,
             Rect::from_sides(0, 0, 200, 100),
         ));
 
@@ -47,16 +50,16 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
 }
 
 pub struct DerivedLayers {
-    m1: LayerId,
+    m1: LayerInfo,
     #[allow(dead_code)]
-    m2: LayerId,
+    m2: LayerInfo,
 }
 
 impl From<&PdkLayers<ExamplePdkA>> for DerivedLayers {
     fn from(value: &PdkLayers<ExamplePdkA>) -> Self {
         Self {
-            m1: value.met1a.id,
-            m2: value.met2a.id,
+            m1: value.met1a.info(),
+            m2: value.met2a.info(),
         }
     }
 }
@@ -64,8 +67,8 @@ impl From<&PdkLayers<ExamplePdkA>> for DerivedLayers {
 impl From<&PdkLayers<ExamplePdkB>> for DerivedLayers {
     fn from(value: &PdkLayers<ExamplePdkB>) -> Self {
         Self {
-            m1: value.met1b.id,
-            m2: value.met2b.id,
+            m1: value.met1b.info(),
+            m2: value.met2b.info(),
         }
     }
 }
