@@ -4,10 +4,12 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+darling = "0.20"
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
 proc-macro-crate = "1"
+convert_case = "0.6"
 
 substrate_api = { version = "0.0.0", registry = "substrate", path = "../substrate-api" }
 

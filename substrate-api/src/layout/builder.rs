@@ -15,18 +15,19 @@ use super::{
 /// A layout cell builder.
 ///
 /// Constructed once for each invocation of [`HasLayoutImpl::layout`].
-pub struct CellBuilder<PDK, T> {
+pub struct CellBuilder<PDK: Pdk, T> {
     phantom: PhantomData<T>,
     cell: RawCell,
-    context: Context<PDK>,
+    /// The current global context.
+    pub ctx: Context<PDK>,
 }
 
 impl<PDK: Pdk, T> CellBuilder<PDK, T> {
-    pub(crate) fn new(id: CellId, context: Context<PDK>) -> Self {
+    pub(crate) fn new(id: CellId, ctx: Context<PDK>) -> Self {
         Self {
             phantom: PhantomData,
             cell: RawCell::new(id),
-            context,
+            ctx,
         }
     }
 
@@ -43,6 +44,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     ///
     /// ```
     #[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
+    #[doc = include_str!("../../../docs/api/code/pdk/layers.md.hidden")]
     #[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
     #[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
     #[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
@@ -50,7 +52,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     #[doc = include_str!("../../../docs/api/code/layout/buffer.md")]
     /// ```
     pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
-        let cell = self.context.generate_layout(block);
+        let cell = self.ctx.generate_layout(block);
         Instance::new(cell)
     }
 
@@ -59,13 +61,13 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// Blocks on generation, returning only once the instance's cell is populated. Useful for
     /// handling errors thrown by the generation of a cell immediately.
     pub fn generate_blocking<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Result<Instance<I>> {
-        let cell = self.context.generate_layout(block);
+        let cell = self.ctx.generate_layout(block);
         let res = cell.wait().as_ref().map(|_| ()).map_err(|e| e.clone());
         res.map(|_| Instance::new(cell))
     }
 }
 
-impl<PDK, T> DrawContainer for CellBuilder<PDK, T> {
+impl<PDK: Pdk, T> DrawContainer for CellBuilder<PDK, T> {
     fn draw_element(&mut self, element: Element) {
         self.cell.draw_element(element);
     }

@@ -7,7 +7,7 @@
 #         &self,
 #         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkA, Self>,
 #     ) -> substrate::error::Result<Self::Data> {
-#         cell.draw(Shape::new(Rect::from_sides(0, 0, 100, 200)));
+#         cell.draw(Shape::new(cell.ctx.layers.met1, Rect::from_sides(0, 0, 100, 200)));
 #         Ok(())
 #     }
 # }
@@ -17,7 +17,7 @@
 #         &self,
 #         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkB, Self>,
 #     ) -> substrate::error::Result<Self::Data> {
-#         cell.draw(Shape::new(Rect::from_sides(0, 0, 200, 100)));
+#         cell.draw(Shape::new(cell.ctx.layers.met1, Rect::from_sides(0, 0, 200, 100)));
 # 
 #         Ok(())
 #     }

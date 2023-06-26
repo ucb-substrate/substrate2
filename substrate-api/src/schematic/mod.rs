@@ -132,7 +132,7 @@ impl HardwareData for () {
     }
 }
 
-pub struct CellBuilder<PDK, T: Block> {
+pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
