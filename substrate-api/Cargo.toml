@@ -9,6 +9,7 @@ arcstr = { version = "1", features = ["serde"] }
 thiserror = "1"
 once_cell = "1"
 impl-trait-for-tuples = "0.2"
+tracing = "0.1"
 
 geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
 

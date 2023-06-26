@@ -9,7 +9,10 @@ use crate::layout::builder::CellBuilder;
 use crate::layout::cell::Cell;
 use crate::layout::context::LayoutContext;
 use crate::layout::HasLayoutImpl;
+use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
+use crate::pdk::layers::LayerId;
+use crate::pdk::layers::LayerInfo;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 
@@ -47,8 +50,14 @@ impl<PDK: Pdk> Clone for Context<PDK> {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+pub struct PdkData<PDK: Pdk> {
+    pub pdk: PDK,
+    pub layers: PDK::Layers,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct ContextInner {
+    layers: LayerContext,
     layout: LayoutContext,
 }
 
@@ -62,7 +71,7 @@ impl<PDK: Pdk> Context<PDK> {
         Self {
             pdk: Arc::new(pdk),
             layers,
-            inner: Default::default(),
+            inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
         }
     }
 
@@ -82,11 +91,24 @@ impl<PDK: Pdk> Context<PDK> {
             data.map(|data| Cell::new(block, data, Arc::new(cell_builder.into())))
         })
     }
+
+    pub fn install_layers<L: Layers>(&mut self) -> Arc<L> {
+        let mut inner = self.inner.write().unwrap();
+        inner.layers.install_layers::<L>()
+    }
+
+    pub fn get_gds_layer(&self, spec: GdsLayerSpec) -> Option<LayerId> {
+        let inner = self.inner.read().unwrap();
+        inner.layers.get_gds_layer(spec)
+    }
 }
 
 impl ContextInner {
     #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn new(layers: LayerContext) -> Self {
+        Self {
+            layers,
+            layout: Default::default(),
+        }
     }
 }
