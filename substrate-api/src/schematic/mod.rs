@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -7,13 +7,11 @@ use arcstr::ArcStr;
 use once_cell::sync::OnceCell;
 use rust_decimal::Decimal;
 
-use crate::block::{AnalogIo, Block};
+use crate::block::Block;
 use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
 use crate::pdk::Pdk;
-
-pub(crate) mod example;
 
 /// A block that has a schematic.
 pub trait HasSchematic: Block {
@@ -132,6 +130,7 @@ impl HardwareData for () {
     }
 }
 
+#[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
     pub(crate) ctx: Context<PDK>,
@@ -201,6 +200,7 @@ impl<T: HasSchematic> Cell<T> {
     }
 }
 
+#[allow(dead_code)]
 pub struct RawInstance {
     name: ArcStr,
     child: Arc<RawCell>,
@@ -213,6 +213,7 @@ pub enum Direction {
     InOut,
 }
 
+#[allow(dead_code)]
 pub struct Port {
     direction: Direction,
     nodes: Vec<Node>,
@@ -224,6 +225,7 @@ type NodeUf = ena::unify::InPlaceUnificationTable<Node>;
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(usize);
 
+#[allow(dead_code)]
 pub struct RawCell {
     // TODO CellId
     id: CellId,
