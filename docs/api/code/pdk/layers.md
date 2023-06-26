@@ -1,0 +1,15 @@
+#[derive(Layers)]
+pub struct ExamplePdkLayers {
+    #[layer(alias = "met1_drawing", pin = "met1_pin", label = "met1_label")]
+    pub met1: Met1,
+    #[alias]
+    pub met1_drawing: Met1,
+    #[layer]
+    pub met1_pin: Met1Pin,
+    #[layer]
+    pub met1_label: Met1Label,
+    #[layer]
+    pub met2: Met2,
+    #[value = "arcstr::literal!(\"test\")"]
+    pub global_constant: ArcStr,
+}

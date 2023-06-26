@@ -17,20 +17,14 @@ use crate::pdk::Pdk;
 use super::{builder::CellBuilder, cell::Instance, draw::DrawContainer, HasLayout, HasLayoutImpl};
 
 /// A context-wide unique identifier for a cell.
-#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub struct CellId(usize);
+#[derive(
+    Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord,
+)]
+pub struct CellId(u64);
 
-impl std::ops::Add<usize> for CellId {
-    type Output = CellId;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        CellId(self.0 + rhs)
-    }
-}
-
-impl std::ops::AddAssign<usize> for CellId {
-    fn add_assign(&mut self, rhs: usize) {
-        *self = *self + rhs;
+impl CellId {
+    pub(crate) fn increment(&mut self) {
+        *self = CellId(self.0 + 1)
     }
 }
 

@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+darling = "0.20"
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
