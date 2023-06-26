@@ -15,6 +15,13 @@ impl LayerId {
     }
 }
 
+impl AsRef<LayerId> for LayerId {
+    #[inline]
+    fn as_ref(&self) -> &LayerId {
+        self
+    }
+}
+
 /// A context used for assigning identifiers to user-defined layers.
 #[derive(Default, Debug, Clone)]
 pub struct LayerContext {
@@ -46,8 +53,15 @@ pub struct LayerInfo {
     pub gds: Option<(u16, u16)>,
 }
 
+impl AsRef<LayerId> for LayerInfo {
+    #[inline]
+    fn as_ref(&self) -> &LayerId {
+        &self.id
+    }
+}
+
 /// A PDK layer.
-pub trait Layer {
+pub trait Layer: Copy {
     /// Instantiates the identifiers and data contained within this layer.
     fn new(ctx: &mut LayerContext) -> Self;
     /// Converts a PDK layer object to a general format that Substrate can use.

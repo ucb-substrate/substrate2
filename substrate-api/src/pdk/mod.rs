@@ -12,3 +12,5 @@ pub trait Pdk: Send + Sync + Any {
     /// A set of layers used by the PDK.
     type Layers: Layers;
 }
+
+pub type PdkLayers<PDK> = <PDK as Pdk>::Layers;

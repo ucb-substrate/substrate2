@@ -1,55 +1,35 @@
-use arcstr::ArcStr;
-use substrate::pdk::layers::LayerId;
-use substrate::{Layer, Layers};
+use substrate::Layers;
 
 #[derive(Layers)]
-pub struct ExamplePdkLayers {
-    #[layer(alias = "met1_drawing", pin = "met1_pin", label = "met1_label")]
-    pub met1: Met1,
-    #[alias]
-    pub met1_drawing: Met1,
-    #[layer]
-    pub met1_pin: Met1Pin,
-    #[layer]
-    pub met1_label: Met1Label,
-    #[layer]
-    pub met2: Met2,
-    #[value = "arcstr::literal!(\"test\")"]
-    pub global_constant: ArcStr,
+pub struct ExamplePdkALayers {
+    #[layer(gds = "66/20")]
+    pub polya: PolyA,
+    #[layer(gds = "68/20")]
+    #[pin(pin = "met1a_pin", label = "met1a_label")]
+    pub met1a: Met1A,
+    #[layer(alias = "met1a")]
+    pub met1a_drawing: Met1A,
+    #[layer(gds = "68/16")]
+    pub met1a_pin: Met1PinA,
+    #[layer(gds = "68/5")]
+    pub met1a_label: Met1LabelA,
+    #[layer(name = "met2", gds = "69/20")]
+    pub met2a: Met2A,
 }
 
-#[derive(Layer, Clone)]
-#[layer(gds = "68/20")]
-pub struct Met1 {
-    #[id]
-    pub id: LayerId,
-}
-
-#[derive(Layer)]
-#[layer(gds = "68/16")]
-pub struct Met1Pin {
-    #[id]
-    pub id: LayerId,
-}
-
-#[derive(Layer)]
-#[layer(gds = "68/5")]
-pub struct Met1Label {
-    #[id]
-    pub id: LayerId,
-}
-
-#[derive(Layer)]
-#[layer(name = "met2", gds = "69/20")]
-pub struct Met2 {
-    #[id]
-    pub id: LayerId,
-    #[value = "5"]
-    pub custom_constant: u64,
-    #[value = "compute_constant()"]
-    pub more_complex_constant: u64,
-}
-
-fn compute_constant() -> u64 {
-    5 + 6 + 7
+#[derive(Layers)]
+pub struct ExamplePdkBLayers {
+    #[layer(gds = "13/30")]
+    pub polyb: PolyB,
+    #[layer(gds = "15/30")]
+    #[pin(pin = "met1b_pin", label = "met1b_label")]
+    pub met1b: Met1B,
+    #[layer(alias = "met1b")]
+    pub met1b_drawing: Met1B,
+    #[layer(gds = "15/15")]
+    pub met1b_pin: Met1PinB,
+    #[layer(gds = "15/2")]
+    pub met1b_label: Met1LabelB,
+    #[layer(name = "met2", gds = "16/30")]
+    pub met2b: Met2B,
 }

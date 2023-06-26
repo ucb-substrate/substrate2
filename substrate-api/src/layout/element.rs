@@ -12,7 +12,7 @@ use geometry::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::pdk::Pdk;
+use crate::pdk::{layers::LayerId, Pdk};
 
 use super::{builder::CellBuilder, cell::Instance, draw::DrawContainer, HasLayout, HasLayoutImpl};
 
@@ -110,14 +110,15 @@ impl<T: HasLayout> From<Instance<T>> for RawInstance {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Shape {
-    // TODO: layer: LayerId,
+    layer: LayerId,
     shape: geometry::shape::Shape,
 }
 
 impl Shape {
     /// Creates a new layout shape.
-    pub fn new(shape: impl Into<geometry::shape::Shape>) -> Self {
+    pub fn new(layer: impl AsRef<LayerId>, shape: impl Into<geometry::shape::Shape>) -> Self {
         Self {
+            layer: *layer.as_ref(),
             shape: shape.into(),
         }
     }
@@ -133,7 +134,7 @@ impl Bbox for Shape {
 #[derive(Default, Debug, Clone)]
 #[allow(dead_code)]
 pub struct Text {
-    // TODO: layer: LayerId,
+    layer: LayerId,
     text: ArcStr,
     loc: geometry::point::Point,
 }

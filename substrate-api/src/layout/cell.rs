@@ -24,7 +24,6 @@ use crate::error::Result;
 ///
 /// ```
 #[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layer.md.hidden")]
 #[doc = include_str!("../../../docs/api/code/pdk/layers.md.hidden")]
 #[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
 #[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]

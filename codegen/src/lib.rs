@@ -19,7 +19,6 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// ```
 #[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../docs/api/code/pdk/layer.md.hidden")]
 #[doc = include_str!("../../docs/api/code/pdk/layers.md.hidden")]
 #[doc = include_str!("../../docs/api/code/pdk/several_pdks.md.hidden")]
 #[doc = include_str!("../../docs/api/code/block/inverter.md.hidden")]
@@ -32,15 +31,18 @@ pub fn supported_pdks(args: TokenStream, input: TokenStream) -> TokenStream {
     supported_pdks_impl(args, input)
 }
 
-/// Derives a layer implementation on a struct.
+/// Derives a layer implementation on a tuple struct containing only an ID.
 ///
 /// # Examples
 ///
 /// ```
-#[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../docs/api/code/pdk/layer.md")]
+/// # use substrate::Layer;
+/// # use substrate::pdk::layers::LayerId;
+/// #[derive(Layer, Clone, Copy)]
+/// #[layer(name = "poly", gds = "66/20")]
+/// pub struct Poly(LayerId);
 /// ```
-#[proc_macro_derive(Layer, attributes(layer, value, id))]
+#[proc_macro_derive(Layer, attributes(layer))]
 pub fn derive_layer(input: TokenStream) -> TokenStream {
     let receiver =
         LayerInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
@@ -56,10 +58,9 @@ pub fn derive_layer(input: TokenStream) -> TokenStream {
 ///
 /// ```
 #[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../docs/api/code/pdk/layer.md.hidden")]
 #[doc = include_str!("../../docs/api/code/pdk/layers.md")]
 /// ```
-#[proc_macro_derive(Layers, attributes(layer, value, alias))]
+#[proc_macro_derive(Layers, attributes(layer, pin, alias))]
 pub fn derive_layers(input: TokenStream) -> TokenStream {
     let receiver =
         LayersInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
