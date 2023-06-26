@@ -10,7 +10,9 @@ use crate::layout::builder::CellBuilder as LayoutCellBuilder;
 use crate::layout::cell::Cell as LayoutCell;
 use crate::layout::context::LayoutContext;
 use crate::layout::HasLayoutImpl;
+use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
+use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 use crate::schematic::Cell as SchematicCell;
@@ -33,11 +35,9 @@ use crate::schematic::{HasSchematicImpl, SchematicContext};
 #[doc = include_str!("../../docs/api/code/layout/buffer.md.hidden")]
 #[doc = include_str!("../../docs/api/code/layout/generate.md")]
 /// ```
-#[derive(Debug)]
 pub struct Context<PDK: Pdk> {
-    pdk: Arc<PDK>,
-    /// PDK-specific layers and associated data.
-    pub layers: Arc<PDK::Layers>,
+    /// PDK-specific data.
+    pub pdk: Arc<PdkData<PDK>>,
     inner: Arc<RwLock<ContextInner>>,
 }
 
@@ -45,14 +45,22 @@ impl<PDK: Pdk> Clone for Context<PDK> {
     fn clone(&self) -> Self {
         Self {
             pdk: self.pdk.clone(),
-            layers: self.layers.clone(),
             inner: self.inner.clone(),
         }
     }
 }
 
-#[derive(Debug, Default, Clone)]
+/// PDK data stored in the global context.
+pub struct PdkData<PDK: Pdk> {
+    /// PDK configuration and general data.
+    pub pdk: PDK,
+    /// The PDK layer set.
+    pub layers: PDK::Layers,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct ContextInner {
+    layers: LayerContext,
     schematic: SchematicContext,
     layout: LayoutContext,
 }
@@ -62,12 +70,11 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn new(pdk: PDK) -> Self {
         // Instantiate PDK layers.
         let mut layer_ctx = LayerContext::new();
-        let layers = Arc::new(PDK::Layers::new(&mut layer_ctx));
+        let layers = PDK::Layers::new(&mut layer_ctx);
 
         Self {
-            pdk: Arc::new(pdk),
-            layers,
-            inner: Default::default(),
+            pdk: Arc::new(PdkData { pdk, layers }),
+            inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
         }
     }
 
@@ -116,11 +123,32 @@ impl<PDK: Pdk> Context<PDK> {
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
     }
+
+    /// Installs a new layer set in the context.
+    ///
+    /// Allows for accessing GDS layers or other extra layers that are not present in the PDK.
+    pub fn install_layers<L: Layers>(&mut self) -> Arc<L> {
+        let mut inner = self.inner.write().unwrap();
+        inner.layers.install_layers::<L>()
+    }
+
+    /// Gets a layer by its GDS layer spec.
+    ///
+    /// Should generally not be used except for situations involving GDS import, where
+    /// layers may be imported at runtime.
+    pub fn get_gds_layer(&self, spec: GdsLayerSpec) -> Option<LayerId> {
+        let inner = self.inner.read().unwrap();
+        inner.layers.get_gds_layer(spec)
+    }
 }
 
 impl ContextInner {
     #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn new(layers: LayerContext) -> Self {
+        Self {
+            layers,
+            schematic: Default::default(),
+            layout: Default::default(),
+        }
     }
 }

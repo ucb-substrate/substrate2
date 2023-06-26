@@ -17,6 +17,12 @@ pub struct ExamplePdkALayers {
     pub met2a: Met2A,
 }
 
+impl PolyA {
+    pub const fn custom_property(&self) -> u64 {
+        5
+    }
+}
+
 #[derive(Layers)]
 pub struct ExamplePdkBLayers {
     #[layer(gds = "13/30")]

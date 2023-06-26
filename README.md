@@ -72,3 +72,8 @@ Please see [the contributing guide](docs/CONTRIBUTING.md) and the [Getting Start
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion
 in the work by you shall be licensed under the BSD 3-Clause license, without any additional terms or conditions.
 
+## Acknowledgements
+
+Portions of Substrate are derived from [Layout21](https://github.com/dan-fritchman/Layout21),
+which was written by Dan Fritchman, Arya Reais-Parsi, and others.
+This project is licensed under the BSD-3-Clause license.

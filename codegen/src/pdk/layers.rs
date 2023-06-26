@@ -82,6 +82,15 @@ impl ToTokens for LayersInputReceiver {
                     layer_idents.push(field_ident.clone());
                     field_init.push(quote!(let #field_ident = <#field_ty as ::substrate::pdk::layers::Layer>::new(ctx)));
                 }
+            } else {
+                structs.push(quote!(
+                        #[derive(::substrate::Layer, Clone, Copy)]
+                        #[layer()]
+                        pub struct #field_ty(::substrate::pdk::layers::LayerId);
+                ));
+                field_values.push(quote!( #field_ident ));
+                layer_idents.push(field_ident.clone());
+                field_init.push(quote!(let #field_ident = <#field_ty as ::substrate::pdk::layers::Layer>::new(ctx)));
             }
             if let Some(attr) = f.attrs.iter().find(|attr| attr.path().is_ident("pin")) {
                 let HasPinData { pin, label } = HasPinData::from_meta(&attr.meta)
@@ -154,7 +163,7 @@ impl ToTokens for LayerInputReceiver {
                 )
             })
         }) {
-            quote!(Some((#a, #b)))
+            quote!(Some(::substrate::pdk::layers::GdsLayerSpec(#a, #b)))
         } else {
             quote!(None)
         };

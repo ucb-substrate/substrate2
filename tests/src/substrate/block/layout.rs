@@ -10,7 +10,7 @@ use substrate::{
         layers::{Layer, LayerInfo},
         PdkLayers,
     },
-    supported_pdks,
+    supported_pdks, Layers,
 };
 
 use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
@@ -27,7 +27,7 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            cell.ctx.layers.polya,
+            cell.ctx.pdk.layers.polya,
             Rect::from_sides(0, 0, 100, 200),
         ));
 
@@ -41,7 +41,7 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            cell.ctx.layers.polyb,
+            cell.ctx.pdk.layers.polyb,
             Rect::from_sides(0, 0, 200, 100),
         ));
 
@@ -73,6 +73,12 @@ impl From<&PdkLayers<ExamplePdkB>> for DerivedLayers {
     }
 }
 
+#[derive(Layers)]
+pub struct ExtraLayers {
+    marker1: Marker1,
+    marker2: Marker2,
+}
+
 pub struct BufferData {
     pub inv1: Instance<Inverter>,
     pub inv2: Instance<Inverter>,
@@ -88,7 +94,8 @@ impl HasLayoutImpl<T> for Buffer {
         &self,
         cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let layers = DerivedLayers::from(cell.ctx.layers.as_ref());
+        let derived_layers = DerivedLayers::from(&cell.ctx.pdk.layers);
+        let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
 
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
@@ -97,7 +104,12 @@ impl HasLayoutImpl<T> for Buffer {
         cell.draw(inv2.clone());
 
         cell.draw(Shape::new(
-            layers.m1,
+            derived_layers.m1,
+            inv1.bbox().bounding_union(&inv2.bbox()).unwrap(),
+        ));
+
+        cell.draw(Shape::new(
+            installed_layers.marker1,
             inv1.bbox().bounding_union(&inv2.bbox()).unwrap(),
         ));
 
