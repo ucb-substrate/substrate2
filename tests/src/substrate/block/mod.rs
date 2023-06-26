@@ -33,9 +33,7 @@ impl Block for Inverter {
         arcstr::format!("inverter_{}", self.strength)
     }
 
-    fn io(&self) -> Self::Io {
-        ()
-    }
+    fn io(&self) -> Self::Io {}
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
@@ -60,9 +58,7 @@ impl Block for Buffer {
         arcstr::format!("buffer_{}", self.strength)
     }
 
-    fn io(&self) -> Self::Io {
-        ()
-    }
+    fn io(&self) -> Self::Io {}
 }
 
 #[test]
@@ -111,5 +107,5 @@ fn generate_vdivider_schematic() {
         r1: Resistor { r: 300 },
         r2: Resistor { r: 100 },
     });
-    let cell = handle.wait().as_ref().unwrap();
+    let _cell = handle.wait().as_ref().unwrap();
 }
