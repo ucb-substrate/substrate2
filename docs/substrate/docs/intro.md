@@ -24,11 +24,15 @@ impl Inverter {
     }
 }
 impl Block for Inverter {
+    type Io = ();
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::format!("inverter_{}", self.strength)
+    }
+    fn io(&self) -> Self::Io {
+        ()
     }
 }
 ```
@@ -53,11 +57,15 @@ impl Block for Inverter {
 #     }
 # }
 # impl Block for Inverter {
+#     type Io = ();
 #     fn id() -> arcstr::ArcStr {
 #         arcstr::literal!("inverter")
 #     }
 #     fn name(&self) -> arcstr::ArcStr {
 #         arcstr::format!("inverter_{}", self.strength)
+#     }
+#     fn io(&self) -> Self::Io {
+#         ()
 #     }
 # }
 # pub struct ExamplePdk;

@@ -966,6 +966,8 @@ version = "0.0.0"
 dependencies = [
  "arcstr",
  "geometry",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "substrate",
 ]

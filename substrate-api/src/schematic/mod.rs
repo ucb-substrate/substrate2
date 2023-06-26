@@ -7,7 +7,7 @@ use arcstr::ArcStr;
 use once_cell::sync::OnceCell;
 use rust_decimal::Decimal;
 
-use crate::block::Block;
+use crate::block::{AnalogIo, Block};
 use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
@@ -56,7 +56,9 @@ impl NodeContext {
         }
     }
     pub(crate) fn node(&mut self) -> Node {
-        self.uf.new_key(Default::default())
+        let id = self.uf.new_key(Default::default());
+        self.uf.union_value(id, NodeSet([id].into()));
+        id
     }
     #[inline]
     pub fn into_inner(self) -> NodeUf {
@@ -64,6 +66,9 @@ impl NodeContext {
     }
     pub fn nodes(&mut self, n: usize) -> Vec<Node> {
         (0..n).map(|_| self.node()).collect()
+    }
+    pub(crate) fn connect(&mut self, n1: Node, n2: Node) {
+        self.uf.union(n1, n2);
     }
 }
 
@@ -80,6 +85,7 @@ pub trait HardwareType: Clone {
 pub trait HardwareData {
     /// Must have a length equal to the corresponding [`HardwareType`]'s `num_signals`.
     fn flatten(&self) -> Vec<Node>;
+    fn flatten_hierarchical(&self) -> Vec<Vec<Node>>;
 }
 
 impl HardwareType for Signal {
@@ -100,8 +106,30 @@ impl HardwareData for Node {
     fn flatten(&self) -> Vec<Node> {
         vec![*self]
     }
+    fn flatten_hierarchical(&self) -> Vec<Vec<Node>> {
+        vec![vec![*self]]
+    }
     // Provide suggested node names.
     // fn names(&self, base: Option<&str>) -> Vec<String>;
+}
+
+impl HardwareType for () {
+    type Data = ();
+    fn num_signals(&self) -> u64 {
+        0
+    }
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+        ((), ids)
+    }
+}
+
+impl HardwareData for () {
+    fn flatten(&self) -> Vec<Node> {
+        Vec::new()
+    }
+    fn flatten_hierarchical(&self) -> Vec<Vec<Node>> {
+        Vec::new()
+    }
 }
 
 pub struct CellBuilder<PDK, T: Block> {
@@ -109,6 +137,7 @@ pub struct CellBuilder<PDK, T: Block> {
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
     pub(crate) instances: Vec<RawInstance>,
+    pub(crate) primitives: Vec<PrimitiveDevice>,
     pub(crate) phantom: PhantomData<T>,
 }
 
@@ -116,11 +145,45 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     pub fn finish(self) -> RawCell {
         RawCell {
             id: self.id,
-            primitives: vec![],
+            primitives: self.primitives,
             instances: self.instances,
             ports: Default::default(),
             uf: self.node_ctx.into_inner(),
         }
+    }
+    pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
+        let cell = self.ctx.generate_schematic(block.clone());
+        let io = block.io();
+
+        let ids = self.node_ctx.nodes(io.num_signals() as usize);
+        let (io, ids) = block.io().instantiate(&ids);
+        assert!(ids.is_empty());
+
+        let connections = io.flatten_hierarchical();
+
+        let inst = Instance { cell, io };
+
+        let raw = RawInstance {
+            name: arcstr::literal!("unnamed"),
+            child: inst.cell().raw.clone(),
+            connections,
+        };
+        self.instances.push(raw);
+
+        inst
+    }
+
+    pub fn connect<D: HardwareData>(&mut self, s1: &D, s2: &D) {
+        let s1f = s1.flatten();
+        let s2f = s2.flatten();
+        assert_eq!(s1f.len(), s2f.len());
+        s1f.into_iter().zip(s2f).for_each(|(a, b)| {
+            self.node_ctx.connect(a, b);
+        });
+    }
+
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        self.primitives.push(device);
     }
 }
 
@@ -141,7 +204,7 @@ impl<T: HasSchematic> Cell<T> {
 pub struct RawInstance {
     name: ArcStr,
     child: Arc<RawCell>,
-    connections: HashMap<ArcStr, Signal>,
+    connections: Vec<Vec<Node>>,
 }
 
 pub enum Direction {
@@ -168,27 +231,31 @@ pub struct RawCell {
     instances: Vec<RawInstance>,
 
     // TODO: directions
-    ports: HashMap<ArcStr, Port>,
+    ports: Vec<Port>,
     uf: NodeUf,
 }
 
 #[allow(dead_code)]
 pub struct Instance<T: HasSchematic> {
+    pub io: <T::Io as HardwareType>::Data,
     cell: Arc<OnceCell<Result<Cell<T>>>>,
-    io: <T::Io as HardwareType>::Data,
 }
 
-impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
-    pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
-        todo!()
+impl<T: HasSchematic> Instance<T> {
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> &Result<Cell<T>> {
+        self.cell.wait()
     }
 
-    pub fn connect<D: HardwareData>(&mut self, s1: &D, s2: &D) {
-        todo!()
-    }
-
-    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
-        todo!()
+    /// Returns the underlying [`Cell`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn cell(&self) -> &Cell<T> {
+        self.try_cell().as_ref().unwrap()
     }
 }
 

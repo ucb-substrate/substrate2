@@ -1,12 +1,13 @@
 use arcstr::ArcStr;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use substrate::schematic::{CellBuilder, Node};
 
-use crate::block::AnalogIo;
-use crate::pdk::Pdk;
-use crate::{block::Block, schematic::HasSchematic};
+use substrate::block::AnalogIo;
+use substrate::pdk::Pdk;
+use substrate::{block::Block, schematic::HasSchematic};
 
-use super::{HardwareData, HardwareType, HasSchematicImpl, PrimitiveDevice, Signal};
+use substrate::schematic::{HardwareData, HardwareType, HasSchematicImpl, PrimitiveDevice, Signal};
 
 #[derive(Debug, Clone)]
 pub struct ResistorIo {
@@ -30,7 +31,7 @@ impl HardwareType for ResistorIo {
     fn num_signals(&self) -> u64 {
         self.p.num_signals() + self.n.num_signals()
     }
-    fn instantiate<'n>(&self, ids: &'n [super::Node]) -> (Self::Data, &'n [super::Node]) {
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (p, ids) = self.p.instantiate(ids);
         let (n, ids) = self.n.instantiate(ids);
         (Self::Data { p, n }, ids)
@@ -43,10 +44,10 @@ pub struct ResistorIoData {
 }
 
 impl HardwareData for ResistorIoData {
-    fn flatten(&self) -> Vec<super::Node> {
+    fn flatten(&self) -> Vec<Node> {
         vec![self.p, self.n]
     }
-    fn flatten_hierarchical(&self) -> Vec<Vec<super::Node>> {
+    fn flatten_hierarchical(&self) -> Vec<Vec<Node>> {
         vec![self.p.flatten(), self.n.flatten()]
     }
 }
@@ -56,7 +57,7 @@ impl HardwareType for VdividerIo {
     fn num_signals(&self) -> u64 {
         self.vdd.num_signals() + self.vss.num_signals() + self.out.num_signals()
     }
-    fn instantiate<'n>(&self, ids: &'n [super::Node]) -> (Self::Data, &'n [super::Node]) {
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (vdd, ids) = self.vdd.instantiate(ids);
         let (vss, ids) = self.vss.instantiate(ids);
         let (out, ids) = self.out.instantiate(ids);
@@ -71,10 +72,10 @@ pub struct VdividerIoData {
 }
 
 impl HardwareData for VdividerIoData {
-    fn flatten(&self) -> Vec<super::Node> {
+    fn flatten(&self) -> Vec<Node> {
         vec![self.vdd, self.vss, self.out]
     }
-    fn flatten_hierarchical(&self) -> Vec<Vec<super::Node>> {
+    fn flatten_hierarchical(&self) -> Vec<Vec<Node>> {
         vec![self.vdd.flatten(), self.vss.flatten(), self.out.flatten()]
     }
 }
@@ -142,8 +143,8 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
     fn schematic(
         &self,
         io: ResistorIoData,
-        cell: &mut super::CellBuilder<PDK, Self>,
-    ) -> crate::error::Result<Self::Data> {
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::Res2 {
             pos: io.p,
             neg: io.n,
@@ -157,8 +158,8 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
     fn schematic(
         &self,
         io: VdividerIoData,
-        cell: &mut super::CellBuilder<PDK, Self>,
-    ) -> crate::error::Result<Self::Data> {
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> substrate::error::Result<Self::Data> {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
 

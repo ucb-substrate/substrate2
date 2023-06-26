@@ -98,6 +98,7 @@ impl<PDK: Pdk> Context<PDK> {
                 ctx: context_clone,
                 node_ctx,
                 instances: Vec::new(),
+                primitives: Vec::new(),
                 phantom: PhantomData,
             };
             let data = block.schematic(io, &mut cell_builder);

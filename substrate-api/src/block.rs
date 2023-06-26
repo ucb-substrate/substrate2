@@ -36,3 +36,6 @@ pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + S
 pub trait AnalogIo: HardwareType {
     // TODO
 }
+
+/// Blocks with no ports can declare their `Io` as `()`.
+impl AnalogIo for () {}
