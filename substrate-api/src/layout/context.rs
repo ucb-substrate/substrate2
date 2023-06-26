@@ -2,12 +2,7 @@
 //!
 //! Stores generated layout cells as well as state used for assigning unique cell IDs.
 
-use std::collections::HashMap;
-
-use crate::{
-    generator::Generator,
-    pdk::layers::{GdsLayerSpec, LayerId, LayerInfo},
-};
+use crate::generator::Generator;
 
 use super::element::CellId;
 

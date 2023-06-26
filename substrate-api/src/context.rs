@@ -12,7 +12,6 @@ use crate::layout::HasLayoutImpl;
 use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
-use crate::pdk::layers::LayerInfo;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 
