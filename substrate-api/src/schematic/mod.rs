@@ -1,3 +1,5 @@
+//! Substrate's schematic generator framework.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -32,17 +34,21 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
     ) -> Result<Self::Data>;
 }
 
+/// A type representing a single hardware wire.
 #[derive(Debug, Clone, Copy)]
 pub struct Signal;
 
+/// A single node in a circuit.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub struct Node(u32);
 
+/// A collection of [`Node`]s.
+#[doc(hidden)]
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 #[repr(transparent)]
 pub struct NodeSet(HashSet<Node>);
 
-pub struct NodeContext {
+pub(crate) struct NodeContext {
     uf: NodeUf,
 }
 
@@ -70,7 +76,9 @@ impl NodeContext {
     }
 }
 
+/// A hardware type.
 pub trait HardwareType: Clone {
+    /// The **Rust** type representing instances of this **hardware** type.
     type Data: HardwareData;
 
     /// Returns the number of nodes used to represent this type.
@@ -80,9 +88,13 @@ pub trait HardwareType: Clone {
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
 }
 
+/// Hardware data.
+///
+/// An instance of a [`HardwareType`].
 pub trait HardwareData {
     /// Must have a length equal to the corresponding [`HardwareType`]'s `num_signals`.
     fn flatten(&self) -> Vec<Node>;
+    /// Flattens each of this type's data containers, but does not merge them.
     fn flatten_hierarchical(&self) -> Vec<Vec<Node>>;
 }
 
@@ -130,6 +142,7 @@ impl HardwareData for () {
     }
 }
 
+/// A builder for creating a schematic cell.
 #[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
@@ -141,7 +154,7 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
 }
 
 impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
-    pub fn finish(self) -> RawCell {
+    pub(crate) fn finish(self) -> RawCell {
         RawCell {
             id: self.id,
             primitives: self.primitives,
@@ -150,6 +163,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             uf: self.node_ctx.into_inner(),
         }
     }
+    /// Instantiate a schematic view of the given block.
     pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_schematic(block.clone());
         let io = block.io();
@@ -172,6 +186,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         inst
     }
 
+    /// Connect all signals in the given data instances.
     pub fn connect<D: HardwareData>(&mut self, s1: &D, s2: &D) {
         let s1f = s1.flatten();
         let s2f = s2.flatten();
@@ -181,38 +196,51 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         });
     }
 
+    /// Add a primitive device to the schematic of the current cell.
     pub fn add_primitive(&mut self, device: PrimitiveDevice) {
         self.primitives.push(device);
     }
 }
 
+/// A schematic cell.
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct Cell<T: HasSchematic> {
+    /// The block from which this cell was generated.
     pub block: T,
+    /// Data returned by the cell's schematic generator.
     pub data: T::Data,
     pub(crate) raw: Arc<RawCell>,
 }
 
 impl<T: HasSchematic> Cell<T> {
-    pub fn new(block: T, data: T::Data, raw: Arc<RawCell>) -> Self {
+    pub(crate) fn new(block: T, data: T::Data, raw: Arc<RawCell>) -> Self {
         Self { block, data, raw }
     }
 }
 
+/// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
-pub struct RawInstance {
+pub(crate) struct RawInstance {
     name: ArcStr,
     child: Arc<RawCell>,
     connections: Vec<Vec<Node>>,
 }
 
+/// Port directions.
 pub enum Direction {
+    /// Input.
     Input,
+    /// Output.
     Output,
+    /// Input or output.
+    ///
+    /// Represents ports whose direction is not known
+    /// at generator elaboration time.
     InOut,
 }
 
+/// A signal exposed by a cell.
 #[allow(dead_code)]
 pub struct Port {
     direction: Direction,
@@ -225,8 +253,9 @@ type NodeUf = ena::unify::InPlaceUnificationTable<Node>;
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(usize);
 
+/// A raw (weakly-typed) cell.
 #[allow(dead_code)]
-pub struct RawCell {
+pub(crate) struct RawCell {
     // TODO CellId
     id: CellId,
     primitives: Vec<PrimitiveDevice>,
@@ -237,8 +266,10 @@ pub struct RawCell {
     uf: NodeUf,
 }
 
+/// An instance of a schematic cell.
 #[allow(dead_code)]
 pub struct Instance<T: HasSchematic> {
+    /// The cell's input/output interface.
     pub io: <T::Io as HardwareType>::Data,
     cell: Arc<OnceCell<Result<Cell<T>>>>,
 }
@@ -261,10 +292,15 @@ impl<T: HasSchematic> Instance<T> {
     }
 }
 
+/// A primitive device.
 pub enum PrimitiveDevice {
+    /// An ideal 2-terminal resistor.
     Res2 {
+        /// The positive node.
         pos: Node,
+        /// The negative node.
         neg: Node,
+        /// The value of the resistor, in Ohms.
         value: Decimal,
     },
 }

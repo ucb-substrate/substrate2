@@ -16,6 +16,7 @@ use crate::schematic::HardwareType;
 #[doc = include_str!("../../docs/api/code/block/inverter.md")]
 /// ```
 pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + Sync + Any {
+    /// The ports of this block.
     type Io: AnalogIo;
 
     /// A crate-wide unique identifier for this block.
@@ -30,9 +31,11 @@ pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + S
         arcstr::literal!("unnamed")
     }
 
+    /// Returns a fully-specified instance of this cell's `Io`.
     fn io(&self) -> Self::Io;
 }
 
+/// A trait implemented by block input/output interfaces.
 pub trait AnalogIo: HardwareType {
     // TODO
 }
