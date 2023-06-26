@@ -337,6 +337,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ena"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c533630cf40e9caa44bd91aadc88a75d75a4c3a12b4cfde353cbed41daa1e1f1"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -964,9 +973,12 @@ version = "0.0.0"
 dependencies = [
  "arcstr",
  "crossbeam-channel",
+ "ena",
  "geometry",
  "impl-trait-for-tuples",
  "once_cell",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "substrate",
  "thiserror",
@@ -1018,6 +1030,8 @@ version = "0.0.0"
 dependencies = [
  "arcstr",
  "geometry",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "substrate",
 ]
