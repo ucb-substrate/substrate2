@@ -6,7 +6,6 @@ use syn::{Block, Field, LitStr, Meta};
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any))]
 pub struct LayersInputReceiver {
-    /// The struct ident.
     ident: syn::Ident,
     generics: syn::Generics,
     data: ast::Data<(), Field>,

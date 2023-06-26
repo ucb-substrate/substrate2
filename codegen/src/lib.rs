@@ -32,7 +32,7 @@ pub fn supported_pdks(args: TokenStream, input: TokenStream) -> TokenStream {
     supported_pdks_impl(args, input)
 }
 
-/// Derives a layer set implementation on a struct.
+/// Derives a layer implementation on a struct.
 ///
 /// # Examples
 ///
