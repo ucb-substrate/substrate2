@@ -5,6 +5,8 @@ use std::{any::Any, hash::Hash};
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
+use crate::schematic::HardwareType;
+
 /// A block that can be instantiated by Substrate.
 ///
 /// # Examples
@@ -14,7 +16,8 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../../docs/api/code/block/inverter.md")]
 /// ```
 pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + Sync + Any {
-    // TODO: type Io: AnalogIO;
+    /// The ports of this block.
+    type Io: AnalogIo;
 
     /// A crate-wide unique identifier for this block.
     fn id() -> ArcStr;
@@ -28,5 +31,14 @@ pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + S
         arcstr::literal!("unnamed")
     }
 
-    // TODO: fn io(&self) -> Self::Io;
+    /// Returns a fully-specified instance of this cell's `Io`.
+    fn io(&self) -> Self::Io;
 }
+
+/// A trait implemented by block input/output interfaces.
+pub trait AnalogIo: HardwareType {
+    // TODO
+}
+
+/// Blocks with no ports can declare their `Io` as `()`.
+impl AnalogIo for () {}

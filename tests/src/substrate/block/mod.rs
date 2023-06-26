@@ -6,7 +6,10 @@ use substrate::{block::Block, context::Context};
 
 use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
 
+use self::schematic::{Resistor, Vdivider};
+
 pub mod layout;
+pub mod schematic;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Inverter {
@@ -20,6 +23,8 @@ impl Inverter {
 }
 
 impl Block for Inverter {
+    type Io = ();
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
     }
@@ -27,6 +32,8 @@ impl Block for Inverter {
     fn name(&self) -> arcstr::ArcStr {
         arcstr::format!("inverter_{}", self.strength)
     }
+
+    fn io(&self) -> Self::Io {}
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
@@ -41,6 +48,8 @@ impl Buffer {
 }
 
 impl Block for Buffer {
+    type Io = ();
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer")
     }
@@ -48,10 +57,12 @@ impl Block for Buffer {
     fn name(&self) -> arcstr::ArcStr {
         arcstr::format!("buffer_{}", self.strength)
     }
+
+    fn io(&self) -> Self::Io {}
 }
 
 #[test]
-fn test_layout_generation_and_data_propagation() {
+fn layout_generation_and_data_propagation() {
     let mut ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_layout(Buffer::new(5));
     let cell = handle.wait().as_ref().unwrap();
@@ -87,4 +98,14 @@ fn test_layout_generation_and_data_propagation() {
     );
 
     assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 410, 100)));
+}
+
+#[test]
+fn generate_vdivider_schematic() {
+    let mut ctx = Context::new(ExamplePdkA);
+    let handle = ctx.generate_schematic(Vdivider {
+        r1: Resistor { r: 300 },
+        r2: Resistor { r: 100 },
+    });
+    let _cell = handle.wait().as_ref().unwrap();
 }

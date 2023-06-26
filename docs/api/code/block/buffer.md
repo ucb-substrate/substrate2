@@ -10,11 +10,17 @@ impl Buffer {
 }
 
 impl Block for Buffer {
+    type Io = ();
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer")
     }
 
     fn name(&self) -> arcstr::ArcStr {
         arcstr::format!("buffer_{}", self.strength)
+    }
+
+    fn io(&self) -> Self::Io {
+        ()
     }
 }

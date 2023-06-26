@@ -27,7 +27,7 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            cell.ctx.layers.polya,
+            cell.ctx.pdk.layers.polya,
             Rect::from_sides(0, 0, 100, 200),
         ));
 
@@ -41,7 +41,7 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            cell.ctx.layers.polyb,
+            cell.ctx.pdk.layers.polyb,
             Rect::from_sides(0, 0, 200, 100),
         ));
 
@@ -94,7 +94,7 @@ impl HasLayoutImpl<T> for Buffer {
         &self,
         cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let derived_layers = DerivedLayers::from(cell.ctx.layers.as_ref());
+        let derived_layers = DerivedLayers::from(&cell.ctx.pdk.layers);
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
 
         let inv1 = cell.generate(Inverter::new(self.strength));

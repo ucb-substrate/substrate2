@@ -1,3 +1,5 @@
+//! Substrate's simulation API.
+
 use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -5,14 +7,22 @@ use std::sync::Arc;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
+/// A single simulator analysis.
 pub trait Analysis {
+    /// The output produced by this analysis.
     type Output;
 }
 
+/// A circuit simulator.
 pub trait Simulator: Send + Sync {
+    /// The input type this simulator accepts.
     type Input;
+    /// Options shared across all analyses for a given simulator run.
     type Options;
+    /// The output type produced by this simulator.
     type Output;
+
+    /// Simulates the given set of analyses.
     fn simulate_inputs(
         &self,
         config: &SimulationConfig,
@@ -20,6 +30,7 @@ pub trait Simulator: Send + Sync {
         input: Vec<Self::Input>,
     ) -> Vec<Self::Output>;
 
+    /// Simulates the given, possibly composite, analysis.
     fn simulate<A>(&self, config: &SimulationConfig, options: Self::Options, input: A) -> A::Output
     where
         A: Analysis + SupportedBy<Self>,
@@ -33,18 +44,28 @@ pub trait Simulator: Send + Sync {
     }
 }
 
+/// Substrate-defined simulation configuration.
 pub struct SimulationConfig {
+    /// The simulator's intended working directory.
     pub work_dir: PathBuf,
     // TODO: SCIR Library
 }
 
+/// Indicates that a simulator supports a certain analysis.
 pub trait Supports<A: Analysis>: Simulator {
+    /// Convert this analysis into inputs accepted by the simulator.
     fn into_input(a: A, inputs: &mut Vec<Self::Input>);
+    /// Convert the simulator outputs to this analysis's output.
     fn from_output(outputs: &mut impl Iterator<Item = Self::Output>) -> A::Output;
 }
 
+/// Indicates that a particular analysis is supported by a simulator.
+///
+/// Where possible, prefer implementing [`Supports`].
 pub trait SupportedBy<S: Simulator>: Analysis {
+    /// Convert the analysis into inputs accepted by this simulator.
     fn into_input(self, inputs: &mut Vec<S::Input>);
+    /// Convert this simulator's outputs to the analysis's expected output.
     fn from_output(outputs: &mut impl Iterator<Item = S::Output>) -> Self::Output;
 }
 
@@ -61,12 +82,14 @@ where
     }
 }
 
+/// Controls simulation options.
 pub struct SimController<S> {
     simulator: Arc<S>,
     config: SimulationConfig,
 }
 
 impl<S: Simulator> SimController<S> {
+    /// Run the given analysis, consuming this simulation controller.
     pub fn simulate<A: Analysis + SupportedBy<S>>(
         self,
         options: S::Options,
@@ -76,8 +99,11 @@ impl<S: Simulator> SimController<S> {
     }
 }
 
+/// A testbench that can be simulated.
 pub trait Testbench<PDK, S: Simulator> {
+    /// The output produced by this testbench.
     type Output: Any + Serialize + Deserialize<'static>;
+    /// Run the testbench using the given simulation controller.
     fn run(&self, sim: SimController<S>) -> Self::Output;
 }
 
