@@ -21,6 +21,8 @@ use crate::pdk::Pdk;
 ///
 /// ```
 #[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
+#[doc = include_str!("../../docs/api/code/pdk/layer.md.hidden")]
+#[doc = include_str!("../../docs/api/code/pdk/layers.md.hidden")]
 #[doc = include_str!("../../docs/api/code/pdk/pdk.md.hidden")]
 #[doc = include_str!("../../docs/api/code/block/inverter.md.hidden")]
 #[doc = include_str!("../../docs/api/code/layout/inverter.md.hidden")]
@@ -31,7 +33,8 @@ use crate::pdk::Pdk;
 #[derive(Debug)]
 pub struct Context<PDK: Pdk> {
     pdk: Arc<PDK>,
-    layers: Arc<PDK::Layers>,
+    /// PDK-specific layers and associated data.
+    pub layers: Arc<PDK::Layers>,
     inner: Arc<RwLock<ContextInner>>,
 }
 
