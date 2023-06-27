@@ -1,4 +1,5 @@
 pub mod transformed;
+pub mod translate_view;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

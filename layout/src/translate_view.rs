@@ -1,25 +1,49 @@
-use geometry::prelude::Point;
+use std::ops::Deref;
 
-pub trait HasLayout {
-    type Data: HasTranslateView;
-}
+use geometry::{
+    prelude::Point,
+    rect::Rect,
+    transform::{Transform, Transformation},
+};
 
-pub struct TranslatedCell<'a, T: HasLayout> {
-    cell: &'a Cell<T>,
-    loc: Point,
-}
-
-pub struct Cell<T: HasLayout> {
-    block: T,
-    data: T::Data,
-}
+use crate::transformed::HasLayout;
 
 pub trait HasTransformedView {
     type TransformedView;
 
-    fn transformed_view(&self, pt: Point) -> Self::TranslateView;
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView;
 }
 
-impl<T: HasLayout> HasTranslateView for Cell<T> {
-    type TranslateView = Trans;
+pub type Transformed<T> = <T as HasTransformedView>::TransformedView;
+
+pub struct TransformedPrimitive<'a, T> {
+    inner: &'a T,
+    trans: &'a Transformation,
+}
+
+impl HasTransformedView for Rect {
+    type TransformedView = Rect;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+        self.transform(trans)
+    }
+}
+
+pub struct TransformedVec<'a, T> {
+    inner: &'a Vec<T>,
+    trans: Transformation,
+}
+
+impl<'a, T> HasTransformedView for &'a Vec<T> {
+    type TransformedView = TransformedVec<'a, T>;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+        TransformedVec { inner: self, trans }
+    }
+}
+
+impl<'a, T: HasTransformedView> TransformedVec<'a, T> {
+    fn get(&self, idx: usize) -> Option<Self> {
+        None
+    }
 }

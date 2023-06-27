@@ -5,13 +5,30 @@ use geometry::{
     transform::{Transform, Transformation},
 };
 
+use crate::translate_view::{HasTransformedView, Transformed};
+
 pub trait HasLayout {
-    type Data;
+    type Data: HasTransformedView;
 }
 
 pub struct Cell<T: HasLayout> {
     block: T,
     data: T::Data,
+}
+pub struct TranslatedCell<'a, T: HasLayout> {
+    block: &'a T,
+    data: Transformed<T::Data>,
+}
+
+impl<'a, T: HasLayout> HasTransformedView for &'a Cell<T> {
+    type TransformedView = TranslatedCell<'a, T>;
+
+    fn transformed_view(self, trans: Transformation) -> Self::TransformedView {
+        TranslatedCell {
+            block: &self.block,
+            data: self.data.transformed_view(trans),
+        }
+    }
 }
 
 pub struct Instance<T: HasLayout> {
@@ -19,11 +36,26 @@ pub struct Instance<T: HasLayout> {
     transform: Transformation,
 }
 
+impl<T: HasLayout> HasTransformedView for Instance<T> {
+    type TransformedView = Instance<T>;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+        Instance {
+            cell: self.cell.clone(),
+            transform: Transformation::cascade(self.transform, trans),
+        }
+    }
+}
+
 impl<T: HasLayout> Instance<T> {
     fn enter<I: Transform>(&self, f: impl FnOnce(&Cell<T>) -> I) -> I {
         let mut ret = f(&self.cell);
         ret.transform(self.transform);
         ret
+    }
+
+    fn cell(&self) -> TranslatedCell<'_, T> {
+        self.cell.as_ref().transformed_view(self.transform)
     }
 }
 
@@ -37,14 +69,33 @@ mod tests {
         transform::{Transform, Transformation},
     };
 
+    use crate::translate_view::HasTransformedView;
+
     use super::{Cell, HasLayout, Instance};
 
     pub struct Block1;
     pub struct Block1Data {
         rect: Rect,
+        rects: Vec<Rect>,
+    }
+
+    pub struct TransformedBlock1Data {
+        rect: Rect,
+        rects: Transformed<Vec<Rect>>,
     }
     impl HasLayout for Block1 {
         type Data = Block1Data;
+    }
+
+    impl HasTransformedView for Block1Data {
+        type TransformedView = Block1Data;
+
+        fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+            Block1Data {
+                rect: self.rect.transform(trans),
+                rects: self.rects.tra,
+            }
+        }
     }
 
     pub struct Block2;
@@ -55,12 +106,32 @@ mod tests {
         type Data = Block2Data;
     }
 
+    impl HasTransformedView for Block2Data {
+        type TransformedView = Block2Data;
+
+        fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+            Block2Data {
+                inner: self.inner.transformed_view(trans),
+            }
+        }
+    }
+
     pub struct Block3;
     pub struct Block3Data {
         inner: Instance<Block2>,
     }
     impl HasLayout for Block3 {
         type Data = Block3Data;
+    }
+
+    impl HasTransformedView for Block3Data {
+        type TransformedView = Block3Data;
+
+        fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+            Block3Data {
+                inner: self.inner.transformed_view(trans),
+            }
+        }
     }
 
     #[test]
