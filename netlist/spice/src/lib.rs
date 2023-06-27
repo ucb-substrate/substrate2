@@ -1,26 +1,35 @@
+//! SPICE netlist exporter.
+#![warn(missing_docs)]
+
 use scir::slice::Slice;
 use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
-use std::io::prelude::*;
+use std::io::{prelude::*, BufWriter};
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
-pub struct Netlister<'a, W> {
+/// A SPICE netlister.
+pub struct Netlister<'a, W: Write> {
     lib: &'a Library,
-    out: &'a mut W,
+    out: BufWriter<&'a mut W>,
 }
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new SPICE netlister writing to the given output stream.
     pub fn new(lib: &'a Library, out: &'a mut W) -> Self {
-        Self { lib, out }
+        Self {
+            lib,
+            out: BufWriter::new(out),
+        }
     }
 
+    /// Exports this netlister's library to its output stream.
     #[inline]
     pub fn export(mut self) -> Result<()> {
-        self.export_library()
+        self.export_library()?;
+        self.out.flush()?;
+        Ok(())
     }
 
-    /// Exports a library.
     fn export_library(&mut self) -> Result<()> {
         writeln!(self.out, "* {}", self.lib.name())?;
         writeln!(self.out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;

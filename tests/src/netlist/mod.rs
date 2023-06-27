@@ -62,4 +62,18 @@ fn netlist_spice() {
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);
+
+    // TODO: more robust assertions about the output
+    // Once we have a SPICE parser, we can parse the SPICE back to SCIR
+    // and assert that the input SCIR is equivalent to the output SCIR.
+
+    assert_eq!(string.matches("SUBCKT").count(), 2);
+    assert_eq!(string.matches("ENDS").count(), 2);
+    assert_eq!(string.matches("Xr1").count(), 1);
+    assert_eq!(string.matches("Xr2").count(), 1);
+    assert_eq!(string.matches("Xr3").count(), 1);
+    assert_eq!(string.matches("resistor_wrapper").count(), 5);
+    assert_eq!(string.matches("vdivider").count(), 3);
+    assert_eq!(string.matches("* vdivider").count(), 1);
+    assert_eq!(string.matches("R0 pos neg 3300").count(), 1);
 }
