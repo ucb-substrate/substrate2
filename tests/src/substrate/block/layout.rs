@@ -94,7 +94,7 @@ impl HasLayoutImpl<T> for Buffer {
         &self,
         cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let derived_layers = DerivedLayers::from(&cell.ctx.pdk.layers);
+        let derived_layers = DerivedLayers::from(cell.ctx.pdk.layers.as_ref());
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
 
         let inv1 = cell.generate(Inverter::new(self.strength));

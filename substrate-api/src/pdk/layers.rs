@@ -44,9 +44,11 @@ impl LayerContext {
         self.next_id.increment();
         self.next_id
     }
+
     pub(crate) fn new() -> Self {
         Self::default()
     }
+
     pub(crate) fn install_layers<L: Layers>(&mut self) -> Arc<L> {
         let layers = L::new(self);
         let id = TypeId::of::<L>();
@@ -69,14 +71,19 @@ impl LayerContext {
             .downcast::<L>()
             .unwrap()
     }
+
     pub(crate) fn get_gds_layer(&self, spec: GdsLayerSpec) -> Option<LayerId> {
         self.layers_gds_to_info.get(&spec).map(|info| info.id)
+    }
+
+    pub(crate) fn get_gds_layer_from_id(&self, id: LayerId) -> Option<GdsLayerSpec> {
+        self.layers_id_to_info.get(&id).unwrap().gds
     }
 }
 
 /// A GDS layer specification.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct GdsLayerSpec(pub u16, pub u16);
+pub struct GdsLayerSpec(pub u8, pub u8);
 
 /// A struct containing general information for a PDK layer.
 #[derive(Debug, Clone)]

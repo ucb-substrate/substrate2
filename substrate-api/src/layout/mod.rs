@@ -32,6 +32,8 @@ pub mod cell;
 pub mod context;
 pub mod draw;
 pub mod element;
+pub mod error;
+pub mod gds;
 
 /// A block that has a layout.
 pub trait HasLayout: Block {

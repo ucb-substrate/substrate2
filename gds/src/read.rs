@@ -40,7 +40,7 @@ impl GdsReader {
     fn read_record_header(&mut self) -> GdsResult<GdsRecordHeader> {
         // Read the 16-bit record-size. (In bytes, including the four header bytes.)
         let len = match self.file.read_u16::<BigEndian>() {
-            Err(e) => return Err(GdsError::Boxed(Box::new(e))), // Reading error; raise it.
+            Err(e) => return Err(GdsError::Boxed(Arc::new(e))), // Reading error; raise it.
             Ok(num) if num < 4 => return Err(GdsError::RecordLen(num.into())), // Invalid (too short) length; throw Error.
             Ok(num) if num % 2 != 0 => return Err(GdsError::RecordLen(num.into())), // Invalid (odd) length; throw Error.
             Ok(num) => num, // The normal case
@@ -517,7 +517,7 @@ impl GdsParser {
         }
         // Add the Vec of structs, and create the Library from its builder
         lib = lib.structs(structs);
-        Ok(lib.build()?)
+        lib.build().map_err(|e| GdsError::Boxed(Arc::new(e)))
     }
 
     /// Parses a cell ([GdsStruct]).
@@ -548,7 +548,7 @@ impl GdsParser {
             };
         }
         strukt = strukt.elems(elems);
-        let strukt = strukt.build()?;
+        let strukt = strukt.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(strukt)
     }
@@ -575,7 +575,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }
@@ -608,7 +608,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }
@@ -644,7 +644,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }
@@ -673,7 +673,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }
@@ -712,7 +712,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }
@@ -741,7 +741,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }
@@ -781,7 +781,7 @@ impl GdsParser {
             };
         }
         b = b.properties(props);
-        let b = b.build()?;
+        let b = b.build().map_err(|e| GdsError::Boxed(Arc::new(e)))?;
         self.ctx.pop();
         Ok(b)
     }

@@ -87,6 +87,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
+use std::sync::Arc;
 use std::{fmt, mem, str};
 
 use arcstr::ArcStr;
@@ -985,6 +986,9 @@ impl GdsLibrary {
 
     /// Saves to file at path `fname`.
     pub fn save(&self, fname: impl AsRef<Path>) -> GdsResult<()> {
+        if let Some(prefix) = fname.as_ref().parent() {
+            std::fs::create_dir_all(prefix)?;
+        }
         let mut wr = GdsWriter::open(fname)?;
         wr.write_lib(self)
     }
@@ -1082,7 +1086,7 @@ pub type GdsResult<T> = Result<T, GdsError>;
 ///
 /// Most errors are tied in some sense to parsing and decoding.
 /// Once a valid [GdsLibrary] is created in memory, it can generally be streamed to bytes.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GdsError {
     /// Invalid binary -> record conversion.
     RecordDecode(GdsRecordType, GdsDataType, u16),
@@ -1104,7 +1108,7 @@ pub enum GdsError {
         ctx: Vec<GdsContext>,
     },
     /// Boxed (external) errors.
-    Boxed(Box<dyn Error + Send + Sync>),
+    Boxed(Arc<dyn Error + Send + Sync>),
     /// Other errors.
     Str(String),
 }
@@ -1123,13 +1127,13 @@ impl std::error::Error for GdsError {}
 
 impl From<std::io::Error> for GdsError {
     fn from(e: std::io::Error) -> Self {
-        Self::Boxed(Box::new(e))
+        Self::Boxed(Arc::new(e))
     }
 }
 
 impl From<std::str::Utf8Error> for GdsError {
     fn from(e: std::str::Utf8Error) -> Self {
-        Self::Boxed(Box::new(e))
+        Self::Boxed(Arc::new(e))
     }
 }
 
