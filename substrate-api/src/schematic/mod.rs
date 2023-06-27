@@ -48,7 +48,7 @@ pub struct Output<T: Undirected>(T);
 /// An inout port of hardware type `T`.
 pub struct InOut<T: Undirected>(T);
 
-/// Indicates that a hardware type specifies signal directions all of its fields.
+/// Indicates that a hardware type specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}
 impl<T: Flatten<Direction>> Directed for T {}
 
@@ -76,7 +76,7 @@ pub trait HardwareType: FlatLen + Clone {
     /// The **Rust** type representing instances of this **hardware** type.
     type Data: HardwareData;
 
-    /// Must consume exactly [`HardwareType::num_signals`] elements of the node list.
+    /// Must consume exactly [`FlatLen::len`] elements of the node list.
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
 }
 
