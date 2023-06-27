@@ -616,7 +616,7 @@ mod tests {
     fn duplicate_cell_names() {
         let c1 = Cell::new("duplicate_cell_name");
         let c2 = Cell::new("duplicate_cell_name");
-        let mut lib = Library::new();
+        let mut lib = Library::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);
         let issues = lib.validate();

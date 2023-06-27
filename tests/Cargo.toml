@@ -15,3 +15,5 @@ test-log = { version = "0.2", default-features = false, features = ["trace"] }
 
 geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
 substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
+scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
+spice = { version = "0.0.0", registry = "substrate", path = "../netlist/spice" }
