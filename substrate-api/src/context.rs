@@ -1,6 +1,7 @@
 //! The global context.
 
 use std::marker::PhantomData;
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use once_cell::sync::OnceCell;
@@ -9,6 +10,8 @@ use crate::error::Result;
 use crate::layout::builder::CellBuilder as LayoutCellBuilder;
 use crate::layout::cell::Cell as LayoutCell;
 use crate::layout::context::LayoutContext;
+use crate::layout::error::{GdsExportError, LayoutError};
+use crate::layout::gds::GdsExporter;
 use crate::layout::HasLayoutImpl;
 use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
@@ -37,7 +40,7 @@ use crate::schematic::{HasSchematicImpl, SchematicContext};
 /// ```
 pub struct Context<PDK: Pdk> {
     /// PDK-specific data.
-    pub pdk: Arc<PdkData<PDK>>,
+    pub pdk: PdkData<PDK>,
     inner: Arc<RwLock<ContextInner>>,
 }
 
@@ -53,9 +56,18 @@ impl<PDK: Pdk> Clone for Context<PDK> {
 /// PDK data stored in the global context.
 pub struct PdkData<PDK: Pdk> {
     /// PDK configuration and general data.
-    pub pdk: PDK,
+    pub pdk: Arc<PDK>,
     /// The PDK layer set.
-    pub layers: PDK::Layers,
+    pub layers: Arc<PDK::Layers>,
+}
+
+impl<PDK: Pdk> Clone for PdkData<PDK> {
+    fn clone(&self) -> Self {
+        Self {
+            pdk: self.pdk.clone(),
+            layers: self.layers.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -70,10 +82,13 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn new(pdk: PDK) -> Self {
         // Instantiate PDK layers.
         let mut layer_ctx = LayerContext::new();
-        let layers = PDK::Layers::new(&mut layer_ctx);
+        let layers = layer_ctx.install_layers::<PDK::Layers>();
 
         Self {
-            pdk: Arc::new(PdkData { pdk, layers }),
+            pdk: PdkData {
+                pdk: Arc::new(pdk),
+                layers,
+            },
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
         }
     }
@@ -89,10 +104,29 @@ impl<PDK: Pdk> Context<PDK> {
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
         inner_mut.layout.gen.generate(block.clone(), move || {
-            let mut cell_builder = LayoutCellBuilder::new(id, context_clone);
+            let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
             let data = block.layout(&mut cell_builder);
             data.map(|data| LayoutCell::new(block, data, Arc::new(cell_builder.into())))
         })
+    }
+
+    /// Writes a layout to a GDS files.
+    pub fn write_layout<T: HasLayoutImpl<PDK>>(
+        &mut self,
+        block: T,
+        path: impl AsRef<Path>,
+    ) -> Result<()> {
+        let handle = self.generate_layout(block);
+        let cell = handle.wait().as_ref().map_err(|e| e.clone())?;
+
+        let inner = self.inner.read().unwrap();
+        GdsExporter::new(cell.raw.clone(), &inner.layers)
+            .export()
+            .map_err(LayoutError::from)?
+            .save(path)
+            .map_err(GdsExportError::from)
+            .map_err(LayoutError::from)?;
+        Ok(())
     }
 
     /// Generates a schematic for `block` in the background.

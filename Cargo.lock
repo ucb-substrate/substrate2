@@ -1312,6 +1312,7 @@ dependencies = [
  "arcstr",
  "crossbeam-channel",
  "ena",
+ "gds",
  "geometry",
  "impl-trait-for-tuples",
  "once_cell",

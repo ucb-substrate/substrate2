@@ -15,6 +15,7 @@ rust_decimal_macros = "1.30"
 ena = "0.14"
 
 geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
+gds = { version = "0.0.0", registry = "substrate", path = "../gds" }
 
 [dev-dependencies]
 crossbeam-channel = "0.5"

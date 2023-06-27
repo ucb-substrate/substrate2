@@ -2,6 +2,8 @@
 
 use std::marker::PhantomData;
 
+use arcstr::ArcStr;
+
 use crate::error::Result;
 use crate::{context::Context, pdk::Pdk};
 
@@ -23,10 +25,10 @@ pub struct CellBuilder<PDK: Pdk, T> {
 }
 
 impl<PDK: Pdk, T> CellBuilder<PDK, T> {
-    pub(crate) fn new(id: CellId, ctx: Context<PDK>) -> Self {
+    pub(crate) fn new(id: CellId, name: ArcStr, ctx: Context<PDK>) -> Self {
         Self {
             phantom: PhantomData,
-            cell: RawCell::new(id),
+            cell: RawCell::new(id, name),
             ctx,
         }
     }

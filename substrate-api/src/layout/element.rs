@@ -32,16 +32,18 @@ impl CellId {
 #[derive(Default, Debug, Clone)]
 pub struct RawCell {
     #[allow(dead_code)]
-    id: CellId,
-    elements: Vec<Element>,
-    blockages: Vec<Shape>,
+    pub(crate) id: CellId,
+    pub(crate) name: ArcStr,
+    pub(crate) elements: Vec<Element>,
+    pub(crate) blockages: Vec<Shape>,
     // TODO: ports: HashMap<ArcStr, PortGeometry>,
 }
 
 impl RawCell {
-    pub(crate) fn new(id: CellId) -> Self {
+    pub(crate) fn new(id: CellId, name: ArcStr) -> Self {
         Self {
             id,
+            name,
             elements: Vec::new(),
             blockages: Vec::new(),
         }
@@ -76,9 +78,9 @@ impl<PDK: Pdk, T: HasLayoutImpl<PDK>> From<CellBuilder<PDK, T>> for RawCell {
 #[derive(Default, Debug, Clone)]
 #[allow(dead_code)]
 pub struct RawInstance {
-    cell: Arc<RawCell>,
-    loc: Point,
-    orientation: Orientation,
+    pub(crate) cell: Arc<RawCell>,
+    pub(crate) loc: Point,
+    pub(crate) orientation: Orientation,
 }
 
 impl RawInstance {
@@ -122,6 +124,16 @@ impl Shape {
             shape: shape.into(),
         }
     }
+
+    /// Returns the layer that this shape is on.
+    pub fn layer(&self) -> LayerId {
+        self.layer
+    }
+
+    /// Returns the geometric shape of this layout shape.
+    pub fn shape(&self) -> &geometry::shape::Shape {
+        &self.shape
+    }
 }
 
 impl Bbox for Shape {
@@ -136,7 +148,45 @@ impl Bbox for Shape {
 pub struct Text {
     layer: LayerId,
     text: ArcStr,
-    loc: geometry::point::Point,
+    loc: Point,
+    orientation: Orientation,
+}
+
+impl Text {
+    /// Creates a new layout text annotation.
+    pub fn new(
+        layer: impl AsRef<LayerId>,
+        text: impl Into<ArcStr>,
+        loc: Point,
+        orientation: Orientation,
+    ) -> Self {
+        Self {
+            layer: *layer.as_ref(),
+            text: text.into(),
+            loc,
+            orientation,
+        }
+    }
+
+    /// Gets the layer that this annotation is on.
+    pub fn layer(&self) -> LayerId {
+        self.layer
+    }
+
+    /// Gets the text of this annotation.
+    pub fn text(&self) -> &ArcStr {
+        &self.text
+    }
+
+    /// Gets the location of this annotation.
+    pub fn loc(&self) -> Point {
+        self.loc
+    }
+
+    /// Gets the orientation of this annotation.
+    pub fn orientation(&self) -> Orientation {
+        self.orientation
+    }
 }
 
 impl Bbox for Text {

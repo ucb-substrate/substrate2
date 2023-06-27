@@ -40,7 +40,7 @@ impl GdsReader {
     fn read_record_header(&mut self) -> GdsResult<GdsRecordHeader> {
         // Read the 16-bit record-size. (In bytes, including the four header bytes.)
         let len = match self.file.read_u16::<BigEndian>() {
-            Err(e) => return Err(GdsError::Boxed(Box::new(e))), // Reading error; raise it.
+            Err(e) => return Err(GdsError::Boxed(Arc::new(e))), // Reading error; raise it.
             Ok(num) if num < 4 => return Err(GdsError::RecordLen(num.into())), // Invalid (too short) length; throw Error.
             Ok(num) if num % 2 != 0 => return Err(GdsError::RecordLen(num.into())), // Invalid (odd) length; throw Error.
             Ok(num) => num, // The normal case

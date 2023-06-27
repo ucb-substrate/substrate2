@@ -158,8 +158,8 @@ impl ToTokens for LayerInputReceiver {
         let gds = if let Some((a, b)) = gds.as_ref().and_then(|gds| {
             gds.split_once('/').map(|(a, b)| {
                 (
-                    a.parse::<u16>().expect("failed to parse gds layer"),
-                    b.parse::<u16>().expect("failed to parse gds data type"),
+                    a.parse::<u8>().expect("failed to parse gds layer"),
+                    b.parse::<u8>().expect("failed to parse gds data type"),
                 )
             })
         }) {
