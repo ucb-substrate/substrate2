@@ -56,9 +56,20 @@ impl<T: Flatten<Direction>> Directed for T {}
 pub trait Undirected {}
 
 /// Flatten a structure into a list.
-pub trait Flatten<T> {
+pub trait Flatten<T>: FlatLen {
     /// Flatten a structure into a list.
-    fn flatten(&self) -> Vec<T>;
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<T>;
+
+    /// Flatten into a [`Vec`].
+    fn flatten_vec(&self) -> Vec<T> {
+        let len = self.len();
+        let mut vec = Vec::with_capacity(len);
+        self.flatten(&mut vec);
+        assert_eq!(vec.len(), len, "Flatten::flatten_vec produced a Vec with an incorrect length: expected {} from FlatLen::len, got {}", len, vec.len());
+        vec
+    }
 }
 
 /// The length of the flattened list.
@@ -97,8 +108,11 @@ impl<T> Flatten<Node> for &T
 where
     T: Flatten<Node>,
 {
-    fn flatten(&self) -> Vec<Node> {
-        (*self).flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        (*self).flatten(output)
     }
 }
 
@@ -137,13 +151,19 @@ impl<T: Undirected + FlatLen> FlatLen for Input<T> {
     }
 }
 impl<T: Undirected + FlatLen> Flatten<Direction> for Input<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![Direction::Input; self.0.len()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
     }
 }
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
     }
 }
 
@@ -165,13 +185,19 @@ impl<T: Undirected + FlatLen> FlatLen for Output<T> {
     }
 }
 impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![Direction::Output; self.0.len()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::repeat(Direction::Output).take(self.0.len()))
     }
 }
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
     }
 }
 impl<T: Undirected> AsRef<T> for Output<T> {
@@ -209,13 +235,19 @@ impl<T: Undirected + FlatLen> FlatLen for InOut<T> {
     }
 }
 impl<T: Undirected + FlatLen> Flatten<Direction> for InOut<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![Direction::InOut; self.0.len()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
     }
 }
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
     }
 }
 impl<T: Undirected> AsRef<T> for InOut<T> {
@@ -300,8 +332,11 @@ impl FlatLen for Node {
     }
 }
 impl Flatten<Node> for Node {
-    fn flatten(&self) -> Vec<Node> {
-        vec![*self]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(*self));
     }
 }
 
@@ -312,8 +347,10 @@ impl FlatLen for () {
 }
 
 impl Flatten<Direction> for () {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![]
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
     }
 }
 
@@ -331,8 +368,10 @@ impl HardwareType for () {
 }
 
 impl Flatten<Node> for () {
-    fn flatten(&self) -> Vec<Node> {
-        vec![]
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<Node>,
+    {
     }
 }
 
@@ -366,7 +405,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let (io, ids) = block.io().instantiate(&ids);
         assert!(ids.is_empty());
 
-        let connections = io.flatten();
+        let connections = io.flatten_vec();
 
         let inst = Instance { cell, io };
 
@@ -387,8 +426,8 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         D2: HardwareData,
         D1: Connect<D2>,
     {
-        let s1f = s1.flatten();
-        let s2f = s2.flatten();
+        let s1f = s1.flatten_vec();
+        let s2f = s2.flatten_vec();
         assert_eq!(s1f.len(), s2f.len());
         s1f.into_iter().zip(s2f).for_each(|(a, b)| {
             self.node_ctx.connect(a, b);
@@ -639,10 +678,13 @@ impl<T: HardwareType> HardwareType for Array<T> {
 }
 
 impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        let dirs = self.ty.flatten();
-        let len = dirs.len();
-        dirs.into_iter().cycle().take(len * self.len).collect()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        for _ in 0..self.len {
+            self.ty.flatten(output);
+        }
     }
 }
 
@@ -660,8 +702,11 @@ impl<T: FlatLen> FlatLen for ArrayData<T> {
 }
 
 impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.elems.iter().flat_map(|e| e.flatten()).collect()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.elems.iter().for_each(|e| e.flatten(output));
     }
 }
 
