@@ -1,11 +1,11 @@
 //! Procedural macros for the Substrate analog circuit generator framework.
 #![warn(missing_docs)]
 
-mod analog_io;
+mod io;
 mod pdk;
 
-use analog_io::AnalogIoInputReceiver;
 use darling::FromDeriveInput;
+use io::IoInputReceiver;
 use pdk::layers::{LayerInputReceiver, LayersInputReceiver};
 use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
@@ -72,12 +72,11 @@ pub fn derive_layers(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Derives `AnalogIo` for a struct.
-#[proc_macro_derive(AnalogIo)]
+/// Derives `Io` for a struct.
+#[proc_macro_derive(Io)]
 pub fn derive_analog_io(input: TokenStream) -> TokenStream {
     let receiver =
-        AnalogIoInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
-            .unwrap();
+        IoInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
     quote!(
         #receiver
     )

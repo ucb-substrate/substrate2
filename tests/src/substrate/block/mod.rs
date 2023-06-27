@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
+use test_log::test;
 
 use substrate::{block::Block, context::Context};
 
