@@ -17,7 +17,7 @@ serde_yaml = "0.8"
 toml = "0.7.5"
 tempfile = { version = "3", optional = true }
 arcstr = { version = "1", features = ["serde"] }
-textwrap = "0.14.2"
+textwrap = "0.16"
 
 [dev-dependencies]
 tempfile = {version = "3"}

@@ -1,8 +1,10 @@
 //! Substrate's schematic generator framework.
 
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use arcstr::ArcStr;
@@ -34,8 +36,208 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
     ) -> Result<Self::Data>;
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+/// An input port of hardware type `T`.
+pub struct Input<T: Undirected>(T);
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+/// An output port of hardware type `T`.
+pub struct Output<T: Undirected>(T);
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+/// An inout port of hardware type `T`.
+pub struct InOut<T: Undirected>(T);
+
+/// Indicates that a hardware type specifies signal directions for all of its fields.
+pub trait Directed: Flatten<Direction> {}
+impl<T: Flatten<Direction>> Directed for T {}
+
+/// A marker trait indicating that a hardware type does not specify signal directions.
+pub trait Undirected {}
+
+/// Flatten a structure into a list.
+pub trait Flatten<T> {
+    /// Flatten a structure into a list.
+    fn flatten(&self) -> Vec<T>;
+}
+
+/// The length of the flattened list.
+pub trait FlatLen {
+    /// The length of the flattened list.
+    fn len(&self) -> usize;
+    /// Whether or not the flattened representation is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// A hardware type.
+pub trait HardwareType: FlatLen + Clone {
+    /// The **Rust** type representing instances of this **hardware** type.
+    type Data: HardwareData;
+
+    /// Must consume exactly [`FlatLen::len`] elements of the node list.
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
+}
+
+/// Hardware data.
+///
+/// An instance of a [`HardwareType`].
+pub trait HardwareData: FlatLen + Flatten<Node> {}
+impl<T> HardwareData for T where T: FlatLen + Flatten<Node> {}
+impl<T> FlatLen for &T
+where
+    T: FlatLen,
+{
+    fn len(&self) -> usize {
+        (*self).len()
+    }
+}
+impl<T> Flatten<Node> for &T
+where
+    T: Flatten<Node>,
+{
+    fn flatten(&self) -> Vec<Node> {
+        (*self).flatten()
+    }
+}
+
+// BEGIN DIRECTIONS
+impl<T: Undirected> AsRef<T> for Input<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T: Undirected> Deref for Input<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T: Undirected> Borrow<T> for Input<T> {
+    fn borrow(&self) -> &T {
+        &self.0
+    }
+}
+impl<T> HardwareType for Input<T>
+where
+    T: Undirected + HardwareType,
+    T::Data: Undirected,
+{
+    type Data = Input<T::Data>;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+        let (data, ids) = self.0.instantiate(ids);
+        (Input(data), ids)
+    }
+}
+impl<T: Undirected + FlatLen> FlatLen for Input<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<T: Undirected + FlatLen> Flatten<Direction> for Input<T> {
+    fn flatten(&self) -> Vec<Direction> {
+        vec![Direction::Input; self.0.len()]
+    }
+}
+impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
+    fn flatten(&self) -> Vec<Node> {
+        self.0.flatten()
+    }
+}
+
+impl<T> HardwareType for Output<T>
+where
+    T: Undirected + HardwareType,
+    T::Data: Undirected,
+{
+    type Data = Output<T::Data>;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+        let (data, ids) = self.0.instantiate(ids);
+        (Output(data), ids)
+    }
+}
+impl<T: Undirected + FlatLen> FlatLen for Output<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
+    fn flatten(&self) -> Vec<Direction> {
+        vec![Direction::Output; self.0.len()]
+    }
+}
+impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
+    fn flatten(&self) -> Vec<Node> {
+        self.0.flatten()
+    }
+}
+impl<T: Undirected> AsRef<T> for Output<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T: Undirected> Deref for Output<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T: Undirected> Borrow<T> for Output<T> {
+    fn borrow(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> HardwareType for InOut<T>
+where
+    T: Undirected + HardwareType,
+    T::Data: Undirected,
+{
+    type Data = InOut<T::Data>;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+        let (data, ids) = self.0.instantiate(ids);
+        (InOut(data), ids)
+    }
+}
+impl<T: Undirected + FlatLen> FlatLen for InOut<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<T: Undirected + FlatLen> Flatten<Direction> for InOut<T> {
+    fn flatten(&self) -> Vec<Direction> {
+        vec![Direction::InOut; self.0.len()]
+    }
+}
+impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
+    fn flatten(&self) -> Vec<Node> {
+        self.0.flatten()
+    }
+}
+impl<T: Undirected> AsRef<T> for InOut<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T: Undirected> Deref for InOut<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T: Undirected> Borrow<T> for InOut<T> {
+    fn borrow(&self) -> &T {
+        &self.0
+    }
+}
+// END DIRECTIONS
+
 /// A type representing a single hardware wire.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Signal;
 
 /// A single node in a circuit.
@@ -76,33 +278,13 @@ impl NodeContext {
     }
 }
 
-/// A hardware type.
-pub trait HardwareType: Clone {
-    /// The **Rust** type representing instances of this **hardware** type.
-    type Data: HardwareData;
-
-    /// Returns the number of nodes used to represent this type.
-    fn num_signals(&self) -> u64;
-
-    /// Must consume exactly [`HardwareType::num_signals`] elements of the node list.
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
-}
-
-/// Hardware data.
-///
-/// An instance of a [`HardwareType`].
-pub trait HardwareData {
-    /// Must have a length equal to the corresponding [`HardwareType`]'s `num_signals`.
-    fn flatten(&self) -> Vec<Node>;
-    /// Flattens each of this type's data containers, but does not merge them.
-    fn flatten_hierarchical(&self) -> Vec<Vec<Node>>;
-}
-
-impl HardwareType for Signal {
-    type Data = Node;
-    fn num_signals(&self) -> u64 {
+impl FlatLen for Signal {
+    fn len(&self) -> usize {
         1
     }
+}
+impl HardwareType for Signal {
+    type Data = Node;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
@@ -112,33 +294,42 @@ impl HardwareType for Signal {
     }
 }
 
-impl HardwareData for Node {
+impl FlatLen for Node {
+    fn len(&self) -> usize {
+        1
+    }
+}
+impl Flatten<Node> for Node {
     fn flatten(&self) -> Vec<Node> {
         vec![*self]
     }
-    fn flatten_hierarchical(&self) -> Vec<Vec<Node>> {
-        vec![vec![*self]]
-    }
-    // Provide suggested node names.
-    // fn names(&self, base: Option<&str>) -> Vec<String>;
 }
+
+impl FlatLen for () {
+    fn len(&self) -> usize {
+        0
+    }
+}
+
+impl Flatten<Direction> for () {
+    fn flatten(&self) -> Vec<Direction> {
+        vec![]
+    }
+}
+impl Undirected for () {}
 
 impl HardwareType for () {
     type Data = ();
-    fn num_signals(&self) -> u64 {
-        0
-    }
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         ((), ids)
     }
 }
 
-impl HardwareData for () {
+impl Undirected for Signal {}
+impl Undirected for Node {}
+impl Flatten<Node> for () {
     fn flatten(&self) -> Vec<Node> {
-        Vec::new()
-    }
-    fn flatten_hierarchical(&self) -> Vec<Vec<Node>> {
-        Vec::new()
+        vec![]
     }
 }
 
@@ -168,11 +359,11 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let cell = self.ctx.generate_schematic(block.clone());
         let io = block.io();
 
-        let ids = self.node_ctx.nodes(io.num_signals() as usize);
+        let ids = self.node_ctx.nodes(io.len());
         let (io, ids) = block.io().instantiate(&ids);
         assert!(ids.is_empty());
 
-        let connections = io.flatten_hierarchical();
+        let connections = io.flatten();
 
         let inst = Instance { cell, io };
 
@@ -187,7 +378,12 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     }
 
     /// Connect all signals in the given data instances.
-    pub fn connect<D: HardwareData>(&mut self, s1: &D, s2: &D) {
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
+    where
+        D1: HardwareData,
+        D2: HardwareData,
+        D1: Connect<D2>,
+    {
         let s1f = s1.flatten();
         let s2f = s2.flatten();
         assert_eq!(s1f.len(), s2f.len());
@@ -201,6 +397,24 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         self.primitives.push(device);
     }
 }
+
+/// A trait indicating that this type can be connected to T.
+pub trait Connect<T> {}
+impl<T> Connect<T> for T {}
+impl<T: Undirected> Connect<T> for Input<T> {}
+impl<T: Undirected> Connect<T> for Output<T> {}
+impl<T: Undirected> Connect<T> for InOut<T> {}
+impl<T: Undirected> Connect<Input<T>> for T {}
+impl<T: Undirected> Connect<Output<T>> for T {}
+impl<T: Undirected> Connect<InOut<T>> for T {}
+
+// For analog circuits, we don't check directionality of connections.
+impl<T: Undirected> Connect<Input<T>> for Output<T> {}
+impl<T: Undirected> Connect<Input<T>> for InOut<T> {}
+impl<T: Undirected> Connect<Output<T>> for Input<T> {}
+impl<T: Undirected> Connect<Output<T>> for InOut<T> {}
+impl<T: Undirected> Connect<InOut<T>> for Input<T> {}
+impl<T: Undirected> Connect<InOut<T>> for Output<T> {}
 
 /// A schematic cell.
 #[derive(Clone)]
@@ -224,10 +438,11 @@ impl<T: HasSchematic> Cell<T> {
 pub(crate) struct RawInstance {
     name: ArcStr,
     child: Arc<RawCell>,
-    connections: Vec<Vec<Node>>,
+    connections: Vec<Node>,
 }
 
 /// Port directions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub enum Direction {
     /// Input.
     Input,
@@ -237,6 +452,7 @@ pub enum Direction {
     ///
     /// Represents ports whose direction is not known
     /// at generator elaboration time.
+    #[default]
     InOut,
 }
 
@@ -244,7 +460,7 @@ pub enum Direction {
 #[allow(dead_code)]
 pub struct Port {
     direction: Direction,
-    nodes: Vec<Node>,
+    node: Node,
 }
 
 type NodeUf = ena::unify::InPlaceUnificationTable<Node>;
