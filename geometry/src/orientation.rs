@@ -149,13 +149,13 @@ impl Orientation {
 
     /// Reflects the orientation vertically.
     #[inline]
-    pub fn reflect_vert(self) -> Self {
+    pub fn reflected_vert(self) -> Self {
         self.apply(NamedOrientation::ReflectVert)
     }
 
     /// Reflects the orientation horizontally.
     #[inline]
-    pub fn reflect_horiz(self) -> Self {
+    pub fn reflected_horiz(self) -> Self {
         self.apply(NamedOrientation::ReflectHoriz)
     }
 
@@ -204,6 +204,12 @@ impl Orientation {
     #[inline]
     pub fn flip_minus_yx(self) -> Self {
         self.apply(NamedOrientation::FlipMinusYx)
+    }
+
+    /// Returns whether the orientation is reflected vertically.
+    #[inline]
+    pub fn reflect_vert(&self) -> bool {
+        self.reflect_vert
     }
 
     /// Returns the angle associated with this orientation.

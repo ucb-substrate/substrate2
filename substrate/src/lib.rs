@@ -1,14 +1,10 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+//! The Substrate analog circuit generator framework.
+#![warn(missing_docs)]
+pub use codegen::*;
+#[doc(inline)]
+pub use geometry;
+pub use substrate_api::*;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+// Re-exports for macros.
+#[doc(hidden)]
+pub use duplicate;

@@ -406,6 +406,22 @@ impl Span {
             self.union(other).length() - self.length() - other.length(),
         )
     }
+
+    /// Returns whether the span's center is at an integer coordinate.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let span = Span::new(0, 100);
+    /// assert!(span.has_integer_center());
+    ///
+    /// let span = Span::new(0, 99);
+    /// assert!(!span.has_integer_center());
+    /// ```
+    pub fn has_integer_center(&self) -> bool {
+        (self.start() + self.stop()) % 2 == 0
+    }
 }
 
 impl Intersect<Span> for Span {

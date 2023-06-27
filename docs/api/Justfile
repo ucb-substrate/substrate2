@@ -1,5 +1,8 @@
-build:
-  cargo d --no-deps --workspace --target-dir ./target
+gen-hidden-code: 
+  find code -type f -name *.md -exec bash -c "awk '{print \"# \" \$0}' {} > {}.hidden" \;
+
+build: gen-hidden-code
+  cargo d --no-deps --workspace --all-features --target-dir ./target
   echo "<meta http-equiv=\"refresh\" content=\"0; url=substrate\">" > ./target/doc/index.html
 
 open: build

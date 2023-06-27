@@ -48,7 +48,6 @@
 // Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
 // with substantial modifications.
 
-use std::borrow::Cow;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -69,9 +68,9 @@ use serde::Deserialize;
 
 use de::Deserializer;
 pub use environment::Env;
-use key::ConfigKey;
+pub use key::ConfigKey;
 pub use path::ConfigRelativePath;
-use value::{Definition, OptValue, Value};
+pub use value::{Definition, OptValue, Value};
 
 mod de;
 mod environment;
@@ -199,7 +198,7 @@ impl Config {
 
     /// Get a configuration value by key.
     ///
-    /// This does NOT look at environment variables. See [`get_cv_with_env`] for
+    /// This does NOT look at environment variables. See [`Config::get_cv_with_env`] for
     /// a variant that supports environment variables.
     fn get_cv(&self, key: &ConfigKey) -> Result<Option<ConfigValue>> {
         self.get_cv_helper(key, self.values()?)
@@ -385,7 +384,7 @@ impl Config {
 
     /// Get a string config value.
     ///
-    /// See [`get`] for more details.
+    /// See [`Config::get`] for more details.
     pub fn get_string(&self, key: &str) -> Result<OptValue<String>> {
         self.get::<Option<Value<String>>>(key)
     }
@@ -416,7 +415,7 @@ impl Config {
 
     /// Get a list of strings.
     ///
-    /// NOTE: this does **not** support environment variables. Use [`get`] instead
+    /// NOTE: this does **not** support environment variables. Use [`Config::get`] instead
     /// if you want that.
     fn _get_list(&self, key: &ConfigKey) -> Result<OptValue<Vec<(String, Definition)>>> {
         match self.get_cv(key)? {
@@ -766,11 +765,18 @@ impl From<anyhow::Error> for ConfigError {
 }
 
 #[derive(Eq, PartialEq, Clone)]
+/// A configuration value to deserialize.
 pub enum ConfigValue {
+    /// An integer configuration value.
     Integer(i64, Definition),
+    /// A string configuration value.
     String(String, Definition),
+    /// A list of string configuration values.
     List(Vec<(String, Definition)>, Definition),
+    /// A table configuration value mapping strings to
+    /// additional configuration values.
     Table(HashMap<String, ConfigValue>, Definition),
+    /// A boolean configuration value.
     Boolean(bool, Definition),
 }
 
@@ -900,6 +906,7 @@ impl ConfigValue {
         Ok(())
     }
 
+    /// Extracts an integer and its definition location from a [`ConfigValue`].
     pub fn i64(&self, key: &str) -> Result<(i64, &Definition)> {
         match self {
             CV::Integer(i, def) => Ok((*i, def)),
@@ -907,6 +914,7 @@ impl ConfigValue {
         }
     }
 
+    /// Extracts a string and its definition location from a [`ConfigValue`].
     pub fn string(&self, key: &str) -> Result<(&str, &Definition)> {
         match self {
             CV::String(s, def) => Ok((s, def)),
@@ -914,6 +922,7 @@ impl ConfigValue {
         }
     }
 
+    /// Extracts a table and its definition location from a [`ConfigValue`].
     pub fn table(&self, key: &str) -> Result<(&HashMap<String, ConfigValue>, &Definition)> {
         match self {
             CV::Table(table, def) => Ok((table, def)),
@@ -921,6 +930,7 @@ impl ConfigValue {
         }
     }
 
+    /// Extracts a list and its definition location from a [`ConfigValue`].
     pub fn list(&self, key: &str) -> Result<&[(String, Definition)]> {
         match self {
             CV::List(list, _) => Ok(list),
@@ -928,6 +938,7 @@ impl ConfigValue {
         }
     }
 
+    /// Extracts a boolean value and its definition location from a [`ConfigValue`].
     pub fn boolean(&self, key: &str) -> Result<(bool, &Definition)> {
         match self {
             CV::Boolean(b, def) => Ok((*b, def)),
@@ -935,6 +946,7 @@ impl ConfigValue {
         }
     }
 
+    /// Returns a string description of the type of this [`ConfigValue`].
     pub fn desc(&self) -> &'static str {
         match *self {
             CV::Table(..) => "table",
@@ -945,6 +957,7 @@ impl ConfigValue {
         }
     }
 
+    /// Extracts a [`Definition`] describing where this [`ConfigValue`] was defined.
     pub fn definition(&self) -> &Definition {
         match self {
             CV::Boolean(_, def)
@@ -966,57 +979,10 @@ impl ConfigValue {
     }
 }
 
+/// Returns the Substrate home directory.
 pub fn homedir(cwd: &Path) -> Option<PathBuf> {
     crate::home::substrate_home_with_cwd(cwd).ok()
 }
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum EnvConfigValueInner {
-    Simple(String),
-    WithOptions {
-        value: String,
-        #[serde(default)]
-        force: bool,
-        #[serde(default)]
-        relative: bool,
-    },
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(transparent)]
-pub struct EnvConfigValue {
-    inner: Value<EnvConfigValueInner>,
-}
-
-impl EnvConfigValue {
-    pub fn is_force(&self) -> bool {
-        match self.inner.val {
-            EnvConfigValueInner::Simple(_) => false,
-            EnvConfigValueInner::WithOptions { force, .. } => force,
-        }
-    }
-
-    pub fn resolve<'a>(&'a self, config: &Config) -> Cow<'a, OsStr> {
-        match self.inner.val {
-            EnvConfigValueInner::Simple(ref s) => Cow::Borrowed(OsStr::new(s.as_str())),
-            EnvConfigValueInner::WithOptions {
-                ref value,
-                relative,
-                ..
-            } => {
-                if relative {
-                    let p = self.inner.definition.root(config).join(value);
-                    Cow::Owned(p.into_os_string())
-                } else {
-                    Cow::Borrowed(OsStr::new(value.as_str()))
-                }
-            }
-        }
-    }
-}
-
-pub type EnvConfig = HashMap<String, EnvConfigValue>;
 
 /// A type to deserialize a list of strings from a toml file.
 ///
@@ -1032,6 +998,7 @@ pub type EnvConfig = HashMap<String, EnvConfigValue>;
 pub struct StringList(Vec<String>);
 
 impl StringList {
+    /// Returns the [`StringList`] object as a [`String`] slice.
     pub fn as_slice(&self) -> &[String] {
         &self.0
     }
@@ -1044,45 +1011,3 @@ impl StringList {
 /// This is currently only used by `PathAndArgs`
 #[derive(Debug, Deserialize)]
 pub struct UnmergedStringList(Vec<String>);
-
-#[macro_export]
-macro_rules! __shell_print {
-    ($config:expr, $which:ident, $newline:literal, $($arg:tt)*) => ({
-        let mut shell = $config.shell();
-        let out = shell.$which();
-        drop(out.write_fmt(format_args!($($arg)*)));
-        if $newline {
-            drop(out.write_all(b"\n"));
-        }
-    });
-}
-
-#[macro_export]
-macro_rules! drop_println {
-    ($config:expr) => ( $crate::drop_print!($config, "\n") );
-    ($config:expr, $($arg:tt)*) => (
-        $crate::__shell_print!($config, out, true, $($arg)*)
-    );
-}
-
-#[macro_export]
-macro_rules! drop_eprintln {
-    ($config:expr) => ( $crate::drop_eprint!($config, "\n") );
-    ($config:expr, $($arg:tt)*) => (
-        $crate::__shell_print!($config, err, true, $($arg)*)
-    );
-}
-
-#[macro_export]
-macro_rules! drop_print {
-    ($config:expr, $($arg:tt)*) => (
-        $crate::__shell_print!($config, out, false, $($arg)*)
-    );
-}
-
-#[macro_export]
-macro_rules! drop_eprint {
-    ($config:expr, $($arg:tt)*) => (
-        $crate::__shell_print!($config, err, false, $($arg)*)
-    );
-}

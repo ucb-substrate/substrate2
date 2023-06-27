@@ -2,8 +2,7 @@
 name = "diagnostics"
 version = "0.0.0"
 edition = "2021"
-publish = false
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"

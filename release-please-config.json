@@ -13,18 +13,20 @@
     "drc": {},
     "gds": {},
     "geometry": {},
-    "layout": {},
     "lef": {},
     "lvs": {},
+    "netlist/spice": {},
     "par": {},
     "pex": {},
     "sbm": {},
     "scg": {},
-    "schematic": {},
+    "scir": {},
     "sde": {},
     "sim": {},
     "subfile": {},
     "substrate": {},
+    "substrate-api": {},
+    "tests": {},
     "timing": {}
   }
 }

@@ -74,11 +74,11 @@ const config = {
             type: 'docSidebar',
             sidebarId: 'tutorialSidebar',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Documentation',
           },
           {to: '/blog', label: 'Blog', position: 'left'},
           {
-            href: 'https://github.com/facebook/docusaurus',
+            href: 'https://github.com/substrate-labs/substrate2',
             label: 'GitHub',
             position: 'right',
           },
@@ -114,7 +114,7 @@ const config = {
               },
               {
                 label: 'GitHub',
-                href: 'https://github.com/facebook/docusaurus',
+                href: 'https://github.com/substrate-labs/substrate2',
               },
             ],
           },
@@ -125,6 +125,13 @@ const config = {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
         additionalLanguages: ['rust'],
+        magicComments: [
+          {
+            className: 'hidden-rust-doc',
+            line: 'hidden-rust-doc',
+            block: {start: 'hidden-rust-doc-start', end: 'hidden-rust-doc-end'},
+          },
+        ],
       },
     }),
 };

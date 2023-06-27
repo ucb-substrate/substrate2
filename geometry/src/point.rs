@@ -2,9 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::dims::Dims;
 use crate::dir::Dir;
 use crate::snap::snap_to_grid;
-use crate::transform::{Transform, Transformation, Translate};
+use crate::transform::{TransformMut, Transformation, TranslateMut};
 
 /// A point in two-dimensional space.
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -75,20 +76,71 @@ impl Point {
     }
 }
 
-impl Translate for Point {
-    fn translate(&mut self, p: Point) {
+impl TranslateMut for Point {
+    fn translate_mut(&mut self, p: Point) {
         self.x += p.x;
         self.y += p.y;
     }
 }
 
-impl Transform for Point {
-    fn transform(&mut self, trans: Transformation) {
+impl TransformMut for Point {
+    fn transform_mut(&mut self, trans: Transformation) {
         let xf = self.x as f64;
         let yf = self.y as f64;
         let x = trans.a[0][0] * xf + trans.a[0][1] * yf + trans.b[0];
         let y = trans.a[1][0] * xf + trans.a[1][1] * yf + trans.b[1];
         self.x = x.round() as i64;
         self.y = y.round() as i64;
+    }
+}
+
+impl std::ops::Add<Point> for Point {
+    type Output = Self;
+    fn add(self, rhs: Point) -> Self::Output {
+        Self::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl std::ops::Add<Dims> for Point {
+    type Output = Self;
+    fn add(self, rhs: Dims) -> Self::Output {
+        Self::new(self.x + rhs.width(), self.y + rhs.height())
+    }
+}
+
+impl std::ops::AddAssign<Point> for Point {
+    fn add_assign(&mut self, rhs: Point) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl std::ops::AddAssign<Dims> for Point {
+    fn add_assign(&mut self, rhs: Dims) {
+        self.x += rhs.width();
+        self.y += rhs.height();
+    }
+}
+
+impl std::ops::Sub<Point> for Point {
+    type Output = Self;
+    fn sub(self, rhs: Point) -> Self::Output {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+
+impl std::ops::SubAssign<Point> for Point {
+    fn sub_assign(&mut self, rhs: Point) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl From<(i64, i64)> for Point {
+    fn from(value: (i64, i64)) -> Self {
+        Self {
+            x: value.0,
+            y: value.1,
+        }
     }
 }
