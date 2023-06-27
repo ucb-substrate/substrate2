@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::marker::PhantomData;
-use std::ops::Deref;
+use std::ops::{Deref, Index};
 use std::sync::Arc;
 
 use arcstr::ArcStr;
@@ -38,15 +38,15 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An input port of hardware type `T`.
-pub struct Input<T: Undirected>(T);
+pub struct Input<T: Undirected>(pub T);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An output port of hardware type `T`.
-pub struct Output<T: Undirected>(T);
+pub struct Output<T: Undirected>(pub T);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An inout port of hardware type `T`.
-pub struct InOut<T: Undirected>(T);
+pub struct InOut<T: Undirected>(pub T);
 
 /// Indicates that a hardware type specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}
@@ -316,7 +316,12 @@ impl Flatten<Direction> for () {
         vec![]
     }
 }
+
 impl Undirected for () {}
+impl Undirected for Signal {}
+impl Undirected for Node {}
+impl<T: Undirected> Undirected for Array<T> {}
+impl<T: Undirected> Undirected for ArrayData<T> {}
 
 impl HardwareType for () {
     type Data = ();
@@ -325,8 +330,6 @@ impl HardwareType for () {
     }
 }
 
-impl Undirected for Signal {}
-impl Undirected for Node {}
 impl Flatten<Node> for () {
     fn flatten(&self) -> Vec<Node> {
         vec![]
@@ -598,5 +601,82 @@ impl SchematicContext {
         let tmp = self.next_id;
         self.next_id += 1;
         tmp
+    }
+}
+
+/// An array containing some number of elements of type `T`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+pub struct Array<T> {
+    len: usize,
+    ty: T,
+}
+
+impl<T: FlatLen> FlatLen for Array<T> {
+    fn len(&self) -> usize {
+        self.ty.len() * self.len
+    }
+}
+
+impl<T: HardwareType> HardwareType for Array<T> {
+    type Data = ArrayData<T::Data>;
+
+    fn instantiate<'n>(&self, mut ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+        let elems = (0..self.len)
+            .scan(&mut ids, |ids, _| {
+                let (elem, new_ids) = self.ty.instantiate(ids);
+                **ids = new_ids;
+                Some(elem)
+            })
+            .collect();
+        (
+            ArrayData {
+                elems,
+                ty_len: self.ty.len(),
+            },
+            ids,
+        )
+    }
+}
+
+impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
+    fn flatten(&self) -> Vec<Direction> {
+        let dirs = self.ty.flatten();
+        let len = dirs.len();
+        dirs.into_iter().cycle().take(len * self.len).collect()
+    }
+}
+
+/// An instantiated array containing a fixed number of elements of type `T`.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+pub struct ArrayData<T> {
+    elems: Vec<T>,
+    ty_len: usize,
+}
+
+impl<T: FlatLen> FlatLen for ArrayData<T> {
+    fn len(&self) -> usize {
+        self.elems.len() * self.ty_len
+    }
+}
+
+impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
+    fn flatten(&self) -> Vec<Node> {
+        self.elems.iter().flat_map(|e| e.flatten()).collect()
+    }
+}
+
+impl<T> Array<T> {
+    /// Create a new array of the given length and hardware type.
+    #[inline]
+    pub fn new(len: usize, ty: T) -> Self {
+        Self { len, ty }
+    }
+}
+
+impl<T> Index<usize> for ArrayData<T> {
+    type Output = T;
+    #[inline]
+    fn index(&self, index: usize) -> &Self::Output {
+        self.elems.index(index)
     }
 }
