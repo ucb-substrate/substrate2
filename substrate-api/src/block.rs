@@ -5,7 +5,7 @@ use std::{any::Any, hash::Hash};
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
-use crate::schematic::HardwareType;
+use crate::schematic::{Directed, HardwareType};
 
 /// A block that can be instantiated by Substrate.
 ///
@@ -36,7 +36,7 @@ pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + S
 }
 
 /// A trait implemented by block input/output interfaces.
-pub trait AnalogIo: HardwareType {
+pub trait AnalogIo: Directed + HardwareType {
     // TODO
 }
 
