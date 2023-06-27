@@ -404,6 +404,9 @@ impl<T> Connect<T> for T {}
 impl<T: Undirected> Connect<T> for Input<T> {}
 impl<T: Undirected> Connect<T> for Output<T> {}
 impl<T: Undirected> Connect<T> for InOut<T> {}
+impl<T: Undirected> Connect<Input<T>> for T {}
+impl<T: Undirected> Connect<Output<T>> for T {}
+impl<T: Undirected> Connect<InOut<T>> for T {}
 
 // For analog circuits, we don't check directionality of connections.
 impl<T: Undirected> Connect<Input<T>> for Output<T> {}
