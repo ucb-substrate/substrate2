@@ -9,6 +9,9 @@ pub enum LayoutError {
     /// An error with exporting a Substrate cell to GDS.
     #[error("error during gds export: {0:?}")]
     GdsExport(GdsExportError),
+    /// An error with defining the IO of a Substrate layout cell.
+    #[error("error specifying layout IO")]
+    IoDefinition,
 }
 
 impl From<GdsExportError> for LayoutError {

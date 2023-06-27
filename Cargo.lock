@@ -1373,6 +1373,9 @@ dependencies = [
  "rust_decimal_macros",
  "serde",
  "substrate",
+ "test-log",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

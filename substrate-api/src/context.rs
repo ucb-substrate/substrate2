@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 use once_cell::sync::OnceCell;
 
 use crate::error::Result;
+use crate::io::{FlatLen, NodeContext, SchematicType};
 use crate::layout::builder::CellBuilder as LayoutCellBuilder;
 use crate::layout::cell::Cell as LayoutCell;
 use crate::layout::context::LayoutContext;
@@ -18,9 +19,9 @@ use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
-use crate::schematic::{Cell as SchematicCell, FlatLen};
-use crate::schematic::{CellBuilder as SchematicCellBuilder, HardwareType, NodeContext};
-use crate::schematic::{HasSchematicImpl, SchematicContext};
+use crate::schematic::{
+    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, SchematicContext,
+};
 
 /// The global context.
 ///
