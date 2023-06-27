@@ -5,6 +5,7 @@ use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::ops::{Deref, Index};
+use std::slice::SliceIndex;
 use std::sync::Arc;
 
 use arcstr::ArcStr;
@@ -718,10 +719,13 @@ impl<T> Array<T> {
     }
 }
 
-impl<T> Index<usize> for ArrayData<T> {
-    type Output = T;
+impl<T, I> Index<I> for ArrayData<T>
+where
+    I: SliceIndex<[T]>,
+{
+    type Output = <I as SliceIndex<[T]>>::Output;
     #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        self.elems.index(index)
+    fn index(&self, index: I) -> &Self::Output {
+        Index::index(&self.elems, index)
     }
 }
