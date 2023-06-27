@@ -66,7 +66,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let (io, ids) = block.io().instantiate(&ids);
         assert!(ids.is_empty());
 
-        let connections = io.flatten();
+        let connections = io.flatten_vec();
 
         let inst = Instance { cell, io };
 
@@ -87,8 +87,8 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         D2: SchematicData,
         D1: Connect<D2>,
     {
-        let s1f = s1.flatten();
-        let s2f = s2.flatten();
+        let s1f = s1.flatten_vec();
+        let s2f = s2.flatten_vec();
         assert_eq!(s1f.len(), s2f.len());
         s1f.into_iter().zip(s2f).for_each(|(a, b)| {
             self.node_ctx.connect(a, b);

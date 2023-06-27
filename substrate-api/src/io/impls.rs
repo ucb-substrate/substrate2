@@ -15,8 +15,11 @@ impl<T> Flatten<Node> for &T
 where
     T: Flatten<Node>,
 {
-    fn flatten(&self) -> Vec<Node> {
-        (*self).flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        (*self).flatten(output)
     }
 }
 
@@ -30,8 +33,10 @@ impl FlatLen for () {
 }
 
 impl Flatten<Direction> for () {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![]
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
     }
 }
 
@@ -45,8 +50,10 @@ impl SchematicType for () {
 }
 
 impl Flatten<Node> for () {
-    fn flatten(&self) -> Vec<Node> {
-        vec![]
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<Node>,
+    {
     }
 }
 
@@ -64,8 +71,10 @@ impl LayoutDataBuilder<()> for () {
 }
 
 impl Flatten<PortGeometry> for () {
-    fn flatten(&self) -> Vec<PortGeometry> {
-        vec![]
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<PortGeometry>,
+    {
     }
 }
 
@@ -104,8 +113,11 @@ impl FlatLen for Node {
 }
 
 impl Flatten<Node> for Node {
-    fn flatten(&self) -> Vec<Node> {
-        vec![*self]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(*self));
     }
 }
 
@@ -116,11 +128,17 @@ impl FlatLen for PortGeometry {
         1
     }
 }
+
 impl Flatten<PortGeometry> for PortGeometry {
-    fn flatten(&self) -> Vec<PortGeometry> {
-        vec![self.clone()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<PortGeometry>,
+    {
+        output.extend(std::iter::once(self.clone()));
     }
 }
+
+impl Undirected for PortGeometry {}
 
 impl FlatLen for PortGeometryBuilder {
     fn len(&self) -> usize {
@@ -143,6 +161,8 @@ impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
         })
     }
 }
+
+impl Undirected for PortGeometryBuilder {}
 
 impl<T: Undirected> AsRef<T> for Input<T> {
     fn as_ref(&self) -> &T {
@@ -198,8 +218,11 @@ impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDat
 }
 
 impl<T: Undirected + Flatten<PortGeometry>> Flatten<PortGeometry> for Input<T> {
-    fn flatten(&self) -> Vec<PortGeometry> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<PortGeometry>,
+    {
+        self.0.flatten(output)
     }
 }
 
@@ -211,14 +234,19 @@ impl<T: Undirected + FlatLen> FlatLen for Input<T> {
 }
 
 impl<T: Undirected + FlatLen> Flatten<Direction> for Input<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![Direction::Input; self.0.len()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
     }
 }
-
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
     }
 }
 
@@ -257,8 +285,11 @@ impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDat
 }
 
 impl<T: Undirected + Flatten<PortGeometry>> Flatten<PortGeometry> for Output<T> {
-    fn flatten(&self) -> Vec<PortGeometry> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<PortGeometry>,
+    {
+        self.0.flatten(output)
     }
 }
 
@@ -270,14 +301,19 @@ impl<T: Undirected + FlatLen> FlatLen for Output<T> {
 }
 
 impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![Direction::Output; self.0.len()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::repeat(Direction::Output).take(self.0.len()))
     }
 }
-
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
     }
 }
 
@@ -335,8 +371,11 @@ impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDat
 }
 
 impl<T: Undirected + Flatten<PortGeometry>> Flatten<PortGeometry> for InOut<T> {
-    fn flatten(&self) -> Vec<PortGeometry> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<PortGeometry>,
+    {
+        self.0.flatten(output)
     }
 }
 
@@ -347,13 +386,19 @@ impl<T: Undirected + FlatLen> FlatLen for InOut<T> {
     }
 }
 impl<T: Undirected + FlatLen> Flatten<Direction> for InOut<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        vec![Direction::InOut; self.0.len()]
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
     }
 }
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.0.flatten()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
     }
 }
 impl<T: Undirected> AsRef<T> for InOut<T> {
@@ -400,11 +445,39 @@ impl<T: SchematicType> SchematicType for Array<T> {
     }
 }
 
+impl<T: LayoutType> LayoutType for Array<T> {
+    type Data = ArrayData<T::Data>;
+    type Builder = ArrayData<T::Builder>;
+
+    fn builder(&self) -> Self::Builder {
+        Self::Builder {
+            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
+            ty_len: self.ty.len(),
+        }
+    }
+}
+
+impl<T: LayoutData, B: LayoutDataBuilder<T>> LayoutDataBuilder<ArrayData<T>> for ArrayData<B> {
+    fn build(self) -> Result<ArrayData<T>> {
+        let mut elems = Vec::new();
+        for e in self.elems {
+            elems.push(e.build()?);
+        }
+        Ok(ArrayData {
+            elems,
+            ty_len: self.ty_len,
+        })
+    }
+}
+
 impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
-    fn flatten(&self) -> Vec<Direction> {
-        let dirs = self.ty.flatten();
-        let len = dirs.len();
-        dirs.into_iter().cycle().take(len * self.len).collect()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        for _ in 0..self.len {
+            self.ty.flatten(output);
+        }
     }
 }
 
@@ -417,8 +490,20 @@ impl<T: FlatLen> FlatLen for ArrayData<T> {
 }
 
 impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
-    fn flatten(&self) -> Vec<Node> {
-        self.elems.iter().flat_map(|e| e.flatten()).collect()
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.elems.iter().for_each(|e| e.flatten(output));
+    }
+}
+
+impl<T: Flatten<PortGeometry>> Flatten<PortGeometry> for ArrayData<T> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<PortGeometry>,
+    {
+        self.elems.iter().for_each(|e| e.flatten(output));
     }
 }
 

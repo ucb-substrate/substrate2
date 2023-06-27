@@ -32,9 +32,20 @@ impl<T: Flatten<Direction>> Directed for T {}
 pub trait Undirected {}
 
 /// Flatten a structure into a list.
-pub trait Flatten<T> {
+pub trait Flatten<T>: FlatLen {
     /// Flatten a structure into a list.
-    fn flatten(&self) -> Vec<T>;
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<T>;
+
+    /// Flatten into a [`Vec`].
+    fn flatten_vec(&self) -> Vec<T> {
+        let len = self.len();
+        let mut vec = Vec::with_capacity(len);
+        self.flatten(&mut vec);
+        assert_eq!(vec.len(), len, "Flatten::flatten_vec produced a Vec with an incorrect length: expected {} from FlatLen::len, got {}", len, vec.len());
+        vec
+    }
 }
 
 /// The length of the flattened list.
@@ -178,6 +189,7 @@ impl NodeContext {
 
 /// A set of geometry associated with a layout port.
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct PortGeometry {
     /// The primary shape of the port.
     ///
@@ -197,11 +209,20 @@ pub struct PortGeometryBuilder {
 }
 
 impl PortGeometryBuilder {
-    fn push(&mut self, shape: Shape) {
+    /// Push an unnamed shape to the port.
+    ///
+    /// If the primary shape has not been set yet, sets the primary shape to the new shape. This
+    /// can be overriden using [`PortGeometryBuilder::set_primary`].
+    pub fn push(&mut self, shape: Shape) {
         if self.primary.is_none() {
             self.primary = Some(shape.clone());
         }
         self.unnamed_shapes.push(shape);
+    }
+
+    /// Sets the primary shape of this port.
+    pub fn set_primary(&mut self, shape: Shape) {
+        self.primary = Some(shape);
     }
 }
 
