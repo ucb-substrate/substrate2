@@ -1,5 +1,7 @@
 //! Built-in implementations of IO traits.
 
+use std::slice::SliceIndex;
+
 use super::*;
 
 impl<T> FlatLen for &T
@@ -507,11 +509,14 @@ impl<T: Flatten<PortGeometry>> Flatten<PortGeometry> for ArrayData<T> {
     }
 }
 
-impl<T> Index<usize> for ArrayData<T> {
-    type Output = T;
+impl<T, I> Index<I> for ArrayData<T>
+where
+    I: SliceIndex<[T]>,
+{
+    type Output = <I as SliceIndex<[T]>>::Output;
     #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        self.elems.index(index)
+    fn index(&self, index: I) -> &Self::Output {
+        Index::index(&self.elems, index)
     }
 }
 
