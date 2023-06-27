@@ -18,7 +18,7 @@ use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
-use crate::schematic::Cell as SchematicCell;
+use crate::schematic::{Cell as SchematicCell, FlatLen};
 use crate::schematic::{CellBuilder as SchematicCellBuilder, HardwareType, NodeContext};
 use crate::schematic::{HasSchematicImpl, SchematicContext};
 
@@ -142,7 +142,7 @@ impl<PDK: Pdk> Context<PDK> {
         inner_mut.schematic.gen.generate(block.clone(), move || {
             let mut node_ctx = NodeContext::new();
             let io = block.io();
-            let nodes = node_ctx.nodes(io.num_signals() as usize);
+            let nodes = node_ctx.nodes(io.len());
             let (io, nodes) = io.instantiate(&nodes);
             assert!(nodes.is_empty());
             let mut cell_builder = SchematicCellBuilder {
