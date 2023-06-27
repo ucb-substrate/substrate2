@@ -1,6 +1,6 @@
 //! Utilities for GDS conversion.
 //!
-//! Converts between Substrate's layout data-model and [`gds21`] structures.
+//! Converts between Substrate's layout data-model and [`gds`] structures.
 
 use std::{collections::HashSet, sync::Arc};
 
