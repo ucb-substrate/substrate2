@@ -456,6 +456,29 @@ pub enum Direction {
     InOut,
 }
 
+impl Direction {
+    /// Returns the flipped direction.
+    ///
+    /// [`Direction::InOut`] is unchanged by flipping.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use substrate::schematic::Direction;
+    /// assert_eq!(Direction::Input.flip(), Direction::Output);
+    /// assert_eq!(Direction::Output.flip(), Direction::Input);
+    /// assert_eq!(Direction::InOut.flip(), Direction::InOut);
+    /// ```
+    #[inline]
+    pub fn flip(&self) -> Self {
+        match *self {
+            Self::Input => Self::Output,
+            Self::Output => Self::Input,
+            Self::InOut => Self::InOut,
+        }
+    }
+}
+
 /// A signal exposed by a cell.
 #[allow(dead_code)]
 pub struct Port {
