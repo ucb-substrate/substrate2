@@ -292,3 +292,5 @@ pub struct ArrayData<T> {
     elems: Vec<T>,
     ty_len: usize,
 }
+
+// END TYPES

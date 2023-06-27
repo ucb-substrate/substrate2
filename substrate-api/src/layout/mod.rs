@@ -23,6 +23,7 @@
 /// ```
 use crate::block::Block;
 use crate::error::Result;
+use crate::io::LayoutType;
 use crate::pdk::Pdk;
 
 use self::builder::CellBuilder;
@@ -47,5 +48,9 @@ pub trait HasLayout: Block {
 /// A block that has a layout for process design kit `PDK`.
 pub trait HasLayoutImpl<PDK: Pdk>: HasLayout {
     /// Generates the block's layout.
-    fn layout(&self, cell: &mut CellBuilder<PDK, Self>) -> Result<Self::Data>;
+    fn layout(
+        &self,
+        io: <<Self as Block>::Io as LayoutType>::Data,
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> Result<Self::Data>;
 }
