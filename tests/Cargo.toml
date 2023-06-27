@@ -12,3 +12,5 @@ rust_decimal_macros = "1.30"
 
 geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
 substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
+scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
+spice = { version = "0.0.0", registry = "substrate", path = "../netlist/spice" }

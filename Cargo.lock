@@ -1269,6 +1269,9 @@ dependencies = [
 [[package]]
 name = "spice"
 version = "0.0.0"
+dependencies = [
+ "scir",
+]
 
 [[package]]
 name = "strsim"
@@ -1371,7 +1374,9 @@ dependencies = [
  "geometry",
  "rust_decimal",
  "rust_decimal_macros",
+ "scir",
  "serde",
+ "spice",
  "substrate",
 ]
 

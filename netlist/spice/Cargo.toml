@@ -5,3 +5,4 @@ edition = "2021"
 publish = false
 
 [dependencies]
+scir = { version = "0.0.0", registry = "substrate", path = "../../scir" }

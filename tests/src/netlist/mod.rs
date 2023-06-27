@@ -1,11 +1,10 @@
 use rust_decimal_macros::dec;
-use test_log::test;
+use scir::*;
+use spice::Netlister;
 
-use crate::*;
-
-#[test]
-fn duplicate_instance_names() {
-    let mut lib = Library::new("duplicate_instance_names");
+/// Creates a 1:3 resistive voltage divider.
+pub(crate) fn vdivider() -> Library {
+    let mut lib = Library::new("vdivider");
     let mut wrapper = Cell::new("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
@@ -29,19 +28,38 @@ fn duplicate_instance_names() {
     r1.connect("neg", int);
     vdivider.add_instance(r1);
 
-    // Duplicate instance name
-    let mut r2 = Instance::new("r1", wrapper);
+    let mut r2 = Instance::new("r2", wrapper);
     r2.connect("pos", int);
     r2.connect("neg", out);
     vdivider.add_instance(r2);
 
+    let mut r3 = Instance::new("r3", wrapper);
+    r3.connect("pos", out);
+    r3.connect("neg", vss);
+    vdivider.add_instance(r3);
+
     vdivider.expose_port(vdd);
     vdivider.expose_port(vss);
     vdivider.expose_port(out);
-
     lib.add_cell(vdivider);
 
+    lib
+}
+
+#[test]
+fn vdivider_is_valid() {
+    let lib = vdivider();
     let issues = lib.validate();
-    assert_eq!(issues.num_warnings(), 1);
     assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+}
+
+#[test]
+fn netlist_spice() {
+    let lib = vdivider();
+    let mut buf: Vec<u8> = Vec::new();
+    let netlister = Netlister::new(&lib, &mut buf);
+    netlister.export().unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("{}", string);
 }

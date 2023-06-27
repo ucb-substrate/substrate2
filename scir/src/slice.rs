@@ -36,6 +36,24 @@ impl SliceRange {
     pub fn width(&self) -> usize {
         self.end - self.start
     }
+
+    /// The start index (inclusive) of this range.
+    #[inline]
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    /// The end index (**exclusive**) of this range.
+    #[inline]
+    pub fn end(&self) -> usize {
+        self.end
+    }
+
+    /// Iterate over the indices in this slice.
+    #[inline]
+    pub fn indices(&self) -> impl Iterator<Item = usize> {
+        self.start..self.end
+    }
 }
 impl IntoIterator for SliceRange {
     type Item = usize;
