@@ -1,5 +1,6 @@
 //! The global context.
 
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -153,6 +154,7 @@ impl<PDK: Pdk> Context<PDK> {
                 node_ctx,
                 instances: Vec::new(),
                 primitives: Vec::new(),
+                node_names: HashMap::new(),
                 phantom: PhantomData,
             };
             let data = block.schematic(io, &mut cell_builder);

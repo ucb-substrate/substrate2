@@ -1,6 +1,7 @@
 //! Substrate's schematic generator framework.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -13,7 +14,8 @@ use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
 use crate::io::{
-    Connect, FlatLen, Flatten, Node, NodeContext, NodeUf, Port, SchematicData, SchematicType,
+    Connect, FlatLen, Flatten, NameBuf, Node, NodeContext, NodeUf, Port, SchematicData,
+    SchematicType,
 };
 use crate::pdk::Pdk;
 
@@ -44,6 +46,7 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) node_ctx: NodeContext,
     pub(crate) instances: Vec<RawInstance>,
     pub(crate) primitives: Vec<PrimitiveDevice>,
+    pub(crate) node_names: HashMap<Node, NameBuf>,
     pub(crate) phantom: PhantomData<T>,
 }
 
@@ -53,6 +56,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             id: self.id,
             primitives: self.primitives,
             instances: self.instances,
+            node_names: self.node_names,
             ports: Default::default(),
             uf: self.node_ctx.into_inner(),
         }
@@ -138,6 +142,7 @@ pub(crate) struct RawCell {
     instances: Vec<RawInstance>,
     ports: Vec<Port>,
     uf: NodeUf,
+    node_names: HashMap<Node, NameBuf>,
 }
 
 /// An instance of a schematic cell.
