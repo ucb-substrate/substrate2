@@ -49,6 +49,10 @@ impl SchematicType for () {
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         ((), ids)
     }
+
+    fn names(&self) -> Option<Vec<NameTree>> {
+        None
+    }
 }
 
 impl Flatten<Node> for () {
@@ -94,6 +98,10 @@ impl SchematicType for Signal {
         } else {
             unreachable!();
         }
+    }
+
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(vec![])
     }
 }
 
@@ -195,6 +203,9 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (Input(data), ids)
     }
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
+    }
 }
 
 impl<T> LayoutType for Input<T>
@@ -261,6 +272,9 @@ where
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (Output(data), ids)
+    }
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -347,6 +361,9 @@ where
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (InOut(data), ids)
+    }
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -445,6 +462,21 @@ impl<T: SchematicType> SchematicType for Array<T> {
             ids,
         )
     }
+
+    fn names(&self) -> Option<Vec<NameTree>> {
+        if self.len == 0 {
+            return None;
+        }
+        let inner = self.ty.names()?;
+        Some(
+            (0..self.len)
+                .map(|i| NameTree {
+                    fragment: NameFragment::Idx(i),
+                    children: inner.clone(),
+                })
+                .collect(),
+        )
+    }
 }
 
 impl<T: LayoutType> LayoutType for Array<T> {
@@ -537,3 +569,31 @@ impl<T: Undirected> Connect<Output<T>> for Input<T> {}
 impl<T: Undirected> Connect<Output<T>> for InOut<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Input<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Output<T> {}
+
+impl From<ArcStr> for NameFragment {
+    fn from(value: ArcStr) -> Self {
+        Self::Str(value)
+    }
+}
+
+impl From<&str> for NameFragment {
+    fn from(value: &str) -> Self {
+        Self::Str(ArcStr::from(value))
+    }
+}
+
+impl From<usize> for NameFragment {
+    fn from(value: usize) -> Self {
+        Self::Idx(value)
+    }
+}
+
+impl NameTree {
+    /// Create a new name tree rooted at the given name fragment.
+    pub fn new(fragment: impl Into<NameFragment>, children: Vec<NameTree>) -> Self {
+        Self {
+            fragment: fragment.into(),
+            children,
+        }
+    }
+}

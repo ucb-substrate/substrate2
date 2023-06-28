@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
+use substrate::io::{InOut, NameTree, Output, Signal};
 use test_log::test;
 
 use substrate::{block::Block, context::Context};
@@ -122,4 +123,31 @@ fn can_generate_vdivider_schematic() {
         r2: Resistor { r: 100 },
     });
     let _cell = handle.wait().as_ref().unwrap();
+}
+
+#[test]
+fn nested_io_naming() {
+    use crate::substrate::block::schematic::{PowerIo, VdividerIo};
+    use substrate::io::SchematicType;
+
+    let io = VdividerIo {
+        pwr: PowerIo {
+            vdd: InOut(Signal),
+            vss: InOut(Signal),
+        },
+        out: Output(Signal),
+    };
+
+    let actual = NameTree::new("io", io.names().unwrap());
+    let expected = NameTree::new(
+        "io",
+        vec![
+            NameTree::new(
+                "pwr",
+                vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
+            ),
+            NameTree::new("out", vec![]),
+        ],
+    );
+    assert_eq!(actual, expected);
 }

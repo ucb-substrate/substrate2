@@ -10,3 +10,7 @@ pub mod layout;
 pub mod pdk;
 pub mod schematic;
 pub mod simulation;
+
+// Re-exported for procedural macros.
+#[doc(hidden)]
+pub use arcstr;

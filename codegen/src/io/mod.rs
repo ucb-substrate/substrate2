@@ -33,6 +33,7 @@ impl ToTokens for IoInputReceiver {
         let mut instantiate_fields = Vec::new();
         let mut construct_data_fields = Vec::new();
         let mut flatten_node_fields = Vec::new();
+        let mut name_fields = Vec::new();
 
         let data_ident = format_ident!("{}Data", ident);
 
@@ -63,6 +64,9 @@ impl ToTokens for IoInputReceiver {
             });
             flatten_node_fields.push(quote! {
                 <<#field_ty as ::substrate::io::SchematicType>::Data as ::substrate::io::Flatten<::substrate::io::Node>>::flatten(&self.#field_ident, __substrate_output_sink);
+            });
+            name_fields.push(quote! {
+                (::substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as ::substrate::io::SchematicType>::names(&self.#field_ident))
             });
         }
 
@@ -105,6 +109,14 @@ impl ToTokens for IoInputReceiver {
                 fn instantiate<'n>(&self, __substrate_node_ids: &'n [::substrate::io::Node]) -> (Self::Data, &'n [::substrate::io::Node]) {
                     #( #instantiate_fields )*
                     (#data_ident { #( #construct_data_fields )* }, __substrate_node_ids)
+                }
+                fn names(&self) -> ::std::option::Option<::std::vec::Vec<::substrate::io::NameTree>> {
+                    if <Self as ::substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
+                    ::std::option::Option::Some([ #( #name_fields ),* ]
+                         .into_iter()
+                         .filter_map(|(frag, children)| children.map(|c| ::substrate::io::NameTree::new(frag, c)))
+                         .collect()
+                    )
                 }
             }
         });
