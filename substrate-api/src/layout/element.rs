@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::pdk::{layers::LayerId, Pdk};
 
-use super::{builder::CellBuilder, cell::Instance, draw::DrawContainer, HasLayout, HasLayoutImpl};
+use super::{draw::DrawContainer, CellBuilder, HasLayout, HasLayoutImpl, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(

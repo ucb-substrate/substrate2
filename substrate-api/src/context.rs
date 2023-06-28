@@ -7,13 +7,13 @@ use std::sync::{Arc, RwLock};
 use once_cell::sync::OnceCell;
 
 use crate::error::Result;
-use crate::io::{FlatLen, NodeContext, SchematicType};
-use crate::layout::builder::CellBuilder as LayoutCellBuilder;
-use crate::layout::cell::Cell as LayoutCell;
-use crate::layout::context::LayoutContext;
+use crate::io::{FlatLen, LayoutType, NodeContext, SchematicType};
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::GdsExporter;
+use crate::layout::Cell as LayoutCell;
+use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::HasLayoutImpl;
+use crate::layout::LayoutContext;
 use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
@@ -105,8 +105,9 @@ impl<PDK: Pdk> Context<PDK> {
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
         inner_mut.layout.gen.generate(block.clone(), move || {
+            let mut io_builder = block.io().builder();
             let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
-            let data = block.layout(&mut cell_builder);
+            let data = block.layout(&mut io_builder, &mut cell_builder);
             data.map(|data| LayoutCell::new(block, data, Arc::new(cell_builder.into())))
         })
     }

@@ -9,9 +9,10 @@ use crate::dir::Dir;
 use crate::edge::Edge;
 use crate::intersect::Intersect;
 use crate::point::Point;
+use crate::prelude::Transform;
 use crate::side::{Side, Sides};
 use crate::span::Span;
-use crate::transform::{TransformMut, Transformation, TranslateMut};
+use crate::transform::{HasTransformedView, TransformMut, Transformation, TranslateMut};
 use crate::union::BoundingUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
@@ -1278,6 +1279,14 @@ impl TransformMut for Rect {
 
         self.p0 = Point::new(std::cmp::min(p0.x, p1.x), std::cmp::min(p0.y, p1.y));
         self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));
+    }
+}
+
+impl HasTransformedView for Rect {
+    type TransformedView<'a> = Rect;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        self.transform(trans)
     }
 }
 
