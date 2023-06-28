@@ -57,6 +57,15 @@ impl RawCell {
                     neg: nodes[neg],
                     value: scir::Expr::NumericLiteral(*value),
                 },
+                super::PrimitiveDevice::RawInstance {
+                    ports,
+                    cell,
+                    params,
+                } => scir::PrimitiveDevice::RawInstance {
+                    ports: ports.iter().map(|p| nodes[p]).collect(),
+                    cell: cell.clone(),
+                    params: params.clone(),
+                },
             };
             cell.add_primitive(sp);
         }
