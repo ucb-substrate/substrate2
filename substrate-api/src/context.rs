@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use once_cell::sync::OnceCell;
 
 use crate::error::Result;
-use crate::io::{FlatLen, LayoutType, NodeContext, SchematicType};
+use crate::io::{FlatLen, Flatten, LayoutType, NodeContext, Port, SchematicType};
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::GdsExporter;
 use crate::layout::Cell as LayoutCell;
@@ -148,23 +148,42 @@ impl<PDK: Pdk> Context<PDK> {
             let nodes = node_ctx.nodes(io.len());
             let (io_data, nodes_rest) = io.instantiate(&nodes);
             assert!(nodes_rest.is_empty());
+            let cell_name = block.name();
 
             let names = io.flat_names(arcstr::literal!("io"));
+            let dirs = io.flatten_vec();
             assert_eq!(nodes.len(), names.len());
+            assert_eq!(nodes.len(), dirs.len());
+
+            let ports = nodes
+                .iter()
+                .copied()
+                .zip(dirs)
+                .map(|(node, direction)| Port::new(node, direction))
+                .collect();
 
             let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
             let mut cell_builder = SchematicCellBuilder {
                 id,
+                cell_name,
                 ctx: context_clone,
                 node_ctx,
                 instances: Vec::new(),
                 primitives: Vec::new(),
                 node_names,
                 phantom: PhantomData,
+                ports,
             };
-            let data = block.schematic(io_data, &mut cell_builder);
+            let data = block.schematic(&io_data, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
+    }
+
+    /// Export the given block and all sub-blocks as a SCIR library.
+    pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> scir::Library {
+        let cell = self.generate_schematic(block);
+        let cell = cell.wait().as_ref().unwrap();
+        cell.raw.to_scir_lib()
     }
 
     /// Installs a new layer set in the context.

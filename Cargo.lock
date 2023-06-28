@@ -1306,6 +1306,7 @@ dependencies = [
  "once_cell",
  "rust_decimal",
  "rust_decimal_macros",
+ "scir",
  "serde",
  "substrate",
  "thiserror",
