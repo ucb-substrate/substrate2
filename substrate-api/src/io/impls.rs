@@ -140,6 +140,21 @@ impl Flatten<PortGeometry> for PortGeometry {
     }
 }
 
+impl HasTransformedView for PortGeometry {
+    type TransformedView<'a> = TransformedPortGeometry<'a>;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        Self::TransformedView {
+            primary: self.primary.transformed_view(trans),
+            unnamed_shapes: self.unnamed_shapes.transformed_view(trans),
+            named_shapes: self.named_shapes.transformed_view(trans),
+        }
+    }
+}
+
 impl Undirected for PortGeometry {}
 
 impl FlatLen for PortGeometryBuilder {
@@ -211,6 +226,17 @@ where
     }
 }
 
+impl<T: Undirected + HasTransformedView> HasTransformedView for Input<T> {
+    type TransformedView<'a> = TransformedInput<'a, T> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        TransformedInput(self.0.transformed_view(trans))
+    }
+}
+
 impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDataBuilder<Input<T>>
     for Input<B>
 {
@@ -275,6 +301,17 @@ where
 
     fn builder(&self) -> Self::Builder {
         Output(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasTransformedView> HasTransformedView for Output<T> {
+    type TransformedView<'a> = TransformedOutput<'a, T> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        TransformedOutput(self.0.transformed_view(trans))
     }
 }
 
@@ -361,6 +398,17 @@ where
 
     fn builder(&self) -> Self::Builder {
         InOut(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasTransformedView> HasTransformedView for InOut<T> {
+    type TransformedView<'a> = TransformedInOut<'a, T> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        TransformedInOut(self.0.transformed_view(trans))
     }
 }
 
@@ -455,6 +503,26 @@ impl<T: LayoutType> LayoutType for Array<T> {
         Self::Builder {
             elems: (0..self.len).map(|_| self.ty.builder()).collect(),
             ty_len: self.ty.len(),
+        }
+    }
+}
+
+// TODO: Maybe do lazy transformation here.
+impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
+    type TransformedView<'a>
+    = ArrayData<Transformed<'a, T>> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        Self::TransformedView {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem: &T| elem.transformed_view(trans))
+                .collect(),
+            ty_len: self.ty_len,
         }
     }
 }

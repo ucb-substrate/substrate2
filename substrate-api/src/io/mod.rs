@@ -7,6 +7,7 @@ use std::{
 };
 
 use arcstr::ArcStr;
+use geometry::transform::{HasTransformedView, Transformed};
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
@@ -92,8 +93,8 @@ impl<T> SchematicData for T where T: FlatLen + Flatten<Node> {}
 /// Layout hardware data.
 ///
 /// An instance of a [`LayoutType`].
-pub trait LayoutData: FlatLen + Flatten<PortGeometry> {}
-impl<T> LayoutData for T where T: FlatLen + Flatten<PortGeometry> {}
+pub trait LayoutData: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+impl<T> LayoutData for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
 
 /// Layout hardware data builder.
 ///
@@ -118,6 +119,15 @@ pub struct Output<T: Undirected>(pub T);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An inout port of hardware type `T`.
 pub struct InOut<T: Undirected>(pub T);
+
+/// A transformed input port of hardware type `T`.
+pub struct TransformedInput<'a, T: Undirected + HasTransformedView + 'a>(pub Transformed<'a, T>);
+
+/// An transformed output port of hardware type `T`.
+pub struct TransformedOutput<'a, T: Undirected + HasTransformedView + 'a>(pub Transformed<'a, T>);
+
+/// An transformed inout port of hardware type `T`.
+pub struct TransformedInOut<'a, T: Undirected + HasTransformedView + 'a>(pub Transformed<'a, T>);
 
 /// A type representing a single hardware wire.
 #[derive(Debug, Default, Clone, Copy)]
@@ -198,6 +208,18 @@ pub struct PortGeometry {
     primary: Shape,
     unnamed_shapes: Vec<Shape>,
     named_shapes: HashMap<ArcStr, Shape>,
+}
+
+/// A set of transformed geometry associated with a layout port.
+#[allow(dead_code)]
+pub struct TransformedPortGeometry<'a> {
+    /// The primary shape of the port.
+    ///
+    /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
+    /// explicitly. It is kept separately for ease of access.
+    primary: Shape,
+    unnamed_shapes: Transformed<'a, [Shape]>,
+    named_shapes: Transformed<'a, HashMap<ArcStr, Shape>>,
 }
 
 /// A set of geometry associated with a layout port.

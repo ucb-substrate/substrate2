@@ -8,7 +8,7 @@ use arcstr::ArcStr;
 use geometry::{
     prelude::{Bbox, Orientation, Point},
     rect::Rect,
-    transform::{Transform, Transformation},
+    transform::{HasTransformedView, Transform, Transformation},
 };
 use serde::{Deserialize, Serialize};
 
@@ -139,6 +139,17 @@ impl Shape {
 impl Bbox for Shape {
     fn bbox(&self) -> Option<Rect> {
         self.shape.bbox()
+    }
+}
+
+impl HasTransformedView for Shape {
+    type TransformedView<'a> = Shape;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        Shape {
+            layer: self.layer,
+            shape: self.shape.transformed_view(trans),
+        }
     }
 }
 

@@ -232,6 +232,14 @@ impl<T: TransformMut> TransformMut for Vec<T> {
     }
 }
 
+impl<T: TransformMut> TransformMut for Option<T> {
+    fn transform_mut(&mut self, trans: Transformation) {
+        if let Some(inner) = self.as_mut() {
+            inner.transform_mut(trans);
+        }
+    }
+}
+
 /// A trait for specifying how an object is changed by a transformation.
 ///
 /// Takes in an owned copy of the shape and returns the transformed version.
@@ -258,6 +266,14 @@ impl<T: TranslateMut> TranslateMut for Vec<T> {
     fn translate_mut(&mut self, p: Point) {
         for i in self.iter_mut() {
             i.translate_mut(p);
+        }
+    }
+}
+
+impl<T: TranslateMut> TranslateMut for Option<T> {
+    fn translate_mut(&mut self, p: Point) {
+        if let Some(inner) = self.as_mut() {
+            inner.translate_mut(p);
         }
     }
 }
@@ -294,6 +310,12 @@ pub trait HasTransformedView {
 
 /// The type of the transformed view of `T`.
 pub type Transformed<'a, T> = <T as HasTransformedView>::TransformedView<'a>;
+
+impl HasTransformedView for () {
+    type TransformedView<'a> = ();
+
+    fn transformed_view(&self, _trans: Transformation) -> Self::TransformedView<'_> {}
+}
 
 /// A transformed view of a vector.
 pub struct TransformedVec<'a, T> {

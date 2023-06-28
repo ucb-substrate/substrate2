@@ -121,7 +121,7 @@ impl ToTokens for LayersInputReceiver {
 
                 fn flatten(&self) -> Vec<::substrate::pdk::layers::LayerInfo> {
                     use ::substrate::pdk::layers::Layer;
-                    vec![
+                    ::std::vec![
                         #( self.#layer_idents.info() ),*
                     ]
                 }
@@ -163,9 +163,9 @@ impl ToTokens for LayerInputReceiver {
                 )
             })
         }) {
-            quote!(Some(::substrate::pdk::layers::GdsLayerSpec(#a, #b)))
+            quote!(::std::option::Option::Some(::substrate::pdk::layers::GdsLayerSpec(#a, #b)))
         } else {
-            quote!(None)
+            quote!(::std::option::Option::None)
         };
 
         tokens.extend(quote! {
@@ -177,7 +177,7 @@ impl ToTokens for LayerInputReceiver {
                 fn info(&self) -> ::substrate::pdk::layers::LayerInfo {
                     ::substrate::pdk::layers::LayerInfo {
                         id: self.0,
-                        name: arcstr::literal!(#name),
+                        name: ::substrate::arcstr::literal!(#name),
                         gds: #gds,
                     }
                 }

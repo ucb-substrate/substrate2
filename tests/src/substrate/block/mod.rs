@@ -65,6 +65,32 @@ impl Block for Buffer {
     fn io(&self) -> Self::Io {}
 }
 
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct BufferN {
+    strength: usize,
+    n: usize,
+}
+
+impl BufferN {
+    pub fn new(strength: usize, n: usize) -> Self {
+        Self { strength, n }
+    }
+}
+
+impl Block for BufferN {
+    type Io = ();
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("buffer_n")
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("buffer_{}_{}", self.strength, self.n)
+    }
+
+    fn io(&self) -> Self::Io {}
+}
+
 #[test]
 fn layout_generation_and_data_propagation_work() {
     let test_name = "layout_generation_and_data_propagation_work";
@@ -76,8 +102,8 @@ fn layout_generation_and_data_propagation_work() {
     let cell = handle.wait().as_ref().unwrap();
 
     assert_eq!(cell.block, Buffer::new(5));
-    assert_eq!(cell.data.inv1.cell().block, Inverter::new(5));
-    assert_eq!(cell.data.inv2.cell().block, Inverter::new(5));
+    assert_eq!(cell.data.inv1.cell().block, &Inverter::new(5));
+    assert_eq!(cell.data.inv2.cell().block, &Inverter::new(5));
 
     assert_eq!(
         cell.data.inv1.bbox(),
@@ -85,7 +111,17 @@ fn layout_generation_and_data_propagation_work() {
     );
 
     assert_eq!(
+        cell.data.inv1.cell().bbox(),
+        Some(Rect::from_sides(0, 0, 100, 200))
+    );
+
+    assert_eq!(
         cell.data.inv2.bbox(),
+        Some(Rect::from_sides(110, 0, 210, 200))
+    );
+
+    assert_eq!(
+        cell.data.inv2.cell().bbox(),
         Some(Rect::from_sides(110, 0, 210, 200))
     );
 
@@ -112,6 +148,25 @@ fn layout_generation_and_data_propagation_work() {
 
     ctx.write_layout(block, get_path(test_name, "layout_pdk_b.gds"))
         .expect("failed to write layout");
+}
+
+#[test]
+fn nested_transform_views_work() {
+    let test_name = "nested_transform_views_work";
+
+    let block = BufferN::new(5, 10);
+
+    let mut ctx = Context::new(ExamplePdkA);
+    ctx.write_layout(block, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
+
+    let handle = ctx.generate_layout(block);
+    let cell = handle.wait().as_ref().unwrap();
+
+    assert_eq!(
+        cell.data.buffers[9].cell().data.inv2.bbox(),
+        Some(Rect::from_sides(2090, 0, 2190, 200))
+    );
 }
 
 #[test]
