@@ -2,11 +2,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use arcstr::ArcStr;
-use scir::slice::Slice;
 use scir::{Cell, CellId as ScirCellId, Instance, Library};
 
-use crate::io::{NameBuf, Node};
+use crate::io::Node;
 
 use super::{CellId, RawCell};
 
