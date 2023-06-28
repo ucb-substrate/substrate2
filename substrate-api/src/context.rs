@@ -112,7 +112,7 @@ impl<PDK: Pdk> Context<PDK> {
         let span = span!(
             Level::INFO,
             "generating layout",
-            block = AsRef::<str>::as_ref(&block.name()),
+            block = %block.name(),
         )
         .or_current();
         inner_mut.layout.gen.generate(block.clone(), move || {
