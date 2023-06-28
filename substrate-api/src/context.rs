@@ -146,18 +146,23 @@ impl<PDK: Pdk> Context<PDK> {
             let mut node_ctx = NodeContext::new();
             let io = block.io();
             let nodes = node_ctx.nodes(io.len());
-            let (io, nodes) = io.instantiate(&nodes);
-            assert!(nodes.is_empty());
+            let (io_data, nodes_rest) = io.instantiate(&nodes);
+            assert!(nodes_rest.is_empty());
+
+            let names = io.flat_names(arcstr::literal!("io"));
+            assert_eq!(nodes.len(), names.len());
+
+            let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
             let mut cell_builder = SchematicCellBuilder {
                 id,
                 ctx: context_clone,
                 node_ctx,
                 instances: Vec::new(),
                 primitives: Vec::new(),
-                node_names: HashMap::new(),
+                node_names,
                 phantom: PhantomData,
             };
-            let data = block.schematic(io, &mut cell_builder);
+            let data = block.schematic(io_data, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
     }

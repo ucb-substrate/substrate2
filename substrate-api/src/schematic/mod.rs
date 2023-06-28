@@ -67,12 +67,17 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let io = block.io();
 
         let ids = self.node_ctx.nodes(io.len());
-        let (io, ids) = block.io().instantiate(&ids);
-        assert!(ids.is_empty());
+        let (io_data, ids_rest) = block.io().instantiate(&ids);
+        assert!(ids_rest.is_empty());
 
-        let connections = io.flatten_vec();
+        let connections = io_data.flatten_vec();
+        let names = io.flat_names(arcstr::format!("xinst{}", self.instances.len()));
+        assert_eq!(connections.len(), names.len());
 
-        let inst = Instance { cell, io };
+        self.node_names
+            .extend(connections.iter().copied().zip(names));
+
+        let inst = Instance { cell, io: io_data };
 
         let raw = RawInstance {
             name: arcstr::literal!("unnamed"),
