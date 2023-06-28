@@ -596,4 +596,94 @@ impl NameTree {
             children,
         }
     }
+
+    /// Flattens the node name tree, returning a list of [`NameBuf`]s.
+    pub fn flatten(&self) -> Vec<NameBuf> {
+        self.flatten_inner(NameBuf::new())
+    }
+
+    fn flatten_inner(&self, mut parent: NameBuf) -> Vec<NameBuf> {
+        parent.fragments.push(self.fragment.clone());
+        if self.children.is_empty() {
+            return vec![parent];
+        }
+        self.children
+            .iter()
+            .flat_map(|c| c.flatten_inner(parent.clone()))
+            .collect()
+    }
+}
+
+impl FlatLen for NameTree {
+    fn len(&self) -> usize {
+        // Leaf nodes have a flattened length of 1.
+        if self.children.is_empty() {
+            return 1;
+        }
+
+        self.children.iter().map(|c| c.len()).sum()
+    }
+}
+
+impl Flatten<NameBuf> for NameTree {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NameBuf>,
+    {
+        output.extend(self.flatten());
+    }
+    fn flatten_vec(&self) -> Vec<NameBuf> {
+        self.flatten()
+    }
+}
+
+impl NameBuf {
+    /// Creates a new, empty [`NameBuf`].
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::io::*;
+
+    #[test]
+    fn flatten_name_tree() {
+        let tree = NameTree::new(
+            "io",
+            vec![
+                NameTree::new(
+                    "pwr",
+                    vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
+                ),
+                NameTree::new("out", vec![]),
+            ],
+        );
+
+        assert_eq!(
+            tree.flatten(),
+            vec![
+                NameBuf {
+                    fragments: vec![
+                        NameFragment::from("io"),
+                        NameFragment::from("pwr"),
+                        NameFragment::from("vdd")
+                    ]
+                },
+                NameBuf {
+                    fragments: vec![
+                        NameFragment::from("io"),
+                        NameFragment::from("pwr"),
+                        NameFragment::from("vss")
+                    ]
+                },
+                NameBuf {
+                    fragments: vec![NameFragment::from("io"), NameFragment::from("out")]
+                },
+            ]
+        );
+        assert_eq!(tree.len(), 3);
+    }
 }
