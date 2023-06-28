@@ -42,6 +42,7 @@ pub(crate) mod validation;
 pub(crate) mod tests;
 
 /// An expression, often used in parameter assignments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expr {
     /// A numeric literal.
     NumericLiteral(Decimal),
@@ -63,6 +64,7 @@ pub enum Expr {
 }
 
 /// Binary operation types.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum BinOp {
     /// Addition.
     Add,
@@ -75,6 +77,7 @@ pub enum BinOp {
 }
 
 /// A cell parameter.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Param {
     /// A string parameter.
     String {
@@ -140,6 +143,7 @@ impl Display for CellId {
 }
 
 /// An enumeration of supported primitive devices.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PrimitiveDevice {
     /// An ideal 2-terminal resistor.
     Res2 {
@@ -178,6 +182,7 @@ impl PrimitiveDevice {
 }
 
 /// A concatenation of multiple slices.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Concat {
     parts: Vec<Slice>,
 }
@@ -218,6 +223,7 @@ impl From<Slice> for Concat {
 }
 
 /// A library of SCIR cells.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Library {
     /// The last ID assigned.
     ///
@@ -232,11 +238,13 @@ pub struct Library {
 }
 
 /// A signal exposed by a cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Port {
     signal: SignalId,
 }
 
 /// Information about a signal in a cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
     /// The name of this signal.
     pub name: ArcStr,
@@ -248,6 +256,7 @@ pub struct SignalInfo {
 }
 
 /// An instance of a child cell placed inside a parent cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
     /// The ID of the child cell.
     cell: CellId,
@@ -267,6 +276,7 @@ pub struct Instance {
 }
 
 /// A cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cell {
     /// The last signal ID used.
     ///

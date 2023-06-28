@@ -1,5 +1,6 @@
 //! Built-in implementations of IO traits.
 
+use std::fmt::Display;
 use std::slice::SliceIndex;
 
 use super::*;
@@ -588,6 +589,27 @@ impl From<usize> for NameFragment {
     }
 }
 
+impl Display for NameFragment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Str(s) => write!(f, "{s}"),
+            Self::Idx(i) => write!(f, "{i}"),
+        }
+    }
+}
+
+impl Display for NameBuf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(fragment) = self.fragments.get(0) {
+            write!(f, "{fragment}")?;
+        }
+        for fragment in self.fragments.iter().skip(1) {
+            write!(f, "_{fragment}")?;
+        }
+        Ok(())
+    }
+}
+
 impl NameTree {
     /// Create a new name tree rooted at the given name fragment.
     pub fn new(fragment: impl Into<NameFragment>, children: Vec<NameTree>) -> Self {
@@ -642,6 +664,24 @@ impl NameBuf {
     #[inline]
     pub fn new() -> Self {
         Default::default()
+    }
+}
+
+impl Port {
+    #[inline]
+    pub(crate) fn new(node: Node, direction: Direction) -> Self {
+        Self { node, direction }
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    #[inline]
+    pub(crate) fn node(&self) -> Node {
+        self.node
     }
 }
 

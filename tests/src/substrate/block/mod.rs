@@ -118,11 +118,20 @@ fn layout_generation_and_data_propagation_work() {
 #[test]
 fn can_generate_vdivider_schematic() {
     let mut ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_schematic(Vdivider {
+    let vdivider = Vdivider {
         r1: Resistor { r: 300 },
         r2: Resistor { r: 100 },
-    });
+    };
+    let handle = ctx.generate_schematic(vdivider);
     let _cell = handle.wait().as_ref().unwrap();
+
+    let lib = ctx.export_scir(vdivider);
+    assert_eq!(lib.cells().count(), 3);
+    let issues = lib.validate();
+    println!("Library:\n{:#?}", lib);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
 }
 
 #[test]
