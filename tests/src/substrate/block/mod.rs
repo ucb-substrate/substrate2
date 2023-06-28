@@ -132,6 +132,21 @@ fn can_generate_vdivider_schematic() {
     println!("Issues = {:#?}", issues);
     assert_eq!(issues.num_errors(), 0);
     assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = lib.cell_named("vdivider_resistor_300_resistor_100");
+    assert_eq!(vdiv.ports().count(), 3);
+    assert_eq!(vdiv.primitives().count(), 0);
+    assert_eq!(vdiv.instances().count(), 2);
+
+    let res300 = lib.cell_named("resistor_300");
+    assert_eq!(res300.ports().count(), 2);
+    assert_eq!(res300.primitives().count(), 1);
+    assert_eq!(res300.instances().count(), 0);
+
+    let res100 = lib.cell_named("resistor_100");
+    assert_eq!(res100.ports().count(), 2);
+    assert_eq!(res100.primitives().count(), 1);
+    assert_eq!(res100.instances().count(), 0);
 }
 
 #[test]

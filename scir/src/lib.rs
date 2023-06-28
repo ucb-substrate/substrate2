@@ -235,6 +235,11 @@ pub struct Library {
 
     /// A map of the cells in the library.
     cells: HashMap<CellId, Cell>,
+
+    /// A map of cell name to cell ID.
+    ///
+    /// SCIR makes no attempt to prevent duplicate cell names.
+    name_map: HashMap<ArcStr, CellId>,
 }
 
 /// A signal exposed by a cell.
@@ -297,6 +302,7 @@ impl Library {
             cell_id: 0,
             name: name.into(),
             cells: HashMap::new(),
+            name_map: HashMap::new(),
         }
     }
 
@@ -306,6 +312,7 @@ impl Library {
     pub fn add_cell(&mut self, cell: Cell) -> CellId {
         self.cell_id += 1;
         let id = CellId(self.cell_id);
+        self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         id
     }
@@ -323,6 +330,15 @@ impl Library {
     /// Panics if no cell has the given ID.
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
+    }
+
+    /// Gets the cell with the given name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no cell has the given name.
+    pub fn cell_named(&self, name: &str) -> &Cell {
+        self.cell(*self.name_map.get(name).unwrap())
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.
