@@ -73,6 +73,13 @@ pub trait SchematicType: FlatLen + Clone {
     /// Important: empty types (i.e. those with a flattened length of 0) must return [`None`].
     /// All non-empty types must return [`Some`].
     fn names(&self) -> Option<Vec<NameTree>>;
+
+    /// Returns a flattened list of node names.
+    fn flat_names(&self, root: impl Into<NameFragment>) -> Vec<NameBuf> {
+        self.names()
+            .map(|t| NameTree::new(root.into(), t).flatten())
+            .unwrap_or_default()
+    }
 }
 
 /// A trait indicating that this type can be connected to T.
