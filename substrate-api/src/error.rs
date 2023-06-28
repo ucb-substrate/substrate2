@@ -14,6 +14,9 @@ pub enum Error {
     /// An internal Substrate error that indicates a bug in the source code.
     #[error("internal Substrate error")]
     Internal,
+    /// An error thrown when a thread spawned during generation panics.
+    #[error("a thread panicked")]
+    Panic,
 }
 
 impl From<LayoutError> for Error {

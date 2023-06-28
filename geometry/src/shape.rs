@@ -5,6 +5,7 @@ use crate::{
     prelude::Transform,
     rect::Rect,
     transform::{HasTransformedView, TransformMut, TranslateMut},
+    union::BoundingUnion,
 };
 
 /// An enumeration of geometric shapes.
@@ -50,5 +51,13 @@ impl From<Rect> for Shape {
     #[inline]
     fn from(value: Rect) -> Self {
         Self::Rect(value)
+    }
+}
+
+impl<T: Bbox> BoundingUnion<T> for Shape {
+    type Output = Option<Rect>;
+
+    fn bounding_union(&self, other: &T) -> Self::Output {
+        self.bbox().bounding_union(&other.bbox())
     }
 }

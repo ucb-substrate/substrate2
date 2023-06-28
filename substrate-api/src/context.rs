@@ -6,9 +6,13 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use once_cell::sync::OnceCell;
+use tracing::{span, Level};
 
 use crate::error::Result;
-use crate::io::{FlatLen, Flatten, LayoutType, NodeContext, Port, SchematicType};
+use crate::io::{
+    FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, Port, SchematicType,
+};
+use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::GdsExporter;
 use crate::layout::Cell as LayoutCell;
@@ -105,11 +109,34 @@ impl<PDK: Pdk> Context<PDK> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
+        let span = span!(
+            Level::INFO,
+            "generating layout",
+            block = %block.name(),
+        )
+        .or_current();
         inner_mut.layout.gen.generate(block.clone(), move || {
             let mut io_builder = block.io().builder();
             let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+            let _guard = span.enter();
             let data = block.layout(&mut io_builder, &mut cell_builder);
-            data.map(|data| LayoutCell::new(block, data, Arc::new(cell_builder.into())))
+
+            let io = io_builder.build()?;
+            let ports = HashMap::from_iter(
+                block
+                    .io()
+                    .flat_names(arcstr::literal!("io"))
+                    .into_iter()
+                    .zip(io.flatten_vec().into_iter()),
+            );
+            data.map(|data| {
+                LayoutCell::new(
+                    block,
+                    data,
+                    Arc::new(io),
+                    Arc::new(RawCell::from_ports_and_builder(ports, cell_builder)),
+                )
+            })
         })
     }
 

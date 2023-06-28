@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
-use substrate::io::{InOut, NameTree, Output, Signal};
+use substrate::io::{InOut, Input, NameTree, Output, Signal};
+use substrate::Io;
 use test_log::test;
 
 use substrate::{block::Block, context::Context};
@@ -16,6 +17,14 @@ use self::schematic::{Resistor, Vdivider};
 pub mod layout;
 pub mod schematic;
 
+#[derive(Io, Clone, Default)]
+pub struct BufferIo {
+    vdd: InOut<Signal>,
+    vss: InOut<Signal>,
+    din: Input<Signal>,
+    dout: Output<Signal>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Inverter {
     strength: usize,
@@ -28,7 +37,7 @@ impl Inverter {
 }
 
 impl Block for Inverter {
-    type Io = ();
+    type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
@@ -38,7 +47,9 @@ impl Block for Inverter {
         arcstr::format!("inverter_{}", self.strength)
     }
 
-    fn io(&self) -> Self::Io {}
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -53,7 +64,7 @@ impl Buffer {
 }
 
 impl Block for Buffer {
-    type Io = ();
+    type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer")
@@ -63,7 +74,37 @@ impl Block for Buffer {
         arcstr::format!("buffer_{}", self.strength)
     }
 
-    fn io(&self) -> Self::Io {}
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct BufferN {
+    strength: usize,
+    n: usize,
+}
+
+impl BufferN {
+    pub fn new(strength: usize, n: usize) -> Self {
+        Self { strength, n }
+    }
+}
+
+impl Block for BufferN {
+    type Io = BufferIo;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("buffer_n")
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("buffer_{}_{}", self.strength, self.n)
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
 }
 
 #[test]
@@ -77,8 +118,8 @@ fn layout_generation_and_data_propagation_work() {
     let cell = handle.wait().as_ref().unwrap();
 
     assert_eq!(cell.block, Buffer::new(5));
-    assert_eq!(cell.data.inv1.cell().block, Inverter::new(5));
-    assert_eq!(cell.data.inv2.cell().block, Inverter::new(5));
+    assert_eq!(cell.data.inv1.cell().block, &Inverter::new(5));
+    assert_eq!(cell.data.inv2.cell().block, &Inverter::new(5));
 
     assert_eq!(
         cell.data.inv1.bbox(),
@@ -86,7 +127,17 @@ fn layout_generation_and_data_propagation_work() {
     );
 
     assert_eq!(
+        cell.data.inv1.cell().bbox(),
+        Some(Rect::from_sides(0, 0, 100, 200))
+    );
+
+    assert_eq!(
         cell.data.inv2.bbox(),
+        Some(Rect::from_sides(110, 0, 210, 200))
+    );
+
+    assert_eq!(
+        cell.data.inv2.cell().bbox(),
         Some(Rect::from_sides(110, 0, 210, 200))
     );
 
@@ -113,6 +164,25 @@ fn layout_generation_and_data_propagation_work() {
 
     ctx.write_layout(block, get_path(test_name, "layout_pdk_b.gds"))
         .expect("failed to write layout");
+}
+
+#[test]
+fn nested_transform_views_work() {
+    let test_name = "nested_transform_views_work";
+
+    let block = BufferN::new(5, 10);
+
+    let mut ctx = Context::new(ExamplePdkA);
+    ctx.write_layout(block, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
+
+    let handle = ctx.generate_layout(block);
+    let cell = handle.wait().as_ref().unwrap();
+
+    assert_eq!(
+        cell.data.buffers[9].cell().data.inv2.bbox(),
+        Some(Rect::from_sides(2090, 0, 2190, 200))
+    );
 }
 
 #[test]
@@ -152,7 +222,7 @@ fn can_generate_vdivider_schematic() {
 #[test]
 fn nested_io_naming() {
     use crate::substrate::block::schematic::{PowerIo, VdividerIo};
-    use substrate::io::SchematicType;
+    use substrate::io::HasNameTree;
 
     let io = VdividerIo {
         pwr: PowerIo {

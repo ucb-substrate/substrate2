@@ -10,7 +10,7 @@ use std::{
 
 use once_cell::sync::OnceCell;
 
-use crate::error::Error;
+use crate::error::{Error, Result};
 
 /// An abstraction for generating values in the background and caching them
 /// based on hashable keys.
@@ -40,17 +40,19 @@ impl Generator {
     pub(crate) fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         key: K,
-        generate_fn: impl FnOnce() -> V + Send + Any,
-    ) -> Arc<OnceCell<V>> {
+        generate_fn: impl FnOnce() -> Result<V> + Send + Any,
+    ) -> Arc<OnceCell<Result<V>>> {
         let entry = self
             .cells
             .entry(TypeId::of::<K>())
-            .or_insert(Arc::new(Mutex::<HashMap<K, Arc<OnceCell<V>>>>::default()));
+            .or_insert(Arc::new(
+                Mutex::<HashMap<K, Arc<OnceCell<Result<V>>>>>::default(),
+            ));
 
         let mut entry_locked = entry.lock().unwrap();
 
         let entry = entry_locked
-            .downcast_mut::<HashMap<K, Arc<OnceCell<V>>>>()
+            .downcast_mut::<HashMap<K, Arc<OnceCell<Result<V>>>>>()
             .unwrap()
             .entry(key);
 
@@ -62,8 +64,18 @@ impl Generator {
                 let cell2 = cell.clone();
 
                 thread::spawn(move || {
-                    let value = generate_fn();
-                    cell2.set(value).map_err(|_| Error::Internal).unwrap()
+                    let cell3 = cell2.clone();
+                    let handle = thread::spawn(move || {
+                        let value = generate_fn();
+                        cell3.set(value).map_err(|_| Error::Internal).unwrap()
+                    });
+                    let _ = handle.join().map_err(|_| {
+                        cell2
+                            .set(Err(Error::Panic))
+                            .map_err(|_| Error::Internal)
+                            .unwrap();
+                        Error::Panic
+                    });
                 });
 
                 cell.clone()
@@ -77,6 +89,8 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use crossbeam_channel::unbounded;
+
+    use crate::error::Error;
 
     use super::Generator;
 
@@ -107,29 +121,29 @@ mod tests {
         let handle1 = generator.generate(Params1 { value: 5 }, move || {
             *num_gen_clone.lock().unwrap() += 1;
             r.recv().unwrap();
-            Value {
+            Ok(Value {
                 inner: Arc::new("substrate".to_string()),
                 extra: 20,
-            }
+            })
         });
 
         // Should not use this generation function as the corresponding block is already being generated.
         let num_gen_clone = num_gen.clone();
         let handle2 = generator.generate(Params1 { value: 5 }, move || {
             *num_gen_clone.lock().unwrap() += 1;
-            Value {
+            Ok(Value {
                 inner: Arc::new("circuit".to_string()),
                 extra: 50,
-            }
+            })
         });
 
-        assert_eq!(handle1.get(), None);
-        assert_eq!(handle2.get(), None);
+        assert!(handle1.get().is_none());
+        assert!(handle2.get().is_none());
 
         s.send(()).unwrap();
 
         assert_eq!(
-            handle1.wait(),
+            handle1.wait().as_ref().unwrap(),
             &Value {
                 inner: Arc::new("substrate".to_string()),
                 extra: 20,
@@ -138,29 +152,29 @@ mod tests {
 
         // Should reference the same cell as `handle1`.
         assert_eq!(
-            handle2.get(),
-            Some(&Value {
+            handle2.get().as_ref().unwrap().as_ref().unwrap(),
+            &Value {
                 inner: Arc::new("substrate".to_string()),
                 extra: 20,
-            })
+            }
         );
 
         // Should immediately return a filled cell as this has already been generated.
         let num_gen_clone = num_gen.clone();
         let handle3 = generator.generate(Params1 { value: 5 }, move || {
             *num_gen_clone.lock().unwrap() += 1;
-            Value {
+            Ok(Value {
                 inner: Arc::new("circuit".to_string()),
                 extra: 50,
-            }
+            })
         });
 
         assert_eq!(
-            handle3.get(),
-            Some(&Value {
+            handle3.get().as_ref().unwrap().as_ref().unwrap(),
+            &Value {
                 inner: Arc::new("substrate".to_string()),
                 extra: 20,
-            })
+            }
         );
 
         // Should generate a new block as it has not been generated with the provided parameters
@@ -168,14 +182,14 @@ mod tests {
         let num_gen_clone = num_gen.clone();
         let handle4 = generator.generate(Params1 { value: 10 }, move || {
             *num_gen_clone.lock().unwrap() += 1;
-            Value {
+            Ok(Value {
                 inner: Arc::new("circuit".to_string()),
                 extra: 50,
-            }
+            })
         });
 
         assert_eq!(
-            handle4.wait(),
+            handle4.wait().as_ref().unwrap(),
             &Value {
                 inner: Arc::new("circuit".to_string()),
                 extra: 50,
@@ -193,10 +207,10 @@ mod tests {
         let num_gen_clone = num_gen.clone();
         let handle1 = generator.generate(Params1 { value: 5 }, move || {
             *num_gen_clone.lock().unwrap() += 1;
-            Value {
+            Ok(Value {
                 inner: Arc::new("substrate".to_string()),
                 extra: 20,
-            }
+            })
         });
 
         let handle2 = generator.generate(
@@ -206,15 +220,15 @@ mod tests {
             },
             move || {
                 *num_gen.lock().unwrap() += 1;
-                Value {
+                Ok(Value {
                     inner: Arc::new(5),
                     extra: 50,
-                }
+                })
             },
         );
 
         assert_eq!(
-            handle1.wait(),
+            handle1.wait().as_ref().unwrap(),
             &Value {
                 inner: Arc::new("substrate".to_string()),
                 extra: 20
@@ -222,7 +236,7 @@ mod tests {
         );
 
         assert_eq!(
-            handle2.wait(),
+            handle2.wait().as_ref().unwrap(),
             &Value {
                 inner: Arc::new(5),
                 extra: 50
@@ -235,7 +249,17 @@ mod tests {
     fn generator_panics_on_mismatched_types() {
         let mut generator = Generator::new();
 
-        let _ = generator.generate(Params1 { value: 5 }, || "cell".to_string());
-        let _ = generator.generate(Params1 { value: 10 }, || 5);
+        let _ = generator.generate(Params1 { value: 5 }, || Ok("cell".to_string()));
+        let _ = generator.generate(Params1 { value: 10 }, || Ok(5));
+    }
+
+    #[test]
+    fn generator_should_not_hang_on_panic() {
+        let mut generator = Generator::new();
+
+        let handle = generator
+            .generate::<Params1, usize>(Params1 { value: 5 }, || panic!("panic during generation"));
+
+        matches!(handle.wait().as_ref().unwrap_err(), Error::Panic);
     }
 }

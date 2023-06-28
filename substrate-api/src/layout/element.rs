@@ -2,19 +2,24 @@
 //!
 //! Substrate layouts consist of cells, instances, geometric shapes, and text annotations.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use geometry::{
     prelude::{Bbox, Orientation, Point},
     rect::Rect,
-    transform::{Transform, Transformation},
+    transform::{HasTransformedView, Transform, Transformation},
+    union::BoundingUnion,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::pdk::{layers::LayerId, Pdk};
+use crate::{
+    error::{Error, Result},
+    io::{NameBuf, PortGeometry},
+    pdk::{layers::LayerId, Pdk},
+};
 
-use super::{draw::DrawContainer, CellBuilder, HasLayout, HasLayoutImpl, Instance};
+use super::{draw::DrawContainer, CellBuilder, HasLayout, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -31,12 +36,12 @@ impl CellId {
 /// A raw layout cell.
 #[derive(Default, Debug, Clone)]
 pub struct RawCell {
-    #[allow(dead_code)]
     pub(crate) id: CellId,
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    // TODO: ports: HashMap<ArcStr, PortGeometry>,
+    #[allow(dead_code)]
+    ports: HashMap<NameBuf, PortGeometry>,
 }
 
 impl RawCell {
@@ -46,6 +51,17 @@ impl RawCell {
             name,
             elements: Vec::new(),
             blockages: Vec::new(),
+            ports: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn from_ports_and_builder<PDK: Pdk, T: HasLayout>(
+        ports: HashMap<NameBuf, PortGeometry>,
+        cell_builder: CellBuilder<PDK, T>,
+    ) -> Self {
+        Self {
+            ports,
+            ..cell_builder.cell
         }
     }
 }
@@ -63,12 +79,6 @@ impl DrawContainer for RawCell {
 impl Bbox for RawCell {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.elements.bbox()
-    }
-}
-
-impl<PDK: Pdk, T: HasLayoutImpl<PDK>> From<CellBuilder<PDK, T>> for RawCell {
-    fn from(value: CellBuilder<PDK, T>) -> Self {
-        value.into_cell()
     }
 }
 
@@ -98,13 +108,15 @@ impl Bbox for RawInstance {
     }
 }
 
-impl<T: HasLayout> From<Instance<T>> for RawInstance {
-    fn from(value: Instance<T>) -> Self {
-        Self {
-            cell: value.cell().raw.clone(),
+impl<T: HasLayout> TryFrom<Instance<T>> for RawInstance {
+    type Error = Error;
+
+    fn try_from(value: Instance<T>) -> Result<Self> {
+        Ok(Self {
+            cell: value.try_cell()?.raw,
             loc: value.loc,
             orientation: value.orientation,
-        }
+        })
     }
 }
 
@@ -139,6 +151,25 @@ impl Shape {
 impl Bbox for Shape {
     fn bbox(&self) -> Option<Rect> {
         self.shape.bbox()
+    }
+}
+
+impl<T: Bbox> BoundingUnion<T> for Shape {
+    type Output = Rect;
+
+    fn bounding_union(&self, other: &T) -> Self::Output {
+        self.bbox().unwrap().bounding_union(&other.bbox())
+    }
+}
+
+impl HasTransformedView for Shape {
+    type TransformedView<'a> = Shape;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        Shape {
+            layer: self.layer,
+            shape: self.shape.transformed_view(trans),
+        }
     }
 }
 
