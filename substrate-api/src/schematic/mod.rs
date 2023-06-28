@@ -28,7 +28,7 @@ pub trait HasSchematic: Block {
 
 /// A block that has a schematic for process design kit `PDK`.
 pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
-    /// Generates the block's layout.
+    /// Generates the block's schematic.
     fn schematic(
         &self,
         io: <<Self as Block>::Io as SchematicType>::Data,

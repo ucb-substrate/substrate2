@@ -2,8 +2,9 @@
 
 use crate::{
     bbox::Bbox,
+    prelude::Transform,
     rect::Rect,
-    transform::{TransformMut, TranslateMut},
+    transform::{HasTransformedView, TransformMut, TranslateMut},
 };
 
 /// An enumeration of geometric shapes.
@@ -26,6 +27,14 @@ impl TransformMut for Shape {
         match self {
             Shape::Rect(rect) => rect.transform_mut(trans),
         }
+    }
+}
+
+impl HasTransformedView for Shape {
+    type TransformedView<'a> = Shape;
+
+    fn transformed_view(&self, trans: crate::prelude::Transformation) -> Self::TransformedView<'_> {
+        self.clone().transform(trans)
     }
 }
 

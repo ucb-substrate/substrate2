@@ -11,7 +11,8 @@ impl HasLayout for Buffer {
 impl HasLayoutImpl<T> for Buffer {
     fn layout(
         &self,
-        cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);

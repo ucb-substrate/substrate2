@@ -5,7 +5,7 @@ use geometry::{
 };
 
 use substrate::{
-    layout::{cell::Instance, draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl},
+    layout::{draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl, Instance},
     pdk::{
         layers::{Layer, LayerInfo},
         PdkLayers,
@@ -24,7 +24,8 @@ impl HasLayout for Inverter {
 impl HasLayoutImpl<ExamplePdkA> for Inverter {
     fn layout(
         &self,
-        cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkA, Self>,
+        _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
             cell.ctx.pdk.layers.polya,
@@ -38,7 +39,8 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
 impl HasLayoutImpl<ExamplePdkB> for Inverter {
     fn layout(
         &self,
-        cell: &mut substrate::layout::builder::CellBuilder<ExamplePdkB, Self>,
+        _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
             cell.ctx.pdk.layers.polyb,
@@ -92,7 +94,8 @@ impl HasLayout for Buffer {
 impl HasLayoutImpl<T> for Buffer {
     fn layout(
         &self,
-        cell: &mut substrate::layout::builder::CellBuilder<T, Self>,
+        _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let derived_layers = DerivedLayers::from(cell.ctx.pdk.layers.as_ref());
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();

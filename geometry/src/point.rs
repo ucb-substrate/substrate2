@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::dims::Dims;
 use crate::dir::Dir;
+use crate::prelude::Transform;
 use crate::snap::snap_to_grid;
-use crate::transform::{TransformMut, Transformation, TranslateMut};
+use crate::transform::{HasTransformedView, TransformMut, Transformation, TranslateMut};
 
 /// A point in two-dimensional space.
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -91,6 +92,14 @@ impl TransformMut for Point {
         let y = trans.a[1][0] * xf + trans.a[1][1] * yf + trans.b[1];
         self.x = x.round() as i64;
         self.y = y.round() as i64;
+    }
+}
+
+impl HasTransformedView for Point {
+    type TransformedView<'a> = Point;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        self.transform(trans)
     }
 }
 
