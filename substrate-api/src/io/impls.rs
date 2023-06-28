@@ -1,7 +1,7 @@
 //! Built-in implementations of IO traits.
 
 use std::fmt::Display;
-use std::slice::SliceIndex;
+use std::{ops::DerefMut, slice::SliceIndex};
 
 use super::*;
 
@@ -50,7 +50,9 @@ impl SchematicType for () {
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         ((), ids)
     }
+}
 
+impl HasNameTree for () {
     fn names(&self) -> Option<Vec<NameTree>> {
         None
     }
@@ -100,10 +102,6 @@ impl SchematicType for Signal {
             unreachable!();
         }
     }
-
-    fn names(&self) -> Option<Vec<NameTree>> {
-        Some(vec![])
-    }
 }
 
 impl LayoutType for Signal {
@@ -112,6 +110,12 @@ impl LayoutType for Signal {
 
     fn builder(&self) -> Self::Builder {
         PortGeometryBuilder::default()
+    }
+}
+
+impl HasNameTree for Signal {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(vec![])
     }
 }
 
@@ -146,6 +150,21 @@ impl Flatten<PortGeometry> for PortGeometry {
         E: Extend<PortGeometry>,
     {
         output.extend(std::iter::once(self.clone()));
+    }
+}
+
+impl HasTransformedView for PortGeometry {
+    type TransformedView<'a> = TransformedPortGeometry<'a>;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        Self::TransformedView {
+            primary: self.primary.transformed_view(trans),
+            unnamed_shapes: self.unnamed_shapes.transformed_view(trans),
+            named_shapes: self.named_shapes.transformed_view(trans),
+        }
     }
 }
 
@@ -188,6 +207,19 @@ impl<T: Undirected> Deref for Input<T> {
     }
 }
 
+impl<'a, T: Undirected + HasTransformedView> Deref for TransformedInput<'a, T> {
+    type Target = Transformed<'a, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Undirected> DerefMut for Input<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T: Undirected> Borrow<T> for Input<T> {
     fn borrow(&self) -> &T {
         &self.0
@@ -204,9 +236,6 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (Input(data), ids)
     }
-    fn names(&self) -> Option<Vec<NameTree>> {
-        self.0.names()
-    }
 }
 
 impl<T> LayoutType for Input<T>
@@ -220,6 +249,23 @@ where
 
     fn builder(&self) -> Self::Builder {
         Input(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasNameTree> HasNameTree for Input<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
+    }
+}
+
+impl<T: Undirected + HasTransformedView> HasTransformedView for Input<T> {
+    type TransformedView<'a> = TransformedInput<'a, T> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        TransformedInput(self.0.transformed_view(trans))
     }
 }
 
@@ -274,9 +320,6 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (Output(data), ids)
     }
-    fn names(&self) -> Option<Vec<NameTree>> {
-        self.0.names()
-    }
 }
 
 impl<T> LayoutType for Output<T>
@@ -290,6 +333,23 @@ where
 
     fn builder(&self) -> Self::Builder {
         Output(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasNameTree> HasNameTree for Output<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
+    }
+}
+
+impl<T: Undirected + HasTransformedView> HasTransformedView for Output<T> {
+    type TransformedView<'a> = TransformedOutput<'a, T> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        TransformedOutput(self.0.transformed_view(trans))
     }
 }
 
@@ -347,6 +407,19 @@ impl<T: Undirected> Deref for Output<T> {
     }
 }
 
+impl<'a, T: Undirected + HasTransformedView> Deref for TransformedOutput<'a, T> {
+    type Target = Transformed<'a, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Undirected> DerefMut for Output<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T: Undirected> Borrow<T> for Output<T> {
     fn borrow(&self) -> &T {
         &self.0
@@ -363,9 +436,6 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (InOut(data), ids)
     }
-    fn names(&self) -> Option<Vec<NameTree>> {
-        self.0.names()
-    }
 }
 
 impl<T> LayoutType for InOut<T>
@@ -379,6 +449,23 @@ where
 
     fn builder(&self) -> Self::Builder {
         InOut(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasNameTree> HasNameTree for InOut<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
+    }
+}
+
+impl<T: Undirected + HasTransformedView> HasTransformedView for InOut<T> {
+    type TransformedView<'a> = TransformedInOut<'a, T> where T: 'a;
+
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        TransformedInOut(self.0.transformed_view(trans))
     }
 }
 
@@ -432,6 +519,20 @@ impl<T: Undirected> Deref for InOut<T> {
         &self.0
     }
 }
+
+impl<'a, T: Undirected + HasTransformedView> Deref for TransformedInOut<'a, T> {
+    type Target = Transformed<'a, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Undirected> DerefMut for InOut<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T: Undirected> Borrow<T> for InOut<T> {
     fn borrow(&self) -> &T {
         &self.0
@@ -463,7 +564,21 @@ impl<T: SchematicType> SchematicType for Array<T> {
             ids,
         )
     }
+}
 
+impl<T: LayoutType> LayoutType for Array<T> {
+    type Data = ArrayData<T::Data>;
+    type Builder = ArrayData<T::Builder>;
+
+    fn builder(&self) -> Self::Builder {
+        Self::Builder {
+            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
+            ty_len: self.ty.len(),
+        }
+    }
+}
+
+impl<T: HasNameTree> HasNameTree for Array<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         if self.len == 0 {
             return None;
@@ -480,14 +595,22 @@ impl<T: SchematicType> SchematicType for Array<T> {
     }
 }
 
-impl<T: LayoutType> LayoutType for Array<T> {
-    type Data = ArrayData<T::Data>;
-    type Builder = ArrayData<T::Builder>;
+// TODO: Maybe do lazy transformation here.
+impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
+    type TransformedView<'a>
+    = ArrayData<Transformed<'a, T>> where T: 'a;
 
-    fn builder(&self) -> Self::Builder {
-        Self::Builder {
-            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
-            ty_len: self.ty.len(),
+    fn transformed_view(
+        &self,
+        trans: geometry::transform::Transformation,
+    ) -> Self::TransformedView<'_> {
+        Self::TransformedView {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem: &T| elem.transformed_view(trans))
+                .collect(),
+            ty_len: self.ty_len,
         }
     }
 }

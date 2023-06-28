@@ -54,6 +54,12 @@ impl<T: Bbox> Bbox for Vec<T> {
     }
 }
 
+impl Bbox for Option<Rect> {
+    fn bbox(&self) -> Option<Rect> {
+        *self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{bbox::Bbox, rect::Rect};

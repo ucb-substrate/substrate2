@@ -16,8 +16,8 @@ use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
 use crate::io::{
-    Connect, FlatLen, Flatten, NameBuf, Node, NodeContext, NodeUf, Port, SchematicData,
-    SchematicType,
+    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodeUf, Port,
+    SchematicData, SchematicType,
 };
 use crate::pdk::Pdk;
 
