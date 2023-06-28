@@ -22,10 +22,6 @@ jobs:
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: ". -> target"
-      - name: Build
-        run: cargo +nightly build --verbose --locked --all-features
-        env:
-          RUSTFLAGS: -Cinstrument-coverage
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:

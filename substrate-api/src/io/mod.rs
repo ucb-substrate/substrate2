@@ -68,6 +68,19 @@ pub trait SchematicType: FlatLen + Clone {
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
+
+    /// Return a tree specifying how nodes contained within this type should be named.
+    ///
+    /// Important: empty types (i.e. those with a flattened length of 0) must return [`None`].
+    /// All non-empty types must return [`Some`].
+    fn names(&self) -> Option<Vec<NameTree>>;
+
+    /// Returns a flattened list of node names.
+    fn flat_names(&self, root: impl Into<NameFragment>) -> Vec<NameBuf> {
+        self.names()
+            .map(|t| NameTree::new(root.into(), t).flatten())
+            .unwrap_or_default()
+    }
 }
 
 /// A trait indicating that this type can be connected to T.
@@ -107,6 +120,28 @@ pub trait LayoutDataBuilder<T: LayoutData>: FlatLen {
 // END TRAITS
 
 // BEGIN TYPES
+
+/// A portion of a node name.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum NameFragment {
+    /// An element identified by a string name, such as a struct field.
+    Str(ArcStr),
+    /// A numbered element of an array/bus.
+    Idx(usize),
+}
+
+/// An owned node name, consisting of an ordered list of [`NameFragment`]s.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+pub struct NameBuf {
+    fragments: Vec<NameFragment>,
+}
+
+/// A tree for hierarchical node naming.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct NameTree {
+    fragment: NameFragment,
+    children: Vec<NameTree>,
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An input port of hardware type `T`.
@@ -217,9 +252,9 @@ pub struct TransformedPortGeometry<'a> {
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
     /// explicitly. It is kept separately for ease of access.
-    primary: Shape,
-    unnamed_shapes: Transformed<'a, [Shape]>,
-    named_shapes: Transformed<'a, HashMap<ArcStr, Shape>>,
+    pub primary: Shape,
+    pub unnamed_shapes: Transformed<'a, [Shape]>,
+    pub named_shapes: Transformed<'a, HashMap<ArcStr, Shape>>,
 }
 
 /// A set of geometry associated with a layout port.

@@ -1,10 +1,12 @@
 //! The global context.
 
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use once_cell::sync::OnceCell;
+use tracing::{span, Level};
 
 use crate::error::Result;
 use crate::io::{FlatLen, LayoutDataBuilder, LayoutType, NodeContext, SchematicType};
@@ -104,9 +106,16 @@ impl<PDK: Pdk> Context<PDK> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
+        let span = span!(
+            Level::INFO,
+            "generating layout",
+            block = AsRef::<str>::as_ref(&block.name()),
+        )
+        .or_current();
         inner_mut.layout.gen.generate(block.clone(), move || {
             let mut io_builder = block.io().builder();
             let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+            let _guard = span.enter();
             let data = block.layout(&mut io_builder, &mut cell_builder);
             data.and_then(|data| {
                 Ok(LayoutCell::new(
@@ -152,17 +161,23 @@ impl<PDK: Pdk> Context<PDK> {
             let mut node_ctx = NodeContext::new();
             let io = block.io();
             let nodes = node_ctx.nodes(io.len());
-            let (io, nodes) = io.instantiate(&nodes);
-            assert!(nodes.is_empty());
+            let (io_data, nodes_rest) = io.instantiate(&nodes);
+            assert!(nodes_rest.is_empty());
+
+            let names = io.flat_names(arcstr::literal!("io"));
+            assert_eq!(nodes.len(), names.len());
+
+            let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
             let mut cell_builder = SchematicCellBuilder {
                 id,
                 ctx: context_clone,
                 node_ctx,
                 instances: Vec::new(),
                 primitives: Vec::new(),
+                node_names,
                 phantom: PhantomData,
             };
-            let data = block.schematic(io, &mut cell_builder);
+            let data = block.schematic(io_data, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
     }

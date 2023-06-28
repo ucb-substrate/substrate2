@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/cache/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/codegen/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/config/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/dex/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/diagnostics/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/digital/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/drc/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/gds/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/geometry/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lef/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lvs/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/netlist/spice/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/par/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pex/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/sbm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/scg/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/scir/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/sde/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/sim/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/subfile/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/substrate-api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/substrate/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/timing/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

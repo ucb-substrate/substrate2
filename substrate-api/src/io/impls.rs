@@ -1,6 +1,6 @@
 //! Built-in implementations of IO traits.
 
-use std::slice::SliceIndex;
+use std::{ops::DerefMut, slice::SliceIndex};
 
 use super::*;
 
@@ -49,6 +49,10 @@ impl SchematicType for () {
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         ((), ids)
     }
+
+    fn names(&self) -> Option<Vec<NameTree>> {
+        None
+    }
 }
 
 impl Flatten<Node> for () {
@@ -94,6 +98,10 @@ impl SchematicType for Signal {
         } else {
             unreachable!();
         }
+    }
+
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(vec![])
     }
 }
 
@@ -194,6 +202,19 @@ impl<T: Undirected> Deref for Input<T> {
     }
 }
 
+impl<'a, T: Undirected + HasTransformedView> Deref for TransformedInput<'a, T> {
+    type Target = Transformed<'a, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Undirected> DerefMut for Input<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T: Undirected> Borrow<T> for Input<T> {
     fn borrow(&self) -> &T {
         &self.0
@@ -209,6 +230,9 @@ where
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (Input(data), ids)
+    }
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -287,6 +311,9 @@ where
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (Output(data), ids)
+    }
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -369,6 +396,19 @@ impl<T: Undirected> Deref for Output<T> {
     }
 }
 
+impl<'a, T: Undirected + HasTransformedView> Deref for TransformedOutput<'a, T> {
+    type Target = Transformed<'a, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Undirected> DerefMut for Output<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T: Undirected> Borrow<T> for Output<T> {
     fn borrow(&self) -> &T {
         &self.0
@@ -384,6 +424,9 @@ where
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (InOut(data), ids)
+    }
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -462,6 +505,20 @@ impl<T: Undirected> Deref for InOut<T> {
         &self.0
     }
 }
+
+impl<'a, T: Undirected + HasTransformedView> Deref for TransformedInOut<'a, T> {
+    type Target = Transformed<'a, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Undirected> DerefMut for InOut<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T: Undirected> Borrow<T> for InOut<T> {
     fn borrow(&self) -> &T {
         &self.0
@@ -491,6 +548,21 @@ impl<T: SchematicType> SchematicType for Array<T> {
                 ty_len: self.ty.len(),
             },
             ids,
+        )
+    }
+
+    fn names(&self) -> Option<Vec<NameTree>> {
+        if self.len == 0 {
+            return None;
+        }
+        let inner = self.ty.names()?;
+        Some(
+            (0..self.len)
+                .map(|i| NameTree {
+                    fragment: NameFragment::Idx(i),
+                    children: inner.clone(),
+                })
+                .collect(),
         )
     }
 }
@@ -605,3 +677,121 @@ impl<T: Undirected> Connect<Output<T>> for Input<T> {}
 impl<T: Undirected> Connect<Output<T>> for InOut<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Input<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Output<T> {}
+
+impl From<ArcStr> for NameFragment {
+    fn from(value: ArcStr) -> Self {
+        Self::Str(value)
+    }
+}
+
+impl From<&str> for NameFragment {
+    fn from(value: &str) -> Self {
+        Self::Str(ArcStr::from(value))
+    }
+}
+
+impl From<usize> for NameFragment {
+    fn from(value: usize) -> Self {
+        Self::Idx(value)
+    }
+}
+
+impl NameTree {
+    /// Create a new name tree rooted at the given name fragment.
+    pub fn new(fragment: impl Into<NameFragment>, children: Vec<NameTree>) -> Self {
+        Self {
+            fragment: fragment.into(),
+            children,
+        }
+    }
+
+    /// Flattens the node name tree, returning a list of [`NameBuf`]s.
+    pub fn flatten(&self) -> Vec<NameBuf> {
+        self.flatten_inner(NameBuf::new())
+    }
+
+    fn flatten_inner(&self, mut parent: NameBuf) -> Vec<NameBuf> {
+        parent.fragments.push(self.fragment.clone());
+        if self.children.is_empty() {
+            return vec![parent];
+        }
+        self.children
+            .iter()
+            .flat_map(|c| c.flatten_inner(parent.clone()))
+            .collect()
+    }
+}
+
+impl FlatLen for NameTree {
+    fn len(&self) -> usize {
+        // Leaf nodes have a flattened length of 1.
+        if self.children.is_empty() {
+            return 1;
+        }
+
+        self.children.iter().map(|c| c.len()).sum()
+    }
+}
+
+impl Flatten<NameBuf> for NameTree {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NameBuf>,
+    {
+        output.extend(self.flatten());
+    }
+    fn flatten_vec(&self) -> Vec<NameBuf> {
+        self.flatten()
+    }
+}
+
+impl NameBuf {
+    /// Creates a new, empty [`NameBuf`].
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::io::*;
+
+    #[test]
+    fn flatten_name_tree() {
+        let tree = NameTree::new(
+            "io",
+            vec![
+                NameTree::new(
+                    "pwr",
+                    vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
+                ),
+                NameTree::new("out", vec![]),
+            ],
+        );
+
+        assert_eq!(
+            tree.flatten(),
+            vec![
+                NameBuf {
+                    fragments: vec![
+                        NameFragment::from("io"),
+                        NameFragment::from("pwr"),
+                        NameFragment::from("vdd")
+                    ]
+                },
+                NameBuf {
+                    fragments: vec![
+                        NameFragment::from("io"),
+                        NameFragment::from("pwr"),
+                        NameFragment::from("vss")
+                    ]
+                },
+                NameBuf {
+                    fragments: vec![NameFragment::from("io"), NameFragment::from("out")]
+                },
+            ]
+        );
+        assert_eq!(tree.len(), 3);
+    }
+}

@@ -142,6 +142,7 @@ impl<T: HasLayout> Bbox for Cell<T> {
     }
 }
 
+/// A transformed view of a cell, usually created by accessing the cell of an instance.
 pub struct TransformedCell<'a, T: HasLayout> {
     /// Block whose layout this cell represents.
     pub block: &'a T,
@@ -215,23 +216,23 @@ impl<T: HasLayout> Instance<T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> Transformed<'_, Cell<T>> {
-        self.try_cell().unwrap()
+        self.try_cell().expect("cell generation failed")
     }
 
-    /// Tries to access the underlying [`Cell`].
+    /// Returns a transformed view of the underlying [`Cell`]'s IO.
     ///
     /// Returns an error if one was thrown during generation.
-    pub(crate) fn try_cell_raw(&self) -> &Result<Cell<T>> {
-        self.cell.wait()
+    pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as LayoutType>::Data>> {
+        Ok(self.try_cell()?.io)
     }
 
-    /// Returns the underlying [`Cell`].
+    /// Returns a transformed view of the underlying [`Cell`]'s IO.
     ///
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub(crate) fn cell_raw(&self) -> &Cell<T> {
-        self.try_cell_raw().as_ref().unwrap()
+    pub fn io(&self) -> Transformed<'_, <T::Io as LayoutType>::Data> {
+        self.try_io().expect("cell generation failed")
     }
 
     /// Returns the current transformation of `self`.
@@ -269,8 +270,8 @@ impl<T: HasLayout> HasTransformedView for Instance<T> {
 }
 
 impl<I: HasLayout> Draw for Instance<I> {
-    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T) {
-        RawInstance::from(self).draw(container);
+    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T) -> Result<()> {
+        RawInstance::try_from(self)?.draw(container)
     }
 }
 

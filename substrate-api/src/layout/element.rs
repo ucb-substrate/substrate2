@@ -2,17 +2,22 @@
 //!
 //! Substrate layouts consist of cells, instances, geometric shapes, and text annotations.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use geometry::{
     prelude::{Bbox, Orientation, Point},
     rect::Rect,
     transform::{HasTransformedView, Transform, Transformation},
+    union::BoundingUnion,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::pdk::{layers::LayerId, Pdk};
+use crate::{
+    error::{Error, Result},
+    io::PortGeometry,
+    pdk::{layers::LayerId, Pdk},
+};
 
 use super::{draw::DrawContainer, CellBuilder, HasLayout, HasLayoutImpl, Instance};
 
@@ -36,7 +41,7 @@ pub struct RawCell {
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    // TODO: ports: HashMap<ArcStr, PortGeometry>,
+    ports: HashMap<ArcStr, PortGeometry>,
 }
 
 impl RawCell {
@@ -46,6 +51,7 @@ impl RawCell {
             name,
             elements: Vec::new(),
             blockages: Vec::new(),
+            ports: HashMap::new(),
         }
     }
 }
@@ -98,13 +104,15 @@ impl Bbox for RawInstance {
     }
 }
 
-impl<T: HasLayout> From<Instance<T>> for RawInstance {
-    fn from(value: Instance<T>) -> Self {
-        Self {
-            cell: value.cell().raw.clone(),
+impl<T: HasLayout> TryFrom<Instance<T>> for RawInstance {
+    type Error = Error;
+
+    fn try_from(value: Instance<T>) -> Result<Self> {
+        Ok(Self {
+            cell: value.try_cell()?.raw,
             loc: value.loc,
             orientation: value.orientation,
-        }
+        })
     }
 }
 
@@ -139,6 +147,14 @@ impl Shape {
 impl Bbox for Shape {
     fn bbox(&self) -> Option<Rect> {
         self.shape.bbox()
+    }
+}
+
+impl<T: Bbox> BoundingUnion<T> for Shape {
+    type Output = Rect;
+
+    fn bounding_union(&self, other: &T) -> Self::Output {
+        self.bbox().unwrap().bounding_union(&other.bbox())
     }
 }
 

@@ -1,5 +1,7 @@
 //! Unions of geometric objects.
 
+use crate::{bbox::Bbox, rect::Rect};
+
 /// Trait for calculating the union with another geometric object.
 pub trait Union<T: ?Sized> {
     /// The type of the output shape representing the union.

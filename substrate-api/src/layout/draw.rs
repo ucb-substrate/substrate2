@@ -1,5 +1,7 @@
 //! Traits for drawing layout elements.
 
+use crate::error::Result;
+
 use super::element::{Element, Shape};
 
 /// An object that layout elements can be drawn in.
@@ -23,17 +25,18 @@ pub trait DrawContainer {
 /// An object that can be drawn in a [`DrawContainer`].
 pub trait Draw {
     /// Draws `self` inside `container`.
-    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T);
+    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T) -> Result<()>;
 }
 
 /// An object that can be drawn in a [`DrawContainer`] from its reference.
 pub trait DrawRef {
     /// Draws `self` inside `container` from its reference.
-    fn draw_ref<T: DrawContainer + ?Sized>(&self, container: &mut T);
+    fn draw_ref<T: DrawContainer + ?Sized>(&self, container: &mut T) -> Result<()>;
 }
 
 impl<E: Into<Element>> Draw for E {
-    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T) {
+    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T) -> Result<()> {
         container.draw_element(self.into());
+        Ok(())
     }
 }

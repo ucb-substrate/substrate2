@@ -195,6 +195,12 @@ impl Concat {
     pub fn width(&self) -> usize {
         self.parts.iter().map(Slice::width).sum()
     }
+
+    /// Iterate over the parts of this concatenation.
+    #[inline]
+    pub fn parts(&self) -> impl Iterator<Item = &Slice> {
+        self.parts.iter()
+    }
 }
 
 impl From<Vec<Slice>> for Concat {
@@ -218,6 +224,9 @@ pub struct Library {
     /// Initialized to 0 when the library is created.
     cell_id: u64,
 
+    /// The name of the library.
+    name: ArcStr,
+
     /// A map of the cells in the library.
     cells: HashMap<CellId, Cell>,
 }
@@ -229,8 +238,13 @@ pub struct Port {
 
 /// Information about a signal in a cell.
 pub struct SignalInfo {
-    name: ArcStr,
-    width: Option<usize>,
+    /// The name of this signal.
+    pub name: ArcStr,
+
+    /// The width of this signal, if this signal is a bus.
+    ///
+    /// For single-wire signals, this will be [`None`].
+    pub width: Option<usize>,
 }
 
 /// An instance of a child cell placed inside a parent cell.
@@ -268,9 +282,10 @@ pub struct Cell {
 
 impl Library {
     /// Creates a new, empty library.
-    pub fn new() -> Self {
+    pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
             cell_id: 0,
+            name: name.into(),
             cells: HashMap::new(),
         }
     }
@@ -284,12 +299,25 @@ impl Library {
         self.cells.insert(id, cell);
         id
     }
-}
 
-impl Default for Library {
+    /// The name of the library.
     #[inline]
-    fn default() -> Self {
-        Self::new()
+    pub fn name(&self) -> &ArcStr {
+        &self.name
+    }
+
+    /// Gets the cell with the given ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no cell has the given ID.
+    pub fn cell(&self, id: CellId) -> &Cell {
+        self.cells.get(&id).unwrap()
+    }
+
+    /// Iterates over the `(id, cell)` pairs in this library.
+    pub fn cells(&self) -> impl Iterator<Item = (&CellId, &Cell)> {
+        self.cells.iter()
     }
 }
 
@@ -364,6 +392,40 @@ impl Cell {
     pub fn add_param(&mut self, name: impl Into<ArcStr>, param: Param) {
         self.params.insert(name.into(), param);
     }
+
+    /// The name of the cell.
+    #[inline]
+    pub fn name(&self) -> &ArcStr {
+        &self.name
+    }
+
+    /// Iterate over the ports of this cell.
+    #[inline]
+    pub fn ports(&self) -> impl Iterator<Item = &Port> {
+        self.ports.iter()
+    }
+
+    /// Iterate over the primitive devices of this cell.
+    #[inline]
+    pub fn primitives(&self) -> impl Iterator<Item = &PrimitiveDevice> {
+        self.primitives.iter()
+    }
+
+    /// Iterate over the instances of this cell.
+    #[inline]
+    pub fn instances(&self) -> impl Iterator<Item = &Instance> {
+        self.instances.iter()
+    }
+
+    /// Get the signal associated with the given ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no signal with the given ID exists.
+    #[inline]
+    pub fn signal(&self, id: SignalId) -> &SignalInfo {
+        self.signals.get(&id).unwrap()
+    }
 }
 
 impl Instance {
@@ -387,6 +449,46 @@ impl Instance {
     #[inline]
     pub fn set_param(&mut self, param: impl Into<ArcStr>, value: Expr) {
         self.params.insert(param.into(), value);
+    }
+
+    /// The ID of the child cell.
+    ///
+    /// This instance represents an instantiation of the child cell in a parent cell.
+    #[inline]
+    pub fn cell(&self) -> CellId {
+        self.cell
+    }
+
+    /// The name of this instance.
+    ///
+    /// This is not necessarily the name of the child cell.
+    #[inline]
+    pub fn name(&self) -> &ArcStr {
+        &self.name
+    }
+
+    /// Iterate over the connections of this instance.
+    #[inline]
+    pub fn connections(&self) -> impl Iterator<Item = (&ArcStr, &Concat)> {
+        self.connections.iter()
+    }
+
+    /// The connection to the given port.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no connection for the given port.
+    #[inline]
+    pub fn connection<'a>(&'a self, port: &str) -> &'a Concat {
+        &self.connections[port]
+    }
+}
+
+impl Port {
+    /// The ID of the signal this port exposes.
+    #[inline]
+    pub fn signal(&self) -> SignalId {
+        self.signal
     }
 }
 

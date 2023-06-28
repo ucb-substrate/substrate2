@@ -323,6 +323,14 @@ pub struct TransformedVec<'a, T> {
     trans: Transformation,
 }
 
+impl<T: HasTransformedView> HasTransformedView for Vec<T> {
+    type TransformedView<'a> = TransformedVec<'a, T> where T: 'a;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        TransformedVec { inner: self, trans }
+    }
+}
+
 impl<T: HasTransformedView> HasTransformedView for [T] {
     type TransformedView<'a> = TransformedVec<'a, T> where T: 'a;
 

@@ -16,8 +16,8 @@ pub struct ResistorIo {
 
 #[derive(Debug, Default, Clone, Io)]
 pub struct PowerIo {
-    vdd: InOut<Signal>,
-    vss: InOut<Signal>,
+    pub vdd: InOut<Signal>,
+    pub vss: InOut<Signal>,
 }
 
 #[derive(Debug, Default, Clone, Io)]

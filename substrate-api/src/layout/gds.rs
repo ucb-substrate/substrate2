@@ -2,7 +2,10 @@
 //!
 //! Converts between Substrate's layout data-model and [`gds`] structures.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use arcstr::ArcStr;
 use geometry::{
@@ -14,7 +17,7 @@ use tracing::{span, Level};
 use crate::pdk::layers::{GdsLayerSpec, LayerContext, LayerId};
 
 use super::{
-    element::{Element, RawCell, RawInstance, Shape, Text},
+    element::{CellId, Element, RawCell, RawInstance, Shape, Text},
     error::GdsExportResult,
 };
 
@@ -24,8 +27,14 @@ use super::{
 pub struct GdsExporter<'a> {
     cell: Arc<RawCell>,
     layers: &'a LayerContext,
-    cell_names: HashSet<ArcStr>,
+    cell_db: CellDb,
     gds: gds::GdsLibrary,
+}
+
+#[derive(Default)]
+struct CellDb {
+    names: HashSet<ArcStr>,
+    assignments: HashMap<CellId, ArcStr>,
 }
 
 impl<'a> GdsExporter<'a> {
@@ -37,7 +46,7 @@ impl<'a> GdsExporter<'a> {
         Self {
             cell,
             layers,
-            cell_names: Default::default(),
+            cell_db: Default::default(),
             gds: gds::GdsLibrary::new("TOP"),
         }
     }
@@ -48,13 +57,33 @@ impl<'a> GdsExporter<'a> {
         Ok(self.gds)
     }
 
+    fn get_name(&self, cell: &RawCell) -> Option<ArcStr> {
+        self.cell_db.get_name(cell)
+    }
+
+    fn assign_name(&mut self, cell: &RawCell) -> ArcStr {
+        self.cell_db.assign_name(cell)
+    }
+
+    fn get_layer(&self, id: LayerId) -> Option<GdsLayerSpec> {
+        self.layers.get_gds_layer_from_id(id)
+    }
+}
+
+impl CellDb {
+    /// Returns whether the cell has already been exported.
+    fn get_name(&self, cell: &RawCell) -> Option<ArcStr> {
+        self.assignments.get(&cell.id).cloned()
+    }
+
+    /// Returns a new name if th cell needs to be generated.
     fn assign_name(&mut self, cell: &RawCell) -> ArcStr {
         let name = &cell.name;
-        let name = if self.cell_names.contains(name) {
+        let name = if self.names.contains(name) {
             let mut i = 1;
             loop {
                 let new_name = arcstr::format!("{}_{}", name, i);
-                if !self.cell_names.contains(&new_name) {
+                if !self.names.contains(&new_name) {
                     break new_name;
                 }
                 i += 1;
@@ -63,12 +92,9 @@ impl<'a> GdsExporter<'a> {
             name.clone()
         };
 
-        self.cell_names.insert(name.clone());
+        self.names.insert(name.clone());
+        self.assignments.insert(cell.id, name.clone());
         name
-    }
-
-    fn get_layer(&self, id: LayerId) -> Option<GdsLayerSpec> {
-        self.layers.get_gds_layer_from_id(id)
     }
 }
 
@@ -137,10 +163,14 @@ impl ExportGds for RawInstance {
         let span = span!(Level::INFO, "instance", instance = ?self);
         let _guard = span.enter();
 
-        let cell = self.cell.export(exporter)?;
+        let cell_name = if let Some(name) = exporter.get_name(&self.cell) {
+            name
+        } else {
+            self.cell.export(exporter)?.name
+        };
 
         Ok(gds::GdsStructRef {
-            name: cell.name,
+            name: cell_name,
             xy: self.loc.export(exporter)?,
             strans: Some(self.orientation.export(exporter)?),
             ..Default::default()

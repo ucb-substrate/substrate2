@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
+use substrate::io::{InOut, Input, NameTree, Output, Signal};
+use substrate::Io;
 use test_log::test;
 
 use substrate::{block::Block, context::Context};
@@ -15,6 +17,14 @@ use self::schematic::{Resistor, Vdivider};
 pub mod layout;
 pub mod schematic;
 
+#[derive(Io, Clone, Default)]
+pub struct BufferIo {
+    vdd: InOut<Signal>,
+    vss: InOut<Signal>,
+    din: Input<Signal>,
+    dout: Output<Signal>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Inverter {
     strength: usize,
@@ -27,7 +37,7 @@ impl Inverter {
 }
 
 impl Block for Inverter {
-    type Io = ();
+    type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
@@ -37,7 +47,9 @@ impl Block for Inverter {
         arcstr::format!("inverter_{}", self.strength)
     }
 
-    fn io(&self) -> Self::Io {}
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -52,7 +64,7 @@ impl Buffer {
 }
 
 impl Block for Buffer {
-    type Io = ();
+    type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer")
@@ -62,7 +74,9 @@ impl Block for Buffer {
         arcstr::format!("buffer_{}", self.strength)
     }
 
-    fn io(&self) -> Self::Io {}
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -78,7 +92,7 @@ impl BufferN {
 }
 
 impl Block for BufferN {
-    type Io = ();
+    type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer_n")
@@ -88,7 +102,9 @@ impl Block for BufferN {
         arcstr::format!("buffer_{}_{}", self.strength, self.n)
     }
 
-    fn io(&self) -> Self::Io {}
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
 }
 
 #[test]
@@ -177,4 +193,31 @@ fn can_generate_vdivider_schematic() {
         r2: Resistor { r: 100 },
     });
     let _cell = handle.wait().as_ref().unwrap();
+}
+
+#[test]
+fn nested_io_naming() {
+    use crate::substrate::block::schematic::{PowerIo, VdividerIo};
+    use substrate::io::SchematicType;
+
+    let io = VdividerIo {
+        pwr: PowerIo {
+            vdd: InOut(Signal),
+            vss: InOut(Signal),
+        },
+        out: Output(Signal),
+    };
+
+    let actual = NameTree::new("io", io.names().unwrap());
+    let expected = NameTree::new(
+        "io",
+        vec![
+            NameTree::new(
+                "pwr",
+                vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
+            ),
+            NameTree::new("out", vec![]),
+        ],
+    );
+    assert_eq!(actual, expected);
 }
