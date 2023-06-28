@@ -22,12 +22,6 @@ jobs:
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: ". -> target"
-      - name: Build
-        run: cargo +nightly build --verbose --locked --all-features
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cinstrument-coverage'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cinstrument-coverage'
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:
