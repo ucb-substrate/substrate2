@@ -188,17 +188,41 @@ fn nested_transform_views_work() {
 #[test]
 fn can_generate_vdivider_schematic() {
     let mut ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_schematic(Vdivider {
+    let vdivider = Vdivider {
         r1: Resistor { r: 300 },
         r2: Resistor { r: 100 },
-    });
+    };
+    let handle = ctx.generate_schematic(vdivider);
     let _cell = handle.wait().as_ref().unwrap();
+
+    let lib = ctx.export_scir(vdivider);
+    assert_eq!(lib.cells().count(), 3);
+    let issues = lib.validate();
+    println!("Library:\n{:#?}", lib);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = lib.cell_named("vdivider_resistor_300_resistor_100");
+    assert_eq!(vdiv.ports().count(), 3);
+    assert_eq!(vdiv.primitives().count(), 0);
+    assert_eq!(vdiv.instances().count(), 2);
+
+    let res300 = lib.cell_named("resistor_300");
+    assert_eq!(res300.ports().count(), 2);
+    assert_eq!(res300.primitives().count(), 1);
+    assert_eq!(res300.instances().count(), 0);
+
+    let res100 = lib.cell_named("resistor_100");
+    assert_eq!(res100.ports().count(), 2);
+    assert_eq!(res100.primitives().count(), 1);
+    assert_eq!(res100.instances().count(), 0);
 }
 
 #[test]
 fn nested_io_naming() {
     use crate::substrate::block::schematic::{PowerIo, VdividerIo};
-    use substrate::io::SchematicType;
+    use substrate::io::HasNameTree;
 
     let io = VdividerIo {
         pwr: PowerIo {

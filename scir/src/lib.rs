@@ -42,6 +42,7 @@ pub(crate) mod validation;
 pub(crate) mod tests;
 
 /// An expression, often used in parameter assignments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expr {
     /// A numeric literal.
     NumericLiteral(Decimal),
@@ -63,6 +64,7 @@ pub enum Expr {
 }
 
 /// Binary operation types.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum BinOp {
     /// Addition.
     Add,
@@ -75,6 +77,7 @@ pub enum BinOp {
 }
 
 /// A cell parameter.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Param {
     /// A string parameter.
     String {
@@ -140,6 +143,7 @@ impl Display for CellId {
 }
 
 /// An enumeration of supported primitive devices.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PrimitiveDevice {
     /// An ideal 2-terminal resistor.
     Res2 {
@@ -178,6 +182,7 @@ impl PrimitiveDevice {
 }
 
 /// A concatenation of multiple slices.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Concat {
     parts: Vec<Slice>,
 }
@@ -218,6 +223,7 @@ impl From<Slice> for Concat {
 }
 
 /// A library of SCIR cells.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Library {
     /// The last ID assigned.
     ///
@@ -229,14 +235,21 @@ pub struct Library {
 
     /// A map of the cells in the library.
     cells: HashMap<CellId, Cell>,
+
+    /// A map of cell name to cell ID.
+    ///
+    /// SCIR makes no attempt to prevent duplicate cell names.
+    name_map: HashMap<ArcStr, CellId>,
 }
 
 /// A signal exposed by a cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Port {
     signal: SignalId,
 }
 
 /// Information about a signal in a cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
     /// The name of this signal.
     pub name: ArcStr,
@@ -248,6 +261,7 @@ pub struct SignalInfo {
 }
 
 /// An instance of a child cell placed inside a parent cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
     /// The ID of the child cell.
     cell: CellId,
@@ -267,6 +281,7 @@ pub struct Instance {
 }
 
 /// A cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cell {
     /// The last signal ID used.
     ///
@@ -287,6 +302,7 @@ impl Library {
             cell_id: 0,
             name: name.into(),
             cells: HashMap::new(),
+            name_map: HashMap::new(),
         }
     }
 
@@ -296,6 +312,7 @@ impl Library {
     pub fn add_cell(&mut self, cell: Cell) -> CellId {
         self.cell_id += 1;
         let id = CellId(self.cell_id);
+        self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         id
     }
@@ -313,6 +330,15 @@ impl Library {
     /// Panics if no cell has the given ID.
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
+    }
+
+    /// Gets the cell with the given name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no cell has the given name.
+    pub fn cell_named(&self, name: &str) -> &Cell {
+        self.cell(*self.name_map.get(name).unwrap())
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.

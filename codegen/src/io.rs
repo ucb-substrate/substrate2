@@ -106,7 +106,7 @@ impl ToTokens for IoInputReceiver {
                 #field_ident: self.#field_ident.build()?,
             });
             name_fields.push(quote! {
-                (::substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as ::substrate::io::SchematicType>::names(&self.#field_ident))
+                (::substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as ::substrate::io::HasNameTree>::names(&self.#field_ident))
             });
         }
 
@@ -162,6 +162,9 @@ impl ToTokens for IoInputReceiver {
                     #( #instantiate_fields )*
                     (#data_ident { #( #construct_data_fields )* }, __substrate_node_ids)
                 }
+            }
+
+            impl #imp ::substrate::io::HasNameTree for #ident #ty #wher {
                 fn names(&self) -> ::std::option::Option<::std::vec::Vec<::substrate::io::NameTree>> {
                     if <Self as ::substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
                     ::std::option::Option::Some([ #( #name_fields ),* ]

@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{Error, Result},
-    io::PortGeometry,
+    io::{NameBuf, PortGeometry},
     pdk::{layers::LayerId, Pdk},
 };
 
-use super::{draw::DrawContainer, CellBuilder, HasLayout, HasLayoutImpl, Instance};
+use super::{draw::DrawContainer, CellBuilder, HasLayout, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -36,12 +36,12 @@ impl CellId {
 /// A raw layout cell.
 #[derive(Default, Debug, Clone)]
 pub struct RawCell {
-    #[allow(dead_code)]
     pub(crate) id: CellId,
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    ports: HashMap<ArcStr, PortGeometry>,
+    #[allow(dead_code)]
+    ports: HashMap<NameBuf, PortGeometry>,
 }
 
 impl RawCell {
@@ -52,6 +52,16 @@ impl RawCell {
             elements: Vec::new(),
             blockages: Vec::new(),
             ports: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn from_ports_and_builder<PDK: Pdk, T: HasLayout>(
+        ports: HashMap<NameBuf, PortGeometry>,
+        cell_builder: CellBuilder<PDK, T>,
+    ) -> Self {
+        Self {
+            ports,
+            ..cell_builder.cell
         }
     }
 }
@@ -69,12 +79,6 @@ impl DrawContainer for RawCell {
 impl Bbox for RawCell {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.elements.bbox()
-    }
-}
-
-impl<PDK: Pdk, T: HasLayoutImpl<PDK>> From<CellBuilder<PDK, T>> for RawCell {
-    fn from(value: CellBuilder<PDK, T>) -> Self {
-        value.into_cell()
     }
 }
 

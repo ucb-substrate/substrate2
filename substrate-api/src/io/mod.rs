@@ -59,16 +59,8 @@ pub trait FlatLen {
     }
 }
 
-/// A schematic hardware type.
-pub trait SchematicType: FlatLen + Clone {
-    /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Data: SchematicData;
-
-    /// Instantiates a schematic data struct with populated nodes.
-    ///
-    /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
-
+/// An object with named flattened components.
+pub trait HasNameTree {
     /// Return a tree specifying how nodes contained within this type should be named.
     ///
     /// Important: empty types (i.e. those with a flattened length of 0) must return [`None`].
@@ -83,11 +75,22 @@ pub trait SchematicType: FlatLen + Clone {
     }
 }
 
+/// A schematic hardware type.
+pub trait SchematicType: FlatLen + HasNameTree + Clone {
+    /// The **Rust** type representing schematic instances of this **hardware** type.
+    type Data: SchematicData;
+
+    /// Instantiates a schematic data struct with populated nodes.
+    ///
+    /// Must consume exactly [`FlatLen::len`] elements of the node list.
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
+}
+
 /// A trait indicating that this type can be connected to T.
 pub trait Connect<T> {}
 
 /// A layout hardware type.
-pub trait LayoutType: FlatLen + Clone {
+pub trait LayoutType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
     type Data: LayoutData;
     /// The **Rust** type representing layout instances of this **hardware** type.
@@ -122,7 +125,7 @@ pub trait LayoutDataBuilder<T: LayoutData>: FlatLen {
 // BEGIN TYPES
 
 /// A portion of a node name.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum NameFragment {
     /// An element identified by a string name, such as a struct field.
     Str(ArcStr),
@@ -131,7 +134,7 @@ pub enum NameFragment {
 }
 
 /// An owned node name, consisting of an ordered list of [`NameFragment`]s.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct NameBuf {
     fragments: Vec<NameFragment>,
 }
@@ -253,7 +256,9 @@ pub struct TransformedPortGeometry<'a> {
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
     /// explicitly. It is kept separately for ease of access.
     pub primary: Shape,
+    /// A set of unnamed shapes contained by the port.
     pub unnamed_shapes: Transformed<'a, [Shape]>,
+    /// A set of named shapes contained by the port.
     pub named_shapes: Transformed<'a, HashMap<ArcStr, Shape>>,
 }
 

@@ -9,7 +9,10 @@ use once_cell::sync::OnceCell;
 use tracing::{span, Level};
 
 use crate::error::Result;
-use crate::io::{FlatLen, LayoutDataBuilder, LayoutType, NodeContext, SchematicType};
+use crate::io::{
+    FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, Port, SchematicType,
+};
+use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::GdsExporter;
 use crate::layout::Cell as LayoutCell;
@@ -117,13 +120,22 @@ impl<PDK: Pdk> Context<PDK> {
             let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
             let _guard = span.enter();
             let data = block.layout(&mut io_builder, &mut cell_builder);
-            data.and_then(|data| {
-                Ok(LayoutCell::new(
+
+            let io = io_builder.build()?;
+            let ports = HashMap::from_iter(
+                block
+                    .io()
+                    .flat_names(arcstr::literal!("io"))
+                    .into_iter()
+                    .zip(io.flatten_vec().into_iter()),
+            );
+            data.map(|data| {
+                LayoutCell::new(
                     block,
                     data,
-                    Arc::new(io_builder.build()?),
-                    Arc::new(cell_builder.into()),
-                ))
+                    Arc::new(io),
+                    Arc::new(RawCell::from_ports_and_builder(ports, cell_builder)),
+                )
             })
         })
     }
@@ -163,23 +175,42 @@ impl<PDK: Pdk> Context<PDK> {
             let nodes = node_ctx.nodes(io.len());
             let (io_data, nodes_rest) = io.instantiate(&nodes);
             assert!(nodes_rest.is_empty());
+            let cell_name = block.name();
 
             let names = io.flat_names(arcstr::literal!("io"));
+            let dirs = io.flatten_vec();
             assert_eq!(nodes.len(), names.len());
+            assert_eq!(nodes.len(), dirs.len());
+
+            let ports = nodes
+                .iter()
+                .copied()
+                .zip(dirs)
+                .map(|(node, direction)| Port::new(node, direction))
+                .collect();
 
             let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
             let mut cell_builder = SchematicCellBuilder {
                 id,
+                cell_name,
                 ctx: context_clone,
                 node_ctx,
                 instances: Vec::new(),
                 primitives: Vec::new(),
                 node_names,
                 phantom: PhantomData,
+                ports,
             };
-            let data = block.schematic(io_data, &mut cell_builder);
+            let data = block.schematic(&io_data, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
+    }
+
+    /// Export the given block and all sub-blocks as a SCIR library.
+    pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> scir::Library {
+        let cell = self.generate_schematic(block);
+        let cell = cell.wait().as_ref().unwrap();
+        cell.raw.to_scir_lib()
     }
 
     /// Installs a new layer set in the context.

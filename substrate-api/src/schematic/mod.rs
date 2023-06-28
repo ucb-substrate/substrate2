@@ -1,5 +1,7 @@
 //! Substrate's schematic generator framework.
 
+pub mod conv;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -14,8 +16,8 @@ use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
 use crate::io::{
-    Connect, FlatLen, Flatten, NameBuf, Node, NodeContext, NodeUf, Port, SchematicData,
-    SchematicType,
+    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodeUf, Port,
+    SchematicData, SchematicType,
 };
 use crate::pdk::Pdk;
 
@@ -33,7 +35,7 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
     /// Generates the block's schematic.
     fn schematic(
         &self,
-        io: <<Self as Block>::Io as SchematicType>::Data,
+        io: &<<Self as Block>::Io as SchematicType>::Data,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> Result<Self::Data>;
 }
@@ -47,18 +49,28 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) instances: Vec<RawInstance>,
     pub(crate) primitives: Vec<PrimitiveDevice>,
     pub(crate) node_names: HashMap<Node, NameBuf>,
+    pub(crate) cell_name: ArcStr,
     pub(crate) phantom: PhantomData<T>,
+    pub(crate) ports: Vec<Port>,
 }
 
 impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     pub(crate) fn finish(self) -> RawCell {
+        let mut roots = HashMap::with_capacity(self.node_names.len());
+        let mut uf = self.node_ctx.into_inner();
+        for &node in self.node_names.keys() {
+            let root = uf.find(node);
+            roots.insert(node, root);
+        }
         RawCell {
             id: self.id,
+            name: self.cell_name,
             primitives: self.primitives,
             instances: self.instances,
             node_names: self.node_names,
-            ports: Default::default(),
-            uf: self.node_ctx.into_inner(),
+            ports: self.ports,
+            uf,
+            roots,
         }
     }
     /// Instantiate a schematic view of the given block.
@@ -143,11 +155,13 @@ pub struct CellId(usize);
 #[allow(dead_code)]
 pub(crate) struct RawCell {
     id: CellId,
+    name: ArcStr,
     primitives: Vec<PrimitiveDevice>,
     instances: Vec<RawInstance>,
     ports: Vec<Port>,
     uf: NodeUf,
     node_names: HashMap<Node, NameBuf>,
+    roots: HashMap<Node, Node>,
 }
 
 /// An instance of a schematic cell.

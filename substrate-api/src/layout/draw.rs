@@ -13,12 +13,12 @@ pub trait DrawContainer {
     fn draw_blockage(&mut self, shape: Shape);
 
     /// Draws an arbitrary drawable object.
-    fn draw(&mut self, obj: impl Draw) {
-        obj.draw(self);
+    fn draw(&mut self, obj: impl Draw) -> Result<()> {
+        obj.draw(self)
     }
     /// Draws an arbitrary drawable object from a reference.
-    fn draw_ref(&mut self, obj: &impl DrawRef) {
-        obj.draw_ref(self);
+    fn draw_ref(&mut self, obj: &impl DrawRef) -> Result<()> {
+        obj.draw_ref(self)
     }
 }
 

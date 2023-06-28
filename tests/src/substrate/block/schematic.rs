@@ -113,7 +113,7 @@ impl HasSchematic for ArrayShorter {
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
     fn schematic(
         &self,
-        io: ResistorIoData,
+        io: &ResistorIoData,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::Res2 {
@@ -128,7 +128,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
     fn schematic(
         &self,
-        io: VdividerIoData,
+        io: &VdividerIoData,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let r1 = cell.instantiate(self.r1);
@@ -145,7 +145,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
 impl<PDK: Pdk> HasSchematicImpl<PDK> for ArrayShorter {
     fn schematic(
         &self,
-        io: ArrayIoData,
+        io: &ArrayIoData,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         for i in 0..self.width {

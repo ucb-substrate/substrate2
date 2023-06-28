@@ -13,11 +13,10 @@ use substrate::{
     },
     supported_pdks, Layers, LayoutData,
 };
-use tracing::{span, Level};
 
 use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
 
-use super::{Buffer, BufferIo, BufferN, Inverter};
+use super::{Buffer, BufferN, Inverter};
 
 impl HasLayout for Inverter {
     type Data = ();
@@ -32,7 +31,7 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
         cell.draw(Shape::new(
             cell.ctx.pdk.layers.polya,
             Rect::from_sides(0, 0, 100, 200),
-        ));
+        ))?;
 
         io.din.push(Shape::new(
             cell.ctx.pdk.layers.met1a,
@@ -67,7 +66,7 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         cell.draw(Shape::new(
             cell.ctx.pdk.layers.polyb,
             Rect::from_sides(0, 0, 200, 100),
-        ));
+        ))?;
 
         io.din.push(Shape::new(
             cell.ctx.pdk.layers.met1b,
@@ -139,7 +138,7 @@ impl HasLayout for Buffer {
 impl HasLayoutImpl<T> for Buffer {
     fn layout(
         &self,
-        io: &mut super::BufferIoLayoutBuilder,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let derived_layers = DerivedLayers::from(cell.ctx.pdk.layers.as_ref());
@@ -148,8 +147,8 @@ impl HasLayoutImpl<T> for Buffer {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
-        cell.draw(inv1.clone());
-        cell.draw(inv2.clone());
+        cell.draw(inv1.clone())?;
+        cell.draw(inv2.clone())?;
 
         cell.draw(Shape::new(
             &derived_layers.m2,
@@ -157,7 +156,7 @@ impl HasLayoutImpl<T> for Buffer {
                 .dout
                 .primary
                 .bounding_union(&inv2.io().din.primary),
-        ));
+        ))?;
 
         io.din.push(inv1.io().din.primary.clone());
         io.dout.push(inv2.io().dout.primary.clone());
@@ -175,7 +174,7 @@ impl HasLayoutImpl<T> for Buffer {
         cell.draw(Shape::new(
             installed_layers.marker1,
             inv1.bbox().bounding_union(&inv2.bbox()).unwrap(),
-        ));
+        ))?;
 
         Ok(BufferData { inv1, inv2 })
     }
@@ -202,12 +201,12 @@ impl HasLayoutImpl<T> for BufferN {
 
         let mut data = BufferNData::default();
 
-        cell.draw(buffer.clone());
+        cell.draw(buffer.clone())?;
         data.buffers.push(buffer.clone());
 
         for i in 1..self.n {
             buffer.align_bbox_mut(AlignMode::ToTheRight, buffer.bbox(), 10);
-            cell.draw(buffer.clone());
+            cell.draw(buffer.clone())?;
             data.buffers.push(buffer.clone());
 
             cell.draw(Shape::new(
@@ -217,7 +216,7 @@ impl HasLayoutImpl<T> for BufferN {
                     .din
                     .primary
                     .bounding_union(&data.buffers[i - 1].io().dout.primary),
-            ));
+            ))?;
 
             io.vdd.push(buffer.io().vdd.primary.clone());
             io.vss.push(buffer.io().vss.primary.clone());

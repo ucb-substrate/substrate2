@@ -1,5 +1,6 @@
 //! Built-in implementations of IO traits.
 
+use std::fmt::Display;
 use std::{ops::DerefMut, slice::SliceIndex};
 
 use super::*;
@@ -49,7 +50,9 @@ impl SchematicType for () {
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         ((), ids)
     }
+}
 
+impl HasNameTree for () {
     fn names(&self) -> Option<Vec<NameTree>> {
         None
     }
@@ -99,10 +102,6 @@ impl SchematicType for Signal {
             unreachable!();
         }
     }
-
-    fn names(&self) -> Option<Vec<NameTree>> {
-        Some(vec![])
-    }
 }
 
 impl LayoutType for Signal {
@@ -111,6 +110,12 @@ impl LayoutType for Signal {
 
     fn builder(&self) -> Self::Builder {
         PortGeometryBuilder::default()
+    }
+}
+
+impl HasNameTree for Signal {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(vec![])
     }
 }
 
@@ -231,9 +236,6 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (Input(data), ids)
     }
-    fn names(&self) -> Option<Vec<NameTree>> {
-        self.0.names()
-    }
 }
 
 impl<T> LayoutType for Input<T>
@@ -247,6 +249,12 @@ where
 
     fn builder(&self) -> Self::Builder {
         Input(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasNameTree> HasNameTree for Input<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -312,9 +320,6 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (Output(data), ids)
     }
-    fn names(&self) -> Option<Vec<NameTree>> {
-        self.0.names()
-    }
 }
 
 impl<T> LayoutType for Output<T>
@@ -328,6 +333,12 @@ where
 
     fn builder(&self) -> Self::Builder {
         Output(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasNameTree> HasNameTree for Output<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -425,9 +436,6 @@ where
         let (data, ids) = self.0.instantiate(ids);
         (InOut(data), ids)
     }
-    fn names(&self) -> Option<Vec<NameTree>> {
-        self.0.names()
-    }
 }
 
 impl<T> LayoutType for InOut<T>
@@ -441,6 +449,12 @@ where
 
     fn builder(&self) -> Self::Builder {
         InOut(self.0.builder())
+    }
+}
+
+impl<T: Undirected + HasNameTree> HasNameTree for InOut<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
     }
 }
 
@@ -550,7 +564,21 @@ impl<T: SchematicType> SchematicType for Array<T> {
             ids,
         )
     }
+}
 
+impl<T: LayoutType> LayoutType for Array<T> {
+    type Data = ArrayData<T::Data>;
+    type Builder = ArrayData<T::Builder>;
+
+    fn builder(&self) -> Self::Builder {
+        Self::Builder {
+            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
+            ty_len: self.ty.len(),
+        }
+    }
+}
+
+impl<T: HasNameTree> HasNameTree for Array<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         if self.len == 0 {
             return None;
@@ -564,18 +592,6 @@ impl<T: SchematicType> SchematicType for Array<T> {
                 })
                 .collect(),
         )
-    }
-}
-
-impl<T: LayoutType> LayoutType for Array<T> {
-    type Data = ArrayData<T::Data>;
-    type Builder = ArrayData<T::Builder>;
-
-    fn builder(&self) -> Self::Builder {
-        Self::Builder {
-            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
-            ty_len: self.ty.len(),
-        }
     }
 }
 
@@ -696,6 +712,27 @@ impl From<usize> for NameFragment {
     }
 }
 
+impl Display for NameFragment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Str(s) => write!(f, "{s}"),
+            Self::Idx(i) => write!(f, "{i}"),
+        }
+    }
+}
+
+impl Display for NameBuf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(fragment) = self.fragments.get(0) {
+            write!(f, "{fragment}")?;
+        }
+        for fragment in self.fragments.iter().skip(1) {
+            write!(f, "_{fragment}")?;
+        }
+        Ok(())
+    }
+}
+
 impl NameTree {
     /// Create a new name tree rooted at the given name fragment.
     pub fn new(fragment: impl Into<NameFragment>, children: Vec<NameTree>) -> Self {
@@ -750,6 +787,24 @@ impl NameBuf {
     #[inline]
     pub fn new() -> Self {
         Default::default()
+    }
+}
+
+impl Port {
+    #[inline]
+    pub(crate) fn new(node: Node, direction: Direction) -> Self {
+        Self { node, direction }
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    #[inline]
+    pub(crate) fn node(&self) -> Node {
+        self.node
     }
 }
 
