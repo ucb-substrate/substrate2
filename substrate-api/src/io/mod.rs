@@ -252,6 +252,7 @@ pub struct LayoutPort {
 
 /// A set of transformed geometry associated with a layout port.
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct TransformedLayoutPort<'a> {
     /// The primary shape of the port.
     ///

@@ -197,9 +197,9 @@ impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
     }
 }
 
-impl<T: Undirected + LayoutData> Undirected for OptionBuilder<T> {}
+impl<T: Undirected> Undirected for OptionBuilder<T> {}
 
-impl<T: Undirected + LayoutData> Undirected for Option<T> {}
+impl<T: Undirected> Undirected for Option<T> {}
 
 impl FlatLen for LayoutPort {
     fn len(&self) -> usize {
@@ -213,16 +213,6 @@ impl Flatten<LayoutPort> for LayoutPort {
         E: Extend<LayoutPort>,
     {
         output.extend(std::iter::once(self.clone()));
-    }
-}
-
-impl<'a> Clone for TransformedLayoutPort<'a> {
-    fn clone(&self) -> Self {
-        Self {
-            primary: self.primary.clone(),
-            unnamed_shapes: self.unnamed_shapes.clone(),
-            named_shapes: self.named_shapes.clone(),
-        }
     }
 }
 
