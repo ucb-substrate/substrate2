@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
-use substrate::io::{InOut, Input, NameTree, Output, Signal};
-use substrate::Io;
+use substrate::io::{
+    CustomLayoutType, InOut, Input, LayoutPort, LayoutType, NameTree, Output, ShapePort, Signal,
+};
+use substrate::{Io, LayoutIo};
 use test_log::test;
 
 use substrate::{block::Block, context::Context};
@@ -19,9 +21,13 @@ pub mod schematic;
 
 #[derive(Io, Clone, Default)]
 pub struct BufferIo {
+    #[io(layout_type = "ShapePort")]
     vdd: InOut<Signal>,
+    #[io(layout_type = "ShapePort")]
     vss: InOut<Signal>,
+    #[io(layout_type = "ShapePort")]
     din: Input<Signal>,
+    #[io(layout_type = "ShapePort")]
     dout: Output<Signal>,
 }
 
@@ -79,6 +85,35 @@ impl Block for Buffer {
     }
 }
 
+#[derive(Io, Clone, Default)]
+#[io(layout_type = "CustomBufferNIoLayout")]
+pub struct BufferNIo {
+    vdd: InOut<Signal>,
+    vss: InOut<Signal>,
+    din: Input<Signal>,
+    dout: Output<Signal>,
+}
+
+#[derive(LayoutIo, Clone)]
+pub struct CustomBufferNIoLayout {
+    vdd: Signal,
+    vss: Signal,
+    din: ShapePort,
+    dout: ShapePort,
+}
+
+impl CustomLayoutType<BufferNIo> for CustomBufferNIoLayout {
+    fn builder(other: &BufferNIo) -> Self::Builder {
+        Self {
+            vdd: Signal,
+            vss: Signal,
+            din: ShapePort,
+            dout: ShapePort,
+        }
+        .builder()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct BufferN {
     strength: usize,
@@ -92,7 +127,7 @@ impl BufferN {
 }
 
 impl Block for BufferN {
-    type Io = BufferIo;
+    type Io = BufferNIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer_n")

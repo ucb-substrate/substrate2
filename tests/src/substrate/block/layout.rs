@@ -33,22 +33,22 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
             Rect::from_sides(0, 0, 100, 200),
         ))?;
 
-        io.din.push(Shape::new(
+        io.din.set(Shape::new(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(0, 75, 25, 125),
         ));
 
-        io.dout.push(Shape::new(
+        io.dout.set(Shape::new(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(75, 75, 100, 125),
         ));
 
-        io.vdd.push(Shape::new(
+        io.vdd.set(Shape::new(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(25, 175, 75, 200),
         ));
 
-        io.vss.push(Shape::new(
+        io.vss.set(Shape::new(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(25, 0, 75, 25),
         ));
@@ -68,22 +68,22 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
             Rect::from_sides(0, 0, 200, 100),
         ))?;
 
-        io.din.push(Shape::new(
+        io.din.set(Shape::new(
             cell.ctx.pdk.layers.met1b,
             Rect::from_sides(0, 25, 25, 75),
         ));
 
-        io.dout.push(Shape::new(
+        io.dout.set(Shape::new(
             cell.ctx.pdk.layers.met1b,
             Rect::from_sides(175, 25, 200, 75),
         ));
 
-        io.vdd.push(Shape::new(
+        io.vdd.set(Shape::new(
             cell.ctx.pdk.layers.met1b,
             Rect::from_sides(75, 75, 125, 100),
         ));
 
-        io.vss.push(Shape::new(
+        io.vss.set(Shape::new(
             cell.ctx.pdk.layers.met1b,
             Rect::from_sides(75, 0, 125, 25),
         ));
@@ -152,23 +152,20 @@ impl HasLayoutImpl<T> for Buffer {
 
         cell.draw(Shape::new(
             &derived_layers.m2,
-            inv1.io()
-                .dout
-                .primary
-                .bounding_union(&inv2.io().din.primary),
+            inv1.io().dout.bounding_union(&inv2.io().din),
         ))?;
 
-        io.din.push(inv1.io().din.primary.clone());
-        io.dout.push(inv2.io().dout.primary.clone());
+        io.din.set(inv1.io().din.clone());
+        io.dout.set(inv2.io().dout.clone());
 
-        io.vdd.push(Shape::new(
+        io.vdd.set(Shape::new(
             &derived_layers.m1,
-            inv1.io().vdd.primary.bounding_union(&inv2.io().vdd.primary),
+            inv1.io().vdd.bounding_union(&inv2.io().vdd),
         ));
 
-        io.vss.push(Shape::new(
+        io.vss.set(Shape::new(
             &derived_layers.m1,
-            inv1.io().vss.primary.bounding_union(&inv2.io().vss.primary),
+            inv1.io().vss.bounding_union(&inv2.io().vss),
         ));
 
         cell.draw(Shape::new(
@@ -210,21 +207,19 @@ impl HasLayoutImpl<T> for BufferN {
             data.buffers.push(buffer.clone());
 
             cell.draw(Shape::new(
-                buffer.io().dout.primary.layer(),
+                buffer.io().dout.layer(),
                 buffer
                     .io()
                     .din
-                    .primary
-                    .bounding_union(&data.buffers[i - 1].io().dout.primary),
+                    .bounding_union(&data.buffers[i - 1].io().dout),
             ))?;
 
-            io.vdd.push(buffer.io().vdd.primary.clone());
-            io.vss.push(buffer.io().vss.primary.clone());
+            io.vdd.push(buffer.io().vdd.clone());
+            io.vss.push(buffer.io().vss.clone());
         }
 
-        io.din.push(data.buffers[0].io().din.primary.clone());
-        io.dout
-            .push(data.buffers[self.n - 1].io().dout.primary.clone());
+        io.din.set(data.buffers[0].io().din.clone());
+        io.dout.set(data.buffers[self.n - 1].io().dout.clone());
 
         Ok(data)
     }
