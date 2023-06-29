@@ -73,6 +73,26 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             roots,
         }
     }
+
+    /// Create a new signal with the given name and hardware type.
+    pub fn signal<TY: SchematicType>(
+        &mut self,
+        name: impl Into<ArcStr>,
+        ty: TY,
+    ) -> <TY as SchematicType>::Data {
+        let ids = self.node_ctx.nodes(ty.len(), NodePriority::Named);
+        let (data, ids_rest) = ty.instantiate(&ids);
+        assert!(ids_rest.is_empty());
+
+        let nodes = data.flatten_vec();
+        let names = ty.flat_names(name.into());
+        assert_eq!(nodes.len(), names.len());
+
+        self.node_names.extend(nodes.iter().copied().zip(names));
+
+        data
+    }
+
     /// Instantiate a schematic view of the given block.
     pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_schematic(block.clone());

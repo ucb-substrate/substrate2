@@ -442,6 +442,12 @@ impl Cell {
         self.ports.iter()
     }
 
+    /// Iterate over the signals of this cell.
+    #[inline]
+    pub fn signals(&self) -> impl Iterator<Item = (SignalId, &SignalInfo)> {
+        self.signals.iter().map(|x| (*x.0, x.1))
+    }
+
     /// Iterate over the primitive devices of this cell.
     #[inline]
     pub fn primitives(&self) -> impl Iterator<Item = &PrimitiveDevice> {
