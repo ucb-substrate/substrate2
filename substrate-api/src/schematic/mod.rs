@@ -16,7 +16,7 @@ use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
 use crate::io::{
-    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodeUf, Port,
+    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicData, SchematicType,
 };
 use crate::pdk::Pdk;
@@ -59,7 +59,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let mut roots = HashMap::with_capacity(self.node_names.len());
         let mut uf = self.node_ctx.into_inner();
         for &node in self.node_names.keys() {
-            let root = uf.find(node);
+            let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
         }
         RawCell {
@@ -78,7 +78,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let cell = self.ctx.generate_schematic(block.clone());
         let io = block.io();
 
-        let ids = self.node_ctx.nodes(io.len());
+        let ids = self.node_ctx.nodes(io.len(), NodePriority::Auto);
         let (io_data, ids_rest) = block.io().instantiate(&ids);
         assert!(ids_rest.is_empty());
 

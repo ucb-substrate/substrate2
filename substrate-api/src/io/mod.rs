@@ -2,7 +2,7 @@
 
 use std::{
     borrow::Borrow,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ops::{Deref, Index},
 };
 
@@ -172,28 +172,57 @@ pub struct TransformedInOut<'a, T: Undirected + HasTransformedView + 'a>(pub Tra
 pub struct Signal;
 
 /// A single node in a circuit.
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Node(u32);
 
-/// A collection of [`Node`]s.
+/// The priority a node has in determining the name of a merged node.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub(crate) enum NodePriority {
+    /// An IO / externally-visible signal name.
+    ///
+    /// Has the highest priority in determining node names.
+    Io = 3,
+    /// An explicitly named signal.
+    Named = 2,
+    /// A signal with an automatically-generated name.
+    ///
+    /// Has the lowest priority in determining node names.
+    Auto = 1,
+}
+
+/// The value associated to a node in a schematic builder's union find data structure.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-#[repr(transparent)]
-pub struct NodeSet(HashSet<Node>);
+pub struct NodeUfValue {
+    /// The overall priority of a set of merged nodes.
+    ///
+    /// Taken to be the highest among priorities of all nodes
+    /// in the merged set.
+    priority: NodePriority,
+    /// The node that provides `priority`.
+    ///
+    /// For example, if priority is NodePriority::Io, `node`
+    /// should be the node identifier representing the IO node.
+    pub(crate) source: Node,
+}
 
 /// A node unification table for connectivity management.
 pub type NodeUf = ena::unify::InPlaceUnificationTable<Node>;
 
-impl ena::unify::UnifyValue for NodeSet {
+impl ena::unify::UnifyValue for NodeUfValue {
     type Error = ena::unify::NoError;
 
     fn unify_values(value1: &Self, value2: &Self) -> std::result::Result<Self, Self::Error> {
-        Ok(Self(&value1.0 | &value2.0))
+        Ok(if value1.priority >= value2.priority {
+            *value1
+        } else {
+            *value2
+        })
     }
 }
 
 impl ena::unify::UnifyKey for Node {
-    type Value = NodeSet;
+    type Value = Option<NodeUfValue>;
     fn index(&self) -> u32 {
         self.0
     }
@@ -218,17 +247,23 @@ impl NodeContext {
             uf: Default::default(),
         }
     }
-    pub(crate) fn node(&mut self) -> Node {
+    pub(crate) fn node(&mut self, priority: NodePriority) -> Node {
         let id = self.uf.new_key(Default::default());
-        self.uf.union_value(id, NodeSet([id].into()));
+        self.uf.union_value(
+            id,
+            Some(NodeUfValue {
+                priority,
+                source: id,
+            }),
+        );
         id
     }
     #[inline]
     pub fn into_inner(self) -> NodeUf {
         self.uf
     }
-    pub fn nodes(&mut self, n: usize) -> Vec<Node> {
-        (0..n).map(|_| self.node()).collect()
+    pub fn nodes(&mut self, n: usize, priority: NodePriority) -> Vec<Node> {
+        (0..n).map(|_| self.node(priority)).collect()
     }
     pub(crate) fn connect(&mut self, n1: Node, n2: Node) {
         self.uf.union(n1, n2);
