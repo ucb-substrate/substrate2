@@ -8,6 +8,8 @@ use substrate::pdk::Pdk;
 use substrate::Io;
 use substrate::{block::Block, schematic::HasSchematic};
 
+pub mod internal_signal;
+
 #[derive(Debug, Default, Clone, Io)]
 pub struct ResistorIo {
     pub p: InOut<Signal>,

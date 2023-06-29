@@ -1,7 +1,7 @@
 //! SPICE netlist exporter.
 #![warn(missing_docs)]
 
-use scir::slice::Slice;
+use scir::Slice;
 use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
 use std::io::{prelude::*, BufWriter};
 

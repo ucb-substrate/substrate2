@@ -30,12 +30,11 @@ use std::fmt::Display;
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use slice::Slice;
 use tracing::{span, Level};
 
-use crate::slice::SliceRange;
+mod slice;
 
-pub mod slice;
+pub use slice::{IndexOwned, Slice, SliceRange};
 pub(crate) mod validation;
 
 #[cfg(test)]
@@ -169,6 +168,17 @@ pub enum PrimitiveDevice {
         /// The available resistor models are usually specified by a PDK.
         model: Option<ArcStr>,
     },
+    /// A raw instance.
+    ///
+    /// This can be an instance of a subcircuit defined outside a SCIR library.
+    RawInstance {
+        /// The ports of the instance, as an ordered list.
+        ports: Vec<Slice>,
+        /// The name of the cell being instantiated.
+        cell: ArcStr,
+        /// Parameters to the cell being instantiated.
+        params: HashMap<ArcStr, Expr>,
+    },
 }
 
 impl PrimitiveDevice {
@@ -177,6 +187,7 @@ impl PrimitiveDevice {
         match self {
             Self::Res2 { pos, neg, .. } => vec![*pos, *neg],
             Self::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
+            Self::RawInstance { ports, .. } => ports.clone(),
         }
     }
 }
@@ -429,6 +440,12 @@ impl Cell {
     #[inline]
     pub fn ports(&self) -> impl Iterator<Item = &Port> {
         self.ports.iter()
+    }
+
+    /// Iterate over the signals of this cell.
+    #[inline]
+    pub fn signals(&self) -> impl Iterator<Item = (SignalId, &SignalInfo)> {
+        self.signals.iter().map(|x| (*x.0, x.1))
     }
 
     /// Iterate over the primitive devices of this cell.

@@ -10,7 +10,8 @@ use tracing::{span, Level};
 
 use crate::error::Result;
 use crate::io::{
-    FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, Port, SchematicType,
+    FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
+    SchematicType,
 };
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
@@ -172,7 +173,7 @@ impl<PDK: Pdk> Context<PDK> {
         inner_mut.schematic.gen.generate(block.clone(), move || {
             let mut node_ctx = NodeContext::new();
             let io = block.io();
-            let nodes = node_ctx.nodes(io.len());
+            let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
             let (io_data, nodes_rest) = io.instantiate(&nodes);
             assert!(nodes_rest.is_empty());
             let cell_name = block.name();

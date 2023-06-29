@@ -16,7 +16,7 @@ use crate::context::Context;
 use crate::error::Result;
 use crate::generator::Generator;
 use crate::io::{
-    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodeUf, Port,
+    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicData, SchematicType,
 };
 use crate::pdk::Pdk;
@@ -59,7 +59,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let mut roots = HashMap::with_capacity(self.node_names.len());
         let mut uf = self.node_ctx.into_inner();
         for &node in self.node_names.keys() {
-            let root = uf.find(node);
+            let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
         }
         RawCell {
@@ -73,12 +73,32 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             roots,
         }
     }
+
+    /// Create a new signal with the given name and hardware type.
+    pub fn signal<TY: SchematicType>(
+        &mut self,
+        name: impl Into<ArcStr>,
+        ty: TY,
+    ) -> <TY as SchematicType>::Data {
+        let ids = self.node_ctx.nodes(ty.len(), NodePriority::Named);
+        let (data, ids_rest) = ty.instantiate(&ids);
+        assert!(ids_rest.is_empty());
+
+        let nodes = data.flatten_vec();
+        let names = ty.flat_names(name.into());
+        assert_eq!(nodes.len(), names.len());
+
+        self.node_names.extend(nodes.iter().copied().zip(names));
+
+        data
+    }
+
     /// Instantiate a schematic view of the given block.
     pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_schematic(block.clone());
         let io = block.io();
 
-        let ids = self.node_ctx.nodes(io.len());
+        let ids = self.node_ctx.nodes(io.len(), NodePriority::Auto);
         let (io_data, ids_rest) = block.io().instantiate(&ids);
         assert!(ids_rest.is_empty());
 
@@ -200,6 +220,17 @@ pub enum PrimitiveDevice {
         neg: Node,
         /// The value of the resistor, in Ohms.
         value: Decimal,
+    },
+    /// A raw instance.
+    ///
+    /// This can be an instance of a subcircuit defined outside of Substrate.
+    RawInstance {
+        /// The ports of the instance, as an ordered list.
+        ports: Vec<Node>,
+        /// The name of the cell being instantiated.
+        cell: ArcStr,
+        /// Parameters to the cell being instantiated.
+        params: HashMap<ArcStr, scir::Expr>,
     },
 }
 
