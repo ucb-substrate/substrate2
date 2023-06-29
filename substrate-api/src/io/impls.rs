@@ -1,6 +1,7 @@
 //! Built-in implementations of IO traits.
 
 use std::fmt::Display;
+use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
 
 use crate::layout::error::LayoutError;
@@ -147,8 +148,8 @@ impl HasNameTree for ShapePort {
 impl Undirected for ShapePort {}
 
 impl CustomLayoutType<Signal> for ShapePort {
-    fn builder(_other: &Signal) -> Self::Builder {
-        ShapePort.builder()
+    fn from_layout_type(_other: &Signal) -> Self {
+        ShapePort
     }
 }
 
@@ -212,6 +213,31 @@ impl Flatten<LayoutPort> for LayoutPort {
         E: Extend<LayoutPort>,
     {
         output.extend(std::iter::once(self.clone()));
+    }
+}
+
+impl<'a> Clone for TransformedLayoutPort<'a> {
+    fn clone(&self) -> Self {
+        Self {
+            primary: self.primary.clone(),
+            unnamed_shapes: self.unnamed_shapes.clone(),
+            named_shapes: self.named_shapes.clone(),
+        }
+    }
+}
+
+impl<'a> From<TransformedLayoutPort<'a>> for LayoutPort {
+    fn from(value: TransformedLayoutPort<'a>) -> Self {
+        Self {
+            primary: value.primary,
+            unnamed_shapes: value.unnamed_shapes.to_vec(),
+            named_shapes: value
+                .named_shapes
+                .to_hash_map()
+                .into_iter()
+                .map(|(name, shape)| (name.clone(), shape))
+                .collect(),
+        }
     }
 }
 
@@ -319,8 +345,8 @@ where
     T::Data: Undirected,
     T::Builder: Undirected,
 {
-    fn builder(other: &Input<T>) -> Self::Builder {
-        <U as CustomLayoutType<T>>::builder(&other.0)
+    fn from_layout_type(other: &Input<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -386,8 +412,8 @@ where
     T::Data: Undirected,
     T::Builder: Undirected,
 {
-    fn builder(other: &Output<T>) -> Self::Builder {
-        <U as CustomLayoutType<T>>::builder(&other.0)
+    fn from_layout_type(other: &Output<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -484,8 +510,8 @@ where
     T::Data: Undirected,
     T::Builder: Undirected,
 {
-    fn builder(other: &InOut<T>) -> Self::Builder {
-        <U as CustomLayoutType<T>>::builder(&other.0)
+    fn from_layout_type(other: &InOut<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -586,6 +612,15 @@ impl<T: LayoutType> LayoutType for Array<T> {
     }
 }
 
+impl<T: LayoutType, U: LayoutType + CustomLayoutType<T>> CustomLayoutType<Array<T>> for Array<U> {
+    fn from_layout_type(other: &Array<T>) -> Self {
+        Self {
+            ty: <U as CustomLayoutType<T>>::from_layout_type(&other.ty),
+            len: other.len,
+        }
+    }
+}
+
 impl<T: HasNameTree> HasNameTree for Array<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         if self.len == 0 {
@@ -681,6 +716,16 @@ where
     #[inline]
     fn index(&self, index: I) -> &Self::Output {
         Index::index(&self.elems, index)
+    }
+}
+
+impl<T, I> IndexMut<I> for ArrayData<T>
+where
+    I: SliceIndex<[T]>,
+{
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        IndexMut::index_mut(&mut self.elems, index)
     }
 }
 

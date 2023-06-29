@@ -137,7 +137,7 @@ impl ToTokens for LayoutIoInputReceiver {
                     type Builder = <#layout_type as ::substrate::io::LayoutType>::Builder;
 
                     fn builder(&self) -> Self::Builder {
-                        <#layout_type as ::substrate::io::CustomLayoutType<#ident>>::builder(self)
+                        <#layout_type as ::substrate::io::LayoutType>::builder(&<#layout_type as ::substrate::io::CustomLayoutType<#ident>>::from_layout_type(self))
                     }
                 }
             });
@@ -198,7 +198,7 @@ impl ToTokens for LayoutIoInputReceiver {
             });
             if switch_type {
                 create_builder_fields.push(quote! {
-                    #field_ident: <#field_ty as ::substrate::io::CustomLayoutType<#original_field_ty>>::builder(&self.#field_ident),
+                    #field_ident: <#field_ty as ::substrate::io::LayoutType>::builder(&<#field_ty as ::substrate::io::CustomLayoutType<#original_field_ty>>::from_layout_type(&self.#field_ident)),
                 });
             } else {
                 create_builder_fields.push(quote! {

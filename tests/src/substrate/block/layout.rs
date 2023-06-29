@@ -16,7 +16,7 @@ use substrate::{
 
 use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
 
-use super::{Buffer, BufferN, Inverter};
+use super::{Buffer, BufferN, BufferNxM, Inverter};
 
 impl HasLayout for Inverter {
     type Data = ();
@@ -222,5 +222,35 @@ impl HasLayoutImpl<T> for BufferN {
         io.dout.set(data.buffers[self.n - 1].io().dout);
 
         Ok(data)
+    }
+}
+
+impl HasLayout for BufferNxM {
+    type Data = ();
+}
+
+#[supported_pdks(ExamplePdkA, ExamplePdkB)]
+impl HasLayoutImpl<T> for BufferNxM {
+    fn layout(
+        &self,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        cell: &mut substrate::layout::CellBuilder<T, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let mut buffern = cell.generate(BufferN::new(self.strength, self.n));
+
+        for i in 0..self.n {
+            if i != 0 {
+                buffern.align_bbox_mut(AlignMode::Beneath, buffern.bbox(), 20);
+            }
+
+            io.vdd.merge(buffern.io().vdd);
+            io.vss.merge(buffern.io().vss);
+            io.din[i].set(buffern.io().din);
+            io.dout[i].set(buffern.io().dout);
+
+            cell.draw(buffern.clone())?;
+        }
+
+        Ok(())
     }
 }

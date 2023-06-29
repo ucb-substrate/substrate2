@@ -122,8 +122,8 @@ pub trait LayoutDataBuilder<T: LayoutData> {
 
 /// A custom layout type that can be derived from an existing layout type.
 pub trait CustomLayoutType<T: LayoutType>: LayoutType {
-    /// Creates a builder for this layout type from another layout type.
-    fn builder(other: &T) -> Self::Builder;
+    /// Creates this layout type from another layout type.
+    fn from_layout_type(other: &T) -> Self;
 }
 
 // END TRAITS
@@ -282,6 +282,14 @@ impl LayoutPortBuilder {
             self.primary = Some(shape.clone());
         }
         self.unnamed_shapes.push(shape);
+    }
+
+    /// Merges [`LayoutPort`] `other` into `self`, overwriting the primary and corresponding named shapes.
+    pub fn merge(&mut self, other: impl Into<LayoutPort>) {
+        let other = other.into();
+        self.primary = Some(other.primary);
+        self.unnamed_shapes.extend(other.unnamed_shapes);
+        self.named_shapes.extend(other.named_shapes);
     }
 
     /// Sets the primary shape of this port.
