@@ -1,3 +1,4 @@
+# #[derive(LayoutData)]
 # pub struct BufferData {
 #     pub inv1: Instance<Inverter>,
 #     pub inv2: Instance<Inverter>,

@@ -201,6 +201,17 @@ pub enum PrimitiveDevice {
         /// The value of the resistor, in Ohms.
         value: Decimal,
     },
+    /// A raw instance.
+    ///
+    /// This can be an instance of a subcircuit defined outside of Substrate.
+    RawInstance {
+        /// The ports of the instance, as an ordered list.
+        ports: Vec<Node>,
+        /// The name of the cell being instantiated.
+        cell: ArcStr,
+        /// Parameters to the cell being instantiated.
+        params: HashMap<ArcStr, scir::Expr>,
+    },
 }
 
 /// A wrapper around schematic-specific context data.
