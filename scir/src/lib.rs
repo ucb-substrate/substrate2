@@ -30,12 +30,11 @@ use std::fmt::Display;
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use slice::Slice;
 use tracing::{span, Level};
 
-use crate::slice::SliceRange;
+mod slice;
 
-pub mod slice;
+pub use slice::{IndexOwned, Slice, SliceRange};
 pub(crate) mod validation;
 
 #[cfg(test)]
