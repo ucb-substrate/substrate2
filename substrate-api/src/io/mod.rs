@@ -7,14 +7,14 @@ use std::{
 };
 
 use arcstr::ArcStr;
-use geometry::{
-    prelude::Bbox,
-    transform::{HasTransformedView, Transformed},
-};
+use geometry::transform::{HasTransformedView, Transformed};
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
-use crate::{error::Result, layout::element::Shape};
+use crate::{
+    error::Result,
+    layout::{element::Shape, error::LayoutError},
+};
 
 mod impls;
 
@@ -120,7 +120,9 @@ pub trait LayoutDataBuilder<T: LayoutData> {
     fn build(self) -> Result<T>;
 }
 
+/// A custom layout type that can be derived from an existing layout type.
 pub trait CustomLayoutType<T: LayoutType>: LayoutType {
+    /// Creates a builder for this layout type from another layout type.
     fn builder(other: &T) -> Self::Builder;
 }
 
@@ -166,7 +168,7 @@ pub struct InOut<T: Undirected>(pub T);
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Signal;
 
-/// A type representing a single hardware layout port with a single [`Shape`](geometry::shape::Shape) as
+/// A type representing a single hardware layout port with a single [`Shape`](crate::layout::element::Shape) as
 /// its geometry.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ShapePort;
@@ -288,6 +290,13 @@ impl LayoutPortBuilder {
     }
 }
 
+/// A simple builder that allows setting data at runtime.
+///
+/// ```
+/// # use substrate_api::io::OptionBuilder;
+/// let mut builder = OptionBuilder::default();
+/// builder.set(5);
+/// assert_eq!(builder.build().unwrap(), 5);
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct OptionBuilder<T>(Option<T>);
 
@@ -298,8 +307,14 @@ impl<T> Default for OptionBuilder<T> {
 }
 
 impl<T> OptionBuilder<T> {
+    /// Set the value of the data contained by the builder.
     pub fn set(&mut self, inner: T) {
-        self.0.insert(inner);
+        let _ = self.0.insert(inner);
+    }
+
+    /// Returns the data contained by the builder.
+    pub fn build(self) -> Result<T> {
+        Ok(self.0.ok_or(LayoutError::IoDefinition)?)
     }
 }
 

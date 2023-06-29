@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
 use substrate::io::{
-    CustomLayoutType, InOut, Input, LayoutPort, LayoutType, NameTree, Output, ShapePort, Signal,
+    CustomLayoutType, InOut, Input, LayoutType, NameTree, Output, ShapePort, Signal,
 };
-use substrate::{Io, LayoutIo};
+use substrate::{Io, LayoutType};
 use test_log::test;
 
 use substrate::{block::Block, context::Context};
@@ -86,7 +86,7 @@ impl Block for Buffer {
 }
 
 #[derive(Io, Clone, Default)]
-#[io(layout_type = "CustomBufferNIoLayout")]
+#[io(layout_type = "BufferNIoLayout")]
 pub struct BufferNIo {
     vdd: InOut<Signal>,
     vss: InOut<Signal>,
@@ -94,16 +94,16 @@ pub struct BufferNIo {
     dout: Output<Signal>,
 }
 
-#[derive(LayoutIo, Clone)]
-pub struct CustomBufferNIoLayout {
+#[derive(LayoutType, Clone)]
+pub struct BufferNIoLayout {
     vdd: Signal,
     vss: Signal,
     din: ShapePort,
     dout: ShapePort,
 }
 
-impl CustomLayoutType<BufferNIo> for CustomBufferNIoLayout {
-    fn builder(other: &BufferNIo) -> Self::Builder {
+impl CustomLayoutType<BufferNIo> for BufferNIoLayout {
+    fn builder(_other: &BufferNIo) -> Self::Builder {
         Self {
             vdd: Signal,
             vss: Signal,

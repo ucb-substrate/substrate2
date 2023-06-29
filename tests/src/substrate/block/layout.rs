@@ -155,8 +155,8 @@ impl HasLayoutImpl<T> for Buffer {
             inv1.io().dout.bounding_union(&inv2.io().din),
         ))?;
 
-        io.din.set(inv1.io().din.clone());
-        io.dout.set(inv2.io().dout.clone());
+        io.din.set(inv1.io().din);
+        io.dout.set(inv2.io().dout);
 
         io.vdd.set(Shape::new(
             &derived_layers.m1,
@@ -218,8 +218,8 @@ impl HasLayoutImpl<T> for BufferN {
             io.vss.push(buffer.io().vss.clone());
         }
 
-        io.din.set(data.buffers[0].io().din.clone());
-        io.dout.set(data.buffers[self.n - 1].io().dout.clone());
+        io.din.set(data.buffers[0].io().din);
+        io.dout.set(data.buffers[self.n - 1].io().dout);
 
         Ok(data)
     }

@@ -147,7 +147,7 @@ impl HasNameTree for ShapePort {
 impl Undirected for ShapePort {}
 
 impl CustomLayoutType<Signal> for ShapePort {
-    fn builder(other: &Signal) -> Self::Builder {
+    fn builder(_other: &Signal) -> Self::Builder {
         ShapePort.builder()
     }
 }
@@ -192,17 +192,11 @@ impl Undirected for Shape {}
 
 impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
-        self.0.build()
+        self.build()
     }
 }
 
 impl<T: Undirected + LayoutData> Undirected for OptionBuilder<T> {}
-
-impl<T: LayoutData> LayoutDataBuilder<T> for Option<T> {
-    fn build(self) -> Result<T> {
-        Ok(self.ok_or(LayoutError::IoDefinition)?)
-    }
-}
 
 impl<T: Undirected + LayoutData> Undirected for Option<T> {}
 

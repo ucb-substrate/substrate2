@@ -92,13 +92,13 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(LayoutIo)]
+/// Derives `LayoutType` for a struct.
+#[proc_macro_derive(LayoutType)]
 pub fn derive_layout_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
     let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
     quote!(
-
         #receiver_io
         #receiver_layout
     )
