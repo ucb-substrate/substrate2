@@ -4,8 +4,8 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
-use substrate::io::{InOut, Input, NameTree, Output, Signal};
-use substrate::Io;
+use substrate::io::{Array, CustomLayoutType, InOut, Input, NameTree, Output, ShapePort, Signal};
+use substrate::{Io, LayoutType};
 use test_log::test;
 
 use substrate::{block::Block, context::Context};
@@ -22,9 +22,13 @@ pub mod schematic;
 
 #[derive(Io, Clone, Default)]
 pub struct BufferIo {
+    #[io(layout_type = "ShapePort")]
     vdd: InOut<Signal>,
+    #[io(layout_type = "ShapePort")]
     vss: InOut<Signal>,
+    #[io(layout_type = "ShapePort")]
     din: Input<Signal>,
+    #[io(layout_type = "ShapePort")]
     dout: Output<Signal>,
 }
 
@@ -82,6 +86,34 @@ impl Block for Buffer {
     }
 }
 
+#[derive(Io, Clone, Default)]
+#[io(layout_type = "BufferNIoLayout")]
+pub struct BufferNIo {
+    vdd: InOut<Signal>,
+    vss: InOut<Signal>,
+    din: Input<Signal>,
+    dout: Output<Signal>,
+}
+
+#[derive(LayoutType, Clone)]
+pub struct BufferNIoLayout {
+    vdd: Signal,
+    vss: Signal,
+    din: ShapePort,
+    dout: ShapePort,
+}
+
+impl CustomLayoutType<BufferNIo> for BufferNIoLayout {
+    fn from_layout_type(_other: &BufferNIo) -> Self {
+        Self {
+            vdd: Signal,
+            vss: Signal,
+            din: ShapePort,
+            dout: ShapePort,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct BufferN {
     strength: usize,
@@ -95,7 +127,7 @@ impl BufferN {
 }
 
 impl Block for BufferN {
-    type Io = BufferIo;
+    type Io = BufferNIo;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer_n")
@@ -107,6 +139,49 @@ impl Block for BufferN {
 
     fn io(&self) -> Self::Io {
         Default::default()
+    }
+}
+
+#[derive(Io, Clone, Default)]
+pub struct BufferNxMIo {
+    vdd: InOut<Signal>,
+    vss: InOut<Signal>,
+    #[io(layout_type = "Array<ShapePort>")]
+    din: Input<Array<Signal>>,
+    #[io(layout_type = "Array<ShapePort>")]
+    dout: Output<Array<Signal>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct BufferNxM {
+    strength: usize,
+    n: usize,
+    m: usize,
+}
+
+impl BufferNxM {
+    pub fn new(strength: usize, n: usize, m: usize) -> Self {
+        Self { strength, n, m }
+    }
+}
+
+impl Block for BufferNxM {
+    type Io = BufferNxMIo;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("buffer_n_m")
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("buffer_{}_{}x{}", self.strength, self.n, self.m)
+    }
+
+    fn io(&self) -> Self::Io {
+        Self::Io {
+            din: Input(Array::new(self.m, Default::default())),
+            dout: Output(Array::new(self.m, Default::default())),
+            ..Default::default()
+        }
     }
 }
 

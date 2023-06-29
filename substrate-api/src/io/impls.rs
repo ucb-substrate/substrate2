@@ -1,7 +1,10 @@
 //! Built-in implementations of IO traits.
 
 use std::fmt::Display;
+use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
+
+use crate::layout::error::LayoutError;
 
 use super::*;
 
@@ -79,10 +82,10 @@ impl LayoutDataBuilder<()> for () {
     }
 }
 
-impl Flatten<PortGeometry> for () {
+impl Flatten<LayoutPort> for () {
     fn flatten<E>(&self, _output: &mut E)
     where
-        E: Extend<PortGeometry>,
+        E: Extend<LayoutPort>,
     {
     }
 }
@@ -105,11 +108,11 @@ impl SchematicType for Signal {
 }
 
 impl LayoutType for Signal {
-    type Data = PortGeometry;
-    type Builder = PortGeometryBuilder;
+    type Data = LayoutPort;
+    type Builder = LayoutPortBuilder;
 
     fn builder(&self) -> Self::Builder {
-        PortGeometryBuilder::default()
+        LayoutPortBuilder::default()
     }
 }
 
@@ -120,6 +123,35 @@ impl HasNameTree for Signal {
 }
 
 impl Undirected for Signal {}
+
+impl FlatLen for ShapePort {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl LayoutType for ShapePort {
+    type Data = Shape;
+    type Builder = OptionBuilder<Shape>;
+
+    fn builder(&self) -> Self::Builder {
+        Default::default()
+    }
+}
+
+impl HasNameTree for ShapePort {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(vec![])
+    }
+}
+
+impl Undirected for ShapePort {}
+
+impl CustomLayoutType<Signal> for ShapePort {
+    fn from_layout_type(_other: &Signal) -> Self {
+        ShapePort
+    }
+}
 
 impl FlatLen for Node {
     fn len(&self) -> usize {
@@ -138,23 +170,69 @@ impl Flatten<Node> for Node {
 
 impl Undirected for Node {}
 
-impl FlatLen for PortGeometry {
+impl FlatLen for Shape {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl Flatten<PortGeometry> for PortGeometry {
+impl Flatten<LayoutPort> for Shape {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<PortGeometry>,
+        E: Extend<LayoutPort>,
+    {
+        output.extend(std::iter::once(LayoutPort {
+            primary: self.clone(),
+            unnamed_shapes: Vec::new(),
+            named_shapes: HashMap::new(),
+        }));
+    }
+}
+
+impl Undirected for Shape {}
+
+impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
+    fn build(self) -> Result<T> {
+        self.build()
+    }
+}
+
+impl<T: Undirected> Undirected for OptionBuilder<T> {}
+
+impl<T: Undirected> Undirected for Option<T> {}
+
+impl FlatLen for LayoutPort {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<LayoutPort> for LayoutPort {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<LayoutPort>,
     {
         output.extend(std::iter::once(self.clone()));
     }
 }
 
-impl HasTransformedView for PortGeometry {
-    type TransformedView<'a> = TransformedPortGeometry<'a>;
+impl<'a> From<TransformedLayoutPort<'a>> for LayoutPort {
+    fn from(value: TransformedLayoutPort<'a>) -> Self {
+        Self {
+            primary: value.primary,
+            unnamed_shapes: value.unnamed_shapes.to_vec(),
+            named_shapes: value
+                .named_shapes
+                .to_hash_map()
+                .into_iter()
+                .map(|(name, shape)| (name.clone(), shape))
+                .collect(),
+        }
+    }
+}
+
+impl HasTransformedView for LayoutPort {
+    type TransformedView<'a> = TransformedLayoutPort<'a>;
 
     fn transformed_view(
         &self,
@@ -168,17 +246,17 @@ impl HasTransformedView for PortGeometry {
     }
 }
 
-impl Undirected for PortGeometry {}
+impl Undirected for LayoutPort {}
 
-impl FlatLen for PortGeometryBuilder {
+impl FlatLen for LayoutPortBuilder {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
-    fn build(self) -> Result<PortGeometry> {
-        Ok(PortGeometry {
+impl LayoutDataBuilder<LayoutPort> for LayoutPortBuilder {
+    fn build(self) -> Result<LayoutPort> {
+        Ok(LayoutPort {
             primary: self.primary.ok_or_else(|| {
                 tracing::event!(
                     Level::ERROR,
@@ -192,7 +270,7 @@ impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
     }
 }
 
-impl Undirected for PortGeometryBuilder {}
+impl Undirected for LayoutPortBuilder {}
 
 impl<T: Undirected> AsRef<T> for Input<T> {
     fn as_ref(&self) -> &T {
@@ -207,16 +285,15 @@ impl<T: Undirected> Deref for Input<T> {
     }
 }
 
-impl<'a, T: Undirected + HasTransformedView> Deref for TransformedInput<'a, T> {
-    type Target = Transformed<'a, T>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<T: Undirected> DerefMut for Input<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<U: Undirected, T: From<U> + Undirected> From<U> for Input<T> {
+    fn from(value: U) -> Self {
+        Input(value.into())
     }
 }
 
@@ -244,45 +321,28 @@ where
     T::Data: Undirected,
     T::Builder: Undirected,
 {
-    type Data = Input<T::Data>;
-    type Builder = Input<T::Builder>;
+    type Data = T::Data;
+    type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
-        Input(self.0.builder())
+        self.0.builder()
+    }
+}
+
+impl<T, U: CustomLayoutType<T>> CustomLayoutType<Input<T>> for U
+where
+    T: Undirected + LayoutType,
+    T::Data: Undirected,
+    T::Builder: Undirected,
+{
+    fn from_layout_type(other: &Input<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
 impl<T: Undirected + HasNameTree> HasNameTree for Input<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         self.0.names()
-    }
-}
-
-impl<T: Undirected + HasTransformedView> HasTransformedView for Input<T> {
-    type TransformedView<'a> = TransformedInput<'a, T> where T: 'a;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
-        TransformedInput(self.0.transformed_view(trans))
-    }
-}
-
-impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDataBuilder<Input<T>>
-    for Input<B>
-{
-    fn build(self) -> Result<Input<T>> {
-        Ok(Input(self.0.build()?))
-    }
-}
-
-impl<T: Undirected + Flatten<PortGeometry>> Flatten<PortGeometry> for Input<T> {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
-        self.0.flatten(output)
     }
 }
 
@@ -328,45 +388,28 @@ where
     T::Data: Undirected,
     T::Builder: Undirected,
 {
-    type Data = Output<T::Data>;
-    type Builder = Output<T::Builder>;
+    type Data = T::Data;
+    type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
-        Output(self.0.builder())
+        self.0.builder()
+    }
+}
+
+impl<T, U: CustomLayoutType<T>> CustomLayoutType<Output<T>> for U
+where
+    T: Undirected + LayoutType,
+    T::Data: Undirected,
+    T::Builder: Undirected,
+{
+    fn from_layout_type(other: &Output<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
 impl<T: Undirected + HasNameTree> HasNameTree for Output<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         self.0.names()
-    }
-}
-
-impl<T: Undirected + HasTransformedView> HasTransformedView for Output<T> {
-    type TransformedView<'a> = TransformedOutput<'a, T> where T: 'a;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
-        TransformedOutput(self.0.transformed_view(trans))
-    }
-}
-
-impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDataBuilder<Output<T>>
-    for Output<B>
-{
-    fn build(self) -> Result<Output<T>> {
-        Ok(Output(self.0.build()?))
-    }
-}
-
-impl<T: Undirected + Flatten<PortGeometry>> Flatten<PortGeometry> for Output<T> {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
-        self.0.flatten(output)
     }
 }
 
@@ -407,16 +450,15 @@ impl<T: Undirected> Deref for Output<T> {
     }
 }
 
-impl<'a, T: Undirected + HasTransformedView> Deref for TransformedOutput<'a, T> {
-    type Target = Transformed<'a, T>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<T: Undirected> DerefMut for Output<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<U: Undirected, T: From<U> + Undirected> From<U> for Output<T> {
+    fn from(value: U) -> Self {
+        Output(value.into())
     }
 }
 
@@ -444,45 +486,28 @@ where
     T::Data: Undirected,
     T::Builder: Undirected,
 {
-    type Data = InOut<T::Data>;
-    type Builder = InOut<T::Builder>;
+    type Data = T::Data;
+    type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
-        InOut(self.0.builder())
+        self.0.builder()
+    }
+}
+
+impl<T, U: CustomLayoutType<T>> CustomLayoutType<InOut<T>> for U
+where
+    T: Undirected + LayoutType,
+    T::Data: Undirected,
+    T::Builder: Undirected,
+{
+    fn from_layout_type(other: &InOut<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
 impl<T: Undirected + HasNameTree> HasNameTree for InOut<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         self.0.names()
-    }
-}
-
-impl<T: Undirected + HasTransformedView> HasTransformedView for InOut<T> {
-    type TransformedView<'a> = TransformedInOut<'a, T> where T: 'a;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
-        TransformedInOut(self.0.transformed_view(trans))
-    }
-}
-
-impl<T: Undirected + LayoutData, B: Undirected + LayoutDataBuilder<T>> LayoutDataBuilder<InOut<T>>
-    for InOut<B>
-{
-    fn build(self) -> Result<InOut<T>> {
-        Ok(InOut(self.0.build()?))
-    }
-}
-
-impl<T: Undirected + Flatten<PortGeometry>> Flatten<PortGeometry> for InOut<T> {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
-        self.0.flatten(output)
     }
 }
 
@@ -520,16 +545,15 @@ impl<T: Undirected> Deref for InOut<T> {
     }
 }
 
-impl<'a, T: Undirected + HasTransformedView> Deref for TransformedInOut<'a, T> {
-    type Target = Transformed<'a, T>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<T: Undirected> DerefMut for InOut<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<U: Undirected, T: From<U> + Undirected> From<U> for InOut<T> {
+    fn from(value: U) -> Self {
+        InOut(value.into())
     }
 }
 
@@ -574,6 +598,15 @@ impl<T: LayoutType> LayoutType for Array<T> {
         Self::Builder {
             elems: (0..self.len).map(|_| self.ty.builder()).collect(),
             ty_len: self.ty.len(),
+        }
+    }
+}
+
+impl<T: LayoutType, U: LayoutType + CustomLayoutType<T>> CustomLayoutType<Array<T>> for Array<U> {
+    fn from_layout_type(other: &Array<T>) -> Self {
+        Self {
+            ty: <U as CustomLayoutType<T>>::from_layout_type(&other.ty),
+            len: other.len,
         }
     }
 }
@@ -656,10 +689,10 @@ impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
     }
 }
 
-impl<T: Flatten<PortGeometry>> Flatten<PortGeometry> for ArrayData<T> {
+impl<T: Flatten<LayoutPort>> Flatten<LayoutPort> for ArrayData<T> {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<PortGeometry>,
+        E: Extend<LayoutPort>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
     }
@@ -673,6 +706,16 @@ where
     #[inline]
     fn index(&self, index: I) -> &Self::Output {
         Index::index(&self.elems, index)
+    }
+}
+
+impl<T, I> IndexMut<I> for ArrayData<T>
+where
+    I: SliceIndex<[T]>,
+{
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        IndexMut::index_mut(&mut self.elems, index)
     }
 }
 

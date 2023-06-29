@@ -109,15 +109,21 @@ impl<T> SchematicData for T where T: FlatLen + Flatten<Node> {}
 /// Layout hardware data.
 ///
 /// An instance of a [`LayoutType`].
-pub trait LayoutData: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
-impl<T> LayoutData for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+pub trait LayoutData: FlatLen + Flatten<LayoutPort> + HasTransformedView + Send + Sync {}
+impl<T> LayoutData for T where T: FlatLen + Flatten<LayoutPort> + HasTransformedView + Send + Sync {}
 
 /// Layout hardware data builder.
 ///
 /// A builder for an instance of a [`LayoutData`].
-pub trait LayoutDataBuilder<T: LayoutData>: FlatLen {
+pub trait LayoutDataBuilder<T: LayoutData> {
     /// Builds an instance of [`LayoutData`].
     fn build(self) -> Result<T>;
+}
+
+/// A custom layout type that can be derived from an existing layout type.
+pub trait CustomLayoutType<T: LayoutType>: LayoutType {
+    /// Creates this layout type from another layout type.
+    fn from_layout_type(other: &T) -> Self;
 }
 
 // END TRAITS
@@ -158,18 +164,14 @@ pub struct Output<T: Undirected>(pub T);
 /// An inout port of hardware type `T`.
 pub struct InOut<T: Undirected>(pub T);
 
-/// A transformed input port of hardware type `T`.
-pub struct TransformedInput<'a, T: Undirected + HasTransformedView + 'a>(pub Transformed<'a, T>);
-
-/// An transformed output port of hardware type `T`.
-pub struct TransformedOutput<'a, T: Undirected + HasTransformedView + 'a>(pub Transformed<'a, T>);
-
-/// An transformed inout port of hardware type `T`.
-pub struct TransformedInOut<'a, T: Undirected + HasTransformedView + 'a>(pub Transformed<'a, T>);
-
 /// A type representing a single hardware wire.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Signal;
+
+/// A type representing a single hardware layout port with a single [`Shape`](crate::layout::element::Shape) as
+/// its geometry.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ShapePort;
 
 /// A single node in a circuit.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -270,10 +272,10 @@ impl NodeContext {
     }
 }
 
-/// A set of geometry associated with a layout port.
+/// A layout port with a generic set of associated geometry.
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
-pub struct PortGeometry {
+pub struct LayoutPort {
     /// The primary shape of the port.
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
@@ -285,7 +287,8 @@ pub struct PortGeometry {
 
 /// A set of transformed geometry associated with a layout port.
 #[allow(dead_code)]
-pub struct TransformedPortGeometry<'a> {
+#[derive(Clone)]
+pub struct TransformedLayoutPort<'a> {
     /// The primary shape of the port.
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
@@ -299,17 +302,17 @@ pub struct TransformedPortGeometry<'a> {
 
 /// A set of geometry associated with a layout port.
 #[derive(Clone, Debug, Default)]
-pub struct PortGeometryBuilder {
+pub struct LayoutPortBuilder {
     primary: Option<Shape>,
     unnamed_shapes: Vec<Shape>,
     named_shapes: HashMap<ArcStr, Shape>,
 }
 
-impl PortGeometryBuilder {
+impl LayoutPortBuilder {
     /// Push an unnamed shape to the port.
     ///
     /// If the primary shape has not been set yet, sets the primary shape to the new shape. This
-    /// can be overriden using [`PortGeometryBuilder::set_primary`].
+    /// can be overriden using [`LayoutPortBuilder::set_primary`].
     pub fn push(&mut self, shape: Shape) {
         if self.primary.is_none() {
             self.primary = Some(shape.clone());
@@ -317,9 +320,45 @@ impl PortGeometryBuilder {
         self.unnamed_shapes.push(shape);
     }
 
+    /// Merges [`LayoutPort`] `other` into `self`, overwriting the primary and corresponding named shapes.
+    pub fn merge(&mut self, other: impl Into<LayoutPort>) {
+        let other = other.into();
+        self.primary = Some(other.primary);
+        self.unnamed_shapes.extend(other.unnamed_shapes);
+        self.named_shapes.extend(other.named_shapes);
+    }
+
     /// Sets the primary shape of this port.
     pub fn set_primary(&mut self, shape: Shape) {
         self.primary = Some(shape);
+    }
+}
+
+/// A simple builder that allows setting data at runtime.
+///
+/// ```
+/// # use substrate_api::io::OptionBuilder;
+/// let mut builder = OptionBuilder::default();
+/// builder.set(5);
+/// assert_eq!(builder.build().unwrap(), 5);
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct OptionBuilder<T>(Option<T>);
+
+impl<T> Default for OptionBuilder<T> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
+
+impl<T> OptionBuilder<T> {
+    /// Set the value of the data contained by the builder.
+    pub fn set(&mut self, inner: T) {
+        let _ = self.0.insert(inner);
+    }
+
+    /// Returns the data contained by the builder.
+    pub fn build(self) -> Result<T> {
+        Ok(self.0.ok_or(LayoutError::IoDefinition)?)
     }
 }
 

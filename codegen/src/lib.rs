@@ -7,7 +7,7 @@ mod pdk;
 
 use block::DataInputReceiver;
 use darling::FromDeriveInput;
-use io::IoInputReceiver;
+use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
 use pdk::layers::{LayerInputReceiver, LayersInputReceiver};
 use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
@@ -75,12 +75,32 @@ pub fn derive_layers(input: TokenStream) -> TokenStream {
 }
 
 /// Derives `Io` for a struct.
-#[proc_macro_derive(Io)]
-pub fn derive_analog_io(input: TokenStream) -> TokenStream {
-    let receiver =
-        IoInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
+#[proc_macro_derive(Io, attributes(io))]
+pub fn derive_io(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
+    let receiver_schematic = SchematicIoInputReceiver::from_derive_input(&parsed).unwrap();
+    let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
+    let ident = parsed.ident;
+    let (imp, ty, wher) = parsed.generics.split_for_impl();
     quote!(
-        #receiver
+        impl #imp ::substrate::io::Io for #ident #ty #wher {}
+        #receiver_io
+        #receiver_schematic
+        #receiver_layout
+    )
+    .into()
+}
+
+/// Derives `LayoutType` for a struct.
+#[proc_macro_derive(LayoutType)]
+pub fn derive_layout_io(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
+    let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
+    quote!(
+        #receiver_io
+        #receiver_layout
     )
     .into()
 }

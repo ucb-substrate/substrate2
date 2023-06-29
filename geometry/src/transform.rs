@@ -318,6 +318,7 @@ impl HasTransformedView for () {
 }
 
 /// A transformed view of a vector.
+#[derive(Clone, Copy)]
 pub struct TransformedVec<'a, T> {
     inner: &'a [T],
     trans: Transformation,
@@ -416,6 +417,7 @@ impl<'a, T> TransformedVec<'a, T> {
 /// Note that keys are not transformed by default and should be handled separately. If keys must be
 /// transformed, it might make sense to implement [`HasTransformedView`] on a new type that derefs
 /// to a [`HashMap`].
+#[derive(Clone, Copy)]
 pub struct TransformedHashMap<'a, K, V> {
     inner: &'a HashMap<K, V>,
     trans: Transformation,

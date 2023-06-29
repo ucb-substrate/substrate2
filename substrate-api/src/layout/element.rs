@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{Error, Result},
-    io::{NameBuf, PortGeometry},
+    io::{LayoutPort, NameBuf},
     pdk::{layers::LayerId, Pdk},
 };
 
@@ -41,7 +41,7 @@ pub struct RawCell {
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
     #[allow(dead_code)]
-    ports: HashMap<NameBuf, PortGeometry>,
+    ports: HashMap<NameBuf, LayoutPort>,
 }
 
 impl RawCell {
@@ -56,7 +56,7 @@ impl RawCell {
     }
 
     pub(crate) fn from_ports_and_builder<PDK: Pdk, T: HasLayout>(
-        ports: HashMap<NameBuf, PortGeometry>,
+        ports: HashMap<NameBuf, LayoutPort>,
         cell_builder: CellBuilder<PDK, T>,
     ) -> Self {
         Self {
