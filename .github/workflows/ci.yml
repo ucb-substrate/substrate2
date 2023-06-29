@@ -14,7 +14,6 @@ jobs:
   check-docs-site:
     name: Check that the documentation site builds
     runs-on: ubuntu-22.04
-    environment: main
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
