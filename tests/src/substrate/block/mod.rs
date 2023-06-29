@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+
+use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
@@ -204,6 +207,14 @@ fn can_generate_vdivider_schematic() {
     assert_eq!(issues.num_warnings(), 0);
 
     let vdiv = lib.cell_named("vdivider_resistor_300_resistor_100");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 3);
+    assert!(port_names.contains("io_pwr_vdd"));
+    assert!(port_names.contains("io_pwr_vss"));
+    assert!(port_names.contains("io_out"));
     assert_eq!(vdiv.ports().count(), 3);
     assert_eq!(vdiv.primitives().count(), 0);
     assert_eq!(vdiv.instances().count(), 2);
