@@ -199,8 +199,15 @@ pub(crate) struct RawCell {
 #[allow(dead_code)]
 pub struct Instance<T: HasSchematic> {
     /// The cell's input/output interface.
-    pub io: <T::Io as SchematicType>::Data,
+    io: <T::Io as SchematicType>::Data,
     cell: Arc<OnceCell<Result<Cell<T>>>>,
+}
+
+impl<T: HasSchematic> Instance<T> {
+    /// The ports of this instance.
+    pub fn io(&self) -> &<T::Io as SchematicType>::Data {
+        &self.io
+    }
 }
 
 impl<T: HasSchematic> Instance<T> {

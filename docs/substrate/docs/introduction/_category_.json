@@ -1,0 +1,8 @@
+{
+  "label": "Introduction",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "A guide introducing new users to essential Substrate features."
+  }
+}

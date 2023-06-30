@@ -48,8 +48,8 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Buffer {
     ) -> substrate::error::Result<Self::Data> {
         let int = cell.signal("int", Signal);
         let r = cell.instantiate(Resistor { r: 10 });
-        cell.connect(io.input, r.io.p);
-        cell.connect(r.io.n, int);
+        cell.connect(io.input, r.io().p);
+        cell.connect(r.io().n, int);
 
         cell.instantiate_connected(
             Resistor { r: 10 },
