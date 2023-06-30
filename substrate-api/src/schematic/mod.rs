@@ -121,6 +121,17 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         inst
     }
 
+    /// Create an instance and immediately connect its ports.
+    pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
+    where
+        I: HasSchematicImpl<PDK>,
+        C: SchematicData,
+        <I::Io as SchematicType>::Data: Connect<C>,
+    {
+        let inst = self.instantiate(block);
+        self.connect(inst.io, io);
+    }
+
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
