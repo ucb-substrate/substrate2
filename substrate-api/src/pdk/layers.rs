@@ -52,17 +52,19 @@ impl LayerContext {
     pub(crate) fn install_layers<L: Layers>(&mut self) -> Arc<L> {
         let layers = L::new(self);
         let id = TypeId::of::<L>();
-        for layer in layers.flatten() {
-            if let Some(gds) = layer.gds {
-                if self.layers_gds_to_info.insert(gds, layer.clone()).is_some() {
-                    tracing::event!(
-                        Level::WARN,
-                        "installing previously installed GDS layer {:?} again",
-                        gds
-                    );
+        for layer_family in layers.flatten() {
+            for layer in layer_family.layers {
+                if let Some(gds) = layer.gds {
+                    if self.layers_gds_to_info.insert(gds, layer.clone()).is_some() {
+                        tracing::event!(
+                            Level::WARN,
+                            "installing previously installed GDS layer {:?} again",
+                            gds
+                        );
+                    }
                 }
+                self.layers_id_to_info.insert(layer.id, layer);
             }
-            self.layers_id_to_info.insert(layer.id, layer);
         }
         self.installed_layers
             .entry(id)
@@ -84,6 +86,25 @@ impl LayerContext {
 /// A GDS layer specification.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct GdsLayerSpec(pub u8, pub u8);
+
+/// A struct containing general information for a PDK layer family.
+pub struct LayerFamilyInfo {
+    /// A list of contained layers.
+    pub layers: Vec<LayerInfo>,
+    /// The primary drawing layer of this family.
+    pub primary: LayerId,
+    /// The layer where pin shapes should be drawn.
+    pub pin: Option<LayerId>,
+    /// The layer where pin labels should be drawn.
+    pub label: Option<LayerId>,
+}
+
+impl AsRef<LayerId> for LayerFamilyInfo {
+    #[inline]
+    fn as_ref(&self) -> &LayerId {
+        &self.primary
+    }
+}
 
 /// A struct containing general information for a PDK layer.
 #[derive(Debug, Clone)]
@@ -112,14 +133,31 @@ pub trait Layer: Copy {
     fn new(ctx: &mut LayerContext) -> Self;
     /// Converts a PDK layer object to a general format that Substrate can use.
     fn info(&self) -> LayerInfo;
+    /// Gets the ID of `self`.
+    fn id(&self) -> LayerId {
+        self.info().id
+    }
 }
 
-/// A PDK layer that has a corresponding pin layer in `L`.
-pub trait HasPin<L: Layers>: Layer {
-    /// Returns the ID of the corresponding pin layer.
-    fn pin_id(&self, layers: &L) -> LayerId;
-    /// Returns the ID of the corresponding text layer for port labels.
-    fn label_id(&self, layers: &L) -> LayerId;
+/// A PDK layer family.
+pub trait LayerFamily: Copy {
+    /// Instantiates the identifiers and data contained within this layer family.
+    fn new(ctx: &mut LayerContext) -> Self;
+    /// Converts a PDK layer family object to a general format that Substrate can use.
+    fn info(&self) -> LayerFamilyInfo;
+}
+
+/// A set of layers that uniquely specifies how a pin should be drawn.
+///
+/// Shapes are drawn on the drawing and pin layers by default, with port name annotations added on
+/// the label layer.
+pub trait HasPin {
+    /// The drawing layer corresponding to the pin.
+    fn drawing(&self) -> LayerId;
+    /// The layer where the pin is drawn.
+    fn pin(&self) -> LayerId;
+    /// The layer where the pin label is written.
+    fn label(&self) -> LayerId;
 }
 
 /// A set of layers used by a PDK.
@@ -127,5 +165,5 @@ pub trait Layers: Any + Send + Sync {
     /// Instantiates the identifiers and data contained within the set of layers.
     fn new(ctx: &mut LayerContext) -> Self;
     /// Flattens `self` into a list of [`LayerInfo`] objects for Substrate's internal purposes.
-    fn flatten(&self) -> Vec<LayerInfo>;
+    fn flatten(&self) -> Vec<LayerFamilyInfo>;
 }

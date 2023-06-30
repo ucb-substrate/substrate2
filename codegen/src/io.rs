@@ -194,7 +194,7 @@ impl ToTokens for LayoutIoInputReceiver {
                 pub #field_ident: ::substrate::geometry::transform::Transformed<'a, <#field_ty as ::substrate::io::LayoutType>::Data>,
             });
             flatten_port_geometry_fields.push(quote! {
-                <<#field_ty as ::substrate::io::LayoutType>::Data as ::substrate::io::Flatten<::substrate::io::LayoutPort>>::flatten(&self.#field_ident, __substrate_output_sink);
+                <<#field_ty as ::substrate::io::LayoutType>::Data as ::substrate::io::Flatten<::substrate::io::PortGeometry>>::flatten(&self.#field_ident, __substrate_output_sink);
             });
             if switch_type {
                 create_builder_fields.push(quote! {
@@ -248,10 +248,10 @@ impl ToTokens for LayoutIoInputReceiver {
                 }
             }
 
-            impl #imp ::substrate::io::Flatten<::substrate::io::LayoutPort> for #layout_data_ident #ty #wher {
+            impl #imp ::substrate::io::Flatten<::substrate::io::PortGeometry> for #layout_data_ident #ty #wher {
                 fn flatten<E>(&self, __substrate_output_sink: &mut E)
                 where
-                    E: ::std::iter::Extend<::substrate::io::LayoutPort> {
+                    E: ::std::iter::Extend<::substrate::io::PortGeometry> {
                     #( #flatten_port_geometry_fields )*
                 }
             }

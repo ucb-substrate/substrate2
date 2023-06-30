@@ -6,12 +6,10 @@ use geometry::{
 };
 
 use substrate::{
+    io::IoShape,
     layout::{draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl, Instance},
-    pdk::{
-        layers::{Layer, LayerInfo},
-        PdkLayers,
-    },
-    supported_pdks, Layers, LayoutData,
+    pdk::{layers::HasPin, PdkLayers},
+    supported_pdks, DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
 };
 
 use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
@@ -33,22 +31,22 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
             Rect::from_sides(0, 0, 100, 200),
         ))?;
 
-        io.din.set(Shape::new(
+        io.din.set(IoShape::with_layers(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(0, 75, 25, 125),
         ));
 
-        io.dout.set(Shape::new(
+        io.dout.set(IoShape::with_layers(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(75, 75, 100, 125),
         ));
 
-        io.vdd.set(Shape::new(
+        io.vdd.set(IoShape::with_layers(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(25, 175, 75, 200),
         ));
 
-        io.vss.set(Shape::new(
+        io.vss.set(IoShape::with_layers(
             cell.ctx.pdk.layers.met1a,
             Rect::from_sides(25, 0, 75, 25),
         ));
@@ -68,23 +66,31 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
             Rect::from_sides(0, 0, 200, 100),
         ))?;
 
-        io.din.set(Shape::new(
+        io.din.set(IoShape::new(
             cell.ctx.pdk.layers.met1b,
+            cell.ctx.pdk.layers.met1b_pin,
+            cell.ctx.pdk.layers.met1b_label,
             Rect::from_sides(0, 25, 25, 75),
         ));
 
-        io.dout.set(Shape::new(
+        io.dout.set(IoShape::new(
             cell.ctx.pdk.layers.met1b,
+            cell.ctx.pdk.layers.met1b_pin,
+            cell.ctx.pdk.layers.met1b_label,
             Rect::from_sides(175, 25, 200, 75),
         ));
 
-        io.vdd.set(Shape::new(
+        io.vdd.set(IoShape::new(
             cell.ctx.pdk.layers.met1b,
+            cell.ctx.pdk.layers.met1b_pin,
+            cell.ctx.pdk.layers.met1b_label,
             Rect::from_sides(75, 75, 125, 100),
         ));
 
-        io.vss.set(Shape::new(
+        io.vss.set(IoShape::new(
             cell.ctx.pdk.layers.met1b,
+            cell.ctx.pdk.layers.met1b_pin,
+            cell.ctx.pdk.layers.met1b_label,
             Rect::from_sides(75, 0, 125, 25),
         ));
 
@@ -92,17 +98,32 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
     }
 }
 
+#[derive(DerivedLayers)]
 pub struct DerivedLayers {
-    m1: LayerInfo,
-    #[allow(dead_code)]
-    m2: LayerInfo,
+    #[layer_family]
+    m1: M1,
+    m2: M2,
+}
+
+#[derive(DerivedLayerFamily, Clone, Copy)]
+pub struct M1 {
+    #[layer(primary)]
+    pub drawing: M1Drawing,
+    #[layer(pin)]
+    pub pin: M1Pin,
+    #[layer(label)]
+    pub label: M1Label,
 }
 
 impl From<&PdkLayers<ExamplePdkA>> for DerivedLayers {
     fn from(value: &PdkLayers<ExamplePdkA>) -> Self {
         Self {
-            m1: value.met1a.info(),
-            m2: value.met2a.info(),
+            m1: M1 {
+                drawing: M1Drawing::new(value.met1a.drawing),
+                pin: M1Pin::new(value.met1a.pin),
+                label: M1Label::new(value.met1a.label),
+            },
+            m2: M2::new(value.met2a),
         }
     }
 }
@@ -110,8 +131,12 @@ impl From<&PdkLayers<ExamplePdkA>> for DerivedLayers {
 impl From<&PdkLayers<ExamplePdkB>> for DerivedLayers {
     fn from(value: &PdkLayers<ExamplePdkB>) -> Self {
         Self {
-            m1: value.met1b.info(),
-            m2: value.met2b.info(),
+            m1: M1 {
+                drawing: M1Drawing::new(value.met1b),
+                pin: M1Pin::new(value.met1b_pin),
+                label: M1Label::new(value.met1b_label),
+            },
+            m2: M2::new(value.met2b),
         }
     }
 }
@@ -151,20 +176,20 @@ impl HasLayoutImpl<T> for Buffer {
         cell.draw(inv2.clone())?;
 
         cell.draw(Shape::new(
-            &derived_layers.m2,
+            derived_layers.m2,
             inv1.io().dout.bounding_union(&inv2.io().din),
         ))?;
 
         io.din.set(inv1.io().din);
         io.dout.set(inv2.io().dout);
 
-        io.vdd.set(Shape::new(
-            &derived_layers.m1,
+        io.vdd.set(IoShape::with_layers(
+            derived_layers.m1,
             inv1.io().vdd.bounding_union(&inv2.io().vdd),
         ));
 
-        io.vss.set(Shape::new(
-            &derived_layers.m1,
+        io.vss.set(IoShape::with_layers(
+            derived_layers.m1,
             inv1.io().vss.bounding_union(&inv2.io().vss),
         ));
 
@@ -207,7 +232,7 @@ impl HasLayoutImpl<T> for BufferN {
             data.buffers.push(buffer.clone());
 
             cell.draw(Shape::new(
-                buffer.io().dout.layer(),
+                buffer.io().dout.layer().drawing(),
                 buffer
                     .io()
                     .din

@@ -80,20 +80,15 @@ fn test_pdk_layers() {
     let ctx = Context::new(ExamplePdkA);
 
     assert_eq!(
-        ctx.pdk.layers.met1a.as_ref(),
-        ctx.pdk.layers.met1a_drawing.as_ref()
-    );
-    assert_eq!(ctx.pdk.layers.met1a.info().gds, Some(GdsLayerSpec(68, 20)));
-    assert_eq!(
-        ctx.pdk.layers.met1a_drawing.info().gds,
+        ctx.pdk.layers.met1a.drawing.info().gds,
         Some(GdsLayerSpec(68, 20))
     );
     assert_eq!(
-        ctx.pdk.layers.met1a_pin.info().gds,
+        ctx.pdk.layers.met1a.pin.info().gds,
         Some(GdsLayerSpec(68, 16))
     );
     assert_eq!(
-        ctx.pdk.layers.met1a_label.info().gds,
+        ctx.pdk.layers.met1a.label.info().gds,
         Some(GdsLayerSpec(68, 5))
     );
     assert_eq!(ctx.pdk.layers.met2a.info().gds, Some(GdsLayerSpec(69, 20)));
