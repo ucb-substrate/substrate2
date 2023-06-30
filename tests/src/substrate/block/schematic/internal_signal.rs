@@ -54,8 +54,8 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Buffer {
         cell.instantiate_connected(
             Resistor { r: 10 },
             ResistorIoSchematic {
-                p: InOut(int),
-                n: InOut(*io.output),
+                p: int.into(),
+                n: (*io.output).into(),
             },
         );
         Ok(())
