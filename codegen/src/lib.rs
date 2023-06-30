@@ -11,7 +11,10 @@ use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
 use pdk::layers::{LayerInputReceiver, LayersInputReceiver};
 use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
+use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
 
 /// Enumerates PDKs supported by a certain layout implementation of a block.
@@ -83,8 +86,9 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
     let ident = parsed.ident;
     let (imp, ty, wher) = parsed.generics.split_for_impl();
+    let substrate = substrate_ident();
     quote!(
-        impl #imp ::substrate::io::Io for #ident #ty #wher {}
+        impl #imp #substrate::io::Io for #ident #ty #wher {}
         #receiver_io
         #receiver_schematic
         #receiver_layout
@@ -114,4 +118,17 @@ pub fn derive_layout_data(input: TokenStream) -> TokenStream {
         #receiver
     )
     .into()
+}
+
+pub(crate) fn substrate_ident() -> TokenStream2 {
+    match crate_name("substrate")
+        .or_else(|_| crate_name("substrate_api"))
+        .expect("substrate is present in `Cargo.toml`")
+    {
+        FoundCrate::Itself => quote!(crate),
+        FoundCrate::Name(name) => {
+            let ident = Ident::new(&name, Span::call_site());
+            quote!(::#ident)
+        }
+    }
 }

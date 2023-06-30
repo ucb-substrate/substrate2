@@ -5,6 +5,8 @@ pub use codegen::*;
 pub use geometry;
 pub use substrate_api::*;
 
+pub mod ios;
+
 // Re-exports for macros.
 #[doc(hidden)]
 pub use duplicate;
