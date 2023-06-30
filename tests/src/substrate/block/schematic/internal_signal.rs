@@ -5,7 +5,7 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::io::{InOut, Input, Output, Signal};
+use substrate::io::{Input, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{HasSchematic, HasSchematicImpl};
 use substrate::Io;
