@@ -16,6 +16,7 @@ members = [
     "lef",
     "lvs",
     "par",
+    "pdks/sky130pdk",
     "pex",
     "sbm",
     "scg",

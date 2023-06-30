@@ -1,0 +1,8 @@
+[package]
+name = "sky130pdk"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+substrate = { version = "0.0.0", registry = "substrate", path = "../../substrate" }

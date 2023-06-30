@@ -17,6 +17,7 @@
     "lvs": {},
     "netlist/spice": {},
     "par": {},
+    "pdks/sky130pdk": {},
     "pex": {},
     "sbm": {},
     "scg": {},
