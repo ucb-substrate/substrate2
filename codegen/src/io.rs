@@ -1,3 +1,4 @@
+use crate::substrate_ident;
 use darling::{ast, FromDeriveInput, FromMeta};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
@@ -9,6 +10,7 @@ pub struct SchematicIoInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     data: ast::Data<(), Field>,
+    vis: syn::Visibility,
 }
 
 #[derive(Debug, FromMeta)]
@@ -22,14 +24,14 @@ impl ToTokens for SchematicIoInputReceiver {
             ref ident,
             ref generics,
             ref data,
+            ref vis,
         } = *self;
 
+        let substrate = substrate_ident();
+
         let (imp, ty, wher) = generics.split_for_impl();
-        let fields = data
-            .as_ref()
-            .take_struct()
-            .expect("Should never be enum")
-            .fields;
+        let strukt = data.as_ref().take_struct().expect("Should never be enum");
+        let fields = strukt.fields;
 
         let mut data_len = Vec::new();
         let mut data_fields = Vec::new();
@@ -46,24 +48,25 @@ impl ToTokens for SchematicIoInputReceiver {
                 .as_ref()
                 .expect("could not find identifier for field");
             let field_ty = &f.ty;
+            let field_vis = &f.vis;
 
             data_len.push(quote! {
-                <<#field_ty as ::substrate::io::SchematicType>::Data as ::substrate::io::FlatLen>::len(&self.#field_ident)
+                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::FlatLen>::len(&self.#field_ident)
             });
             data_fields.push(quote! {
-                pub #field_ident: <#field_ty as ::substrate::io::SchematicType>::Data,
+                #field_vis #field_ident: <#field_ty as #substrate::io::SchematicType>::Data,
             });
             construct_data_fields.push(quote! {
                 #field_ident,
             });
             instantiate_fields.push(quote! {
-                let (#field_ident, __substrate_node_ids) = <#field_ty as ::substrate::io::SchematicType>::instantiate(&self.#field_ident, __substrate_node_ids);
+                let (#field_ident, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&self.#field_ident, __substrate_node_ids);
             });
             flatten_dir_fields.push(quote! {
-                <#field_ty as ::substrate::io::Flatten<::substrate::io::Direction>>::flatten(&self.#field_ident, __substrate_output_sink);
+                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&self.#field_ident, __substrate_output_sink);
             });
             flatten_node_fields.push(quote! {
-                <<#field_ty as ::substrate::io::SchematicType>::Data as ::substrate::io::Flatten<::substrate::io::Node>>::flatten(&self.#field_ident, __substrate_output_sink);
+                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&self.#field_ident, __substrate_output_sink);
             });
         }
 
@@ -73,33 +76,34 @@ impl ToTokens for SchematicIoInputReceiver {
         }
 
         tokens.extend(quote! {
-            pub struct #data_ident #ty #wher {
+            #[allow(missing_docs)]
+            #vis struct #data_ident #ty #wher {
                 #( #data_fields )*
             }
-            impl #imp ::substrate::io::FlatLen for #data_ident #ty #wher {
+            impl #imp #substrate::io::FlatLen for #data_ident #ty #wher {
                 fn len(&self) -> usize {
                     #( #data_len )+*
                 }
             }
 
-            impl #imp ::substrate::io::Flatten<::substrate::io::Direction> for #ident #ty #wher {
+            impl #imp #substrate::io::Flatten<#substrate::io::Direction> for #ident #ty #wher {
                 fn flatten<E>(&self, __substrate_output_sink: &mut E)
                 where
-                    E: ::std::iter::Extend<::substrate::io::Direction> {
+                    E: ::std::iter::Extend<#substrate::io::Direction> {
                     #( #flatten_dir_fields )*
                 }
             }
 
-            impl #imp ::substrate::io::Flatten<::substrate::io::Node> for #data_ident #ty #wher {
+            impl #imp #substrate::io::Flatten<#substrate::io::Node> for #data_ident #ty #wher {
                 fn flatten<E>(&self, __substrate_output_sink: &mut E)
                 where
-                    E: ::std::iter::Extend<::substrate::io::Node> {
+                    E: ::std::iter::Extend<#substrate::io::Node> {
                     #( #flatten_node_fields )*
                 }
             }
-            impl #imp ::substrate::io::SchematicType for #ident #ty #wher {
+            impl #imp #substrate::io::SchematicType for #ident #ty #wher {
                 type Data = #data_ident;
-                fn instantiate<'n>(&self, __substrate_node_ids: &'n [::substrate::io::Node]) -> (Self::Data, &'n [::substrate::io::Node]) {
+                fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Data, &'n [#substrate::io::Node]) {
                     #( #instantiate_fields )*
                     (#data_ident { #( #construct_data_fields )* }, __substrate_node_ids)
                 }
@@ -115,6 +119,7 @@ pub struct LayoutIoInputReceiver {
     generics: syn::Generics,
     data: ast::Data<(), Field>,
     attrs: Vec<syn::Attribute>,
+    vis: syn::Visibility,
 }
 
 impl ToTokens for LayoutIoInputReceiver {
@@ -124,7 +129,10 @@ impl ToTokens for LayoutIoInputReceiver {
             ref generics,
             ref attrs,
             ref data,
+            ref vis,
         } = *self;
+
+        let substrate = substrate_ident();
 
         let (imp, ty, wher) = generics.split_for_impl();
 
@@ -132,12 +140,12 @@ impl ToTokens for LayoutIoInputReceiver {
             let IoData { layout_type } =
                 IoData::from_meta(&attr.meta).expect("could not parse provided arguments");
             tokens.extend(quote! {
-                impl #imp ::substrate::io::LayoutType for #ident #ty #wher {
-                    type Data = <#layout_type as ::substrate::io::LayoutType>::Data;
-                    type Builder = <#layout_type as ::substrate::io::LayoutType>::Builder;
+                impl #imp #substrate::io::LayoutType for #ident #ty #wher {
+                    type Data = <#layout_type as #substrate::io::LayoutType>::Data;
+                    type Builder = <#layout_type as #substrate::io::LayoutType>::Builder;
 
                     fn builder(&self) -> Self::Builder {
-                        <#layout_type as ::substrate::io::LayoutType>::builder(&<#layout_type as ::substrate::io::CustomLayoutType<#ident>>::from_layout_type(self))
+                        <#layout_type as #substrate::io::LayoutType>::builder(&<#layout_type as #substrate::io::CustomLayoutType<#ident>>::from_layout_type(self))
                     }
                 }
             });
@@ -177,39 +185,40 @@ impl ToTokens for LayoutIoInputReceiver {
                     (f.ty.clone(), false)
                 };
             let original_field_ty = &f.ty;
+            let field_vis = &f.vis;
 
             ty_len.push(quote! {
-                <#field_ty as ::substrate::io::FlatLen>::len(&self.#field_ident)
+                <#field_ty as #substrate::io::FlatLen>::len(&self.#field_ident)
             });
             layout_data_len.push(quote! {
-                <<#field_ty as ::substrate::io::LayoutType>::Data as ::substrate::io::FlatLen>::len(&self.#field_ident)
+                <<#field_ty as #substrate::io::LayoutType>::Data as #substrate::io::FlatLen>::len(&self.#field_ident)
             });
             layout_data_fields.push(quote! {
-                pub #field_ident: <#field_ty as ::substrate::io::LayoutType>::Data,
+                #field_vis #field_ident: <#field_ty as #substrate::io::LayoutType>::Data,
             });
             layout_builder_fields.push(quote! {
-                pub #field_ident: <#field_ty as ::substrate::io::LayoutType>::Builder,
+                #field_vis #field_ident: <#field_ty as #substrate::io::LayoutType>::Builder,
             });
             transformed_layout_data_fields.push(quote! {
-                pub #field_ident: ::substrate::geometry::transform::Transformed<'a, <#field_ty as ::substrate::io::LayoutType>::Data>,
+                #field_vis #field_ident: #substrate::geometry::transform::Transformed<'a, <#field_ty as #substrate::io::LayoutType>::Data>,
             });
             flatten_port_geometry_fields.push(quote! {
-                <<#field_ty as ::substrate::io::LayoutType>::Data as ::substrate::io::Flatten<::substrate::io::LayoutPort>>::flatten(&self.#field_ident, __substrate_output_sink);
+                <<#field_ty as #substrate::io::LayoutType>::Data as #substrate::io::Flatten<#substrate::io::LayoutPort>>::flatten(&self.#field_ident, __substrate_output_sink);
             });
             if switch_type {
                 create_builder_fields.push(quote! {
-                    #field_ident: <#field_ty as ::substrate::io::LayoutType>::builder(&<#field_ty as ::substrate::io::CustomLayoutType<#original_field_ty>>::from_layout_type(&self.#field_ident)),
+                    #field_ident: <#field_ty as #substrate::io::LayoutType>::builder(&<#field_ty as #substrate::io::CustomLayoutType<#original_field_ty>>::from_layout_type(&self.#field_ident)),
                 });
             } else {
                 create_builder_fields.push(quote! {
-                    #field_ident: <#field_ty as ::substrate::io::LayoutType>::builder(&self.#field_ident),
+                    #field_ident: <#field_ty as #substrate::io::LayoutType>::builder(&self.#field_ident),
                 });
             }
             transformed_view_fields.push(quote! {
-                #field_ident: ::substrate::geometry::transform::HasTransformedView::transformed_view(&self.#field_ident, trans),
+                #field_ident: #substrate::geometry::transform::HasTransformedView::transformed_view(&self.#field_ident, trans),
             });
             build_data_fields.push(quote! {
-                #field_ident: ::substrate::io::LayoutDataBuilder::<<#field_ty as ::substrate::io::LayoutType>::Data>::build(self.#field_ident)?,
+                #field_ident: #substrate::io::LayoutDataBuilder::<<#field_ty as #substrate::io::LayoutType>::Data>::build(self.#field_ident)?,
             });
         }
 
@@ -223,7 +232,7 @@ impl ToTokens for LayoutIoInputReceiver {
         }
 
         tokens.extend(quote! {
-            impl #imp ::substrate::io::LayoutType for #ident #ty #wher {
+            impl #imp #substrate::io::LayoutType for #ident #ty #wher {
                 type Data = #layout_data_ident;
                 type Builder = #layout_builder_ident;
 
@@ -234,39 +243,42 @@ impl ToTokens for LayoutIoInputReceiver {
                 }
             }
 
-            pub struct #layout_data_ident #ty #wher {
+            #[allow(missing_docs)]
+            #vis struct #layout_data_ident #ty #wher {
                 #( #layout_data_fields )*
             }
 
-            pub struct #layout_builder_ident #ty #wher {
+            #[allow(missing_docs)]
+            #vis struct #layout_builder_ident #ty #wher {
                 #( #layout_builder_fields )*
             }
 
-            impl #imp ::substrate::io::FlatLen for #layout_data_ident #ty #wher {
+            impl #imp #substrate::io::FlatLen for #layout_data_ident #ty #wher {
                 fn len(&self) -> usize {
                     #( #layout_data_len )+*
                 }
             }
 
-            impl #imp ::substrate::io::Flatten<::substrate::io::LayoutPort> for #layout_data_ident #ty #wher {
+            impl #imp #substrate::io::Flatten<#substrate::io::LayoutPort> for #layout_data_ident #ty #wher {
                 fn flatten<E>(&self, __substrate_output_sink: &mut E)
                 where
-                    E: ::std::iter::Extend<::substrate::io::LayoutPort> {
+                    E: ::std::iter::Extend<#substrate::io::LayoutPort> {
                     #( #flatten_port_geometry_fields )*
                 }
             }
 
             // TODO: How to correctly handle generics?
-            pub struct #transformed_layout_data_ident<'a> {
+            #[allow(missing_docs)]
+            #vis struct #transformed_layout_data_ident<'a> {
                 #( #transformed_layout_data_fields )*
             }
 
-            impl #imp ::substrate::geometry::transform::HasTransformedView for #layout_data_ident #ty #wher {
+            impl #imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #ty #wher {
                 type TransformedView<'a> = #transformed_layout_data_ident<'a>;
 
                 fn transformed_view(
                     &self,
-                    trans: ::substrate::geometry::transform::Transformation,
+                    trans: #substrate::geometry::transform::Transformation,
                 ) -> Self::TransformedView<'_> {
                     Self::TransformedView {
                         #( #transformed_view_fields )*
@@ -274,9 +286,9 @@ impl ToTokens for LayoutIoInputReceiver {
                 }
             }
 
-            impl #imp ::substrate::io::LayoutDataBuilder<#layout_data_ident #ty> for #layout_builder_ident #ty #wher {
-                fn build(self) -> ::substrate::error::Result<#layout_data_ident #ty> {
-                    ::substrate::error::Result::Ok(#layout_data_ident {
+            impl #imp #substrate::io::LayoutDataBuilder<#layout_data_ident #ty> for #layout_builder_ident #ty #wher {
+                fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {
+                    #substrate::error::Result::Ok(#layout_data_ident {
                         #( #build_data_fields )*
                     })
                 }
@@ -311,6 +323,8 @@ impl ToTokens for IoInputReceiver {
         let mut ty_len = Vec::new();
         let mut name_fields = Vec::new();
 
+        let substrate = substrate_ident();
+
         for f in fields {
             let field_ident = f
                 .ident
@@ -319,10 +333,10 @@ impl ToTokens for IoInputReceiver {
             let field_ty = &f.ty;
 
             ty_len.push(quote! {
-                <#field_ty as ::substrate::io::FlatLen>::len(&self.#field_ident)
+                <#field_ty as #substrate::io::FlatLen>::len(&self.#field_ident)
             });
             name_fields.push(quote! {
-                (::substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as ::substrate::io::HasNameTree>::names(&self.#field_ident))
+                (#substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as #substrate::io::HasNameTree>::names(&self.#field_ident))
             });
         }
 
@@ -332,18 +346,18 @@ impl ToTokens for IoInputReceiver {
         }
 
         tokens.extend(quote! {
-            impl #imp ::substrate::io::FlatLen for #ident #ty #wher {
+            impl #imp #substrate::io::FlatLen for #ident #ty #wher {
                 fn len(&self) -> usize {
                     #( #ty_len )+*
                 }
             }
 
-            impl #imp ::substrate::io::HasNameTree for #ident #ty #wher {
-                fn names(&self) -> ::std::option::Option<::std::vec::Vec<::substrate::io::NameTree>> {
-                    if <Self as ::substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
+            impl #imp #substrate::io::HasNameTree for #ident #ty #wher {
+                fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::io::NameTree>> {
+                    if <Self as #substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
                     ::std::option::Option::Some([ #( #name_fields ),* ]
                          .into_iter()
-                         .filter_map(|(frag, children)| children.map(|c| ::substrate::io::NameTree::new(frag, c)))
+                         .filter_map(|(frag, children)| children.map(|c| #substrate::io::NameTree::new(frag, c)))
                          .collect()
                     )
                 }
