@@ -1,7 +1,14 @@
-use substrate::Layers;
 use substrate::pdk::Pdk;
+use substrate::Layers;
 
-pub struct Sky130Pdk {
+#[derive(Debug, Default, Clone)]
+pub struct Sky130Pdk {}
+
+impl Sky130Pdk {
+    #[inline]
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 impl Pdk for Sky130Pdk {
