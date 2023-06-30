@@ -1248,6 +1248,8 @@ checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
 name = "sky130pdk"
 version = "0.0.0"
 dependencies = [
+ "arcstr",
+ "serde",
  "substrate",
 ]
 

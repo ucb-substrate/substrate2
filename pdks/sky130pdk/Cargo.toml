@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 substrate = { version = "0.0.0", registry = "substrate", path = "../../substrate" }
+serde = { version = "1", features = ["derive"] }
+arcstr = { version = "1", features = ["serde"] }

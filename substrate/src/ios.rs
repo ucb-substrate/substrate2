@@ -1,5 +1,7 @@
 //! Common IO types.
 
+use substrate_api::block::Block;
+
 use crate::io::{InOut, Input, Signal};
 use crate::Io;
 
@@ -15,3 +17,8 @@ pub struct MosIo {
     /// The body.
     pub b: InOut<Signal>,
 }
+
+/// A trait indicating that a block is a standard 4 terminal MOSFET.
+pub trait Mos: Block<Io = MosIo> {}
+
+impl<T> Mos for T where T: Block<Io = MosIo> {}
