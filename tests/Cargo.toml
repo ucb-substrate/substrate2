@@ -17,5 +17,5 @@ geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
 substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
 scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
 spice = { version = "0.0.0", registry = "substrate", path = "../netlist/spice" }
-spectre_netlist = { version = "0.0.0", registry = "substrate", path = "../netlist/spectre" }
+spectre = { version = "0.0.0", registry = "substrate", path = "../tools/spectre" }
 sky130pdk = { version = "0.0.0", registry = "substrate", path = "../pdks/sky130pdk" }

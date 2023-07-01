@@ -1,5 +1,5 @@
 [package]
-name = "spectre_netlist"
+name = "spectre"
 version = "0.0.0"
 edition = "2021"
 

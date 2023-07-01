@@ -1276,7 +1276,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spectre_netlist"
+name = "spectre"
 version = "0.0.0"
 dependencies = [
  "scir",
@@ -1394,7 +1394,7 @@ dependencies = [
  "scir",
  "serde",
  "sky130pdk",
- "spectre_netlist",
+ "spectre",
  "spice",
  "substrate",
  "test-log",

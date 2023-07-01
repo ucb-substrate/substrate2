@@ -28,6 +28,7 @@
     "substrate": {},
     "substrate-api": {},
     "tests": {},
-    "timing": {}
+    "timing": {},
+    "tools/spectre": {}
   }
 }
