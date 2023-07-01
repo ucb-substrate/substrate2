@@ -7,7 +7,7 @@ use std::io::{prelude::*, BufWriter};
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
-/// A SPICE netlister.
+/// A Spectre netlister.
 pub struct Netlister<'a, W: Write> {
     lib: &'a Library,
     out: BufWriter<&'a mut W>,
@@ -100,7 +100,7 @@ impl<'a, W: Write> Netlister<'a, W> {
     fn write_expr(&mut self, expr: &Expr) -> Result<()> {
         match expr {
             Expr::NumericLiteral(dec) => write!(self.out, "{}", dec)?,
-            // boolean literals have no spice value
+            // boolean literals have no spectre value
             Expr::BoolLiteral(_) => (),
             Expr::StringLiteral(s) | Expr::Var(s) => write!(self.out, "{}", s)?,
             Expr::BinOp { op, left, right } => {
