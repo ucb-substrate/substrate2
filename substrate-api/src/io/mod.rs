@@ -346,6 +346,11 @@ impl IoShape {
         }
     }
 
+    /// Returns the underlying [`Shape`](geometry::shape::Shape) of `self`.
+    pub fn shape(&self) -> &geometry::shape::Shape {
+        &self.shape
+    }
+
     /// Returns the [`IoLayerId`] of `self`.
     pub fn layer(&self) -> IoLayerId {
         self.layer
@@ -379,9 +384,9 @@ pub struct PortGeometry {
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
     /// explicitly. It is kept separately for ease of access.
-    primary: IoShape,
-    unnamed_shapes: Vec<IoShape>,
-    named_shapes: HashMap<ArcStr, IoShape>,
+    pub(crate) primary: IoShape,
+    pub(crate) unnamed_shapes: Vec<IoShape>,
+    pub(crate) named_shapes: HashMap<ArcStr, IoShape>,
 }
 
 /// A set of transformed geometry associated with a layout port.

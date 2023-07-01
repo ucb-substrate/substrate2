@@ -40,8 +40,7 @@ pub struct RawCell {
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    #[allow(dead_code)]
-    ports: HashMap<NameBuf, PortGeometry>,
+    pub(crate) ports: HashMap<NameBuf, PortGeometry>,
 }
 
 impl RawCell {

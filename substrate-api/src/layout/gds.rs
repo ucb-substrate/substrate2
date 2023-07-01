@@ -9,12 +9,15 @@ use std::{
 
 use arcstr::ArcStr;
 use geometry::{
-    prelude::{Corner, Orientation, Point},
+    prelude::{Corner, NamedOrientation, Orientation, Point},
     rect::Rect,
 };
 use tracing::{span, Level};
 
-use crate::pdk::layers::{GdsLayerSpec, LayerContext, LayerId};
+use crate::{
+    io::{IoShape, NameBuf, PortGeometry},
+    pdk::layers::{GdsLayerSpec, HasPin, LayerContext, LayerId},
+};
 
 use super::{
     element::{CellId, Element, RawCell, RawInstance, Shape, Text},
@@ -129,6 +132,8 @@ impl ExportGds for RawCell {
 
         let mut cell = gds::GdsStruct::new(name);
 
+        cell.elems.extend(self.ports.export(exporter)?);
+
         for element in self.elements.iter() {
             if let Some(elem) = element.export(exporter)? {
                 cell.elems.push(elem);
@@ -138,6 +143,77 @@ impl ExportGds for RawCell {
         exporter.gds.structs.push(cell.clone());
 
         Ok(cell)
+    }
+}
+
+impl ExportGds for HashMap<NameBuf, PortGeometry> {
+    type Output = Vec<gds::GdsElement>;
+
+    fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
+        let mut elements = Vec::new();
+        for (name_buf, geometry) in self {
+            elements.extend((name_buf, &geometry.primary).export(exporter)?);
+            for shape in geometry.unnamed_shapes.iter() {
+                elements.extend((name_buf, shape).export(exporter)?);
+            }
+            for (_, shape) in geometry.named_shapes.iter() {
+                elements.extend((name_buf, shape).export(exporter)?);
+            }
+        }
+        Ok(elements)
+    }
+}
+
+/// A trait that describes where to place a label for a given shape.
+trait PlaceLabels {
+    /// Computes a [`Point`] that lies within `self`.
+    ///
+    /// Allows for placing labels on an arbitrary shape.
+    fn label_loc(&self) -> Point;
+}
+
+impl PlaceLabels for Shape {
+    fn label_loc(&self) -> Point {
+        self.shape().label_loc()
+    }
+}
+
+impl PlaceLabels for geometry::shape::Shape {
+    fn label_loc(&self) -> Point {
+        match self {
+            geometry::shape::Shape::Rect(ref r) => r.label_loc(),
+        }
+    }
+}
+
+impl PlaceLabels for Rect {
+    fn label_loc(&self) -> Point {
+        self.center()
+    }
+}
+
+impl ExportGds for (&NameBuf, &IoShape) {
+    type Output = Vec<gds::GdsElement>;
+
+    fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
+        let (name_buf, shape) = *self;
+        let mut elements = Vec::new();
+        if let Some(element) =
+            Shape::new(shape.layer().pin(), shape.shape().clone()).export(exporter)?
+        {
+            elements.push(element);
+        }
+        if let Some(element) = Text::new(
+            shape.layer().label(),
+            name_buf.to_string(),
+            shape.shape().label_loc(),
+            NamedOrientation::R0.into_orientation(),
+        )
+        .export(exporter)?
+        {
+            elements.push(element.into());
+        }
+        Ok(elements)
     }
 }
 
