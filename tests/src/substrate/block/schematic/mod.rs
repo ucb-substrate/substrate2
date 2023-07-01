@@ -136,10 +136,10 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
 
-        cell.connect(io.pwr.vdd, r1.io.p);
-        cell.connect(io.out, r1.io.n);
-        cell.connect(io.out, r2.io.p);
-        cell.connect(io.pwr.vss, r2.io.n);
+        cell.connect(io.pwr.vdd, r1.io().p);
+        cell.connect(io.out, r1.io().n);
+        cell.connect(io.out, r2.io().p);
+        cell.connect(io.pwr.vss, r2.io().n);
         Ok(())
     }
 }

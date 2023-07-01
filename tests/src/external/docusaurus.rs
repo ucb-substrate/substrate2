@@ -1,2 +1,2 @@
-#[doc = include_str!("../../../docs/substrate/docs/intro.md")]
-pub struct IntroDoctests;
+#[doc = include_str!("../../../docs/substrate/docs/introduction/block.md")]
+pub struct BlockDoctests;
