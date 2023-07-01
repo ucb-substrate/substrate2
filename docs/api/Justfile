@@ -1,5 +1,5 @@
 gen-hidden-code: 
-  find code -type f -name *.md -exec bash -c "awk '{print \"# \" \$0}' {} > {}.hidden" \;
+  find code -type f -name *.rs -exec bash -c "awk '{print \"# \" \$0}' {} > {}.hidden" \;
 
 build: gen-hidden-code
   cargo d --no-deps --workspace --all-features --target-dir ./target

@@ -15,22 +15,22 @@ use once_cell::sync::OnceCell;
 ///
 /// ## Simple
 /// ```
-#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layers.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.md")]
+#[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/inverter.rs")]
 /// ```
 ///
 /// ## With data
 /// ```
-#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layers.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/buffer.md")]
+#[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/buffer.rs")]
 /// ```
 use crate::block::Block;
 use crate::generator::Generator;
@@ -100,14 +100,14 @@ impl LayoutContext {
 /// # Examples
 ///
 /// ```
-#[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layers.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/buffer.md.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/generate.md")]
+#[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/buffer.rs.hidden")]
+#[doc = include_str!("../../../docs/api/code/layout/generate.rs")]
 /// ```
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -302,13 +302,13 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// # Examples
     ///
     /// ```
-    #[doc = include_str!("../../../docs/api/code/prelude.md.hidden")]
-    #[doc = include_str!("../../../docs/api/code/pdk/layers.md.hidden")]
-    #[doc = include_str!("../../../docs/api/code/pdk/pdk.md.hidden")]
-    #[doc = include_str!("../../../docs/api/code/block/inverter.md.hidden")]
-    #[doc = include_str!("../../../docs/api/code/layout/inverter.md.hidden")]
-    #[doc = include_str!("../../../docs/api/code/block/buffer.md.hidden")]
-    #[doc = include_str!("../../../docs/api/code/layout/buffer.md")]
+    #[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
+    #[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
+    #[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
+    #[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
+    #[doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
+    #[doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
+    #[doc = include_str!("../../../docs/api/code/layout/buffer.rs")]
     /// ```
     pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
