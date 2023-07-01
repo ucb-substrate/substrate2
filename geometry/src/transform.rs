@@ -318,11 +318,21 @@ impl HasTransformedView for () {
 }
 
 /// A transformed view of a vector.
-#[derive(Clone, Copy)]
 pub struct TransformedVec<'a, T> {
     inner: &'a [T],
     trans: Transformation,
 }
+
+impl<'a, T> Clone for TransformedVec<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner,
+            trans: self.trans,
+        }
+    }
+}
+
+impl<'a, T> Copy for TransformedVec<'a, T> {}
 
 impl<T: HasTransformedView> HasTransformedView for Vec<T> {
     type TransformedView<'a> = TransformedVec<'a, T> where T: 'a;
