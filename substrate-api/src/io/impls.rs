@@ -82,10 +82,10 @@ impl LayoutDataBuilder<()> for () {
     }
 }
 
-impl Flatten<LayoutPort> for () {
+impl Flatten<PortGeometry> for () {
     fn flatten<E>(&self, _output: &mut E)
     where
-        E: Extend<LayoutPort>,
+        E: Extend<PortGeometry>,
     {
     }
 }
@@ -108,11 +108,11 @@ impl SchematicType for Signal {
 }
 
 impl LayoutType for Signal {
-    type Data = LayoutPort;
-    type Builder = LayoutPortBuilder;
+    type Data = PortGeometry;
+    type Builder = PortGeometryBuilder;
 
     fn builder(&self) -> Self::Builder {
-        LayoutPortBuilder::default()
+        PortGeometryBuilder::default()
     }
 }
 
@@ -131,8 +131,8 @@ impl FlatLen for ShapePort {
 }
 
 impl LayoutType for ShapePort {
-    type Data = Shape;
-    type Builder = OptionBuilder<Shape>;
+    type Data = IoShape;
+    type Builder = OptionBuilder<IoShape>;
 
     fn builder(&self) -> Self::Builder {
         Default::default()
@@ -153,6 +153,35 @@ impl CustomLayoutType<Signal> for ShapePort {
     }
 }
 
+impl FlatLen for LayoutPort {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl LayoutType for LayoutPort {
+    type Data = PortGeometry;
+    type Builder = PortGeometryBuilder;
+
+    fn builder(&self) -> Self::Builder {
+        Default::default()
+    }
+}
+
+impl HasNameTree for LayoutPort {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(vec![])
+    }
+}
+
+impl Undirected for LayoutPort {}
+
+impl CustomLayoutType<Signal> for LayoutPort {
+    fn from_layout_type(_other: &Signal) -> Self {
+        LayoutPort
+    }
+}
+
 impl FlatLen for Node {
     fn len(&self) -> usize {
         1
@@ -170,18 +199,18 @@ impl Flatten<Node> for Node {
 
 impl Undirected for Node {}
 
-impl FlatLen for Shape {
+impl FlatLen for IoShape {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl Flatten<LayoutPort> for Shape {
+impl Flatten<PortGeometry> for IoShape {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<LayoutPort>,
+        E: Extend<PortGeometry>,
     {
-        output.extend(std::iter::once(LayoutPort {
+        output.extend(std::iter::once(PortGeometry {
             primary: self.clone(),
             unnamed_shapes: Vec::new(),
             named_shapes: HashMap::new(),
@@ -189,7 +218,7 @@ impl Flatten<LayoutPort> for Shape {
     }
 }
 
-impl Undirected for Shape {}
+impl Undirected for IoShape {}
 
 impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
@@ -201,23 +230,23 @@ impl<T: Undirected> Undirected for OptionBuilder<T> {}
 
 impl<T: Undirected> Undirected for Option<T> {}
 
-impl FlatLen for LayoutPort {
+impl FlatLen for PortGeometry {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl Flatten<LayoutPort> for LayoutPort {
+impl Flatten<PortGeometry> for PortGeometry {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<LayoutPort>,
+        E: Extend<PortGeometry>,
     {
         output.extend(std::iter::once(self.clone()));
     }
 }
 
-impl<'a> From<TransformedLayoutPort<'a>> for LayoutPort {
-    fn from(value: TransformedLayoutPort<'a>) -> Self {
+impl<'a> From<TransformedPortGeometry<'a>> for PortGeometry {
+    fn from(value: TransformedPortGeometry<'a>) -> Self {
         Self {
             primary: value.primary,
             unnamed_shapes: value.unnamed_shapes.to_vec(),
@@ -231,8 +260,8 @@ impl<'a> From<TransformedLayoutPort<'a>> for LayoutPort {
     }
 }
 
-impl HasTransformedView for LayoutPort {
-    type TransformedView<'a> = TransformedLayoutPort<'a>;
+impl HasTransformedView for PortGeometry {
+    type TransformedView<'a> = TransformedPortGeometry<'a>;
 
     fn transformed_view(
         &self,
@@ -246,17 +275,17 @@ impl HasTransformedView for LayoutPort {
     }
 }
 
-impl Undirected for LayoutPort {}
+impl Undirected for PortGeometry {}
 
-impl FlatLen for LayoutPortBuilder {
+impl FlatLen for PortGeometryBuilder {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl LayoutDataBuilder<LayoutPort> for LayoutPortBuilder {
-    fn build(self) -> Result<LayoutPort> {
-        Ok(LayoutPort {
+impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
+    fn build(self) -> Result<PortGeometry> {
+        Ok(PortGeometry {
             primary: self.primary.ok_or_else(|| {
                 tracing::event!(
                     Level::ERROR,
@@ -270,7 +299,7 @@ impl LayoutDataBuilder<LayoutPort> for LayoutPortBuilder {
     }
 }
 
-impl Undirected for LayoutPortBuilder {}
+impl Undirected for PortGeometryBuilder {}
 
 impl<T: Undirected> AsRef<T> for Input<T> {
     fn as_ref(&self) -> &T {
@@ -689,10 +718,10 @@ impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
     }
 }
 
-impl<T: Flatten<LayoutPort>> Flatten<LayoutPort> for ArrayData<T> {
+impl<T: Flatten<PortGeometry>> Flatten<PortGeometry> for ArrayData<T> {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<LayoutPort>,
+        E: Extend<PortGeometry>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
     }

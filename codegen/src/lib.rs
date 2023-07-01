@@ -8,7 +8,10 @@ mod pdk;
 use block::DataInputReceiver;
 use darling::FromDeriveInput;
 use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
-use pdk::layers::{LayerInputReceiver, LayersInputReceiver};
+use pdk::layers::{
+    DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
+    LayerInputReceiver, LayersInputReceiver,
+};
 use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -59,6 +62,18 @@ pub fn derive_layer(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Derives a layer family implementation on a struct.
+#[proc_macro_derive(LayerFamily, attributes(layer))]
+pub fn derive_layer_family(input: TokenStream) -> TokenStream {
+    let receiver =
+        LayerFamilyInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
+            .unwrap();
+    quote!(
+        #receiver
+    )
+    .into()
+}
+
 /// Derives a layer set implementation on a struct.
 ///
 /// # Examples
@@ -67,10 +82,35 @@ pub fn derive_layer(input: TokenStream) -> TokenStream {
 #[doc = include_str!("../../docs/api/code/prelude.md.hidden")]
 #[doc = include_str!("../../docs/api/code/pdk/layers.md")]
 /// ```
-#[proc_macro_derive(Layers, attributes(layer, pin, alias))]
+#[proc_macro_derive(Layers, attributes(layer, layer_family))]
 pub fn derive_layers(input: TokenStream) -> TokenStream {
     let receiver =
         LayersInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
+    quote!(
+        #receiver
+    )
+    .into()
+}
+
+/// Derives a derived layer family implementation on a struct.
+#[proc_macro_derive(DerivedLayerFamily, attributes(layer))]
+pub fn derive_derived_layer_family(input: TokenStream) -> TokenStream {
+    let receiver = DerivedLayerFamilyInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    ))
+    .unwrap();
+    quote!(
+        #receiver
+    )
+    .into()
+}
+
+/// Derives a derived layer set implementation on a struct.
+#[proc_macro_derive(DerivedLayers, attributes(layer, layer_family))]
+pub fn derive_derived_layers(input: TokenStream) -> TokenStream {
+    let receiver =
+        DerivedLayersInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
+            .unwrap();
     quote!(
         #receiver
     )

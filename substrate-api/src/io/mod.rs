@@ -7,13 +7,19 @@ use std::{
 };
 
 use arcstr::ArcStr;
-use geometry::transform::{HasTransformedView, Transformed};
+use geometry::{
+    prelude::Bbox,
+    rect::Rect,
+    transform::{HasTransformedView, Transformation, Transformed},
+    union::BoundingUnion,
+};
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
 use crate::{
     error::Result,
-    layout::{element::Shape, error::LayoutError},
+    layout::error::LayoutError,
+    pdk::layers::{HasPin, LayerId},
 };
 
 mod impls;
@@ -109,8 +115,8 @@ impl<T> SchematicData for T where T: FlatLen + Flatten<Node> {}
 /// Layout hardware data.
 ///
 /// An instance of a [`LayoutType`].
-pub trait LayoutData: FlatLen + Flatten<LayoutPort> + HasTransformedView + Send + Sync {}
-impl<T> LayoutData for T where T: FlatLen + Flatten<LayoutPort> + HasTransformedView + Send + Sync {}
+pub trait LayoutData: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+impl<T> LayoutData for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
 
 /// Layout hardware data builder.
 ///
@@ -172,6 +178,10 @@ pub struct Signal;
 /// its geometry.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ShapePort;
+
+/// A generic layout port that consists of several shapes.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LayoutPort;
 
 /// A single node in a circuit.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -272,56 +282,145 @@ impl NodeContext {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+/// A layer ID that describes where the components of an [`IoShape`] are drawn.
+pub struct IoLayerId {
+    drawing: LayerId,
+    pin: LayerId,
+    label: LayerId,
+}
+
+impl HasPin for IoLayerId {
+    fn drawing(&self) -> LayerId {
+        self.drawing
+    }
+    fn pin(&self) -> LayerId {
+        self.pin
+    }
+    fn label(&self) -> LayerId {
+        self.label
+    }
+}
+
+/// A shape used to describe the geometry of a port.
+#[derive(Debug, Clone)]
+pub struct IoShape {
+    layer: IoLayerId,
+    shape: geometry::shape::Shape,
+}
+
+impl Bbox for IoShape {
+    fn bbox(&self) -> Option<Rect> {
+        self.shape.bbox()
+    }
+}
+
+impl IoShape {
+    /// Creates a new [`IoShape`] from a full specification of the layers on which it should be
+    /// drawn.
+    pub fn new(
+        drawing: impl AsRef<LayerId>,
+        pin: impl AsRef<LayerId>,
+        label: impl AsRef<LayerId>,
+        shape: impl Into<geometry::shape::Shape>,
+    ) -> Self {
+        Self {
+            layer: IoLayerId {
+                drawing: *drawing.as_ref(),
+                pin: *pin.as_ref(),
+                label: *label.as_ref(),
+            },
+            shape: shape.into(),
+        }
+    }
+
+    /// Creates a new [`IoShape`] based on the layers specified in `layers`.
+    pub fn with_layers(layers: impl HasPin, shape: impl Into<geometry::shape::Shape>) -> Self {
+        Self {
+            layer: IoLayerId {
+                drawing: layers.drawing(),
+                pin: layers.pin(),
+                label: layers.label(),
+            },
+            shape: shape.into(),
+        }
+    }
+
+    /// Returns the [`IoLayerId`] of `self`.
+    pub fn layer(&self) -> IoLayerId {
+        self.layer
+    }
+}
+
+impl<T: Bbox> BoundingUnion<T> for IoShape {
+    type Output = Rect;
+
+    fn bounding_union(&self, other: &T) -> Self::Output {
+        self.bbox().unwrap().bounding_union(&other.bbox())
+    }
+}
+
+impl HasTransformedView for IoShape {
+    type TransformedView<'a> = IoShape;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        IoShape {
+            shape: self.shape.transformed_view(trans),
+            ..*self
+        }
+    }
+}
+
 /// A layout port with a generic set of associated geometry.
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
-pub struct LayoutPort {
+pub struct PortGeometry {
     /// The primary shape of the port.
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
     /// explicitly. It is kept separately for ease of access.
-    primary: Shape,
-    unnamed_shapes: Vec<Shape>,
-    named_shapes: HashMap<ArcStr, Shape>,
+    primary: IoShape,
+    unnamed_shapes: Vec<IoShape>,
+    named_shapes: HashMap<ArcStr, IoShape>,
 }
 
 /// A set of transformed geometry associated with a layout port.
 #[allow(dead_code)]
 #[derive(Clone)]
-pub struct TransformedLayoutPort<'a> {
+pub struct TransformedPortGeometry<'a> {
     /// The primary shape of the port.
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
     /// explicitly. It is kept separately for ease of access.
-    pub primary: Shape,
+    pub primary: IoShape,
     /// A set of unnamed shapes contained by the port.
-    pub unnamed_shapes: Transformed<'a, [Shape]>,
+    pub unnamed_shapes: Transformed<'a, [IoShape]>,
     /// A set of named shapes contained by the port.
-    pub named_shapes: Transformed<'a, HashMap<ArcStr, Shape>>,
+    pub named_shapes: Transformed<'a, HashMap<ArcStr, IoShape>>,
 }
 
 /// A set of geometry associated with a layout port.
 #[derive(Clone, Debug, Default)]
-pub struct LayoutPortBuilder {
-    primary: Option<Shape>,
-    unnamed_shapes: Vec<Shape>,
-    named_shapes: HashMap<ArcStr, Shape>,
+pub struct PortGeometryBuilder {
+    primary: Option<IoShape>,
+    unnamed_shapes: Vec<IoShape>,
+    named_shapes: HashMap<ArcStr, IoShape>,
 }
 
-impl LayoutPortBuilder {
+impl PortGeometryBuilder {
     /// Push an unnamed shape to the port.
     ///
     /// If the primary shape has not been set yet, sets the primary shape to the new shape. This
-    /// can be overriden using [`LayoutPortBuilder::set_primary`].
-    pub fn push(&mut self, shape: Shape) {
+    /// can be overriden using [`PortGeometryBuilder::set_primary`].
+    pub fn push(&mut self, shape: IoShape) {
         if self.primary.is_none() {
             self.primary = Some(shape.clone());
         }
         self.unnamed_shapes.push(shape);
     }
 
-    /// Merges [`LayoutPort`] `other` into `self`, overwriting the primary and corresponding named shapes.
-    pub fn merge(&mut self, other: impl Into<LayoutPort>) {
+    /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes.
+    pub fn merge(&mut self, other: impl Into<PortGeometry>) {
         let other = other.into();
         self.primary = Some(other.primary);
         self.unnamed_shapes.extend(other.unnamed_shapes);
@@ -329,7 +428,7 @@ impl LayoutPortBuilder {
     }
 
     /// Sets the primary shape of this port.
-    pub fn set_primary(&mut self, shape: Shape) {
+    pub fn set_primary(&mut self, shape: IoShape) {
         self.primary = Some(shape);
     }
 }
