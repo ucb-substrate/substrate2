@@ -28,5 +28,6 @@ members = [
     "substrate-api",
     "tests",
     "timing",
+    "netlist/spectre",
     "netlist/spice",
 ]
