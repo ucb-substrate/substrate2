@@ -1303,9 +1303,11 @@ version = "0.0.0"
 name = "substrate"
 version = "0.0.0"
 dependencies = [
+ "arcstr",
  "codegen",
  "duplicate",
  "geometry",
+ "scir",
  "substrate_api",
 ]
 
