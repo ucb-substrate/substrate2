@@ -4,6 +4,8 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Field, Generics};
 
+use crate::substrate_ident;
+
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any))]
 pub struct LayersInputReceiver {
@@ -78,19 +80,23 @@ struct DerivedLayerFamilyData {
 }
 
 fn layer_new(field_ty: &syn::Type) -> TokenStream {
-    quote! { <#field_ty as ::substrate::pdk::layers::Layer>::new(ctx) }
+    let substrate = substrate_ident();
+    quote! { <#field_ty as #substrate::pdk::layers::Layer>::new(ctx) }
 }
 
 fn layer_info(field_ty: &impl ToTokens, info_ident: &impl ToTokens) -> TokenStream {
-    quote! { <#field_ty as ::substrate::pdk::layers::Layer>::info(&#info_ident) }
+    let substrate = substrate_ident();
+    quote! { <#field_ty as #substrate::pdk::layers::Layer>::info(&#info_ident) }
 }
 
 fn layer_family_info(field_ty: &syn::Type, field_ident: &syn::Ident) -> TokenStream {
-    quote! { <#field_ty as ::substrate::pdk::layers::LayerFamily>::info(&self.#field_ident) }
+    let substrate = substrate_ident();
+    quote! { <#field_ty as #substrate::pdk::layers::LayerFamily>::info(&self.#field_ident) }
 }
 
 fn layer_family_new(field_ty: &syn::Type) -> TokenStream {
-    quote! { <#field_ty as ::substrate::pdk::layers::LayerFamily>::new(ctx) }
+    let substrate = substrate_ident();
+    quote! { <#field_ty as #substrate::pdk::layers::LayerFamily>::new(ctx) }
 }
 
 fn let_statement(assignee: &impl ToTokens, assignment: &impl ToTokens) -> TokenStream {
@@ -104,16 +110,17 @@ fn impl_has_pin(
     pin: &impl ToTokens,
     label: &impl ToTokens,
 ) -> TokenStream {
+    let substrate = substrate_ident();
     let (imp, ty, wher) = generics.split_for_impl();
     quote! {
-        impl #imp ::substrate::pdk::layers::HasPin for #ident #ty #wher {
-            fn drawing(&self) -> ::substrate::pdk::layers::LayerId {
+        impl #imp #substrate::pdk::layers::HasPin for #ident #ty #wher {
+            fn drawing(&self) -> #substrate::pdk::layers::LayerId {
                 #drawing
             }
-            fn pin(&self) -> ::substrate::pdk::layers::LayerId {
+            fn pin(&self) -> #substrate::pdk::layers::LayerId {
                 #pin
             }
-            fn label(&self) -> ::substrate::pdk::layers::LayerId {
+            fn label(&self) -> #substrate::pdk::layers::LayerId {
                 #label
             }
         }
@@ -132,6 +139,7 @@ fn derive_layer_with_attrs(
     name: &Option<String>,
     gds: &Option<String>,
 ) -> TokenStream {
+    let substrate = substrate_ident();
     let mut attrs = Vec::new();
     if let Some(name) = name {
         attrs.push(quote!(name = #name));
@@ -141,9 +149,9 @@ fn derive_layer_with_attrs(
     }
 
     quote! {
-        #[derive(::substrate::Layer, ::std::clone::Clone, ::std::marker::Copy)]
+        #[derive(#substrate::Layer, ::std::clone::Clone, ::std::marker::Copy)]
         #[layer(#( #attrs ),*)]
-        pub struct #field_ty(::substrate::pdk::layers::LayerId);
+        pub struct #field_ty(#substrate::pdk::layers::LayerId);
     }
 }
 
@@ -156,17 +164,18 @@ fn impl_layer_family(
     pin: &Option<TokenStream>,
     label: &Option<TokenStream>,
 ) -> TokenStream {
+    let substrate = substrate_ident();
     let (imp, ty, wher) = generics.split_for_impl();
     let pin = token_stream_option(pin);
     let label = token_stream_option(label);
     quote! {
-        impl #imp ::substrate::pdk::layers::LayerFamily for #ident #ty #wher {
-            fn new(ctx: &mut ::substrate::pdk::layers::LayerContext) -> Self {
+        impl #imp #substrate::pdk::layers::LayerFamily for #ident #ty #wher {
+            fn new(ctx: &mut #substrate::pdk::layers::LayerContext) -> Self {
                 #new_body
             }
 
-            fn info(&self) -> ::substrate::pdk::layers::LayerFamilyInfo {
-                ::substrate::pdk::layers::LayerFamilyInfo {
+            fn info(&self) -> #substrate::pdk::layers::LayerFamilyInfo {
+                #substrate::pdk::layers::LayerFamilyInfo {
                     layers: ::std::vec![ #( #layer_infos ),* ],
                     primary: #primary,
                     pin: #pin,
@@ -182,10 +191,11 @@ fn impl_as_ref_layer_id(
     ident: &impl ToTokens,
     access: &impl ToTokens,
 ) -> TokenStream {
+    let substrate = substrate_ident();
     let (imp, ty, wher) = generics.split_for_impl();
     quote! {
-        impl #imp ::std::convert::AsRef<::substrate::pdk::layers::LayerId> for #ident #ty #wher {
-            fn as_ref(&self) -> &::substrate::pdk::layers::LayerId {
+        impl #imp ::std::convert::AsRef<#substrate::pdk::layers::LayerId> for #ident #ty #wher {
+            fn as_ref(&self) -> &#substrate::pdk::layers::LayerId {
                 &#access
             }
         }
@@ -197,10 +207,11 @@ fn impl_deref_layer_id(
     ident: &impl ToTokens,
     access: &impl ToTokens,
 ) -> TokenStream {
+    let substrate = substrate_ident();
     let (imp, ty, wher) = generics.split_for_impl();
     quote! {
         impl #imp ::std::ops::Deref for #ident #ty #wher {
-            type Target = ::substrate::pdk::layers::LayerId;
+            type Target = #substrate::pdk::layers::LayerId;
             fn deref(&self) -> &Self::Target {
                 &#access
             }
@@ -214,6 +225,7 @@ fn impl_layer(
     name: &Option<String>,
     gds: &Option<String>,
 ) -> TokenStream {
+    let substrate = substrate_ident();
     let (imp, ty, wher) = generics.split_for_impl();
 
     let name = name
@@ -229,19 +241,19 @@ fn impl_layer(
                     )
                 })
             })
-            .map(|(a, b)| quote! {::substrate::pdk::layers::GdsLayerSpec(#a, #b)}),
+            .map(|(a, b)| quote! {#substrate::pdk::layers::GdsLayerSpec(#a, #b)}),
     );
 
     quote! {
-        impl #imp ::substrate::pdk::layers::Layer for #ident #ty #wher {
-            fn new(ctx: &mut ::substrate::pdk::layers::LayerContext) -> Self {
+        impl #imp #substrate::pdk::layers::Layer for #ident #ty #wher {
+            fn new(ctx: &mut #substrate::pdk::layers::LayerContext) -> Self {
                 Self(ctx.new_layer())
             }
 
-            fn info(&self) -> ::substrate::pdk::layers::LayerInfo {
-                ::substrate::pdk::layers::LayerInfo {
+            fn info(&self) -> #substrate::pdk::layers::LayerInfo {
+                #substrate::pdk::layers::LayerInfo {
                     id: self.0,
-                    name: ::substrate::arcstr::literal!(#name),
+                    name: #substrate::arcstr::literal!(#name),
                     gds: #gds,
                 }
             }
@@ -250,12 +262,13 @@ fn impl_layer(
 }
 
 fn impl_derived_layer(field_ty: &impl ToTokens) -> TokenStream {
+    let substrate = substrate_ident();
     quote! {
         #[derive(::std::clone::Clone, ::std::marker::Copy)]
-        pub struct #field_ty(::substrate::pdk::layers::LayerId);
+        pub struct #field_ty(#substrate::pdk::layers::LayerId);
 
         impl #field_ty {
-            fn new(id: impl ::std::convert::AsRef<::substrate::pdk::layers::LayerId>) -> Self {
+            fn new(id: impl ::std::convert::AsRef<#substrate::pdk::layers::LayerId>) -> Self {
                 Self(*id.as_ref())
             }
         }
@@ -264,6 +277,7 @@ fn impl_derived_layer(field_ty: &impl ToTokens) -> TokenStream {
 
 impl ToTokens for LayersInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let substrate = substrate_ident();
         let LayersInputReceiver {
             ref ident,
             ref generics,
@@ -345,15 +359,15 @@ impl ToTokens for LayersInputReceiver {
         }
 
         tokens.extend(quote! {
-            impl #imp ::substrate::pdk::layers::Layers for #ident #ty #wher {
-                fn new(ctx: &mut ::substrate::pdk::layers::LayerContext) -> Self {
+            impl #imp #substrate::pdk::layers::Layers for #ident #ty #wher {
+                fn new(ctx: &mut #substrate::pdk::layers::LayerContext) -> Self {
                     #( #field_init; )*
                     Self {
                         #( #field_idents ),*
                     }
                 }
 
-                fn flatten(&self) -> Vec<::substrate::pdk::layers::LayerFamilyInfo> {
+                fn flatten(&self) -> Vec<#substrate::pdk::layers::LayerFamilyInfo> {
                     ::std::vec![
                         #( #info_init ),*
                     ]
@@ -530,6 +544,7 @@ impl ToTokens for DerivedLayersInputReceiver {
 
 impl ToTokens for DerivedLayerFamilyInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let substrate = substrate_ident();
         let DerivedLayerFamilyInputReceiver {
             ref ident,
             ref generics,
@@ -563,7 +578,7 @@ impl ToTokens for DerivedLayerFamilyInputReceiver {
             let layer_attr = f.attrs.iter().find(|attr| attr.path().is_ident("layer"));
 
             field_init.push(
-                quote!(let #field_ident = <#field_ty as ::substrate::pdk::layers::Layer>::new(ctx)),
+                quote!(let #field_ident = <#field_ty as #substrate::pdk::layers::Layer>::new(ctx)),
             );
 
             tokens.extend(impl_derived_layer(field_ty));

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use super::ResistorIoSchematic;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
@@ -50,9 +51,13 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Buffer {
         cell.connect(io.input, r.io.p);
         cell.connect(r.io.n, int);
 
-        let r = cell.instantiate(Resistor { r: 10 });
-        cell.connect(r.io.p, int);
-        cell.connect(r.io.n, io.output);
+        cell.instantiate_connected(
+            Resistor { r: 10 },
+            ResistorIoSchematic {
+                p: int.into(),
+                n: (*io.output).into(),
+            },
+        );
         Ok(())
     }
 }
