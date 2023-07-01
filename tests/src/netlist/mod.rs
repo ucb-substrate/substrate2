@@ -77,3 +77,30 @@ fn netlist_spice() {
     assert_eq!(string.matches("* vdivider").count(), 1);
     assert_eq!(string.matches("R0 pos neg 3300").count(), 1);
 }
+
+#[test]
+fn netlist_spectre() {
+    let lib = vdivider();
+    let mut buf: Vec<u8> = Vec::new();
+    let netlister = spectre::netlist::Netlister::new(&lib, &mut buf);
+    netlister.export().unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("{}", string);
+
+    // TODO: more robust assertions about the output
+    // Once we have a Spectre netlist parser, we can parse the Spectre back to SCIR
+    // and assert that the input SCIR is equivalent to the output SCIR.
+
+    assert_eq!(string.matches("subckt").count(), 2);
+    assert_eq!(string.matches("ends").count(), 2);
+    assert_eq!(string.matches("r1").count(), 1);
+    assert_eq!(string.matches("r2").count(), 1);
+    assert_eq!(string.matches("r3").count(), 1);
+    assert_eq!(string.matches("resistor_wrapper").count(), 5);
+    assert_eq!(string.matches("vdivider").count(), 3);
+    assert_eq!(string.matches("// vdivider").count(), 1);
+    assert_eq!(
+        string.matches("res0 ( pos neg ) resistor r=3300").count(),
+        1
+    );
+}
