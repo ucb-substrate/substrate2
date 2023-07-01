@@ -4,7 +4,9 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
 use geometry::{prelude::Bbox, rect::Rect};
-use substrate::io::{Array, CustomLayoutType, InOut, Input, NameTree, Output, ShapePort, Signal};
+use substrate::io::{
+    Array, CustomLayoutType, InOut, Input, LayoutPort, NameTree, Output, ShapePort, Signal,
+};
 use substrate::{Io, LayoutType};
 use test_log::test;
 
@@ -97,8 +99,8 @@ pub struct BufferNIo {
 
 #[derive(LayoutType, Clone)]
 pub struct BufferNIoLayout {
-    vdd: Signal,
-    vss: Signal,
+    vdd: LayoutPort,
+    vss: LayoutPort,
     din: ShapePort,
     dout: ShapePort,
 }
@@ -106,8 +108,8 @@ pub struct BufferNIoLayout {
 impl CustomLayoutType<BufferNIo> for BufferNIoLayout {
     fn from_layout_type(_other: &BufferNIo) -> Self {
         Self {
-            vdd: Signal,
-            vss: Signal,
+            vdd: LayoutPort,
+            vss: LayoutPort,
             din: ShapePort,
             dout: ShapePort,
         }
