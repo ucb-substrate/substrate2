@@ -1,7 +1,6 @@
 //! Spectre plugin for Substrate.
 
 use std::io::{BufWriter, Write};
-use std::path::PathBuf;
 
 use error::*;
 use netlist::Netlister;
@@ -77,7 +76,7 @@ impl Spectre {
     pub fn simulate(
         &self,
         config: &SimulationConfig,
-        options: Opts,
+        _options: Opts,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&config.work_dir)?;

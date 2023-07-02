@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use once_cell::sync::OnceCell;
-use state::TypeMap;
+
 use tracing::{span, Level};
 
 use crate::error::Result;
@@ -31,8 +31,7 @@ use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, SchematicContext,
 };
 use crate::simulation::{
-    Analysis, HasTestbenchSchematicImpl, SimController, SimulationConfig, Simulator, SupportedBy,
-    Testbench,
+    HasTestbenchSchematicImpl, SimController, SimulationConfig, Simulator, Testbench,
 };
 
 /// The global context.
