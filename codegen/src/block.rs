@@ -42,8 +42,6 @@ impl ToTokens for DataInputReceiver {
                 transformed_fields.push(quote! { pub #field_ident: ::substrate::geometry::transform::Transformed<'a, #field_ty>, });
                 transformed_view_fields.push(quote! { #field_ident: ::substrate::geometry::transform::HasTransformedView::transformed_view(&self.#field_ident, trans), });
             } else {
-                // TODO: Might not work for pointers, but there shouldn't be any in data
-                // (due to std::any::Any bound).
                 transformed_fields.push(quote! { pub #field_ident: &'a #field_ty, });
                 transformed_view_fields.push(quote! { #field_ident: &self.#field_ident, });
             }

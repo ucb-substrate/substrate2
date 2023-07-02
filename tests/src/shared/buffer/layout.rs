@@ -12,7 +12,7 @@ use substrate::{
     supported_pdks, DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
 };
 
-use crate::substrate::pdk::{ExamplePdkA, ExamplePdkB};
+use crate::shared::pdk::{ExamplePdkA, ExamplePdkB};
 
 use super::{Buffer, BufferN, BufferNxM, Inverter};
 

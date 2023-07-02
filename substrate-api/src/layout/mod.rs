@@ -49,8 +49,8 @@ pub mod error;
 pub mod gds;
 
 /// An object used to store data created during layout generation.
-pub trait Data: HasTransformedView {}
-impl<T: HasTransformedView> Data for T {}
+pub trait Data: HasTransformedView + Send + Sync {}
+impl<T: HasTransformedView + Send + Sync> Data for T {}
 
 /// A block that has a layout.
 pub trait HasLayout: Block {
@@ -58,7 +58,7 @@ pub trait HasLayout: Block {
     ///
     /// Common uses include storing important instances for access during simulation and any
     /// important computations that may impact blocks that instantiate this block.
-    type Data: Data + Send + Sync;
+    type Data: Data;
 }
 
 /// A block that has a layout for process design kit `PDK`.

@@ -5,6 +5,7 @@ use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
 
 use crate::layout::error::LayoutError;
+use crate::schematic::{HasPathView, RetrogradeEntry};
 
 use super::*;
 
@@ -26,6 +27,21 @@ where
         E: Extend<Node>,
     {
         (*self).flatten(output)
+    }
+}
+
+impl<T> HasPathView for &T
+where
+    T: HasPathView,
+{
+    type PathView<'a>
+    = T::PathView<'a> where Self: 'a;
+
+    fn path_view<'a>(
+        &'a self,
+        parent: Option<std::sync::Arc<RetrogradeEntry>>,
+    ) -> Self::PathView<'a> {
+        (*self).path_view(parent)
     }
 }
 
@@ -197,7 +213,49 @@ impl Flatten<Node> for Node {
     }
 }
 
+impl HasPathView for Node {
+    type PathView<'a> = NodePathView;
+
+    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+        NodePathView {
+            inner: self.0,
+            parent,
+        }
+    }
+}
+
+impl HasPathView for NodePathView {
+    type PathView<'a> = NodePathView;
+
+    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+        NodePathView {
+            inner: self.inner,
+            parent: parent.map(|parent| {
+                Arc::new(RetrogradeEntry {
+                    entry: parent.entry.clone(),
+                    child: self.parent.clone(),
+                })
+            }),
+        }
+    }
+}
+
 impl Undirected for Node {}
+
+impl FlatLen for NodePathView {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Node> for NodePathView {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(Node(self.inner)));
+    }
+}
 
 impl FlatLen for IoShape {
     fn len(&self) -> usize {
@@ -399,6 +457,14 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
     }
 }
 
+impl<T: Undirected + HasPathView> HasPathView for Input<T> {
+    type PathView<'a> = T::PathView<'a> where T: 'a;
+
+    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+        self.0.path_view(parent)
+    }
+}
+
 impl<T> SchematicType for Output<T>
 where
     T: Undirected + SchematicType,
@@ -457,12 +523,21 @@ impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
         output.extend(std::iter::repeat(Direction::Output).take(self.0.len()))
     }
 }
+
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
     {
         self.0.flatten(output);
+    }
+}
+
+impl<T: Undirected + HasPathView> HasPathView for Output<T> {
+    type PathView<'a> = T::PathView<'a> where T: 'a;
+
+    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+        self.0.path_view(parent)
     }
 }
 
@@ -562,6 +637,15 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
         self.0.flatten(output);
     }
 }
+
+impl<T: Undirected + SchematicData + HasPathView> HasPathView for InOut<T> {
+    type PathView<'a> = T::PathView<'a> where T: 'a;
+
+    fn path_view(&self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'_> {
+        self.0.path_view(parent)
+    }
+}
+
 impl<T: Undirected> AsRef<T> for InOut<T> {
     fn as_ref(&self) -> &T {
         &self.0
@@ -715,6 +799,21 @@ impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
         E: Extend<Node>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
+    }
+}
+
+impl<T: HasPathView> HasPathView for ArrayData<T> {
+    type PathView<'a> = ArrayData<T::PathView<'a>> where T: 'a;
+
+    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+        ArrayData {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem| elem.path_view(parent.clone()))
+                .collect(),
+            ty_len: self.ty_len,
+        }
     }
 }
 

@@ -26,7 +26,8 @@ use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 use crate::schematic::{
-    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, SchematicContext,
+    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, InstanceId,
+    SchematicContext,
 };
 
 /// The global context.
@@ -193,6 +194,7 @@ impl<PDK: Pdk> Context<PDK> {
             let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
             let mut cell_builder = SchematicCellBuilder {
                 id,
+                next_instance_id: InstanceId(0),
                 cell_name,
                 ctx: context_clone,
                 node_ctx,

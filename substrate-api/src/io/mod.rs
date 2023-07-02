@@ -4,6 +4,7 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     ops::{Deref, Index},
+    sync::Arc,
 };
 
 use arcstr::ArcStr;
@@ -20,6 +21,7 @@ use crate::{
     error::Result,
     layout::error::LayoutError,
     pdk::layers::{HasPin, LayerId},
+    schematic::{HasPathView, InstanceId, RetrogradeEntry},
 };
 
 mod impls;
@@ -84,7 +86,7 @@ pub trait HasNameTree {
 /// A schematic hardware type.
 pub trait SchematicType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Data: SchematicData;
+    type Data: SchematicData + HasPathView + Clone + Send + Sync;
 
     /// Instantiates a schematic data struct with populated nodes.
     ///
@@ -187,6 +189,33 @@ pub struct LayoutPort;
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Node(u32);
 
+#[derive(Clone, Debug, Default)]
+pub struct NodePathView {
+    pub(crate) inner: u32,
+    pub(crate) parent: Option<Arc<RetrogradeEntry>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NodePath {
+    id: u32,
+    instances: Vec<InstanceId>,
+}
+
+impl NodePathView {
+    pub fn path(&self) -> NodePath {
+        let mut path = Vec::new();
+        let mut parent = self.parent.as_ref();
+        while let Some(curr) = parent {
+            path.push(curr.entry.id);
+            parent = curr.entry.parent.as_ref();
+        }
+        NodePath {
+            id: self.inner,
+            instances: path,
+        }
+    }
+}
+
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub(crate) enum NodePriority {
@@ -282,8 +311,8 @@ impl NodeContext {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
 /// A layer ID that describes where the components of an [`IoShape`] are drawn.
+#[derive(Debug, Clone, Copy)]
 pub struct IoLayerId {
     drawing: LayerId,
     pin: LayerId,
