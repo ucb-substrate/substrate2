@@ -1,40 +1,20 @@
 use crate::shared::buffer::Buffer;
 use substrate::{
     io::{Node, NodePathView, Signal},
-    schematic::{
-        HasPathView, HasSchematic, HasSchematicImpl, Instance, OwnedInstancePathView, PathView,
-    },
+    schematic::{HasSchematic, HasSchematicImpl, Instance, OwnedInstancePathView, PathView},
+    SchematicData,
 };
 
 use crate::shared::pdk::{ExamplePdkA, NmosA, PmosA};
 
 use super::{BufferN, Inverter};
 
+#[derive(SchematicData)]
 pub struct InverterData {
+    #[path_view]
     pub din: Node,
+    #[path_view]
     pub pmos: Instance<PmosA>,
-}
-
-pub struct InverterDataPathView<'a> {
-    pub din: PathView<'a, Node>,
-    pub pmos: PathView<'a, Instance<PmosA>>,
-}
-
-impl HasPathView for InverterData {
-    type PathView<'a>
-    where
-        Self: 'a,
-    = InverterDataPathView<'a>;
-
-    fn path_view<'a>(
-        &'a self,
-        parent: Option<std::sync::Arc<substrate::schematic::RetrogradeEntry>>,
-    ) -> Self::PathView<'a> {
-        Self::PathView {
-            din: self.din.path_view(parent.clone()),
-            pmos: self.pmos.path_view(parent.clone()),
-        }
-    }
 }
 
 impl HasSchematic for Inverter {
@@ -64,26 +44,12 @@ impl HasSchematicImpl<ExamplePdkA> for Inverter {
     }
 }
 
+#[derive(SchematicData)]
 pub struct BufferData {
+    #[path_view]
     pub inv1: Instance<Inverter>,
+    #[path_view]
     pub inv2: Instance<Inverter>,
-}
-
-pub struct BufferDataPathView<'a> {
-    pub inv1: PathView<'a, Instance<Inverter>>,
-}
-
-impl HasPathView for BufferData {
-    type PathView<'a> = BufferDataPathView<'a>;
-
-    fn path_view<'a>(
-        &'a self,
-        parent: Option<std::sync::Arc<substrate::schematic::RetrogradeEntry>>,
-    ) -> Self::PathView<'a> {
-        Self::PathView {
-            inv1: self.inv1.path_view(parent),
-        }
-    }
 }
 
 impl HasSchematic for Buffer {
@@ -119,27 +85,14 @@ impl HasSchematicImpl<ExamplePdkA> for Buffer {
     }
 }
 
+#[derive(SchematicData)]
 pub struct BufferNData {
+    #[path_view]
     pub bubbled_din: NodePathView,
+    #[path_view]
     pub bubbled_inv1: OwnedInstancePathView<Inverter>,
+    #[path_view]
     pub buffers: Vec<Instance<Buffer>>,
-}
-
-pub struct BufferNDataPathView<'a> {
-    pub buffers: PathView<'a, Vec<Instance<Buffer>>>,
-}
-
-impl HasPathView for BufferNData {
-    type PathView<'a> = BufferNDataPathView<'a>;
-
-    fn path_view<'a>(
-        &'a self,
-        parent: Option<std::sync::Arc<substrate::schematic::RetrogradeEntry>>,
-    ) -> Self::PathView<'a> {
-        Self::PathView {
-            buffers: self.buffers.path_view(parent),
-        }
-    }
 }
 
 impl HasSchematic for BufferN {
@@ -153,7 +106,7 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut buffers = Vec::new();
-        for i in 0..self.n {
+        for _ in 0..self.n {
             buffers.push(cell.instantiate(Buffer::new(self.strength)));
         }
 

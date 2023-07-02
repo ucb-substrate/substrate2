@@ -5,7 +5,6 @@ mod block;
 mod io;
 mod pdk;
 
-use block::DataInputReceiver;
 use darling::FromDeriveInput;
 use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
 use pdk::layers::{
@@ -248,8 +247,22 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(LayoutData, attributes(transform))]
 pub fn derive_layout_data(input: TokenStream) -> TokenStream {
-    let receiver =
-        DataInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
+    let receiver = block::layout::DataInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    ))
+    .unwrap();
+    quote!(
+        #receiver
+    )
+    .into()
+}
+
+#[proc_macro_derive(SchematicData, attributes(path_view))]
+pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
+    let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    ))
+    .unwrap();
     quote!(
         #receiver
     )

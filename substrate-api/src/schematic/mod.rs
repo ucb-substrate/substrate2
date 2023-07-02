@@ -452,6 +452,24 @@ impl<'a, T: HasSchematic> InstancePathView<'a, T> {
     }
 }
 
+impl<T: HasSchematic> HasPathView for OwnedInstancePathView<T> {
+    type PathView<'a> = InstancePathView<'a, T>;
+
+    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+        Self::PathView {
+            id: self.id,
+            head: parent.map(|parent| {
+                Arc::new(RetrogradeEntry {
+                    entry: parent.entry.clone(),
+                    child: self.head.clone(),
+                })
+            }),
+            io: &self.io,
+            cell: self.cell.clone(),
+        }
+    }
+}
+
 impl<T: HasSchematic> OwnedInstancePathView<T> {
     /// The ports of this instance.
     pub fn io(&self) -> PathView<<T::Io as SchematicType>::Data> {
