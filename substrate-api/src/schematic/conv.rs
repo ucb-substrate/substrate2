@@ -10,14 +10,19 @@ use super::{CellId, RawCell};
 
 impl RawCell {
     /// Export this cell and all subcells as a SCIR library.
-    pub fn to_scir_lib(&self) -> scir::Library {
+    pub(crate) fn to_scir_lib(&self, testbench: bool) -> scir::Library {
         let mut lib = Library::new(self.name.clone());
         let mut cells = HashMap::new();
-        self.to_scir_cell(&mut lib, &mut cells);
+        let id = self.to_scir_cell(&mut lib, &mut cells);
+        lib.set_top(id, testbench);
         lib
     }
 
-    fn to_scir_cell(&self, lib: &mut Library, cells: &mut HashMap<CellId, ScirCellId>) {
+    fn to_scir_cell(
+        &self,
+        lib: &mut Library,
+        cells: &mut HashMap<CellId, ScirCellId>,
+    ) -> ScirCellId {
         let mut cell = Cell::new(self.name.clone());
 
         let mut nodes = HashMap::new();
@@ -76,6 +81,8 @@ impl RawCell {
 
         let id = lib.add_cell(cell);
         cells.insert(self.id, id);
+
+        id
     }
 
     /// The name associated with the given node.

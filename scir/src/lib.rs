@@ -233,6 +233,15 @@ impl From<Slice> for Concat {
     }
 }
 
+/// Information about the top-level cell in a SCIR library.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Top {
+    /// The ID of the top-level cell.
+    cell: CellId,
+    /// Whether or not to inline the top-level cell during netlisting.
+    inline: bool,
+}
+
 /// A library of SCIR cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Library {
@@ -251,6 +260,12 @@ pub struct Library {
     ///
     /// SCIR makes no attempt to prevent duplicate cell names.
     name_map: HashMap<ArcStr, CellId>,
+
+    /// Information about the top cell, if there is one.
+    top: Option<Top>,
+
+    /// The order in which cells were added to this library.
+    order: Vec<CellId>,
 }
 
 /// A signal exposed by a cell.
@@ -314,6 +329,8 @@ impl Library {
             name: name.into(),
             cells: HashMap::new(),
             name_map: HashMap::new(),
+            top: None,
+            order: Vec::new(),
         }
     }
 
@@ -325,7 +342,38 @@ impl Library {
         let id = CellId(self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
+        self.order.push(id);
         id
+    }
+
+    /// Sets the top cell to the given cell ID.
+    ///
+    /// If `inline` is set to `true`, the top cell will
+    /// be flattened during netlisting.
+    pub fn set_top(&mut self, cell: CellId, inline: bool) {
+        self.top = Some(Top { cell, inline });
+    }
+
+    /// The ID of the top-level cell, if there is one.
+    #[inline]
+    pub fn top_cell(&self) -> Option<CellId> {
+        self.top.map(|t| t.cell)
+    }
+
+    /// Whether or not to inline the top-level cell.
+    ///
+    /// If no top cell has been set, returns `false`.
+    #[inline]
+    pub fn inline_top(&self) -> bool {
+        self.top.map(|t| t.inline).unwrap_or_default()
+    }
+
+    /// Returns `true` if the given cell should be emitted inline during netlisting.
+    ///
+    /// At the moment, the only cell that may be inlined is the top-level cell.
+    /// However, this is subject to change.
+    pub fn should_inline(&self, cell: CellId) -> bool {
+        self.inline_top() && self.top_cell().map(|c| c == cell).unwrap_or_default()
     }
 
     /// The name of the library.
@@ -353,8 +401,8 @@ impl Library {
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.
-    pub fn cells(&self) -> impl Iterator<Item = (&CellId, &Cell)> {
-        self.cells.iter()
+    pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell)> {
+        self.order.iter().map(|&id| (id, self.cell(id)))
     }
 }
 

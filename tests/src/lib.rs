@@ -5,4 +5,6 @@ pub mod external;
 pub mod netlist;
 pub mod paths;
 #[cfg(test)]
+pub mod sim;
+#[cfg(test)]
 pub mod substrate;
