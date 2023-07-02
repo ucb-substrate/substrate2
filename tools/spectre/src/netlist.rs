@@ -1,10 +1,10 @@
 //! Spectre netlist exporter.
 #![warn(missing_docs)]
 
+use arcstr::ArcStr;
 use scir::Slice;
 use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
 use std::io::prelude::*;
-use substrate_api::arcstr::ArcStr;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 

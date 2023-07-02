@@ -1319,6 +1319,7 @@ dependencies = [
 name = "spectre"
 version = "0.0.0"
 dependencies = [
+ "arcstr",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
