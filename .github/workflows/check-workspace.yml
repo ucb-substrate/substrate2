@@ -1,4 +1,4 @@
-name: Check workspace
+name: check-workspace
 
 on:
   workflow_call:
@@ -7,8 +7,8 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
-  check-workspace:
-    name: Build, lint, and test
+  lint:
+    name: lint
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
@@ -31,8 +31,42 @@ jobs:
       - name: Lint
         run: |
           cargo hack --feature-powerset clippy --locked -- -D warnings
+  check-docs:
+    name: check docs
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.70.0
+        id: toolchain
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Cache workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: ". -> target"
+      - name: Install `cargo-hack`
+        uses: taiki-e/install-action@cargo-hack
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features -- -D warnings
+  test:
+    name: test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.70.0
+        id: toolchain
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Cache workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: ". -> target"
       - name: Test
         run: cargo test --locked --all-features
