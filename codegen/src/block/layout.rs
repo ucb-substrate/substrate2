@@ -3,6 +3,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::Field;
 
+use crate::substrate_ident;
+
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any))]
 pub struct DataInputReceiver {
@@ -13,6 +15,7 @@ pub struct DataInputReceiver {
 
 impl ToTokens for DataInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let substrate = substrate_ident();
         let DataInputReceiver {
             ref ident,
             ref generics,
@@ -39,11 +42,9 @@ impl ToTokens for DataInputReceiver {
             let field_ty = &f.ty;
 
             if f.attrs.iter().any(|attr| attr.path().is_ident("transform")) {
-                transformed_fields.push(quote! { pub #field_ident: ::substrate::geometry::transform::Transformed<'a, #field_ty>, });
-                transformed_view_fields.push(quote! { #field_ident: ::substrate::geometry::transform::HasTransformedView::transformed_view(&self.#field_ident, trans), });
+                transformed_fields.push(quote! { pub #field_ident: #substrate::geometry::transform::Transformed<'a, #field_ty>, });
+                transformed_view_fields.push(quote! { #field_ident: #substrate::geometry::transform::HasTransformedView::transformed_view(&self.#field_ident, trans), });
             } else {
-                // TODO: Might not work for pointers, but there shouldn't be any in data
-                // (due to std::any::Any bound).
                 transformed_fields.push(quote! { pub #field_ident: &'a #field_ty, });
                 transformed_view_fields.push(quote! { #field_ident: &self.#field_ident, });
             }
@@ -55,12 +56,12 @@ impl ToTokens for DataInputReceiver {
                 #( #transformed_fields )*
             }
 
-            impl #imp ::substrate::geometry::transform::HasTransformedView for #ident #ty #wher {
+            impl #imp #substrate::geometry::transform::HasTransformedView for #ident #ty #wher {
                 type TransformedView<'a> = #transformed_ident<'a>;
 
                 fn transformed_view(
                     &self,
-                    trans: ::substrate::geometry::transform::Transformation,
+                    trans: #substrate::geometry::transform::Transformation,
                 ) -> Self::TransformedView<'_> {
                     Self::TransformedView {
                         #( #transformed_view_fields )*

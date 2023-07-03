@@ -535,6 +535,34 @@ impl Cell {
     pub fn set_contents(&mut self, contents: CellContents) {
         self.contents = contents;
     }
+
+    /// Add the given instance to the cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell is a blackbox.
+    #[inline]
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.contents
+            .as_mut()
+            .unwrap_clear()
+            .instances
+            .push(instance);
+    }
+
+    /// Add the given [`PrimitiveDevice`] to the cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell is a blackbox.
+    #[inline]
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        self.contents
+            .as_mut()
+            .unwrap_clear()
+            .primitives
+            .push(device);
+    }
 }
 
 impl Instance {

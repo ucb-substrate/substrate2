@@ -1,14 +1,13 @@
 use arcstr::ArcStr;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use substrate::io::*;
-use substrate::schematic::*;
-
+use substrate::block::Block;
+use substrate::io::{InOut, Output, Signal};
 use substrate::pdk::Pdk;
+use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, PrimitiveDevice};
 use substrate::Io;
-use substrate::{block::Block, schematic::HasSchematic};
 
-pub mod internal_signal;
+pub mod tb;
 
 #[derive(Debug, Default, Clone, Io)]
 pub struct ResistorIo {
@@ -28,12 +27,6 @@ pub struct VdividerIo {
     pub out: Output<Signal>,
 }
 
-#[derive(Debug, Default, Clone, Io)]
-pub struct ArrayIo {
-    pub inputs: Input<Array<Signal>>,
-    pub out: Output<Signal>,
-}
-
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Resistor {
     pub r: usize,
@@ -43,12 +36,6 @@ pub struct Resistor {
 pub struct Vdivider {
     pub r1: Resistor,
     pub r2: Resistor,
-}
-
-/// Shorts all input signals to an output node.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ArrayShorter {
-    width: usize,
 }
 
 impl Block for Resistor {
@@ -75,28 +62,11 @@ impl Block for Vdivider {
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::format!("vdivider_{}_{}", self.r1.name(), self.r2.name())
+        arcstr::format!("vdivider_{}_{}", self.r1.r, self.r2.r)
     }
 
     fn io(&self) -> Self::Io {
         Default::default()
-    }
-}
-
-impl Block for ArrayShorter {
-    type Io = ArrayIo;
-
-    fn id() -> ArcStr {
-        arcstr::literal!("array_shorter")
-    }
-    fn name(&self) -> ArcStr {
-        arcstr::format!("array_shorter_{}", self.width)
-    }
-    fn io(&self) -> Self::Io {
-        Self::Io {
-            inputs: Input(Array::new(self.width, Signal)),
-            out: Output(Signal),
-        }
     }
 }
 
@@ -105,10 +75,6 @@ impl HasSchematic for Resistor {
 }
 
 impl HasSchematic for Vdivider {
-    type Data = ();
-}
-
-impl HasSchematic for ArrayShorter {
     type Data = ();
 }
 
@@ -140,19 +106,6 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
         cell.connect(io.out, r1.io().n);
         cell.connect(io.out, r2.io().p);
         cell.connect(io.pwr.vss, r2.io().n);
-        Ok(())
-    }
-}
-
-impl<PDK: Pdk> HasSchematicImpl<PDK> for ArrayShorter {
-    fn schematic(
-        &self,
-        io: &ArrayIoSchematic,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        for i in 0..self.width {
-            cell.connect(io.inputs[i], io.out)
-        }
         Ok(())
     }
 }

@@ -35,12 +35,15 @@ impl ToTokens for SchematicIoInputReceiver {
 
         let mut data_len = Vec::new();
         let mut data_fields = Vec::new();
+        let mut nested_view_fields = Vec::new();
         let mut construct_data_fields = Vec::new();
+        let mut construct_nested_view_fields = Vec::new();
         let mut instantiate_fields = Vec::new();
         let mut flatten_dir_fields = Vec::new();
         let mut flatten_node_fields = Vec::new();
 
         let data_ident = format_ident!("{}Schematic", ident);
+        let nested_view_ident = format_ident!("Nested{}SchematicView", ident);
 
         for f in fields {
             let field_ident = f
@@ -56,8 +59,14 @@ impl ToTokens for SchematicIoInputReceiver {
             data_fields.push(quote! {
                 #field_vis #field_ident: <#field_ty as #substrate::io::SchematicType>::Data,
             });
+            nested_view_fields.push(quote! {
+                #field_vis #field_ident: #substrate::schematic::NestedView<'a, <#field_ty as #substrate::io::SchematicType>::Data>,
+            });
             construct_data_fields.push(quote! {
                 #field_ident,
+            });
+            construct_nested_view_fields.push(quote! {
+                #field_ident: <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::schematic::HasNestedView>::nested_view(&self.#field_ident, parent),
             });
             instantiate_fields.push(quote! {
                 let (#field_ident, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&self.#field_ident, __substrate_node_ids);
@@ -77,8 +86,13 @@ impl ToTokens for SchematicIoInputReceiver {
 
         tokens.extend(quote! {
             #[allow(missing_docs)]
+            #[derive(Clone)]
             #vis struct #data_ident #ty #wher {
                 #( #data_fields )*
+            }
+            #[allow(missing_docs)]
+            #vis struct #nested_view_ident<'a> {
+                #( #nested_view_fields )*
             }
             impl #imp #substrate::io::FlatLen for #data_ident #ty #wher {
                 fn len(&self) -> usize {
@@ -101,6 +115,18 @@ impl ToTokens for SchematicIoInputReceiver {
                     #( #flatten_node_fields )*
                 }
             }
+
+            // TODO: How to handle generics?
+            impl #imp #substrate::schematic::HasNestedView for #data_ident #ty #wher {
+                type NestedView<'a> = #nested_view_ident<'a>;
+
+                fn nested_view<'a>(&'a self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<'a> {
+                    Self::NestedView {
+                        #( #construct_nested_view_fields )*
+                    }
+                }
+            }
+
             impl #imp #substrate::io::SchematicType for #ident #ty #wher {
                 type Data = #data_ident;
                 fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Data, &'n [#substrate::io::Node]) {

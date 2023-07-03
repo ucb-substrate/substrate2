@@ -1,0 +1,10 @@
+[package]
+name = "pathtree"
+version = "0.0.0"
+edition = "2021"
+description = "An immutable tree data structure for fast path operations"
+license = "BSD-3-Clause"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

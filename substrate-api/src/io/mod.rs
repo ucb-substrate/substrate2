@@ -20,6 +20,7 @@ use crate::{
     error::Result,
     layout::error::LayoutError,
     pdk::layers::{HasPin, LayerId},
+    schematic::{CellId, HasNestedView, InstanceId, InstancePath},
 };
 
 mod impls;
@@ -84,7 +85,7 @@ pub trait HasNameTree {
 /// A schematic hardware type.
 pub trait SchematicType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Data: SchematicData;
+    type Data: SchematicData + HasNestedView + Clone + Send + Sync;
 
     /// Instantiates a schematic data struct with populated nodes.
     ///
@@ -187,6 +188,32 @@ pub struct LayoutPort;
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Node(u32);
 
+/// A nested node within a cell.
+///
+/// Created when accessing nodes from instances propagated through data.
+#[derive(Clone, Debug, Default)]
+pub struct NestedNode {
+    pub(crate) inner: u32,
+    pub(crate) path: InstancePath,
+}
+
+/// A path from a top level cell to a nested node.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct NodePath {
+    id: u32,
+    path: Vec<(CellId, InstanceId)>,
+}
+
+impl NestedNode {
+    /// Returns the path to this node.
+    pub fn path(&self) -> NodePath {
+        NodePath {
+            id: self.inner,
+            path: self.path.iter().copied().collect(),
+        }
+    }
+}
+
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub(crate) enum NodePriority {
@@ -282,8 +309,8 @@ impl NodeContext {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
 /// A layer ID that describes where the components of an [`IoShape`] are drawn.
+#[derive(Debug, Clone, Copy)]
 pub struct IoLayerId {
     drawing: LayerId,
     pin: LayerId,

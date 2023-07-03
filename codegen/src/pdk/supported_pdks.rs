@@ -8,6 +8,8 @@ use syn::{
     token, Error, ItemImpl, Result, Type,
 };
 
+use crate::substrate_ident;
+
 pub struct SupportedPdks(Vec<Ident>);
 
 impl Parse for SupportedPdks {
@@ -66,13 +68,14 @@ impl Parse for PdkImpl {
 }
 
 pub(crate) fn supported_pdks_impl(args: TokenStream, input: TokenStream) -> TokenStream {
+    let substrate = substrate_ident();
     let supported_pdks = parse_macro_input!(args as SupportedPdks).0;
     let input2: proc_macro2::TokenStream = input.clone().into();
     let pdk_impl = parse_macro_input!(input as PdkImpl);
     let placeholder = pdk_impl.placeholder;
 
     quote!(
-        #[::substrate::duplicate::duplicate_item(#placeholder; #( [ #supported_pdks ]; )*)]
+        #[#substrate::duplicate::duplicate_item(#placeholder; #( [ #supported_pdks ]; )*)]
 
         #input2
     )

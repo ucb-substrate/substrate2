@@ -18,6 +18,7 @@ geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
 gds = { version = "0.0.0", registry = "substrate", path = "../gds" }
 opacity = { version = "0.0.0", path = "../libs/opacity", registry = "substrate" }
 scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
+pathtree = { version = "0.0.0", registry = "substrate", path = "../pathtree" }
 
 [dev-dependencies]
 crossbeam-channel = "0.5"
