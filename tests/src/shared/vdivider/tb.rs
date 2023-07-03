@@ -58,13 +58,16 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
 impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
     type Output = ();
     fn run(&self, sim: substrate::simulation::SimController<Spectre>) -> Self::Output {
-        sim.simulate(
-            Opts {},
-            Tran {
-                stop: dec!(1e-9),
-                ..Default::default()
-            },
-        )
-        .expect("failed to run simulation");
+        let output = sim
+            .simulate(
+                Opts {},
+                Tran {
+                    stop: dec!(1e-9),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation");
+
+        println!("Output:\n{:?}", output);
     }
 }
