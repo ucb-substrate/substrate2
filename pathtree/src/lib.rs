@@ -1,4 +1,7 @@
-//! A tree data structure for storing paths without mutation.
+//! An immutable tree data structure for fast path operations.
+//!
+//! [`PathTree`] is inexpensive to clone and supports prepending and appending paths to one
+//! another. Useful when several objects in a tree need to store their path relative to the root.
 #![warn(missing_docs)]
 
 use std::sync::Arc;
