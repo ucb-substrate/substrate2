@@ -9,9 +9,10 @@ use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
-use substrate_api::simulation::{Analysis, SimulationConfig, Simulator, Supports};
+use substrate::simulation::{Analysis, SimulationConfig, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
 
+pub mod blocks;
 pub mod error;
 pub mod netlist;
 pub(crate) mod templates;
@@ -188,7 +189,7 @@ impl Simulator for Spectre {
     type Error = Error;
     fn simulate_inputs(
         &self,
-        config: &substrate_api::simulation::SimulationConfig,
+        config: &substrate::simulation::SimulationConfig,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {

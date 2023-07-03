@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::block::Block;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
-use crate::schematic::{CellBuilder, HasSchematic};
+use crate::schematic::{HasSchematic, TestbenchCellBuilder};
 
 /// A single simulator analysis.
 pub trait Analysis {
@@ -126,8 +126,7 @@ pub trait HasTestbenchSchematicImpl<PDK: Pdk, S: Simulator>: Block + HasSchemati
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Data,
-        simulator: &S,
-        cell: &mut CellBuilder<PDK, Self>,
+        cell: &mut TestbenchCellBuilder<PDK, S, Self>,
     ) -> crate::error::Result<Self::Data>;
 }
 

@@ -1480,7 +1480,7 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
- "substrate_api",
+ "substrate",
  "tera",
  "thiserror",
  "tracing",
