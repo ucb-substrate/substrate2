@@ -8,8 +8,8 @@ env:
 
 jobs:
   coverage:
-    name: overage
-    runs-on: ubuntu-22.04
+    name: coverage
+    runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
