@@ -2,6 +2,7 @@
 
 pub mod conv;
 
+use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -27,7 +28,7 @@ pub trait HasSchematic: Block {
     ///
     /// Common uses include storing important instances for access during simulation and any
     /// important computations that may impact blocks that instantiate this block.
-    type Data: Send + Sync;
+    type Data: Data;
 }
 
 /// A block that has a schematic for process design kit `PDK`.
@@ -44,6 +45,9 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 #[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
+    /// Dummy path stub containing just this builder's cell ID to ensure that paths are correctly propagated.
+    pub(crate) path: InstancePath,
+    pub(crate) next_instance_id: InstanceId,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
     pub(crate) instances: Vec<RawInstance>,
@@ -109,11 +113,18 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         self.node_names
             .extend(connections.iter().copied().zip(names));
 
-        let inst = Instance { cell, io: io_data };
+        self.next_instance_id.increment();
+
+        let inst = Instance {
+            id: self.next_instance_id,
+            path: self.path.clone(),
+            cell,
+            io: io_data,
+        };
 
         let raw = RawInstance {
             name: arcstr::literal!("unnamed"),
-            child: inst.cell().raw.clone(),
+            child: inst.cell().raw,
             connections,
         };
         self.instances.push(raw);
@@ -180,7 +191,13 @@ pub(crate) struct RawInstance {
 
 /// A context-wide unique identifier for a cell.
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub struct CellId(usize);
+pub struct CellId(u64);
+
+impl CellId {
+    pub(crate) fn increment(&mut self) {
+        *self = CellId(self.0 + 1)
+    }
+}
 
 /// A raw (weakly-typed) cell.
 #[allow(dead_code)]
@@ -195,9 +212,22 @@ pub(crate) struct RawCell {
     roots: HashMap<Node, Node>,
 }
 
+/// A cell-wide unique identifier for an instance.
+#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub struct InstanceId(pub(crate) u64);
+
+impl InstanceId {
+    pub(crate) fn increment(&mut self) {
+        *self = InstanceId(self.0 + 1)
+    }
+}
+
 /// An instance of a schematic cell.
 #[allow(dead_code)]
 pub struct Instance<T: HasSchematic> {
+    id: InstanceId,
+    /// Head of linked list path to this instance relative to the current cell.
+    path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
     cell: Arc<OnceCell<Result<Cell<T>>>>,
@@ -208,14 +238,16 @@ impl<T: HasSchematic> Instance<T> {
     pub fn io(&self) -> &<T::Io as SchematicType>::Data {
         &self.io
     }
-}
 
-impl<T: HasSchematic> Instance<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> &Result<Cell<T>> {
-        self.cell.wait()
+    pub fn try_cell(&self) -> Result<NestedView<'_, Cell<T>>> {
+        self.cell
+            .wait()
+            .as_ref()
+            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map_err(|e| e.clone())
     }
 
     /// Returns the underlying [`Cell`].
@@ -223,8 +255,8 @@ impl<T: HasSchematic> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> &Cell<T> {
-        self.try_cell().as_ref().unwrap()
+    pub fn cell(&self) -> NestedView<Cell<T>> {
+        self.try_cell().unwrap()
     }
 }
 
@@ -259,20 +291,6 @@ pub struct SchematicContext {
     pub(crate) gen: Generator,
 }
 
-impl std::ops::Add<usize> for CellId {
-    type Output = CellId;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        CellId(self.0 + rhs)
-    }
-}
-
-impl std::ops::AddAssign<usize> for CellId {
-    fn add_assign(&mut self, rhs: usize) {
-        *self = *self + rhs;
-    }
-}
-
 impl SchematicContext {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
@@ -280,8 +298,196 @@ impl SchematicContext {
     }
 
     pub(crate) fn get_id(&mut self) -> CellId {
-        let tmp = self.next_id;
-        self.next_id += 1;
-        tmp
+        self.next_id.increment();
+        self.next_id
+    }
+}
+
+/// A path to an instance from a top level cell.
+pub type InstancePath = PathTree<(CellId, InstanceId)>;
+
+/// Data that can be stored in [`HasSchematic::Data`](crate::schematic::HasSchematic::Data).
+pub trait Data: HasNestedView + Send + Sync {}
+impl<T: HasNestedView + Send + Sync> Data for T {}
+
+/// An object that can be nested in the data of a cell.
+///
+/// Stores a path of instances up to the current cell using a linked list.
+pub trait HasNestedView {
+    /// A view of the nested object.
+    type NestedView<'a>
+    where
+        Self: 'a;
+
+    /// Creates a nested view of the object given a parent node.
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_>;
+}
+
+impl<T> HasNestedView for &T
+where
+    T: HasNestedView,
+{
+    type NestedView<'a>
+    = T::NestedView<'a> where Self: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        (*self).nested_view(parent)
+    }
+}
+
+// TODO: Potentially use lazy evaluation instead of cloning.
+impl<T: HasNestedView> HasNestedView for Vec<T> {
+    type NestedView<'a> = Vec<NestedView<'a, T>> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.iter().map(|elem| elem.nested_view(parent)).collect()
+    }
+}
+
+/// The associated nested view of an object.
+pub type NestedView<'a, T> = <T as HasNestedView>::NestedView<'a>;
+
+/// A view of a nested cell.
+///
+/// Created when accessing a cell from one of its instantiations in another cell.
+pub struct NestedCellView<'a, T: HasSchematic> {
+    /// The block from which this cell was generated.
+    pub block: &'a T,
+    /// Data returned by the cell's schematic generator.
+    pub data: NestedView<'a, T::Data>,
+    pub(crate) raw: Arc<RawCell>,
+}
+
+/// A view of a nested instance.
+///
+/// Created when accessing an instance stored in the data of a nested cell.
+pub struct NestedInstanceView<'a, T: HasSchematic> {
+    id: InstanceId,
+    /// Head of linked list path to this instance relative to the current cell.
+    path: InstancePath,
+    /// The cell's input/output interface.
+    io: &'a <T::Io as SchematicType>::Data,
+    cell: Arc<OnceCell<Result<Cell<T>>>>,
+}
+
+/// An owned nested instance created by cloning the instance referenced by a
+/// [`NestedInstanceView`].
+///
+/// A [`NestedInstance`] can be used to store a nested instance directly in a cell's data for
+/// easier access.
+pub struct NestedInstance<T: HasSchematic> {
+    id: InstanceId,
+    /// Head of linked list path to this instance relative to the current cell.
+    path: InstancePath,
+    /// The cell's input/output interface.
+    io: <T::Io as SchematicType>::Data,
+    cell: Arc<OnceCell<Result<Cell<T>>>>,
+}
+
+impl HasNestedView for () {
+    type NestedView<'a> = ();
+
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {}
+}
+
+impl<T: HasSchematic> HasNestedView for Cell<T> {
+    type NestedView<'a> = NestedCellView<'a, T>;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        Self::NestedView {
+            block: &self.block,
+            data: self.data.nested_view(parent),
+            raw: self.raw.clone(),
+        }
+    }
+}
+
+impl<T: HasSchematic> HasNestedView for Instance<T> {
+    type NestedView<'a> = NestedInstanceView<'a, T>;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        Self::NestedView {
+            id: self.id,
+            path: self.path.prepend(parent),
+            io: &self.io,
+            cell: self.cell.clone(),
+        }
+    }
+}
+
+impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
+    /// The ports of this instance.
+    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        self.io.nested_view(&self.path)
+    }
+
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> Result<NestedView<'_, Cell<T>>> {
+        self.cell
+            .wait()
+            .as_ref()
+            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map_err(|e| e.clone())
+    }
+
+    /// Returns the underlying [`Cell`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn cell(&self) -> NestedView<Cell<T>> {
+        self.try_cell().unwrap()
+    }
+
+    /// Creates an owned [`NestedInstance`] that can be stored in propagated schematic data.
+    pub fn to_owned(&self) -> NestedInstance<T> {
+        NestedInstance {
+            id: self.id,
+            path: self.path.clone(),
+            io: (*self.io).clone(),
+            cell: self.cell.clone(),
+        }
+    }
+}
+
+impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
+    type NestedView<'a> = NestedInstanceView<'a, T>;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        Self::NestedView {
+            id: self.id,
+            path: self.path.prepend(parent),
+            io: &self.io,
+            cell: self.cell.clone(),
+        }
+    }
+}
+
+impl<T: HasSchematic> NestedInstance<T> {
+    /// The ports of this instance.
+    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        self.io.nested_view(&self.path)
+    }
+
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> Result<NestedView<'_, Cell<T>>> {
+        self.cell
+            .wait()
+            .as_ref()
+            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map_err(|e| e.clone())
+    }
+
+    /// Returns the underlying [`Cell`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn cell(&self) -> NestedView<Cell<T>> {
+        self.try_cell().unwrap()
     }
 }

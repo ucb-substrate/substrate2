@@ -5,6 +5,7 @@ use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
 
 use crate::layout::error::LayoutError;
+use crate::schematic::HasNestedView;
 
 use super::*;
 
@@ -197,7 +198,44 @@ impl Flatten<Node> for Node {
     }
 }
 
+impl HasNestedView for Node {
+    type NestedView<'a> = NestedNode;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        NestedNode {
+            inner: self.0,
+            path: parent.clone(),
+        }
+    }
+}
+
+impl HasNestedView for NestedNode {
+    type NestedView<'a> = NestedNode;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        NestedNode {
+            inner: self.inner,
+            path: self.path.prepend(parent),
+        }
+    }
+}
+
 impl Undirected for Node {}
+
+impl FlatLen for NestedNode {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Node> for NestedNode {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(Node(self.inner)));
+    }
+}
 
 impl FlatLen for IoShape {
     fn len(&self) -> usize {
@@ -399,6 +437,14 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
     }
 }
 
+impl<T: Undirected + HasNestedView> HasNestedView for Input<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
+    }
+}
+
 impl<T> SchematicType for Output<T>
 where
     T: Undirected + SchematicType,
@@ -457,12 +503,21 @@ impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
         output.extend(std::iter::repeat(Direction::Output).take(self.0.len()))
     }
 }
+
 impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
     {
         self.0.flatten(output);
+    }
+}
+
+impl<T: Undirected + HasNestedView> HasNestedView for Output<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
     }
 }
 
@@ -562,6 +617,15 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
         self.0.flatten(output);
     }
 }
+
+impl<T: Undirected + SchematicData + HasNestedView> HasNestedView for InOut<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
+    }
+}
+
 impl<T: Undirected> AsRef<T> for InOut<T> {
     fn as_ref(&self) -> &T {
         &self.0
@@ -715,6 +779,21 @@ impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
         E: Extend<Node>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for ArrayData<T> {
+    type NestedView<'a> = ArrayData<T::NestedView<'a>> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        ArrayData {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem| elem.nested_view(parent))
+                .collect(),
+            ty_len: self.ty_len,
+        }
     }
 }
 

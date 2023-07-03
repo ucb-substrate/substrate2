@@ -29,7 +29,8 @@ use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 use crate::schematic::{
-    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, SchematicContext,
+    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, InstanceId,
+    InstancePath, SchematicContext,
 };
 use crate::simulation::{
     HasTestbenchSchematicImpl, SimController, SimulationConfig, Simulator, Testbench,
@@ -364,6 +365,8 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
     let cell_builder = SchematicCellBuilder {
         id,
+        path: InstancePath::from_iter([(id, InstanceId(0))]),
+        next_instance_id: InstanceId(0),
         cell_name,
         ctx: context,
         node_ctx,
