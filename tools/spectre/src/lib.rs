@@ -1,4 +1,5 @@
 //! Spectre plugin for Substrate.
+#![warn(missing_docs)]
 
 use std::collections::HashMap;
 use std::io::{BufWriter, Write};
@@ -18,12 +19,17 @@ pub(crate) mod templates;
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct Tran {
+    /// Stop time (sec).
     pub stop: Decimal,
+    /// Start time (sec).
+    ///
+    /// Defaults to 0.
     pub start: Option<Decimal>,
 }
 
 /// The result of a transient analysis.
 pub struct TranOutput {
+    /// A map from signal name to values.
     pub values: HashMap<String, Vec<f64>>,
 }
 
@@ -31,11 +37,15 @@ impl Analysis for Tran {
     type Output = TranOutput;
 }
 
+/// Inputs directly supported by Spectre.
 pub enum Input {
+    /// Transient simulation input.
     Tran(Tran),
 }
 
+/// Outputs directly produced by Spectre.
 pub enum Output {
+    /// Transient simulation output.
     Tran(TranOutput),
 }
 
@@ -80,7 +90,7 @@ pub struct Spectre {}
 pub struct Opts {}
 
 impl Spectre {
-    pub fn simulate(
+    fn simulate(
         &self,
         config: &SimulationConfig,
         _options: Opts,
@@ -101,8 +111,6 @@ impl Spectre {
 
         w.flush()?;
         drop(w);
-
-        // TODO run simulation and parse outputs
 
         let output_dir = config.work_dir.join("psf/");
         let log = config.work_dir.join("spectre.log");

@@ -10,6 +10,7 @@ use once_cell::sync::OnceCell;
 
 use tracing::{span, Level};
 
+use crate::block::Block;
 use crate::error::Result;
 use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
@@ -229,41 +230,11 @@ impl<PDK: Pdk> Context<PDK> {
         &mut self,
         block: T,
     ) -> Arc<OnceCell<Result<SchematicCell<T>>>> {
-        let context_clone = self.clone();
-        let mut inner_mut = self.inner.write().unwrap();
-        let id = inner_mut.schematic.get_id();
-        inner_mut.schematic.gen.generate(block.clone(), move || {
-            let mut node_ctx = NodeContext::new();
-            let io = block.io();
-            let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
-            let (io_data, nodes_rest) = io.instantiate(&nodes);
-            assert!(nodes_rest.is_empty());
-            let cell_name = block.name();
-
-            let names = io.flat_names(arcstr::literal!("io"));
-            let dirs = io.flatten_vec();
-            assert_eq!(nodes.len(), names.len());
-            assert_eq!(nodes.len(), dirs.len());
-
-            let ports = nodes
-                .iter()
-                .copied()
-                .zip(dirs)
-                .map(|(node, direction)| Port::new(node, direction))
-                .collect();
-
-            let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
-            let mut cell_builder = SchematicCellBuilder {
-                id,
-                cell_name,
-                ctx: context_clone,
-                node_ctx,
-                instances: Vec::new(),
-                primitives: Vec::new(),
-                node_names,
-                phantom: PhantomData,
-                ports,
-            };
+        let context = self.clone();
+        let mut inner = self.inner.write().unwrap();
+        let id = inner.schematic.get_id();
+        inner.schematic.gen.generate(block.clone(), move || {
+            let (mut cell_builder, io_data) = prepare_cell_builder(id, context, &block);
             let data = block.schematic(&io_data, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
@@ -280,42 +251,12 @@ impl<PDK: Pdk> Context<PDK> {
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
     {
-        let context_clone = self.clone();
-        let mut inner_mut = self.inner.write().unwrap();
-        let id = inner_mut.schematic.get_id();
         let simulator = self.get_simulator::<S>();
-        inner_mut.schematic.gen.generate(block.clone(), move || {
-            let mut node_ctx = NodeContext::new();
-            let io = block.io();
-            let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
-            let (io_data, nodes_rest) = io.instantiate(&nodes);
-            assert!(nodes_rest.is_empty());
-            let cell_name = block.name();
-
-            let names = io.flat_names(arcstr::literal!("io"));
-            let dirs = io.flatten_vec();
-            assert_eq!(nodes.len(), names.len());
-            assert_eq!(nodes.len(), dirs.len());
-
-            let ports = nodes
-                .iter()
-                .copied()
-                .zip(dirs)
-                .map(|(node, direction)| Port::new(node, direction))
-                .collect();
-
-            let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
-            let mut cell_builder = SchematicCellBuilder {
-                id,
-                cell_name,
-                ctx: context_clone,
-                node_ctx,
-                instances: Vec::new(),
-                primitives: Vec::new(),
-                node_names,
-                phantom: PhantomData,
-                ports,
-            };
+        let context = self.clone();
+        let mut inner = self.inner.write().unwrap();
+        let id = inner.schematic.get_id();
+        inner.schematic.gen.generate(block.clone(), move || {
+            let (mut cell_builder, io_data) = prepare_cell_builder(id, context, &block);
             let data = block.schematic(&io_data, &simulator, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
@@ -325,7 +266,8 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> scir::Library {
         let cell = self.generate_schematic(block);
         let cell = cell.wait().as_ref().unwrap();
-        cell.raw.to_scir_lib(false)
+        cell.raw
+            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::No)
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -336,7 +278,8 @@ impl<PDK: Pdk> Context<PDK> {
     {
         let cell = self.generate_testbench_schematic(block);
         let cell = cell.wait().as_ref().unwrap();
-        cell.raw.to_scir_lib(true)
+        cell.raw
+            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
     }
 
     /// Installs a new layer set in the context.
@@ -389,4 +332,47 @@ impl ContextInner {
             layout: Default::default(),
         }
     }
+}
+
+fn prepare_cell_builder<PDK: Pdk, T: Block>(
+    id: crate::schematic::CellId,
+    context: Context<PDK>,
+    block: &T,
+) -> (
+    SchematicCellBuilder<PDK, T>,
+    <<T as Block>::Io as SchematicType>::Data,
+) {
+    let mut node_ctx = NodeContext::new();
+    let io = block.io();
+    let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
+    let (io_data, nodes_rest) = io.instantiate(&nodes);
+    assert!(nodes_rest.is_empty());
+    let cell_name = block.name();
+
+    let names = io.flat_names(arcstr::literal!("io"));
+    let dirs = io.flatten_vec();
+    assert_eq!(nodes.len(), names.len());
+    assert_eq!(nodes.len(), dirs.len());
+
+    let ports = nodes
+        .iter()
+        .copied()
+        .zip(dirs)
+        .map(|(node, direction)| Port::new(node, direction))
+        .collect();
+
+    let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
+    let cell_builder = SchematicCellBuilder {
+        id,
+        cell_name,
+        ctx: context,
+        node_ctx,
+        instances: Vec::new(),
+        primitives: Vec::new(),
+        node_names,
+        phantom: PhantomData,
+        ports,
+    };
+
+    (cell_builder, io_data)
 }
