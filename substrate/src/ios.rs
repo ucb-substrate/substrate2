@@ -29,3 +29,12 @@ pub struct TestbenchIo {
     /// The global ground net.
     pub vss: InOut<Signal>,
 }
+
+/// The interface for 2-terminal voltage sources.
+#[derive(Debug, Default, Clone, Io)]
+pub struct VsourceIo {
+    /// The positive terminal.
+    pub p: InOut<Signal>,
+    /// The negative terminal.
+    pub n: InOut<Signal>,
+}

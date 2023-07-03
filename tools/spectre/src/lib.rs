@@ -9,15 +9,17 @@ use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
-use substrate_api::simulation::{Analysis, SimulationConfig, Simulator, Supports};
+use serde::{Deserialize, Serialize};
+use substrate::simulation::{Analysis, SimulationConfig, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
 
+pub mod blocks;
 pub mod error;
 pub mod netlist;
 pub(crate) mod templates;
 
 /// A transient analysis.
-#[derive(Clone, Default, Debug, Eq, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Tran {
     /// Stop time (sec).
     pub stop: Decimal,
@@ -28,6 +30,7 @@ pub struct Tran {
 }
 
 /// The result of a transient analysis.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranOutput {
     /// A map from signal name to values.
     pub values: HashMap<String, Vec<f64>>,
@@ -38,12 +41,14 @@ impl Analysis for Tran {
 }
 
 /// Inputs directly supported by Spectre.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Input {
     /// Transient simulation input.
     Tran(Tran),
 }
 
 /// Outputs directly produced by Spectre.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Output {
     /// Transient simulation output.
     Tran(TranOutput),
@@ -188,7 +193,7 @@ impl Simulator for Spectre {
     type Error = Error;
     fn simulate_inputs(
         &self,
-        config: &substrate_api::simulation::SimulationConfig,
+        config: &substrate::simulation::SimulationConfig,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {

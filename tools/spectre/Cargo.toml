@@ -15,5 +15,5 @@ serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 
 scir = { version = "0.0.0", registry = "substrate", path = "../../scir" }
-substrate_api = { version = "0.0.0", registry = "substrate", path = "../../substrate-api" }
+substrate = { version = "0.0.0", registry = "substrate", path = "../../substrate" }
 opacity = { version = "0.0.0", path = "../../libs/opacity", registry = "substrate" }
