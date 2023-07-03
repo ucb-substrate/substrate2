@@ -57,6 +57,14 @@ impl ScirLibConversion {
             top,
         })
     }
+
+    pub(crate) fn add_cell(&mut self, id: CellId, conv: ScirCellConversion) {
+        self.cells.insert(id, conv);
+    }
+
+    pub(crate) fn set_top(&mut self, id: CellId) {
+        self.cells.get_mut(&id).unwrap().top = true;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +132,8 @@ impl RawCell {
         let mut conv = ScirLibConversion::new();
         let id = self.to_scir_cell(&mut lib, &mut cells, &mut conv);
         lib.set_top(id, testbench.as_bool());
+        conv.set_top(self.id);
+
         RawLib { lib, conv }
     }
 
@@ -194,6 +204,7 @@ impl RawCell {
 
         let id = lib.add_cell(cell);
         cells.insert(self.id, id);
+        conv.add_cell(self.id, cell_conv);
 
         id
     }
