@@ -54,7 +54,7 @@ jobs:
           cargo hack --all rustdoc --all-features -- -D warnings
   test:
     name: test
-    runs-on: ubuntu-22.04
+    runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
