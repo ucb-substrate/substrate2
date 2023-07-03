@@ -78,7 +78,7 @@ impl<'a, W: Write> Netlister<'a, W> {
 
         match cell.contents() {
             Opacity::Opaque(s) => {
-                writeln!(self.out, "{}\n", s)?;
+                writeln!(self.out, "{}", s)?;
             }
             Opacity::Clear(contents) => {
                 for inst in contents.instances() {
