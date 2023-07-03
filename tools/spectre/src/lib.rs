@@ -146,9 +146,10 @@ impl Spectre {
                     let mut values = HashMap::new();
                     for trace in ast.traces.iter() {
                         match trace {
-                            Trace::Group(_) => {
-                                tracing::error!("error reading PSF file: found a trace group; expected a trace signal");
-                                return Err(Error::PsfParse);
+                            Trace::Group(g) => {
+                                for s in g.signals.iter() {
+                                    tid_map.insert(s.id, s.name);
+                                }
                             }
                             Trace::Signal(s) => {
                                 tid_map.insert(s.id, s.name);
