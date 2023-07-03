@@ -88,7 +88,7 @@ impl Spectre {
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&config.work_dir)?;
         let netlist = config.work_dir.join("netlist.scs");
-        let mut f = std::fs::File::create(&netlist)?;
+        let f = std::fs::File::create(&netlist)?;
         let mut w = BufWriter::new(f);
         let netlister = Netlister::new(&config.lib, &mut w);
         netlister.export()?;
