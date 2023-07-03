@@ -47,3 +47,16 @@ fn prepend_works() {
     let full_path_vec: Vec<_> = full_path.iter().copied().collect();
     assert_eq!(full_path_vec, (1..9).rev().collect::<Vec<_>>());
 }
+
+#[test]
+fn iter_ops_work() {
+    let path = PathTree::from_iter(vec![5, 6, 7, 8]);
+
+    let path = path.append_segment(9);
+
+    let mut i = 5;
+    for val in &path {
+        assert_eq!(i, *val);
+        i += 1;
+    }
+}

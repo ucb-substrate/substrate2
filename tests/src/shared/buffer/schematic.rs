@@ -111,7 +111,7 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
         }
 
         cell.connect(io.din, buffers[0].io().din);
-        cell.connect(io.dout, buffers[self.n - 1].io().din);
+        cell.connect(io.dout, buffers[self.n - 1].io().dout);
 
         for i in 1..self.n {
             cell.connect(buffers[i].io().din, buffers[i - 1].io().dout);

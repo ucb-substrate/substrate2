@@ -44,7 +44,6 @@ jobs:
               --repo-url ${{ github.repository }}
           done
   check-workspace:
-    name: Check workspace
     uses: ./.github/workflows/check-workspace.yml
   publish-crates:
     name: Publish crates

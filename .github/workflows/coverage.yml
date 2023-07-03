@@ -8,8 +8,8 @@ env:
 
 jobs:
   coverage:
-    name: Report code coverage
-    runs-on: ubuntu-22.04
+    name: coverage
+    runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -17,11 +17,6 @@ jobs:
         id: toolchain
         with:
           toolchain: nightly
-      - name: Cache workspace
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
-          workspaces: ". -> target"
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:

@@ -19,3 +19,7 @@ scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
 spice = { version = "0.0.0", registry = "substrate", path = "../netlist/spice" }
 spectre = { version = "0.0.0", registry = "substrate", path = "../tools/spectre" }
 sky130pdk = { version = "0.0.0", registry = "substrate", path = "../pdks/sky130pdk" }
+
+[features]
+spectre = []
+

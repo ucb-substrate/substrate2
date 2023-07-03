@@ -11,3 +11,5 @@ pub mod pdk;
 #[cfg(test)]
 pub mod schematic;
 pub mod shared;
+#[cfg(test)]
+pub mod sim;

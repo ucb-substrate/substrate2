@@ -45,6 +45,8 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 #[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
+    /// Dummy path stub containing just this builder's cell ID to ensure that paths are correctly propagated.
+    pub(crate) path: InstancePath,
     pub(crate) next_instance_id: InstanceId,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
@@ -115,7 +117,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
         let inst = Instance {
             id: self.next_instance_id,
-            path: InstancePath::empty(),
+            path: self.path.clone(),
             cell,
             io: io_data,
         };
@@ -244,7 +246,7 @@ impl<T: HasSchematic> Instance<T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment(self.id)))
+            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
             .map_err(|e| e.clone())
     }
 
@@ -302,7 +304,7 @@ impl SchematicContext {
 }
 
 /// A path to an instance from a top level cell.
-pub type InstancePath = PathTree<InstanceId>;
+pub type InstancePath = PathTree<(CellId, InstanceId)>;
 
 /// Data that can be stored in [`HasSchematic::Data`](crate::schematic::HasSchematic::Data).
 pub trait Data: HasNestedView + Send + Sync {}
@@ -426,7 +428,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment(self.id)))
+            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
             .map_err(|e| e.clone())
     }
 
@@ -476,7 +478,7 @@ impl<T: HasSchematic> NestedInstance<T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment(self.id)))
+            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
             .map_err(|e| e.clone())
     }
 

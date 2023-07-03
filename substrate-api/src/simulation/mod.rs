@@ -7,6 +7,11 @@ use std::sync::Arc;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
+use crate::block::Block;
+use crate::io::SchematicType;
+use crate::pdk::Pdk;
+use crate::schematic::{CellBuilder, HasSchematic};
+
 /// A single simulator analysis.
 pub trait Analysis {
     /// The output produced by this analysis.
@@ -14,13 +19,15 @@ pub trait Analysis {
 }
 
 /// A circuit simulator.
-pub trait Simulator: Send + Sync {
+pub trait Simulator: Any + Send + Sync {
     /// The input type this simulator accepts.
     type Input;
     /// Options shared across all analyses for a given simulator run.
     type Options;
     /// The output type produced by this simulator.
     type Output;
+    /// The error type returned by the simulator.
+    type Error;
 
     /// Simulates the given set of analyses.
     fn simulate_inputs(
@@ -28,19 +35,24 @@ pub trait Simulator: Send + Sync {
         config: &SimulationConfig,
         options: Self::Options,
         input: Vec<Self::Input>,
-    ) -> Vec<Self::Output>;
+    ) -> Result<Vec<Self::Output>, Self::Error>;
 
     /// Simulates the given, possibly composite, analysis.
-    fn simulate<A>(&self, config: &SimulationConfig, options: Self::Options, input: A) -> A::Output
+    fn simulate<A>(
+        &self,
+        config: &SimulationConfig,
+        options: Self::Options,
+        input: A,
+    ) -> Result<A::Output, Self::Error>
     where
         A: Analysis + SupportedBy<Self>,
         Self: Sized,
     {
         let mut inputs = Vec::new();
         input.into_input(&mut inputs);
-        let output = self.simulate_inputs(config, options, inputs);
+        let output = self.simulate_inputs(config, options, inputs)?;
         let mut output = output.into_iter();
-        A::from_output(&mut output)
+        Ok(A::from_output(&mut output))
     }
 }
 
@@ -48,7 +60,8 @@ pub trait Simulator: Send + Sync {
 pub struct SimulationConfig {
     /// The simulator's intended working directory.
     pub work_dir: PathBuf,
-    // TODO: SCIR Library
+    /// The SCIR library to simulate.
+    pub lib: scir::Library,
 }
 
 /// Indicates that a simulator supports a certain analysis.
@@ -84,8 +97,8 @@ where
 
 /// Controls simulation options.
 pub struct SimController<S> {
-    simulator: Arc<S>,
-    config: SimulationConfig,
+    pub(crate) simulator: Arc<S>,
+    pub(crate) config: SimulationConfig,
 }
 
 impl<S: Simulator> SimController<S> {
@@ -94,17 +107,28 @@ impl<S: Simulator> SimController<S> {
         self,
         options: S::Options,
         input: A,
-    ) -> A::Output {
+    ) -> Result<A::Output, S::Error> {
         self.simulator.simulate(&self.config, options, input)
     }
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<PDK, S: Simulator> {
+pub trait Testbench<PDK: Pdk, S: Simulator>: HasTestbenchSchematicImpl<PDK, S> {
     /// The output produced by this testbench.
     type Output: Any + Serialize + Deserialize<'static>;
     /// Run the testbench using the given simulation controller.
     fn run(&self, sim: SimController<S>) -> Self::Output;
+}
+
+/// A testbench block that has a schematic compatible with the given PDK and simulator.
+pub trait HasTestbenchSchematicImpl<PDK: Pdk, S: Simulator>: Block + HasSchematic {
+    /// Generates the block's schematic.
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Data,
+        simulator: &S,
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> crate::error::Result<Self::Data>;
 }
 
 #[impl_for_tuples(32)]

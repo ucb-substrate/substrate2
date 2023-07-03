@@ -111,6 +111,25 @@ impl<T> PathTree<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a PathTree<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<A> FromIterator<A> for PathTree<A> {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        let mut tree = PathTree::empty();
+        for elem in iter {
+            tree = tree.append_segment(elem);
+        }
+        tree
+    }
+}
+
 /// An iterator over a [`PathTree`].
 pub struct Iter<'a, T> {
     stack: Vec<&'a PathTree<T>>,

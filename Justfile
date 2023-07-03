@@ -22,7 +22,7 @@ check-fmt:
 
 # Runs tests
 test:
-  cargo test --locked --all-features
+  cargo test --locked
 
 check-all:
     cargo hack --feature-powerset clippy --locked -- -D warnings

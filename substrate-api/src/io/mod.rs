@@ -20,7 +20,7 @@ use crate::{
     error::Result,
     layout::error::LayoutError,
     pdk::layers::{HasPin, LayerId},
-    schematic::{HasNestedView, InstanceId, InstancePath},
+    schematic::{CellId, HasNestedView, InstanceId, InstancePath},
 };
 
 mod impls;
@@ -201,7 +201,7 @@ pub struct NestedNode {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NodePath {
     id: u32,
-    path: Vec<InstanceId>,
+    path: Vec<(CellId, InstanceId)>,
 }
 
 impl NestedNode {

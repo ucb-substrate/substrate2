@@ -8,16 +8,46 @@ use crate::io::Node;
 
 use super::{CellId, RawCell};
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub(crate) enum ExportAsTestbench {
+    No,
+    Yes,
+}
+
+impl ExportAsTestbench {
+    pub fn as_bool(&self) -> bool {
+        match *self {
+            Self::No => false,
+            Self::Yes => true,
+        }
+    }
+}
+
+impl From<bool> for ExportAsTestbench {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Yes
+        } else {
+            Self::No
+        }
+    }
+}
+
 impl RawCell {
     /// Export this cell and all subcells as a SCIR library.
-    pub fn to_scir_lib(&self) -> scir::Library {
+    pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> scir::Library {
         let mut lib = Library::new(self.name.clone());
         let mut cells = HashMap::new();
-        self.to_scir_cell(&mut lib, &mut cells);
+        let id = self.to_scir_cell(&mut lib, &mut cells);
+        lib.set_top(id, testbench.as_bool());
         lib
     }
 
-    fn to_scir_cell(&self, lib: &mut Library, cells: &mut HashMap<CellId, ScirCellId>) {
+    fn to_scir_cell(
+        &self,
+        lib: &mut Library,
+        cells: &mut HashMap<CellId, ScirCellId>,
+    ) -> ScirCellId {
         let mut cell = Cell::new(self.name.clone());
 
         let mut nodes = HashMap::new();
@@ -76,6 +106,8 @@ impl RawCell {
 
         let id = lib.add_cell(cell);
         cells.insert(self.id, id);
+
+        id
     }
 
     /// The name associated with the given node.

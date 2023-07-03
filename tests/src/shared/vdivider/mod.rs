@@ -7,6 +7,8 @@ use substrate::pdk::Pdk;
 use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, PrimitiveDevice};
 use substrate::Io;
 
+pub mod tb;
+
 #[derive(Debug, Default, Clone, Io)]
 pub struct ResistorIo {
     pub p: InOut<Signal>,
