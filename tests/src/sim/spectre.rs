@@ -13,5 +13,7 @@ fn spectre_vdivider_tran() {
         .pdk(Sky130Pdk::new())
         .with_simulator(Spectre::default())
         .build();
-    ctx.simulate(VdividerTb, sim_dir);
+    let output = ctx.simulate(VdividerTb, sim_dir);
+
+    println!("{:?}", output.values);
 }

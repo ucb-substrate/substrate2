@@ -1,6 +1,6 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spectre::{Opts, Spectre, Tran};
+use spectre::{Opts, Spectre, Tran, TranOutput};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::ios::TestbenchIo;
@@ -51,7 +51,7 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
 }
 
 impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
-    type Output = ();
+    type Output = TranOutput;
     fn run(&self, sim: substrate::simulation::SimController<Spectre>) -> Self::Output {
         sim.simulate(
             Opts {},
@@ -60,6 +60,6 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
                 ..Default::default()
             },
         )
-        .expect("failed to run simulation");
+        .expect("failed to run simulation")
     }
 }

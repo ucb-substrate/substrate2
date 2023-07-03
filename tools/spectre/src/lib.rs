@@ -9,6 +9,7 @@ use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use substrate_api::simulation::{Analysis, SimulationConfig, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
 
@@ -28,6 +29,7 @@ pub struct Tran {
 }
 
 /// The result of a transient analysis.
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TranOutput {
     /// A map from signal name to values.
     pub values: HashMap<String, Vec<f64>>,
