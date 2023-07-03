@@ -5,10 +5,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-url = "2"
 lazycell = "1"
 serde = { version = "1", features = ["derive"] }
 toml_edit = "0.19"
-curl = "0.4"
 log = "0.4"
 toml = "0.7"
