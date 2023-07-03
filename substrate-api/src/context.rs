@@ -386,6 +386,7 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     let cell_builder = SchematicCellBuilder {
         id,
         next_instance_id: InstanceId(0),
+        root: InstancePath::new(id),
         cell_name,
         ctx: context,
         node_ctx,

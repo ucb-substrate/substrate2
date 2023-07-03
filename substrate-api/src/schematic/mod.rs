@@ -46,6 +46,8 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
     pub(crate) next_instance_id: InstanceId,
+    /// The root instance path that all nested paths should be relative to.
+    pub(crate) root: InstancePath,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
     pub(crate) instances: Vec<RawInstance>,
@@ -115,7 +117,9 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
         let inst = Instance {
             id: self.next_instance_id,
-            path: InstancePath::new(self.id)
+            parent: self.root.clone(),
+            path: self
+                .root
                 .append_segment(self.next_instance_id, cell.wait().as_ref().unwrap().raw.id),
             cell,
             io: io_data,
@@ -232,7 +236,9 @@ impl InstanceId {
 #[allow(dead_code)]
 pub struct Instance<T: HasSchematic> {
     id: InstanceId,
-    /// Head of linked list path to this instance relative to the current cell.
+    /// Path of the parent cell.
+    parent: InstancePath,
+    /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
@@ -464,6 +470,8 @@ impl<'a, T: HasSchematic> NestedCellView<'a, T> {
 /// Created when accessing an instance stored in the data of a nested cell.
 pub struct NestedInstanceView<'a, T: HasSchematic> {
     id: InstanceId,
+    /// Path to the parent cell of this instance.
+    parent: InstancePath,
     /// Head of linked list path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
@@ -478,7 +486,9 @@ pub struct NestedInstanceView<'a, T: HasSchematic> {
 /// easier access.
 pub struct NestedInstance<T: HasSchematic> {
     id: InstanceId,
-    /// Head of linked list path to this instance relative to the current cell.
+    /// Path to the parent cell of this instance.
+    parent: InstancePath,
+    /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
@@ -509,6 +519,7 @@ impl<T: HasSchematic> HasNestedView for Instance<T> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
+            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -519,7 +530,7 @@ impl<T: HasSchematic> HasNestedView for Instance<T> {
 impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// The ports of this instance.
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.path)
+        self.io.nested_view(&self.parent)
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -562,6 +573,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     pub fn to_owned(&self) -> NestedInstance<T> {
         NestedInstance {
             id: self.id,
+            parent: self.parent.clone(),
             path: self.path.clone(),
             io: (*self.io).clone(),
             cell: self.cell.clone(),
@@ -575,6 +587,7 @@ impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
+            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -585,7 +598,7 @@ impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
 impl<T: HasSchematic> NestedInstance<T> {
     /// The ports of this instance.
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.path)
+        self.io.nested_view(&self.parent)
     }
 
     /// Tries to access the underlying [`Cell`].
