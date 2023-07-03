@@ -1,7 +1,7 @@
-use crate::shared::buffer::Buffer;
+use crate::shared::buffer::{Buffer, BufferNxM};
 use substrate::{
-    io::{Node, NodePathView, Signal},
-    schematic::{HasSchematic, HasSchematicImpl, Instance, OwnedInstancePathView, PathView},
+    io::{NestedNode, Node, Signal},
+    schematic::{HasSchematic, HasSchematicImpl, Instance, NestedInstance},
     SchematicData,
 };
 
@@ -11,9 +11,9 @@ use super::{BufferN, Inverter};
 
 #[derive(SchematicData)]
 pub struct InverterData {
-    #[path_view]
+    #[nested]
     pub din: Node,
-    #[path_view]
+    #[nested]
     pub pmos: Instance<PmosA>,
 }
 
@@ -46,9 +46,9 @@ impl HasSchematicImpl<ExamplePdkA> for Inverter {
 
 #[derive(SchematicData)]
 pub struct BufferData {
-    #[path_view]
+    #[nested]
     pub inv1: Instance<Inverter>,
-    #[path_view]
+    #[nested]
     pub inv2: Instance<Inverter>,
 }
 
@@ -87,11 +87,11 @@ impl HasSchematicImpl<ExamplePdkA> for Buffer {
 
 #[derive(SchematicData)]
 pub struct BufferNData {
-    #[path_view]
-    pub bubbled_din: NodePathView,
-    #[path_view]
-    pub bubbled_inv1: OwnedInstancePathView<Inverter>,
-    #[path_view]
+    #[nested]
+    pub bubbled_din: NestedNode,
+    #[nested]
+    pub bubbled_inv1: NestedInstance<Inverter>,
+    #[nested]
     pub buffers: Vec<Instance<Buffer>>,
 }
 
@@ -124,6 +124,47 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
             bubbled_din,
             bubbled_inv1,
             buffers,
+        })
+    }
+}
+
+#[derive(SchematicData)]
+pub struct BufferNxMData {
+    #[nested]
+    pub bubbled_din: NestedNode,
+    #[nested]
+    pub bubbled_inv1: NestedInstance<Inverter>,
+    #[nested]
+    pub buffer_chains: Vec<Instance<BufferN>>,
+}
+
+impl HasSchematic for BufferNxM {
+    type Data = BufferNxMData;
+}
+
+impl HasSchematicImpl<ExamplePdkA> for BufferNxM {
+    fn schematic(
+        &self,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let mut buffer_chains = Vec::new();
+        for i in 0..self.n {
+            let buffer = cell.instantiate(BufferN::new(self.strength, self.n));
+            cell.connect(io.din[i], buffer.io().din);
+            cell.connect(io.dout[i], buffer.io().dout);
+            cell.connect(io.vdd, buffer.io().vdd);
+            cell.connect(io.vss, buffer.io().vss);
+            buffer_chains.push(buffer);
+        }
+
+        let bubbled_din = buffer_chains[0].cell().data.bubbled_din;
+        let bubbled_inv1 = buffer_chains[0].cell().data.bubbled_inv1.to_owned();
+
+        Ok(BufferNxMData {
+            bubbled_din,
+            bubbled_inv1,
+            buffer_chains,
         })
     }
 }

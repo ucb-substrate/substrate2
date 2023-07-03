@@ -5,7 +5,7 @@ use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
 
 use crate::layout::error::LayoutError;
-use crate::schematic::{HasPathView, RetrogradeEntry};
+use crate::schematic::HasNestedView;
 
 use super::*;
 
@@ -27,21 +27,6 @@ where
         E: Extend<Node>,
     {
         (*self).flatten(output)
-    }
-}
-
-impl<T> HasPathView for &T
-where
-    T: HasPathView,
-{
-    type PathView<'a>
-    = T::PathView<'a> where Self: 'a;
-
-    fn path_view<'a>(
-        &'a self,
-        parent: Option<std::sync::Arc<RetrogradeEntry>>,
-    ) -> Self::PathView<'a> {
-        (*self).path_view(parent)
     }
 }
 
@@ -213,42 +198,37 @@ impl Flatten<Node> for Node {
     }
 }
 
-impl HasPathView for Node {
-    type PathView<'a> = NodePathView;
+impl HasNestedView for Node {
+    type NestedView<'a> = NestedNode;
 
-    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
-        NodePathView {
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        NestedNode {
             inner: self.0,
-            parent,
+            path: parent.clone(),
         }
     }
 }
 
-impl HasPathView for NodePathView {
-    type PathView<'a> = NodePathView;
+impl HasNestedView for NestedNode {
+    type NestedView<'a> = NestedNode;
 
-    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
-        NodePathView {
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        NestedNode {
             inner: self.inner,
-            parent: parent.map(|parent| {
-                Arc::new(RetrogradeEntry {
-                    entry: parent.entry.clone(),
-                    child: self.parent.clone(),
-                })
-            }),
+            path: self.path.prepend(parent),
         }
     }
 }
 
 impl Undirected for Node {}
 
-impl FlatLen for NodePathView {
+impl FlatLen for NestedNode {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl Flatten<Node> for NodePathView {
+impl Flatten<Node> for NestedNode {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
@@ -457,11 +437,11 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
     }
 }
 
-impl<T: Undirected + HasPathView> HasPathView for Input<T> {
-    type PathView<'a> = T::PathView<'a> where T: 'a;
+impl<T: Undirected + HasNestedView> HasNestedView for Input<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
-    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
-        self.0.path_view(parent)
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
     }
 }
 
@@ -533,11 +513,11 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
     }
 }
 
-impl<T: Undirected + HasPathView> HasPathView for Output<T> {
-    type PathView<'a> = T::PathView<'a> where T: 'a;
+impl<T: Undirected + HasNestedView> HasNestedView for Output<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
-    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
-        self.0.path_view(parent)
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
     }
 }
 
@@ -638,11 +618,11 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
     }
 }
 
-impl<T: Undirected + SchematicData + HasPathView> HasPathView for InOut<T> {
-    type PathView<'a> = T::PathView<'a> where T: 'a;
+impl<T: Undirected + SchematicData + HasNestedView> HasNestedView for InOut<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
-    fn path_view(&self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'_> {
-        self.0.path_view(parent)
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
     }
 }
 
@@ -802,15 +782,15 @@ impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
     }
 }
 
-impl<T: HasPathView> HasPathView for ArrayData<T> {
-    type PathView<'a> = ArrayData<T::PathView<'a>> where T: 'a;
+impl<T: HasNestedView> HasNestedView for ArrayData<T> {
+    type NestedView<'a> = ArrayData<T::NestedView<'a>> where T: 'a;
 
-    fn path_view<'a>(&'a self, parent: Option<Arc<RetrogradeEntry>>) -> Self::PathView<'a> {
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         ArrayData {
             elems: self
                 .elems
                 .iter()
-                .map(|elem| elem.path_view(parent.clone()))
+                .map(|elem| elem.nested_view(parent))
                 .collect(),
             ty_len: self.ty_len,
         }

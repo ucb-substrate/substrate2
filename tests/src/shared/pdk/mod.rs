@@ -4,9 +4,8 @@ use scir::Expr;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::ios::MosIo;
-use substrate::pdk::layers::{GdsLayerSpec, Layer};
+use substrate::pdk::Pdk;
 use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};
-use substrate::{context::Context, pdk::Pdk};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 

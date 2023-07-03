@@ -4,7 +4,6 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     ops::{Deref, Index},
-    sync::Arc,
 };
 
 use arcstr::ArcStr;
@@ -21,7 +20,7 @@ use crate::{
     error::Result,
     layout::error::LayoutError,
     pdk::layers::{HasPin, LayerId},
-    schematic::{HasPathView, InstanceId, RetrogradeEntry},
+    schematic::{HasNestedView, InstanceId, InstancePath},
 };
 
 mod impls;
@@ -86,7 +85,7 @@ pub trait HasNameTree {
 /// A schematic hardware type.
 pub trait SchematicType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Data: SchematicData + HasPathView + Clone + Send + Sync;
+    type Data: SchematicData + HasNestedView + Clone + Send + Sync;
 
     /// Instantiates a schematic data struct with populated nodes.
     ///
@@ -189,29 +188,28 @@ pub struct LayoutPort;
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Node(u32);
 
+/// A nested node within a cell.
+///
+/// Created when accessing nodes from instances propagated through data.
 #[derive(Clone, Debug, Default)]
-pub struct NodePathView {
+pub struct NestedNode {
     pub(crate) inner: u32,
-    pub(crate) parent: Option<Arc<RetrogradeEntry>>,
+    pub(crate) path: InstancePath,
 }
 
-#[derive(Debug, Clone)]
+/// A path from a top level cell to a nested node.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NodePath {
     id: u32,
-    instances: Vec<InstanceId>,
+    path: Vec<InstanceId>,
 }
 
-impl NodePathView {
+impl NestedNode {
+    /// Returns the path to this node.
     pub fn path(&self) -> NodePath {
-        let mut path = Vec::new();
-        let mut parent = self.parent.as_ref();
-        while let Some(curr) = parent {
-            path.push(curr.entry.id);
-            parent = curr.entry.parent.as_ref();
-        }
         NodePath {
             id: self.inner,
-            instances: path,
+            path: self.path.iter().copied().collect(),
         }
     }
 }

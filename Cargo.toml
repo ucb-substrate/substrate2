@@ -17,6 +17,7 @@ members = [
     "lvs",
     "netlist/spice",
     "par",
+    "pathtree",
     "pdks/sky130pdk",
     "pex",
     "sbm",

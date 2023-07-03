@@ -11,7 +11,7 @@ use crate::shared::{
     pdk::ExamplePdkA,
     vdivider::{PowerIo, Resistor, Vdivider, VdividerIo},
 };
-use crate::shared::buffer::BufferN;
+use crate::shared::buffer::{BufferNxM};
 
 #[test]
 fn can_generate_vdivider_schematic() {
@@ -103,10 +103,15 @@ fn internal_signal_names_preserved() {
 #[test]
 fn nested_node_naming() {
     let mut ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_schematic(BufferN::new(5, 5));
+    let handle = ctx.generate_schematic(BufferNxM::new(5, 5, 5));
     let cell = handle.wait().as_ref().unwrap();
 
-    println!("{:?}", cell.data.buffers[1].cell().data.inv1.cell().data.din.path());
-    println!("{:?}", cell.data.bubbled_inv1.cell().data.din.path());
-    println!("{:?}", cell.data.bubbled_din.path());
+    assert_ne!(cell.data.bubbled_inv1.io().din.path(), cell.data.bubbled_din.path());
+
+    assert_eq!(cell.data.bubbled_inv1.io().din.path(), cell.data.buffer_chains[0].cell().data.bubbled_inv1.io().din.path());
+    assert_eq!(cell.data.bubbled_inv1.io().din.path(), cell.data.buffer_chains[0].cell().data.buffers[0].cell().data.inv1.io().din.path());
+
+    assert_eq!(cell.data.bubbled_din.path(), cell.data.buffer_chains[0].cell().data.bubbled_din.path());
+    assert_eq!(cell.data.bubbled_din.path(), cell.data.buffer_chains[0].cell().data.bubbled_inv1.cell().data.din.path());
+    assert_eq!(cell.data.bubbled_din.path(), cell.data.buffer_chains[0].cell().data.buffers[0].cell().data.inv1.cell().data.din.path());
 }

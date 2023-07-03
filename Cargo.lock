@@ -846,6 +846,10 @@ name = "par"
 version = "0.0.0"
 
 [[package]]
+name = "pathtree"
+version = "0.0.0"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1322,6 +1326,7 @@ dependencies = [
  "geometry",
  "impl-trait-for-tuples",
  "once_cell",
+ "pathtree",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",

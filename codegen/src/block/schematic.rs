@@ -3,6 +3,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::Field;
 
+use crate::substrate_ident;
+
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any))]
 pub struct DataInputReceiver {
@@ -13,6 +15,7 @@ pub struct DataInputReceiver {
 
 impl ToTokens for DataInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let substrate = substrate_ident();
         let DataInputReceiver {
             ref ident,
             ref generics,
@@ -26,10 +29,10 @@ impl ToTokens for DataInputReceiver {
             .expect("Should never be enum")
             .fields;
 
-        let mut path_view_fields = Vec::new();
-        let mut construct_path_view_fields = Vec::new();
+        let mut nested_view_fields = Vec::new();
+        let mut construct_nested_view_fields = Vec::new();
 
-        let path_view_ident = format_ident!("{}PathView", ident);
+        let nested_view_ident = format_ident!("Nested{}View", ident);
 
         for f in fields {
             let field_ident = f
@@ -38,32 +41,32 @@ impl ToTokens for DataInputReceiver {
                 .expect("could not find identifier for field");
             let field_ty = &f.ty;
 
-            if f.attrs.iter().any(|attr| attr.path().is_ident("path_view")) {
-                path_view_fields.push(
-                    quote! { pub #field_ident: ::substrate::schematic::PathView<'a, #field_ty>, },
+            if f.attrs.iter().any(|attr| attr.path().is_ident("nested")) {
+                nested_view_fields.push(
+                    quote! { pub #field_ident: #substrate::schematic::NestedView<'a, #field_ty>, },
                 );
-                construct_path_view_fields.push(quote! { #field_ident: ::substrate::schematic::HasPathView::path_view(&self.#field_ident, parent.clone()), });
+                construct_nested_view_fields.push(quote! { #field_ident: #substrate::schematic::HasNestedView::nested_view(&self.#field_ident, parent), });
             } else {
-                path_view_fields.push(quote! { pub #field_ident: &'a #field_ty, });
-                construct_path_view_fields.push(quote! { #field_ident: &self.#field_ident, });
+                nested_view_fields.push(quote! { pub #field_ident: &'a #field_ty, });
+                construct_nested_view_fields.push(quote! { #field_ident: &self.#field_ident, });
             }
         }
 
         tokens.extend(quote! {
             // TODO: How to do generics here?
-            pub struct #path_view_ident<'a> {
-                #( #path_view_fields )*
+            pub struct #nested_view_ident<'a> {
+                #( #nested_view_fields )*
             }
 
-            impl #imp ::substrate::schematic::HasPathView for #ident #ty #wher {
-                type PathView<'a> = #path_view_ident<'a>;
+            impl #imp #substrate::schematic::HasNestedView for #ident #ty #wher {
+                type NestedView<'a> = #nested_view_ident<'a>;
 
-                fn path_view<'a>(
+                fn nested_view<'a>(
                     &'a self,
-                    parent: ::std::option::Option<::std::sync::Arc<::substrate::schematic::RetrogradeEntry>>,
-                ) -> Self::PathView<'a> {
-                    Self::PathView {
-                        #( #construct_path_view_fields )*
+                    parent: &#substrate::schematic::InstancePath,
+                ) -> Self::NestedView<'a> {
+                    Self::NestedView {
+                        #( #construct_nested_view_fields )*
                     }
                 }
             }
