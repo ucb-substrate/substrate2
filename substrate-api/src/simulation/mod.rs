@@ -12,7 +12,7 @@ use crate::block::Block;
 use crate::io::{NodePath, SchematicType};
 use crate::pdk::Pdk;
 use crate::schematic::conv::ScirLibConversion;
-use crate::schematic::{CellBuilder, HasSchematic};
+use crate::schematic::{Cell, CellBuilder, HasSchematic};
 
 pub mod data;
 
@@ -120,9 +120,9 @@ impl<S: Simulator> SimController<S> {
 /// A testbench that can be simulated.
 pub trait Testbench<PDK: Pdk, S: Simulator>: HasTestbenchSchematicImpl<PDK, S> {
     /// The output produced by this testbench.
-    type Output: Any;
+    type Output: Any + Serialize + Deserialize<'static>;
     /// Run the testbench using the given simulation controller.
-    fn run(&self, sim: SimController<S>) -> Self::Output;
+    fn run(&self, cell: &Cell<Self>, sim: SimController<S>) -> Self::Output;
 }
 
 /// A testbench block that has a schematic compatible with the given PDK and simulator.

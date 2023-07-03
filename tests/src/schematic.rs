@@ -107,25 +107,21 @@ fn nested_node_naming() {
     let cell = handle.wait().as_ref().unwrap();
 
     assert_ne!(
-        cell.data.bubbled_inv1.io().din.path(),
-        cell.data.bubbled_din.path()
+        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().bubbled_din.path()
     );
 
     assert_eq!(
-        cell.data.bubbled_inv1.io().din.path(),
-        cell.data.buffer_chains[0]
-            .cell()
-            .data
+        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().buffer_chains[0].data()
             .bubbled_inv1
             .io()
             .din
             .path()
     );
     assert_eq!(
-        cell.data.bubbled_inv1.io().din.path(),
-        cell.data.buffer_chains[0].cell().data.buffers[0]
-            .cell()
-            .data
+        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().buffer_chains[0].data().buffers[0].data()
             .inv1
             .io()
             .din
@@ -133,28 +129,23 @@ fn nested_node_naming() {
     );
 
     assert_eq!(
-        cell.data.bubbled_din.path(),
-        cell.data.buffer_chains[0].cell().data.bubbled_din.path()
+        cell.data().bubbled_din.path(),
+        cell.data().buffer_chains[0].data().bubbled_din.path()
     );
     assert_eq!(
-        cell.data.bubbled_din.path(),
-        cell.data.buffer_chains[0]
-            .cell()
-            .data
+        cell.data().bubbled_din.path(),
+        cell.data().buffer_chains[0]
+            .data()
             .bubbled_inv1
-            .cell()
-            .data
+            .data()
             .din
             .path()
     );
     assert_eq!(
-        cell.data.bubbled_din.path(),
-        cell.data.buffer_chains[0].cell().data.buffers[0]
-            .cell()
-            .data
+        cell.data().bubbled_din.path(), cell.data().buffer_chains[0].data().buffers[0]
+            .data()
             .inv1
-            .cell()
-            .data
+            .data()
             .din
             .path()
     );

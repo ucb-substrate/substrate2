@@ -288,6 +288,18 @@ impl<PDK: Pdk> Context<PDK> {
             .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
     }
 
+    /// Export the given cell and all sub-blocks as a SCIR library.
+    ///
+    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub(crate) fn export_testbench_scir_for_cell<T, S>(&mut self, cell: &SchematicCell<T>) -> RawLib
+    where
+        T: HasTestbenchSchematicImpl<PDK, S>,
+        S: Simulator,
+    {
+        cell.raw
+            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
+    }
+
     /// Installs a new layer set in the context.
     ///
     /// Allows for accessing GDS layers or other extra layers that are not present in the PDK.
@@ -312,7 +324,9 @@ impl<PDK: Pdk> Context<PDK> {
         T: Testbench<PDK, S>,
     {
         let simulator = self.get_simulator::<S>();
-        let raw_lib = self.export_testbench_scir(block.clone());
+        let cell = self.generate_testbench_schematic(block.clone());
+        let cell = cell.wait().as_ref().unwrap();
+        let raw_lib = self.export_testbench_scir_for_cell(cell);
         let ctx = SimulationContext {
             lib: raw_lib.lib,
             work_dir: work_dir.into(),
@@ -321,7 +335,7 @@ impl<PDK: Pdk> Context<PDK> {
         let controller = SimController { simulator, ctx };
 
         // TODO caching
-        block.run(controller)
+        block.run(cell, controller)
     }
 
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {

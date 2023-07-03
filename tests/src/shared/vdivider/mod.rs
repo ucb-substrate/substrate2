@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{InOut, Output, Signal};
 use substrate::pdk::Pdk;
-use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, PrimitiveDevice};
-use substrate::Io;
+use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice};
+use substrate::{Io, SchematicData};
 
 pub mod tb;
 
@@ -74,8 +74,14 @@ impl HasSchematic for Resistor {
     type Data = ();
 }
 
+#[derive(SchematicData)]
+pub struct VdividerData {
+    r1: Instance<Resistor>,
+    r2: Instance<Resistor>,
+}
+
 impl HasSchematic for Vdivider {
-    type Data = ();
+    type Data = VdividerData;
 }
 
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
@@ -106,6 +112,8 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
         cell.connect(io.out, r1.io().n);
         cell.connect(io.out, r2.io().p);
         cell.connect(io.pwr.vss, r2.io().n);
-        Ok(())
+        Ok(VdividerData {
+            r1, r2
+        })
     }
 }

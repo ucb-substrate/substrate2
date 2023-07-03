@@ -16,16 +16,6 @@ fn spectre_vdivider_tran() {
         .build();
     let output = ctx.simulate(VdividerTb, sim_dir);
 
-    println!("{:?}", output.values);
-
-    println!("{:?}", output.get_data("out"));
-    println!(
-        "{:?}",
-        output.get_data(&scir::NodePath {
-            signal: arcstr::literal!("out"),
-            index: None,
-            instances: Vec::new(),
-            top: arcstr::literal!("vdivider"),
-        })
-    );
+    println!("{:?}", output.vdd);
+    println!("{:?}", output.out);
 }

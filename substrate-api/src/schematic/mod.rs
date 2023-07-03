@@ -115,11 +115,8 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
         let inst = Instance {
             id: self.next_instance_id,
-            path: InstancePath::new(
-                self.id,
-                self.next_instance_id,
-                cell.wait().as_ref().unwrap().raw.id,
-            ),
+            path: InstancePath::new(self.id)
+                .append_segment(self.next_instance_id, cell.wait().as_ref().unwrap().raw.id),
             cell,
             io: io_data,
         };
@@ -174,13 +171,18 @@ pub struct Cell<T: HasSchematic> {
     /// The block from which this cell was generated.
     pub block: T,
     /// Data returned by the cell's schematic generator.
-    pub data: T::Data,
+    pub(crate) data: T::Data,
     pub(crate) raw: Arc<RawCell>,
 }
 
 impl<T: HasSchematic> Cell<T> {
     pub(crate) fn new(block: T, data: T::Data, raw: Arc<RawCell>) -> Self {
         Self { block, data, raw }
+    }
+
+    /// Returns the data of `self`.
+    pub fn data(&self) -> NestedView<T::Data> {
+        self.data.nested_view(&InstancePath::new(self.raw.id))
     }
 }
 
@@ -262,6 +264,22 @@ impl<T: HasSchematic> Instance<T> {
     pub fn cell(&self) -> NestedView<Cell<T>> {
         self.try_cell().unwrap()
     }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<NestedView<'_, T::Data>> {
+        self.try_cell().map(|cell| cell.data)
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> NestedView<'_, T::Data> {
+        self.try_data().unwrap()
+    }
 }
 
 /// A primitive device.
@@ -317,24 +335,32 @@ pub struct InstancePath {
     /// The ID of the last instance's underlying cell.
     ///
     /// Allows for verification that two paths can be concatenated.
-    pub(crate) bot: CellId,
-    /// A path of instance IDs. Must be at least length 1.
+    /// `None` if path is empty.
+    pub(crate) bot: Option<CellId>,
+    /// A path of instance IDs.
     pub(crate) path: PathTree<InstanceId>,
 }
 
 impl InstancePath {
-    pub(crate) fn new(top: CellId, id: InstanceId, cell_id: CellId) -> Self {
+    pub(crate) fn new(top: CellId) -> Self {
         Self {
             top,
-            bot: cell_id,
-            path: PathTree::from_iter([id]),
+            bot: None,
+            path: PathTree::empty(),
         }
     }
     pub(crate) fn append(&self, other: &Self) -> Self {
-        assert_eq!(
-            self.bot, other.top,
-            "path to append must start with the cell ID that the current path ends with"
-        );
+        if let Some(bot) = self.bot {
+            assert_eq!(
+                bot, other.top,
+                "path to append must start with the cell ID that the current path ends with"
+            );
+        } else {
+            assert_eq!(
+                self.top, other.top,
+                "path to append must start with the cell ID that the current path ends with"
+            );
+        }
         Self {
             top: self.top,
             bot: other.bot,
@@ -343,10 +369,17 @@ impl InstancePath {
     }
 
     pub(crate) fn prepend(&self, other: &Self) -> Self {
-        assert_eq!(
-            other.bot, self.top,
-            "path to prepend must end with the cell ID that the current path starts with"
-        );
+        if let Some(bot) = other.bot {
+            assert_eq!(
+                bot, self.top,
+                "path to prepend must end with the cell ID that the current path starts with"
+            );
+        } else {
+            assert_eq!(
+                other.top, self.top,
+                "path to prepend must end with the cell ID that the current path starts with"
+            );
+        }
         Self {
             top: other.top,
             bot: self.bot,
@@ -357,9 +390,13 @@ impl InstancePath {
     pub(crate) fn append_segment(&self, id: InstanceId, cell_id: CellId) -> Self {
         Self {
             top: self.top,
-            bot: cell_id,
+            bot: Some(cell_id),
             path: self.path.append_segment(id),
         }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.bot.is_none()
     }
 }
 
@@ -411,8 +448,15 @@ pub struct NestedCellView<'a, T: HasSchematic> {
     /// The block from which this cell was generated.
     pub block: &'a T,
     /// Data returned by the cell's schematic generator.
-    pub data: NestedView<'a, T::Data>,
+    data: NestedView<'a, T::Data>,
     pub(crate) raw: Arc<RawCell>,
+}
+
+impl<'a, T: HasSchematic> NestedCellView<'a, T> {
+    /// Returns the data of `self`.
+    pub fn data(&'a self) -> &'a NestedView<'a, T::Data> {
+        &self.data
+    }
 }
 
 /// A view of a nested instance.
@@ -496,6 +540,22 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> NestedView<Cell<T>> {
         self.try_cell().unwrap()
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<NestedView<'_, T::Data>> {
+        self.try_cell().map(|cell| cell.data)
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> NestedView<'_, T::Data> {
+        self.try_data().unwrap()
     }
 
     /// Creates an owned [`NestedInstance`] that can be stored in propagated schematic data.
