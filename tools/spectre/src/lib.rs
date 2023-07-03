@@ -101,8 +101,6 @@ impl Spectre {
 
         w.flush()?;
         drop(w);
-        f.flush()?;
-        drop(f);
 
         // TODO run simulation and parse outputs
 
