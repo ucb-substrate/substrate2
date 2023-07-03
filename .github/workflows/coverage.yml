@@ -17,11 +17,6 @@ jobs:
         id: toolchain
         with:
           toolchain: nightly
-      - name: Cache workspace
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
-          workspaces: ". -> target"
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:

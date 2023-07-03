@@ -63,11 +63,6 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - name: Cache workspace
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
-          workspaces: ". -> target"
       - name: Test
         run: cargo test --locked --all-features
   check-docs-site:
@@ -80,6 +75,8 @@ jobs:
           node-version: 18
           cache: 'yarn'
           cache-dependency-path: docs/substrate/yarn.lock
-      - run: yarn install && yarn build
+      - run: yarn install
+        working-directory: docs/substrate
+      - run: yarn build
         working-directory: docs/substrate
 
