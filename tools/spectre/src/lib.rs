@@ -144,6 +144,9 @@ impl Spectre {
                     })?;
                     let mut tid_map = HashMap::new();
                     let mut values = HashMap::new();
+                    for sweep in ast.sweeps.iter() {
+                        tid_map.insert(sweep.id, sweep.name);
+                    }
                     for trace in ast.traces.iter() {
                         match trace {
                             Trace::Group(g) => {
