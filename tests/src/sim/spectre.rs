@@ -9,6 +9,7 @@ use substrate::ios::TestbenchIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::HasSchematic;
 use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
+use test_log::test;
 
 use crate::paths::get_path;
 use crate::substrate::block::schematic::{Resistor, Vdivider};

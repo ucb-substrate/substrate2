@@ -138,12 +138,18 @@ impl Spectre {
                 Input::Tran(_) => {
                     let file = output_dir.join(format!("analysis{i}.tran.tran"));
                     let file = std::fs::read(file)?;
-                    let ast = psfparser::binary::parse(&file).map_err(|_| Error::PsfParse)?;
+                    let ast = psfparser::binary::parse(&file).map_err(|e| {
+                        tracing::error!("error parsing PSF file: {}", e);
+                        Error::PsfParse
+                    })?;
                     let mut tid_map = HashMap::new();
                     let mut values = HashMap::new();
                     for trace in ast.traces.iter() {
                         match trace {
-                            Trace::Group(_) => return Err(Error::PsfParse),
+                            Trace::Group(_) => {
+                                tracing::error!("error reading PSF file: found a trace group; expected a trace signal");
+                                return Err(Error::PsfParse);
+                            }
                             Trace::Signal(s) => {
                                 tid_map.insert(s.id, s.name);
                             }

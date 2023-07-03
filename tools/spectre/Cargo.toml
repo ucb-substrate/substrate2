@@ -14,3 +14,4 @@ psfparser = "0.1"
 tera = "1"
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
+tracing = "0.1"

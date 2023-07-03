@@ -1616,6 +1616,7 @@ dependencies = [
  "substrate_api",
  "tera",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
