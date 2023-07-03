@@ -375,6 +375,7 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
         node_names,
         phantom: PhantomData,
         ports,
+        blackbox: None,
     };
 
     (cell_builder, io_data)

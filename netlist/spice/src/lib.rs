@@ -1,6 +1,7 @@
 //! SPICE netlist exporter.
 #![warn(missing_docs)]
 
+use opacity::Opacity;
 use scir::Slice;
 use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
 use std::io::{prelude::*, BufWriter};
@@ -53,32 +54,39 @@ impl<'a, W: Write> Netlister<'a, W> {
         }
         writeln!(self.out, "\n")?;
 
-        for inst in cell.instances() {
-            write!(self.out, "X{}", inst.name())?;
-            let child = self.lib.cell(inst.cell());
-            for port in child.ports() {
-                let port_name = &child.signal(port.signal()).name;
-                let conn = inst.connection(port_name);
-                for part in conn.parts() {
-                    self.write_slice(cell, *part)?;
-                }
+        match cell.contents() {
+            Opacity::Opaque(s) => {
+                writeln!(self.out, "{}\n", s)?;
             }
-            writeln!(self.out, " {}", child.name())?;
-        }
+            Opacity::Clear(contents) => {
+                for inst in contents.instances() {
+                    write!(self.out, "X{}", inst.name())?;
+                    let child = self.lib.cell(inst.cell());
+                    for port in child.ports() {
+                        let port_name = &child.signal(port.signal()).name;
+                        let conn = inst.connection(port_name);
+                        for part in conn.parts() {
+                            self.write_slice(cell, *part)?;
+                        }
+                    }
+                    writeln!(self.out, " {}", child.name())?;
+                }
 
-        for (i, device) in cell.primitives().enumerate() {
-            match device {
-                PrimitiveDevice::Res2 { pos, neg, value } => {
-                    write!(self.out, "R{}", i)?;
-                    self.write_slice(cell, *pos)?;
-                    self.write_slice(cell, *neg)?;
-                    write!(self.out, " ")?;
-                    self.write_expr(value)?;
+                for (i, device) in contents.primitives().enumerate() {
+                    match device {
+                        PrimitiveDevice::Res2 { pos, neg, value } => {
+                            write!(self.out, "R{}", i)?;
+                            self.write_slice(cell, *pos)?;
+                            self.write_slice(cell, *neg)?;
+                            write!(self.out, " ")?;
+                            self.write_expr(value)?;
+                        }
+                        _ => todo!(),
+                    }
+                    writeln!(self.out)?;
                 }
-                _ => todo!(),
             }
-            writeln!(self.out)?;
-        }
+        };
 
         writeln!(self.out, "\n.ENDS {}\n", cell.name())?;
         Ok(())

@@ -903,6 +903,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
+name = "opacity"
+version = "0.0.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1317,6 +1324,7 @@ version = "0.0.0"
 dependencies = [
  "arcstr",
  "diagnostics",
+ "opacity",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -1343,18 +1351,18 @@ checksum = "bebd363326d05ec3e2f532ab7660680f3b02130d780c299bca73469d521bc0ed"
 
 [[package]]
 name = "serde"
-version = "1.0.164"
+version = "1.0.165"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e8c8cf938e98f769bc164923b06dce91cea1751522f46f8466461af04c9027d"
+checksum = "c939f902bb7d0ccc5bce4f03297e161543c2dcb30914faf032c2bd0b7a0d48fc"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.164"
+version = "1.0.165"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9735b638ccc51c28bf6914d90a2e9725b377144fc612c49a611fddd1b631d68"
+checksum = "6eaae920e25fffe4019b75ff65e7660e72091e59dd204cb5849bbd6a3fd343d7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1466,6 +1474,7 @@ version = "0.0.0"
 dependencies = [
  "arcstr",
  "lazy_static",
+ "opacity",
  "psfparser",
  "rust_decimal",
  "rust_decimal_macros",
@@ -1481,6 +1490,7 @@ dependencies = [
 name = "spice"
 version = "0.0.0"
 dependencies = [
+ "opacity",
  "scir",
 ]
 
@@ -1517,6 +1527,7 @@ dependencies = [
  "geometry",
  "impl-trait-for-tuples",
  "once_cell",
+ "opacity",
  "pathtree",
  "rust_decimal",
  "rust_decimal_macros",

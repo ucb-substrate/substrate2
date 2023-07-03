@@ -28,6 +28,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use arcstr::ArcStr;
+use opacity::Opacity;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
@@ -306,6 +307,9 @@ pub struct Instance {
     params: HashMap<ArcStr, Expr>,
 }
 
+/// The (possibly blackboxed) contents of a SCIR cell.
+pub type CellContents = Opacity<ArcStr, CellInner>;
+
 /// A cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cell {
@@ -316,9 +320,15 @@ pub struct Cell {
     pub(crate) name: ArcStr,
     pub(crate) ports: Vec<Port>,
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
+    pub(crate) params: HashMap<ArcStr, Param>,
+    pub(crate) contents: CellContents,
+}
+
+/// The inner contents of a non-blackbox cell.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct CellInner {
     pub(crate) instances: Vec<Instance>,
     pub(crate) primitives: Vec<PrimitiveDevice>,
-    pub(crate) params: HashMap<ArcStr, Param>,
 }
 
 impl Library {
@@ -407,16 +417,30 @@ impl Library {
 }
 
 impl Cell {
-    /// Creates a new cell with the given name.
-    pub fn new(name: impl Into<ArcStr>) -> Self {
+    /// Creates a new whitebox cell with the given name.
+    pub fn new_whitebox(name: impl Into<ArcStr>) -> Self {
         Self {
             signal_id: 0,
             name: name.into(),
             ports: Vec::new(),
             signals: HashMap::new(),
-            instances: Vec::new(),
-            primitives: Vec::new(),
             params: HashMap::new(),
+            contents: CellContents::Clear(Default::default()),
+        }
+    }
+
+    /// Creates a new blackbox cell with the given name and contents.
+    ///
+    /// This does not automatically expose ports.
+    /// See [`Cell::expose_port`] for more information on exposing ports.
+    pub fn new_blackbox(name: impl Into<ArcStr>, contents: impl Into<ArcStr>) -> Self {
+        Self {
+            signal_id: 0,
+            name: name.into(),
+            ports: Vec::new(),
+            signals: HashMap::new(),
+            params: HashMap::new(),
+            contents: CellContents::Opaque(contents.into()),
         }
     }
 
@@ -460,16 +484,16 @@ impl Cell {
         });
     }
 
-    /// Add the given instance to the cell.
+    /// Returns a reference to the contents of this cell.
     #[inline]
-    pub fn add_instance(&mut self, instance: Instance) {
-        self.instances.push(instance);
+    pub fn contents(&self) -> &CellContents {
+        &self.contents
     }
 
-    /// Add the given [`PrimitiveDevice`] to the cell.
+    /// Returns a mutable reference to the contents of this cell.
     #[inline]
-    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
-        self.primitives.push(device);
+    pub fn contents_mut(&mut self) -> &mut CellContents {
+        &mut self.contents
     }
 
     /// Add the given parameter to the cell.
@@ -496,18 +520,6 @@ impl Cell {
         self.signals.iter().map(|x| (*x.0, x.1))
     }
 
-    /// Iterate over the primitive devices of this cell.
-    #[inline]
-    pub fn primitives(&self) -> impl Iterator<Item = &PrimitiveDevice> {
-        self.primitives.iter()
-    }
-
-    /// Iterate over the instances of this cell.
-    #[inline]
-    pub fn instances(&self) -> impl Iterator<Item = &Instance> {
-        self.instances.iter()
-    }
-
     /// Get the signal associated with the given ID.
     ///
     /// # Panics
@@ -516,6 +528,40 @@ impl Cell {
     #[inline]
     pub fn signal(&self, id: SignalId) -> &SignalInfo {
         self.signals.get(&id).unwrap()
+    }
+
+    /// Sets the contents of the cell.
+    #[inline]
+    pub fn set_contents(&mut self, contents: CellContents) {
+        self.contents = contents;
+    }
+
+    /// Add the given instance to the cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell is a blackbox.
+    #[inline]
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.contents
+            .as_mut()
+            .unwrap_clear()
+            .instances
+            .push(instance);
+    }
+
+    /// Add the given [`PrimitiveDevice`] to the cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell is a blackbox.
+    #[inline]
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        self.contents
+            .as_mut()
+            .unwrap_clear()
+            .primitives
+            .push(device);
     }
 }
 
@@ -598,5 +644,37 @@ impl From<ArcStr> for Expr {
 impl From<bool> for Expr {
     fn from(value: bool) -> Self {
         Self::BoolLiteral(value)
+    }
+}
+
+impl CellInner {
+    /// Returns a new, empty inner cell.
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Add the given instance to the cell.
+    #[inline]
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.instances.push(instance);
+    }
+
+    /// Add the given [`PrimitiveDevice`] to the cell.
+    #[inline]
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        self.primitives.push(device);
+    }
+
+    /// Iterate over the primitive devices of this cell.
+    #[inline]
+    pub fn primitives(&self) -> impl Iterator<Item = &PrimitiveDevice> {
+        self.primitives.iter()
+    }
+
+    /// Iterate over the instances of this cell.
+    #[inline]
+    pub fn instances(&self) -> impl Iterator<Item = &Instance> {
+        self.instances.iter()
     }
 }

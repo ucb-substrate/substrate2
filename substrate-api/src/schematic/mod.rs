@@ -2,6 +2,7 @@
 
 pub mod conv;
 
+use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -56,6 +57,7 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) cell_name: ArcStr,
     pub(crate) phantom: PhantomData<T>,
     pub(crate) ports: Vec<Port>,
+    pub(crate) blackbox: Option<ArcStr>,
 }
 
 impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
@@ -66,15 +68,22 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
         }
+        let contents = if let Some(contents) = self.blackbox {
+            RawCellContents::Opaque(contents)
+        } else {
+            RawCellContents::Clear(RawCellInner {
+                primitives: self.primitives,
+                instances: self.instances,
+            })
+        };
         RawCell {
             id: self.id,
             name: self.cell_name,
-            primitives: self.primitives,
-            instances: self.instances,
             node_names: self.node_names,
             ports: self.ports,
             uf,
             roots,
+            contents,
         }
     }
 
@@ -183,6 +192,7 @@ impl<T: HasSchematic> Cell<T> {
 
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub(crate) struct RawInstance {
     name: ArcStr,
     child: Arc<RawCell>,
@@ -201,15 +211,25 @@ impl CellId {
 
 /// A raw (weakly-typed) cell.
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub(crate) struct RawCell {
     id: CellId,
     name: ArcStr,
-    primitives: Vec<PrimitiveDevice>,
-    instances: Vec<RawInstance>,
     ports: Vec<Port>,
     uf: NodeUf,
     node_names: HashMap<Node, NameBuf>,
     roots: HashMap<Node, Node>,
+    contents: RawCellContents,
+}
+
+/// The (possibly blackboxed) contents of a raw cell.
+pub(crate) type RawCellContents = Opacity<ArcStr, RawCellInner>;
+
+/// The inner contents of a not-blackboxed [`RawCell`].
+#[derive(Debug, Clone)]
+pub(crate) struct RawCellInner {
+    primitives: Vec<PrimitiveDevice>,
+    instances: Vec<RawInstance>,
 }
 
 /// A cell-wide unique identifier for an instance.
@@ -261,6 +281,7 @@ impl<T: HasSchematic> Instance<T> {
 }
 
 /// A primitive device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PrimitiveDevice {
     /// An ideal 2-terminal resistor.
     Res2 {

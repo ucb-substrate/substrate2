@@ -14,10 +14,11 @@ rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 ena = "0.14"
 
-geometry = { version = "0.1.0", registry = "substrate", path = "../geometry" }
+geometry = { version = "0.1.0", registry = "substrate", path = "../libs/geometry" }
 gds = { version = "0.0.0", registry = "substrate", path = "../gds" }
+opacity = { version = "0.0.0", path = "../libs/opacity", registry = "substrate" }
 scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
-pathtree = { version = "0.0.0", registry = "substrate", path = "../pathtree" }
+pathtree = { version = "0.0.0", registry = "substrate", path = "../libs/pathtree" }
 
 [dev-dependencies]
 crossbeam-channel = "0.5"
