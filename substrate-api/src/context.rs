@@ -1,13 +1,16 @@
 //! The global context.
 
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use once_cell::sync::OnceCell;
+
 use tracing::{span, Level};
 
+use crate::block::Block;
 use crate::error::Result;
 use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
@@ -27,6 +30,9 @@ use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, SchematicContext,
+};
+use crate::simulation::{
+    HasTestbenchSchematicImpl, SimController, SimulationConfig, Simulator, Testbench,
 };
 
 /// The global context.
@@ -49,6 +55,66 @@ pub struct Context<PDK: Pdk> {
     /// PDK-specific data.
     pub pdk: PdkData<PDK>,
     inner: Arc<RwLock<ContextInner>>,
+    simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+}
+
+/// Builder for creating a Substrate [`Context`].
+pub struct ContextBuilder<PDK: Pdk> {
+    pdk: Option<PDK>,
+    simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+}
+
+impl<PDK: Pdk> Default for ContextBuilder<PDK> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<PDK: Pdk> ContextBuilder<PDK> {
+    /// Creates a new, uninitialized builder.
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            pdk: None,
+            simulators: Default::default(),
+        }
+    }
+
+    /// Set the PDK.
+    #[inline]
+    pub fn pdk(mut self, pdk: PDK) -> Self {
+        self.pdk = Some(pdk);
+        self
+    }
+
+    /// Install the given simulator.
+    ///
+    /// Only one simulator of any given type can exist.
+    #[inline]
+    pub fn with_simulator<S>(mut self, simulator: S) -> Self
+    where
+        S: Simulator,
+    {
+        self.simulators
+            .insert(TypeId::of::<S>(), Arc::new(simulator));
+        self
+    }
+
+    /// Build the context based on the configuration in this builder.
+    pub fn build(self) -> Context<PDK> {
+        // Instantiate PDK layers.
+        let mut layer_ctx = LayerContext::new();
+        let layers = layer_ctx.install_layers::<PDK::Layers>();
+
+        Context {
+            pdk: PdkData {
+                pdk: Arc::new(self.pdk.unwrap()),
+                layers,
+            },
+            inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
+            simulators: self.simulators.clone(),
+        }
+    }
 }
 
 impl<PDK: Pdk> Clone for Context<PDK> {
@@ -56,6 +122,7 @@ impl<PDK: Pdk> Clone for Context<PDK> {
         Self {
             pdk: self.pdk.clone(),
             inner: self.inner.clone(),
+            simulators: self.simulators.clone(),
         }
     }
 }
@@ -77,7 +144,7 @@ impl<PDK: Pdk> Clone for PdkData<PDK> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct ContextInner {
     layers: LayerContext,
     schematic: SchematicContext,
@@ -85,19 +152,15 @@ pub(crate) struct ContextInner {
 }
 
 impl<PDK: Pdk> Context<PDK> {
-    /// Creates a new global context.
-    pub fn new(pdk: PDK) -> Self {
-        // Instantiate PDK layers.
-        let mut layer_ctx = LayerContext::new();
-        let layers = layer_ctx.install_layers::<PDK::Layers>();
+    /// Creates a builder for constructing a context.
+    pub fn builder() -> ContextBuilder<PDK> {
+        Default::default()
+    }
 
-        Self {
-            pdk: PdkData {
-                pdk: Arc::new(pdk),
-                layers,
-            },
-            inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
-        }
+    /// Creates a new global context.
+    #[inline]
+    pub fn new(pdk: PDK) -> Self {
+        ContextBuilder::new().pdk(pdk).build()
     }
 
     /// Generates a layout for `block` in the background.
@@ -167,42 +230,34 @@ impl<PDK: Pdk> Context<PDK> {
         &mut self,
         block: T,
     ) -> Arc<OnceCell<Result<SchematicCell<T>>>> {
-        let context_clone = self.clone();
-        let mut inner_mut = self.inner.write().unwrap();
-        let id = inner_mut.schematic.get_id();
-        inner_mut.schematic.gen.generate(block.clone(), move || {
-            let mut node_ctx = NodeContext::new();
-            let io = block.io();
-            let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
-            let (io_data, nodes_rest) = io.instantiate(&nodes);
-            assert!(nodes_rest.is_empty());
-            let cell_name = block.name();
-
-            let names = io.flat_names(arcstr::literal!("io"));
-            let dirs = io.flatten_vec();
-            assert_eq!(nodes.len(), names.len());
-            assert_eq!(nodes.len(), dirs.len());
-
-            let ports = nodes
-                .iter()
-                .copied()
-                .zip(dirs)
-                .map(|(node, direction)| Port::new(node, direction))
-                .collect();
-
-            let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
-            let mut cell_builder = SchematicCellBuilder {
-                id,
-                cell_name,
-                ctx: context_clone,
-                node_ctx,
-                instances: Vec::new(),
-                primitives: Vec::new(),
-                node_names,
-                phantom: PhantomData,
-                ports,
-            };
+        let context = self.clone();
+        let mut inner = self.inner.write().unwrap();
+        let id = inner.schematic.get_id();
+        inner.schematic.gen.generate(block.clone(), move || {
+            let (mut cell_builder, io_data) = prepare_cell_builder(id, context, &block);
             let data = block.schematic(&io_data, &mut cell_builder);
+            data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
+        })
+    }
+
+    /// Generates a testbench schematic for `block` in the background.
+    ///
+    /// Returns a handle to the cell being generated.
+    pub(crate) fn generate_testbench_schematic<T, S>(
+        &mut self,
+        block: T,
+    ) -> Arc<OnceCell<Result<SchematicCell<T>>>>
+    where
+        T: HasTestbenchSchematicImpl<PDK, S>,
+        S: Simulator,
+    {
+        let simulator = self.get_simulator::<S>();
+        let context = self.clone();
+        let mut inner = self.inner.write().unwrap();
+        let id = inner.schematic.get_id();
+        inner.schematic.gen.generate(block.clone(), move || {
+            let (mut cell_builder, io_data) = prepare_cell_builder(id, context, &block);
+            let data = block.schematic(&io_data, &simulator, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
     }
@@ -211,7 +266,20 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> scir::Library {
         let cell = self.generate_schematic(block);
         let cell = cell.wait().as_ref().unwrap();
-        cell.raw.to_scir_lib()
+        cell.raw
+            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::No)
+    }
+
+    /// Export the given block and all sub-blocks as a SCIR library.
+    pub fn export_testbench_scir<T, S>(&mut self, block: T) -> scir::Library
+    where
+        T: HasTestbenchSchematicImpl<PDK, S>,
+        S: Simulator,
+    {
+        let cell = self.generate_testbench_schematic(block);
+        let cell = cell.wait().as_ref().unwrap();
+        cell.raw
+            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
     }
 
     /// Installs a new layer set in the context.
@@ -230,6 +298,29 @@ impl<PDK: Pdk> Context<PDK> {
         let inner = self.inner.read().unwrap();
         inner.layers.get_gds_layer(spec)
     }
+
+    /// Simulate the given testbench.
+    pub fn simulate<S, T>(&mut self, block: T, work_dir: impl Into<PathBuf>) -> T::Output
+    where
+        S: Simulator,
+        T: Testbench<PDK, S>,
+    {
+        let simulator = self.get_simulator::<S>();
+        let lib = self.export_testbench_scir(block.clone());
+        let config = SimulationConfig {
+            lib,
+            work_dir: work_dir.into(),
+        };
+        let controller = SimController { simulator, config };
+
+        // TODO caching
+        block.run(controller)
+    }
+
+    fn get_simulator<S: Simulator>(&self) -> Arc<S> {
+        let arc = self.simulators.get(&TypeId::of::<S>()).unwrap().clone();
+        arc.downcast().unwrap()
+    }
 }
 
 impl ContextInner {
@@ -241,4 +332,47 @@ impl ContextInner {
             layout: Default::default(),
         }
     }
+}
+
+fn prepare_cell_builder<PDK: Pdk, T: Block>(
+    id: crate::schematic::CellId,
+    context: Context<PDK>,
+    block: &T,
+) -> (
+    SchematicCellBuilder<PDK, T>,
+    <<T as Block>::Io as SchematicType>::Data,
+) {
+    let mut node_ctx = NodeContext::new();
+    let io = block.io();
+    let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
+    let (io_data, nodes_rest) = io.instantiate(&nodes);
+    assert!(nodes_rest.is_empty());
+    let cell_name = block.name();
+
+    let names = io.flat_names(arcstr::literal!("io"));
+    let dirs = io.flatten_vec();
+    assert_eq!(nodes.len(), names.len());
+    assert_eq!(nodes.len(), dirs.len());
+
+    let ports = nodes
+        .iter()
+        .copied()
+        .zip(dirs)
+        .map(|(node, direction)| Port::new(node, direction))
+        .collect();
+
+    let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
+    let cell_builder = SchematicCellBuilder {
+        id,
+        cell_name,
+        ctx: context,
+        node_ctx,
+        instances: Vec::new(),
+        primitives: Vec::new(),
+        node_names,
+        phantom: PhantomData,
+        ports,
+    };
+
+    (cell_builder, io_data)
 }

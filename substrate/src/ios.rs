@@ -22,3 +22,10 @@ pub struct MosIo {
 pub trait Mos: Block<Io = MosIo> {}
 
 impl<T> Mos for T where T: Block<Io = MosIo> {}
+
+/// The interface to which simulation testbenches should conform.
+#[derive(Debug, Default, Clone, Io)]
+pub struct TestbenchIo {
+    /// The global ground net.
+    pub vss: InOut<Signal>,
+}
