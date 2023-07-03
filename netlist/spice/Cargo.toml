@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 scir = { version = "0.0.0", registry = "substrate", path = "../../scir" }
+opacity = { version = "0.0.0", path = "../../libs/opacity", registry = "substrate" }

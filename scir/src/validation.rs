@@ -371,8 +371,14 @@ impl Library {
             )
         };
 
+        // Cannot validate blackbox cells.
+        if cell.contents().is_opaque() {
+            return;
+        }
+        let contents = cell.contents().as_ref().unwrap_clear();
+
         let mut inst_names = HashSet::new();
-        for instance in cell.instances.iter() {
+        for instance in contents.instances.iter() {
             if inst_names.contains(&instance.name) {
                 issues.add(ValidatorIssue::new_and_log(
                     Cause::DuplicateInstanceNames {
@@ -435,7 +441,7 @@ impl Library {
             }
         }
 
-        for device in cell.primitives.iter() {
+        for device in contents.primitives.iter() {
             for slice in device.nodes() {
                 if !cell.signals.contains_key(&slice.signal()) {
                     issues.add(invalid_signal(slice.signal()));
@@ -471,7 +477,13 @@ impl Library {
             span!(Level::INFO, "validating SCIR cell (pass 2)", cell.id = %id, cell.name = %cell.name)
                 .entered();
 
-        for instance in cell.instances.iter() {
+        // Cannot validate blackbox cells.
+        if cell.contents().is_opaque() {
+            return;
+        }
+        let contents = cell.contents().as_ref().unwrap_clear();
+
+        for instance in contents.instances.iter() {
             let child = match self.cells.get(&instance.cell) {
                 Some(child) => child,
                 None => {
@@ -589,7 +601,7 @@ impl Library {
             }
         }
 
-        for device in cell.primitives.iter() {
+        for device in contents.primitives.iter() {
             for slice in device.nodes() {
                 if slice.width() != 1 {
                     let issue = ValidatorIssue::new_and_log(
@@ -614,8 +626,8 @@ mod tests {
 
     #[test]
     fn duplicate_cell_names() {
-        let c1 = Cell::new("duplicate_cell_name");
-        let c2 = Cell::new("duplicate_cell_name");
+        let c1 = Cell::new_whitebox("duplicate_cell_name");
+        let c2 = Cell::new_blackbox("duplicate_cell_name", "* contents of cell");
         let mut lib = Library::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);

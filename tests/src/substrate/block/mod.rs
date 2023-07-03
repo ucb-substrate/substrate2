@@ -293,18 +293,21 @@ fn can_generate_vdivider_schematic() {
     assert!(port_names.contains("io_pwr_vss"));
     assert!(port_names.contains("io_out"));
     assert_eq!(vdiv.ports().count(), 3);
-    assert_eq!(vdiv.primitives().count(), 0);
-    assert_eq!(vdiv.instances().count(), 2);
+    let contents = vdiv.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 0);
+    assert_eq!(contents.instances().count(), 2);
 
     let res300 = lib.cell_named("resistor_300");
     assert_eq!(res300.ports().count(), 2);
-    assert_eq!(res300.primitives().count(), 1);
-    assert_eq!(res300.instances().count(), 0);
+    let contents = res300.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 1);
+    assert_eq!(contents.instances().count(), 0);
 
     let res100 = lib.cell_named("resistor_100");
     assert_eq!(res100.ports().count(), 2);
-    assert_eq!(res100.primitives().count(), 1);
-    assert_eq!(res100.instances().count(), 0);
+    let contents = res100.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 1);
+    assert_eq!(contents.instances().count(), 0);
 }
 
 #[test]

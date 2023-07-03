@@ -10,6 +10,7 @@
   "gds": "0.0.0",
   "geometry": "0.1.0",
   "lef": "0.0.0",
+  "libs/opacity": "0.0.0",
   "lvs": "0.0.0",
   "netlist/spice": "0.0.0",
   "par": "0.0.0",

@@ -4,8 +4,6 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-scir = { version = "0.0.0", registry = "substrate", path = "../../scir" }
-substrate_api = { version = "0.0.0", registry = "substrate", path = "../../substrate-api" }
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 thiserror = "1"
@@ -15,3 +13,7 @@ tera = "1"
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
+
+scir = { version = "0.0.0", registry = "substrate", path = "../../scir" }
+substrate_api = { version = "0.0.0", registry = "substrate", path = "../../substrate-api" }
+opacity = { version = "0.0.0", path = "../../libs/opacity", registry = "substrate" }

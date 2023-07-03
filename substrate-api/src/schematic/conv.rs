@@ -2,7 +2,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use scir::{Cell, CellId as ScirCellId, Instance, Library};
+use opacity::Opacity;
+use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library};
 
 use crate::io::Node;
 
@@ -48,7 +49,11 @@ impl RawCell {
         lib: &mut Library,
         cells: &mut HashMap<CellId, ScirCellId>,
     ) -> ScirCellId {
-        let mut cell = Cell::new(self.name.clone());
+        // Create the SCIR cell as a whitebox for now.
+        // If this Substrate cell is actually a blackbox,
+        // the contents of this SCIR cell will be made into a blackbox
+        // by calling `cell.set_contents`.
+        let mut cell = Cell::new_whitebox(self.name.clone());
 
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
@@ -65,44 +70,55 @@ impl RawCell {
             nodes.insert(src, s);
         }
 
-        for (i, instance) in self.instances.iter().enumerate() {
-            if !cells.contains_key(&instance.child.id) {
-                instance.child.to_scir_cell(lib, cells);
-            }
-            let child: ScirCellId = *cells.get(&instance.child.id).unwrap();
-
-            let mut sinst = Instance::new(arcstr::format!("xinst{i}"), child);
-            assert_eq!(instance.child.ports.len(), instance.connections.len());
-            for (port, &conn) in instance.child.ports.iter().zip(&instance.connections) {
-                let scir_port_name = instance.child.node_name(port.node());
-                sinst.connect(scir_port_name, nodes[&conn]);
-            }
-            cell.add_instance(sinst);
-        }
-
-        for p in self.primitives.iter() {
-            let sp = match p {
-                super::PrimitiveDevice::Res2 { pos, neg, value } => scir::PrimitiveDevice::Res2 {
-                    pos: nodes[pos],
-                    neg: nodes[neg],
-                    value: scir::Expr::NumericLiteral(*value),
-                },
-                super::PrimitiveDevice::RawInstance {
-                    ports,
-                    cell,
-                    params,
-                } => scir::PrimitiveDevice::RawInstance {
-                    ports: ports.iter().map(|p| nodes[p]).collect(),
-                    cell: cell.clone(),
-                    params: params.clone(),
-                },
-            };
-            cell.add_primitive(sp);
-        }
-
         for port in self.ports.iter() {
             cell.expose_port(nodes[&port.node()]);
         }
+
+        let contents = match self.contents.as_ref() {
+            Opacity::Opaque(s) => Opacity::Opaque(s.clone()),
+            Opacity::Clear(contents) => {
+                let mut inner = CellInner::new();
+                for (i, instance) in contents.instances.iter().enumerate() {
+                    if !cells.contains_key(&instance.child.id) {
+                        instance.child.to_scir_cell(lib, cells);
+                    }
+                    let child: ScirCellId = *cells.get(&instance.child.id).unwrap();
+
+                    let mut sinst = Instance::new(arcstr::format!("xinst{i}"), child);
+                    assert_eq!(instance.child.ports.len(), instance.connections.len());
+                    for (port, &conn) in instance.child.ports.iter().zip(&instance.connections) {
+                        let scir_port_name = instance.child.node_name(port.node());
+                        sinst.connect(scir_port_name, nodes[&conn]);
+                    }
+                    inner.add_instance(sinst);
+                }
+
+                for p in contents.primitives.iter() {
+                    let sp = match p {
+                        super::PrimitiveDevice::Res2 { pos, neg, value } => {
+                            scir::PrimitiveDevice::Res2 {
+                                pos: nodes[pos],
+                                neg: nodes[neg],
+                                value: scir::Expr::NumericLiteral(*value),
+                            }
+                        }
+                        super::PrimitiveDevice::RawInstance {
+                            ports,
+                            cell,
+                            params,
+                        } => scir::PrimitiveDevice::RawInstance {
+                            ports: ports.iter().map(|p| nodes[p]).collect(),
+                            cell: cell.clone(),
+                            params: params.clone(),
+                        },
+                    };
+                    inner.add_primitive(sp);
+                }
+                Opacity::Clear(inner)
+            }
+        };
+
+        cell.set_contents(contents);
 
         let id = lib.add_cell(cell);
         cells.insert(self.id, id);

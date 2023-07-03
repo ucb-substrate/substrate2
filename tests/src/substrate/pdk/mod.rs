@@ -109,6 +109,7 @@ fn export_mos_a() {
 
     let mos = lib.cell_named("mos_a_w1200_l150");
     assert_eq!(mos.ports().count(), 4);
-    assert_eq!(mos.primitives().count(), 1);
-    assert_eq!(mos.instances().count(), 0);
+    let contents = mos.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 1);
+    assert_eq!(contents.instances().count(), 0);
 }
