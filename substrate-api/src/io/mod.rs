@@ -216,6 +216,18 @@ impl NestedNode {
     }
 }
 
+impl From<NestedNode> for NodePath {
+    fn from(value: NestedNode) -> Self {
+        value.path()
+    }
+}
+
+impl From<&NestedNode> for NodePath {
+    fn from(value: &NestedNode) -> Self {
+        value.path()
+    }
+}
+
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub(crate) enum NodePriority {

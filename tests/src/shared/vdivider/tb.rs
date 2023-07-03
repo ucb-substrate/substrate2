@@ -74,8 +74,8 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
         .expect("failed to run simulation");
 
         VDividerTbData {
-            vdd: output.get_data(&cell.data().io().pwr.vdd.path()).unwrap().clone(),
-            out: output.get_data(&cell.data().io().out.path()).unwrap().clone(),
+            vdd: output.get_data(&cell.data().io().pwr.vdd).unwrap().clone(),
+            out: output.get_data(&cell.data().io().out).unwrap().clone(),
         }
     }
 }

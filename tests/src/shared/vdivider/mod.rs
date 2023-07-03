@@ -2,7 +2,7 @@ use arcstr::ArcStr;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{InOut, Output, Signal};
+use substrate::io::{Array, InOut, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice};
 use substrate::{Io, SchematicData};
@@ -38,6 +38,20 @@ pub struct Vdivider {
     pub r2: Resistor,
 }
 
+impl Vdivider {
+    fn new(r1: usize, r2: usize) -> Self {
+        Self {
+            r1: Resistor { r: r1 },
+            r2: Resistor { r: r2 },
+        }
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VdividerArray {
+    pub vdividers: Vec<Vdivider>,
+}
+
 impl Block for Resistor {
     type Io = ResistorIo;
 
@@ -70,6 +84,22 @@ impl Block for Vdivider {
     }
 }
 
+impl Block for VdividerArray {
+    type Io = Array<VdividerIo>;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("vdivider_array")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("vdivider_array_{}", self.vdividers.len())
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
 impl HasSchematic for Resistor {
     type Data = ();
 }
@@ -82,6 +112,10 @@ pub struct VdividerData {
 
 impl HasSchematic for Vdivider {
     type Data = VdividerData;
+}
+
+impl HasSchematic for VdividerArray {
+    type Data = Vec<Instance<Vdivider>>;
 }
 
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
@@ -115,5 +149,24 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
         Ok(VdividerData {
             r1, r2
         })
+    }
+}
+
+impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
+    fn schematic(
+        &self,
+        io: &VdividerIoSchematic,
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+
+        let mut vdividers = Vec::new();
+
+        for (i, vdivider ) in self.vdividers.enumerate() {
+            let vdiv = cell.instantiate(vdivider);
+            cell.connect(vdiv.io(), io[i]);
+            vdividers.push(vdiv);
+        }
+
+        Ok(vdividers)
     }
 }

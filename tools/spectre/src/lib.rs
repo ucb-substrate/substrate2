@@ -12,7 +12,7 @@ use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate_api::io::NodePath;
+use substrate_api::io::{NestedNode, NodePath};
 use substrate_api::schematic::conv::ScirLibConversion;
 use substrate_api::simulation::data::HasNodeData;
 use substrate_api::simulation::{Analysis, SimulationContext, Simulator, Supports};
@@ -56,6 +56,12 @@ impl HasNodeData<scir::NodePath, Vec<f64>> for TranOutput {
 impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
         self.get_data(&self.conv.convert_path(k)?)
+    }
+}
+
+impl HasNodeData<NestedNode, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &NestedNode) -> Option<&Vec<f64>> {
+        self.get_data(&self.conv.convert_path(&k.path())?)
     }
 }
 
