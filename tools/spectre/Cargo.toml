@@ -10,3 +10,7 @@ rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 thiserror = "1"
 arcstr = { version = "1", features = [ "serde" ] }
+psfparser = "0.1"
+tera = "1"
+lazy_static = "1"
+serde = { version = "1", features = ["derive"] }

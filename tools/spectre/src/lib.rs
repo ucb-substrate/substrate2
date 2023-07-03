@@ -1,14 +1,19 @@
 //! Spectre plugin for Substrate.
 
+use std::collections::HashMap;
 use std::io::{BufWriter, Write};
+use std::os::unix::prelude::PermissionsExt;
 
 use error::*;
 use netlist::Netlister;
+use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use substrate_api::simulation::{Analysis, SimulationConfig, Simulator, Supports};
+use templates::{write_run_script, RunScriptContext};
 
 pub mod error;
 pub mod netlist;
+pub(crate) mod templates;
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
@@ -18,7 +23,9 @@ pub struct Tran {
 }
 
 /// The result of a transient analysis.
-pub struct TranOutput {}
+pub struct TranOutput {
+    pub values: HashMap<String, Vec<f64>>,
+}
 
 impl Analysis for Tran {
     type Output = TranOutput;
@@ -80,8 +87,8 @@ impl Spectre {
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&config.work_dir)?;
-        let path = config.work_dir.join("netlist.scs");
-        let f = std::fs::File::create(path)?;
+        let netlist = config.work_dir.join("netlist.scs");
+        let f = std::fs::File::create(&netlist)?;
         let mut w = BufWriter::new(f);
         let netlister = Netlister::new(&config.lib, &mut w);
         netlister.export()?;
@@ -94,10 +101,58 @@ impl Spectre {
 
         // TODO run simulation and parse outputs
 
+        let output_dir = config.work_dir.join("psf/");
+        let log = config.work_dir.join("spectre.log");
+        let run_script = config.work_dir.join("simulate.sh");
+        write_run_script(
+            RunScriptContext {
+                netlist: &netlist,
+                raw_output_dir: &output_dir,
+                log_path: &log,
+                bashrc: None,
+                format: "psfbin",
+                flags: "",
+            },
+            &run_script,
+        )?;
+
+        let mut perms = std::fs::metadata(&run_script)?.permissions();
+        perms.set_mode(0o744);
+        std::fs::set_permissions(&run_script, perms)?;
+
+        let status = std::process::Command::new("/bin/bash")
+            .arg(&run_script)
+            .current_dir(&config.work_dir)
+            .status()?;
+
+        if !status.success() {
+            return Err(Error::SpectreError);
+        }
+
         let mut outputs = Vec::with_capacity(input.len());
-        for (_, an) in input.iter().enumerate() {
+        for (i, an) in input.iter().enumerate() {
             match an {
-                Input::Tran(_) => outputs.push(TranOutput {}.into()),
+                Input::Tran(_) => {
+                    let file = output_dir.join(format!("analysis{i}.tran.tran"));
+                    let file = std::fs::read(file)?;
+                    let ast = psfparser::binary::parse(&file).map_err(|_| Error::PsfParse)?;
+                    let mut tid_map = HashMap::new();
+                    let mut values = HashMap::new();
+                    for trace in ast.traces.iter() {
+                        match trace {
+                            Trace::Group(_) => return Err(Error::PsfParse),
+                            Trace::Signal(s) => {
+                                tid_map.insert(s.id, s.name);
+                            }
+                        }
+                    }
+                    for (id, value) in ast.values.values.into_iter() {
+                        let name = tid_map[&id].to_string();
+                        let value = value.unwrap_real();
+                        values.insert(name, value);
+                    }
+                    outputs.push(TranOutput { values }.into());
+                }
             }
         }
 
