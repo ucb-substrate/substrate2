@@ -4,13 +4,17 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use arcstr::ArcStr;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
-use crate::io::SchematicType;
+use crate::io::{NodePath, SchematicType};
 use crate::pdk::Pdk;
+use crate::schematic::conv::ScirLibConversion;
 use crate::schematic::{CellBuilder, HasSchematic};
+
+pub mod data;
 
 /// A single simulator analysis.
 pub trait Analysis {
@@ -32,7 +36,7 @@ pub trait Simulator: Any + Send + Sync {
     /// Simulates the given set of analyses.
     fn simulate_inputs(
         &self,
-        config: &SimulationConfig,
+        ctx: &SimulationContext,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>, Self::Error>;
@@ -40,7 +44,7 @@ pub trait Simulator: Any + Send + Sync {
     /// Simulates the given, possibly composite, analysis.
     fn simulate<A>(
         &self,
-        config: &SimulationConfig,
+        ctx: &SimulationContext,
         options: Self::Options,
         input: A,
     ) -> Result<A::Output, Self::Error>
@@ -50,18 +54,19 @@ pub trait Simulator: Any + Send + Sync {
     {
         let mut inputs = Vec::new();
         input.into_input(&mut inputs);
-        let output = self.simulate_inputs(config, options, inputs)?;
+        let output = self.simulate_inputs(ctx, options, inputs)?;
         let mut output = output.into_iter();
         Ok(A::from_output(&mut output))
     }
 }
 
-/// Substrate-defined simulation configuration.
-pub struct SimulationConfig {
+/// Substrate-defined simulation context.
+pub struct SimulationContext {
     /// The simulator's intended working directory.
     pub work_dir: PathBuf,
     /// The SCIR library to simulate.
     pub lib: scir::Library,
+    pub conv: Arc<ScirLibConversion>,
 }
 
 /// Indicates that a simulator supports a certain analysis.
@@ -98,7 +103,7 @@ where
 /// Controls simulation options.
 pub struct SimController<S> {
     pub(crate) simulator: Arc<S>,
-    pub(crate) config: SimulationConfig,
+    pub(crate) ctx: SimulationContext,
 }
 
 impl<S: Simulator> SimController<S> {
@@ -108,14 +113,14 @@ impl<S: Simulator> SimController<S> {
         options: S::Options,
         input: A,
     ) -> Result<A::Output, S::Error> {
-        self.simulator.simulate(&self.config, options, input)
+        self.simulator.simulate(&self.ctx, options, input)
     }
 }
 
 /// A testbench that can be simulated.
 pub trait Testbench<PDK: Pdk, S: Simulator>: HasTestbenchSchematicImpl<PDK, S> {
     /// The output produced by this testbench.
-    type Output: Any + Serialize + Deserialize<'static>;
+    type Output: Any;
     /// Run the testbench using the given simulation controller.
     fn run(&self, sim: SimController<S>) -> Self::Output;
 }

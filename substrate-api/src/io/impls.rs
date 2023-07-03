@@ -203,7 +203,7 @@ impl HasNestedView for Node {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         NestedNode {
-            inner: self.0,
+            node: *self,
             path: parent.clone(),
         }
     }
@@ -214,7 +214,7 @@ impl HasNestedView for NestedNode {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         NestedNode {
-            inner: self.inner,
+            node: self.node,
             path: self.path.prepend(parent),
         }
     }
@@ -233,7 +233,7 @@ impl Flatten<Node> for NestedNode {
     where
         E: Extend<Node>,
     {
-        output.extend(std::iter::once(Node(self.inner)));
+        output.extend(std::iter::once(self.node));
     }
 }
 

@@ -1,6 +1,7 @@
+use arcstr::ArcStr;
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
-use substrate::context::Context;
+use substrate::{context::Context, simulation::data::HasNodeData};
 use test_log::test;
 
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
@@ -16,4 +17,15 @@ fn spectre_vdivider_tran() {
     let output = ctx.simulate(VdividerTb, sim_dir);
 
     println!("{:?}", output.values);
+
+    println!("{:?}", output.get_data("out"));
+    println!(
+        "{:?}",
+        output.get_data(&scir::NodePath {
+            signal: arcstr::literal!("out"),
+            index: None,
+            instances: Vec::new(),
+            top: arcstr::literal!("vdivider"),
+        })
+    );
 }

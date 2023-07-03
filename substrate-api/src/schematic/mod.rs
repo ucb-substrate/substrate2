@@ -45,8 +45,6 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 #[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
-    /// Dummy path stub containing just this builder's cell ID to ensure that paths are correctly propagated.
-    pub(crate) path: InstancePath,
     pub(crate) next_instance_id: InstanceId,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
@@ -117,12 +115,17 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
         let inst = Instance {
             id: self.next_instance_id,
-            path: self.path.clone(),
+            path: InstancePath::new(
+                self.id,
+                self.next_instance_id,
+                cell.wait().as_ref().unwrap().raw.id,
+            ),
             cell,
             io: io_data,
         };
 
         let raw = RawInstance {
+            id: inst.id,
             name: arcstr::literal!("unnamed"),
             child: inst.cell().raw,
             connections,
@@ -184,6 +187,7 @@ impl<T: HasSchematic> Cell<T> {
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
 pub(crate) struct RawInstance {
+    id: InstanceId,
     name: ArcStr,
     child: Arc<RawCell>,
     connections: Vec<Node>,
@@ -246,7 +250,7 @@ impl<T: HasSchematic> Instance<T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
 
@@ -304,7 +308,60 @@ impl SchematicContext {
 }
 
 /// A path to an instance from a top level cell.
-pub type InstancePath = PathTree<(CellId, InstanceId)>;
+///
+/// Inexpensive to clone as it only clones an ID and a reference counted pointer.
+#[derive(Debug, Clone)]
+pub struct InstancePath {
+    /// The ID of the top level cell that this path is relative to.
+    pub(crate) top: CellId,
+    /// The ID of the last instance's underlying cell.
+    ///
+    /// Allows for verification that two paths can be concatenated.
+    pub(crate) bot: CellId,
+    /// A path of instance IDs. Must be at least length 1.
+    pub(crate) path: PathTree<InstanceId>,
+}
+
+impl InstancePath {
+    pub(crate) fn new(top: CellId, id: InstanceId, cell_id: CellId) -> Self {
+        Self {
+            top,
+            bot: cell_id,
+            path: PathTree::from_iter([id]),
+        }
+    }
+    pub(crate) fn append(&self, other: &Self) -> Self {
+        assert_eq!(
+            self.bot, other.top,
+            "path to append must start with the cell ID that the current path ends with"
+        );
+        Self {
+            top: self.top,
+            bot: other.bot,
+            path: self.path.append(&other.path),
+        }
+    }
+
+    pub(crate) fn prepend(&self, other: &Self) -> Self {
+        assert_eq!(
+            other.bot, self.top,
+            "path to prepend must end with the cell ID that the current path starts with"
+        );
+        Self {
+            top: other.top,
+            bot: self.bot,
+            path: self.path.prepend(&other.path),
+        }
+    }
+
+    pub(crate) fn append_segment(&self, id: InstanceId, cell_id: CellId) -> Self {
+        Self {
+            top: self.top,
+            bot: cell_id,
+            path: self.path.append_segment(id),
+        }
+    }
+}
 
 /// Data that can be stored in [`HasSchematic::Data`](crate::schematic::HasSchematic::Data).
 pub trait Data: HasNestedView + Send + Sync {}
@@ -428,7 +485,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
 
@@ -478,7 +535,7 @@ impl<T: HasSchematic> NestedInstance<T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
 

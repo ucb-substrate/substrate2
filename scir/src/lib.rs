@@ -121,6 +121,16 @@ impl From<Slice> for SignalId {
     }
 }
 
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NodePath {
+    pub signal: ArcStr,
+    pub index: Option<usize>,
+    /// Path of instance names.
+    pub instances: Vec<ArcStr>,
+    /// Name of the top cell.
+    pub top: ArcStr,
+}
+
 /// An opaque cell identifier.
 ///
 /// A cell ID created in the context of one library must

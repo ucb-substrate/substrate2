@@ -28,12 +28,13 @@ use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
+use crate::schematic::conv::{RawLib, ScirLibConversion};
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, InstanceId,
     InstancePath, SchematicContext,
 };
 use crate::simulation::{
-    HasTestbenchSchematicImpl, SimController, SimulationConfig, Simulator, Testbench,
+    HasTestbenchSchematicImpl, SimController, SimulationContext, Simulator, Testbench,
 };
 
 /// The global context.
@@ -264,7 +265,9 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
-    pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> scir::Library {
+    ///
+    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> RawLib {
         let cell = self.generate_schematic(block);
         let cell = cell.wait().as_ref().unwrap();
         cell.raw
@@ -272,7 +275,9 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
-    pub fn export_testbench_scir<T, S>(&mut self, block: T) -> scir::Library
+    ///
+    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub fn export_testbench_scir<T, S>(&mut self, block: T) -> RawLib
     where
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
@@ -307,12 +312,13 @@ impl<PDK: Pdk> Context<PDK> {
         T: Testbench<PDK, S>,
     {
         let simulator = self.get_simulator::<S>();
-        let lib = self.export_testbench_scir(block.clone());
-        let config = SimulationConfig {
-            lib,
+        let raw_lib = self.export_testbench_scir(block.clone());
+        let ctx = SimulationContext {
+            lib: raw_lib.lib,
             work_dir: work_dir.into(),
+            conv: Arc::new(raw_lib.conv),
         };
-        let controller = SimController { simulator, config };
+        let controller = SimController { simulator, ctx };
 
         // TODO caching
         block.run(controller)
@@ -365,7 +371,6 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
     let cell_builder = SchematicCellBuilder {
         id,
-        path: InstancePath::from_iter([(id, InstanceId(0))]),
         next_instance_id: InstanceId(0),
         cell_name,
         ctx: context,
