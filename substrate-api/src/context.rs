@@ -6,8 +6,6 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use once_cell::sync::OnceCell;
-
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -16,13 +14,12 @@ use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
     SchematicType,
 };
-use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::GdsExporter;
-use crate::layout::Cell as LayoutCell;
 use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::HasLayoutImpl;
 use crate::layout::LayoutContext;
+use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
@@ -30,8 +27,9 @@ use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{
-    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, InstanceId,
-    InstancePath, SchematicContext, TestbenchCellBuilder,
+    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellHandle as SchematicCellHandle,
+    HasSchematicImpl, InstanceId, InstancePath, SchematicContext, TestbenchCellBuilder,
+    TestbenchCellHandle,
 };
 use crate::simulation::{
     HasTestbenchSchematicImpl, SimController, SimulationContext, Simulator, Testbench,
@@ -168,42 +166,44 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: HasLayoutImpl<PDK>>(
-        &mut self,
-        block: T,
-    ) -> Arc<OnceCell<Result<LayoutCell<T>>>> {
+    pub fn generate_layout<T: HasLayoutImpl<PDK>>(&mut self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
+        let block = Arc::new(block);
+
         let span = span!(
             Level::INFO,
             "generating layout",
             block = %block.name(),
         )
         .or_current();
-        inner_mut.layout.gen.generate(block.clone(), move || {
-            let mut io_builder = block.io().builder();
-            let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
-            let _guard = span.enter();
-            let data = block.layout(&mut io_builder, &mut cell_builder);
 
-            let io = io_builder.build()?;
-            let ports = HashMap::from_iter(
-                block
-                    .io()
-                    .flat_names(arcstr::literal!("io"))
-                    .into_iter()
-                    .zip(io.flatten_vec().into_iter()),
-            );
-            data.map(|data| {
-                LayoutCell::new(
-                    block,
-                    data,
-                    Arc::new(io),
-                    Arc::new(RawCell::from_ports_and_builder(ports, cell_builder)),
-                )
-            })
-        })
+        LayoutCellHandle {
+            cell: inner_mut.layout.gen.generate(block.clone(), move || {
+                let mut io_builder = block.io().builder();
+                let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+                let _guard = span.enter();
+                let data = block.layout(&mut io_builder, &mut cell_builder);
+
+                let io = io_builder.build()?;
+                let ports = HashMap::from_iter(
+                    block
+                        .io()
+                        .flat_names(arcstr::literal!("io"))
+                        .into_iter()
+                        .zip(io.flatten_vec().into_iter()),
+                );
+                data.map(|data| {
+                    LayoutCell::new(
+                        block,
+                        data,
+                        Arc::new(io),
+                        Arc::new(cell_builder.finish().with_ports(ports)),
+                    )
+                })
+            }),
+        }
     }
 
     /// Writes a layout to a GDS files.
@@ -213,7 +213,7 @@ impl<PDK: Pdk> Context<PDK> {
         path: impl AsRef<Path>,
     ) -> Result<()> {
         let handle = self.generate_layout(block);
-        let cell = handle.wait().as_ref().map_err(|e| e.clone())?;
+        let cell = handle.try_cell()?;
 
         let inner = self.inner.read().unwrap();
         GdsExporter::new(cell.raw.clone(), &inner.layers)
@@ -231,15 +231,20 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn generate_schematic<T: HasSchematicImpl<PDK>>(
         &mut self,
         block: T,
-    ) -> Arc<OnceCell<Result<SchematicCell<T>>>> {
+    ) -> SchematicCellHandle<T> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
-        inner.schematic.gen.generate(block.clone(), move || {
-            let (mut cell_builder, io_data) = prepare_cell_builder(id, context, &block);
-            let data = block.schematic(&io_data, &mut cell_builder);
-            data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
-        })
+        let block = Arc::new(block);
+        SchematicCellHandle {
+            id,
+            block: block.clone(),
+            cell: inner.schematic.gen.generate(block.clone(), move || {
+                let (mut cell_builder, io_data) = prepare_cell_builder(id, context, block.as_ref());
+                let data = block.schematic(&io_data, &mut cell_builder);
+                data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
+            }),
+        }
     }
 
     /// Generates a testbench schematic for `block` in the background.
@@ -247,8 +252,8 @@ impl<PDK: Pdk> Context<PDK> {
     /// Returns a handle to the cell being generated.
     pub(crate) fn generate_testbench_schematic<T, S>(
         &mut self,
-        block: T,
-    ) -> Arc<OnceCell<Result<SchematicCell<T>>>>
+        block: Arc<T>,
+    ) -> TestbenchCellHandle<T>
     where
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
@@ -257,11 +262,15 @@ impl<PDK: Pdk> Context<PDK> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
-        inner.schematic.gen.generate(block.clone(), move || {
-            let (inner, io_data) = prepare_cell_builder(id, context, &block);
-            let mut cell_builder = TestbenchCellBuilder { simulator, inner };
-            let data = block.schematic(&io_data, &mut cell_builder);
-            data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
+        TestbenchCellHandle(SchematicCellHandle {
+            id,
+            block: block.clone(),
+            cell: inner.schematic.gen.generate(block.clone(), move || {
+                let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
+                let mut cell_builder = TestbenchCellBuilder { simulator, inner };
+                let data = block.schematic(&io_data, &mut cell_builder);
+                data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
+            }),
         })
     }
 
@@ -270,7 +279,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
     pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> RawLib {
         let cell = self.generate_schematic(block);
-        let cell = cell.wait().as_ref().unwrap();
+        let cell = cell.cell();
         cell.raw
             .to_scir_lib(crate::schematic::conv::ExportAsTestbench::No)
     }
@@ -283,8 +292,8 @@ impl<PDK: Pdk> Context<PDK> {
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
     {
-        let cell = self.generate_testbench_schematic(block);
-        let cell = cell.wait().as_ref().unwrap();
+        let cell = self.generate_testbench_schematic(Arc::new(block));
+        let cell = cell.cell();
         cell.raw
             .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
     }
@@ -325,8 +334,9 @@ impl<PDK: Pdk> Context<PDK> {
         T: Testbench<PDK, S>,
     {
         let simulator = self.get_simulator::<S>();
+        let block = Arc::new(block);
         let cell = self.generate_testbench_schematic(block.clone());
-        let cell = cell.wait().as_ref().unwrap();
+        let cell = cell.cell();
         let raw_lib = self.export_testbench_scir_for_cell(cell);
         let ctx = SimulationContext {
             lib: raw_lib.scir,

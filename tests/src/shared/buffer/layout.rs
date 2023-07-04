@@ -7,7 +7,7 @@ use geometry::{
 
 use substrate::{
     io::IoShape,
-    layout::{draw::DrawContainer, element::Shape, HasLayout, HasLayoutImpl, Instance},
+    layout::{element::Shape, HasLayout, HasLayoutImpl, Instance},
     pdk::{layers::HasPin, PdkLayers},
     supported_pdks, DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
 };
