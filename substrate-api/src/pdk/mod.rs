@@ -15,12 +15,6 @@ pub trait Pdk: Send + Sync + Any {
     type Layers: Layers;
     /// The type representing a corner in this PDK.
     type Corner: Corner;
-
-    /// Gets a corner by name.
-    ///
-    /// The names accepted by this function must match
-    /// the names provided by [`Corner::name`].
-    fn corner(&self, name: &str) -> Option<Self::Corner>;
 }
 
 /// The type of a PDK's layer set.

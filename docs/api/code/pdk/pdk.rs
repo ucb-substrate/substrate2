@@ -3,14 +3,6 @@ pub struct ExamplePdk;
 impl Pdk for ExamplePdk {
     type Layers = ExamplePdkLayers;
     type Corner = ExamplePdkCorner;
-    fn corner(&self, name: &str) -> Option<Self::Corner> {
-        match name {
-            "tt" => Some(ExamplePdkCorner::Tt),
-            "ss" => Some(ExamplePdkCorner::Ss),
-            "ff" => Some(ExamplePdkCorner::Ff),
-            _ => None,
-        }
-    }
 }
 
 
