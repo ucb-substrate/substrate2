@@ -122,8 +122,8 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
         });
 
         for i in 0..3 {
-            cell.connect(&*dut.io()[i].vdd, &vdd);
-            cell.connect(&dut.io()[i].vss, &io.vss);
+            cell.connect(dut.io()[i].vdd, vdd);
+            cell.connect(dut.io()[i].vss, io.vss);
         }
 
         let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));

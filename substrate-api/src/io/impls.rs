@@ -832,12 +832,20 @@ where
 impl<T: Undirected> Undirected for ArrayData<T> {}
 
 impl<T> Connect<T> for T {}
+impl<T> Connect<&T> for T {}
+impl<T> Connect<T> for &T {}
 impl<T: Undirected> Connect<T> for Input<T> {}
 impl<T: Undirected> Connect<T> for Output<T> {}
 impl<T: Undirected> Connect<T> for InOut<T> {}
 impl<T: Undirected> Connect<Input<T>> for T {}
 impl<T: Undirected> Connect<Output<T>> for T {}
 impl<T: Undirected> Connect<InOut<T>> for T {}
+impl<T: Undirected> Connect<&T> for &Input<T> {}
+impl<T: Undirected> Connect<&T> for &Output<T> {}
+impl<T: Undirected> Connect<&T> for &InOut<T> {}
+impl<T: Undirected> Connect<&Input<T>> for &T {}
+impl<T: Undirected> Connect<&Output<T>> for &T {}
+impl<T: Undirected> Connect<&InOut<T>> for &T {}
 
 // For analog circuits, we don't check directionality of connections.
 impl<T: Undirected> Connect<Input<T>> for Output<T> {}
@@ -846,6 +854,12 @@ impl<T: Undirected> Connect<Output<T>> for Input<T> {}
 impl<T: Undirected> Connect<Output<T>> for InOut<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Input<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Output<T> {}
+impl<T: Undirected> Connect<&Input<T>> for &Output<T> {}
+impl<T: Undirected> Connect<&Input<T>> for &InOut<T> {}
+impl<T: Undirected> Connect<&Output<T>> for &Input<T> {}
+impl<T: Undirected> Connect<&Output<T>> for &InOut<T> {}
+impl<T: Undirected> Connect<&InOut<T>> for &Input<T> {}
+impl<T: Undirected> Connect<&InOut<T>> for &Output<T> {}
 
 impl From<ArcStr> for NameFragment {
     fn from(value: ArcStr) -> Self {
