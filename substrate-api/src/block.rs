@@ -15,7 +15,7 @@ use crate::io::Io;
 #[doc = include_str!("../../docs/api/code/prelude.rs.hidden")]
 #[doc = include_str!("../../docs/api/code/block/inverter.rs")]
 /// ```
-pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Clone + Send + Sync + Any {
+pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;
 

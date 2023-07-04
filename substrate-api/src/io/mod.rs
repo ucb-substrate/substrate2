@@ -191,26 +191,40 @@ pub struct Node(u32);
 /// A nested node within a cell.
 ///
 /// Created when accessing nodes from instances propagated through data.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct NestedNode {
-    pub(crate) inner: u32,
+    pub(crate) node: Node,
     pub(crate) path: InstancePath,
 }
 
 /// A path from a top level cell to a nested node.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NodePath {
-    id: u32,
-    path: Vec<(CellId, InstanceId)>,
+    pub(crate) node: Node,
+    pub(crate) path: Vec<InstanceId>,
+    pub(crate) top: CellId,
 }
 
 impl NestedNode {
     /// Returns the path to this node.
     pub fn path(&self) -> NodePath {
         NodePath {
-            id: self.inner,
-            path: self.path.iter().copied().collect(),
+            node: self.node,
+            path: self.path.path.iter().copied().collect(),
+            top: self.path.top,
         }
+    }
+}
+
+impl From<NestedNode> for NodePath {
+    fn from(value: NestedNode) -> Self {
+        value.path()
+    }
+}
+
+impl From<&NestedNode> for NodePath {
+    fn from(value: &NestedNode) -> Self {
+        value.path()
     }
 }
 
@@ -540,7 +554,7 @@ pub struct Port {
 }
 
 /// An array containing some number of elements of type `T`.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Array<T> {
     len: usize,
     ty: T,
@@ -555,7 +569,7 @@ impl<T> Array<T> {
 }
 
 /// An instantiated array containing a fixed number of elements of type `T`.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ArrayData<T> {
     elems: Vec<T>,
     ty_len: usize,

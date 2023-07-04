@@ -17,29 +17,29 @@ fn layout_generation_and_data_propagation_work() {
 
     let mut ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_layout(block);
-    let cell = handle.wait().as_ref().unwrap();
+    let cell = handle.cell();
 
-    assert_eq!(cell.block, Buffer::new(5));
-    assert_eq!(cell.data.inv1.cell().block, &Inverter::new(5));
-    assert_eq!(cell.data.inv2.cell().block, &Inverter::new(5));
+    assert_eq!(cell.block(), &Buffer::new(5));
+    assert_eq!(cell.data().inv1.block(), &Inverter::new(5));
+    assert_eq!(cell.data().inv2.block(), &Inverter::new(5));
 
     assert_eq!(
-        cell.data.inv1.bbox(),
+        cell.data().inv1.bbox(),
         Some(Rect::from_sides(0, 0, 100, 200))
     );
 
     assert_eq!(
-        cell.data.inv1.cell().bbox(),
+        cell.data().inv1.cell().bbox(),
         Some(Rect::from_sides(0, 0, 100, 200))
     );
 
     assert_eq!(
-        cell.data.inv2.bbox(),
+        cell.data().inv2.bbox(),
         Some(Rect::from_sides(110, 0, 210, 200))
     );
 
     assert_eq!(
-        cell.data.inv2.cell().bbox(),
+        cell.data().inv2.cell().bbox(),
         Some(Rect::from_sides(110, 0, 210, 200))
     );
 
@@ -50,15 +50,15 @@ fn layout_generation_and_data_propagation_work() {
 
     let mut ctx = Context::new(ExamplePdkB);
     let handle = ctx.generate_layout(Buffer::new(5));
-    let cell = handle.wait().as_ref().unwrap();
+    let cell = handle.cell();
 
     assert_eq!(
-        cell.data.inv1.bbox(),
+        cell.data().inv1.bbox(),
         Some(Rect::from_sides(0, 0, 200, 100))
     );
 
     assert_eq!(
-        cell.data.inv2.bbox(),
+        cell.data().inv2.bbox(),
         Some(Rect::from_sides(210, 0, 410, 100))
     );
 
@@ -79,10 +79,10 @@ fn nested_transform_views_work() {
         .expect("failed to write layout");
 
     let handle = ctx.generate_layout(block);
-    let cell = handle.wait().as_ref().unwrap();
+    let cell = handle.cell();
 
     assert_eq!(
-        cell.data.buffers[9].cell().data.inv2.bbox(),
+        cell.data().buffers[9].data().inv2.bbox(),
         Some(Rect::from_sides(2090, 0, 2190, 200))
     );
 }

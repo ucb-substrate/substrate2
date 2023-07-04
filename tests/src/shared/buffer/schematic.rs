@@ -117,8 +117,8 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
             cell.connect(buffers[i].io().din, buffers[i - 1].io().dout);
         }
 
-        let bubbled_din = buffers[0].cell().data.inv1.cell().data.din;
-        let bubbled_inv1 = buffers[0].cell().data.inv1.to_owned();
+        let bubbled_din = buffers[0].data().inv1.data().din;
+        let bubbled_inv1 = buffers[0].data().inv1.to_owned();
 
         Ok(BufferNData {
             bubbled_din,
@@ -158,8 +158,8 @@ impl HasSchematicImpl<ExamplePdkA> for BufferNxM {
             buffer_chains.push(buffer);
         }
 
-        let bubbled_din = buffer_chains[0].cell().data.bubbled_din;
-        let bubbled_inv1 = buffer_chains[0].cell().data.bubbled_inv1.to_owned();
+        let bubbled_din = buffer_chains[0].data().bubbled_din;
+        let bubbled_inv1 = buffer_chains[0].data().bubbled_inv1.to_owned();
 
         Ok(BufferNxMData {
             bubbled_din,

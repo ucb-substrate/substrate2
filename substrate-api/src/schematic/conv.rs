@@ -2,12 +2,100 @@
 
 use std::collections::{HashMap, HashSet};
 
+use arcstr::ArcStr;
 use opacity::Opacity;
 use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library};
 
-use crate::io::Node;
+use crate::io::{Node, NodePath};
 
-use super::{CellId, RawCell};
+use super::{CellId, InstanceId, RawCell};
+
+/// An SCIR library with associated conversion metadata.
+#[derive(Debug, Clone)]
+pub struct RawLib {
+    /// The SCIR library.
+    pub scir: scir::Library,
+    /// Associated conversion metadata.
+    ///
+    /// Can be used to retrieve SCIR objects from their corresponding Substrate IDs.
+    pub conv: ScirLibConversion,
+}
+
+/// Metadata associated with a conversion from a Substrate schematic to a SCIR library.
+///
+/// Provides helpers for retrieving SCIR objects from their Substrate IDs.
+#[derive(Debug, Clone, Default)]
+pub struct ScirLibConversion {
+    /// Map from SCIR cell IDs to cell conversion metadata.
+    pub(crate) cells: HashMap<CellId, ScirCellConversion>,
+}
+
+impl ScirLibConversion {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    /// Converts a Substrate [`NodePath`] to a SCIR [`scir::NodePath`].
+    pub fn convert_path(&self, path: &NodePath) -> Option<scir::NodePath> {
+        let mut cell = self.cells.get(&path.top)?;
+        let top = cell.name.clone();
+        assert!(cell.top);
+
+        let mut instances = Vec::new();
+        for inst in &path.path {
+            let (name, next_cell) = cell.instances.get(inst).unwrap();
+            instances.push(name.clone());
+            cell = self.cells.get(next_cell)?;
+        }
+
+        let (signal, index) = cell.signals.get(&path.node)?.clone();
+
+        Some(scir::NodePath {
+            signal,
+            index,
+            instances,
+            top,
+        })
+    }
+
+    pub(crate) fn add_cell(&mut self, id: CellId, conv: ScirCellConversion) {
+        self.cells.insert(id, conv);
+    }
+
+    pub(crate) fn set_top(&mut self, id: CellId) {
+        self.cells.get_mut(&id).unwrap().top = true;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ScirCellConversion {
+    pub(crate) top: bool,
+    /// SCIR cell name.
+    pub(crate) name: ArcStr,
+    /// Map Substrate nodes to SCIR signal names and indices.
+    pub(crate) signals: HashMap<Node, (ArcStr, Option<usize>)>,
+    /// Map Substrate instance IDs to SCIR instances and their underlying Substrate cell.
+    pub(crate) instances: HashMap<InstanceId, (ArcStr, CellId)>,
+}
+
+impl ScirCellConversion {
+    pub(crate) fn new(name: ArcStr) -> Self {
+        Self {
+            top: false,
+            name,
+            signals: HashMap::new(),
+            instances: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn add_signal(&mut self, node: Node, name: ArcStr, index: Option<usize>) {
+        self.signals.insert(node, (name, index));
+    }
+
+    pub(crate) fn add_instance(&mut self, id: InstanceId, name: ArcStr, cell: CellId) {
+        self.instances.insert(id, (name, cell));
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub(crate) enum ExportAsTestbench {
@@ -36,24 +124,31 @@ impl From<bool> for ExportAsTestbench {
 
 impl RawCell {
     /// Export this cell and all subcells as a SCIR library.
-    pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> scir::Library {
-        let mut lib = Library::new(self.name.clone());
+    ///
+    /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> RawLib {
+        let mut scir = Library::new(self.name.clone());
         let mut cells = HashMap::new();
-        let id = self.to_scir_cell(&mut lib, &mut cells);
-        lib.set_top(id, testbench.as_bool());
-        lib
+        let mut conv = ScirLibConversion::new();
+        let id = self.to_scir_cell(&mut scir, &mut cells, &mut conv);
+        scir.set_top(id, testbench.as_bool());
+        conv.set_top(self.id);
+
+        RawLib { scir, conv }
     }
 
     fn to_scir_cell(
         &self,
         lib: &mut Library,
         cells: &mut HashMap<CellId, ScirCellId>,
+        conv: &mut ScirLibConversion,
     ) -> ScirCellId {
         // Create the SCIR cell as a whitebox for now.
         // If this Substrate cell is actually a blackbox,
         // the contents of this SCIR cell will be made into a blackbox
         // by calling `cell.set_contents`.
         let mut cell = Cell::new_whitebox(self.name.clone());
+        let mut cell_conv = ScirCellConversion::new(self.name.clone());
 
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
@@ -68,6 +163,7 @@ impl RawCell {
                 nodes[&root]
             };
             nodes.insert(src, s);
+            cell_conv.add_signal(src, cell.signal(s.signal()).name.clone(), None);
         }
 
         for port in self.ports.iter() {
@@ -80,7 +176,7 @@ impl RawCell {
                 let mut inner = CellInner::new();
                 for (i, instance) in contents.instances.iter().enumerate() {
                     if !cells.contains_key(&instance.child.id) {
-                        instance.child.to_scir_cell(lib, cells);
+                        instance.child.to_scir_cell(lib, cells, conv);
                     }
                     let child: ScirCellId = *cells.get(&instance.child.id).unwrap();
 
@@ -90,6 +186,7 @@ impl RawCell {
                         let scir_port_name = instance.child.node_name(port.node());
                         sinst.connect(scir_port_name, nodes[&conn]);
                     }
+                    cell_conv.add_instance(instance.id, sinst.name().clone(), instance.child.id);
                     inner.add_instance(sinst);
                 }
 
@@ -122,6 +219,7 @@ impl RawCell {
 
         let id = lib.add_cell(cell);
         cells.insert(self.id, id);
+        conv.add_cell(self.id, cell_conv);
 
         id
     }

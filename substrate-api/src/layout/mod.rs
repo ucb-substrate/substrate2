@@ -1,5 +1,12 @@
 //! Substrate's layout generator framework.
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+    marker::PhantomData,
+    sync::{
+        mpsc::{self, Receiver},
+        Arc,
+    },
+    thread,
+};
 
 use arcstr::ArcStr;
 use geometry::{
@@ -38,12 +45,8 @@ use crate::io::LayoutType;
 use crate::pdk::Pdk;
 use crate::{context::Context, error::Result};
 
-use self::{
-    draw::{Draw, DrawContainer},
-    element::{CellId, Element, RawCell, RawInstance, Shape},
-};
+use self::element::{CellId, Element, RawCell, RawInstance, Shape};
 
-pub mod draw;
 pub mod element;
 pub mod error;
 pub mod gds;
@@ -113,16 +116,16 @@ impl LayoutContext {
 #[allow(dead_code)]
 pub struct Cell<T: HasLayout> {
     /// Block whose layout this cell represents.
-    pub block: T,
+    block: Arc<T>,
     /// Extra data created during layout generation.
-    pub data: T::Data,
+    data: T::Data,
     pub(crate) io: Arc<<T::Io as LayoutType>::Data>,
     pub(crate) raw: Arc<RawCell>,
 }
 
 impl<T: HasLayout> Cell<T> {
     pub(crate) fn new(
-        block: T,
+        block: Arc<T>,
         data: T::Data,
         io: Arc<<T::Io as LayoutType>::Data>,
         raw: Arc<RawCell>,
@@ -134,6 +137,21 @@ impl<T: HasLayout> Cell<T> {
             raw,
         }
     }
+
+    /// Returns the block whose layout this cell represents.
+    pub fn block(&self) -> &T {
+        &self.block
+    }
+
+    /// Returns extra data created by the cell's schematic generator.
+    pub fn data(&self) -> &T::Data {
+        &self.data
+    }
+
+    /// Returns the geometry of the cell's IO.
+    pub fn io(&self) -> &<T::Io as LayoutType>::Data {
+        self.io.as_ref()
+    }
 }
 
 impl<T: HasLayout> Bbox for Cell<T> {
@@ -142,16 +160,59 @@ impl<T: HasLayout> Bbox for Cell<T> {
     }
 }
 
+/// A handle to a schematic cell that is being generated.
+#[derive(Clone)]
+pub struct CellHandle<T: HasLayout> {
+    pub(crate) cell: Arc<OnceCell<Result<Cell<T>>>>,
+}
+
+impl<T: HasLayout> CellHandle<T> {
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes and returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> Result<&Cell<T>> {
+        self.cell.wait().as_ref().map_err(|e| e.clone())
+    }
+
+    /// Returns the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if generation fails.
+    pub fn cell(&self) -> &Cell<T> {
+        self.try_cell().expect("cell generation failed")
+    }
+}
+
 /// A transformed view of a cell, usually created by accessing the cell of an instance.
 pub struct TransformedCell<'a, T: HasLayout> {
     /// Block whose layout this cell represents.
-    pub block: &'a T,
+    block: &'a T,
     /// Extra data created during layout generation.
-    pub data: Transformed<'a, T::Data>,
+    data: Transformed<'a, T::Data>,
     /// The geometry of the cell's IO.
-    pub io: Transformed<'a, <T::Io as LayoutType>::Data>,
+    io: Transformed<'a, <T::Io as LayoutType>::Data>,
     pub(crate) raw: Arc<RawCell>,
     pub(crate) transform: Transformation,
+}
+
+impl<'a, T: HasLayout> TransformedCell<'a, T> {
+    /// Returns the block whose layout this cell represents.
+    pub fn block(&self) -> &T {
+        self.block
+    }
+
+    /// Returns extra data created by the cell's schematic generator.
+    pub fn data(&'a self) -> &Transformed<'a, T::Data> {
+        &self.data
+    }
+
+    /// Returns the geometry of the cell's IO.
+    pub fn io(&'a self) -> &Transformed<'a, <T::Io as LayoutType>::Data> {
+        &self.io
+    }
 }
 
 impl<T: HasLayout> HasTransformedView for Cell<T> {
@@ -177,12 +238,20 @@ impl<'a, T: HasLayout> Bbox for TransformedCell<'a, T> {
 /// A generic layout instance.
 ///
 /// Stores a pointer to its underlying cell and its instantiated location and orientation.
-#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Instance<T: HasLayout> {
     cell: Arc<OnceCell<Result<Cell<T>>>>,
     pub(crate) loc: Point,
     pub(crate) orientation: Orientation,
+}
+
+impl<T: HasLayout> Clone for Instance<T> {
+    fn clone(&self) -> Self {
+        Self {
+            cell: self.cell.clone(),
+            ..*self
+        }
+    }
 }
 
 impl<T: HasLayout> Instance<T> {
@@ -194,7 +263,9 @@ impl<T: HasLayout> Instance<T> {
         }
     }
 
-    /// Tries to access a transformed view of the underlying [`Cell`].
+    /// Tries to access a transformed view of the underlying [`Cell`], blocking on generation.
+    ///
+    /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<Transformed<'_, Cell<T>>> {
@@ -212,6 +283,8 @@ impl<T: HasLayout> Instance<T> {
 
     /// Returns a transformed view of the underlying [`Cell`].
     ///
+    /// Blocks until cell generation completes.
+    ///
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
@@ -219,7 +292,49 @@ impl<T: HasLayout> Instance<T> {
         self.try_cell().expect("cell generation failed")
     }
 
+    /// Tries to access extra data created by the cell's schematic generator.
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<Transformed<'_, T::Data>> {
+        Ok(self.try_cell()?.data)
+    }
+
+    /// Tries to access extra data created by the cell's schematic generator.
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> Transformed<'_, T::Data> {
+        self.cell().data
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_block(&self) -> Result<&T> {
+        Ok(self.try_cell()?.block)
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn block(&self) -> &T {
+        self.cell().block
+    }
+
     /// Returns a transformed view of the underlying [`Cell`]'s IO.
+    ///
+    /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
     pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as LayoutType>::Data>> {
@@ -228,11 +343,13 @@ impl<T: HasLayout> Instance<T> {
 
     /// Returns a transformed view of the underlying [`Cell`]'s IO.
     ///
+    /// Blocks until cell generation completes.
+    ///
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
     pub fn io(&self) -> Transformed<'_, <T::Io as LayoutType>::Data> {
-        self.try_io().expect("cell generation failed")
+        self.cell().io
     }
 
     /// Returns the current transformation of `self`.
@@ -265,13 +382,14 @@ impl<T: HasLayout> HasTransformedView for Instance<T> {
     type TransformedView<'a> = Instance<T>;
 
     fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        self.clone().transform(trans)
+        (*self).clone().transform(trans)
     }
 }
 
-impl<I: HasLayout> Draw for Instance<I> {
-    fn draw<T: DrawContainer + ?Sized>(self, container: &mut T) -> Result<()> {
-        RawInstance::try_from(self)?.draw(container)
+impl<PDK: Pdk, I: HasLayoutImpl<PDK>> Draw<PDK> for Instance<I> {
+    fn draw<T>(self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
+        cell.draw_instance(self);
+        Ok(())
     }
 }
 
@@ -280,6 +398,7 @@ impl<I: HasLayout> Draw for Instance<I> {
 /// Constructed once for each invocation of [`HasLayoutImpl::layout`].
 pub struct CellBuilder<PDK: Pdk, T> {
     phantom: PhantomData<T>,
+    instances: Vec<Receiver<Option<RawInstance>>>,
     cell: RawCell,
     /// The current global context.
     pub ctx: Context<PDK>,
@@ -289,9 +408,21 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     pub(crate) fn new(id: CellId, name: ArcStr, ctx: Context<PDK>) -> Self {
         Self {
             phantom: PhantomData,
+            instances: Vec::new(),
             cell: RawCell::new(id, name),
             ctx,
         }
+    }
+
+    pub(crate) fn finish(mut self) -> RawCell {
+        for instance in self
+            .instances
+            .into_iter()
+            .map(|instance| instance.recv().unwrap().unwrap())
+        {
+            self.cell.add_element(instance);
+        }
+        self.cell
     }
 
     /// Generate an instance of `block`.
@@ -312,7 +443,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// ```
     pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
-        Instance::new(cell)
+        Instance::new(cell.cell)
     }
 
     /// Generate an instance of `block`.
@@ -321,17 +452,87 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// handling errors thrown by the generation of a cell immediately.
     pub fn generate_blocking<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Result<Instance<I>> {
         let cell = self.ctx.generate_layout(block);
-        let res = cell.wait().as_ref().map(|_| ()).map_err(|e| e.clone());
-        res.map(|_| Instance::new(cell))
+        cell.try_cell()?;
+        Ok(Instance::new(cell.cell))
+    }
+
+    pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: Instance<I>) {
+        let (send, recv) = mpsc::channel();
+
+        self.instances.push(recv);
+
+        let cell = inst.cell.clone();
+        thread::spawn(move || {
+            if let Ok(cell) = cell.wait() {
+                send.send(Some(RawInstance {
+                    cell: cell.raw.clone(),
+                    loc: inst.loc,
+                    orientation: inst.orientation,
+                }))
+                .unwrap();
+            } else {
+                send.send(None).unwrap();
+            }
+        });
+    }
+
+    pub(crate) fn draw_element(&mut self, element: Element) {
+        self.cell.add_element(element);
+    }
+
+    /// Draw a blockage.
+    pub fn draw_blockage(&mut self, shape: Shape) {
+        self.cell.add_blockage(shape);
+    }
+
+    /// Draw layout object `obj`.
+    ///
+    /// For instances, a new thread is spawned to add the instance once the underlying cell has
+    /// been generated. If generation fails, the spawned thread may panic after this function has
+    /// been called.
+    ///
+    /// For error recovery, instance generation results should be checked using [`Instance::try_cell`]
+    /// before calling `draw`.
+    ///
+    /// # Panics
+    ///
+    /// May cause a panic if generation of an underlying instance fails.
+    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
+        obj.draw(self)
+    }
+
+    /// Draw layout object `obj` from its reference.
+    ///
+    /// For instances, a new thread is spawned to add the instance once the underlying cell has
+    /// been generated. If generation fails, the spawned thread may panic after this function has
+    /// been called.
+    ///
+    /// For error recovery, instance generation results should be checked using [`Instance::try_cell`]
+    /// before calling `draw`.
+    ///
+    /// # Panics
+    ///
+    /// May cause a panic if generation of an underlying instance fails.
+    pub fn draw_ref(&mut self, obj: &impl DrawRef<PDK>) -> Result<()> {
+        obj.draw_ref(self)
     }
 }
 
-impl<PDK: Pdk, T> DrawContainer for CellBuilder<PDK, T> {
-    fn draw_element(&mut self, element: Element) {
-        self.cell.draw_element(element);
-    }
+/// An object that can be drawn in a [`CellBuilder`].
+pub trait Draw<PDK: Pdk> {
+    /// Draws `self` inside `cell`.
+    fn draw<T>(self, cell: &mut CellBuilder<PDK, T>) -> Result<()>;
+}
 
-    fn draw_blockage(&mut self, shape: Shape) {
-        self.cell.draw_blockage(shape);
+/// An object that can be drawn in a [`CellBuilder`] from its reference.
+pub trait DrawRef<PDK: Pdk> {
+    /// Draws `self` inside `cell` from its reference.
+    fn draw_ref<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()>;
+}
+
+impl<E: Into<Element>, PDK: Pdk> Draw<PDK> for E {
+    fn draw<T>(self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
+        cell.draw_element(self.into());
+        Ok(())
     }
 }

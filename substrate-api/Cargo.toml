@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 arcstr = { version = "1", features = ["serde"] }
+anyhow = "1"
 thiserror = "1"
 once_cell = "1"
 impl-trait-for-tuples = "0.2"
