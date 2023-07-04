@@ -1,6 +1,6 @@
 let mut ctx = Context::new(ExamplePdk);
 let handle = ctx.generate_layout(Buffer::new(5));
-let cell: &Cell<Buffer> = handle.wait().as_ref().unwrap();
+let cell: &Cell<Buffer> = handle.cell();
 
 assert_eq!(cell.block(), &Buffer::new(5));
 assert_eq!(cell.data().inv1.block(), &Inverter::new(5));
