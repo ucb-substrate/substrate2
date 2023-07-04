@@ -98,7 +98,7 @@ impl Block for VdividerArray {
     }
 
     fn io(&self) -> Self::Io {
-        Default::default()
+        Array::new(self.vdividers.len(), Default::default())
     }
 }
 
