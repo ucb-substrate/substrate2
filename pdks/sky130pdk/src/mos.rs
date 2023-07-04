@@ -19,6 +19,26 @@ pub struct MosParams {
     pub nf: i64,
 }
 
+impl From<(i64, i64, i64)> for MosParams {
+    fn from(value: (i64, i64, i64)) -> Self {
+        Self {
+            w: value.0,
+            l: value.1,
+            nf: value.2,
+        }
+    }
+}
+
+impl From<(i64, i64)> for MosParams {
+    fn from(value: (i64, i64)) -> Self {
+        Self {
+            w: value.0,
+            l: value.1,
+            nf: 1,
+        }
+    }
+}
+
 impl Display for MosParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}x{}x{}", self.w, self.l, self.nf)

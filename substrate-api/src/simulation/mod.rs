@@ -102,9 +102,9 @@ pub struct SimController<S> {
 }
 
 impl<S: Simulator> SimController<S> {
-    /// Run the given analysis, consuming this simulation controller.
+    /// Run the given analysis.
     pub fn simulate<A: Analysis + SupportedBy<S>>(
-        self,
+        &self,
         options: S::Options,
         input: A,
     ) -> Result<A::Output, S::Error> {

@@ -21,7 +21,7 @@ use substrate::context::Context;
 use sky130pdk::Sky130Pdk;
 
 fn main() {
-    let mut ctx = Context::new(Sky130Pdk::new());
+    let mut ctx = Context::new(Sky130Pdk::new("/path/to/sky130pdk"));
 }
 ```
 
@@ -272,7 +272,7 @@ impl HasSchematicImpl<Sky130Pdk> for Inverter {
 }
 // hidden-rust-doc-end
 fn main() {
-    let mut ctx = Context::new(Sky130Pdk::new());
+    let mut ctx = Context::new(Sky130Pdk::new("/path/to/sky130pdk"));
     let inv = Inverter {
         nmos: MosParams { w: 1_000, l: 150, nf: 1 },
         pmos: MosParams { w: 2_000, l: 150, nf: 1 },

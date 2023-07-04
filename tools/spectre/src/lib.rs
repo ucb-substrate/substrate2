@@ -1,9 +1,10 @@
 //! Spectre plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufWriter, Write};
 use std::os::unix::prelude::PermissionsExt;
+use std::path::PathBuf;
 
 use error::*;
 use netlist::Netlister;
@@ -92,13 +93,23 @@ pub struct Spectre {}
 /// Spectre per-simulation options.
 ///
 /// A single simulation contains zero or more analyses.
-pub struct Opts {}
+#[derive(Debug, Clone, Default)]
+pub struct Options {
+    includes: HashSet<PathBuf>,
+}
+
+impl Options {
+    /// Include the given file.
+    pub fn include(&mut self, path: impl Into<PathBuf>) {
+        self.includes.insert(path.into());
+    }
+}
 
 impl Spectre {
     fn simulate(
         &self,
         config: &SimulationConfig,
-        _options: Opts,
+        _options: Options,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&config.work_dir)?;
@@ -189,7 +200,7 @@ impl Spectre {
 impl Simulator for Spectre {
     type Input = Input;
     type Output = Output;
-    type Options = Opts;
+    type Options = Options;
     type Error = Error;
     fn simulate_inputs(
         &self,

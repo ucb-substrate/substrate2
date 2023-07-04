@@ -1,7 +1,7 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::Vsource;
-use spectre::{Opts, Spectre, Tran};
+use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::ios::TestbenchIo;
@@ -60,7 +60,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
     fn run(&self, sim: substrate::simulation::SimController<Spectre>) -> Self::Output {
         let output = sim
             .simulate(
-                Opts {},
+                Options::default(),
                 Tran {
                     stop: dec!(1e-9),
                     ..Default::default()
