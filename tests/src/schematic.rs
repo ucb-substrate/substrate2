@@ -116,7 +116,8 @@ fn nested_node_naming() {
 
     assert_eq!(
         cell.data().bubbled_inv1.io().din.path(),
-        cell.data().buffer_chains[0].data()
+        cell.data().buffer_chains[0]
+            .data()
             .bubbled_inv1
             .io()
             .din
@@ -124,7 +125,8 @@ fn nested_node_naming() {
     );
     assert_eq!(
         cell.data().bubbled_inv1.io().din.path(),
-        cell.data().buffer_chains[0].data().buffers[0].data()
+        cell.data().buffer_chains[0].data().buffers[0]
+            .data()
             .inv1
             .io()
             .din
@@ -145,7 +147,8 @@ fn nested_node_naming() {
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_din.path(), cell.data().buffer_chains[0].data().buffers[0]
+        cell.data().bubbled_din.path(),
+        cell.data().buffer_chains[0].data().buffers[0]
             .data()
             .inv1
             .data()

@@ -1,7 +1,7 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spectre::{Opts, Spectre, Tran, TranOutput};
 use spectre::blocks::Vsource;
+use spectre::{Opts, Spectre, Tran, TranOutput};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::ios::TestbenchIo;
@@ -69,14 +69,15 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
         cell: &Cell<VdividerTb>,
         sim: substrate::simulation::SimController<Spectre>,
     ) -> Self::Output {
-        let output = sim.simulate(
-            Opts {},
-            Tran {
-                stop: dec!(1e-9),
-                ..Default::default()
-            },
-        )
-        .expect("failed to run simulation");
+        let output = sim
+            .simulate(
+                Opts {},
+                Tran {
+                    stop: dec!(1e-9),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation");
 
         VdividerTbData {
             vdd: output.get_data(&cell.data().io().pwr.vdd).unwrap().clone(),
@@ -113,7 +114,11 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
-            vdividers: vec![Vdivider::new(300, 300), Vdivider::new(600, 200), Vdivider::new(200, 600)],
+            vdividers: vec![
+                Vdivider::new(300, 300),
+                Vdivider::new(600, 200),
+                Vdivider::new(200, 600),
+            ],
         });
 
         for i in 0..3 {
@@ -140,18 +145,22 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
         cell: &Cell<VdividerArrayTb>,
         sim: substrate::simulation::SimController<Spectre>,
     ) -> Self::Output {
-        let output = sim.simulate(
-            Opts {},
-            Tran {
-                stop: dec!(1e-9),
-                ..Default::default()
-            },
-        )
+        let output = sim
+            .simulate(
+                Opts {},
+                Tran {
+                    stop: dec!(1e-9),
+                    ..Default::default()
+                },
+            )
             .expect("failed to run simulation");
 
-        let out = cell.data().data().iter().map(|inst| output.get_data(&inst.io().out).unwrap().clone()).collect();
-        VdividerArrayTbData {
-            out,
-        }
+        let out = cell
+            .data()
+            .data()
+            .iter()
+            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
+            .collect();
+        VdividerArrayTbData { out }
     }
 }

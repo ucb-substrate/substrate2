@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{Array, ArrayData, InOut, Output, Signal};
 use substrate::pdk::Pdk;
-use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice};
+use substrate::schematic::{
+    CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice,
+};
 use substrate::{Io, SchematicData};
 
 pub mod tb;
@@ -146,9 +148,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
         cell.connect(io.out, r1.io().n);
         cell.connect(io.out, r2.io().p);
         cell.connect(io.pwr.vss, r2.io().n);
-        Ok(VdividerData {
-            r1, r2
-        })
+        Ok(VdividerData { r1, r2 })
     }
 }
 
@@ -158,10 +158,9 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
         io: &ArrayData<PowerIoSchematic>,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
-
         let mut vdividers = Vec::new();
 
-        for (i, vdivider ) in self.vdividers.iter().enumerate() {
+        for (i, vdivider) in self.vdividers.iter().enumerate() {
             let vdiv = cell.instantiate(*vdivider);
 
             cell.connect(&vdiv.io().pwr, &io[i]);
