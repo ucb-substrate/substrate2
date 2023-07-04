@@ -85,7 +85,7 @@ impl Block for Vdivider {
 }
 
 impl Block for VdividerArray {
-    type Io = Array<VdividerIo>;
+    type Io = Array<PowerIo>;
 
     fn id() -> ArcStr {
         arcstr::literal!("vdivider_array")
@@ -155,7 +155,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
 impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
     fn schematic(
         &self,
-        io: &ArrayData<VdividerIoSchematic>,
+        io: &ArrayData<PowerIoSchematic>,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
 
@@ -163,7 +163,8 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
 
         for (i, vdivider ) in self.vdividers.iter().enumerate() {
             let vdiv = cell.instantiate(*vdivider);
-            cell.connect(vdiv.io(), &io[i]);
+
+            cell.connect(&vdiv.io().pwr, &io[i]);
 
             vdividers.push(vdiv);
         }
