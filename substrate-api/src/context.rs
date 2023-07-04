@@ -29,6 +29,7 @@ use crate::schematic::conv::RawLib;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellHandle as SchematicCellHandle,
     HasSchematicImpl, InstanceId, InstancePath, SchematicContext, TestbenchCellBuilder,
+    TestbenchCellHandle,
 };
 use crate::simulation::{
     HasTestbenchSchematicImpl, SimController, SimulationContext, Simulator, Testbench,
@@ -252,7 +253,7 @@ impl<PDK: Pdk> Context<PDK> {
     pub(crate) fn generate_testbench_schematic<T, S>(
         &mut self,
         block: Arc<T>,
-    ) -> SchematicCellHandle<T>
+    ) -> TestbenchCellHandle<T>
     where
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
@@ -261,7 +262,7 @@ impl<PDK: Pdk> Context<PDK> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
-        SchematicCellHandle {
+        TestbenchCellHandle(SchematicCellHandle {
             id,
             block: block.clone(),
             cell: inner.schematic.gen.generate(block.clone(), move || {
@@ -270,7 +271,7 @@ impl<PDK: Pdk> Context<PDK> {
                 let data = block.schematic(&io_data, &mut cell_builder);
                 data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
             }),
-        }
+        })
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.

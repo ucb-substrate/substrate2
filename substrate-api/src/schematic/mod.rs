@@ -160,6 +160,11 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
     pub fn add<I: HasSchematicImpl<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+        assert!(
+            self.blackbox.is_none(),
+            "cannot add instances to a blackbox cell"
+        );
+
         self.post_instantiate(cell)
     }
 
@@ -305,6 +310,51 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
         self.inner.signal(name, ty)
     }
 
+    /// Starts generating a block in a new thread and returns a handle to its cell.
+    ///
+    /// Can be used to check data stored in the cell or other generation results before adding the
+    /// cell to the current schematic with [`CellBuilder::add`].
+    ///
+    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
+    /// error recovery and other checks are not possible when using
+    /// [`instantiate`](CellBuilder::instantiate).
+    pub fn generate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> CellHandle<I> {
+        self.inner.generate(block)
+    }
+
+    /// Generates a cell corresponding to `block` and returns a handle to it.
+    ///
+    /// Blocks on generation. Useful for handling errors thrown by the generation of a cell immediately.
+    ///
+    /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
+    /// [`CellBuilder::add`] before it can be connected as an instance.
+    pub fn generate_blocking<I: HasSchematicImpl<PDK>>(
+        &mut self,
+        block: I,
+    ) -> Result<CellHandle<I>> {
+        self.inner.generate_blocking(block)
+    }
+
+    /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
+    ///
+    /// Does not block on generation. Spawns a thread that waits on the generation of
+    /// the underlying cell and panics if generation fails. If error recovery is desired,
+    /// check errors before calling this function using [`CellHandle::try_cell`].
+    ///
+    /// # Panics
+    ///
+    /// Immediately panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    ///
+    /// The spawned thread may panic after this function returns if cell generation fails.
+    pub fn add<I: HasSchematicImpl<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+        assert!(
+            self.inner.blackbox.is_none(),
+            "cannot add instances to a blackbox cell"
+        );
+        self.inner.post_instantiate(cell)
+    }
+
     /// Instantiate a schematic view of the given block.
     ///
     /// # Panics
@@ -356,6 +406,59 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
         self.inner.set_blackbox(contents)
     }
 
+    /// Starts generating a block in a new thread and returns a handle to its cell.
+    ///
+    /// Can be used to check data stored in the cell or other generation results before adding the
+    /// cell to the current schematic with [`CellBuilder::add`].
+    ///
+    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
+    /// error recovery and other checks are not possible when using
+    /// [`instantiate`](CellBuilder::instantiate).
+    pub fn generate_tb<I: HasTestbenchSchematicImpl<PDK, S>>(
+        &mut self,
+        block: I,
+    ) -> TestbenchCellHandle<I> {
+        self.inner.ctx.generate_testbench_schematic(Arc::new(block))
+    }
+
+    /// Generates a cell corresponding to `block` and returns a handle to it.
+    ///
+    /// Blocks on generation. Useful for handling errors thrown by the generation of a cell immediately.
+    ///
+    /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
+    /// [`CellBuilder::add`] before it can be connected as an instance.
+    pub fn generate_tb_blocking<I: HasTestbenchSchematicImpl<PDK, S>>(
+        &mut self,
+        block: I,
+    ) -> Result<TestbenchCellHandle<I>> {
+        let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
+        cell.try_cell()?;
+        Ok(cell)
+    }
+
+    /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
+    ///
+    /// Does not block on generation. Spawns a thread that waits on the generation of
+    /// the underlying cell and panics if generation fails. If error recovery is desired,
+    /// check errors before calling this function using [`CellHandle::try_cell`].
+    ///
+    /// # Panics
+    ///
+    /// Immediately panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    ///
+    /// The spawned thread may panic after this function returns if cell generation fails.
+    pub fn add_tb<I: HasTestbenchSchematicImpl<PDK, S>>(
+        &mut self,
+        cell: TestbenchCellHandle<I>,
+    ) -> Instance<I> {
+        assert!(
+            self.inner.blackbox.is_none(),
+            "cannot add instances to a blackbox cell"
+        );
+        self.inner.post_instantiate(cell.0)
+    }
+
     /// Instantiate a testbench schematic view of the given block.
     ///
     /// # Panics
@@ -372,7 +475,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
         );
 
         let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
-        self.inner.post_instantiate(cell)
+        self.inner.post_instantiate(cell.0)
     }
 }
 
@@ -405,6 +508,10 @@ pub struct CellHandle<T: HasSchematic> {
     pub(crate) cell: Arc<OnceCell<Result<Cell<T>>>>,
 }
 
+/// A handle to a testbench schematic cell that is being generated.
+#[derive(Clone)]
+pub struct TestbenchCellHandle<T: HasSchematic>(pub(crate) CellHandle<T>);
+
 impl<T: HasSchematic> CellHandle<T> {
     /// Tries to access the underlying [`Cell`].
     ///
@@ -422,6 +529,26 @@ impl<T: HasSchematic> CellHandle<T> {
     /// Panics if generation fails.
     pub fn cell(&self) -> &Cell<T> {
         self.try_cell().expect("cell generation failed")
+    }
+}
+
+impl<T: HasSchematic> TestbenchCellHandle<T> {
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes and returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> Result<&Cell<T>> {
+        self.0.try_cell()
+    }
+
+    /// Returns the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if generation fails.
+    pub fn cell(&self) -> &Cell<T> {
+        self.0.cell()
     }
 }
 
