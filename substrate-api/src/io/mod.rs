@@ -554,7 +554,7 @@ pub struct Port {
 }
 
 /// An array containing some number of elements of type `T`.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Array<T> {
     len: usize,
     ty: T,
@@ -569,7 +569,7 @@ impl<T> Array<T> {
 }
 
 /// An instantiated array containing a fixed number of elements of type `T`.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ArrayData<T> {
     elems: Vec<T>,
     ty_len: usize,

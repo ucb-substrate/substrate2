@@ -130,7 +130,7 @@ impl Block for BufferN {
     }
 }
 
-#[derive(Io, Clone, Default)]
+#[derive(Io, Clone)]
 pub struct BufferNxMIo {
     vdd: InOut<Signal>,
     vss: InOut<Signal>,
@@ -168,7 +168,8 @@ impl Block for BufferNxM {
         Self::Io {
             din: Input(Array::new(self.m, Default::default())),
             dout: Output(Array::new(self.m, Default::default())),
-            ..Default::default()
+            vdd: Default::default(),
+            vss: Default::default(),
         }
     }
 }
