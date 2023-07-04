@@ -47,9 +47,9 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 #[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) id: CellId,
-    /// Dummy path stub containing just this builder's cell ID to ensure that paths are correctly propagated.
-    pub(crate) path: InstancePath,
     pub(crate) next_instance_id: InstanceId,
+    /// The root instance path that all nested paths should be relative to.
+    pub(crate) root: InstancePath,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
     pub(crate) instances: Vec<RawInstance>,
@@ -152,12 +152,16 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
         let inst = Instance {
             id: self.next_instance_id,
-            path: self.path.clone(),
+            parent: self.root.clone(),
+            path: self
+                .root
+                .append_segment(self.next_instance_id, cell.wait().as_ref().unwrap().raw.id),
             cell,
             io: io_data,
         };
 
         let raw = RawInstance {
+            id: inst.id,
             name: arcstr::literal!("unnamed"),
             child: inst.cell().raw,
             connections,
@@ -316,7 +320,7 @@ pub struct Cell<T: HasSchematic> {
     /// The block from which this cell was generated.
     pub block: T,
     /// Data returned by the cell's schematic generator.
-    pub data: T::Data,
+    pub(crate) data: T::Data,
     pub(crate) raw: Arc<RawCell>,
 }
 
@@ -324,12 +328,18 @@ impl<T: HasSchematic> Cell<T> {
     pub(crate) fn new(block: T, data: T::Data, raw: Arc<RawCell>) -> Self {
         Self { block, data, raw }
     }
+
+    /// Returns the data of `self`.
+    pub fn data(&self) -> NestedView<T::Data> {
+        self.data.nested_view(&InstancePath::new(self.raw.id))
+    }
 }
 
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct RawInstance {
+    id: InstanceId,
     name: ArcStr,
     child: Arc<RawCell>,
     connections: Vec<Node>,
@@ -382,7 +392,9 @@ impl InstanceId {
 #[allow(dead_code)]
 pub struct Instance<T: HasSchematic> {
     id: InstanceId,
-    /// Head of linked list path to this instance relative to the current cell.
+    /// Path of the parent cell.
+    parent: InstancePath,
+    /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
@@ -402,7 +414,7 @@ impl<T: HasSchematic> Instance<T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
 
@@ -413,6 +425,22 @@ impl<T: HasSchematic> Instance<T> {
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> NestedView<Cell<T>> {
         self.try_cell().unwrap()
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<NestedView<'_, T::Data>> {
+        self.try_cell().map(|cell| cell.data)
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> NestedView<'_, T::Data> {
+        self.try_data().unwrap()
     }
 }
 
@@ -461,7 +489,81 @@ impl SchematicContext {
 }
 
 /// A path to an instance from a top level cell.
-pub type InstancePath = PathTree<(CellId, InstanceId)>;
+///
+/// Inexpensive to clone as it only clones an ID and a reference counted pointer.
+#[derive(Debug, Clone)]
+pub struct InstancePath {
+    /// The ID of the top level cell that this path is relative to.
+    pub(crate) top: CellId,
+    /// The ID of the last instance's underlying cell.
+    ///
+    /// Allows for verification that two paths can be concatenated.
+    /// `None` if path is empty.
+    pub(crate) bot: Option<CellId>,
+    /// A path of instance IDs.
+    pub(crate) path: PathTree<InstanceId>,
+}
+
+impl InstancePath {
+    pub(crate) fn new(top: CellId) -> Self {
+        Self {
+            top,
+            bot: None,
+            path: PathTree::empty(),
+        }
+    }
+    #[allow(dead_code)]
+    pub(crate) fn append(&self, other: &Self) -> Self {
+        if let Some(bot) = self.bot {
+            assert_eq!(
+                bot, other.top,
+                "path to append must start with the cell ID that the current path ends with"
+            );
+        } else {
+            assert_eq!(
+                self.top, other.top,
+                "path to append must start with the cell ID that the current path ends with"
+            );
+        }
+        Self {
+            top: self.top,
+            bot: other.bot,
+            path: self.path.append(&other.path),
+        }
+    }
+
+    pub(crate) fn prepend(&self, other: &Self) -> Self {
+        if let Some(bot) = other.bot {
+            assert_eq!(
+                bot, self.top,
+                "path to prepend must end with the cell ID that the current path starts with"
+            );
+        } else {
+            assert_eq!(
+                other.top, self.top,
+                "path to prepend must end with the cell ID that the current path starts with"
+            );
+        }
+        Self {
+            top: other.top,
+            bot: self.bot,
+            path: self.path.prepend(&other.path),
+        }
+    }
+
+    pub(crate) fn append_segment(&self, id: InstanceId, cell_id: CellId) -> Self {
+        Self {
+            top: self.top,
+            bot: Some(cell_id),
+            path: self.path.append_segment(id),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.bot.is_none()
+    }
+}
 
 /// Data that can be stored in [`HasSchematic::Data`](crate::schematic::HasSchematic::Data).
 pub trait Data: HasNestedView + Send + Sync {}
@@ -511,8 +613,15 @@ pub struct NestedCellView<'a, T: HasSchematic> {
     /// The block from which this cell was generated.
     pub block: &'a T,
     /// Data returned by the cell's schematic generator.
-    pub data: NestedView<'a, T::Data>,
+    data: NestedView<'a, T::Data>,
     pub(crate) raw: Arc<RawCell>,
+}
+
+impl<'a, T: HasSchematic> NestedCellView<'a, T> {
+    /// Returns the data of `self`.
+    pub fn data(&'a self) -> &'a NestedView<'a, T::Data> {
+        &self.data
+    }
 }
 
 /// A view of a nested instance.
@@ -520,6 +629,8 @@ pub struct NestedCellView<'a, T: HasSchematic> {
 /// Created when accessing an instance stored in the data of a nested cell.
 pub struct NestedInstanceView<'a, T: HasSchematic> {
     id: InstanceId,
+    /// Path to the parent cell of this instance.
+    parent: InstancePath,
     /// Head of linked list path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
@@ -534,7 +645,9 @@ pub struct NestedInstanceView<'a, T: HasSchematic> {
 /// easier access.
 pub struct NestedInstance<T: HasSchematic> {
     id: InstanceId,
-    /// Head of linked list path to this instance relative to the current cell.
+    /// Path to the parent cell of this instance.
+    parent: InstancePath,
+    /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
@@ -565,6 +678,7 @@ impl<T: HasSchematic> HasNestedView for Instance<T> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
+            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -575,7 +689,7 @@ impl<T: HasSchematic> HasNestedView for Instance<T> {
 impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// The ports of this instance.
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.path)
+        self.io.nested_view(&self.parent)
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -585,7 +699,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
 
@@ -598,10 +712,27 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
         self.try_cell().unwrap()
     }
 
+    /// Tries to access the underlying cell data.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<NestedView<'_, T::Data>> {
+        self.try_cell().map(|cell| cell.data)
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> NestedView<'_, T::Data> {
+        self.try_data().unwrap()
+    }
+
     /// Creates an owned [`NestedInstance`] that can be stored in propagated schematic data.
     pub fn to_owned(&self) -> NestedInstance<T> {
         NestedInstance {
             id: self.id,
+            parent: self.parent.clone(),
             path: self.path.clone(),
             io: (*self.io).clone(),
             cell: self.cell.clone(),
@@ -615,6 +746,7 @@ impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
+            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -625,7 +757,7 @@ impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
 impl<T: HasSchematic> NestedInstance<T> {
     /// The ports of this instance.
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.path)
+        self.io.nested_view(&self.parent)
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -635,7 +767,7 @@ impl<T: HasSchematic> NestedInstance<T> {
         self.cell
             .wait()
             .as_ref()
-            .map(|cell| cell.nested_view(&self.path.append_segment((cell.raw.id, self.id))))
+            .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
 

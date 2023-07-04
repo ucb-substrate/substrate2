@@ -4,13 +4,17 @@
 use std::collections::HashMap;
 use std::io::{BufWriter, Write};
 use std::os::unix::prelude::PermissionsExt;
+use std::sync::Arc;
 
 use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate::simulation::{Analysis, SimulationConfig, Simulator, Supports};
+use substrate::io::{NestedNode, NodePath};
+use substrate::schematic::conv::ScirLibConversion;
+use substrate::simulation::data::HasNodeData;
+use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -30,10 +34,35 @@ pub struct Tran {
 }
 
 /// The result of a transient analysis.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct TranOutput {
+    conv: Arc<ScirLibConversion>,
     /// A map from signal name to values.
     pub values: HashMap<String, Vec<f64>>,
+}
+
+impl HasNodeData<str, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
+        self.values.get(k)
+    }
+}
+
+impl HasNodeData<scir::NodePath, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &scir::NodePath) -> Option<&Vec<f64>> {
+        self.get_data(&*node_path(k))
+    }
+}
+
+impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
+        self.get_data(&self.conv.convert_path(k)?)
+    }
+}
+
+impl HasNodeData<NestedNode, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &NestedNode) -> Option<&Vec<f64>> {
+        self.get_data(&self.conv.convert_path(&k.path())?)
+    }
 }
 
 impl Analysis for Tran {
@@ -48,7 +77,7 @@ pub enum Input {
 }
 
 /// Outputs directly produced by Spectre.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
     Tran(TranOutput),
@@ -97,15 +126,15 @@ pub struct Opts {}
 impl Spectre {
     fn simulate(
         &self,
-        config: &SimulationConfig,
+        ctx: &SimulationContext,
         _options: Opts,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
-        std::fs::create_dir_all(&config.work_dir)?;
-        let netlist = config.work_dir.join("netlist.scs");
+        std::fs::create_dir_all(&ctx.work_dir)?;
+        let netlist = ctx.work_dir.join("netlist.scs");
         let f = std::fs::File::create(&netlist)?;
         let mut w = BufWriter::new(f);
-        let netlister = Netlister::new(&config.lib, &mut w);
+        let netlister = Netlister::new(&ctx.lib, &mut w);
         netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
@@ -117,9 +146,9 @@ impl Spectre {
         w.flush()?;
         drop(w);
 
-        let output_dir = config.work_dir.join("psf/");
-        let log = config.work_dir.join("spectre.log");
-        let run_script = config.work_dir.join("simulate.sh");
+        let output_dir = ctx.work_dir.join("psf/");
+        let log = ctx.work_dir.join("spectre.log");
+        let run_script = ctx.work_dir.join("simulate.sh");
         write_run_script(
             RunScriptContext {
                 netlist: &netlist,
@@ -138,7 +167,7 @@ impl Spectre {
 
         let status = std::process::Command::new("/bin/bash")
             .arg(&run_script)
-            .current_dir(&config.work_dir)
+            .current_dir(&ctx.work_dir)
             .status()?;
 
         if !status.success() {
@@ -177,7 +206,13 @@ impl Spectre {
                         let value = value.unwrap_real();
                         values.insert(name, value);
                     }
-                    outputs.push(TranOutput { values }.into());
+                    outputs.push(
+                        TranOutput {
+                            conv: ctx.conv.clone(),
+                            values,
+                        }
+                        .into(),
+                    );
                 }
             }
         }
@@ -191,14 +226,28 @@ impl Simulator for Spectre {
     type Output = Output;
     type Options = Opts;
     type Error = Error;
+
     fn simulate_inputs(
         &self,
-        config: &substrate::simulation::SimulationConfig,
+        config: &substrate::simulation::SimulationContext,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {
         self.simulate(config, options, input)
     }
+}
+
+pub(crate) fn node_path(path: &scir::NodePath) -> String {
+    let mut str_path = String::new();
+    for instance in &path.instances {
+        str_path.push_str(instance);
+        str_path.push('.');
+    }
+    str_path.push_str(&path.signal);
+    if let Some(index) = path.index {
+        str_path.push_str(&format!("[{}]", index));
+    }
+    str_path
 }
 
 impl Input {

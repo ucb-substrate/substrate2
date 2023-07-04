@@ -2,10 +2,12 @@ use arcstr::ArcStr;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{InOut, Output, Signal};
+use substrate::io::{Array, ArrayData, InOut, Output, Signal};
 use substrate::pdk::Pdk;
-use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, PrimitiveDevice};
-use substrate::Io;
+use substrate::schematic::{
+    CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice,
+};
+use substrate::{Io, SchematicData};
 
 pub mod tb;
 
@@ -36,6 +38,20 @@ pub struct Resistor {
 pub struct Vdivider {
     pub r1: Resistor,
     pub r2: Resistor,
+}
+
+impl Vdivider {
+    fn new(r1: usize, r2: usize) -> Self {
+        Self {
+            r1: Resistor { r: r1 },
+            r2: Resistor { r: r2 },
+        }
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VdividerArray {
+    pub vdividers: Vec<Vdivider>,
 }
 
 impl Block for Resistor {
@@ -70,12 +86,38 @@ impl Block for Vdivider {
     }
 }
 
+impl Block for VdividerArray {
+    type Io = Array<PowerIo>;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("vdivider_array")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("vdivider_array_{}", self.vdividers.len())
+    }
+
+    fn io(&self) -> Self::Io {
+        Array::new(self.vdividers.len(), Default::default())
+    }
+}
+
 impl HasSchematic for Resistor {
     type Data = ();
 }
 
+#[derive(SchematicData)]
+pub struct VdividerData {
+    r1: Instance<Resistor>,
+    r2: Instance<Resistor>,
+}
+
 impl HasSchematic for Vdivider {
-    type Data = ();
+    type Data = VdividerData;
+}
+
+impl HasSchematic for VdividerArray {
+    type Data = Vec<Instance<Vdivider>>;
 }
 
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
@@ -106,6 +148,26 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
         cell.connect(io.out, r1.io().n);
         cell.connect(io.out, r2.io().p);
         cell.connect(io.pwr.vss, r2.io().n);
-        Ok(())
+        Ok(VdividerData { r1, r2 })
+    }
+}
+
+impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
+    fn schematic(
+        &self,
+        io: &ArrayData<PowerIoSchematic>,
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let mut vdividers = Vec::new();
+
+        for (i, vdivider) in self.vdividers.iter().enumerate() {
+            let vdiv = cell.instantiate(*vdivider);
+
+            cell.connect(&vdiv.io().pwr, &io[i]);
+
+            vdividers.push(vdiv);
+        }
+
+        Ok(vdividers)
     }
 }

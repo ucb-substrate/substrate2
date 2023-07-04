@@ -203,7 +203,7 @@ impl HasNestedView for Node {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         NestedNode {
-            inner: self.0,
+            node: *self,
             path: parent.clone(),
         }
     }
@@ -214,7 +214,7 @@ impl HasNestedView for NestedNode {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         NestedNode {
-            inner: self.inner,
+            node: self.node,
             path: self.path.prepend(parent),
         }
     }
@@ -233,7 +233,7 @@ impl Flatten<Node> for NestedNode {
     where
         E: Extend<Node>,
     {
-        output.extend(std::iter::once(Node(self.inner)));
+        output.extend(std::iter::once(self.node));
     }
 }
 
@@ -695,6 +695,8 @@ impl<T: LayoutType> LayoutType for Array<T> {
     }
 }
 
+impl<T: Io> Io for Array<T> {}
+
 impl<T: LayoutType, U: LayoutType + CustomLayoutType<T>> CustomLayoutType<Array<T>> for Array<U> {
     fn from_layout_type(other: &Array<T>) -> Self {
         Self {
@@ -830,12 +832,20 @@ where
 impl<T: Undirected> Undirected for ArrayData<T> {}
 
 impl<T> Connect<T> for T {}
+impl<T> Connect<&T> for T {}
+impl<T> Connect<T> for &T {}
 impl<T: Undirected> Connect<T> for Input<T> {}
 impl<T: Undirected> Connect<T> for Output<T> {}
 impl<T: Undirected> Connect<T> for InOut<T> {}
 impl<T: Undirected> Connect<Input<T>> for T {}
 impl<T: Undirected> Connect<Output<T>> for T {}
 impl<T: Undirected> Connect<InOut<T>> for T {}
+impl<T: Undirected> Connect<&T> for &Input<T> {}
+impl<T: Undirected> Connect<&T> for &Output<T> {}
+impl<T: Undirected> Connect<&T> for &InOut<T> {}
+impl<T: Undirected> Connect<&Input<T>> for &T {}
+impl<T: Undirected> Connect<&Output<T>> for &T {}
+impl<T: Undirected> Connect<&InOut<T>> for &T {}
 
 // For analog circuits, we don't check directionality of connections.
 impl<T: Undirected> Connect<Input<T>> for Output<T> {}
@@ -844,6 +854,12 @@ impl<T: Undirected> Connect<Output<T>> for Input<T> {}
 impl<T: Undirected> Connect<Output<T>> for InOut<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Input<T> {}
 impl<T: Undirected> Connect<InOut<T>> for Output<T> {}
+impl<T: Undirected> Connect<&Input<T>> for &Output<T> {}
+impl<T: Undirected> Connect<&Input<T>> for &InOut<T> {}
+impl<T: Undirected> Connect<&Output<T>> for &Input<T> {}
+impl<T: Undirected> Connect<&Output<T>> for &InOut<T> {}
+impl<T: Undirected> Connect<&InOut<T>> for &Input<T> {}
+impl<T: Undirected> Connect<&InOut<T>> for &Output<T> {}
 
 impl From<ArcStr> for NameFragment {
     fn from(value: ArcStr) -> Self {

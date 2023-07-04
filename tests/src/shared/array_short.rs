@@ -7,7 +7,7 @@ use substrate::pdk::Pdk;
 use substrate::Io;
 use substrate::{block::Block, schematic::HasSchematic};
 
-#[derive(Debug, Default, Clone, Io)]
+#[derive(Debug, Clone, Io)]
 pub struct ArrayIo {
     pub inputs: Input<Array<Signal>>,
     pub out: Output<Signal>,

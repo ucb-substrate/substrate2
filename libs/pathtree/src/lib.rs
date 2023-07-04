@@ -50,22 +50,22 @@ impl<T> Clone for PathTree<T> {
 
 #[derive(Debug, Default, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 struct PathTreeInner<T> {
-    data: Option<T>,
+    segment: Option<T>,
     parent: Option<PathTree<T>>,
     child: Option<PathTree<T>>,
 }
 
 impl<T> PathTree<T> {
-    fn new(data: Option<T>, parent: Option<PathTree<T>>, child: Option<PathTree<T>>) -> Self {
+    fn node(segment: Option<T>, parent: Option<PathTree<T>>, child: Option<PathTree<T>>) -> Self {
         PathTree(Arc::new(PathTreeInner {
-            data,
+            segment,
             parent,
             child,
         }))
     }
 
-    fn data(&self) -> &Option<T> {
-        &self.0.data
+    fn segment(&self) -> &Option<T> {
+        &self.0.segment
     }
 
     fn parent(&self) -> &Option<Self> {
@@ -76,29 +76,34 @@ impl<T> PathTree<T> {
         &self.0.child
     }
 
+    /// Creates a new [`PathTree`] with a single segment.
+    pub fn new(segment: T) -> Self {
+        Self::node(Some(segment), None, None)
+    }
+
     /// Creates an empty [`PathTree`].
     pub fn empty() -> Self {
-        Self::new(None, None, None)
+        Self::node(None, None, None)
     }
 
     /// Appends another [`PathTree`] to `self`.
     pub fn append(&self, other: &PathTree<T>) -> Self {
-        Self::new(None, Some((*self).clone()), Some((*other).clone()))
+        Self::node(None, Some((*self).clone()), Some((*other).clone()))
     }
 
     /// Prepends another [`PathTree`] to `self`.
     pub fn prepend(&self, other: &PathTree<T>) -> Self {
-        Self::new(None, Some((*other).clone()), Some((*self).clone()))
+        other.append(self)
     }
 
     /// Appends a segment to `self`.
-    pub fn append_segment(&self, data: T) -> Self {
-        Self::new(Some(data), Some((*self).clone()), None)
+    pub fn append_segment(&self, segment: T) -> Self {
+        Self::node(Some(segment), Some((*self).clone()), None)
     }
 
     /// Prepends a segment to `self`.
-    pub fn prepend_segment(&self, data: T) -> Self {
-        Self::new(Some(data), None, Some((*self).clone()))
+    pub fn prepend_segment(&self, segment: T) -> Self {
+        Self::node(Some(segment), None, Some((*self).clone()))
     }
 
     /// Creates an iterator over the items in the path.
@@ -122,11 +127,16 @@ impl<'a, T> IntoIterator for &'a PathTree<T> {
 
 impl<A> FromIterator<A> for PathTree<A> {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
-        let mut tree = PathTree::empty();
-        for elem in iter {
-            tree = tree.append_segment(elem);
+        let mut iter = iter.into_iter();
+        if let Some(elem) = iter.next() {
+            let mut tree = PathTree::new(elem);
+            for elem in iter {
+                tree = tree.append_segment(elem);
+            }
+            tree
+        } else {
+            PathTree::empty()
         }
-        tree
     }
 }
 
@@ -168,8 +178,8 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(next) = self.pop() {
-            if let Some(data) = next.data().as_ref() {
-                return Some(data);
+            if let Some(segment) = next.segment().as_ref() {
+                return Some(segment);
             }
         }
 
