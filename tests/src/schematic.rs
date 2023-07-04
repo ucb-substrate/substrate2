@@ -1,18 +1,22 @@
 use std::collections::HashSet;
 
+use anyhow::anyhow;
 use arcstr::ArcStr;
+use serde::{Deserialize, Serialize};
 use substrate::{
+    block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::conv::RawLib,
+    schematic::{conv::RawLib, HasSchematic, HasSchematicImpl},
+    supported_pdks,
 };
 
-use crate::shared::buffer::BufferNxM;
 use crate::shared::{
     buffer::Buffer,
     pdk::ExamplePdkA,
     vdivider::{PowerIo, Resistor, Vdivider, VdividerIo},
 };
+use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
 #[test]
 fn can_generate_vdivider_schematic() {
@@ -21,9 +25,6 @@ fn can_generate_vdivider_schematic() {
         r1: Resistor { r: 300 },
         r2: Resistor { r: 100 },
     };
-    let handle = ctx.generate_schematic(vdivider);
-    let _cell = handle.wait().as_ref().unwrap();
-
     let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
     assert_eq!(scir.cells().count(), 3);
     let issues = scir.validate();
@@ -108,7 +109,7 @@ fn internal_signal_names_preserved() {
 fn nested_node_naming() {
     let mut ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_schematic(BufferNxM::new(5, 5, 5));
-    let cell = handle.wait().as_ref().unwrap();
+    let cell = handle.cell();
 
     assert_ne!(
         cell.data().bubbled_inv1.io().din.path(),
@@ -156,4 +157,99 @@ fn nested_node_naming() {
             .din
             .path()
     );
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+pub struct Block1;
+
+impl Block for Block1 {
+    type Io = ();
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("block1")
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("block1")
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasSchematic for Block1 {
+    type Data = ();
+}
+
+#[supported_pdks(ExamplePdkA, ExamplePdkB)]
+impl HasSchematicImpl<ExamplePdkA> for Block1 {
+    fn schematic(
+        &self,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        Err(substrate::error::Error::Anyhow(
+            anyhow!("failed to generate block 1").into(),
+        ))
+    }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+pub struct Block2;
+
+impl Block for Block2 {
+    type Io = ();
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("block2")
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("block2")
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasSchematic for Block2 {
+    type Data = ();
+}
+
+impl HasSchematicImpl<ExamplePdkA> for Block2 {
+    fn schematic(
+        &self,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let handle = cell.generate(Block1);
+        handle.try_cell()?;
+        let _inst = cell.add(handle);
+        Ok(())
+    }
+}
+
+impl HasSchematicImpl<ExamplePdkB> for Block2 {
+    fn schematic(
+        &self,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::CellBuilder<ExamplePdkB, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let handle = cell.generate_blocking(Block1)?;
+        let _inst = cell.add(handle);
+        Ok(())
+    }
+}
+
+#[test]
+fn error_propagation_works() {
+    let mut ctx = Context::new(ExamplePdkA);
+    let handle = ctx.generate_schematic(Block2);
+    assert!(handle.try_cell().is_err());
+
+    let mut ctx = Context::new(ExamplePdkB);
+    let handle = ctx.generate_schematic(Block2);
+    assert!(handle.try_cell().is_err());
 }

@@ -1520,6 +1520,7 @@ dependencies = [
 name = "substrate_api"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "arcstr",
  "crossbeam-channel",
  "ena",
@@ -1618,6 +1619,7 @@ dependencies = [
 name = "tests"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "arcstr",
  "geometry",
  "rust_decimal",

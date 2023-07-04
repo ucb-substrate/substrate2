@@ -16,10 +16,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{Error, Result},
     io::{NameBuf, PortGeometry},
-    pdk::{layers::LayerId, Pdk},
+    pdk::layers::LayerId,
 };
 
-use super::{draw::DrawContainer, CellBuilder, HasLayout, Instance};
+use super::{HasLayout, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -54,24 +54,16 @@ impl RawCell {
         }
     }
 
-    pub(crate) fn from_ports_and_builder<PDK: Pdk, T: HasLayout>(
-        ports: HashMap<NameBuf, PortGeometry>,
-        cell_builder: CellBuilder<PDK, T>,
-    ) -> Self {
-        Self {
-            ports,
-            ..cell_builder.cell
-        }
-    }
-}
-
-impl DrawContainer for RawCell {
-    fn draw_element(&mut self, element: Element) {
-        self.elements.push(element);
+    pub(crate) fn with_ports(self, ports: HashMap<NameBuf, PortGeometry>) -> Self {
+        Self { ports, ..self }
     }
 
-    fn draw_blockage(&mut self, shape: Shape) {
-        self.blockages.push(shape);
+    pub(crate) fn add_element(&mut self, elem: impl Into<Element>) {
+        self.elements.push(elem.into());
+    }
+
+    pub(crate) fn add_blockage(&mut self, shape: impl Into<Shape>) {
+        self.blockages.push(shape.into());
     }
 }
 

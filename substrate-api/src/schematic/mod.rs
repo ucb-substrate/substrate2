@@ -7,7 +7,9 @@ use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
+use std::thread;
 
 use arcstr::ArcStr;
 use once_cell::sync::OnceCell;
@@ -52,7 +54,7 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) root: InstancePath,
     pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
-    pub(crate) instances: Vec<RawInstance>,
+    pub(crate) instances: Vec<Receiver<Option<RawInstance>>>,
     pub(crate) primitives: Vec<PrimitiveDevice>,
     pub(crate) node_names: HashMap<Node, NameBuf>,
     pub(crate) cell_name: ArcStr,
@@ -78,9 +80,14 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let contents = if let Some(contents) = self.blackbox {
             RawCellContents::Opaque(contents)
         } else {
+            let instances = self
+                .instances
+                .into_iter()
+                .map(|instance| instance.recv().unwrap().unwrap())
+                .collect::<Vec<_>>();
             RawCellContents::Clear(RawCellInner {
                 primitives: self.primitives,
-                instances: self.instances,
+                instances,
             })
         };
         RawCell {
@@ -113,29 +120,77 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         data
     }
 
-    /// Instantiate a schematic view of the given block.
+    /// Starts generating a block in a new thread and returns a handle to its cell.
+    ///
+    /// Can be used to check data stored in the cell or other generation results before adding the
+    /// cell to the current schematic with [`CellBuilder::add`].
+    ///
+    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
+    /// error recovery and other checks are not possible when using
+    /// [`instantiate`](CellBuilder::instantiate).
+    pub fn generate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> CellHandle<I> {
+        self.ctx.generate_schematic(block)
+    }
+
+    /// Generates a cell corresponding to `block` and returns a handle to it.
+    ///
+    /// Blocks on generation. Useful for handling errors thrown by the generation of a cell immediately.
+    ///
+    /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
+    /// [`CellBuilder::add`] before it can be connected as an instance.
+    pub fn generate_blocking<I: HasSchematicImpl<PDK>>(
+        &mut self,
+        block: I,
+    ) -> Result<CellHandle<I>> {
+        let cell = self.ctx.generate_schematic(block);
+        cell.try_cell()?;
+        Ok(cell)
+    }
+
+    /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
+    ///
+    /// Does not block on generation. Spawns a thread that waits on the generation of
+    /// the underlying cell and panics if generation fails. If error recovery is desired,
+    /// check errors before calling this function using [`CellHandle::try_cell`].
     ///
     /// # Panics
     ///
-    /// Panics if this cell has been marked as a blackbox.
+    /// Immediately panics if this cell has been marked as a blackbox.
     /// A blackbox cell cannot contain instances or primitive devices.
+    ///
+    /// The spawned thread may panic after this function returns if cell generation fails.
+    pub fn add<I: HasSchematicImpl<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+        self.post_instantiate(cell)
+    }
+
+    /// Instantiate a schematic view of the given block.
+    ///
+    /// This function generates and adds the cell to the schematic. If checks need to be done on
+    /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
+    /// [`CellBuilder::add`].
+    ///
+    /// Spawns a thread that generates the underlying cell and panics if generation fails. If error
+    /// recovery is desired, use generate and add workflow mentioned above.
+    ///
+    /// # Panics
+    ///
+    /// Immediately panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    ///
+    /// The spawned thread may panic after this function returns if cell generation fails.
     pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
 
-        let cell = self.ctx.generate_schematic(block.clone());
-        self.post_instantiate(block, cell)
+        let cell = self.ctx.generate_schematic(block);
+        self.post_instantiate(cell)
     }
 
     /// Creates nodes for the newly-instantiated block's IOs.
-    fn post_instantiate<I: HasSchematic>(
-        &mut self,
-        block: I,
-        cell: Arc<OnceCell<std::result::Result<Cell<I>, crate::error::Error>>>,
-    ) -> Instance<I> {
-        let io = block.io();
+    fn post_instantiate<I: HasSchematic>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+        let io = cell.block.io();
 
         let ids = self.node_ctx.nodes(io.len(), NodePriority::Auto);
         let (io_data, ids_rest) = io.instantiate(&ids);
@@ -153,20 +208,28 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         let inst = Instance {
             id: self.next_instance_id,
             parent: self.root.clone(),
-            path: self
-                .root
-                .append_segment(self.next_instance_id, cell.wait().as_ref().unwrap().raw.id),
-            cell,
+            path: self.root.append_segment(self.next_instance_id, cell.id),
+            cell: cell.cell.clone(),
             io: io_data,
         };
 
-        let raw = RawInstance {
-            id: inst.id,
-            name: arcstr::literal!("unnamed"),
-            child: inst.cell().raw,
-            connections,
-        };
-        self.instances.push(raw);
+        let (send, recv) = mpsc::channel();
+
+        self.instances.push(recv);
+
+        thread::spawn(move || {
+            if let Ok(cell) = cell.cell.wait() {
+                let raw = RawInstance {
+                    id: inst.id,
+                    name: arcstr::literal!("unnamed"),
+                    child: cell.raw.clone(),
+                    connections,
+                };
+                send.send(Some(raw)).unwrap();
+            } else {
+                send.send(None).unwrap();
+            }
+        });
 
         inst
     }
@@ -308,30 +371,57 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
             "cannot add instances to a blackbox cell"
         );
 
-        let cell = self.inner.ctx.generate_testbench_schematic(block.clone());
-        self.inner.post_instantiate(block, cell)
+        let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
+        self.inner.post_instantiate(cell)
     }
 }
 
 /// A schematic cell.
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct Cell<T: HasSchematic> {
     /// The block from which this cell was generated.
-    pub block: T,
+    pub block: Arc<T>,
     /// Data returned by the cell's schematic generator.
     pub(crate) data: T::Data,
     pub(crate) raw: Arc<RawCell>,
 }
 
 impl<T: HasSchematic> Cell<T> {
-    pub(crate) fn new(block: T, data: T::Data, raw: Arc<RawCell>) -> Self {
+    pub(crate) fn new(block: Arc<T>, data: T::Data, raw: Arc<RawCell>) -> Self {
         Self { block, data, raw }
     }
 
-    /// Returns the data of `self`.
+    /// Returns extra data created by the cell's schematic generator.
     pub fn data(&self) -> NestedView<T::Data> {
         self.data.nested_view(&InstancePath::new(self.raw.id))
+    }
+}
+
+/// A handle to a schematic cell that is being generated.
+#[derive(Clone)]
+pub struct CellHandle<T: HasSchematic> {
+    pub(crate) id: CellId,
+    pub(crate) block: Arc<T>,
+    pub(crate) cell: Arc<OnceCell<Result<Cell<T>>>>,
+}
+
+impl<T: HasSchematic> CellHandle<T> {
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes and returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> Result<&Cell<T>> {
+        self.cell.wait().as_ref().map_err(|e| e.clone())
+    }
+
+    /// Returns the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if generation fails.
+    pub fn cell(&self) -> &Cell<T> {
+        self.try_cell().expect("cell generation failed")
     }
 }
 
@@ -424,7 +514,7 @@ impl<T: HasSchematic> Instance<T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> NestedView<Cell<T>> {
-        self.try_cell().unwrap()
+        self.try_cell().expect("cell generation failed")
     }
 
     /// Tries to access the underlying cell data.
@@ -440,7 +530,23 @@ impl<T: HasSchematic> Instance<T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn data(&self) -> NestedView<'_, T::Data> {
-        self.try_data().unwrap()
+        self.cell().data
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_block(&self) -> Result<&T> {
+        self.try_cell().map(|cell| cell.block)
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn block(&self) -> &T {
+        self.cell().block
     }
 }
 
@@ -614,6 +720,7 @@ pub struct NestedCellView<'a, T: HasSchematic> {
     pub block: &'a T,
     /// Data returned by the cell's schematic generator.
     data: NestedView<'a, T::Data>,
+    #[allow(dead_code)]
     pub(crate) raw: Arc<RawCell>,
 }
 
@@ -709,7 +816,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> NestedView<Cell<T>> {
-        self.try_cell().unwrap()
+        self.try_cell().expect("cell generation failed")
     }
 
     /// Tries to access the underlying cell data.
@@ -725,7 +832,23 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn data(&self) -> NestedView<'_, T::Data> {
-        self.try_data().unwrap()
+        self.cell().data
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_block(&self) -> Result<&T> {
+        self.try_cell().map(|cell| cell.block)
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn block(&self) -> &T {
+        self.cell().block
     }
 
     /// Creates an owned [`NestedInstance`] that can be stored in propagated schematic data.
@@ -777,6 +900,38 @@ impl<T: HasSchematic> NestedInstance<T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> NestedView<Cell<T>> {
-        self.try_cell().unwrap()
+        self.try_cell().expect("cell generation failed")
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<NestedView<'_, T::Data>> {
+        self.try_cell().map(|cell| cell.data)
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> NestedView<'_, T::Data> {
+        self.cell().data
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_block(&self) -> Result<&T> {
+        self.try_cell().map(|cell| cell.block)
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn block(&self) -> &T {
+        self.cell().block
     }
 }
