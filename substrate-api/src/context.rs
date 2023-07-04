@@ -31,7 +31,7 @@ use crate::pdk::Pdk;
 use crate::schematic::conv::{RawLib, ScirLibConversion};
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, InstanceId,
-    InstancePath, SchematicContext,
+    InstancePath, SchematicContext, TestbenchCellBuilder,
 };
 use crate::simulation::{
     HasTestbenchSchematicImpl, SimController, SimulationContext, Simulator, Testbench,
@@ -258,8 +258,9 @@ impl<PDK: Pdk> Context<PDK> {
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
         inner.schematic.gen.generate(block.clone(), move || {
-            let (mut cell_builder, io_data) = prepare_cell_builder(id, context, &block);
-            let data = block.schematic(&io_data, &simulator, &mut cell_builder);
+            let (inner, io_data) = prepare_cell_builder(id, context, &block);
+            let mut cell_builder = TestbenchCellBuilder { simulator, inner };
+            let data = block.schematic(&io_data, &mut cell_builder);
             data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
         })
     }
@@ -395,6 +396,7 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
         node_names,
         phantom: PhantomData,
         ports,
+        blackbox: None,
     };
 
     (cell_builder, io_data)

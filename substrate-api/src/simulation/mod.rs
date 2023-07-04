@@ -12,7 +12,7 @@ use crate::block::Block;
 use crate::io::{NodePath, SchematicType};
 use crate::pdk::Pdk;
 use crate::schematic::conv::ScirLibConversion;
-use crate::schematic::{Cell, CellBuilder, HasSchematic};
+use crate::schematic::{Cell, CellBuilder, HasSchematic, TestbenchCellBuilder};
 
 pub mod data;
 
@@ -131,8 +131,7 @@ pub trait HasTestbenchSchematicImpl<PDK: Pdk, S: Simulator>: Block + HasSchemati
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Data,
-        simulator: &S,
-        cell: &mut CellBuilder<PDK, Self>,
+        cell: &mut TestbenchCellBuilder<PDK, S, Self>,
     ) -> crate::error::Result<Self::Data>;
 }
 

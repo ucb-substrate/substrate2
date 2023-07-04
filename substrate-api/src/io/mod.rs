@@ -547,6 +547,7 @@ impl Direction {
 
 /// A signal exposed by a cell.
 #[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Port {
     direction: Direction,
     node: Node,

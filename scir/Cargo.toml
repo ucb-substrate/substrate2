@@ -11,6 +11,7 @@ tracing = "0.1"
 serde = "1"
 
 diagnostics = { version = "0.0.0", path = "../diagnostics", registry = "substrate" }
+opacity = { version = "0.0.0", path = "../libs/opacity", registry = "substrate" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

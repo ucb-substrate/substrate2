@@ -102,7 +102,9 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Install `just`
         run: cargo install just
-      - run: just build && flyctl deploy --remote-only --detach
+      - run: just build
+        working-directory: docs/api
+      - run: flyctl deploy --remote-only --detach
         working-directory: docs/api
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
@@ -119,9 +121,12 @@ jobs:
           node-version: 18
           cache: 'yarn'
           cache-dependency-path: docs/substrate/yarn.lock
-      - run: yarn install && yarn build && flyctl deploy --remote-only --detach
+      - run: yarn install
+        working-directory: docs/substrate
+      - run: yarn build 
+        working-directory: docs/substrate
+      - run: flyctl deploy --remote-only --detach
         working-directory: docs/substrate
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
-        
-        
+

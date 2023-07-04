@@ -2,6 +2,7 @@
 
 pub mod conv;
 
+use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,6 +22,7 @@ use crate::io::{
     SchematicData, SchematicType,
 };
 use crate::pdk::Pdk;
+use crate::simulation::{HasTestbenchSchematicImpl, Simulator};
 
 /// A block that has a schematic.
 pub trait HasSchematic: Block {
@@ -56,6 +58,13 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) cell_name: ArcStr,
     pub(crate) phantom: PhantomData<T>,
     pub(crate) ports: Vec<Port>,
+    pub(crate) blackbox: Option<ArcStr>,
+}
+
+/// A builder for creating a testbench schematic cell.
+pub struct TestbenchCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
+    pub(crate) simulator: Arc<S>,
+    pub(crate) inner: CellBuilder<PDK, T>,
 }
 
 impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
@@ -66,15 +75,22 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
         }
+        let contents = if let Some(contents) = self.blackbox {
+            RawCellContents::Opaque(contents)
+        } else {
+            RawCellContents::Clear(RawCellInner {
+                primitives: self.primitives,
+                instances: self.instances,
+            })
+        };
         RawCell {
             id: self.id,
             name: self.cell_name,
-            primitives: self.primitives,
-            instances: self.instances,
             node_names: self.node_names,
             ports: self.ports,
             uf,
             roots,
+            contents,
         }
     }
 
@@ -98,12 +114,31 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     }
 
     /// Instantiate a schematic view of the given block.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
     pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
+        assert!(
+            self.blackbox.is_none(),
+            "cannot add instances to a blackbox cell"
+        );
+
         let cell = self.ctx.generate_schematic(block.clone());
+        self.post_instantiate(block, cell)
+    }
+
+    /// Creates nodes for the newly-instantiated block's IOs.
+    fn post_instantiate<I: HasSchematic>(
+        &mut self,
+        block: I,
+        cell: Arc<OnceCell<std::result::Result<Cell<I>, crate::error::Error>>>,
+    ) -> Instance<I> {
         let io = block.io();
 
         let ids = self.node_ctx.nodes(io.len(), NodePriority::Auto);
-        let (io_data, ids_rest) = block.io().instantiate(&ids);
+        let (io_data, ids_rest) = io.instantiate(&ids);
         assert!(ids_rest.is_empty());
 
         let connections = io_data.flatten_vec();
@@ -163,8 +198,118 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     }
 
     /// Add a primitive device to the schematic of the current cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
     pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        assert!(
+            self.blackbox.is_none(),
+            "cannot add primitives to a blackbox cell"
+        );
         self.primitives.push(device);
+    }
+
+    /// Marks this cell as a blackbox containing the given content.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any instances or primitive devices have already been
+    /// added to this cell. A blackbox cell cannot contain instances or
+    /// primitive devices.
+    pub fn set_blackbox(&mut self, contents: impl Into<ArcStr>) {
+        self.blackbox = Some(contents.into());
+    }
+}
+
+impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
+    /// Get a reference to the simulator being used.
+    pub fn simulator(&self) -> &S {
+        &self.simulator
+    }
+
+    pub(crate) fn finish(self) -> RawCell {
+        self.inner.finish()
+    }
+
+    /// Create a new signal with the given name and hardware type.
+    pub fn signal<TY: SchematicType>(
+        &mut self,
+        name: impl Into<ArcStr>,
+        ty: TY,
+    ) -> <TY as SchematicType>::Data {
+        self.inner.signal(name, ty)
+    }
+
+    /// Instantiate a schematic view of the given block.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
+        self.inner.instantiate(block)
+    }
+
+    /// Create an instance and immediately connect its ports.
+    pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
+    where
+        I: HasSchematicImpl<PDK>,
+        C: SchematicData,
+        <I::Io as SchematicType>::Data: Connect<C>,
+    {
+        self.inner.instantiate_connected(block, io)
+    }
+
+    /// Connect all signals in the given data instances.
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
+    where
+        D1: SchematicData,
+        D2: SchematicData,
+        D1: Connect<D2>,
+    {
+        self.inner.connect(s1, s2)
+    }
+
+    /// Add a primitive device to the schematic of the current cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
+        self.inner.add_primitive(device)
+    }
+
+    /// Marks this cell as a blackbox containing the given content.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any instances or primitive devices have already been
+    /// added to this cell. A blackbox cell cannot contain instances or
+    /// primitive devices.
+    pub fn set_blackbox(&mut self, contents: impl Into<ArcStr>) {
+        self.inner.set_blackbox(contents)
+    }
+
+    /// Instantiate a testbench schematic view of the given block.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    pub fn instantiate_tb<I: HasTestbenchSchematicImpl<PDK, S>>(
+        &mut self,
+        block: I,
+    ) -> Instance<I> {
+        assert!(
+            self.inner.blackbox.is_none(),
+            "cannot add instances to a blackbox cell"
+        );
+
+        let cell = self.inner.ctx.generate_testbench_schematic(block.clone());
+        self.inner.post_instantiate(block, cell)
     }
 }
 
@@ -192,6 +337,7 @@ impl<T: HasSchematic> Cell<T> {
 
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub(crate) struct RawInstance {
     id: InstanceId,
     name: ArcStr,
@@ -211,15 +357,25 @@ impl CellId {
 
 /// A raw (weakly-typed) cell.
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub(crate) struct RawCell {
     id: CellId,
     name: ArcStr,
-    primitives: Vec<PrimitiveDevice>,
-    instances: Vec<RawInstance>,
     ports: Vec<Port>,
     uf: NodeUf,
     node_names: HashMap<Node, NameBuf>,
     roots: HashMap<Node, Node>,
+    contents: RawCellContents,
+}
+
+/// The (possibly blackboxed) contents of a raw cell.
+pub(crate) type RawCellContents = Opacity<ArcStr, RawCellInner>;
+
+/// The inner contents of a not-blackboxed [`RawCell`].
+#[derive(Debug, Clone)]
+pub(crate) struct RawCellInner {
+    primitives: Vec<PrimitiveDevice>,
+    instances: Vec<RawInstance>,
 }
 
 /// A cell-wide unique identifier for an instance.
@@ -289,6 +445,7 @@ impl<T: HasSchematic> Instance<T> {
 }
 
 /// A primitive device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PrimitiveDevice {
     /// An ideal 2-terminal resistor.
     Res2 {

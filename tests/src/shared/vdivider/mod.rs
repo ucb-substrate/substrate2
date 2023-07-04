@@ -2,7 +2,7 @@ use arcstr::ArcStr;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{Array, InOut, Output, Signal};
+use substrate::io::{Array, ArrayData, InOut, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice};
 use substrate::{Io, SchematicData};
@@ -47,7 +47,7 @@ impl Vdivider {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VdividerArray {
     pub vdividers: Vec<Vdivider>,
 }
@@ -155,15 +155,16 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
 impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
     fn schematic(
         &self,
-        io: &VdividerIoSchematic,
+        io: &ArrayData<VdividerIoSchematic>,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
 
         let mut vdividers = Vec::new();
 
-        for (i, vdivider ) in self.vdividers.enumerate() {
-            let vdiv = cell.instantiate(vdivider);
-            cell.connect(vdiv.io(), io[i]);
+        for (i, vdivider ) in self.vdividers.iter().enumerate() {
+            let vdiv = cell.instantiate(*vdivider);
+            cell.connect(vdiv.io(), &io[i]);
+
             vdividers.push(vdiv);
         }
 

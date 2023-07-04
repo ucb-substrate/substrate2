@@ -1,0 +1,9 @@
+[package]
+name = "opacity"
+version = "0.0.0"
+edition = "2021"
+description = "An enum for possibly-opaque objects."
+license = "BSD-3-Clause"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

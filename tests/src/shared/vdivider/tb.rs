@@ -1,6 +1,7 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::{Opts, Spectre, Tran, TranOutput};
+use spectre::blocks::Vsource;
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::ios::TestbenchIo;
@@ -35,8 +36,7 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        _simulator: &Spectre,
-        cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
+        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
@@ -44,9 +44,14 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
             r1: Resistor { r: 20 },
             r2: Resistor { r: 20 },
         });
+
         cell.connect(dut.io().pwr.vdd, vdd);
         cell.connect(dut.io().pwr.vss, io.vss);
         cell.connect(dut.io().out, out);
+
+        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        cell.connect(vsource.io().p, vdd);
+        cell.connect(vsource.io().n, io.vss);
         Ok(dut)
     }
 }

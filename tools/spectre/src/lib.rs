@@ -12,18 +12,19 @@ use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate_api::io::{NestedNode, NodePath};
-use substrate_api::schematic::conv::ScirLibConversion;
-use substrate_api::simulation::data::HasNodeData;
-use substrate_api::simulation::{Analysis, SimulationContext, Simulator, Supports};
+use substrate::io::{NestedNode, NodePath};
+use substrate::schematic::conv::ScirLibConversion;
+use substrate::simulation::data::HasNodeData;
+use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
 
+pub mod blocks;
 pub mod error;
 pub mod netlist;
 pub(crate) mod templates;
 
 /// A transient analysis.
-#[derive(Clone, Default, Debug, Eq, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Tran {
     /// Stop time (sec).
     pub stop: Decimal,
@@ -34,7 +35,7 @@ pub struct Tran {
 }
 
 /// The result of a transient analysis.
-#[derive(Clone, Default, Debug)]
+#[derive(Debug, Clone)]
 pub struct TranOutput {
     conv: Arc<ScirLibConversion>,
     /// A map from signal name to values.
@@ -70,12 +71,14 @@ impl Analysis for Tran {
 }
 
 /// Inputs directly supported by Spectre.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Input {
     /// Transient simulation input.
     Tran(Tran),
 }
 
 /// Outputs directly produced by Spectre.
+#[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
     Tran(TranOutput),
@@ -227,7 +230,7 @@ impl Simulator for Spectre {
 
     fn simulate_inputs(
         &self,
-        config: &substrate_api::simulation::SimulationContext,
+        config: &substrate::simulation::SimulationContext,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {

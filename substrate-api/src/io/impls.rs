@@ -695,6 +695,8 @@ impl<T: LayoutType> LayoutType for Array<T> {
     }
 }
 
+impl<T: Io> Io for Array<T> {}
+
 impl<T: LayoutType, U: LayoutType + CustomLayoutType<T>> CustomLayoutType<Array<T>> for Array<U> {
     fn from_layout_type(other: &Array<T>) -> Self {
         Self {
