@@ -6,7 +6,6 @@ use std::io::{BufWriter, Write};
 use std::os::unix::prelude::PermissionsExt;
 use std::sync::Arc;
 
-use arcstr::ArcStr;
 use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;

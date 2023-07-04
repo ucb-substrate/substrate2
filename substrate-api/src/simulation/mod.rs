@@ -4,15 +4,14 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use arcstr::ArcStr;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
-use crate::io::{NodePath, SchematicType};
+use crate::io::SchematicType;
 use crate::pdk::Pdk;
 use crate::schematic::conv::ScirLibConversion;
-use crate::schematic::{Cell, CellBuilder, HasSchematic, TestbenchCellBuilder};
+use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
 
 pub mod data;
 
@@ -66,6 +65,7 @@ pub struct SimulationContext {
     pub work_dir: PathBuf,
     /// The SCIR library to simulate.
     pub lib: scir::Library,
+    /// Associated conversion metadata for linking Substrate objects to SCIR objects.
     pub conv: Arc<ScirLibConversion>,
 }
 

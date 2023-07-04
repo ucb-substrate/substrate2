@@ -512,6 +512,7 @@ impl InstancePath {
             path: PathTree::empty(),
         }
     }
+    #[allow(dead_code)]
     pub(crate) fn append(&self, other: &Self) -> Self {
         if let Some(bot) = self.bot {
             assert_eq!(
@@ -558,6 +559,7 @@ impl InstancePath {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn is_empty(&self) -> bool {
         self.bot.is_none()
     }

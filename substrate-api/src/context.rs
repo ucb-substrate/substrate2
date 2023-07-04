@@ -28,7 +28,7 @@ use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
-use crate::schematic::conv::{RawLib, ScirLibConversion};
+use crate::schematic::conv::RawLib;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, HasSchematicImpl, InstanceId,
     InstancePath, SchematicContext, TestbenchCellBuilder,
@@ -289,7 +289,7 @@ impl<PDK: Pdk> Context<PDK> {
             .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
     }
 
-    /// Export the given cell and all sub-blocks as a SCIR library.
+    /// Export the given cell and all sub-cells as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
     pub(crate) fn export_testbench_scir_for_cell<T, S>(&mut self, cell: &SchematicCell<T>) -> RawLib
@@ -329,7 +329,7 @@ impl<PDK: Pdk> Context<PDK> {
         let cell = cell.wait().as_ref().unwrap();
         let raw_lib = self.export_testbench_scir_for_cell(cell);
         let ctx = SimulationContext {
-            lib: raw_lib.lib,
+            lib: raw_lib.scir,
             work_dir: work_dir.into(),
             conv: Arc::new(raw_lib.conv),
         };

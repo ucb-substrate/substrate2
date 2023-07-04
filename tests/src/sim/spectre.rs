@@ -1,7 +1,6 @@
-use arcstr::ArcStr;
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
-use substrate::{context::Context, simulation::data::HasNodeData};
+use substrate::context::Context;
 use test_log::test;
 
 use crate::shared::vdivider::tb::VdividerArrayTb;

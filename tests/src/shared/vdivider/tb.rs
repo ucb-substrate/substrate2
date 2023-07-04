@@ -1,7 +1,7 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::Vsource;
-use spectre::{Opts, Spectre, Tran, TranOutput};
+use spectre::{Opts, Spectre, Tran};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::ios::TestbenchIo;

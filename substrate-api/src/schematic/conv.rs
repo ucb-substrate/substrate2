@@ -1,9 +1,6 @@
 //! Substrate to SCIR conversion.
 
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Deref,
-};
+use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
 use opacity::Opacity;
@@ -13,19 +10,20 @@ use crate::io::{Node, NodePath};
 
 use super::{CellId, InstanceId, RawCell};
 
+/// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
 pub struct RawLib {
-    pub lib: scir::Library,
+    /// The SCIR library.
+    pub scir: scir::Library,
+    /// Associated conversion metadata.
+    ///
+    /// Can be used to retrieve SCIR objects from their corresponding Substrate IDs.
     pub conv: ScirLibConversion,
 }
 
-impl Deref for RawLib {
-    type Target = scir::Library;
-    fn deref(&self) -> &Self::Target {
-        &self.lib
-    }
-}
-
+/// Metadata associated with a conversion from a Substrate schematic to a SCIR library.
+///
+/// Provides helpers for retrieving SCIR objects from their Substrate IDs.
 #[derive(Debug, Clone, Default)]
 pub struct ScirLibConversion {
     /// Map from SCIR cell IDs to cell conversion metadata.
@@ -37,6 +35,7 @@ impl ScirLibConversion {
         Self::default()
     }
 
+    /// Converts a Substrate [`NodePath`] to a SCIR [`scir::NodePath`].
     pub fn convert_path(&self, path: &NodePath) -> Option<scir::NodePath> {
         let mut cell = self.cells.get(&path.top)?;
         let top = cell.name.clone();
@@ -128,14 +127,14 @@ impl RawCell {
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
     pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> RawLib {
-        let mut lib = Library::new(self.name.clone());
+        let mut scir = Library::new(self.name.clone());
         let mut cells = HashMap::new();
         let mut conv = ScirLibConversion::new();
-        let id = self.to_scir_cell(&mut lib, &mut cells, &mut conv);
-        lib.set_top(id, testbench.as_bool());
+        let id = self.to_scir_cell(&mut scir, &mut cells, &mut conv);
+        scir.set_top(id, testbench.as_bool());
         conv.set_top(self.id);
 
-        RawLib { lib, conv }
+        RawLib { scir, conv }
     }
 
     fn to_scir_cell(
