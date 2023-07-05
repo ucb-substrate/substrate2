@@ -103,6 +103,21 @@ impl<'a, W: Write> Netlister<'a, W> {
                             write!(self.out, " ) resistor r=")?;
                             self.write_expr(value)?;
                         }
+                        PrimitiveDevice::RawInstance {
+                            ports,
+                            cell: child,
+                            params,
+                        } => {
+                            write!(self.out, "{}rawinst{} (", indent, i)?;
+                            for port in ports.iter() {
+                                self.write_slice(cell, *port, ground)?;
+                            }
+                            write!(self.out, " ) {}", child)?;
+                            for (key, value) in params.iter() {
+                                write!(self.out, " {key}=")?;
+                                self.write_expr(value)?;
+                            }
+                        }
                         _ => todo!(),
                     }
                     writeln!(self.out)?;
