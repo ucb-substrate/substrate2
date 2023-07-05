@@ -2,7 +2,6 @@
 
 use std::collections::{HashMap, HashSet};
 
-use arcstr::ArcStr;
 use opacity::Opacity;
 use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library};
 
@@ -44,12 +43,12 @@ impl ScirLibConversion {
 
         let mut instances = Vec::new();
         for inst in &path.path {
-            let (name, next_cell) = cell.instances.get(inst).unwrap();
-            instances.push(name.clone());
+            let (id, next_cell) = cell.instances.get(inst).unwrap();
+            instances.push(*id);
             cell = self.cells.get(next_cell)?;
         }
 
-        let (signal, index) = cell.signals.get(&path.node)?.clone();
+        let (signal, index) = *cell.signals.get(&path.node)?;
 
         Some(scir::NodePath {
             signal,

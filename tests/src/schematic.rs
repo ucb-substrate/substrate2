@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
-use substrate::io::NodePath;
 use substrate::{
     block::Block,
     context::Context,

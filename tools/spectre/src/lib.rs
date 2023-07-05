@@ -11,7 +11,7 @@ use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate::io::{NestedNode, NodePath};
+use substrate::io::NodePath;
 use substrate::schematic::conv::RawLib;
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};

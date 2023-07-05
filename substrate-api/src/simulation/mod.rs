@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::block::Block;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
-use crate::schematic::conv::{RawLib, ScirLibConversion};
+use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
 
 pub mod data;
