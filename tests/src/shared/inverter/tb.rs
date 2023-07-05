@@ -12,6 +12,8 @@ use substrate::io::Node;
 use substrate::ios::TestbenchIo;
 use substrate::pdk::corner::{InstallCorner, Pvt};
 use substrate::schematic::{Cell, HasSchematic};
+use substrate::simulation::data::HasNodeData;
+use substrate::simulation::waveform::{TimeWaveform, WaveformRef};
 use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
 
 use super::Inverter;
@@ -70,16 +72,16 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VdividerTbData {
-    pub vdd: Vec<f64>,
-    pub out: Vec<f64>,
+pub struct InverterTbData {
+    pub tr: f64,
+    pub tf: f64,
 }
 
 impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
-    type Output = ();
+    type Output = InverterTbData;
     fn run(
         &self,
-        _cell: &Cell<Self>,
+        cell: &Cell<Self>,
         sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
     ) -> Self::Output {
         let mut opts = Options::default();
@@ -94,12 +96,17 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        println!("Output:\n{:?}", output);
+        let vout = output.get_data(&cell.data()).unwrap();
+        let time = output.get_data("time").unwrap();
+        let vout = WaveformRef::new(time, vout);
+        let mut trans = vout.transitions(0.2, 0.8);
+        // The input waveform has a low -> high, then a high -> low transition.
+        // So the first transition of the inverter output is high -> low.
+        // The duration of this transition is the inverter fall time.
+        let tf = trans.next().unwrap().duration();
+        let tr = trans.next().unwrap().duration();
 
-        // VdividerTbData {
-        //     vdd: output.get_data(&cell.data().io().pwr.vdd).unwrap().clone(),
-        //     out: output.get_data(&cell.data().io().out).unwrap().clone(),
-        // }
+        InverterTbData { tf, tr }
     }
 }
 
@@ -124,6 +131,8 @@ impl InverterDesign {
     ) -> Inverter {
         let work_dir = work_dir.as_ref();
         let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
+
+        let mut opt = None;
         for pw in self.pw.iter().copied() {
             let dut = Inverter {
                 nw: self.nw,
@@ -131,8 +140,17 @@ impl InverterDesign {
                 lch: self.lch,
             };
             let tb = InverterTb::new(pvt, dut);
-            ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
+            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
+            let diff = (data.tr - data.tf).abs();
+            if let Some((pdiff, dut)) = opt {
+                if diff < pdiff {
+                    opt = Some((diff, dut));
+                }
+            } else {
+                opt = Some((diff, dut));
+            }
         }
-        todo!()
+
+        opt.unwrap().1
     }
 }
