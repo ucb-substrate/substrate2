@@ -18,10 +18,10 @@ Let's set up a context with the SKY130 PDK installed:
 
 ```rust
 use substrate::context::Context;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::Sky130OpenPdk;
 
 fn main() {
-    let mut ctx = Context::new(Sky130Pdk::new());
+    let mut ctx = Context::new(Sky130OpenPdk::new("/path/to/sky130pdk"));
 }
 ```
 
@@ -44,7 +44,7 @@ Here's how we create our inverter block:
 use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::Sky130OpenPdk;
 use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
@@ -136,14 +136,14 @@ impl HasSchematic for Inverter {
 We now specify the actual content of the schematic
 by implementing `HasSchematicImpl`. This trait requires us to specify
 the PDK for which the schematic is valid. In this case, the schematic
-is for the `Sky130Pdk`.
+is for the `Sky130OpenPdk`.
 
 ```rust
 // hidden-rust-doc-start
 use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::Sky130OpenPdk;
 use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
@@ -179,11 +179,11 @@ impl HasSchematic for Inverter {
     type Data = ();
 }
 // hidden-rust-doc-end
-impl HasSchematicImpl<Sky130Pdk> for Inverter {
+impl HasSchematicImpl<Sky130OpenPdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,
-        cell: &mut CellBuilder<Sky130Pdk, Self>,
+        cell: &mut CellBuilder<Sky130OpenPdk, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(Nfet01v8::new(self.nmos));
         let nmos = nmos.io();
@@ -212,7 +212,7 @@ We can now export the schematic of our inverter to Substrate's schematic IR, SCI
 use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::Sky130OpenPdk;
 use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
@@ -248,11 +248,11 @@ impl Block for Inverter {
 impl HasSchematic for Inverter {
     type Data = ();
 }
-impl HasSchematicImpl<Sky130Pdk> for Inverter {
+impl HasSchematicImpl<Sky130OpenPdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,
-        cell: &mut CellBuilder<Sky130Pdk, Self>,
+        cell: &mut CellBuilder<Sky130OpenPdk, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(Nfet01v8::new(self.nmos));
         let nmos = nmos.io();
@@ -272,7 +272,7 @@ impl HasSchematicImpl<Sky130Pdk> for Inverter {
 }
 // hidden-rust-doc-end
 fn main() {
-    let mut ctx = Context::new(Sky130Pdk::new());
+    let mut ctx = Context::new(Sky130OpenPdk::new("/path/to/sky130pdk"));
     let inv = Inverter {
         nmos: MosParams { w: 1_000, l: 150, nf: 1 },
         pmos: MosParams { w: 2_000, l: 150, nf: 1 },

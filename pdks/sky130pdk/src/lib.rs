@@ -1,20 +1,49 @@
+use std::path::PathBuf;
+
+use corner::*;
 use substrate::pdk::Pdk;
 use substrate::{LayerFamily, Layers};
 
+pub mod corner;
 pub mod mos;
 
-#[derive(Debug, Default, Clone)]
-pub struct Sky130Pdk {}
+#[derive(Debug, Clone)]
+pub struct Sky130OpenPdk {
+    #[allow(dead_code)]
+    root_dir: PathBuf,
+}
 
-impl Sky130Pdk {
+impl Sky130OpenPdk {
     #[inline]
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(root_dir: impl Into<PathBuf>) -> Self {
+        Self {
+            root_dir: root_dir.into(),
+        }
     }
 }
 
-impl Pdk for Sky130Pdk {
+impl Pdk for Sky130OpenPdk {
     type Layers = Sky130Layers;
+    type Corner = Sky130Corner;
+}
+
+#[derive(Debug, Clone)]
+pub struct Sky130CommercialPdk {
+    root_dir: PathBuf,
+}
+
+impl Sky130CommercialPdk {
+    #[inline]
+    pub fn new(root_dir: impl Into<PathBuf>) -> Self {
+        Self {
+            root_dir: root_dir.into(),
+        }
+    }
+}
+
+impl Pdk for Sky130CommercialPdk {
+    type Layers = Sky130Layers;
+    type Corner = Sky130Corner;
 }
 
 #[derive(Layers)]
