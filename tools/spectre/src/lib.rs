@@ -138,14 +138,21 @@ impl Spectre {
     fn simulate(
         &self,
         ctx: &SimulationContext,
-        _options: Options,
+        options: Options,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&ctx.work_dir)?;
         let netlist = ctx.work_dir.join("netlist.scs");
         let f = std::fs::File::create(&netlist)?;
         let mut w = BufWriter::new(f);
-        let netlister = Netlister::new(&ctx.lib, &mut w);
+
+        let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        // Sorting the include list makes repeated netlist invocations
+        // produce the same output. If we were to iterate over the HashSet directly,
+        // the order of includes may change even if the contents of the set did not change.
+        includes.sort();
+
+        let netlister = Netlister::new(&ctx.lib, &includes, &mut w);
         netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
