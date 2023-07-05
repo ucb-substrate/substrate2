@@ -67,8 +67,7 @@ jobs:
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: ". -> target"
-      - name: Install `just`
-        run: cargo install just
+      - uses: extractions/setup-just@v1
       - name: Check that hidden doc files are up-to-date
         run: |
           just gen-hidden-code
