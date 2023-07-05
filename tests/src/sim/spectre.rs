@@ -1,3 +1,4 @@
+use approx::relative_eq;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
 use substrate::pdk::corner::Pvt;
@@ -26,9 +27,16 @@ fn spectre_vdivider_array_tran() {
     let mut ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerArrayTb, sim_dir);
 
-    for out in output.out {
-        println!("{:?}", out);
+    for (expected, (out, out_nested)) in output
+        .expected
+        .iter()
+        .zip(output.out.iter().zip(output.out_nested.iter()))
+    {
+        assert!(out.iter().all(|val| relative_eq!(val, expected)));
+        assert_eq!(out, out_nested);
     }
+
+    assert!(output.vdd.iter().all(|val| *val > 1.7));
 }
 
 #[test]

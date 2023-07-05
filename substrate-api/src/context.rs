@@ -242,7 +242,9 @@ impl<PDK: Pdk> Context<PDK> {
             cell: inner.schematic.gen.generate(block.clone(), move || {
                 let (mut cell_builder, io_data) = prepare_cell_builder(id, context, block.as_ref());
                 let data = block.schematic(&io_data, &mut cell_builder);
-                data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
+                data.map(|data| {
+                    SchematicCell::new(io_data, block, data, Arc::new(cell_builder.finish()))
+                })
             }),
         }
     }
@@ -269,7 +271,9 @@ impl<PDK: Pdk> Context<PDK> {
                 let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
                 let mut cell_builder = TestbenchCellBuilder { simulator, inner };
                 let data = block.schematic(&io_data, &mut cell_builder);
-                data.map(|data| SchematicCell::new(block, data, Arc::new(cell_builder.finish())))
+                data.map(|data| {
+                    SchematicCell::new(io_data, block, data, Arc::new(cell_builder.finish()))
+                })
             }),
         })
     }
@@ -337,11 +341,10 @@ impl<PDK: Pdk> Context<PDK> {
         let block = Arc::new(block);
         let cell = self.generate_testbench_schematic(block.clone());
         let cell = cell.cell();
-        let raw_lib = self.export_testbench_scir_for_cell(cell);
+        let lib = self.export_testbench_scir_for_cell(cell);
         let ctx = SimulationContext {
-            lib: raw_lib.scir,
+            lib: Arc::new(lib),
             work_dir: work_dir.into(),
-            conv: Arc::new(raw_lib.conv),
         };
         let controller = SimController {
             pdk: self.pdk.clone(),

@@ -89,7 +89,7 @@ impl<'a, W: Write> Netlister<'a, W> {
                 writeln!(self.out, "{}", s)?;
             }
             Opacity::Clear(contents) => {
-                for inst in contents.instances() {
+                for (_id, inst) in contents.instances() {
                     write!(self.out, "{}{} (", indent, inst.name())?;
                     let child = self.lib.cell(inst.cell());
                     for port in child.ports() {

@@ -126,15 +126,15 @@ impl From<Slice> for SignalId {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NodePath {
     /// The signal name.
-    pub signal: ArcStr,
+    pub signal: SignalId,
     /// The signal index.
     ///
     /// [`None`] for single-wire signals.
     pub index: Option<usize>,
     /// Path of instance names.
-    pub instances: Vec<ArcStr>,
+    pub instances: Vec<InstanceId>,
     /// Name of the top cell.
-    pub top: ArcStr,
+    pub top: CellId,
 }
 
 /// An opaque cell identifier.
@@ -145,6 +145,14 @@ pub struct NodePath {
 #[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CellId(u64);
 
+/// An opaque instance identifier.
+///
+/// A instance ID created in the context of one library must
+/// *not* be used in the context of another library.
+/// You should instead create a new instance ID in the second library.
+#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct InstanceId(u64);
+
 impl Display for SignalId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "signal{}", self.0)
@@ -154,6 +162,12 @@ impl Display for SignalId {
 impl Display for CellId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "cell{}", self.0)
+    }
+}
+
+impl Display for InstanceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "inst{}", self.0)
     }
 }
 
@@ -300,6 +314,9 @@ pub struct SignalInfo {
     ///
     /// For single-wire signals, this will be [`None`].
     pub width: Option<usize>,
+
+    /// Set to `true` if this signal corresponds to a port.
+    port: bool,
 }
 
 /// An instance of a child cell placed inside a parent cell.
@@ -342,7 +359,13 @@ pub struct Cell {
 /// The inner contents of a non-blackbox cell.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct CellInner {
-    pub(crate) instances: Vec<Instance>,
+    /// The last instance ID assigned.
+    ///
+    /// Initialized to 0 upon cell creation.
+    instance_id: u64,
+    pub(crate) instances: HashMap<InstanceId, Instance>,
+    /// The order in which instances are added to this cell.
+    pub(crate) order: Vec<InstanceId>,
     pub(crate) primitives: Vec<PrimitiveDevice>,
 }
 
@@ -429,6 +452,53 @@ impl Library {
     pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell)> {
         self.order.iter().map(|&id| (id, self.cell(id)))
     }
+
+    /// Returns a simplified path to the provided node, bubbling up through IOs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided path does not exist.
+    pub fn simplify_path(&self, mut path: NodePath) -> NodePath {
+        if path.instances.is_empty() {
+            return path;
+        }
+
+        let mut cells = Vec::with_capacity(path.instances.len());
+        let mut cell = self.cell(path.top);
+
+        for inst in path.instances.iter() {
+            let inst = &cell.contents().as_ref().unwrap_clear().instances[inst];
+            cells.push(inst.cell);
+            cell = self.cell(inst.cell);
+        }
+
+        assert_eq!(cells.len(), path.instances.len());
+
+        for i in (0..cells.len()).rev() {
+            let cell = self.cell(cells[i]);
+            let info = cell.signal(path.signal);
+            if !info.port {
+                path.instances.truncate(i + 1);
+                return path;
+            } else {
+                let parent = if i == 0 {
+                    self.cell(path.top)
+                } else {
+                    self.cell(cells[i - 1])
+                };
+                let inst = &parent.contents().as_ref().unwrap_clear().instances[&path.instances[i]];
+                let idx = if let Some(idx) = path.index { idx } else { 0 };
+                let slice = inst.connection(info.name.as_ref()).index(idx);
+                path.signal = slice.signal();
+                path.index = slice.range().map(|range| range.start);
+            }
+        }
+
+        NodePath {
+            instances: Vec::new(),
+            ..path
+        }
+    }
 }
 
 impl Cell {
@@ -466,6 +536,7 @@ impl Cell {
         self.signals.insert(
             id,
             SignalInfo {
+                port: false,
                 name: name.into(),
                 width: None,
             },
@@ -481,6 +552,7 @@ impl Cell {
         self.signals.insert(
             id,
             SignalInfo {
+                port: false,
                 name: name.into(),
                 width: Some(width),
             },
@@ -493,10 +565,14 @@ impl Cell {
     /// If the signal is a bus, the entire bus is exposed.
     /// It is not possible to expose only a portion of a bus.
     /// Create two separate buses instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided signal does not exist.
     pub fn expose_port(&mut self, signal: impl Into<SignalId>) {
-        self.ports.push(Port {
-            signal: signal.into(),
-        });
+        let signal = signal.into();
+        self.signals.get_mut(&signal).unwrap().port = true;
+        self.ports.push(Port { signal });
     }
 
     /// Returns a reference to the contents of this cell.
@@ -545,6 +621,21 @@ impl Cell {
         self.signals.get(&id).unwrap()
     }
 
+    /// Get the instance associated with the given ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no instance with the given ID exists (including if the cell is a blackbox).
+    #[inline]
+    pub fn instance(&self, id: InstanceId) -> &Instance {
+        self.contents()
+            .as_ref()
+            .unwrap_clear()
+            .instances
+            .get(&id)
+            .unwrap()
+    }
+
     /// Sets the contents of the cell.
     #[inline]
     pub fn set_contents(&mut self, contents: CellContents) {
@@ -557,12 +648,8 @@ impl Cell {
     ///
     /// Panics if this cell is a blackbox.
     #[inline]
-    pub fn add_instance(&mut self, instance: Instance) {
-        self.contents
-            .as_mut()
-            .unwrap_clear()
-            .instances
-            .push(instance);
+    pub fn add_instance(&mut self, instance: Instance) -> InstanceId {
+        self.contents.as_mut().unwrap_clear().add_instance(instance)
     }
 
     /// Add the given [`PrimitiveDevice`] to the cell.
@@ -671,8 +758,11 @@ impl CellInner {
 
     /// Add the given instance to the cell.
     #[inline]
-    pub fn add_instance(&mut self, instance: Instance) {
-        self.instances.push(instance);
+    pub fn add_instance(&mut self, instance: Instance) -> InstanceId {
+        self.instance_id += 1;
+        let id = InstanceId(self.instance_id);
+        self.instances.insert(id, instance);
+        id
     }
 
     /// Add the given [`PrimitiveDevice`] to the cell.
@@ -689,7 +779,7 @@ impl CellInner {
 
     /// Iterate over the instances of this cell.
     #[inline]
-    pub fn instances(&self) -> impl Iterator<Item = &Instance> {
-        self.instances.iter()
+    pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance)> {
+        self.instances.iter().map(|x| (*x.0, x.1))
     }
 }

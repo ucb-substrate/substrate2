@@ -31,21 +31,13 @@ fn duplicate_instance_names() {
     let mut r1 = Instance::new("r1", wrapper);
     r1.connect("pos", vdd);
     r1.connect("neg", int);
-    vdivider
-        .contents_mut()
-        .as_mut()
-        .unwrap_clear()
-        .add_instance(r1);
+    vdivider.add_instance(r1);
 
     // Duplicate instance name
     let mut r2 = Instance::new("r1", wrapper);
     r2.connect("pos", int);
     r2.connect("neg", out);
-    vdivider
-        .contents_mut()
-        .as_mut()
-        .unwrap_clear()
-        .add_instance(r2);
+    vdivider.add_instance(r2);
 
     vdivider.expose_port(vdd);
     vdivider.expose_port(vss);

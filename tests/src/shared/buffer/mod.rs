@@ -132,12 +132,12 @@ impl Block for BufferN {
 
 #[derive(Io, Clone)]
 pub struct BufferNxMIo {
-    vdd: InOut<Signal>,
-    vss: InOut<Signal>,
+    pub vdd: InOut<Signal>,
+    pub vss: InOut<Signal>,
     #[io(layout_type = "Array<ShapePort>")]
-    din: Input<Array<Signal>>,
+    pub din: Input<Array<Signal>>,
     #[io(layout_type = "Array<ShapePort>")]
-    dout: Output<Array<Signal>>,
+    pub dout: Output<Array<Signal>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]

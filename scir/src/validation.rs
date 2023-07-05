@@ -378,7 +378,7 @@ impl Library {
         let contents = cell.contents().as_ref().unwrap_clear();
 
         let mut inst_names = HashSet::new();
-        for instance in contents.instances.iter() {
+        for (_id, instance) in contents.instances.iter() {
             if inst_names.contains(&instance.name) {
                 issues.add(ValidatorIssue::new_and_log(
                     Cause::DuplicateInstanceNames {
@@ -483,7 +483,7 @@ impl Library {
         }
         let contents = cell.contents().as_ref().unwrap_clear();
 
-        for instance in contents.instances.iter() {
+        for (_id, instance) in contents.instances.iter() {
             let child = match self.cells.get(&instance.cell) {
                 Some(child) => child,
                 None => {

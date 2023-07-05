@@ -12,8 +12,8 @@ use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate::io::{NestedNode, NodePath};
-use substrate::schematic::conv::ScirLibConversion;
+use substrate::io::NodePath;
+use substrate::schematic::conv::RawLib;
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
@@ -37,7 +37,7 @@ pub struct Tran {
 /// The result of a transient analysis.
 #[derive(Debug, Clone)]
 pub struct TranOutput {
-    conv: Arc<ScirLibConversion>,
+    lib: Arc<RawLib>,
     /// A map from signal name to values.
     pub values: HashMap<String, Vec<f64>>,
 }
@@ -50,19 +50,16 @@ impl HasNodeData<str, Vec<f64>> for TranOutput {
 
 impl HasNodeData<scir::NodePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &scir::NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&*node_path(k))
+        self.get_data(&*node_path(
+            &self.lib,
+            &self.lib.scir.simplify_path(k.clone()),
+        ))
     }
 }
 
 impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&self.conv.convert_path(k)?)
-    }
-}
-
-impl HasNodeData<NestedNode, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &NestedNode) -> Option<&Vec<f64>> {
-        self.get_data(&self.conv.convert_path(&k.path())?)
+        self.get_data(&self.lib.conv.convert_path(k)?)
     }
 }
 
@@ -152,7 +149,7 @@ impl Spectre {
         // the order of includes may change even if the contents of the set did not change.
         includes.sort();
 
-        let netlister = Netlister::new(&ctx.lib, &includes, &mut w);
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
         netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
@@ -226,7 +223,7 @@ impl Spectre {
                     }
                     outputs.push(
                         TranOutput {
-                            conv: ctx.conv.clone(),
+                            lib: ctx.lib.clone(),
                             values,
                         }
                         .into(),
@@ -255,13 +252,17 @@ impl Simulator for Spectre {
     }
 }
 
-pub(crate) fn node_path(path: &scir::NodePath) -> String {
+pub(crate) fn node_path(lib: &RawLib, path: &scir::NodePath) -> String {
     let mut str_path = String::new();
+    let scir = &lib.scir;
+    let mut cell = scir.cell(path.top);
     for instance in &path.instances {
-        str_path.push_str(instance);
+        let inst = cell.instance(*instance);
+        str_path.push_str(inst.name());
         str_path.push('.');
+        cell = scir.cell(inst.cell());
     }
-    str_path.push_str(&path.signal);
+    str_path.push_str(&cell.signal(path.signal).name);
     if let Some(index) = path.index {
         str_path.push_str(&format!("[{}]", index));
     }

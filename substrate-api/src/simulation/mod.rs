@@ -11,7 +11,7 @@ use crate::block::Block;
 use crate::context::PdkData;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
-use crate::schematic::conv::ScirLibConversion;
+use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
 
 pub mod data;
@@ -64,10 +64,8 @@ pub trait Simulator: Any + Send + Sync {
 pub struct SimulationContext {
     /// The simulator's intended working directory.
     pub work_dir: PathBuf,
-    /// The SCIR library to simulate.
-    pub lib: scir::Library,
-    /// Associated conversion metadata for linking Substrate objects to SCIR objects.
-    pub conv: Arc<ScirLibConversion>,
+    /// The SCIR library to simulate with associated Substrate metadata.
+    pub lib: Arc<RawLib>,
 }
 
 /// Indicates that a simulator supports a certain analysis.
