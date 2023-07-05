@@ -113,11 +113,12 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
         cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
+        // TODO: Use other resistor sizings once primitive parametrization is implemented.
         let dut = cell.instantiate(VdividerArray {
             vdividers: vec![
                 Vdivider::new(300, 300),
-                Vdivider::new(600, 200),
-                Vdivider::new(200, 600),
+                Vdivider::new(600, 600),
+                Vdivider::new(800, 800),
             ],
         });
 
