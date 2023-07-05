@@ -39,7 +39,9 @@ pub struct Tran {
 }
 
 /// Spectre error presets.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+)]
 pub enum ErrPreset {
     /// Liberal.
     Liberal,
@@ -307,10 +309,10 @@ impl Tran {
     fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
         write!(out, "tran stop={}", self.stop)?;
         if let Some(ref start) = self.start {
-            write!(out, "start={start}")?;
+            write!(out, " start={start}")?;
         }
         if let Some(errpreset) = self.errpreset {
-            write!(out, "errpreset={errpreset}")?;
+            write!(out, " errpreset={errpreset}")?;
         }
         Ok(())
     }
