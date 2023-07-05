@@ -58,8 +58,8 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
             width: Some(dec!(1e-9)),
-            fall: Some(dec!(1e-15)),
-            rise: Some(dec!(1e-15)),
+            fall: Some(dec!(40e-15)),
+            rise: Some(dec!(40e-15)),
             period: None,
         }));
         cell.connect(vdd.io().p, inv.io().vdd);
