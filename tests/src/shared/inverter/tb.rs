@@ -8,12 +8,12 @@ use spectre::blocks::{Pulse, Vsource};
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::io::Node;
+use substrate::io::{Node, Signal};
 use substrate::ios::TestbenchIo;
 use substrate::pdk::corner::{InstallCorner, Pvt};
 use substrate::schematic::{Cell, HasSchematic};
 use substrate::simulation::data::HasNodeData;
-use substrate::simulation::waveform::{TimeWaveform, WaveformRef};
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
 
 use super::Inverter;
@@ -55,7 +55,15 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
         cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv = cell.instantiate(self.dut);
-        let vdd = cell.instantiate_tb(Vsource::pulse(Pulse {
+
+        let vdd = cell.signal("vdd", Signal);
+        let dout = cell.signal("dout", Signal);
+
+        let vddsrc = cell.instantiate_tb(Vsource::dc(self.pvt.voltage));
+        cell.connect(vddsrc.io().p, vdd);
+        cell.connect(vddsrc.io().n, io.vss);
+
+        let vin = cell.instantiate_tb(Vsource::pulse(Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
@@ -64,10 +72,14 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
             rise: Some(dec!(40e-15)),
             period: None,
         }));
-        cell.connect(vdd.io().p, inv.io().vdd);
-        cell.connect(vdd.io().n, io.vss);
+        cell.connect(inv.io().din, vin.io().p);
+        cell.connect(vin.io().n, io.vss);
+
+        cell.connect(inv.io().vdd, vdd);
         cell.connect(inv.io().vss, io.vss);
-        Ok(*inv.io().dout)
+        cell.connect(inv.io().dout, dout);
+
+        Ok(dout)
     }
 }
 
@@ -103,8 +115,12 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         // The input waveform has a low -> high, then a high -> low transition.
         // So the first transition of the inverter output is high -> low.
         // The duration of this transition is the inverter fall time.
-        let tf = trans.next().unwrap().duration();
-        let tr = trans.next().unwrap().duration();
+        let tf = trans.next().unwrap();
+        assert_eq!(tf.dir(), EdgeDir::Falling);
+        let tf = tf.duration();
+        let tr = trans.next().unwrap();
+        assert_eq!(tr.dir(), EdgeDir::Rising);
+        let tr = tr.duration();
 
         InverterTbData { tf, tr }
     }
