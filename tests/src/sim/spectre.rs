@@ -30,7 +30,7 @@ fn spectre_vdivider_array_tran() {
         .build();
     let output = ctx.simulate(VdividerArrayTb, sim_dir);
 
-    for out in output.out {
+    for out in output.out.iter() {
         println!("{:?}", out);
     }
 
