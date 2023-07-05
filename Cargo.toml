@@ -16,6 +16,7 @@ members = [
     "libs/geometry",
     "libs/opacity",
     "libs/pathtree",
+    "libs/uniquify",
     "lvs",
     "netlist/spice",
     "par",

@@ -1551,6 +1551,7 @@ dependencies = [
  "thiserror",
  "toml 0.7.5",
  "tracing",
+ "uniquify",
 ]
 
 [[package]]
@@ -1923,6 +1924,14 @@ name = "unicode-width"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
+
+[[package]]
+name = "uniquify"
+version = "0.0.0"
+dependencies = [
+ "arcstr",
+ "serde",
+]
 
 [[package]]
 name = "unsafe-libyaml"
