@@ -87,19 +87,19 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
                 )
                 .unwrap();
                 if let Some(period) = pulse.period {
-                    write!(&mut s, "period={period}").unwrap();
+                    write!(&mut s, " period={period}").unwrap();
                 }
                 if let Some(rise) = pulse.rise {
-                    write!(&mut s, "rise={rise}").unwrap();
+                    write!(&mut s, " rise={rise}").unwrap();
                 }
                 if let Some(fall) = pulse.fall {
-                    write!(&mut s, "fall={fall}").unwrap();
+                    write!(&mut s, " fall={fall}").unwrap();
                 }
                 if let Some(width) = pulse.width {
-                    write!(&mut s, "width={width}").unwrap();
+                    write!(&mut s, " width={width}").unwrap();
                 }
                 if let Some(delay) = pulse.delay {
-                    write!(&mut s, "delay={delay}").unwrap();
+                    write!(&mut s, " delay={delay}").unwrap();
                 }
                 s
             }
