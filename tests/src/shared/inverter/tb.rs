@@ -1,4 +1,3 @@
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
@@ -8,15 +7,22 @@ use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
 use substrate::io::Node;
 use substrate::ios::TestbenchIo;
-use substrate::pdk::corner::InstallCorner;
+use substrate::pdk::corner::{InstallCorner, Pvt};
 use substrate::schematic::{Cell, HasSchematic};
 use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
 
 use super::Inverter;
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct InverterTb {
-    vdd: Decimal,
+    pvt: Pvt<Sky130Corner>,
+}
+
+impl InverterTb {
+    #[inline]
+    pub fn new(pvt: Pvt<Sky130Corner>) -> Self {
+        Self { pvt }
+    }
 }
 
 impl Block for InverterTb {
@@ -49,7 +55,7 @@ impl HasTestbenchSchematicImpl<Sky130Pdk, Spectre> for InverterTb {
         });
         let vdd = cell.instantiate_tb(Vsource::pulse(Pulse {
             val0: 0.into(),
-            val1: self.vdd,
+            val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
             width: Some(dec!(1e-9)),
             fall: Some(dec!(1e-15)),
