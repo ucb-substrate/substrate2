@@ -35,7 +35,7 @@ fn spectre_vdivider_array_tran() {
     }
 
 
-    for (out, out_nested) in output.out.iter().zip(output.out_nested.iter() {
+    for (out, out_nested) in output.out.iter().zip(output.out_nested.iter()) {
         assert_eq!(out, out_nested);
     }
 }
