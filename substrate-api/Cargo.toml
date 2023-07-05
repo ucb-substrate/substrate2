@@ -25,3 +25,4 @@ pathtree = { version = "0.0.0", registry = "substrate", path = "../libs/pathtree
 crossbeam-channel = "0.5"
 toml = "0.7"
 substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
+approx = "0.5"
