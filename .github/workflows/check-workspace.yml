@@ -49,6 +49,14 @@ jobs:
           workspaces: ". -> target"
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
+      - name: Install `just`
+        run: cargo install just
+      - name: Check that hidden doc files are up-to-date
+        run: |
+          just gen-hidden-code
+          git diff --exit-code
+          test -z "$(git ls-files --exclude-standard --others)"
+        working-directory: docs/api
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features -- -D warnings
