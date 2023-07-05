@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
@@ -5,6 +7,7 @@ use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
+use substrate::context::Context;
 use substrate::io::Node;
 use substrate::ios::TestbenchIo;
 use substrate::pdk::corner::{InstallCorner, Pvt};
@@ -16,12 +19,13 @@ use super::Inverter;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
+    dut: Inverter,
 }
 
 impl InverterTb {
     #[inline]
-    pub fn new(pvt: Pvt<Sky130Corner>) -> Self {
-        Self { pvt }
+    pub fn new(pvt: Pvt<Sky130Corner>, dut: Inverter) -> Self {
+        Self { pvt, dut }
     }
 }
 
@@ -48,11 +52,7 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let inv = cell.instantiate(Inverter {
-            nw: 1_200,
-            pw: 2_000,
-            lch: 150,
-        });
+        let inv = cell.instantiate(self.dut);
         let vdd = cell.instantiate_tb(Vsource::pulse(Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
@@ -100,5 +100,39 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         //     vdd: output.get_data(&cell.data().io().pwr.vdd).unwrap().clone(),
         //     out: output.get_data(&cell.data().io().out).unwrap().clone(),
         // }
+    }
+}
+
+/// Designs an inverter for balanced pull-up and pull-down times.
+///
+/// The NMOS width is kept constant; the PMOS width is swept over
+/// the given range.
+pub struct InverterDesign {
+    /// The fixed NMOS width.
+    pub nw: i64,
+    /// The set of PMOS widths to sweep.
+    pub pw: Vec<i64>,
+    /// The transistor channel length.
+    pub lch: i64,
+}
+
+impl InverterDesign {
+    pub fn run(
+        &self,
+        ctx: &mut Context<Sky130CommercialPdk>,
+        work_dir: impl AsRef<Path>,
+    ) -> Inverter {
+        let work_dir = work_dir.as_ref();
+        let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
+        for pw in self.pw.iter().copied() {
+            let dut = Inverter {
+                nw: self.nw,
+                pw,
+                lch: self.lch,
+            };
+            let tb = InverterTb::new(pvt, dut);
+            ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
+        }
+        todo!()
     }
 }

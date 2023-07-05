@@ -5,6 +5,7 @@ use substrate::pdk::corner::Pvt;
 use test_log::test;
 
 use crate::shared::inverter::tb::InverterTb;
+use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::VdividerArrayTb;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
@@ -45,7 +46,14 @@ pub fn inv_tb() {
     let sim_dir = get_path(test_name, "sim/");
     let mut ctx = sky130_commercial_ctx();
     ctx.simulate(
-        InverterTb::new(Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25))),
+        InverterTb::new(
+            Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25)),
+            Inverter {
+                nw: 1_200,
+                pw: 2_000,
+                lch: 150,
+            },
+        ),
         sim_dir,
     );
 }
