@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::ios::MosIo;
@@ -88,17 +89,20 @@ macro_rules! define_mos {
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
                 cell: &mut substrate::schematic::CellBuilder<Sky130OpenPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
+                // Convert from DB units to microns.
+                let w = Decimal::new(self.params.w, 3);
+                let l = Decimal::new(self.params.l, 3);
                 cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
                     ports: vec![*io.d, *io.g, *io.s, *io.b],
                     cell: arcstr::literal!(stringify!($opensubckt)),
                     params: HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
-                            substrate::scir::Expr::NumericLiteral(self.params.w.into()),
+                            substrate::scir::Expr::NumericLiteral(w),
                         ),
                         (
                             arcstr::literal!("l"),
-                            substrate::scir::Expr::NumericLiteral(self.params.l.into()),
+                            substrate::scir::Expr::NumericLiteral(l),
                         ),
                         (
                             arcstr::literal!("nf"),
@@ -116,17 +120,20 @@ macro_rules! define_mos {
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
                 cell: &mut substrate::schematic::CellBuilder<Sky130CommercialPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
+                // Convert from DB units to microns.
+                let w = Decimal::new(self.params.w, 3);
+                let l = Decimal::new(self.params.l, 3);
                 cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
                     ports: vec![*io.d, *io.g, *io.s, *io.b],
                     cell: arcstr::literal!(stringify!($comsubckt)),
                     params: HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
-                            substrate::scir::Expr::NumericLiteral(self.params.w.into()),
+                            substrate::scir::Expr::NumericLiteral(w),
                         ),
                         (
                             arcstr::literal!("l"),
-                            substrate::scir::Expr::NumericLiteral(self.params.l.into()),
+                            substrate::scir::Expr::NumericLiteral(l),
                         ),
                         (
                             arcstr::literal!("nf"),
