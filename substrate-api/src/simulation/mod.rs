@@ -15,6 +15,7 @@ use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
 
 pub mod data;
+pub mod waveform;
 
 /// A single simulator analysis.
 pub trait Analysis {
