@@ -171,7 +171,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .map(|inst| output.get_data(&inst.data().r1.io().n).unwrap().clone())
             .collect();
 
-        let vss = output.get_data(&cell.io().vss).unwrap().clone();
+        let vss = output.get_data(&cell.data().cell().io()[0].vdd).unwrap().clone();
 
         VdividerArrayTbData { out, out_nested, vss }
     }

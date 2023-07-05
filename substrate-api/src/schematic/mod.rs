@@ -524,6 +524,15 @@ impl<T: HasSchematic> Cell<T> {
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
         self.io.nested_view(&self.path)
     }
+
+    fn nested_view(&self, parent: &InstancePath) -> NestedCellView<'_, T> {
+        NestedCellView {
+            block: &self.block,
+            data: self.data.nested_view(parent),
+            raw: self.raw.clone(),
+            io: self.io.nested_view(parent),
+        }
+    }
 }
 
 /// A handle to a schematic cell that is being generated.
@@ -653,7 +662,7 @@ impl<T: HasSchematic> Instance<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<NestedView<'_, Cell<T>>> {
+    pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
             .wait()
             .as_ref()
@@ -666,7 +675,7 @@ impl<T: HasSchematic> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> NestedView<Cell<T>> {
+    pub fn cell(&self) -> NestedCellView<T> {
         self.try_cell().expect("cell generation failed")
     }
 
@@ -870,17 +879,29 @@ pub type NestedView<'a, T> = <T as HasNestedView>::NestedView<'a>;
 /// Created when accessing a cell from one of its instantiations in another cell.
 pub struct NestedCellView<'a, T: HasSchematic> {
     /// The block from which this cell was generated.
-    pub block: &'a T,
+    block: &'a T,
     /// Data returned by the cell's schematic generator.
     data: NestedView<'a, T::Data>,
     #[allow(dead_code)]
     pub(crate) raw: Arc<RawCell>,
+    /// The cell's input/output interface.
+    io: NestedView<'a, <T::Io as SchematicType>::Data>,
 }
 
 impl<'a, T: HasSchematic> NestedCellView<'a, T> {
+    /// Returns the block whose schematic this cell represents.
+    pub fn block(&'a self) -> &'a T {
+        self.block
+    }
+
     /// Returns the data of `self`.
     pub fn data(&'a self) -> &'a NestedView<'a, T::Data> {
         &self.data
+    }
+
+    /// Returns this cell's IO.
+    pub fn io(&'a self) -> &'a NestedView<<T::Io as SchematicType>::Data> {
+        &self.io
     }
 }
 
@@ -920,18 +941,6 @@ impl HasNestedView for () {
     fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {}
 }
 
-impl<T: HasSchematic> HasNestedView for Cell<T> {
-    type NestedView<'a> = NestedCellView<'a, T>;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
-        Self::NestedView {
-            block: &self.block,
-            data: self.data.nested_view(parent),
-            raw: self.raw.clone(),
-        }
-    }
-}
-
 impl<T: HasSchematic> HasNestedView for Instance<T> {
     type NestedView<'a> = NestedInstanceView<'a, T>;
 
@@ -955,7 +964,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<NestedView<'_, Cell<T>>> {
+    pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
             .wait()
             .as_ref()
@@ -968,7 +977,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> NestedView<Cell<T>> {
+    pub fn cell(&self) -> NestedCellView<T> {
         self.try_cell().expect("cell generation failed")
     }
 
@@ -1039,7 +1048,7 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<NestedView<'_, Cell<T>>> {
+    pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
             .wait()
             .as_ref()
@@ -1052,7 +1061,7 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> NestedView<Cell<T>> {
+    pub fn cell(&self) -> NestedCellView<'_, T> {
         self.try_cell().expect("cell generation failed")
     }
 
