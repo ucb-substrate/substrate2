@@ -63,9 +63,3 @@ pub trait InstallCorner<S: Simulator>: Pdk {
     /// other simulation options as well.
     fn install_corner(&self, corner: impl AsRef<<Self as Pdk>::Corner>, opts: &mut S::Options);
 }
-
-// pdk.install_corner::<Spectre>
-
-// impl InstallCorner<Spectre> for Sky130Corner {
-//
-// }
