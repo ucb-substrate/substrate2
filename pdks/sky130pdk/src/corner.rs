@@ -14,6 +14,13 @@ pub enum Sky130Corner {
     Ss,
 }
 
+impl AsRef<Sky130Corner> for Sky130Corner {
+    #[inline]
+    fn as_ref(&self) -> &Sky130Corner {
+        self
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Sky130Corners {
     pub(super) tt: Sky130Corner,

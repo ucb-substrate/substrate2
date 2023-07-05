@@ -54,6 +54,7 @@ impl ToTokens for DataInputReceiver {
 
         tokens.extend(quote! {
             // TODO: How to do generics here?
+            #[doc(hidden)]
             pub struct #nested_view_ident<'a> {
                 #( #nested_view_fields )*
             }

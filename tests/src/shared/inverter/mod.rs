@@ -6,6 +6,8 @@ use substrate::io::{InOut, Input, Output, Signal};
 use substrate::schematic::{HasSchematic, HasSchematicImpl};
 use substrate::Io;
 
+pub mod tb;
+
 #[derive(Io, Clone, Default, Debug)]
 pub struct InverterIo {
     pub vdd: InOut<Signal>,

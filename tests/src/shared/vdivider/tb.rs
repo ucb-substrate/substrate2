@@ -67,7 +67,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
     fn run(
         &self,
         cell: &Cell<VdividerTb>,
-        sim: substrate::simulation::SimController<Spectre>,
+        sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
         let output = sim
             .simulate(
@@ -143,7 +143,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
     fn run(
         &self,
         cell: &Cell<VdividerArrayTb>,
-        sim: substrate::simulation::SimController<Spectre>,
+        sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
         let output = sim
             .simulate(

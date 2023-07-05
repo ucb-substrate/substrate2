@@ -11,7 +11,7 @@ pub enum ExamplePdkCorner {
     Tt,
     Ss,
     Ff,
-};
+}
 
 impl Corner for ExamplePdkCorner {
     fn name(&self) -> arcstr::ArcStr {

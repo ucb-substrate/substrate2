@@ -24,9 +24,6 @@ pub struct Pvt<C> {
 /// Contains a process corner, a voltage, and a temperature (in Celsius).
 pub struct PvtRef {
     /// The name of the process corner.
-    ///
-    /// The actual process corner used is governed by the implementation
-    /// of [`Pdk::corner`].
     pub corner: ArcStr,
     /// The voltage.
     pub voltage: Decimal,
