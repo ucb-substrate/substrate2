@@ -78,6 +78,11 @@ const config = {
           },
           {to: '/blog', label: 'Blog', position: 'left'},
           {
+            href: 'https://api.substratelabs.io/substrate/',
+            label: 'API',
+            position: 'left',
+          },
+          {
             href: 'https://github.com/substrate-labs/substrate2',
             label: 'GitHub',
             position: 'right',
