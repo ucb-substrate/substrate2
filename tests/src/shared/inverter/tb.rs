@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
@@ -112,7 +113,10 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         let vout = output.get_data(&cell.data()).unwrap();
         let time = output.get_data("time").unwrap();
         let vout = WaveformRef::new(time, vout);
-        let mut trans = vout.transitions(0.2, 0.8);
+        let mut trans = vout.transitions(
+            0.2 * self.pvt.voltage.to_f64().unwrap(),
+            0.8 * self.pvt.voltage.to_f64().unwrap(),
+        );
         // The input waveform has a low -> high, then a high -> low transition.
         // So the first transition of the inverter output is high -> low.
         // The duration of this transition is the inverter fall time.
