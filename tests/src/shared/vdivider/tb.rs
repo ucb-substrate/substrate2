@@ -137,6 +137,7 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
 pub struct VdividerArrayTbData {
     pub out: Vec<Vec<f64>>,
     pub out_nested: Vec<Vec<f64>>,
+    pub vss: Vec<f64>,
 }
 
 impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
@@ -170,6 +171,8 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .map(|inst| output.get_data(&inst.data().r1.io().n).unwrap().clone())
             .collect();
 
-        VdividerArrayTbData { out, out_nested }
+        let vss = output.get_data(&cell.io().vss).unwrap().clone();
+
+        VdividerArrayTbData { out, out_nested, vss }
     }
 }

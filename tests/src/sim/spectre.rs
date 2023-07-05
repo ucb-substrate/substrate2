@@ -38,4 +38,6 @@ fn spectre_vdivider_array_tran() {
     for (out, out_nested) in output.out.iter().zip(output.out_nested.iter()) {
         assert_eq!(out, out_nested);
     }
+
+    assert!(output.vss.iter().all(|val| *val < 1e-6f64));
 }

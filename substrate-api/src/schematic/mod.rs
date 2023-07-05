@@ -483,20 +483,46 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
 #[derive(Clone)]
 pub struct Cell<T: HasSchematic> {
     /// The block from which this cell was generated.
-    pub block: Arc<T>,
+    block: Arc<T>,
     /// Data returned by the cell's schematic generator.
     pub(crate) data: T::Data,
     pub(crate) raw: Arc<RawCell>,
+    /// The cell's input/output interface.
+    io: <T::Io as SchematicType>::Data,
+    /// The path corresponding to this cell.
+    path: InstancePath,
 }
 
 impl<T: HasSchematic> Cell<T> {
-    pub(crate) fn new(block: Arc<T>, data: T::Data, raw: Arc<RawCell>) -> Self {
-        Self { block, data, raw }
+    pub(crate) fn new(
+        io: <T::Io as SchematicType>::Data,
+        block: Arc<T>,
+        data: T::Data,
+        raw: Arc<RawCell>,
+    ) -> Self {
+        let id = raw.id;
+        Self {
+            io,
+            block,
+            data,
+            raw,
+            path: InstancePath::new(id),
+        }
+    }
+
+    /// Returns the block whose schematic this cell represents.
+    pub fn block(&self) -> &T {
+        &self.block
     }
 
     /// Returns extra data created by the cell's schematic generator.
     pub fn data(&self) -> NestedView<T::Data> {
-        self.data.nested_view(&InstancePath::new(self.raw.id))
+        self.data.nested_view(&self.path)
+    }
+
+    /// Returns this cell's IO.
+    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        self.io.nested_view(&self.path)
     }
 }
 

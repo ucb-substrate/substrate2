@@ -10,6 +10,7 @@ use substrate::{
     schematic::{conv::RawLib, HasSchematic, HasSchematicImpl},
     supported_pdks,
 };
+use substrate::io::NodePath;
 
 use crate::shared::{
     buffer::Buffer,

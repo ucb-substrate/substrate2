@@ -24,6 +24,7 @@ pub trait Mos: Block<Io = MosIo> {}
 impl<T> Mos for T where T: Block<Io = MosIo> {}
 
 /// The interface to which simulation testbenches should conform.
+/// TODO: Add trait bound to ensure testbenches have this IO, need to refactor crates.
 #[derive(Debug, Default, Clone, Io)]
 pub struct TestbenchIo {
     /// The global ground net.

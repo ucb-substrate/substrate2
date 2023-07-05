@@ -62,12 +62,6 @@ impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
     }
 }
 
-impl HasNodeData<NestedNode, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &NestedNode) -> Option<&Vec<f64>> {
-        self.get_data(&self.lib.conv.convert_path(&k.path())?)
-    }
-}
-
 impl Analysis for Tran {
     type Output = TranOutput;
 }
