@@ -55,6 +55,7 @@ jobs:
           just gen-hidden-code
           git diff --exit-code
           test -z "$(git ls-files --exclude-standard --others)"
+        working-directory: docs/api
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features -- -D warnings
