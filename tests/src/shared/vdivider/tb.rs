@@ -135,9 +135,10 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VdividerArrayTbData {
+    pub expected: Vec<f64>,
     pub out: Vec<Vec<f64>>,
     pub out_nested: Vec<Vec<f64>>,
-    pub vss: Vec<f64>,
+    pub vdd: Vec<f64>,
 }
 
 impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
@@ -157,6 +158,15 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             )
             .expect("failed to run simulation");
 
+        let expected: Vec<_> = cell
+            .data()
+            .data()
+            .into_iter()
+            .map(|inst| {
+                inst.block().r1.r as f64 / (inst.block().r1.r + inst.block().r2.r) as f64 * 1.8
+            })
+            .collect();
+
         let out = cell
             .data()
             .data()
@@ -171,8 +181,16 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .map(|inst| output.get_data(&inst.data().r1.io().n).unwrap().clone())
             .collect();
 
-        let vss = output.get_data(&cell.data().cell().io()[0].vdd).unwrap().clone();
+        let vdd = output
+            .get_data(&cell.data().cell().io()[0].vdd)
+            .unwrap()
+            .clone();
 
-        VdividerArrayTbData { out, out_nested, vss }
+        VdividerArrayTbData {
+            expected,
+            out,
+            out_nested,
+            vdd,
+        }
     }
 }

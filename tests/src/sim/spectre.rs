@@ -30,14 +30,14 @@ fn spectre_vdivider_array_tran() {
         .build();
     let output = ctx.simulate(VdividerArrayTb, sim_dir);
 
-    for out in output.out.iter() {
-        println!("{:?}", out);
-    }
-
-
-    for (out, out_nested) in output.out.iter().zip(output.out_nested.iter()) {
+    for (expected, (out, out_nested)) in output
+        .expected
+        .iter()
+        .zip(output.out.iter().zip(output.out_nested.iter()))
+    {
+        assert!(out.iter().all(|val| relative_eq!(val, expected)));
         assert_eq!(out, out_nested);
     }
 
-    assert!(output.vss.iter().all(|val| *val < 1e-6f64));
+    assert!(output.vdd.iter().all(|val| *val > 1.7));
 }

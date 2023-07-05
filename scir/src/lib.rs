@@ -494,7 +494,10 @@ impl Library {
             }
         }
 
-        path
+        NodePath {
+            instances: Vec::new(),
+            ..path
+        }
     }
 }
 

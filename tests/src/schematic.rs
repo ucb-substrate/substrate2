@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use substrate::io::NodePath;
 use substrate::{
     block::Block,
     context::Context,
@@ -10,7 +11,6 @@ use substrate::{
     schematic::{conv::RawLib, HasSchematic, HasSchematicImpl},
     supported_pdks,
 };
-use substrate::io::NodePath;
 
 use crate::shared::{
     buffer::Buffer,
