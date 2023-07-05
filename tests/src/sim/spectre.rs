@@ -65,7 +65,7 @@ pub fn design_inverter() {
     let mut ctx = sky130_commercial_ctx();
     let script = InverterDesign {
         nw: 1_200,
-        pw: (1_200..=3_000).step_by(100).collect(),
+        pw: (1_200..=5_000).step_by(200).collect(),
         lch: 150,
     };
     let inv = script.run(&mut ctx, work_dir);

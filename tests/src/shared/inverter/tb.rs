@@ -69,8 +69,8 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
             width: Some(dec!(1e-9)),
-            fall: Some(dec!(100e-15)),
-            rise: Some(dec!(100e-15)),
+            fall: Some(dec!(1e-12)),
+            rise: Some(dec!(1e-12)),
             period: None,
         }));
         cell.connect(inv.io().din, vin.io().p);
@@ -164,7 +164,7 @@ impl InverterDesign {
             let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
             println!("Simulating with pw = {pw} gave:\n{:#?}", data);
             let diff = (data.tr - data.tf).abs();
-            if let Some((pdiff, dut)) = opt {
+            if let Some((pdiff, _)) = opt {
                 if diff < pdiff {
                     opt = Some((diff, dut));
                 }
