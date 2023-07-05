@@ -337,11 +337,10 @@ impl<PDK: Pdk> Context<PDK> {
         let block = Arc::new(block);
         let cell = self.generate_testbench_schematic(block.clone());
         let cell = cell.cell();
-        let raw_lib = self.export_testbench_scir_for_cell(cell);
+        let lib = self.export_testbench_scir_for_cell(cell);
         let ctx = SimulationContext {
-            lib: raw_lib.scir,
+            lib: Arc::new(lib),
             work_dir: work_dir.into(),
-            conv: Arc::new(raw_lib.conv),
         };
         let controller = SimController { simulator, ctx };
 
