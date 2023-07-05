@@ -103,6 +103,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
                 opts,
                 Tran {
                     stop: dec!(2e-9),
+                    errpreset: Some(spectre::ErrPreset::Conservative),
                     ..Default::default()
                 },
             )
