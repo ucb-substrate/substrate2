@@ -8,6 +8,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
+use crate::context::PdkData;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
 use crate::schematic::conv::ScirLibConversion;
@@ -101,15 +102,17 @@ where
 }
 
 /// Controls simulation options.
-pub struct SimController<S> {
+pub struct SimController<PDK: Pdk, S> {
     pub(crate) simulator: Arc<S>,
+    /// The current PDK.
+    pub pdk: PdkData<PDK>,
     pub(crate) ctx: SimulationContext,
 }
 
-impl<S: Simulator> SimController<S> {
-    /// Run the given analysis, consuming this simulation controller.
+impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
+    /// Run the given analysis.
     pub fn simulate<A: Analysis + SupportedBy<S>>(
-        self,
+        &self,
         options: S::Options,
         input: A,
     ) -> Result<A::Output, S::Error> {
@@ -122,7 +125,7 @@ pub trait Testbench<PDK: Pdk, S: Simulator>: HasTestbenchSchematicImpl<PDK, S> {
     /// The output produced by this testbench.
     type Output: Any + Serialize + Deserialize<'static>;
     /// Run the testbench using the given simulation controller.
-    fn run(&self, cell: &Cell<Self>, sim: SimController<S>) -> Self::Output;
+    fn run(&self, cell: &Cell<Self>, sim: SimController<PDK, S>) -> Self::Output;
 }
 
 /// A testbench block that has a schematic compatible with the given PDK and simulator.

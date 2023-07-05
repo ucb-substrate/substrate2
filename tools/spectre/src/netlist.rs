@@ -6,6 +6,7 @@ use opacity::Opacity;
 use scir::Slice;
 use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
 use std::io::prelude::*;
+use std::path::PathBuf;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
@@ -15,13 +16,14 @@ type Result<T> = std::result::Result<T, std::io::Error>;
 /// Since the netlister may issue many small write calls,
 pub struct Netlister<'a, W: Write> {
     lib: &'a Library,
+    includes: &'a [PathBuf],
     out: &'a mut W,
 }
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new Spectre netlister writing to the given output stream.
-    pub fn new(lib: &'a Library, out: &'a mut W) -> Self {
-        Self { lib, out }
+    pub fn new(lib: &'a Library, includes: &'a [PathBuf], out: &'a mut W) -> Self {
+        Self { lib, includes, out }
     }
 
     /// Exports this netlister's library to its output stream.
@@ -34,12 +36,18 @@ impl<'a, W: Write> Netlister<'a, W> {
 
     fn export_library(&mut self) -> Result<()> {
         writeln!(self.out, "// {}\n", self.lib.name())?;
+        writeln!(self.out, "simulator lang=spectre\n")?;
         writeln!(self.out, "// This is a generated file.")?;
         writeln!(
             self.out,
             "// Be careful when editing manually: this file may be overwritten.\n"
         )?;
-        writeln!(self.out, "simulator lang=spectre\n")?;
+
+        for include in self.includes {
+            writeln!(self.out, "include {:?}", include)?;
+        }
+        writeln!(self.out)?;
+
         for (id, cell) in self.lib.cells() {
             self.export_cell(cell, self.lib.should_inline(id))?;
         }
@@ -102,6 +110,21 @@ impl<'a, W: Write> Netlister<'a, W> {
                             self.write_slice(cell, *neg, ground)?;
                             write!(self.out, " ) resistor r=")?;
                             self.write_expr(value)?;
+                        }
+                        PrimitiveDevice::RawInstance {
+                            ports,
+                            cell: child,
+                            params,
+                        } => {
+                            write!(self.out, "{}rawinst{} (", indent, i)?;
+                            for port in ports.iter() {
+                                self.write_slice(cell, *port, ground)?;
+                            }
+                            write!(self.out, " ) {}", child)?;
+                            for (key, value) in params.iter() {
+                                write!(self.out, " {key}=")?;
+                                self.write_expr(value)?;
+                            }
                         }
                         _ => todo!(),
                     }

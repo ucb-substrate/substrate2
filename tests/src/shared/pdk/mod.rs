@@ -2,8 +2,12 @@ use std::collections::HashMap;
 
 use scir::Expr;
 use serde::{Deserialize, Serialize};
+use sky130pdk::Sky130CommercialPdk;
+use spectre::Spectre;
 use substrate::block::Block;
+use substrate::context::Context;
 use substrate::ios::MosIo;
+use substrate::pdk::corner::Corner;
 use substrate::pdk::Pdk;
 use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};
 
@@ -15,12 +19,23 @@ pub struct ExamplePdkA;
 
 impl Pdk for ExamplePdkA {
     type Layers = ExamplePdkALayers;
+    type Corner = ExampleCorner;
 }
 
 pub struct ExamplePdkB;
 
 impl Pdk for ExamplePdkB {
     type Layers = ExamplePdkBLayers;
+    type Corner = ExampleCorner;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ExampleCorner;
+
+impl Corner for ExampleCorner {
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("example_corner")
+    }
 }
 
 /// An NMOS in PDK A.
@@ -105,4 +120,22 @@ impl HasSchematicImpl<ExamplePdkA> for PmosA {
         });
         Ok(())
     }
+}
+
+/// Create a new Substrate context for the SKY130 commercial PDK.
+///
+/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// environment variable and installs Spectre with default configuration.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+/// or if the value of that variable is not a valid UTF-8 string.
+pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
+    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
+        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .pdk(Sky130CommercialPdk::new(pdk_root))
+        .with_simulator(Spectre::default())
+        .build()
 }

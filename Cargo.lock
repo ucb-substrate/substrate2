@@ -1443,7 +1443,10 @@ name = "sky130pdk"
 version = "0.0.0"
 dependencies = [
  "arcstr",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
+ "spectre",
  "substrate",
 ]
 

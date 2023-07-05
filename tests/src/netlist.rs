@@ -156,7 +156,8 @@ fn netlist_spice_vdivider_blackbox() {
 fn netlist_spectre_vdivider() {
     let lib = vdivider();
     let mut buf: Vec<u8> = Vec::new();
-    let netlister = spectre::netlist::Netlister::new(&lib, &mut buf);
+    let includes = Vec::new();
+    let netlister = spectre::netlist::Netlister::new(&lib, &includes, &mut buf);
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);

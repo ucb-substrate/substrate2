@@ -343,7 +343,11 @@ impl<PDK: Pdk> Context<PDK> {
             work_dir: work_dir.into(),
             conv: Arc::new(raw_lib.conv),
         };
-        let controller = SimController { simulator, ctx };
+        let controller = SimController {
+            pdk: self.pdk.clone(),
+            simulator,
+            ctx,
+        };
 
         // TODO caching
         block.run(cell, controller)

@@ -1,9 +1,10 @@
 //! Spectre plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufWriter, Write};
 use std::os::unix::prelude::PermissionsExt;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use error::*;
@@ -121,20 +122,37 @@ pub struct Spectre {}
 /// Spectre per-simulation options.
 ///
 /// A single simulation contains zero or more analyses.
-pub struct Opts {}
+#[derive(Debug, Clone, Default)]
+pub struct Options {
+    includes: HashSet<PathBuf>,
+}
+
+impl Options {
+    /// Include the given file.
+    pub fn include(&mut self, path: impl Into<PathBuf>) {
+        self.includes.insert(path.into());
+    }
+}
 
 impl Spectre {
     fn simulate(
         &self,
         ctx: &SimulationContext,
-        _options: Opts,
+        options: Options,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&ctx.work_dir)?;
         let netlist = ctx.work_dir.join("netlist.scs");
         let f = std::fs::File::create(&netlist)?;
         let mut w = BufWriter::new(f);
-        let netlister = Netlister::new(&ctx.lib, &mut w);
+
+        let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        // Sorting the include list makes repeated netlist invocations
+        // produce the same output. If we were to iterate over the HashSet directly,
+        // the order of includes may change even if the contents of the set did not change.
+        includes.sort();
+
+        let netlister = Netlister::new(&ctx.lib, &includes, &mut w);
         netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
@@ -224,7 +242,7 @@ impl Spectre {
 impl Simulator for Spectre {
     type Input = Input;
     type Output = Output;
-    type Options = Opts;
+    type Options = Options;
     type Error = Error;
 
     fn simulate_inputs(
