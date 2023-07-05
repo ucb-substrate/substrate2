@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use spectre::Spectre;
 use substrate::pdk::corner::{Corner, InstallCorner};
 
-use crate::Sky130Pdk;
+use crate::Sky130CommercialPdk;
 
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Sky130Corner {
@@ -76,7 +76,7 @@ impl Corner for Sky130Corner {
     }
 }
 
-impl InstallCorner<Spectre> for Sky130Pdk {
+impl InstallCorner<Spectre> for Sky130CommercialPdk {
     fn install_corner(
         &self,
         corner: impl AsRef<<Self as substrate::pdk::Pdk>::Corner>,

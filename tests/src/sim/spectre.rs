@@ -1,6 +1,6 @@
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::Sky130CommercialPdk;
 use spectre::Spectre;
 use substrate::context::Context;
 use substrate::pdk::corner::Pvt;
@@ -15,7 +15,7 @@ fn spectre_vdivider_tran() {
     let test_name = "spectre_vdivider_tran";
     let sim_dir = get_path(test_name, "sim/");
     let mut ctx = Context::builder()
-        .pdk(Sky130Pdk::new("/path/to/sky130pdk"))
+        .pdk(Sky130CommercialPdk::new("/path/to/sky130pdk"))
         .with_simulator(Spectre::default())
         .build();
     let output = ctx.simulate(VdividerTb, sim_dir);
@@ -29,7 +29,7 @@ fn spectre_vdivider_array_tran() {
     let test_name = "spectre_vdivider_array_tran";
     let sim_dir = get_path(test_name, "sim/");
     let mut ctx = Context::builder()
-        .pdk(Sky130Pdk::new("/path/to/sky130pdk"))
+        .pdk(Sky130CommercialPdk::new("/path/to/sky130pdk"))
         .with_simulator(Spectre::default())
         .build();
     let output = ctx.simulate(VdividerArrayTb, sim_dir);
@@ -44,7 +44,7 @@ pub fn inv_tb() {
     let test_name = "inv_tb";
     let sim_dir = get_path(test_name, "sim/");
     let mut ctx = Context::builder()
-        .pdk(Sky130Pdk::new("/path/to/sky130pdk"))
+        .pdk(Sky130CommercialPdk::new("/path/to/sky130pdk"))
         .with_simulator(Spectre::default())
         .build();
     ctx.simulate(

@@ -6,7 +6,7 @@ use substrate::block::Block;
 use substrate::ios::MosIo;
 use substrate::schematic::{HasSchematic, HasSchematicImpl};
 
-use super::Sky130Pdk;
+use super::{Sky130CommercialPdk, Sky130OpenPdk};
 
 /// MOSFET sizing parameters.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,11 +46,12 @@ impl Display for MosParams {
 }
 
 macro_rules! define_mos {
-    ($typ:ident, $name:ident, $doc:literal, $subckt:ident) => {
+    ($typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $comsubckt:ident) => {
         #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
         #[doc = $doc]
         #[doc = ""]
-        #[doc = concat!("Produces an instance of `", stringify!($subckt), "`.")]
+        #[doc = concat!("In the open-source PDK, produces an instance of `", stringify!($opensubckt), "`.")]
+        #[doc = concat!("In the commercial PDK, produces an instance of `", stringify!($comsubckt), "`.")]
         pub struct $typ {
             params: MosParams,
         }
@@ -81,15 +82,43 @@ macro_rules! define_mos {
             type Data = ();
         }
 
-        impl HasSchematicImpl<Sky130Pdk> for $typ {
+        impl HasSchematicImpl<Sky130OpenPdk> for $typ {
             fn schematic(
                 &self,
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-                cell: &mut substrate::schematic::CellBuilder<Sky130Pdk, Self>,
+                cell: &mut substrate::schematic::CellBuilder<Sky130OpenPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
                 cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
                     ports: vec![*io.d, *io.g, *io.s, *io.b],
-                    cell: arcstr::literal!(stringify!($subckt)),
+                    cell: arcstr::literal!(stringify!($opensubckt)),
+                    params: HashMap::from_iter([
+                        (
+                            arcstr::literal!("w"),
+                            substrate::scir::Expr::NumericLiteral(self.params.w.into()),
+                        ),
+                        (
+                            arcstr::literal!("l"),
+                            substrate::scir::Expr::NumericLiteral(self.params.l.into()),
+                        ),
+                        (
+                            arcstr::literal!("nf"),
+                            substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
+                        ),
+                    ]),
+                });
+                Ok(())
+            }
+        }
+
+        impl HasSchematicImpl<Sky130CommercialPdk> for $typ {
+            fn schematic(
+                &self,
+                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+                cell: &mut substrate::schematic::CellBuilder<Sky130CommercialPdk, Self>,
+            ) -> substrate::error::Result<Self::Data> {
+                cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
+                    ports: vec![*io.d, *io.g, *io.s, *io.b],
+                    cell: arcstr::literal!(stringify!($comsubckt)),
                     params: HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
@@ -115,79 +144,85 @@ define_mos!(
     Nfet01v8,
     nfet_01v8,
     "A core NMOS device.",
-    sky130_fd_pr__nfet_01v8
+    sky130_fd_pr__nfet_01v8,
+    nshort
 );
 define_mos!(
     Nfet01v8Lvt,
     nfet_01v8_lvt,
     "A core low-threshold NMOS device.",
-    sky130_fd_pr__nfet_01v8_lvt
+    sky130_fd_pr__nfet_01v8_lvt,
+    nlowvt
 );
 define_mos!(
     Nfet03v3Nvt,
     nfet_03v3_nvt,
     "A 3.3V native-threshold NMOS device.",
-    sky130_fd_pr__nfet_03v3_nvt
+    sky130_fd_pr__nfet_03v3_nvt,
+    ntvnative
 );
 define_mos!(
     Nfet05v0Nvt,
     nfet_05v0_nvt,
     "A 5.0V native-threshold NMOS device.",
-    sky130_fd_pr__nfet_05v0_nvt
+    sky130_fd_pr__nfet_05v0_nvt,
+    nhvnative
 );
 define_mos!(
     Nfet20v0,
     nfet_20v0,
     "A 20.0V NMOS device.",
-    sky130_fd_pr__nfet_20v0
+    sky130_fd_pr__nfet_20v0,
+    nvhv
 );
 
 define_mos!(
     SpecialNfetLatch,
     special_nfet_latch,
     "A special latch NMOS, used as the pull down device in SRAM cells.",
-    sky130_fd_pr__special_nfet_latch
+    sky130_fd_pr__special_nfet_latch,
+    npd
 );
 define_mos!(
     SpecialNfetPass,
     special_nfet_pass,
     "A special pass NMOS, used as the access device in SRAM cells.",
-    sky130_fd_pr__special_nfet_pass
+    sky130_fd_pr__special_nfet_pass,
+    npass
 );
 define_mos!(
     SpecialPfetPass,
     special_pfet_pass,
     "A special pass PMOS, used as the pull-up device in SRAM cells.",
-    sky130_fd_pr__special_pfet_pass
+    sky130_fd_pr__special_pfet_pass,
+    ppu
 );
 
 define_mos!(
     Pfet01v8,
     pfet_01v8,
     "A core PMOS device.",
-    sky130_fd_pr__pfet_01v8
+    sky130_fd_pr__pfet_01v8,
+    pshort
 );
 define_mos!(
     Pfet01v8Hvt,
     pfet_01v8_hvt,
     "A core high-threshold PMOS device.",
-    sky130_fd_pr__pfet_01v8_hvt
+    sky130_fd_pr__pfet_01v8_hvt,
+    phighvt
 );
 define_mos!(
     Pfet01v8Lvt,
     pfet_01v8_lvt,
     "A core low-threshold PMOS device.",
-    sky130_fd_pr__pfet_01v8_lvt
-);
-define_mos!(
-    Pfet01v8Mvt,
-    pfet_01v8_mvt,
-    "A core MVT PMOS device.",
-    sky130_fd_pr__pfet_01v8_mvt
+    sky130_fd_pr__pfet_01v8_lvt,
+    plowvt
 );
 define_mos!(
     Pfet20v0,
     pfet_20v0,
     "A 20.0V PMOS device.",
-    sky130_fd_pr__pfet_20v0
+    sky130_fd_pr__pfet_20v0,
+    pvhv
 );

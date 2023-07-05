@@ -1,7 +1,7 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
@@ -42,11 +42,11 @@ impl HasSchematic for InverterTb {
     type Data = Node;
 }
 
-impl HasTestbenchSchematicImpl<Sky130Pdk, Spectre> for InverterTb {
+impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130Pdk, Spectre, Self>,
+        cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv = cell.instantiate(Inverter {
             nw: 1_200,
@@ -75,12 +75,12 @@ pub struct VdividerTbData {
     pub out: Vec<f64>,
 }
 
-impl Testbench<Sky130Pdk, Spectre> for InverterTb {
+impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
     type Output = ();
     fn run(
         &self,
         _cell: &Cell<Self>,
-        sim: substrate::simulation::SimController<Sky130Pdk, Spectre>,
+        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
     ) -> Self::Output {
         let mut opts = Options::default();
         sim.pdk.pdk.install_corner(Sky130Corner::Tt, &mut opts);
