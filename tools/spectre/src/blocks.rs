@@ -1,5 +1,7 @@
 //! Spectre-specific blocks for use in testbenches.
 
+use std::hash::{Hash, Hasher};
+
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
@@ -58,9 +60,12 @@ impl Block for Vsource {
         arcstr::literal!("vsource")
     }
     fn name(&self) -> arcstr::ArcStr {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.hash(&mut hasher);
+        let num = hasher.finish();
         // `vsource` is a reserved Spectre keyword,
         // so we call this block `uservsource`.
-        arcstr::literal!("uservsource")
+        arcstr::format!("uservsource_{num}")
     }
     fn io(&self) -> Self::Io {
         Default::default()
