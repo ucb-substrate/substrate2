@@ -1,0 +1,8 @@
+[package]
+name = "uniquify"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+arcstr = { version = "1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
