@@ -20,7 +20,7 @@ use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
 #[test]
 fn can_generate_vdivider_schematic() {
-    let mut ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(ExamplePdkA);
     let vdivider = Vdivider {
         r1: Resistor { r: 300 },
         r2: Resistor { r: 100 },
@@ -86,7 +86,7 @@ fn nested_io_naming() {
 
 #[test]
 fn internal_signal_names_preserved() {
-    let mut ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(ExamplePdkA);
     let RawLib { scir, conv: _ } = ctx.export_scir(Buffer::new(5));
     assert_eq!(scir.cells().count(), 4);
     let issues = scir.validate();
@@ -107,7 +107,7 @@ fn internal_signal_names_preserved() {
 
 #[test]
 fn nested_node_naming() {
-    let mut ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_schematic(BufferNxM::new(5, 5, 5));
     let cell = handle.cell();
 
@@ -245,11 +245,11 @@ impl HasSchematicImpl<ExamplePdkB> for Block2 {
 
 #[test]
 fn error_propagation_works() {
-    let mut ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_schematic(Block2);
     assert!(handle.try_cell().is_err());
 
-    let mut ctx = Context::new(ExamplePdkB);
+    let ctx = Context::new(ExamplePdkB);
     let handle = ctx.generate_schematic(Block2);
     assert!(handle.try_cell().is_err());
 }

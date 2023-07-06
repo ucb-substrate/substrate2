@@ -15,7 +15,7 @@ fn layout_generation_and_data_propagation_work() {
 
     let block = Buffer::new(5);
 
-    let mut ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(ExamplePdkA);
     let handle = ctx.generate_layout(block);
     let cell = handle.cell();
 
@@ -48,7 +48,7 @@ fn layout_generation_and_data_propagation_work() {
     ctx.write_layout(block, get_path(test_name, "layout_pdk_a.gds"))
         .expect("failed to write layout");
 
-    let mut ctx = Context::new(ExamplePdkB);
+    let ctx = Context::new(ExamplePdkB);
     let handle = ctx.generate_layout(Buffer::new(5));
     let cell = handle.cell();
 
@@ -74,7 +74,7 @@ fn nested_transform_views_work() {
 
     let block = BufferN::new(5, 10);
 
-    let mut ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(ExamplePdkA);
     ctx.write_layout(block, get_path(test_name, "layout.gds"))
         .expect("failed to write layout");
 

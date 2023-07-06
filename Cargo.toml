@@ -3,7 +3,6 @@
 resolver = "2"
 
 members = [
-    "cache",
     "config",
     "cli",
     "codegen",
@@ -13,6 +12,7 @@ members = [
     "drc",
     "gds",
     "lef",
+    "libs/cache",
     "libs/geometry",
     "libs/opacity",
     "libs/pathtree",

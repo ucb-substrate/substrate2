@@ -1,5 +1,7 @@
 //! Substrate integration tests.
 
+#[cfg(test)]
+pub mod cache;
 pub mod external;
 #[cfg(test)]
 pub mod layout;

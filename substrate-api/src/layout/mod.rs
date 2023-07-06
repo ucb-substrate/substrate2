@@ -1,4 +1,27 @@
 //! Substrate's layout generator framework.
+//!
+//! # Examples
+//!
+//! ## Simple
+//! ```
+#![doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/layout/inverter.rs")]
+//! ```
+//!
+//! ## With data
+//! ```
+#![doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
+#![doc = include_str!("../../../docs/api/code/layout/buffer.rs")]
+//! ```
+
 use std::{
     marker::PhantomData,
     sync::{
@@ -9,40 +32,17 @@ use std::{
 };
 
 use arcstr::ArcStr;
+use cache::mem::{Cache, CacheHandle};
 use geometry::{
     prelude::{Bbox, Orientation, Point},
     transform::{
         HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
     },
 };
-use once_cell::sync::OnceCell;
 
-///
-/// # Examples
-///
-/// ## Simple
-/// ```
-#[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.rs")]
-/// ```
-///
-/// ## With data
-/// ```
-#[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/buffer.rs")]
-/// ```
-use crate::block::Block;
-use crate::generator::Generator;
 use crate::io::LayoutType;
 use crate::pdk::Pdk;
+use crate::{block::Block, error::Error};
 use crate::{context::Context, error::Result};
 
 use self::element::{CellId, Element, RawCell, RawInstance, Shape};
@@ -80,7 +80,7 @@ pub trait HasLayoutImpl<PDK: Pdk>: HasLayout {
 #[derive(Debug, Default, Clone)]
 pub struct LayoutContext {
     next_id: CellId,
-    pub(crate) gen: Generator,
+    pub(crate) cell_cache: Cache,
 }
 
 impl LayoutContext {
@@ -161,9 +161,16 @@ impl<T: HasLayout> Bbox for Cell<T> {
 }
 
 /// A handle to a schematic cell that is being generated.
-#[derive(Clone)]
 pub struct CellHandle<T: HasLayout> {
-    pub(crate) cell: Arc<OnceCell<Result<Cell<T>>>>,
+    pub(crate) cell: CacheHandle<Cell<T>, Error>,
+}
+
+impl<T: HasLayout> Clone for CellHandle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            cell: self.cell.clone(),
+        }
+    }
 }
 
 impl<T: HasLayout> CellHandle<T> {
@@ -171,7 +178,7 @@ impl<T: HasLayout> CellHandle<T> {
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<&Cell<T>> {
-        self.cell.wait().as_ref().map_err(|e| e.clone())
+        self.cell.try_get().map_err(|e| e.clone())
     }
 
     /// Returns the underlying [`Cell`].
@@ -240,7 +247,7 @@ impl<'a, T: HasLayout> Bbox for TransformedCell<'a, T> {
 /// Stores a pointer to its underlying cell and its instantiated location and orientation.
 #[allow(dead_code)]
 pub struct Instance<T: HasLayout> {
-    cell: Arc<OnceCell<Result<Cell<T>>>>,
+    cell: CacheHandle<Cell<T>, Error>,
     pub(crate) loc: Point,
     pub(crate) orientation: Orientation,
 }
@@ -255,7 +262,7 @@ impl<T: HasLayout> Clone for Instance<T> {
 }
 
 impl<T: HasLayout> Instance<T> {
-    pub(crate) fn new(cell: Arc<OnceCell<Result<Cell<T>>>>) -> Self {
+    pub(crate) fn new(cell: CacheHandle<Cell<T>, Error>) -> Self {
         Instance {
             cell,
             loc: Point::default(),
@@ -270,8 +277,7 @@ impl<T: HasLayout> Instance<T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<Transformed<'_, Cell<T>>> {
         self.cell
-            .wait()
-            .as_ref()
+            .try_get()
             .map(|cell| {
                 cell.transformed_view(Transformation::from_offset_and_orientation(
                     self.loc,
@@ -463,7 +469,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
 
         let cell = inst.cell.clone();
         thread::spawn(move || {
-            if let Ok(cell) = cell.wait() {
+            if let Ok(cell) = cell.try_get() {
                 send.send(Some(RawInstance {
                     cell: cell.raw.clone(),
                     loc: inst.loc,
@@ -515,6 +521,11 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// May cause a panic if generation of an underlying instance fails.
     pub fn draw_ref(&mut self, obj: &impl DrawRef<PDK>) -> Result<()> {
         obj.draw_ref(self)
+    }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &Context<PDK> {
+        &self.ctx
     }
 }
 
