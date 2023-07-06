@@ -49,14 +49,14 @@ use serde::{Deserialize, Serialize};
 pub trait Cacheable: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
     /// The output produced by generating the object.
     type Output: Send + Sync + Serialize + Deserialize<'static>;
-    /// The error type returned during generation.
+    /// The error type returned by [`Cacheable::generate`].
     type Error: Send + Sync;
 
     /// Generates the output of the cacheable object.
     fn generate(&self) -> Result<Self::Output, Self::Error>;
 }
 
-/// A cacheable object that requires state in its generation.
+/// A cacheable object whose generator needs to store state.
 ///
 /// # Examples
 ///
@@ -101,14 +101,14 @@ pub trait CacheableWithState<S: Send + Sync + Any>:
 {
     /// The output produced by generating the object.
     type Output: Send + Sync + Serialize + Deserialize<'static>;
-    /// The error type returned during generation.
+    /// The error type returned by [`CacheableWithState::generate_with_state`].
     type Error: Send + Sync;
 
     /// Generates the output of the cacheable object using `state`.
     ///
     /// **Note:** The state is not used to determine whether the object should be regenerated. As
     /// such, it should not impact the output of this function but rather should only be used to
-    /// store collateral from the generation or reuse computation from other function calls.
+    /// store collateral or reuse computation from other function calls.
     fn generate_with_state(&self, state: S) -> Result<Self::Output, Self::Error>;
 }
 
@@ -123,16 +123,16 @@ impl<V, E> Clone for CacheHandle<V, E> {
 }
 
 impl<V, E> CacheHandle<V, E> {
-    /// Blocks on the cache entry, returning the result once generation completes.
+    /// Blocks on the cache entry, returning the result once it is ready.
     ///
-    /// Returns an error if one was returned during generation.
+    /// Returns an error if one was returned by the generator.
     pub fn try_get(&self) -> Result<&V, &E> {
         self.0.wait().as_ref()
     }
 
-    /// Checks whether generation of the underlying entry is complete.
+    /// Checks whether the underlying entry is ready.
     ///
-    /// Returns the entry if generation is complete, otherwise returns [`None`].
+    /// Returns the entry if available, otherwise returns [`None`].
     pub fn poll(&self) -> Option<&Result<V, E>> {
         self.0.get()
     }
@@ -143,7 +143,7 @@ impl<V, E: Debug> CacheHandle<V, E> {
     ///
     /// # Panics
     ///
-    /// Panics if an error was returned during generation.
+    /// Panics if an error was returned by the generator.
     pub fn get(&self) -> &V {
         self.try_get().unwrap()
     }
@@ -154,7 +154,7 @@ impl<V: Debug, E> CacheHandle<V, E> {
     ///
     /// # Panics
     ///
-    /// Panics if no error was returned during generation.
+    /// Panics if no error was returned by the generator.
     pub fn get_err(&self) -> &E {
         self.try_get().unwrap_err()
     }
@@ -280,7 +280,8 @@ pub struct Cache {
     cells: HashMap<TypeId, Arc<Mutex<dyn Any + Send + Sync>>>,
     /// A map from key and state types to another map from key to value handle.
     ///
-    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
+    /// Effectively, the type of this map is
+    /// `(TypeId::of::<K>(), TypeId::of::<S>()) -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
     cells_with_state: HashMap<(TypeId, TypeId), Arc<Mutex<dyn Any + Send + Sync>>>,
 }
 
@@ -292,7 +293,7 @@ impl Cache {
 
     /// Gets a handle to a cacheable object from the cache.
     ///
-    /// `panic_error` is returned if a panic occurs during generation.
+    /// `panic_error` is returned if the generator panics.
     pub fn get<K: Cacheable>(
         &mut self,
         key: K,
@@ -305,13 +306,13 @@ impl Cache {
     ///
     /// **Note:** The state is not used to determine whether the object should be regenerated. As
     /// such, it should not impact the output of this function but rather should only be used to
-    /// store collateral from the generation or reuse computation from other function calls.
+    /// store collateral or reuse computation from other function calls.
     ///
     /// However, the entries generated with different state types are not interchangeable. That is,
     /// getting the same key with different states will regenerate the key several times, once for
     /// each state type `S`.
     ///
-    /// `panic_error` is returned if a panic occurs during generation.
+    /// `panic_error` is returned if the generator panics.
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &mut self,
         key: K,
@@ -512,7 +513,7 @@ mod tests {
 
         let handle1 = cache.generate(p1, params1_func.clone(), anyhow!("generation failed"));
 
-        // Should not use this generation function as the corresponding block is already being generated.
+        // Should not use call the generator as the corresponding block is already being generated.
         let handle2 = cache.generate(p1, params1_func.clone(), anyhow!("generation failed"));
 
         assert!(handle1.poll().is_none());
