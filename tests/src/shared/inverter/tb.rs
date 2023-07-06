@@ -1,3 +1,4 @@
+// begin-code-snippet imports
 use std::path::Path;
 
 use rust_decimal::prelude::ToPrimitive;
@@ -19,7 +20,9 @@ use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
 use substrate::Block;
 
 use super::Inverter;
+// end-code-snippet imports
 
+// begin-code-snippet struct-and-impl
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
 #[block(io = "TestbenchIo")]
 pub struct InverterTb {
@@ -33,7 +36,9 @@ impl InverterTb {
         Self { pvt, dut }
     }
 }
+// end-code-snippet struct-and-impl
 
+// begin-code-snippet schematic
 impl HasSchematic for InverterTb {
     type Data = Node;
 }
@@ -72,7 +77,9 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
         Ok(dout)
     }
 }
+// end-code-snippet schematic
 
+// begin-code-snippet testbench
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InverterTbData {
     pub tr: f64,
@@ -119,7 +126,9 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         InverterTbData { tf, tr }
     }
 }
+// end-code-snippet testbench
 
+// begin-code-snippet design
 /// Designs an inverter for balanced pull-up and pull-down times.
 ///
 /// The NMOS width is kept constant; the PMOS width is swept over
@@ -165,3 +174,4 @@ impl InverterDesign {
         opt.unwrap().1
     }
 }
+// end-code-snippet design

@@ -32,6 +32,8 @@ const config = {
     locales: ['en'],
   },
 
+  plugins: ['./src/plugins/substrate-source-assets'],
+
   presets: [
     [
       'classic',
@@ -129,7 +131,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
-        additionalLanguages: ['rust'],
+        additionalLanguages: ['rust', 'toml'],
         magicComments: [
           {
             className: 'hidden-rust-doc',

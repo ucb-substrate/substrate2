@@ -122,6 +122,7 @@ impl HasSchematicImpl<ExamplePdkA> for PmosA {
     }
 }
 
+// begin-code-snippet sky130-commercial-ctx
 /// Create a new Substrate context for the SKY130 commercial PDK.
 ///
 /// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
@@ -139,3 +140,4 @@ pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
         .with_simulator(Spectre::default())
         .build()
 }
+// end-code-snippet sky130-commercial-ctx

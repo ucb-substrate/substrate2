@@ -1,13 +1,17 @@
+// begin-code-snippet imports
 use serde::{Deserialize, Serialize};
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use substrate::block::Block;
 use substrate::io::{InOut, Input, Output, Signal};
 use substrate::schematic::{HasSchematic, HasSchematicImpl};
+use substrate::Block;
 use substrate::{supported_pdks, Io};
+// end-code-snippet imports
 
 pub mod tb;
 
+// begin-code-snippet inverter-io
 #[derive(Io, Clone, Default, Debug)]
 pub struct InverterIo {
     pub vdd: InOut<Signal>,
@@ -15,8 +19,11 @@ pub struct InverterIo {
     pub din: Input<Signal>,
     pub dout: Output<Signal>,
 }
+// end-code-snippet inverter-io
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+// begin-code-snippet inverter-struct
+#[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[block(io = "InverterIo")]
 pub struct Inverter {
     /// NMOS width.
     pub nw: i64,
@@ -25,20 +32,9 @@ pub struct Inverter {
     /// Channel length.
     pub lch: i64,
 }
+// end-code-snippet inverter-struct
 
-impl Block for Inverter {
-    type Io = InverterIo;
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("sky130_inverter")
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("sky130_inverter")
-    }
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
+// begin-code-snippet inverter-schematic
 impl HasSchematic for Inverter {
     type Data = ();
 }
@@ -65,3 +61,4 @@ impl HasSchematicImpl<Pdk> for Inverter {
         Ok(())
     }
 }
+// end-code-snippet inverter-schematic
