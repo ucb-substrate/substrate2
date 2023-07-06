@@ -218,8 +218,15 @@ pub fn design_inverter() {
 To run the test, run
 
 ```
-cargo test design_inverter
+cargo test design_inverter -- --show-output
 ```
 
 Ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
 the Sky 130 commercial PDK.
+
+## Conclusion
+
+If all goes well, the test above should print
+the inverter dimensions with the minimum rise/fall time difference.
+
+A full, runnable example for this tutorial is in our [test suite](https://github.com/substrate-labs/substrate2/tree/main/tests/src/shared/inverter).
