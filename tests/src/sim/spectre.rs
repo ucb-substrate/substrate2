@@ -4,7 +4,8 @@ use sky130pdk::corner::Sky130Corner;
 use substrate::pdk::corner::Pvt;
 use test_log::test;
 
-use crate::shared::inverter::tb::InverterTb;
+use crate::shared::inverter::tb::{InverterDesign, InverterTb};
+use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::VdividerArrayTb;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
@@ -45,7 +46,28 @@ pub fn inv_tb() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
     ctx.simulate(
-        InverterTb::new(Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25))),
+        InverterTb::new(
+            Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25)),
+            Inverter {
+                nw: 1_200,
+                pw: 2_000,
+                lch: 150,
+            },
+        ),
         sim_dir,
     );
+}
+
+#[test]
+pub fn design_inverter() {
+    let test_name = "design_inverter";
+    let work_dir = get_path(test_name, "sims/");
+    let mut ctx = sky130_commercial_ctx();
+    let script = InverterDesign {
+        nw: 1_200,
+        pw: (1_200..=5_000).step_by(200).collect(),
+        lch: 150,
+    };
+    let inv = script.run(&mut ctx, work_dir);
+    println!("Designed inverter:\n{:#?}", inv);
 }

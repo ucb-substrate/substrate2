@@ -2,10 +2,7 @@
 //!
 //! Converts between Substrate's layout data-model and [`gds`] structures.
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use geometry::{
@@ -13,6 +10,7 @@ use geometry::{
     rect::Rect,
 };
 use tracing::{span, Level};
+use uniquify::Names;
 
 use crate::{
     io::{IoShape, NameBuf, PortGeometry},
@@ -30,14 +28,8 @@ use super::{
 pub struct GdsExporter<'a> {
     cell: Arc<RawCell>,
     layers: &'a LayerContext,
-    cell_db: CellDb,
+    cell_db: Names<CellId>,
     gds: gds::GdsLibrary,
-}
-
-#[derive(Default)]
-struct CellDb {
-    names: HashSet<ArcStr>,
-    assignments: HashMap<CellId, ArcStr>,
 }
 
 impl<'a> GdsExporter<'a> {
@@ -61,43 +53,15 @@ impl<'a> GdsExporter<'a> {
     }
 
     fn get_name(&self, cell: &RawCell) -> Option<ArcStr> {
-        self.cell_db.get_name(cell)
+        self.cell_db.name(&cell.id)
     }
 
     fn assign_name(&mut self, cell: &RawCell) -> ArcStr {
-        self.cell_db.assign_name(cell)
+        self.cell_db.assign_name(cell.id, &cell.name)
     }
 
     fn get_layer(&self, id: LayerId) -> Option<GdsLayerSpec> {
         self.layers.get_gds_layer_from_id(id)
-    }
-}
-
-impl CellDb {
-    /// Returns whether the cell has already been exported.
-    fn get_name(&self, cell: &RawCell) -> Option<ArcStr> {
-        self.assignments.get(&cell.id).cloned()
-    }
-
-    /// Returns a new name if th cell needs to be generated.
-    fn assign_name(&mut self, cell: &RawCell) -> ArcStr {
-        let name = &cell.name;
-        let name = if self.names.contains(name) {
-            let mut i = 1;
-            loop {
-                let new_name = arcstr::format!("{}_{}", name, i);
-                if !self.names.contains(&new_name) {
-                    break new_name;
-                }
-                i += 1;
-            }
-        } else {
-            name.clone()
-        };
-
-        self.names.insert(name.clone());
-        self.assignments.insert(cell.id, name.clone());
-        name
     }
 }
 

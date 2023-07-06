@@ -2,6 +2,7 @@
 #![warn(missing_docs)]
 
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 use std::io::{BufWriter, Write};
 use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
@@ -32,6 +33,33 @@ pub struct Tran {
     ///
     /// Defaults to 0.
     pub start: Option<Decimal>,
+
+    /// The error preset.
+    pub errpreset: Option<ErrPreset>,
+}
+
+/// Spectre error presets.
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+)]
+pub enum ErrPreset {
+    /// Liberal.
+    Liberal,
+    /// Moderate.
+    #[default]
+    Moderate,
+    /// Conservative.
+    Conservative,
+}
+
+impl Display for ErrPreset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Liberal => write!(f, "liberal"),
+            Self::Moderate => write!(f, "moderate"),
+            Self::Conservative => write!(f, "conservative"),
+        }
+    }
 }
 
 /// The result of a transient analysis.
@@ -281,7 +309,10 @@ impl Tran {
     fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
         write!(out, "tran stop={}", self.stop)?;
         if let Some(ref start) = self.start {
-            write!(out, "start={}", start)?;
+            write!(out, " start={start}")?;
+        }
+        if let Some(errpreset) = self.errpreset {
+            write!(out, " errpreset={errpreset}")?;
         }
         Ok(())
     }

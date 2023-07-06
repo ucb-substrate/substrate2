@@ -60,7 +60,7 @@ impl Block for Vsource {
     fn name(&self) -> arcstr::ArcStr {
         // `vsource` is a reserved Spectre keyword,
         // so we call this block `uservsource`.
-        arcstr::literal!("uservsource")
+        arcstr::format!("uservsource")
     }
     fn io(&self) -> Self::Io {
         Default::default()

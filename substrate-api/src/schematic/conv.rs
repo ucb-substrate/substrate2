@@ -2,8 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+use arcstr::ArcStr;
 use opacity::Opacity;
 use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library};
+use uniquify::Names;
 
 use crate::io::{Node, NodePath};
 
@@ -103,32 +105,48 @@ impl From<bool> for ExportAsTestbench {
     }
 }
 
+#[derive(Debug, Clone)]
+struct ScirExportData {
+    lib: Library,
+    id_mapping: HashMap<CellId, ScirCellId>,
+    conv: ScirLibConversion,
+    cell_names: Names<CellId>,
+}
+
+impl ScirExportData {
+    fn new(name: impl Into<ArcStr>) -> Self {
+        Self {
+            lib: Library::new(name),
+            id_mapping: HashMap::new(),
+            conv: ScirLibConversion::new(),
+            cell_names: Names::new(),
+        }
+    }
+}
+
 impl RawCell {
     /// Export this cell and all subcells as a SCIR library.
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
     pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> RawLib {
-        let mut scir = Library::new(self.name.clone());
-        let mut cells = HashMap::new();
-        let mut conv = ScirLibConversion::new();
-        let id = self.to_scir_cell(&mut scir, &mut cells, &mut conv);
-        scir.set_top(id, testbench.as_bool());
-        conv.set_top(self.id);
+        let mut data = ScirExportData::new(self.name.clone());
+        let id = self.to_scir_cell(&mut data);
+        data.lib.set_top(id, testbench.as_bool());
+        data.conv.set_top(self.id);
 
-        RawLib { scir, conv }
+        RawLib {
+            scir: data.lib,
+            conv: data.conv,
+        }
     }
 
-    fn to_scir_cell(
-        &self,
-        lib: &mut Library,
-        cells: &mut HashMap<CellId, ScirCellId>,
-        conv: &mut ScirLibConversion,
-    ) -> ScirCellId {
+    fn to_scir_cell(&self, data: &mut ScirExportData) -> ScirCellId {
         // Create the SCIR cell as a whitebox for now.
         // If this Substrate cell is actually a blackbox,
         // the contents of this SCIR cell will be made into a blackbox
         // by calling `cell.set_contents`.
-        let mut cell = Cell::new_whitebox(self.name.clone());
+        let name = data.cell_names.assign_name(self.id, &self.name);
+        let mut cell = Cell::new_whitebox(name);
         let mut signals = HashMap::new();
         let mut instances = HashMap::new();
 
@@ -157,10 +175,10 @@ impl RawCell {
             Opacity::Clear(contents) => {
                 let mut inner = CellInner::new();
                 for (i, instance) in contents.instances.iter().enumerate() {
-                    if !cells.contains_key(&instance.child.id) {
-                        instance.child.to_scir_cell(lib, cells, conv);
+                    if !data.id_mapping.contains_key(&instance.child.id) {
+                        instance.child.to_scir_cell(data);
                     }
-                    let child: ScirCellId = *cells.get(&instance.child.id).unwrap();
+                    let child: ScirCellId = *data.id_mapping.get(&instance.child.id).unwrap();
 
                     let mut sinst = Instance::new(arcstr::format!("xinst{i}"), child);
                     assert_eq!(instance.child.ports.len(), instance.connections.len());
@@ -199,9 +217,9 @@ impl RawCell {
 
         cell.set_contents(contents);
 
-        let id = lib.add_cell(cell);
-        cells.insert(self.id, id);
-        conv.add_cell(
+        let id = data.lib.add_cell(cell);
+        data.id_mapping.insert(self.id, id);
+        data.conv.add_cell(
             self.id,
             ScirCellConversion {
                 top: false,
