@@ -100,7 +100,7 @@ pub trait CacheableWithState<S: Send + Sync + Any>:
     Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any
 {
     /// The output produced by generating the object.
-    type Output: Send + Sync;
+    type Output: Send + Sync + Serialize + Deserialize<'static>;
     /// The error type returned during generation.
     type Error: Send + Sync;
 
