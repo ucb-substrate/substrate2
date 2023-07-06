@@ -239,6 +239,12 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cache"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "crossbeam-channel",
+ "once_cell",
+ "serde",
+]
 
 [[package]]
 name = "cc"
@@ -1534,7 +1540,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "arcstr",
- "crossbeam-channel",
+ "cache",
  "ena",
  "gds",
  "geometry",
@@ -1634,7 +1640,9 @@ dependencies = [
  "anyhow",
  "approx",
  "arcstr",
+ "cache",
  "geometry",
+ "lazy_static",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",

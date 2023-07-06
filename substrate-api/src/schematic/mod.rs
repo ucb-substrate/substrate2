@@ -2,6 +2,7 @@
 
 pub mod conv;
 
+use cache::mem::{Cache, CacheHandle};
 use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -12,13 +13,11 @@ use std::sync::Arc;
 use std::thread;
 
 use arcstr::ArcStr;
-use once_cell::sync::OnceCell;
 use rust_decimal::Decimal;
 
 use crate::block::Block;
 use crate::context::Context;
-use crate::error::Result;
-use crate::generator::Generator;
+use crate::error::{Error, Result};
 use crate::io::{
     Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicData, SchematicType,
@@ -223,7 +222,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         self.instances.push(recv);
 
         thread::spawn(move || {
-            if let Ok(cell) = cell.cell.wait() {
+            if let Ok(cell) = cell.cell.try_get() {
                 let raw = RawInstance {
                     id: inst.id,
                     name: arcstr::literal!("unnamed"),
@@ -288,6 +287,11 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// primitive devices.
     pub fn set_blackbox(&mut self, contents: impl Into<ArcStr>) {
         self.blackbox = Some(contents.into());
+    }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &Context<PDK> {
+        &self.ctx
     }
 }
 
@@ -477,6 +481,11 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
         let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
         self.inner.post_instantiate(cell.0)
     }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &Context<PDK> {
+        &self.inner.ctx
+    }
 }
 
 /// A schematic cell.
@@ -540,7 +549,7 @@ impl<T: HasSchematic> Cell<T> {
 pub struct CellHandle<T: HasSchematic> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<T>,
-    pub(crate) cell: Arc<OnceCell<Result<Cell<T>>>>,
+    pub(crate) cell: CacheHandle<Cell<T>, Error>,
 }
 
 /// A handle to a testbench schematic cell that is being generated.
@@ -552,7 +561,7 @@ impl<T: HasSchematic> CellHandle<T> {
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<&Cell<T>> {
-        self.cell.wait().as_ref().map_err(|e| e.clone())
+        self.cell.try_get().map_err(|e| e.clone())
     }
 
     /// Returns the underlying [`Cell`].
@@ -650,7 +659,7 @@ pub struct Instance<T: HasSchematic> {
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
-    cell: Arc<OnceCell<Result<Cell<T>>>>,
+    cell: CacheHandle<Cell<T>, Error>,
 }
 
 impl<T: HasSchematic> Instance<T> {
@@ -664,8 +673,7 @@ impl<T: HasSchematic> Instance<T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
-            .wait()
-            .as_ref()
+            .try_get()
             .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
@@ -741,7 +749,7 @@ pub enum PrimitiveDevice {
 #[derive(Debug, Default, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
-    pub(crate) gen: Generator,
+    pub(crate) cell_cache: Cache,
 }
 
 impl SchematicContext {
@@ -916,7 +924,7 @@ pub struct NestedInstanceView<'a, T: HasSchematic> {
     path: InstancePath,
     /// The cell's input/output interface.
     io: &'a <T::Io as SchematicType>::Data,
-    cell: Arc<OnceCell<Result<Cell<T>>>>,
+    cell: CacheHandle<Cell<T>, Error>,
 }
 
 /// An owned nested instance created by cloning the instance referenced by a
@@ -932,7 +940,7 @@ pub struct NestedInstance<T: HasSchematic> {
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
-    cell: Arc<OnceCell<Result<Cell<T>>>>,
+    cell: CacheHandle<Cell<T>, Error>,
 }
 
 impl HasNestedView for () {
@@ -966,8 +974,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
-            .wait()
-            .as_ref()
+            .try_get()
             .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }
@@ -1050,8 +1057,7 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
-            .wait()
-            .as_ref()
+            .try_get()
             .map(|cell| cell.nested_view(&self.path))
             .map_err(|e| e.clone())
     }

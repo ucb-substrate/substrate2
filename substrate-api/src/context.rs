@@ -6,10 +6,11 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use cache::mem::{Cache, CacheHandle, Cacheable, CacheableWithState};
 use tracing::{span, Level};
 
 use crate::block::Block;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
     SchematicType,
@@ -39,6 +40,8 @@ use crate::simulation::{
 ///
 /// Stores configuration such as the PDK and tool plugins to use during generation.
 ///
+/// Cheaply clonable.
+///
 /// # Examples
 ///
 /// ```
@@ -55,7 +58,7 @@ pub struct Context<PDK: Pdk> {
     /// PDK-specific data.
     pub pdk: PdkData<PDK>,
     inner: Arc<RwLock<ContextInner>>,
-    simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
 }
 
 /// Builder for creating a Substrate [`Context`].
@@ -112,7 +115,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
                 layers,
             },
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
-            simulators: self.simulators.clone(),
+            simulators: Arc::new(self.simulators),
         }
     }
 }
@@ -149,6 +152,7 @@ pub(crate) struct ContextInner {
     layers: LayerContext,
     schematic: SchematicContext,
     layout: LayoutContext,
+    cache: Cache,
 }
 
 impl<PDK: Pdk> Context<PDK> {
@@ -166,7 +170,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: HasLayoutImpl<PDK>>(&mut self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: HasLayoutImpl<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
@@ -180,35 +184,39 @@ impl<PDK: Pdk> Context<PDK> {
         .or_current();
 
         LayoutCellHandle {
-            cell: inner_mut.layout.gen.generate(block.clone(), move || {
-                let mut io_builder = block.io().builder();
-                let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
-                let _guard = span.enter();
-                let data = block.layout(&mut io_builder, &mut cell_builder);
+            cell: inner_mut.layout.cell_cache.generate(
+                block,
+                move |block| {
+                    let mut io_builder = block.io().builder();
+                    let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+                    let _guard = span.enter();
+                    let data = block.layout(&mut io_builder, &mut cell_builder);
 
-                let io = io_builder.build()?;
-                let ports = HashMap::from_iter(
-                    block
-                        .io()
-                        .flat_names(arcstr::literal!("io"))
-                        .into_iter()
-                        .zip(io.flatten_vec().into_iter()),
-                );
-                data.map(|data| {
-                    LayoutCell::new(
-                        block,
-                        data,
-                        Arc::new(io),
-                        Arc::new(cell_builder.finish().with_ports(ports)),
-                    )
-                })
-            }),
+                    let io = io_builder.build()?;
+                    let ports = HashMap::from_iter(
+                        block
+                            .io()
+                            .flat_names(arcstr::literal!("io"))
+                            .into_iter()
+                            .zip(io.flatten_vec().into_iter()),
+                    );
+                    data.map(|data| {
+                        LayoutCell::new(
+                            block.clone(),
+                            data,
+                            Arc::new(io),
+                            Arc::new(cell_builder.finish().with_ports(ports)),
+                        )
+                    })
+                },
+                Error::Panic,
+            ),
         }
     }
 
     /// Writes a layout to a GDS files.
     pub fn write_layout<T: HasLayoutImpl<PDK>>(
-        &mut self,
+        &self,
         block: T,
         path: impl AsRef<Path>,
     ) -> Result<()> {
@@ -228,10 +236,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_schematic<T: HasSchematicImpl<PDK>>(
-        &mut self,
-        block: T,
-    ) -> SchematicCellHandle<T> {
+    pub fn generate_schematic<T: HasSchematicImpl<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
@@ -239,23 +244,30 @@ impl<PDK: Pdk> Context<PDK> {
         SchematicCellHandle {
             id,
             block: block.clone(),
-            cell: inner.schematic.gen.generate(block.clone(), move || {
-                let (mut cell_builder, io_data) = prepare_cell_builder(id, context, block.as_ref());
-                let data = block.schematic(&io_data, &mut cell_builder);
-                data.map(|data| {
-                    SchematicCell::new(io_data, block, data, Arc::new(cell_builder.finish()))
-                })
-            }),
+            cell: inner.schematic.cell_cache.generate(
+                block,
+                move |block| {
+                    let (mut cell_builder, io_data) =
+                        prepare_cell_builder(id, context, block.as_ref());
+                    let data = block.schematic(&io_data, &mut cell_builder);
+                    data.map(|data| {
+                        SchematicCell::new(
+                            io_data,
+                            block.clone(),
+                            data,
+                            Arc::new(cell_builder.finish()),
+                        )
+                    })
+                },
+                Error::Panic,
+            ),
         }
     }
 
     /// Generates a testbench schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub(crate) fn generate_testbench_schematic<T, S>(
-        &mut self,
-        block: Arc<T>,
-    ) -> TestbenchCellHandle<T>
+    pub(crate) fn generate_testbench_schematic<T, S>(&self, block: Arc<T>) -> TestbenchCellHandle<T>
     where
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
@@ -267,21 +279,30 @@ impl<PDK: Pdk> Context<PDK> {
         TestbenchCellHandle(SchematicCellHandle {
             id,
             block: block.clone(),
-            cell: inner.schematic.gen.generate(block.clone(), move || {
-                let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
-                let mut cell_builder = TestbenchCellBuilder { simulator, inner };
-                let data = block.schematic(&io_data, &mut cell_builder);
-                data.map(|data| {
-                    SchematicCell::new(io_data, block, data, Arc::new(cell_builder.finish()))
-                })
-            }),
+            cell: inner.schematic.cell_cache.generate(
+                block,
+                move |block| {
+                    let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
+                    let mut cell_builder = TestbenchCellBuilder { simulator, inner };
+                    let data = block.schematic(&io_data, &mut cell_builder);
+                    data.map(|data| {
+                        SchematicCell::new(
+                            io_data,
+                            block.clone(),
+                            data,
+                            Arc::new(cell_builder.finish()),
+                        )
+                    })
+                },
+                Error::Panic,
+            ),
         })
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<T: HasSchematicImpl<PDK>>(&mut self, block: T) -> RawLib {
+    pub fn export_scir<T: HasSchematicImpl<PDK>>(&self, block: T) -> RawLib {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
         cell.raw
@@ -291,7 +312,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_testbench_scir<T, S>(&mut self, block: T) -> RawLib
+    pub fn export_testbench_scir<T, S>(&self, block: T) -> RawLib
     where
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
@@ -305,7 +326,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given cell and all sub-cells as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn export_testbench_scir_for_cell<T, S>(&mut self, cell: &SchematicCell<T>) -> RawLib
+    pub(crate) fn export_testbench_scir_for_cell<T, S>(&self, cell: &SchematicCell<T>) -> RawLib
     where
         T: HasTestbenchSchematicImpl<PDK, S>,
         S: Simulator,
@@ -317,7 +338,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Installs a new layer set in the context.
     ///
     /// Allows for accessing GDS layers or other extra layers that are not present in the PDK.
-    pub fn install_layers<L: Layers>(&mut self) -> Arc<L> {
+    pub fn install_layers<L: Layers>(&self) -> Arc<L> {
         let mut inner = self.inner.write().unwrap();
         inner.layers.install_layers::<L>()
     }
@@ -332,7 +353,7 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Simulate the given testbench.
-    pub fn simulate<S, T>(&mut self, block: T, work_dir: impl Into<PathBuf>) -> T::Output
+    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> T::Output
     where
         S: Simulator,
         T: Testbench<PDK, S>,
@@ -360,6 +381,81 @@ impl<PDK: Pdk> Context<PDK> {
         let arc = self.simulators.get(&TypeId::of::<S>()).unwrap().clone();
         arc.downcast().unwrap()
     }
+
+    /// Gets a cacheable object from the context cache.
+    ///
+    /// Requires use of a Substrate error type.
+    pub fn cache_get<K: Cacheable<Error = Error>>(
+        &self,
+        key: K,
+    ) -> CacheHandle<K::Output, K::Error> {
+        let mut inner = self.inner.write().unwrap();
+        inner.cache.get(key, Error::Panic)
+    }
+
+    /// Gets a cacheable object from the context cache.
+    ///
+    /// A more flexible alternative to [`Context::cache_get`] that accepts any error type.
+    pub fn cache_get_raw<K: Cacheable>(
+        &self,
+        key: K,
+        panic_error: K::Error,
+    ) -> CacheHandle<K::Output, K::Error> {
+        let mut inner = self.inner.write().unwrap();
+        inner.cache.get(key, panic_error)
+    }
+
+    /// Gets a cacheable object from the context cache, injecting the context as state during
+    /// generation.
+    ///
+    /// Requires use of a Substrate error type.
+    pub fn cache_get_with_ctx<K: CacheableWithState<Context<PDK>, Error = Error>>(
+        &self,
+        key: K,
+    ) -> CacheHandle<K::Output, K::Error> {
+        let mut inner = self.inner.write().unwrap();
+        inner.cache.get_with_state(key, self.clone(), Error::Panic)
+    }
+
+    /// Gets a cacheable object from the context cache, injecting the context as state during
+    /// generation.
+    ///
+    /// A more flexible alternative to [`Context::cache_get_with_ctx`] that accepts any error type.
+    pub fn cache_get_with_ctx_raw<K: CacheableWithState<Context<PDK>>>(
+        &self,
+        key: K,
+        panic_error: K::Error,
+    ) -> CacheHandle<K::Output, K::Error> {
+        let mut inner = self.inner.write().unwrap();
+        inner.cache.get_with_state(key, self.clone(), panic_error)
+    }
+
+    /// Gets a cacheable object from the context cache, injecting user-defined state during
+    /// generation.
+    ///
+    /// Requires use of a Substrate error type.
+    pub fn cache_get_with_state<S: Send + Sync + Any, K: CacheableWithState<S, Error = Error>>(
+        &self,
+        key: K,
+        state: S,
+    ) -> CacheHandle<K::Output, K::Error> {
+        let mut inner = self.inner.write().unwrap();
+        inner.cache.get_with_state(key, state, Error::Panic)
+    }
+
+    /// Gets a cacheable object from the context cache, injecting user-defined state during
+    /// generation.
+    ///
+    /// A more flexible alternative to [`Context::cache_get_with_ctx`] that accepts any error type.
+    pub fn cache_get_with_state_raw<S: Send + Sync + Any, K: CacheableWithState<S>>(
+        &self,
+        key: K,
+        state: S,
+        panic_error: K::Error,
+    ) -> CacheHandle<K::Output, K::Error> {
+        let mut inner = self.inner.write().unwrap();
+        inner.cache.get_with_state(key, state, panic_error)
+    }
 }
 
 impl ContextInner {
@@ -369,6 +465,7 @@ impl ContextInner {
             layers,
             schematic: Default::default(),
             layout: Default::default(),
+            cache: Cache::new(),
         }
     }
 }
