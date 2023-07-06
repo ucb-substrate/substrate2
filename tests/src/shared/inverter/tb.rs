@@ -16,10 +16,12 @@ use substrate::schematic::{Cell, HasSchematic};
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
+use substrate::Block;
 
 use super::Inverter;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+#[block(io = "TestbenchIo")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,
@@ -29,19 +31,6 @@ impl InverterTb {
     #[inline]
     pub fn new(pvt: Pvt<Sky130Corner>, dut: Inverter) -> Self {
         Self { pvt, dut }
-    }
-}
-
-impl Block for InverterTb {
-    type Io = TestbenchIo;
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("inverter_tb")
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("inverter_tb")
-    }
-    fn io(&self) -> Self::Io {
-        Default::default()
     }
 }
 
