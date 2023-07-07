@@ -9,6 +9,7 @@
   "drc": "0.0.0",
   "gds": "0.1.0",
   "lef": "0.0.0",
+  "libs/cache": "0.0.0",
   "libs/geometry": "0.2.0",
   "libs/opacity": "0.1.0",
   "libs/pathtree": "0.1.0",

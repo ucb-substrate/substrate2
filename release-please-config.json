@@ -13,6 +13,7 @@
     "drc": {},
     "gds": {},
     "lef": {},
+    "libs/cache": {},
     "libs/geometry": {},
     "libs/opacity": {},
     "libs/pathtree": {},
