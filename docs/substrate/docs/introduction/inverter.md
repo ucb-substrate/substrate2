@@ -127,7 +127,7 @@ As a result, creating a testbench is similar to creating a regular block, but wi
 * Instead of implementing `HasSchematicImpl`, testbenches implement `HasTestbenchSchematicImpl`,
   which declares that a testbench has a particular setup in a given PDK **and** a given simulator.
   This allows testbenches to use simulator-specific blocks, such as PRBS sources in Spectre.
-  Trying to instantiate, for example, a Spectre PRBS source in an Ngspice testbench
+  For example, trying to instantiate a Spectre PRBS source in an Ngspice testbench
   will result in a compile-time error.
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
