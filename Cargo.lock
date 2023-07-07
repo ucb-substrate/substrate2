@@ -302,7 +302,7 @@ version = "0.0.0"
 
 [[package]]
 name = "codegen"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
@@ -1466,7 +1466,7 @@ checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
 name = "sky130pdk"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "rust_decimal",
@@ -1499,7 +1499,7 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
 name = "spectre"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "lazy_static",
@@ -1535,7 +1535,7 @@ version = "0.0.0"
 
 [[package]]
 name = "substrate"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "approx",

@@ -5,6 +5,20 @@
     * codegen bumped from 0.1.0 to 0.1.1
     * substrate_api bumped from 0.1.0 to 0.1.1
 
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/substrate-v0.1.1...substrate-v0.2.0) (2023-07-07)
+
+
+### Features
+
+* **reorg:** move substrate-api into substrate ([#155](https://github.com/substrate-labs/substrate2/issues/155)) ([e902a1b](https://github.com/substrate-labs/substrate2/commit/e902a1b603cca6c719770c5cd742e081bfd33e51))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * codegen bumped from 0.1.0 to 0.2.0
+
 ## 0.1.0 (2023-07-07)
 
 
