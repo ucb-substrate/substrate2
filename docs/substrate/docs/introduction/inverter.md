@@ -221,7 +221,6 @@ mod tests {
 
     #[test]
     pub fn design_inverter() {
-        let test_name = "design_inverter";
         let work_dir = "sims/";
         let mut ctx = sky130_commercial_ctx();
         let script = InverterDesign {
