@@ -4,7 +4,7 @@ use std::fmt::Display;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::ios::MosIo;
+use substrate::io::MosIo;
 use substrate::schematic::{HasSchematic, HasSchematicImpl};
 
 use super::{Sky130CommercialPdk, Sky130OpenPdk};

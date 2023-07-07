@@ -3,7 +3,7 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::ios::VsourceIo;
+use substrate::io::VsourceIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::HasSchematic;
 use substrate::simulation::HasTestbenchSchematicImpl;
