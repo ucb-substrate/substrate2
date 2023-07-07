@@ -1,6 +1,6 @@
 [package]
 name = "substrate"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -17,7 +17,7 @@ ena = "0.14"
 duplicate = "1"
 
 cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }
-codegen = { version = "0.1.0", registry = "substrate", path = "../codegen" }
+codegen = { version = "0.2.0", registry = "substrate", path = "../codegen" }
 geometry = { version = "0.2.0", registry = "substrate", path = "../libs/geometry" }
 gds = { version = "0.1.0", registry = "substrate", path = "../gds" }
 opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" }
