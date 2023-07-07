@@ -33,6 +33,7 @@ check-docs:
 gen-examples:
   just -f docs/api/Justfile gen-examples
 
-# Tests Substrate examples  in the examples/ folder
+# Test Substrate examples in the examples/ folder
 test-examples: gen-examples
   @just examples/test
+
