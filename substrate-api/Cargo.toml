@@ -1,6 +1,6 @@
 [package]
 name = "substrate_api"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
@@ -16,14 +16,14 @@ rust_decimal_macros = "1.30"
 ena = "0.14"
 
 cache = { version = "0.0.0", registry = "substrate", path = "../libs/cache" }
-geometry = { version = "0.1.0", registry = "substrate", path = "../libs/geometry" }
-gds = { version = "0.0.0", registry = "substrate", path = "../gds" }
-opacity = { version = "0.0.0", path = "../libs/opacity", registry = "substrate" }
-scir = { version = "0.0.0", registry = "substrate", path = "../scir" }
-pathtree = { version = "0.0.0", registry = "substrate", path = "../libs/pathtree" }
-uniquify = { version = "0.0.0", registry = "substrate", path = "../libs/uniquify" }
+geometry = { version = "0.2.0", registry = "substrate", path = "../libs/geometry" }
+gds = { version = "0.1.0", registry = "substrate", path = "../gds" }
+opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" }
+scir = { version = "0.1.0", registry = "substrate", path = "../scir" }
+pathtree = { version = "0.1.0", registry = "substrate", path = "../libs/pathtree" }
+uniquify = { version = "0.1.0", registry = "substrate", path = "../libs/uniquify" }
 
 [dev-dependencies]
 toml = "0.7"
-substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
+substrate = { version = "0.1.0", registry = "substrate", path = "../substrate" }
 approx = "0.5"

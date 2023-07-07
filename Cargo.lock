@@ -302,7 +302,7 @@ version = "0.0.0"
 
 [[package]]
 name = "codegen"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
@@ -318,7 +318,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "lazycell",
@@ -513,7 +513,7 @@ version = "0.0.0"
 
 [[package]]
 name = "diagnostics"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "serde",
  "tracing",
@@ -612,7 +612,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "gds"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "array_map",
  "impl-trait-for-tuples",
@@ -919,7 +919,7 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
 name = "opacity"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "serde",
 ]
@@ -945,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "pathtree"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "percent-encoding"
@@ -1335,7 +1335,7 @@ version = "0.0.0"
 
 [[package]]
 name = "scir"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -1455,7 +1455,7 @@ checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
 name = "sky130pdk"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "rust_decimal",
@@ -1488,7 +1488,7 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
 name = "spectre"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "lazy_static",
@@ -1524,7 +1524,7 @@ version = "0.0.0"
 
 [[package]]
 name = "substrate"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "codegen",
@@ -1536,7 +1536,7 @@ dependencies = [
 
 [[package]]
 name = "substrate_api"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -1935,7 +1935,7 @@ checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "uniquify"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "serde",
