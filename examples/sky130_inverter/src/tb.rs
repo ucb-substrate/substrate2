@@ -1,3 +1,4 @@
+// begin-code-snippet imports
 use std::path::Path;
 
 use rust_decimal::prelude::ToPrimitive;
@@ -9,8 +10,7 @@ use spectre::blocks::{Pulse, Vsource};
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::io::{Node, Signal};
-use substrate::ios::TestbenchIo;
+use substrate::io::{Node, Signal, TestbenchIo};
 use substrate::pdk::corner::{InstallCorner, Pvt};
 use substrate::schematic::{Cell, HasSchematic};
 use substrate::simulation::data::HasNodeData;
@@ -19,7 +19,9 @@ use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
 use substrate::Block;
 
 use super::Inverter;
+// end-code-snippet imports
 
+// begin-code-snippet struct-and-impl
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
 #[block(io = "TestbenchIo")]
 pub struct InverterTb {
@@ -33,7 +35,9 @@ impl InverterTb {
         Self { pvt, dut }
     }
 }
+// end-code-snippet struct-and-impl
 
+// begin-code-snippet schematic
 impl HasSchematic for InverterTb {
     type Data = Node;
 }
@@ -72,7 +76,9 @@ impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
         Ok(dout)
     }
 }
+// end-code-snippet schematic
 
+// begin-code-snippet testbench
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InverterTbData {
     pub tr: f64,
@@ -119,7 +125,9 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         InverterTbData { tf, tr }
     }
 }
+// end-code-snippet testbench
 
+// begin-code-snippet design
 /// Designs an inverter for balanced pull-up and pull-down times.
 ///
 /// The NMOS width is kept constant; the PMOS width is swept over
@@ -165,3 +173,45 @@ impl InverterDesign {
         opt.unwrap().1
     }
 }
+// end-code-snippet design
+
+// begin-code-snippet sky130-commercial-ctx
+/// Create a new Substrate context for the SKY130 commercial PDK.
+///
+/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// environment variable and installs Spectre with default configuration.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+/// or if the value of that variable is not a valid UTF-8 string.
+pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
+    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
+        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .pdk(Sky130CommercialPdk::new(pdk_root))
+        .with_simulator(Spectre::default())
+        .build()
+}
+// end-code-snippet sky130-commercial-ctx
+
+#[cfg(feature = "spectre")]
+// begin-code-snippet tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn design_inverter() {
+        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter");
+        let mut ctx = sky130_commercial_ctx();
+        let script = InverterDesign {
+            nw: 1_200,
+            pw: (1_200..=5_000).step_by(200).collect(),
+            lch: 150,
+        };
+        let inv = script.run(&mut ctx, work_dir);
+        println!("Designed inverter:\n{:#?}", inv);
+    }
+}
+// end-code-snippet tests

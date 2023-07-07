@@ -7,6 +7,7 @@
   "diagnostics": "0.1.0",
   "digital": "0.0.0",
   "drc": "0.0.0",
+  "examples/sky130_inverter": "0.0.0",
   "gds": "0.1.0",
   "lef": "0.0.0",
   "libs/cache": "0.1.0",
