@@ -15,25 +15,37 @@ the Skywater 130nm process.
 
 ## Setup
 
-Start by creating a new Rust project:
+Ensure that you have a recent version of Rust installed.
+Add the Substrate registry to your Cargo config:
+
+```toml title="~/.cargo/conf
+[registries]
+substrate = { index = "https://github.com/substrate-labs/crates-index" }
+```
+
+You only need to do this the first time you set up Substrate.
+
+Next, create a new Rust project:
 ```bash
 cargo new --lib sky130_inverter && cd sky130_inverter
 ```
 
-In your project's `Cargo.toml`, add dependencies on `substrate`, `spectre`, `sky130pdk`, and `serde`:
+In your project's `Cargo.toml`, add the following dependencies:
 
 ```toml title="Cargo.toml"
 [dependencies]
-substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
-spectre = { version = "0.0.0", registry = "substrate", path = "../tools/spectre" }
-sky130pdk = { version = "0.0.0", registry = "substrate", path = "../pdks/sky130pdk" }
-serde = { version = "1", features = ["derive"] }
+substrate = { version = "*", registry = "substrate" }
+spectre = { version = "*", registry = "substrate" }
+sky130pdk = { version = "*", registry = "substrate" }
 
+serde = { version = "1", features = ["derive"] }
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 ```
 
-Let's now add some imports to `src/lib.rs` that we'll use later on:
+Let's now add some imports that we'll use later on.
+Replace the content of `src/lib.rs` with the following:
+
 <CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{InverterMod}</CodeSnippet>
 
 ## Interface
@@ -205,6 +217,8 @@ We can then write a Rust unit test to run our design script:
 ```rust title="src/tb.rs"
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     pub fn design_inverter() {
         let test_name = "design_inverter";
