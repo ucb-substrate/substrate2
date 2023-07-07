@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::context::PdkData;
+use crate::execute::Executor;
 use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
@@ -67,6 +68,8 @@ pub struct SimulationContext {
     pub work_dir: PathBuf,
     /// The SCIR library to simulate with associated Substrate metadata.
     pub lib: Arc<RawLib>,
+    /// The executor to which simulation commands should be submitted.
+    pub executor: Arc<dyn Executor>,
 }
 
 /// Indicates that a simulator supports a certain analysis.

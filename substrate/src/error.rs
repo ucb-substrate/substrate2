@@ -1,5 +1,6 @@
 //! Error types and error handling utilities.
 
+use std::process::Command;
 use std::sync::Arc;
 
 use crate::layout::error::LayoutError;
@@ -13,12 +14,18 @@ pub enum Error {
     /// An error in a layout-related routine.
     #[error("error in layout: {0:?}")]
     Layout(LayoutError),
+    /// An I/O error.
+    #[error("I/O error: {0}")]
+    Io(#[from] Arc<std::io::Error>),
     /// An internal Substrate error that indicates a bug in the source code.
     #[error("internal Substrate error")]
     Internal,
     /// An error thrown when a thread spawned during generation panics.
     #[error("a thread panicked")]
     Panic,
+    /// Executing a command failed.
+    #[error("error executing command: {0:?}")]
+    CommandFailed(Arc<Command>),
     /// An arbitrary error for external use.
     #[error(transparent)]
     Boxed(#[from] Arc<dyn std::error::Error + Send + Sync>),

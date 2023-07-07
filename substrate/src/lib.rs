@@ -12,6 +12,7 @@ pub use scir;
 pub mod block;
 pub mod context;
 pub mod error;
+pub mod execute;
 pub mod io;
 pub mod layout;
 pub mod pdk;
