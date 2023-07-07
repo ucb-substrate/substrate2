@@ -28,13 +28,16 @@ jobs:
       - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
-        working-directory: substrate
       - name: Check formatting
         run: |
           cargo fmt --check
       - name: Lint
         run: |
           cargo hack --feature-powerset clippy --locked -- -D warnings
+      - name: Lint examples
+        run: |
+          cargo hack --feature-powerset clippy --locked -- -D warnings
+        working-directory: examples
   check-docs:
     name: check-docs
     runs-on: ubuntu-22.04
@@ -56,7 +59,6 @@ jobs:
       - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
-        working-directory: substrate
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features -- -D warnings
