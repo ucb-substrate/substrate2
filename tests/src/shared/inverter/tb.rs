@@ -94,7 +94,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
     ) -> Self::Output {
         let mut opts = Options::default();
-        sim.pdk.pdk.install_corner(Sky130Corner::Tt, &mut opts);
+        sim.pdk.pdk.install_corner(self.pvt.corner, &mut opts);
         let output = sim
             .simulate(
                 opts,
