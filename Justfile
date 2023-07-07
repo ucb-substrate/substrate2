@@ -21,7 +21,7 @@ check-fmt:
   cargo fmt --check
 
 # Runs tests
-test:
+test: gen-examples
   cargo test --locked
 
 check-all:
