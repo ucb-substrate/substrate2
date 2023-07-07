@@ -1,5 +1,10 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * codegen bumped from 0.1.0 to 0.1.1
+    * substrate_api bumped from 0.1.0 to 0.1.1
+
 ## 0.1.0 (2023-07-07)
 
 
