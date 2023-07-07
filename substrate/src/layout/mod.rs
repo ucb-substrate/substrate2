@@ -4,22 +4,22 @@
 //!
 //! ## Simple
 //! ```
-#![doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/layout/inverter.rs")]
+#![doc = include_str!("../../build/docs/prelude.rs.hidden")]
+#![doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
+#![doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
+#![doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
+#![doc = include_str!("../../build/docs/layout/inverter.rs")]
 //! ```
 //!
 //! ## With data
 //! ```
-#![doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
-#![doc = include_str!("../../../docs/api/code/layout/buffer.rs")]
+#![doc = include_str!("../../build/docs/prelude.rs.hidden")]
+#![doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
+#![doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
+#![doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
+#![doc = include_str!("../../build/docs/layout/inverter.rs.hidden")]
+#![doc = include_str!("../../build/docs/block/buffer.rs.hidden")]
+#![doc = include_str!("../../build/docs/layout/buffer.rs")]
 //! ```
 
 use std::{
@@ -103,14 +103,14 @@ impl LayoutContext {
 /// # Examples
 ///
 /// ```
-#[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/buffer.rs.hidden")]
-#[doc = include_str!("../../../docs/api/code/layout/generate.rs")]
+#[doc = include_str!("../../build/docs/prelude.rs.hidden")]
+#[doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
+#[doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
+#[doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
+#[doc = include_str!("../../build/docs/layout/inverter.rs.hidden")]
+#[doc = include_str!("../../build/docs/block/buffer.rs.hidden")]
+#[doc = include_str!("../../build/docs/layout/buffer.rs.hidden")]
+#[doc = include_str!("../../build/docs/layout/generate.rs")]
 /// ```
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -439,13 +439,13 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// # Examples
     ///
     /// ```
-    #[doc = include_str!("../../../docs/api/code/prelude.rs.hidden")]
-    #[doc = include_str!("../../../docs/api/code/pdk/layers.rs.hidden")]
-    #[doc = include_str!("../../../docs/api/code/pdk/pdk.rs.hidden")]
-    #[doc = include_str!("../../../docs/api/code/block/inverter.rs.hidden")]
-    #[doc = include_str!("../../../docs/api/code/layout/inverter.rs.hidden")]
-    #[doc = include_str!("../../../docs/api/code/block/buffer.rs.hidden")]
-    #[doc = include_str!("../../../docs/api/code/layout/buffer.rs")]
+    #[doc = include_str!("../../build/docs/prelude.rs.hidden")]
+    #[doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
+    #[doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
+    #[doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
+    #[doc = include_str!("../../build/docs/layout/inverter.rs.hidden")]
+    #[doc = include_str!("../../build/docs/block/buffer.rs.hidden")]
+    #[doc = include_str!("../../build/docs/layout/buffer.rs")]
     /// ```
     pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);

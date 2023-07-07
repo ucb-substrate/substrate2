@@ -311,7 +311,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "substrate",
  "syn 2.0.23",
 ]
 

@@ -2,6 +2,7 @@
 name = "codegen"
 version = "0.1.0"
 edition = "2021"
+include = ["src", "build/docs"]
 
 [dependencies]
 darling = "0.20"
@@ -14,7 +15,7 @@ convert_case = "0.6"
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
-substrate = { version = "0.1.0", registry = "substrate", path = "../substrate" }
+# substrate = { version = "0.1.0", registry = "substrate", path = "../substrate" }
 
 [lib]
 proc-macro = true
