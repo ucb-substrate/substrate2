@@ -6,7 +6,7 @@ use sky130pdk::Sky130CommercialPdk;
 use spectre::Spectre;
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::ios::MosIo;
+use substrate::io::MosIo;
 use substrate::pdk::corner::Corner;
 use substrate::pdk::Pdk;
 use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};

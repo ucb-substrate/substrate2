@@ -29,3 +29,6 @@ check-all:
 
 check-docs:
     cargo hack --all rustdoc --all-features -- -D warnings
+
+gen-examples:
+  just -f docs/api/Justfile gen-examples

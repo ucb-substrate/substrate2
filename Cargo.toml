@@ -29,7 +29,6 @@ members = [
     "sim",
     "subfile",
     "substrate",
-    "substrate-api",
     "tests",
     "timing",
     "tools/spectre",

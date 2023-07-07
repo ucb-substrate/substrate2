@@ -4,7 +4,7 @@ use spectre::blocks::Vsource;
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
 use substrate::io::Signal;
-use substrate::ios::TestbenchIo;
+use substrate::io::TestbenchIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, Instance};
 use substrate::simulation::data::HasNodeData;
