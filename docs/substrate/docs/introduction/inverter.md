@@ -28,6 +28,9 @@ substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
 spectre = { version = "0.0.0", registry = "substrate", path = "../tools/spectre" }
 sky130pdk = { version = "0.0.0", registry = "substrate", path = "../pdks/sky130pdk" }
 serde = { version = "1", features = ["derive"] }
+
+rust_decimal = "1.30"
+rust_decimal_macros = "1.30"
 ```
 
 Let's now add some imports to `src/lib.rs` that we'll use later on:
