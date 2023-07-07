@@ -3,10 +3,8 @@ sidebar_position: 2
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-import InverterMod from '@substrate/tests/src/shared/inverter/mod.rs?snippet';
-import InverterTb from '@substrate/tests/src/shared/inverter/tb.rs?snippet';
-import Context from '@substrate/tests/src/shared/pdk/mod.rs?snippet';
-import Tests from '@substrate/tests/src/sim/spectre.rs?snippet';
+import InverterMod from '@substrate/examples/sky130_inverter/src/lib.rs?snippet';
+import InverterTb from '@substrate/examples/sky130_inverter/src/tb.rs?snippet';
 
 # Designing an inverter
 
@@ -15,25 +13,37 @@ the Skywater 130nm process.
 
 ## Setup
 
-Start by creating a new Rust project:
+Ensure that you have a recent version of Rust installed.
+Add the Substrate registry to your Cargo config:
+
+```toml title="~/.cargo/conf
+[registries]
+substrate = { index = "https://github.com/substrate-labs/crates-index" }
+```
+
+You only need to do this the first time you set up Substrate.
+
+Next, create a new Rust project:
 ```bash
 cargo new --lib sky130_inverter && cd sky130_inverter
 ```
 
-In your project's `Cargo.toml`, add dependencies on `substrate`, `spectre`, `sky130pdk`, and `serde`:
+In your project's `Cargo.toml`, add the following dependencies:
 
 ```toml title="Cargo.toml"
 [dependencies]
-substrate = { version = "0.0.0", registry = "substrate", path = "../substrate" }
-spectre = { version = "0.0.0", registry = "substrate", path = "../tools/spectre" }
-sky130pdk = { version = "0.0.0", registry = "substrate", path = "../pdks/sky130pdk" }
-serde = { version = "1", features = ["derive"] }
+substrate = { version = "*", registry = "substrate" }
+spectre = { version = "*", registry = "substrate" }
+sky130pdk = { version = "*", registry = "substrate" }
 
+serde = { version = "1", features = ["derive"] }
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 ```
 
-Let's now add some imports to `src/lib.rs` that we'll use later on:
+Let's now add some imports that we'll use later on.
+Replace the content of `src/lib.rs` with the following:
+
 <CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{InverterMod}</CodeSnippet>
 
 ## Interface
@@ -198,28 +208,11 @@ the absolute difference between the rise and fall times.
 
 Let's now run the script we wrote. We must first create a Substrate context:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-commercial-ctx">{Context}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-commercial-ctx">{InverterTb}</CodeSnippet>
 
 We can then write a Rust unit test to run our design script:
 
-```rust title="src/tb.rs"
-#[cfg(test)]
-mod tests {
-    #[test]
-    pub fn design_inverter() {
-        let test_name = "design_inverter";
-        let work_dir = "sims/";
-        let mut ctx = sky130_commercial_ctx();
-        let script = InverterDesign {
-            nw: 1_200,
-            pw: (1_200..=5_000).step_by(200).collect(),
-            lch: 150,
-        };
-        let inv = script.run(&mut ctx, work_dir);
-        println!("Designed inverter:\n{:#?}", inv);
-    }
-}
-```
+<CodeSnippet language="rust" title="src/tb.rs" snippet="tests">{InverterTb}</CodeSnippet>
 
 To run the test, run
 
@@ -229,13 +222,12 @@ cargo test design_inverter -- --show-output
 
 Ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
 the Sky 130 commercial PDK.
+Also ensure that you have correctly set any environment variables needed by Spectre.
 
 ## Conclusion
 
 If all goes well, the test above should print
 the inverter dimensions with the minimum rise/fall time difference.
 
-A full, runnable example for this tutorial is in our test suite.
-The inverter block and testbench are [here](https://github.com/substrate-labs/substrate2/tree/main/tests/src/shared/inverter);
-the unit test is [here](https://github.com/substrate-labs/substrate2/blob/main/tests/src/sim/spectre.rs).
+A full, runnable example for this tutorial is available [here](https://github.com/substrate-labs/substrate2/tree/main/examples/sky130_inverter).
 

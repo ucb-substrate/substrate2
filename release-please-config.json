@@ -11,6 +11,7 @@
     "diagnostics": {},
     "digital": {},
     "drc": {},
+    "examples/sky130_inverter": {},
     "gds": {},
     "lef": {},
     "libs/cache": {},
