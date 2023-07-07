@@ -200,21 +200,24 @@ Let's now run the script we wrote. We must first create a Substrate context:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-commercial-ctx">{Context}</CodeSnippet>
 
-We can then run our design script:
+We can then write a Rust unit test to run our design script:
 
 ```rust title="src/tb.rs"
-#[test]
-pub fn design_inverter() {
-    let test_name = "design_inverter";
-    let work_dir = "sims/";
-    let mut ctx = sky130_commercial_ctx();
-    let script = InverterDesign {
-        nw: 1_200,
-        pw: (1_200..=5_000).step_by(200).collect(),
-        lch: 150,
-    };
-    let inv = script.run(&mut ctx, work_dir);
-    println!("Designed inverter:\n{:#?}", inv);
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn design_inverter() {
+        let test_name = "design_inverter";
+        let work_dir = "sims/";
+        let mut ctx = sky130_commercial_ctx();
+        let script = InverterDesign {
+            nw: 1_200,
+            pw: (1_200..=5_000).step_by(200).collect(),
+            lch: 150,
+        };
+        let inv = script.run(&mut ctx, work_dir);
+        println!("Designed inverter:\n{:#?}", inv);
+    }
 }
 ```
 
@@ -232,4 +235,7 @@ the Sky 130 commercial PDK.
 If all goes well, the test above should print
 the inverter dimensions with the minimum rise/fall time difference.
 
-A full, runnable example for this tutorial is in our [test suite](https://github.com/substrate-labs/substrate2/tree/main/tests/src/shared/inverter).
+A full, runnable example for this tutorial is in our test suite.
+The inverter block and testbench are [here](https://github.com/substrate-labs/substrate2/tree/main/tests/src/shared/inverter);
+the unit test is [here](https://github.com/substrate-labs/substrate2/blob/main/tests/src/sim/spectre.rs).
+
