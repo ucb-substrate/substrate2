@@ -1,0 +1,7 @@
+_default: 
+  @just --list
+
+# Test all examples in this directory
+test:
+  cargo test --locked
+

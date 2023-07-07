@@ -32,7 +32,6 @@ members = [
     "tests",
     "timing",
     "tools/spectre",
-    "examples/sky130_inverter",
 ]
 
-# exclude = ["examples/*"]
+exclude = ["examples"]

@@ -74,9 +74,11 @@ jobs:
       - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
-        working-directory: substrate
       - name: Test
         run: cargo test --locked --all-features
+      - name: Test examples
+        run: cargo test --locked --all-features
+        working-directory: examples
   check-docs-site:
     name: check-docs-site
     runs-on: ubuntu-22.04
