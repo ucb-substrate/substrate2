@@ -6,9 +6,9 @@ function CodeSnippet({children, snippet, language, title, showLineNumbers}) {
   var selected = "";
   for (const line of children.split('\n')) {
     const trimmed = line.trim();
-    if (trimmed === `// begin-code-snippet ${snippet}`) {
+    if (trimmed === `// begin-code-snippet ${snippet}` || trimmed === `# begin-code-snippet ${snippet}`) {
       inSnippet = true;
-    } else if (trimmed === `// end-code-snippet ${snippet}`) {
+    } else if (trimmed === `// end-code-snippet ${snippet}` || trimmed === `# end-code-snippet ${snippet}`) {
       return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers}>{selected}</CodeBlock></div>);
     } else if (inSnippet) {
       selected += `${line}\n`;

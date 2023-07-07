@@ -4,14 +4,16 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
+# begin-code-snippet dependencies
 [dependencies]
-substrate = { version = "*", registry = "substrate" }
-spectre = { version = "*", registry = "substrate" }
-sky130pdk = { version = "*", registry = "substrate" }
+substrate = { version = "0.2.0", registry = "substrate" }
+spectre = { version = "0.2.0", registry = "substrate" }
+sky130pdk = { version = "0.2.0", registry = "substrate" }
 
 serde = { version = "1", features = ["derive"] }
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
+# end-code-snippet dependencies
 
 # This feature flag allows us to control which tests are run.
 # We don't want to run tests that use Spectre when we are developing locally.

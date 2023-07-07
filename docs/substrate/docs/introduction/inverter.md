@@ -5,6 +5,7 @@ sidebar_position: 2
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import InverterMod from '@substrate/examples/sky130_inverter/src/lib.rs?snippet';
 import InverterTb from '@substrate/examples/sky130_inverter/src/tb.rs?snippet';
+import CargoToml from '@substrate/examples/sky130_inverter/Cargo.toml?snippet';
 
 # Designing an inverter
 
@@ -16,7 +17,7 @@ the Skywater 130nm process.
 Ensure that you have a recent version of Rust installed.
 Add the Substrate registry to your Cargo config:
 
-```toml title="~/.cargo/conf
+```toml title="~/.cargo/config.toml"
 [registries]
 substrate = { index = "https://github.com/substrate-labs/crates-index" }
 ```
@@ -30,16 +31,7 @@ cargo new --lib sky130_inverter && cd sky130_inverter
 
 In your project's `Cargo.toml`, add the following dependencies:
 
-```toml title="Cargo.toml"
-[dependencies]
-substrate = { version = "*", registry = "substrate" }
-spectre = { version = "*", registry = "substrate" }
-sky130pdk = { version = "*", registry = "substrate" }
-
-serde = { version = "1", features = ["derive"] }
-rust_decimal = "1.30"
-rust_decimal_macros = "1.30"
-```
+<CodeSnippet language="toml" title="Cargo.toml" snippet="dependencies">{CargoToml}</CodeSnippet>
 
 Let's now add some imports that we'll use later on.
 Replace the content of `src/lib.rs` with the following:
