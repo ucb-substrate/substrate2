@@ -98,7 +98,7 @@ jobs:
         with:
           toolchain: stable
       - name: Cache workspace
-        uses: Swatinem/rust-cache@v3
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: |
