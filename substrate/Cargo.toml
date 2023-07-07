@@ -2,6 +2,7 @@
 name = "substrate"
 version = "0.2.0"
 edition = "2021"
+include = ["src", "build/docs"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
