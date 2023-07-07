@@ -1,6 +1,6 @@
 [package]
 name = "codegen"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
@@ -11,12 +11,12 @@ proc-macro2 = "1"
 proc-macro-crate = "1"
 convert_case = "0.6"
 
-substrate_api = { version = "0.1.0", registry = "substrate", path = "../substrate-api" }
+substrate_api = { version = "0.1.1", registry = "substrate", path = "../substrate-api" }
 
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
-substrate = { version = "0.1.0", registry = "substrate", path = "../substrate" }
+substrate = { version = "0.1.1", registry = "substrate", path = "../substrate" }
 
 [lib]
 proc-macro = true

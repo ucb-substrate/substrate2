@@ -1,5 +1,11 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.0.0 to 0.1.0
+  * dev-dependencies
+    * substrate bumped from 0.1.0 to 0.1.1
+
 ## 0.1.0 (2023-07-07)
 
 

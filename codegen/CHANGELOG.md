@@ -1,5 +1,11 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate_api bumped from 0.1.0 to 0.1.1
+  * dev-dependencies
+    * substrate bumped from 0.1.0 to 0.1.1
+
 ## 0.1.0 (2023-07-07)
 
 

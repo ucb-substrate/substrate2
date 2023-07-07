@@ -1,6 +1,6 @@
 [package]
 name = "substrate"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
@@ -8,6 +8,6 @@ arcstr = { version = "1", features = ["serde"] }
 duplicate = "1"
 
 geometry = { version = "0.2.0", registry = "substrate", path = "../libs/geometry" }
-codegen = { version = "0.1.0", registry = "substrate", path = "../codegen" }
-substrate_api = { version = "0.1.0", registry = "substrate", path = "../substrate-api" }
+codegen = { version = "0.1.1", registry = "substrate", path = "../codegen" }
+substrate_api = { version = "0.1.1", registry = "substrate", path = "../substrate-api" }
 scir = { version = "0.1.0", registry = "substrate", path = "../scir" }
