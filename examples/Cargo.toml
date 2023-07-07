@@ -1,0 +1,8 @@
+[workspace]
+
+resolver = "2"
+
+members = [
+  "sky130_inverter"
+]
+

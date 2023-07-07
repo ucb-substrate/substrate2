@@ -21,7 +21,7 @@ check-fmt:
   cargo fmt --check
 
 # Runs tests
-test: gen-examples
+test: gen-examples test-examples
   cargo test --locked
 
 check-all:
@@ -32,3 +32,8 @@ check-docs:
 
 gen-examples:
   just -f docs/api/Justfile gen-examples
+
+# Test Substrate examples in the examples/ folder
+test-examples: gen-examples
+  @just examples/test
+
