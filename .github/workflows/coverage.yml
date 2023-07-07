@@ -17,6 +17,10 @@ jobs:
         id: toolchain
         with:
           toolchain: nightly
+      - uses: extractions/setup-just@v1
+      - name: Generate examples
+        run: just gen-examples
+        working-directory: substrate
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:
