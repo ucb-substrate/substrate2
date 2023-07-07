@@ -25,6 +25,10 @@ jobs:
           workspaces: ". -> target"
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
+      - uses: extractions/setup-just@v1
+      - name: Generate examples
+        run: just gen-examples
+        working-directory: substrate
       - name: Check formatting
         run: |
           cargo fmt --check
@@ -50,6 +54,9 @@ jobs:
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
       - uses: extractions/setup-just@v1
+      - name: Generate examples
+        run: just gen-examples
+        working-directory: substrate
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features -- -D warnings
@@ -64,6 +71,10 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - uses: extractions/setup-just@v1
+      - name: Generate examples
+        run: just gen-examples
+        working-directory: substrate
       - name: Test
         run: cargo test --locked --all-features
   check-docs-site:

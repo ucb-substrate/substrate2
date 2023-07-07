@@ -45,14 +45,14 @@ use crate::simulation::{
 /// # Examples
 ///
 /// ```
-#[doc = include_str!("../../docs/api/code/prelude.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/pdk/layers.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/pdk/pdk.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/block/inverter.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/layout/inverter.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/block/buffer.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/layout/buffer.rs.hidden")]
-#[doc = include_str!("../../docs/api/code/layout/generate.rs")]
+#[doc = include_str!("../build/docs/prelude.rs.hidden")]
+#[doc = include_str!("../build/docs/pdk/layers.rs.hidden")]
+#[doc = include_str!("../build/docs/pdk/pdk.rs.hidden")]
+#[doc = include_str!("../build/docs/block/inverter.rs.hidden")]
+#[doc = include_str!("../build/docs/layout/inverter.rs.hidden")]
+#[doc = include_str!("../build/docs/block/buffer.rs.hidden")]
+#[doc = include_str!("../build/docs/layout/buffer.rs.hidden")]
+#[doc = include_str!("../build/docs/layout/generate.rs")]
 /// ```
 pub struct Context<PDK: Pdk> {
     /// PDK-specific data.

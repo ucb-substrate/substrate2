@@ -1,7 +1,7 @@
 {
   "cache": "0.0.0",
   "cli": "0.0.0",
-  "codegen": "0.1.0",
+  "codegen": "0.1.1",
   "config": "0.1.0",
   "dex": "0.0.0",
   "diagnostics": "0.1.0",
@@ -9,7 +9,7 @@
   "drc": "0.0.0",
   "gds": "0.1.0",
   "lef": "0.0.0",
-  "libs/cache": "0.0.0",
+  "libs/cache": "0.1.0",
   "libs/geometry": "0.2.0",
   "libs/opacity": "0.1.0",
   "libs/pathtree": "0.1.0",
@@ -17,7 +17,7 @@
   "lvs": "0.0.0",
   "netlist/spice": "0.0.0",
   "par": "0.0.0",
-  "pdks/sky130pdk": "0.1.0",
+  "pdks/sky130pdk": "0.1.1",
   "pex": "0.0.0",
   "sbm": "0.0.0",
   "scg": "0.0.0",
@@ -25,9 +25,9 @@
   "sde": "0.0.0",
   "sim": "0.0.0",
   "subfile": "0.0.0",
-  "substrate": "0.1.0",
-  "substrate-api": "0.1.0",
+  "substrate": "0.1.1",
+  "substrate-api": "0.1.1",
   "tests": "0.0.0",
   "timing": "0.0.0",
-  "tools/spectre": "0.1.0"
+  "tools/spectre": "0.1.1"
 }
