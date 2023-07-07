@@ -304,11 +304,8 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn substrate_ident() -> TokenStream2 {
-    match crate_name("substrate")
-        .or_else(|_| crate_name("substrate_api"))
-        .expect("substrate is present in `Cargo.toml`")
-    {
-        FoundCrate::Itself => quote!(crate),
+    match crate_name("substrate").expect("substrate is present in `Cargo.toml`") {
+        FoundCrate::Itself => quote!(::substrate),
         FoundCrate::Name(name) => {
             let ident = Ident::new(&name, Span::call_site());
             quote!(::#ident)

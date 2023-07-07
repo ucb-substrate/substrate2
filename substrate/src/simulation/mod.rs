@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::context::PdkData;
-use crate::io::SchematicType;
+use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
@@ -120,7 +120,9 @@ impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<PDK: Pdk, S: Simulator>: HasTestbenchSchematicImpl<PDK, S> {
+pub trait Testbench<PDK: Pdk, S: Simulator>:
+    HasTestbenchSchematicImpl<PDK, S> + Block<Io = TestbenchIo>
+{
     /// The output produced by this testbench.
     type Output: Any + Serialize + Deserialize<'static>;
     /// Run the testbench using the given simulation controller.

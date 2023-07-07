@@ -312,7 +312,6 @@ dependencies = [
  "quote",
  "serde",
  "substrate",
- "substrate_api",
  "syn 2.0.23",
 ]
 
@@ -1526,22 +1525,12 @@ version = "0.0.0"
 name = "substrate"
 version = "0.1.0"
 dependencies = [
- "arcstr",
- "codegen",
- "duplicate",
- "geometry",
- "scir",
- "substrate_api",
-]
-
-[[package]]
-name = "substrate_api"
-version = "0.1.0"
-dependencies = [
  "anyhow",
  "approx",
  "arcstr",
  "cache",
+ "codegen",
+ "duplicate",
  "ena",
  "gds",
  "geometry",
@@ -1553,7 +1542,6 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
- "substrate",
  "thiserror",
  "toml 0.7.5",
  "tracing",
