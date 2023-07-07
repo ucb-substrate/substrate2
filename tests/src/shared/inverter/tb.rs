@@ -116,12 +116,12 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         // The input waveform has a low -> high, then a high -> low transition.
         // So the first transition of the inverter output is high -> low.
         // The duration of this transition is the inverter fall time.
-        let tf = trans.next().unwrap();
-        assert_eq!(tf.dir(), EdgeDir::Falling);
-        let tf = tf.duration();
-        let tr = trans.next().unwrap();
-        assert_eq!(tr.dir(), EdgeDir::Rising);
-        let tr = tr.duration();
+        let falling_transition = trans.next().unwrap();
+        assert_eq!(falling_transition.dir(), EdgeDir::Falling);
+        let tf = falling_transition.duration();
+        let rising_transition = trans.next().unwrap();
+        assert_eq!(rising_transition.dir(), EdgeDir::Rising);
+        let tr = rising_transition.duration();
 
         InverterTbData { tf, tr }
     }
