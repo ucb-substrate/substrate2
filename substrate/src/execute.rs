@@ -5,6 +5,9 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 
+use arcstr::ArcStr;
+use derive_builder::Builder;
+
 /// Job submission options.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExecOpts {
@@ -58,6 +61,75 @@ impl Executor for LocalExecutor {
         let status = command.status().map_err(Arc::new)?;
         if !status.success() {
             return Err(crate::error::Error::CommandFailed(Arc::new(command)));
+        }
+
+        Ok(())
+    }
+}
+
+/// An executor for submitting jobs to an LSF cluster.
+#[derive(Clone, Debug, Eq, PartialEq, Builder)]
+pub struct LsfExecutor {
+    /// The command to use to submit jobs.
+    bsub: ArcStr,
+    /// The queue to which jobs should be submitted.
+    queue: Option<ArcStr>,
+}
+
+impl Default for LsfExecutor {
+    fn default() -> Self {
+        Self {
+            bsub: arcstr::literal!("bsub"),
+            queue: None,
+        }
+    }
+}
+
+impl LsfExecutor {
+    /// A builder for constructing an [`LsfExecutor`].
+    #[inline]
+    pub fn builder() -> LsfExecutorBuilder {
+        LsfExecutorBuilder::default()
+    }
+
+    /// Gets the LSF submission command.
+    pub fn command(&self, command: Command, opts: ExecOpts) -> Command {
+        let mut submit = Command::new(&*self.bsub);
+
+        // -K makes bsub wait until the job completes
+        submit.arg("-K");
+        if let Some(ref queue) = self.queue {
+            submit.arg("-q").arg(queue.as_str());
+        }
+        if let Some(cpus) = opts.cpus {
+            submit.arg("-n").arg(cpus.to_string());
+        }
+        submit.arg(command.get_program());
+        for arg in command.get_args() {
+            submit.arg(arg);
+        }
+        if let Some(dir) = command.get_current_dir() {
+            submit.current_dir(dir);
+        }
+
+        for (key, val) in command.get_envs() {
+            match val {
+                None => submit.env_remove(key),
+                Some(val) => submit.env(key, val),
+            };
+        }
+
+        submit
+    }
+}
+
+impl Executor for LsfExecutor {
+    fn execute(&self, command: Command, opts: ExecOpts) -> Result<(), crate::error::Error> {
+        let mut submit = self.command(command, opts);
+
+        let status = submit.status().map_err(Arc::new)?;
+        if !status.success() {
+            return Err(crate::error::Error::CommandFailed(Arc::new(submit)));
         }
 
         Ok(())

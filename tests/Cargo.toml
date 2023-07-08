@@ -26,4 +26,4 @@ sky130pdk = { version = "0.2.0", registry = "substrate", path = "../pdks/sky130p
 
 [features]
 spectre = []
-
+lsf = []
