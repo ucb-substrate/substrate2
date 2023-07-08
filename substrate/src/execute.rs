@@ -71,8 +71,10 @@ impl Executor for LocalExecutor {
 #[derive(Clone, Debug, Eq, PartialEq, Builder)]
 pub struct LsfExecutor {
     /// The command to use to submit jobs.
+    #[builder(setter(into))]
     bsub: ArcStr,
     /// The queue to which jobs should be submitted.
+    #[builder(setter(into, strip_option))]
     queue: Option<ArcStr>,
 }
 
