@@ -95,7 +95,7 @@ impl LsfExecutor {
     }
 
     /// Gets the LSF submission command.
-    pub fn command(&self, command: Command, opts: ExecOpts) -> Command {
+    pub fn command(&self, command: &Command, opts: ExecOpts) -> Command {
         let mut submit = Command::new(&*self.bsub);
 
         // -K makes bsub wait until the job completes
@@ -127,7 +127,7 @@ impl LsfExecutor {
 
 impl Executor for LsfExecutor {
     fn execute(&self, command: Command, opts: ExecOpts) -> Result<(), crate::error::Error> {
-        let mut submit = self.command(command, opts);
+        let mut submit = self.command(&command, opts);
 
         let status = submit.status().map_err(Arc::new)?;
         if !status.success() {

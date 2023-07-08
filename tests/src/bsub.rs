@@ -10,9 +10,8 @@ fn can_submit_with_bsub() {
     let file = get_path("can_submit_with_bsub", "file.txt");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
 
-    // Ignore errors here (it is ok if the file does not exist).
-    let _ = std::fs::remove_file(&file);
-    assert!(!file.exists());
+    // Ignore errors here (it is ok if the directory does not exist).
+    let _ = std::fs::remove_dir_all(file.parent().unwrap());
 
     let mut cmd = Command::new("bash");
     cmd.arg("-c")
@@ -22,7 +21,7 @@ fn can_submit_with_bsub() {
     bsub.execute(cmd, Default::default()).expect("bsub failed");
 
     // Wait for filesystem to sync.
-    std::thread::sleep(std::time::Duration::from_secs(10));
+    std::thread::sleep(std::time::Duration::from_secs(3));
 
     let mut file = std::fs::File::open(&file).unwrap();
     let mut buf = String::new();
@@ -41,7 +40,7 @@ fn lsf_executor_command() {
         .build()
         .unwrap();
     let submit = exec.command(
-        cmd,
+        &cmd,
         ExecOpts {
             cpus: Some(2),
             ..Default::default()
