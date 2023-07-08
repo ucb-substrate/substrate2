@@ -11,6 +11,7 @@ use tracing::{span, Level};
 
 use crate::block::Block;
 use crate::error::{Error, Result};
+use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
     SchematicType,
@@ -59,12 +60,14 @@ pub struct Context<PDK: Pdk> {
     pub pdk: PdkData<PDK>,
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+    executor: Arc<dyn Executor>,
 }
 
 /// Builder for creating a Substrate [`Context`].
 pub struct ContextBuilder<PDK: Pdk> {
     pdk: Option<PDK>,
     simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    executor: Arc<dyn Executor>,
 }
 
 impl<PDK: Pdk> Default for ContextBuilder<PDK> {
@@ -80,6 +83,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         Self {
             pdk: None,
             simulators: Default::default(),
+            executor: Arc::new(LocalExecutor::default()),
         }
     }
 
@@ -87,6 +91,12 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
     #[inline]
     pub fn pdk(mut self, pdk: PDK) -> Self {
         self.pdk = Some(pdk);
+        self
+    }
+
+    /// Set the executor.
+    pub fn executor<E: Executor>(mut self, executor: E) -> Self {
+        self.executor = Arc::new(executor);
         self
     }
 
@@ -116,6 +126,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             },
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
+            executor: self.executor,
         }
     }
 }
@@ -126,6 +137,7 @@ impl<PDK: Pdk> Clone for Context<PDK> {
             pdk: self.pdk.clone(),
             inner: self.inner.clone(),
             simulators: self.simulators.clone(),
+            executor: self.executor.clone(),
         }
     }
 }
@@ -366,6 +378,7 @@ impl<PDK: Pdk> Context<PDK> {
         let ctx = SimulationContext {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),
+            executor: self.executor.clone(),
         };
         let controller = SimController {
             pdk: self.pdk.clone(),

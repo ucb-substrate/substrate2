@@ -208,14 +208,11 @@ impl Spectre {
         perms.set_mode(0o744);
         std::fs::set_permissions(&run_script, perms)?;
 
-        let status = std::process::Command::new("/bin/bash")
-            .arg(&run_script)
-            .current_dir(&ctx.work_dir)
-            .status()?;
-
-        if !status.success() {
-            return Err(Error::SpectreError);
-        }
+        let mut command = std::process::Command::new("/bin/bash");
+        command.arg(&run_script).current_dir(&ctx.work_dir);
+        ctx.executor
+            .execute(command, Default::default())
+            .map_err(|_| Error::SpectreError)?;
 
         let mut outputs = Vec::with_capacity(input.len());
         for (i, an) in input.iter().enumerate() {
