@@ -1,7 +1,7 @@
 //! Substrate integration tests.
 
 #[cfg(test)]
-#[cfg(feature = "lsf")]
+// #[cfg(feature = "lsf")]
 pub mod bsub;
 #[cfg(test)]
 pub mod cache;

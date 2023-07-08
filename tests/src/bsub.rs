@@ -1,9 +1,9 @@
+use std::io::Read;
 use std::process::Command;
 
 use substrate::execute::{ExecOpts, Executor, LsfExecutor};
 
 use crate::paths::get_path;
-
 
 #[test]
 fn can_submit_with_bsub() {
@@ -15,15 +15,19 @@ fn can_submit_with_bsub() {
     assert!(!file.exists());
 
     let mut cmd = Command::new("bash");
-    cmd.arg("-c").arg(format!("echo 'Hello, world!' > {file:?}"));
+    cmd.arg("-c")
+        .arg(format!("echo \"Hello, world!\" > {file:?}"));
 
     let bsub = LsfExecutor::default();
     bsub.execute(cmd, Default::default()).expect("bsub failed");
 
     // Wait for filesystem to sync.
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    std::thread::sleep(std::time::Duration::from_secs(10));
 
-    assert!(file.exists());
+    let mut file = std::fs::File::open(&file).unwrap();
+    let mut buf = String::new();
+    file.read_to_string(&mut buf).unwrap();
+    assert_eq!(buf.trim(), "Hello, world!");
 }
 
 #[test]
