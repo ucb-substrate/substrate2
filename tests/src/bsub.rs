@@ -43,13 +43,13 @@ fn lsf_executor_command() {
         },
     );
 
+    assert_eq!(submit.get_program(), "mysub");
     let args = submit.get_args().collect::<Vec<_>>();
-    assert_eq!(args[0], "mybsub");
-    assert_eq!(args[1], "-K");
-    assert_eq!(args[2], "-q");
-    assert_eq!(args[3], "myqueue");
-    assert_eq!(args[4], "-n");
-    assert_eq!(args[5], "2");
-    assert_eq!(args[6], "touch");
-    assert_eq!(args[7], "hello.txt");
+    assert_eq!(args[0], "-K");
+    assert_eq!(args[1], "-q");
+    assert_eq!(args[2], "myqueue");
+    assert_eq!(args[3], "-n");
+    assert_eq!(args[4], "2");
+    assert_eq!(args[5], "touch");
+    assert_eq!(args[6], "hello.txt");
 }
