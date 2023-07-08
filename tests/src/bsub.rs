@@ -4,6 +4,7 @@ use substrate::execute::{ExecOpts, Executor, LsfExecutor};
 
 use crate::paths::get_path;
 
+
 #[test]
 fn can_submit_with_bsub() {
     let file = get_path("can_submit_with_bsub", "file.txt");
@@ -13,8 +14,8 @@ fn can_submit_with_bsub() {
     let _ = std::fs::remove_file(&file);
     assert!(!file.exists());
 
-    let mut cmd = Command::new("touch");
-    cmd.arg(&file);
+    let mut cmd = Command::new("bash");
+    cmd.arg("-c").arg(format!("echo 'Hello, world!' > {file:?}"));
 
     let bsub = LsfExecutor::default();
     bsub.execute(cmd, Default::default()).expect("bsub failed");
