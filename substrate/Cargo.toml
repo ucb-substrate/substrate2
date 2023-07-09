@@ -16,6 +16,7 @@ rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 ena = "0.14"
 duplicate = "1"
+derive_builder = "0.12"
 
 cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }
 codegen = { version = "0.2.0", registry = "substrate", path = "../codegen" }
