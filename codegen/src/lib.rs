@@ -4,6 +4,7 @@
 mod block;
 mod io;
 mod pdk;
+mod sim;
 
 use darling::FromDeriveInput;
 use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
@@ -16,6 +17,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
+use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -301,6 +303,13 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
         #receiver
     )
     .into()
+}
+
+/// Implements `substrate::simulation::Supports<Tuple> for Simulator`
+/// for all tuples up to a specified max size.
+#[proc_macro]
+pub fn simulator_tuples(input: TokenStream) -> TokenStream {
+    simulator_tuples_impl(input)
 }
 
 pub(crate) fn substrate_ident() -> TokenStream2 {
