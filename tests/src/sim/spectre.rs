@@ -4,7 +4,7 @@ use sky130pdk::corner::Sky130Corner;
 use substrate::pdk::corner::Pvt;
 use test_log::test;
 
-use crate::shared::inverter::tb::{InverterDesign, InverterTb};
+use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::VdividerArrayTb;
@@ -56,18 +56,4 @@ pub fn inv_tb() {
         ),
         sim_dir,
     );
-}
-
-#[test]
-pub fn design_inverter() {
-    let test_name = "design_inverter";
-    let work_dir = get_path(test_name, "sims/");
-    let mut ctx = sky130_commercial_ctx();
-    let script = InverterDesign {
-        nw: 1_200,
-        pw: (1_200..=5_000).step_by(200).collect(),
-        lch: 150,
-    };
-    let inv = script.run(&mut ctx, work_dir);
-    println!("Designed inverter:\n{:#?}", inv);
 }

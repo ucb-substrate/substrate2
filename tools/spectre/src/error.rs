@@ -15,7 +15,7 @@ pub enum Error {
     #[error("template error")]
     Template(#[from] tera::Error),
     /// Error invoking Spectre.
-    #[error("spectre exited unsuccessfully")]
+    #[error("error running Spectre")]
     SpectreError,
     /// Error parsing PSF output files.
     #[error("error parsing PSF output file")]
