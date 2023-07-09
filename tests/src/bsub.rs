@@ -8,10 +8,11 @@ use crate::paths::get_path;
 #[test]
 fn can_submit_with_bsub() {
     let file = get_path("can_submit_with_bsub", "file.txt");
-    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
 
     // Ignore errors here (it is ok if the directory does not exist).
     let _ = std::fs::remove_dir_all(file.parent().unwrap());
+
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
 
     let mut cmd = Command::new("bash");
     cmd.arg("-c")
