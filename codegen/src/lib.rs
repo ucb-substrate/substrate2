@@ -24,6 +24,17 @@ use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
 
+macro_rules! handle_error {
+    ($expression:expr) => {
+        match $expression {
+            Ok(value) => value,
+            Err(err) => {
+                return err.write_errors().into();
+            }
+        }
+    };
+}
+
 /// Enumerates PDKs supported by a certain layout implementation of a block.
 ///
 /// Automatically implements the appropriate trait for all specified PDKs given a process-portable
@@ -250,12 +261,12 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
 #[doc = include_str!("../build/docs/layout/buffer.rs.hidden")]
 #[doc = include_str!("../build/docs/layout/buffern_data.rs")]
 /// ```
-#[proc_macro_derive(LayoutData, attributes(transform))]
+#[proc_macro_derive(LayoutData, attributes(substrate))]
 pub fn derive_layout_data(input: TokenStream) -> TokenStream {
     let receiver = block::layout::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
-    ))
-    .unwrap();
+    ));
+    let receiver = handle_error!(receiver);
     quote!(
         #receiver
     )
@@ -297,11 +308,11 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// the name of the struct/enum converted to snake case. For example, the name
 /// of a block called `MyBlock` will be `my_block`.
 /// If you wish to customize this behavior, consider implementing `Block` manually.
-#[proc_macro_derive(Block, attributes(block))]
+#[proc_macro_derive(Block, attributes(substrate))]
 pub fn derive_block(input: TokenStream) -> TokenStream {
     let receiver =
-        block::BlockInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
-            .unwrap();
+        block::BlockInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput));
+    let receiver = handle_error!(receiver);
     quote!(
         #receiver
     )
