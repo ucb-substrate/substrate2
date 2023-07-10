@@ -3,6 +3,7 @@ use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 
+use crate::derive::add_trait_bounds;
 use crate::substrate_ident;
 
 #[derive(Debug, FromDeriveInput)]
@@ -161,6 +162,10 @@ impl ToTokens for DataInputReceiver {
             ref attrs,
         } = *self;
 
+        let generics = add_trait_bounds(
+            quote!(#substrate::geometry::transform::HasTransformedView),
+            generics.clone(),
+        );
         let (imp, ty, wher) = generics.split_for_impl();
         let transformed_ident = format_ident!("Transformed{}", ident);
 

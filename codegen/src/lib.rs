@@ -291,9 +291,13 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::block::Block` for a struct or enum.
 ///
-/// You must specify the block's IO by adding a `#[block]` attribute:
-/// ```skip
-/// #[block(io = "TestbenchIo")]
+/// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use substrate::Block;
+///
+/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+/// #[substrate(io = "substrate::io::TestbenchIo")]
 /// pub struct MyBlock {
 ///   // ...
 /// }
