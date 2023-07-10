@@ -1,5 +1,8 @@
+use geometry::prelude::Point;
 use geometry::{prelude::Bbox, rect::Rect};
 use substrate::context::Context;
+use substrate::geometry::transform::Translate;
+use substrate::TranslateMut;
 
 use crate::{
     paths::get_path,
@@ -8,6 +11,18 @@ use crate::{
         pdk::{ExamplePdkA, ExamplePdkB},
     },
 };
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut)]
+pub struct TwoPointGroup {
+    p1: Point,
+    p2: Point,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut)]
+pub enum PointEnum {
+    First,
+    Second,
+}
 
 #[test]
 fn layout_generation_and_data_propagation_work() {
@@ -84,5 +99,22 @@ fn nested_transform_views_work() {
     assert_eq!(
         cell.data().buffers[9].data().inv2.bbox(),
         Some(Rect::from_sides(2090, 0, 2190, 200))
+    );
+}
+
+#[test]
+fn translate_two_point_group() {
+    let group = TwoPointGroup {
+        p1: Point::new(100, 200),
+        p2: Point::new(-400, 300),
+    };
+
+    let group = group.translate(Point::new(100, 50));
+    assert_eq!(
+        group,
+        TwoPointGroup {
+            p1: Point::new(200, 250),
+            p2: Point::new(-300, 350),
+        }
     );
 }

@@ -1,4 +1,4 @@
-//! A crate for 2-D geometric operations relevant to integrated circuit layout.
+//! 2-D geometric operations relevant to integrated circuit layout.
 //!
 //! # Examples
 //!

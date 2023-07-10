@@ -2,6 +2,8 @@
 #![warn(missing_docs)]
 
 mod block;
+mod derive;
+mod geometry;
 mod io;
 mod pdk;
 mod sim;
@@ -20,6 +22,14 @@ use quote::quote;
 use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(supports(struct_any, enum_any))]
+pub(crate) struct DeriveInputReceiver {
+    pub ident: syn::Ident,
+    pub generics: syn::Generics,
+    pub data: darling::ast::Data<syn::Variant, syn::Field>,
+}
 
 /// Enumerates PDKs supported by a certain layout implementation of a block.
 ///
@@ -310,6 +320,15 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
+}
+
+/// Derives `substrate::geometry::transform::TranslateMut`.
+#[proc_macro_derive(TranslateMut)]
+pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let receiver = DeriveInputReceiver::from_derive_input(&parsed).unwrap();
+    let expanded = derive::derive_translate_mut(receiver);
+    proc_macro::TokenStream::from(expanded)
 }
 
 pub(crate) fn substrate_ident() -> TokenStream2 {
