@@ -275,9 +275,9 @@ pub fn derive_layout_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::schematic::Data` for a struct.
 ///
-/// The `#[nested]` attribute annotates data that represents nested instances or nodes. This allows
+/// The `#[substrate(nested)]` attribute annotates data that represents nested instances or nodes. This allows
 /// Substrate to keep track of paths to nested instances and nodes for simulation purposes.
-#[proc_macro_derive(SchematicData, attributes(nested))]
+#[proc_macro_derive(SchematicData, attributes(substrate))]
 pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
     let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput

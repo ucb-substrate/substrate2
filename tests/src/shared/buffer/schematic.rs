@@ -11,9 +11,9 @@ use super::{BufferN, Inverter};
 
 #[derive(SchematicData)]
 pub struct InverterData {
-    #[nested]
+    #[substrate(nested)]
     pub din: Node,
-    #[nested]
+    #[substrate(nested)]
     pub pmos: Instance<PmosA>,
 }
 
@@ -46,9 +46,9 @@ impl HasSchematicImpl<ExamplePdkA> for Inverter {
 
 #[derive(SchematicData)]
 pub struct BufferData {
-    #[nested]
+    #[substrate(nested)]
     pub inv1: Instance<Inverter>,
-    #[nested]
+    #[substrate(nested)]
     pub inv2: Instance<Inverter>,
 }
 
@@ -87,11 +87,11 @@ impl HasSchematicImpl<ExamplePdkA> for Buffer {
 
 #[derive(SchematicData)]
 pub struct BufferNData {
-    #[nested]
+    #[substrate(nested)]
     pub bubbled_din: NestedNode,
-    #[nested]
+    #[substrate(nested)]
     pub bubbled_inv1: NestedInstance<Inverter>,
-    #[nested]
+    #[substrate(nested)]
     pub buffers: Vec<Instance<Buffer>>,
 }
 
@@ -130,11 +130,11 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
 
 #[derive(SchematicData)]
 pub struct BufferNxMData {
-    #[nested]
+    #[substrate(nested)]
     pub bubbled_din: NestedNode,
-    #[nested]
+    #[substrate(nested)]
     pub bubbled_inv1: NestedInstance<Inverter>,
-    #[nested]
+    #[substrate(nested)]
     pub buffer_chains: Vec<Instance<BufferN>>,
 }
 

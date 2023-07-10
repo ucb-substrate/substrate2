@@ -167,7 +167,7 @@ impl ToTokens for DataInputReceiver {
             generics.clone(),
         );
         let (imp, ty, wher) = generics.split_for_impl();
-        let transformed_ident = format_ident!("Transformed{}", ident);
+        let transformed_ident = format_ident!("{}TransformedView", ident);
 
         let expanded = match data {
             ast::Data::Struct(ref fields) => {
