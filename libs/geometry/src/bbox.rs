@@ -34,7 +34,7 @@ where
     }
 }
 
-#[impl_for_tuples(32)]
+#[impl_for_tuples(64)]
 impl Bbox for TupleIdentifier {
     #[allow(clippy::let_and_return)]
     fn bbox(&self) -> Option<Rect> {

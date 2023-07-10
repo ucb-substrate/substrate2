@@ -1,5 +1,8 @@
+use geometry::prelude::{NamedOrientation, Point};
 use geometry::{prelude::Bbox, rect::Rect};
 use substrate::context::Context;
+use substrate::geometry::transform::{Transform, Translate};
+use substrate::{TransformMut, TranslateMut};
 
 use crate::{
     paths::get_path,
@@ -8,6 +11,18 @@ use crate::{
         pdk::{ExamplePdkA, ExamplePdkB},
     },
 };
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut, TransformMut)]
+pub struct TwoPointGroup {
+    p1: Point,
+    p2: Point,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut, TransformMut)]
+pub enum PointEnum {
+    First(Point),
+    Second { pt: Point },
+}
 
 #[test]
 fn layout_generation_and_data_propagation_work() {
@@ -85,4 +100,28 @@ fn nested_transform_views_work() {
         cell.data().buffers[9].data().inv2.bbox(),
         Some(Rect::from_sides(2090, 0, 2190, 200))
     );
+}
+
+#[test]
+fn translate_two_point_group() {
+    let group = TwoPointGroup {
+        p1: Point::new(100, 200),
+        p2: Point::new(-400, 300),
+    };
+
+    let group = group.translate(Point::new(100, 50));
+    assert_eq!(
+        group,
+        TwoPointGroup {
+            p1: Point::new(200, 250),
+            p2: Point::new(-300, 350),
+        }
+    );
+}
+
+#[test]
+fn transform_point_enum() {
+    let mut group = PointEnum::First(Point::new(100, 200));
+    group = group.transform(NamedOrientation::ReflectVert.into());
+    assert_eq!(group, PointEnum::First(Point::new(100, -200)),);
 }
