@@ -1,8 +1,8 @@
-use geometry::prelude::Point;
+use geometry::prelude::{NamedOrientation, Point};
 use geometry::{prelude::Bbox, rect::Rect};
 use substrate::context::Context;
-use substrate::geometry::transform::Translate;
-use substrate::TranslateMut;
+use substrate::geometry::transform::{Transform, Translate};
+use substrate::{TransformMut, TranslateMut};
 
 use crate::{
     paths::get_path,
@@ -12,16 +12,16 @@ use crate::{
     },
 };
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut, TransformMut)]
 pub struct TwoPointGroup {
     p1: Point,
     p2: Point,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut, TransformMut)]
 pub enum PointEnum {
-    First,
-    Second,
+    First(Point),
+    Second { pt: Point },
 }
 
 #[test]
@@ -117,4 +117,11 @@ fn translate_two_point_group() {
             p2: Point::new(-300, 350),
         }
     );
+}
+
+#[test]
+fn transform_point_enum() {
+    let mut group = PointEnum::First(Point::new(100, 200));
+    group = group.transform(NamedOrientation::ReflectVert.into());
+    assert_eq!(group, PointEnum::First(Point::new(100, -200)),);
 }

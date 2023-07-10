@@ -1,4 +1,4 @@
-use crate::{substrate_ident, DeriveInputReceiver};
+use crate::DeriveInputReceiver;
 use darling::ast::{Data, Style};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
@@ -6,7 +6,7 @@ use syn::spanned::Spanned;
 use syn::{GenericParam, Generics, Index};
 
 // Add a bound `T: HeapSize` to every type parameter T.
-fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
+pub(crate) fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(syn::parse_quote!(#trait_));
@@ -15,33 +15,45 @@ fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
     generics
 }
 
-pub(crate) fn derive_translate_mut(receiver: DeriveInputReceiver) -> proc_macro2::TokenStream {
-    let substrate = substrate_ident();
+pub(crate) struct DeriveTrait {
+    pub trait_: TokenStream,
+    pub method: TokenStream,
+    pub extra_arg_idents: Vec<TokenStream>,
+    pub extra_arg_tys: Vec<TokenStream>,
+}
 
-    let generics = add_trait_bounds(
-        quote!(#substrate::geometry::transform::TranslateMut),
-        receiver.generics,
-    );
+pub(crate) fn derive_trait(
+    config: &DeriveTrait,
+    receiver: DeriveInputReceiver,
+) -> proc_macro2::TokenStream {
+    let DeriveTrait {
+        ref trait_,
+        ref method,
+        ref extra_arg_idents,
+        ref extra_arg_tys,
+    } = *config;
+
+    let generics = add_trait_bounds(quote!(#trait_), receiver.generics);
     let (imp, ty, wher) = generics.split_for_impl();
 
     let match_clause: TokenStream = match receiver.data {
         Data::Struct(ref fields) => match fields.style {
             Style::Tuple => {
                 let recurse = fields.iter().enumerate().map(|(i, f)| {
-                        let idx = Index::from(i);
-                        quote_spanned! { f.span() =>
-                            #substrate::geometry::transform::TranslateMut::translate_mut(&mut self.#idx, __substrate_derive_point);
-                        }
-                    });
+                    let idx = Index::from(i);
+                    quote_spanned! { f.span() =>
+                        #trait_::#method(&mut self.#idx, #(#extra_arg_idents),*);
+                    }
+                });
                 quote! { #(#recurse)* }
             }
             Style::Struct => {
                 let recurse = fields.iter().map(|f| {
-                        let name = f.ident.as_ref().unwrap();
-                        quote_spanned! { f.span() =>
-                            #substrate::geometry::transform::TranslateMut::translate_mut(&mut self.#name, __substrate_derive_point);
-                        }
-                    });
+                    let name = f.ident.as_ref().unwrap();
+                    quote_spanned! { f.span() =>
+                        #trait_::#method(&mut self.#name, #(#extra_arg_idents),*);
+                    }
+                });
                 quote! { #(#recurse)* }
             }
             Style::Unit => quote!(),
@@ -53,7 +65,7 @@ pub(crate) fn derive_translate_mut(receiver: DeriveInputReceiver) -> proc_macro2
                         let recurse = fields.named.iter().map(|f| {
                             let name = f.ident.as_ref().unwrap();
                             quote_spanned! { f.span() =>
-                                #substrate::geometry::transform::TranslateMut::translate_mut(#name, __substrate_derive_point);
+                                #trait_::#method(#name, #(#extra_arg_idents),*);
                             }
                         });
                         let declare = fields.named.iter().map(|f| {
@@ -65,12 +77,12 @@ pub(crate) fn derive_translate_mut(receiver: DeriveInputReceiver) -> proc_macro2
                         quote! {
                             { #(#declare)* } => { #(#recurse)* },
                         }
-                    },
+                    }
                     syn::Fields::Unnamed(ref fields) => {
                         let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ident = format_ident!("field{i}");
                             quote_spanned! { f.span() =>
-                                #substrate::geometry::transform::TranslateMut::translate_mut(#ident, __substrate_derive_point);
+                                #trait_::#method(#ident, #(#extra_arg_idents),*);
                             }
                         });
                         let declare = fields.unnamed.iter().enumerate().map(|(i, f)| {
@@ -82,7 +94,7 @@ pub(crate) fn derive_translate_mut(receiver: DeriveInputReceiver) -> proc_macro2
                         quote! {
                             ( #(#declare)* ) => { #(#recurse)* },
                         }
-                    },
+                    }
                     syn::Fields::Unit => quote! { => (), },
                 };
 
@@ -101,9 +113,18 @@ pub(crate) fn derive_translate_mut(receiver: DeriveInputReceiver) -> proc_macro2
 
     let ident = &receiver.ident;
 
+    let extra_args_sig = extra_arg_idents
+        .iter()
+        .zip(extra_arg_tys)
+        .map(|(ident, ty)| {
+            quote! {
+                #ident: #ty
+            }
+        });
+
     quote! {
-        impl #imp #substrate::geometry::transform::TranslateMut for #ident #ty #wher {
-            fn translate_mut(&mut self, __substrate_derive_point: #substrate::geometry::point::Point) {
+        impl #imp #trait_ for #ident #ty #wher {
+            fn #method(&mut self, #(#extra_args_sig),*) {
                 #match_clause
             }
         }
