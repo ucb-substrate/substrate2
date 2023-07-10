@@ -50,7 +50,6 @@ use self::element::{CellId, Element, RawCell, RawInstance, Shape};
 pub mod element;
 pub mod error;
 pub mod gds;
-pub mod group;
 
 /// An object used to store data created during layout generation.
 pub trait Data: HasTransformedView + Send + Sync {}

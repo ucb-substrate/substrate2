@@ -1,9 +1,17 @@
-use crate::DeriveInputReceiver;
 use darling::ast::{Data, Style};
+use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{GenericParam, Generics, Index};
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(supports(struct_any, enum_any))]
+pub(crate) struct DeriveInputReceiver {
+    pub ident: syn::Ident,
+    pub generics: syn::Generics,
+    pub data: darling::ast::Data<syn::Variant, syn::Field>,
+}
 
 // Add a bound `T: HeapSize` to every type parameter T.
 pub(crate) fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {

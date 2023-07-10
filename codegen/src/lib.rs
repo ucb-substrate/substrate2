@@ -9,7 +9,7 @@ mod pdk;
 mod sim;
 
 use darling::FromDeriveInput;
-use derive::{derive_trait, DeriveTrait};
+use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
 use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
@@ -23,14 +23,6 @@ use quote::quote;
 use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
-
-#[derive(Debug, FromDeriveInput)]
-#[darling(supports(struct_any, enum_any))]
-pub(crate) struct DeriveInputReceiver {
-    pub ident: syn::Ident,
-    pub generics: syn::Generics,
-    pub data: darling::ast::Data<syn::Variant, syn::Field>,
-}
 
 /// Enumerates PDKs supported by a certain layout implementation of a block.
 ///
