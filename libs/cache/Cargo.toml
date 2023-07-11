@@ -14,7 +14,7 @@ tokio-stream = "0.1"
 tokio-util = "0.7"
 prost = "0.11"
 prost-types = "0.11"
-rusqlite = { version = "0.29", features = ["blob"] }
+rusqlite = "0.29"
 fs4 = { version = "0.6", features = ["tokio-async"] }
 thiserror = "1"
 toml = "0.7"
