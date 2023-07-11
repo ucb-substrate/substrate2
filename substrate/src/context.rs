@@ -6,11 +6,12 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use cache::mem::{Cache, CacheHandle, Cacheable, CacheableWithState};
+use cache::mem::Cache;
+use cache::{CacheHandle, Cacheable, CacheableWithState};
 use tracing::{span, Level};
 
 use crate::block::Block;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
@@ -196,33 +197,29 @@ impl<PDK: Pdk> Context<PDK> {
         .or_current();
 
         LayoutCellHandle {
-            cell: inner_mut.layout.cell_cache.generate(
-                block,
-                move |block| {
-                    let mut io_builder = block.io().builder();
-                    let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
-                    let _guard = span.enter();
-                    let data = block.layout(&mut io_builder, &mut cell_builder);
+            cell: inner_mut.layout.cell_cache.generate(block, move |block| {
+                let mut io_builder = block.io().builder();
+                let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+                let _guard = span.enter();
+                let data = block.layout(&mut io_builder, &mut cell_builder);
 
-                    let io = io_builder.build()?;
-                    let ports = HashMap::from_iter(
-                        block
-                            .io()
-                            .flat_names(arcstr::literal!("io"))
-                            .into_iter()
-                            .zip(io.flatten_vec().into_iter()),
-                    );
-                    data.map(|data| {
-                        LayoutCell::new(
-                            block.clone(),
-                            data,
-                            Arc::new(io),
-                            Arc::new(cell_builder.finish().with_ports(ports)),
-                        )
-                    })
-                },
-                Error::Panic,
-            ),
+                let io = io_builder.build()?;
+                let ports = HashMap::from_iter(
+                    block
+                        .io()
+                        .flat_names(arcstr::literal!("io"))
+                        .into_iter()
+                        .zip(io.flatten_vec().into_iter()),
+                );
+                data.map(|data| {
+                    LayoutCell::new(
+                        block.clone(),
+                        data,
+                        Arc::new(io),
+                        Arc::new(cell_builder.finish().with_ports(ports)),
+                    )
+                })
+            }),
         }
     }
 
@@ -256,23 +253,18 @@ impl<PDK: Pdk> Context<PDK> {
         SchematicCellHandle {
             id,
             block: block.clone(),
-            cell: inner.schematic.cell_cache.generate(
-                block,
-                move |block| {
-                    let (mut cell_builder, io_data) =
-                        prepare_cell_builder(id, context, block.as_ref());
-                    let data = block.schematic(&io_data, &mut cell_builder);
-                    data.map(|data| {
-                        SchematicCell::new(
-                            io_data,
-                            block.clone(),
-                            data,
-                            Arc::new(cell_builder.finish()),
-                        )
-                    })
-                },
-                Error::Panic,
-            ),
+            cell: inner.schematic.cell_cache.generate(block, move |block| {
+                let (mut cell_builder, io_data) = prepare_cell_builder(id, context, block.as_ref());
+                let data = block.schematic(&io_data, &mut cell_builder);
+                data.map(|data| {
+                    SchematicCell::new(
+                        io_data,
+                        block.clone(),
+                        data,
+                        Arc::new(cell_builder.finish()),
+                    )
+                })
+            }),
         }
     }
 
@@ -291,23 +283,19 @@ impl<PDK: Pdk> Context<PDK> {
         TestbenchCellHandle(SchematicCellHandle {
             id,
             block: block.clone(),
-            cell: inner.schematic.cell_cache.generate(
-                block,
-                move |block| {
-                    let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
-                    let mut cell_builder = TestbenchCellBuilder { simulator, inner };
-                    let data = block.schematic(&io_data, &mut cell_builder);
-                    data.map(|data| {
-                        SchematicCell::new(
-                            io_data,
-                            block.clone(),
-                            data,
-                            Arc::new(cell_builder.finish()),
-                        )
-                    })
-                },
-                Error::Panic,
-            ),
+            cell: inner.schematic.cell_cache.generate(block, move |block| {
+                let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
+                let mut cell_builder = TestbenchCellBuilder { simulator, inner };
+                let data = block.schematic(&io_data, &mut cell_builder);
+                data.map(|data| {
+                    SchematicCell::new(
+                        io_data,
+                        block.clone(),
+                        data,
+                        Arc::new(cell_builder.finish()),
+                    )
+                })
+            }),
         })
     }
 
@@ -396,78 +384,33 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Gets a cacheable object from the context cache.
-    ///
-    /// Requires use of a Substrate error type.
-    pub fn cache_get<K: Cacheable<Error = Error>>(
+    pub fn cache_get<K: Cacheable>(
         &self,
         key: K,
-    ) -> CacheHandle<K::Output, K::Error> {
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
         let mut inner = self.inner.write().unwrap();
-        inner.cache.get(key, Error::Panic)
-    }
-
-    /// Gets a cacheable object from the context cache.
-    ///
-    /// A more flexible alternative to [`Context::cache_get`] that accepts any error type.
-    pub fn cache_get_raw<K: Cacheable>(
-        &self,
-        key: K,
-        panic_error: K::Error,
-    ) -> CacheHandle<K::Output, K::Error> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get(key, panic_error)
+        inner.cache.get(key)
     }
 
     /// Gets a cacheable object from the context cache, injecting the context as state during
     /// generation.
-    ///
-    /// Requires use of a Substrate error type.
-    pub fn cache_get_with_ctx<K: CacheableWithState<Context<PDK>, Error = Error>>(
+    pub fn cache_get_with_ctx<K: CacheableWithState<Context<PDK>>>(
         &self,
         key: K,
-    ) -> CacheHandle<K::Output, K::Error> {
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
         let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, self.clone(), Error::Panic)
-    }
-
-    /// Gets a cacheable object from the context cache, injecting the context as state during
-    /// generation.
-    ///
-    /// A more flexible alternative to [`Context::cache_get_with_ctx`] that accepts any error type.
-    pub fn cache_get_with_ctx_raw<K: CacheableWithState<Context<PDK>>>(
-        &self,
-        key: K,
-        panic_error: K::Error,
-    ) -> CacheHandle<K::Output, K::Error> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, self.clone(), panic_error)
+        inner.cache.get_with_state(key, self.clone())
     }
 
     /// Gets a cacheable object from the context cache, injecting user-defined state during
     /// generation.
-    ///
-    /// Requires use of a Substrate error type.
-    pub fn cache_get_with_state<S: Send + Sync + Any, K: CacheableWithState<S, Error = Error>>(
+    pub fn cache_get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &self,
         key: K,
         state: S,
-    ) -> CacheHandle<K::Output, K::Error> {
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
         let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, state, Error::Panic)
-    }
-
-    /// Gets a cacheable object from the context cache, injecting user-defined state during
-    /// generation.
-    ///
-    /// A more flexible alternative to [`Context::cache_get_with_ctx`] that accepts any error type.
-    pub fn cache_get_with_state_raw<S: Send + Sync + Any, K: CacheableWithState<S>>(
-        &self,
-        key: K,
-        state: S,
-        panic_error: K::Error,
-    ) -> CacheHandle<K::Output, K::Error> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, state, panic_error)
+        inner.cache.get_with_state(key, state)
     }
 }
 
