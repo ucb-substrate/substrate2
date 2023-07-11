@@ -10,13 +10,13 @@ pub mod schematic;
 
 #[derive(Io, Clone, Default)]
 pub struct BufferIo {
-    #[io(layout_type = "ShapePort")]
+    #[substrate(layout_type = "ShapePort")]
     pub vdd: InOut<Signal>,
-    #[io(layout_type = "ShapePort")]
+    #[substrate(layout_type = "ShapePort")]
     pub vss: InOut<Signal>,
-    #[io(layout_type = "ShapePort")]
+    #[substrate(layout_type = "ShapePort")]
     pub din: Input<Signal>,
-    #[io(layout_type = "ShapePort")]
+    #[substrate(layout_type = "ShapePort")]
     pub dout: Output<Signal>,
 }
 
@@ -75,7 +75,7 @@ impl Block for Buffer {
 }
 
 #[derive(Io, Clone, Default)]
-#[io(layout_type = "BufferNIoLayout")]
+#[substrate(layout_type = "BufferNIoLayout")]
 pub struct BufferNIo {
     pub vdd: InOut<Signal>,
     pub vss: InOut<Signal>,
@@ -134,9 +134,9 @@ impl Block for BufferN {
 pub struct BufferNxMIo {
     pub vdd: InOut<Signal>,
     pub vss: InOut<Signal>,
-    #[io(layout_type = "Array<ShapePort>")]
+    #[substrate(layout_type = "Array<ShapePort>")]
     pub din: Input<Array<Signal>>,
-    #[io(layout_type = "Array<ShapePort>")]
+    #[substrate(layout_type = "Array<ShapePort>")]
     pub dout: Output<Array<Signal>>,
 }
 

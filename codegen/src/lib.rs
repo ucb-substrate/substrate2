@@ -3,14 +3,13 @@
 
 mod block;
 mod derive;
-mod geometry;
 mod io;
 mod pdk;
 mod sim;
 
 use darling::FromDeriveInput;
 use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
-use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
+use io::{io_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,
@@ -23,6 +22,17 @@ use quote::quote;
 use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
+
+macro_rules! handle_error {
+    ($expression:expr) => {
+        match $expression {
+            Ok(value) => value,
+            Err(err) => {
+                return err.write_errors().into();
+            }
+        }
+    };
+}
 
 /// Enumerates PDKs supported by a certain layout implementation of a block.
 ///
@@ -174,7 +184,7 @@ pub fn derive_derived_layers(input: TokenStream) -> TokenStream {
 /// circuits often have a single shape for several of their ports.
 ///
 /// Substrate allows you to customize the type of the ports you interact with when setting up IO in
-/// the layout view of a block using the `#[io(layout_type = "...")]` attribute.
+/// the layout view of a block using the `#[substrate(layout_type = "...")]` attribute.
 ///
 /// ```
 #[doc = include_str!("../build/docs/prelude.rs.hidden")]
@@ -187,20 +197,21 @@ pub fn derive_derived_layers(input: TokenStream) -> TokenStream {
 /// If desired, you can even replace the whole IO struct with a layout type of your own (See
 /// the [`LayoutType` derive macro](`derive_layout_type`)).
 ///
-#[proc_macro_derive(Io, attributes(io))]
+#[proc_macro_derive(Io, attributes(substrate))]
 pub fn derive_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
-    let receiver_schematic = SchematicIoInputReceiver::from_derive_input(&parsed).unwrap();
-    let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
+    let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
+    let schematic = schematic_io(&input);
+    let layout = layout_io(&input);
+    let io_impl = io_impl(&input);
     let ident = parsed.ident;
     let (imp, ty, wher) = parsed.generics.split_for_impl();
     let substrate = substrate_ident();
     quote!(
         impl #imp #substrate::io::Io for #ident #ty #wher {}
-        #receiver_io
-        #receiver_schematic
-        #receiver_layout
+        #io_impl
+        #schematic
+        #layout
     )
     .into()
 }
@@ -220,11 +231,12 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(LayoutType)]
 pub fn derive_layout_type(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
-    let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
+    let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
+    let layout = layout_io(&input);
+    let io_impl = io_impl(&input);
     quote!(
-        #receiver_io
-        #receiver_layout
+        #io_impl
+        #layout
     )
     .into()
 }
@@ -250,12 +262,12 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
 #[doc = include_str!("../build/docs/layout/buffer.rs.hidden")]
 #[doc = include_str!("../build/docs/layout/buffern_data.rs")]
 /// ```
-#[proc_macro_derive(LayoutData, attributes(transform))]
+#[proc_macro_derive(LayoutData, attributes(substrate))]
 pub fn derive_layout_data(input: TokenStream) -> TokenStream {
     let receiver = block::layout::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
-    ))
-    .unwrap();
+    ));
+    let receiver = handle_error!(receiver);
     quote!(
         #receiver
     )
@@ -264,9 +276,9 @@ pub fn derive_layout_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::schematic::Data` for a struct.
 ///
-/// The `#[nested]` attribute annotates data that represents nested instances or nodes. This allows
+/// The `#[substrate(nested)]` attribute annotates data that represents nested instances or nodes. This allows
 /// Substrate to keep track of paths to nested instances and nodes for simulation purposes.
-#[proc_macro_derive(SchematicData, attributes(nested))]
+#[proc_macro_derive(SchematicData, attributes(substrate))]
 pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
     let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
@@ -280,9 +292,13 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::block::Block` for a struct or enum.
 ///
-/// You must specify the block's IO by adding a `#[block]` attribute:
-/// ```skip
-/// #[block(io = "TestbenchIo")]
+/// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use substrate::Block;
+///
+/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+/// #[substrate(io = "substrate::io::TestbenchIo")]
 /// pub struct MyBlock {
 ///   // ...
 /// }
@@ -297,11 +313,11 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// the name of the struct/enum converted to snake case. For example, the name
 /// of a block called `MyBlock` will be `my_block`.
 /// If you wish to customize this behavior, consider implementing `Block` manually.
-#[proc_macro_derive(Block, attributes(block))]
+#[proc_macro_derive(Block, attributes(substrate))]
 pub fn derive_block(input: TokenStream) -> TokenStream {
     let receiver =
-        block::BlockInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
-            .unwrap();
+        block::BlockInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput));
+    let receiver = handle_error!(receiver);
     quote!(
         #receiver
     )

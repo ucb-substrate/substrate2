@@ -2,12 +2,15 @@ use geometry::prelude::{NamedOrientation, Point};
 use geometry::{prelude::Bbox, rect::Rect};
 use substrate::context::Context;
 use substrate::geometry::transform::{Transform, Translate};
-use substrate::{TransformMut, TranslateMut};
+use substrate::layout::Instance;
+use substrate::{LayoutData, TransformMut, TranslateMut};
+
+use crate::shared::buffer::Inverter;
 
 use crate::{
     paths::get_path,
     shared::{
-        buffer::{Buffer, BufferN, Inverter},
+        buffer::{Buffer, BufferN},
         pdk::{ExamplePdkA, ExamplePdkB},
     },
 };
@@ -124,4 +127,15 @@ fn transform_point_enum() {
     let mut group = PointEnum::First(Point::new(100, 200));
     group = group.transform(NamedOrientation::ReflectVert.into());
     assert_eq!(group, PointEnum::First(Point::new(100, -200)),);
+}
+
+// Test LayoutData proc macro
+#[derive(LayoutData)]
+pub enum MyData {
+    Unit,
+    Tuple(#[substrate(transform)] Instance<Inverter>),
+    Strukt {
+        #[substrate(transform)]
+        val: Instance<Inverter>,
+    },
 }

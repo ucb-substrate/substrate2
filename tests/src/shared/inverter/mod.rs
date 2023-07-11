@@ -18,7 +18,7 @@ pub struct InverterIo {
 }
 
 #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-#[block(io = "InverterIo")]
+#[substrate(io = "InverterIo")]
 pub struct Inverter {
     /// NMOS width.
     pub nw: i64,

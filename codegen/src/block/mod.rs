@@ -1,5 +1,5 @@
 use convert_case::{Case, Casing};
-use darling::{FromDeriveInput, FromMeta};
+use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
@@ -9,15 +9,10 @@ pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(forward_attrs, supports(struct_any))]
+#[darling(attributes(substrate), supports(struct_any, enum_any))]
 pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
-    attrs: Vec<syn::Attribute>,
-}
-
-#[derive(Debug, FromMeta)]
-struct BlockData {
     io: syn::Type,
 }
 
@@ -27,24 +22,16 @@ impl ToTokens for BlockInputReceiver {
         let BlockInputReceiver {
             ref ident,
             ref generics,
-            ref attrs,
+            ref io,
         } = *self;
 
         let (imp, ty, wher) = generics.split_for_impl();
 
         let name = ident.to_string().to_case(Case::Snake);
 
-        let block_attr = attrs
-            .iter()
-            .find(|attr| attr.path().is_ident("block"))
-            .map(|attr| {
-                BlockData::from_meta(&attr.meta).expect("could not parse provided block arguments")
-            })
-            .expect("must provide the #[block] attribute");
-        let io_type = block_attr.io;
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {
-                type Io = #io_type;
+                type Io = #io;
                 fn id() -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))
                 }

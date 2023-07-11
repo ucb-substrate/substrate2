@@ -461,7 +461,7 @@ mod tests {
         let server = CacheServer::new(root.clone()).with_remote("0.0.0.0:28055".parse().unwrap());
         let handle = runtime.spawn(async move { server.start().await });
 
-        std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+        std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
 
         let client = RemoteCacheClient::new(root.clone());
         let count = Arc::new(Mutex::new(0));
@@ -483,7 +483,7 @@ mod tests {
         let server = CacheServer::new(root).with_remote("0.0.0.0:28056".parse().unwrap());
         drop(runtime.spawn(async move { server.start().await }));
 
-        std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+        std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
 
         let count2 = count.clone();
         let handle2 = client.generate("test", (1, 2, 3), move |k| {
@@ -513,7 +513,7 @@ mod tests {
         let server = CacheServer::new(root.clone()).with_local("0.0.0.0:28057".parse().unwrap());
         let handle = runtime.spawn(async move { server.start().await });
 
-        std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+        std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
 
         let client = LocalCacheClient::new(root.clone());
         let count = Arc::new(Mutex::new(0));
@@ -535,7 +535,7 @@ mod tests {
         let server = CacheServer::new(root).with_local("0.0.0.0:28058".parse().unwrap());
         drop(runtime.spawn(async move { server.start().await }));
 
-        std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+        std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
 
         let count2 = count.clone();
         let handle2 = client.generate("test", (1, 2, 3), move |k| {
@@ -565,7 +565,7 @@ mod tests {
         let server = CacheServer::new(root.clone()).with_remote("0.0.0.0:28059".parse().unwrap());
         drop(runtime.spawn(async move { server.start().await }));
 
-        std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+        std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
 
         let client = RemoteCacheClient::new(root);
         let count = Arc::new(Mutex::new(0));
