@@ -1,3 +1,5 @@
+//! A gRPC persistent cache server.
+
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,7 +11,6 @@ use crate::error::Result;
 use crate::rpc::cache::{remote_cache_server::RemoteCacheServer, *};
 use fs4::tokio::AsyncFileExt;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -18,10 +19,17 @@ use tokio_rusqlite::Connection;
 use tonic::transport::Server;
 use tonic::Response;
 
+/// The name of the config manifest TOML file.
 pub const CONFIG_MANIFEST_NAME: &str = "Cache.toml";
+
+/// The name of the main manifest database.
 pub const MANIFEST_DB_NAME: &str = "cache.sqlite";
+
+/// The expected interval between heartbeats.
 pub const HEARTBEAT_INTERVAL_SECS: u64 = 2;
-pub const HEARTBEAT_TIMEOUT_SECS: u64 = HEARTBEAT_INTERVAL_SECS + 5;
+
+/// The timeout before an assigned task is assumed to have failed.
+pub const HEARTBEAT_TIMEOUT_SECS: u64 = HEARTBEAT_INTERVAL_SECS + 2;
 
 const CREATE_MANIFEST_TABLE_STMT: &str = r#"
     CREATE TABLE IF NOT EXISTS manifest (
@@ -52,17 +60,19 @@ const DELETE_STATUS_STMT: &str = r#"
     DELETE FROM manifest WHERE namespace = ? AND key = ?;
 "#;
 
+/// A gRPC cache server.
 pub struct CacheServer {
     root: Arc<PathBuf>,
     addr: SocketAddr,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
-pub struct ConfigManifest {
-    pub addr: SocketAddr,
+pub(crate) struct ConfigManifest {
+    pub(crate) addr: SocketAddr,
 }
 
 impl CacheServer {
+    /// Creates a new [`CacheServer`] object without starting the gRPC server.
     pub fn new(root: PathBuf, addr: SocketAddr) -> Self {
         Self {
             root: Arc::new(root),
@@ -70,6 +80,7 @@ impl CacheServer {
         }
     }
 
+    /// Starts the gRPC server, listening on the configured address.
     pub async fn start(&self) -> Result<()> {
         let mut config_manifest = OpenOptions::new()
             .read(true)
@@ -171,7 +182,7 @@ impl CacheInner {
 }
 
 #[derive(Clone, Debug)]
-pub struct CacheInnerConn(Connection);
+struct CacheInnerConn(Connection);
 
 impl CacheInnerConn {
     async fn insert_status(&self, key: Arc<EntryKey>, status: DbEntryStatus) -> Result<()> {
@@ -208,8 +219,9 @@ impl CacheInnerConn {
     }
 }
 
+/// An ID corresponding to a client assigned to generate a certain value.
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
-pub struct AssignmentId(u64);
+struct AssignmentId(u64);
 
 impl AssignmentId {
     fn increment(&mut self) {
@@ -218,7 +230,7 @@ impl AssignmentId {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct EntryKey {
+struct EntryKey {
     namespace: String,
     key: Vec<u8>,
 }
@@ -228,16 +240,6 @@ enum EntryStatus {
     Loading(AssignmentId),
     Ready,
     Evicting,
-}
-
-impl EntryStatus {
-    fn to_db(self) -> DbEntryStatus {
-        match self {
-            Self::Loading { .. } => DbEntryStatus::Loading,
-            Self::Ready => DbEntryStatus::Ready,
-            Self::Evicting => DbEntryStatus::Evicting,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -267,7 +269,7 @@ impl DbEntryStatus {
 }
 
 #[derive(Clone, Debug)]
-pub struct LoadingData {
+struct LoadingData {
     last_heartbeat: Instant,
     key: Arc<EntryKey>,
 }
@@ -324,7 +326,7 @@ impl remote_cache_server::RemoteCache for RemoteCache {
                                 );
                                 get_reply::EntryStatus::Assign(next_id.0)
                             } else {
-                                conn.delete_status(entry_key.clone()).await.map_err(|e| {
+                                conn.delete_status(entry_key.clone()).await.map_err(|_| {
                                     tonic::Status::internal("unable to persist changes")
                                 })?;
                                 o.remove_entry();
@@ -348,7 +350,7 @@ impl remote_cache_server::RemoteCache for RemoteCache {
                     next_id.increment();
                     conn.insert_status(entry_key.clone(), DbEntryStatus::Loading)
                         .await
-                        .map_err(|e| tonic::Status::internal("unable to persist changes"))?;
+                        .map_err(|_| tonic::Status::internal("unable to persist changes"))?;
                     v.insert(EntryStatus::Loading(*next_id));
                     loading.insert(
                         *next_id,
@@ -413,7 +415,7 @@ impl remote_cache_server::RemoteCache for RemoteCache {
             .conn
             .update_status(key.clone(), DbEntryStatus::Ready)
             .await
-            .map_err(|e| tonic::Status::internal("unable to persist changes"))?;
+            .map_err(|_| tonic::Status::internal("unable to persist changes"))?;
 
         let status = inner
             .entry_status

@@ -20,7 +20,6 @@ thiserror = "1"
 toml = "0.7"
 clap = { version = "4", features = ["derive"] }
 tokio-rusqlite = "0.4"
-futures = "0.3"
 sha2 = "0.10"
 hex = "0.4"
 flexbuffers = "2"
