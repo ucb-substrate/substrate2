@@ -166,7 +166,6 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
             fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
                 #nested_view_ident #construct_nested_view_body
-                // todo!()
             }
         }
 

@@ -240,7 +240,7 @@ mod tests {
         let server = CacheServer::new(root.clone(), "0.0.0.0:28055".parse().unwrap());
         let handle = runtime.spawn(async move { server.start().await });
 
-        std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+        std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
 
         let client = CacheClient::new(root.clone());
         let count = Arc::new(Mutex::new(0));
