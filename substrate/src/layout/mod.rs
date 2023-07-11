@@ -179,6 +179,7 @@ impl<T: HasLayout> CellHandle<T> {
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<&Cell<T>> {
         self.cell.try_inner().map_err(|e| match e {
+            // TODO: Increase granularity of cache errors.
             cache::TryInnerError::CacheError(_) => Error::Internal,
             cache::TryInnerError::GeneratorError(e) => e.clone(),
         })
