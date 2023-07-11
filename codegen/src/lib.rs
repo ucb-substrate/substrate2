@@ -2,11 +2,14 @@
 #![warn(missing_docs)]
 
 mod block;
+mod derive;
+mod geometry;
 mod io;
 mod pdk;
 mod sim;
 
 use darling::FromDeriveInput;
+use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
 use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
@@ -310,6 +313,40 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
+}
+
+/// Derives `substrate::geometry::transform::TranslateMut`.
+#[proc_macro_derive(TranslateMut)]
+pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let receiver = DeriveInputReceiver::from_derive_input(&parsed).unwrap();
+    let substrate = substrate_ident();
+    let config = DeriveTrait {
+        trait_: quote!(#substrate::geometry::transform::TranslateMut),
+        method: quote!(translate_mut),
+        extra_arg_idents: vec![quote!(__substrate_derive_point)],
+        extra_arg_tys: vec![quote!(#substrate::geometry::point::Point)],
+    };
+
+    let expanded = derive_trait(&config, receiver);
+    proc_macro::TokenStream::from(expanded)
+}
+
+/// Derives `substrate::geometry::transform::TransformMut`.
+#[proc_macro_derive(TransformMut)]
+pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let receiver = DeriveInputReceiver::from_derive_input(&parsed).unwrap();
+    let substrate = substrate_ident();
+    let config = DeriveTrait {
+        trait_: quote!(#substrate::geometry::transform::TransformMut),
+        method: quote!(transform_mut),
+        extra_arg_idents: vec![quote!(__substrate_derive_transformation)],
+        extra_arg_tys: vec![quote!(#substrate::geometry::transform::Transformation)],
+    };
+
+    let expanded = derive_trait(&config, receiver);
+    proc_macro::TokenStream::from(expanded)
 }
 
 pub(crate) fn substrate_ident() -> TokenStream2 {
