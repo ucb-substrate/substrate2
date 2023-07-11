@@ -1,9 +1,11 @@
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetRequest {
-    #[prost(bytes = "vec", tag = "1")]
+    #[prost(string, tag = "1")]
+    pub namespace: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
     pub key: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bool, tag = "2")]
+    #[prost(bool, tag = "3")]
     pub assign: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -19,10 +21,10 @@ pub mod get_reply {
     pub enum EntryStatus {
         #[prost(message, tag = "1")]
         Unassigned(()),
-        #[prost(int64, tag = "2")]
-        Assign(i64),
+        #[prost(uint64, tag = "2")]
+        Assign(u64),
         #[prost(message, tag = "3")]
-        Loading(::prost_types::Timestamp),
+        Loading(()),
         #[prost(bytes, tag = "4")]
         Ready(::prost::alloc::vec::Vec<u8>),
     }
@@ -30,14 +32,14 @@ pub mod get_reply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HeartbeatRequest {
-    #[prost(int64, tag = "1")]
-    pub id: i64,
+    #[prost(uint64, tag = "1")]
+    pub id: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetRequest {
-    #[prost(int64, tag = "1")]
-    pub id: i64,
+    #[prost(uint64, tag = "1")]
+    pub id: u64,
     #[prost(bytes = "vec", tag = "2")]
     pub value: ::prost::alloc::vec::Vec<u8>,
 }

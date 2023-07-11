@@ -14,6 +14,16 @@ tokio-stream = "0.1"
 tokio-util = "0.7"
 prost = "0.11"
 prost-types = "0.11"
+rusqlite = { version = "0.29", features = ["blob"] }
+fs4 = { version = "0.6", features = ["tokio-async"] }
+thiserror = "1"
+toml = "0.7"
+clap = { version = "4", features = ["derive"] }
+tokio-rusqlite = "0.4"
+futures = "0.3"
+sha2 = "0.10"
+hex = "0.4"
+flexbuffers = "2"
 
 [build-dependencies]
 tonic-build = "0.9"

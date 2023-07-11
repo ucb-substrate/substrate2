@@ -114,7 +114,7 @@ pub trait CacheableWithState<S: Send + Sync + Any>:
 
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
-pub struct CacheHandle<V, E>(Arc<OnceCell<Result<V, E>>>);
+pub struct CacheHandle<V, E>(pub(crate) Arc<OnceCell<Result<V, E>>>);
 
 impl<V, E> Clone for CacheHandle<V, E> {
     fn clone(&self) -> Self {
