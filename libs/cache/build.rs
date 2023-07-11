@@ -5,6 +5,6 @@ fn main() {
 
     tonic_build::configure()
         .out_dir("src/rpc")
-        .compile(&["proto/cache.proto"], &["proto/"])
+        .compile(&["proto/local.proto", "proto/remote.proto"], &["proto/"])
         .unwrap_or_else(|e| panic!("Failed to compile protos: {:?}", e));
 }

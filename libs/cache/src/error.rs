@@ -24,7 +24,13 @@ pub enum Error {
     #[allow(missing_docs)]
     #[error(transparent)]
     Rpc(#[from] tonic::Status),
+    #[allow(missing_docs)]
+    #[error(transparent)]
+    Join(#[from] tokio::task::JoinError),
     /// An error thrown when a user-provided generator panics.
     #[error("generator panicked")]
     Panic,
+    /// An error thrown by failing to connect to the cache server.
+    #[error("failed to connect to cache server")]
+    Connection,
 }
