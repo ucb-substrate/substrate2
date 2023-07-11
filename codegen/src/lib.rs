@@ -3,7 +3,6 @@
 
 mod block;
 mod derive;
-mod geometry;
 mod io;
 mod pdk;
 mod sim;

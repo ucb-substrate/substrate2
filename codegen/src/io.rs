@@ -1,16 +1,31 @@
 use crate::substrate_ident;
-use darling::{ast, FromDeriveInput, FromMeta};
+use darling::ast::Style;
+use darling::{ast, FromDeriveInput, FromField, FromMeta};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::Field;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(supports(struct_any))]
+#[darling(
+    attributes(substrate),
+    supports(struct_any),
+    forward_attrs(allow, doc, cfg)
+)]
 pub struct SchematicIoInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
-    data: ast::Data<(), Field>,
+    data: ast::Data<(), SchematicField>,
     vis: syn::Visibility,
+    attrs: Vec<syn::Attribute>,
+}
+
+#[derive(Debug, FromField)]
+#[darling(attributes(substrate), forward_attrs(allow, doc, cfg))]
+pub struct SchematicField {
+    ident: Option<syn::Ident>,
+    vis: syn::Visibility,
+    ty: syn::Type,
+    attrs: Vec<syn::Attribute>,
 }
 
 #[derive(Debug, FromMeta)]
@@ -25,13 +40,13 @@ impl ToTokens for SchematicIoInputReceiver {
             ref generics,
             ref data,
             ref vis,
+            ref attrs,
         } = *self;
 
         let substrate = substrate_ident();
 
         let (imp, ty, wher) = generics.split_for_impl();
-        let strukt = data.as_ref().take_struct().expect("Should never be enum");
-        let fields = strukt.fields;
+        let fields = data.as_ref().take_struct().unwrap();
 
         let mut data_len = Vec::new();
         let mut data_fields = Vec::new();
@@ -43,39 +58,56 @@ impl ToTokens for SchematicIoInputReceiver {
         let mut flatten_node_fields = Vec::new();
 
         let data_ident = format_ident!("{}Schematic", ident);
-        let nested_view_ident = format_ident!("Nested{}SchematicView", ident);
+        let nested_view_ident = format_ident!("{}NestedSchematicView", ident);
 
-        for f in fields {
-            let field_ident = f
-                .ident
-                .as_ref()
-                .expect("could not find identifier for field");
+        for (i, &f) in fields.iter().enumerate() {
             let field_ty = &f.ty;
             let field_vis = &f.vis;
+            let field_ident = &f.ident;
+            let idx = syn::Index::from(i);
+            let tuple_ident = format_ident!("__substrate_derive_field{i}");
+            let attrs = &f.attrs;
+
+            // declare (pub field: ty), refer to (self.field), assign (field: value)
+            let (declare, refer, assign, temp) = match fields.style {
+                Style::Unit => unreachable!(),
+                Style::Struct => (
+                    quote!(#(#attrs)* #field_vis #field_ident:),
+                    quote!(self.#field_ident),
+                    quote!(#field_ident:),
+                    quote!(#field_ident),
+                ),
+                Style::Tuple => (
+                    quote!(#(#attrs)* #field_vis),
+                    quote!(self.#idx),
+                    quote!(),
+                    quote!(#tuple_ident),
+                ),
+            };
 
             data_len.push(quote! {
-                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::FlatLen>::len(&self.#field_ident)
+                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::FlatLen>::len(&#refer)
             });
             data_fields.push(quote! {
-                #field_vis #field_ident: <#field_ty as #substrate::io::SchematicType>::Data,
+                #declare <#field_ty as #substrate::io::SchematicType>::Data,
             });
             nested_view_fields.push(quote! {
-                #field_vis #field_ident: #substrate::schematic::NestedView<'a, <#field_ty as #substrate::io::SchematicType>::Data>,
+                #declare #substrate::schematic::NestedView<'a, <#field_ty as #substrate::io::SchematicType>::Data>,
             });
             construct_data_fields.push(quote! {
-                #field_ident,
+                #assign #temp,
             });
             construct_nested_view_fields.push(quote! {
-                #field_ident: <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::schematic::HasNestedView>::nested_view(&self.#field_ident, parent),
+                #assign <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
             });
             instantiate_fields.push(quote! {
-                let (#field_ident, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&self.#field_ident, __substrate_node_ids);
+                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&#refer, __substrate_node_ids);
             });
             flatten_dir_fields.push(quote! {
-                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&self.#field_ident, __substrate_output_sink);
+                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&#refer, __substrate_output_sink);
             });
             flatten_node_fields.push(quote! {
-                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&self.#field_ident, __substrate_output_sink);
+                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&#refer, __substrate_output_sink);
             });
         }
 
@@ -84,16 +116,24 @@ impl ToTokens for SchematicIoInputReceiver {
             data_len.push(quote! { 0 });
         }
 
+        let body = |contents| match fields.style {
+            Style::Unit => quote!(;),
+            Style::Tuple => quote!( (  #contents ) ),
+            Style::Struct => quote!( {  #contents } ),
+        };
+
+        let data_body = body(quote!( #(#data_fields)* ));
+        let nested_view_body = body(quote!( #(#nested_view_fields)* ));
+        let construct_nested_view_body = body(quote!( #(#construct_nested_view_fields)* ));
+
         tokens.extend(quote! {
             #[allow(missing_docs)]
             #[derive(Clone)]
-            #vis struct #data_ident #ty #wher {
-                #( #data_fields )*
-            }
+            #(#attrs)*
+            #vis struct #data_ident #ty #wher #data_body
             #[allow(missing_docs)]
-            #vis struct #nested_view_ident<'a> {
-                #( #nested_view_fields )*
-            }
+            #(#attrs)*
+            #vis struct #nested_view_ident<'a> #nested_view_body
             impl #imp #substrate::io::FlatLen for #data_ident #ty #wher {
                 fn len(&self) -> usize {
                     #( #data_len )+*
@@ -121,9 +161,7 @@ impl ToTokens for SchematicIoInputReceiver {
                 type NestedView<'a> = #nested_view_ident<'a>;
 
                 fn nested_view<'a>(&'a self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<'a> {
-                    Self::NestedView {
-                        #( #construct_nested_view_fields )*
-                    }
+                    Self::NestedView #construct_nested_view_body
                 }
             }
 
