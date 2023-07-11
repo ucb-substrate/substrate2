@@ -65,7 +65,10 @@ jobs:
         run: just gen-examples
       - name: Check docs
         run: |
-          cargo hack --all rustdoc --all-targets --all-features -- -D warnings
+          cargo hack --all rustdoc --all-features
+        env:
+          RUSTFLAGS: '-D warnings'
+          RUSTDOCFLAGS: '-D warnings'
   test:
     name: test
     runs-on: [bwrc, nfs]
