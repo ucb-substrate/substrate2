@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use cache::mem::Cacheable;
+use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use substrate::{
@@ -64,7 +64,7 @@ impl HasSchematicImpl<ExamplePdkA> for CacheBlock {
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let design = *cell.ctx().cache_get(CachedDesignScript(5)).get();
+        let design = *cell.ctx().cache_get(CachedDesignScript(5)).unwrap_inner();
 
         Ok(CacheBlockData { design })
     }
