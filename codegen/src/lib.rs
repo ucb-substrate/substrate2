@@ -9,7 +9,7 @@ mod sim;
 
 use darling::FromDeriveInput;
 use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
-use io::{IoInputReceiver, LayoutIoInputReceiver, SchematicIoInputReceiver};
+use io::{io_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,
@@ -197,20 +197,21 @@ pub fn derive_derived_layers(input: TokenStream) -> TokenStream {
 /// If desired, you can even replace the whole IO struct with a layout type of your own (See
 /// the [`LayoutType` derive macro](`derive_layout_type`)).
 ///
-#[proc_macro_derive(Io, attributes(io))]
+#[proc_macro_derive(Io, attributes(substrate))]
 pub fn derive_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
-    let receiver_schematic = SchematicIoInputReceiver::from_derive_input(&parsed).unwrap();
-    let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
+    let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
+    let schematic = schematic_io(&input);
+    let layout = layout_io(&input);
+    let io_impl = io_impl(&input);
     let ident = parsed.ident;
     let (imp, ty, wher) = parsed.generics.split_for_impl();
     let substrate = substrate_ident();
     quote!(
         impl #imp #substrate::io::Io for #ident #ty #wher {}
-        #receiver_io
-        #receiver_schematic
-        #receiver_layout
+        #io_impl
+        #schematic
+        #layout
     )
     .into()
 }
@@ -230,11 +231,12 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(LayoutType)]
 pub fn derive_layout_type(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver_io = IoInputReceiver::from_derive_input(&parsed).unwrap();
-    let receiver_layout = LayoutIoInputReceiver::from_derive_input(&parsed).unwrap();
+    let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
+    let layout = layout_io(&input);
+    let io_impl = io_impl(&input);
     quote!(
-        #receiver_io
-        #receiver_layout
+        #io_impl
+        #layout
     )
     .into()
 }

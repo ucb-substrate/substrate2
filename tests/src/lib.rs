@@ -6,6 +6,7 @@ pub mod bsub;
 #[cfg(test)]
 pub mod cache;
 pub mod external;
+pub mod io;
 #[cfg(test)]
 pub mod layout;
 #[cfg(test)]
