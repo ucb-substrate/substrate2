@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.70.0
         id: toolchain
@@ -43,6 +45,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.70.0
         id: toolchain
@@ -61,12 +65,17 @@ jobs:
         run: just gen-examples
       - name: Check docs
         run: |
-          cargo hack --all rustdoc --all-features -- -D warnings
+          cargo hack --all rustdoc --all-features
+        env:
+          RUSTFLAGS: '-D warnings'
+          RUSTDOCFLAGS: '-D warnings'
   test:
     name: test
     runs-on: [bwrc, nfs]
     steps:
       - uses: actions/checkout@v3
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.70.0
         id: toolchain

@@ -32,7 +32,7 @@ use std::{
 };
 
 use arcstr::ArcStr;
-use cache::mem::{Cache, CacheHandle};
+use cache::{mem::Cache, CacheHandle};
 use geometry::{
     prelude::{Bbox, Orientation, Point},
     transform::{
@@ -162,7 +162,7 @@ impl<T: HasLayout> Bbox for Cell<T> {
 
 /// A handle to a schematic cell that is being generated.
 pub struct CellHandle<T: HasLayout> {
-    pub(crate) cell: CacheHandle<Cell<T>, Error>,
+    pub(crate) cell: CacheHandle<Result<Cell<T>>>,
 }
 
 impl<T: HasLayout> Clone for CellHandle<T> {
@@ -178,7 +178,11 @@ impl<T: HasLayout> CellHandle<T> {
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<&Cell<T>> {
-        self.cell.try_get().map_err(|e| e.clone())
+        self.cell.try_inner().map_err(|e| match e {
+            // TODO: Increase granularity of cache errors.
+            cache::TryInnerError::CacheError(_) => Error::Internal,
+            cache::TryInnerError::GeneratorError(e) => e.clone(),
+        })
     }
 
     /// Returns the underlying [`Cell`].
@@ -247,7 +251,7 @@ impl<'a, T: HasLayout> Bbox for TransformedCell<'a, T> {
 /// Stores a pointer to its underlying cell and its instantiated location and orientation.
 #[allow(dead_code)]
 pub struct Instance<T: HasLayout> {
-    cell: CacheHandle<Cell<T>, Error>,
+    cell: CellHandle<T>,
     pub(crate) loc: Point,
     pub(crate) orientation: Orientation,
 }
@@ -262,7 +266,7 @@ impl<T: HasLayout> Clone for Instance<T> {
 }
 
 impl<T: HasLayout> Instance<T> {
-    pub(crate) fn new(cell: CacheHandle<Cell<T>, Error>) -> Self {
+    pub(crate) fn new(cell: CellHandle<T>) -> Self {
         Instance {
             cell,
             loc: Point::default(),
@@ -276,15 +280,12 @@ impl<T: HasLayout> Instance<T> {
     ///
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<Transformed<'_, Cell<T>>> {
-        self.cell
-            .try_get()
-            .map(|cell| {
-                cell.transformed_view(Transformation::from_offset_and_orientation(
-                    self.loc,
-                    self.orientation,
-                ))
-            })
-            .map_err(|err| err.clone())
+        self.cell.try_cell().map(|cell| {
+            cell.transformed_view(Transformation::from_offset_and_orientation(
+                self.loc,
+                self.orientation,
+            ))
+        })
     }
 
     /// Returns a transformed view of the underlying [`Cell`].
@@ -449,7 +450,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// ```
     pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
-        Instance::new(cell.cell)
+        Instance::new(cell)
     }
 
     /// Generate an instance of `block`.
@@ -459,7 +460,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     pub fn generate_blocking<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Result<Instance<I>> {
         let cell = self.ctx.generate_layout(block);
         cell.try_cell()?;
-        Ok(Instance::new(cell.cell))
+        Ok(Instance::new(cell))
     }
 
     pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: Instance<I>) {
@@ -469,7 +470,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
 
         let cell = inst.cell.clone();
         thread::spawn(move || {
-            if let Ok(cell) = cell.try_get() {
+            if let Ok(cell) = cell.try_cell() {
                 send.send(Some(RawInstance {
                     cell: cell.raw.clone(),
                     loc: inst.loc,

@@ -2,7 +2,8 @@
 
 pub mod conv;
 
-use cache::mem::{Cache, CacheHandle};
+use cache::mem::Cache;
+use cache::CacheHandle;
 use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -213,7 +214,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             id: self.next_instance_id,
             parent: self.root.clone(),
             path: self.root.append_segment(self.next_instance_id, cell.id),
-            cell: cell.cell.clone(),
+            cell: cell.clone(),
             io: io_data,
         };
 
@@ -222,7 +223,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         self.instances.push(recv);
 
         thread::spawn(move || {
-            if let Ok(cell) = cell.cell.try_get() {
+            if let Ok(cell) = cell.try_cell() {
                 let raw = RawInstance {
                     id: inst.id,
                     name: arcstr::literal!("unnamed"),
@@ -545,11 +546,20 @@ impl<T: HasSchematic> Cell<T> {
 }
 
 /// A handle to a schematic cell that is being generated.
-#[derive(Clone)]
 pub struct CellHandle<T: HasSchematic> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<T>,
-    pub(crate) cell: CacheHandle<Cell<T>, Error>,
+    pub(crate) cell: CacheHandle<Result<Cell<T>>>,
+}
+
+impl<T: HasSchematic> Clone for CellHandle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            block: self.block.clone(),
+            cell: self.cell.clone(),
+        }
+    }
 }
 
 /// A handle to a testbench schematic cell that is being generated.
@@ -561,7 +571,11 @@ impl<T: HasSchematic> CellHandle<T> {
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<&Cell<T>> {
-        self.cell.try_get().map_err(|e| e.clone())
+        self.cell.try_inner().map_err(|e| match e {
+            // TODO: Handle cache errors with more granularity.
+            cache::TryInnerError::CacheError(_) => Error::Internal,
+            cache::TryInnerError::GeneratorError(e) => e.clone(),
+        })
     }
 
     /// Returns the underlying [`Cell`].
@@ -659,7 +673,7 @@ pub struct Instance<T: HasSchematic> {
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
-    cell: CacheHandle<Cell<T>, Error>,
+    cell: CellHandle<T>,
 }
 
 impl<T: HasSchematic> Instance<T> {
@@ -673,9 +687,8 @@ impl<T: HasSchematic> Instance<T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
-            .try_get()
+            .try_cell()
             .map(|cell| cell.nested_view(&self.path))
-            .map_err(|e| e.clone())
     }
 
     /// Returns the underlying [`Cell`].
@@ -924,7 +937,7 @@ pub struct NestedInstanceView<'a, T: HasSchematic> {
     path: InstancePath,
     /// The cell's input/output interface.
     io: &'a <T::Io as SchematicType>::Data,
-    cell: CacheHandle<Cell<T>, Error>,
+    cell: CellHandle<T>,
 }
 
 /// An owned nested instance created by cloning the instance referenced by a
@@ -940,7 +953,7 @@ pub struct NestedInstance<T: HasSchematic> {
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
-    cell: CacheHandle<Cell<T>, Error>,
+    cell: CellHandle<T>,
 }
 
 impl HasNestedView for () {
@@ -974,9 +987,8 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
-            .try_get()
+            .try_cell()
             .map(|cell| cell.nested_view(&self.path))
-            .map_err(|e| e.clone())
     }
 
     /// Returns the underlying [`Cell`].
@@ -1057,9 +1069,8 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<NestedCellView<'_, T>> {
         self.cell
-            .try_get()
+            .try_cell()
             .map(|cell| cell.nested_view(&self.path))
-            .map_err(|e| e.clone())
     }
 
     /// Returns the underlying [`Cell`].
