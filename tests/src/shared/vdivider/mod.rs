@@ -108,9 +108,9 @@ impl HasSchematic for Resistor {
 
 #[derive(SchematicData)]
 pub struct VdividerData {
-    #[nested]
+    #[substrate(nested)]
     r1: Instance<Resistor>,
-    #[nested]
+    #[substrate(nested)]
     r2: Instance<Resistor>,
 }
 

@@ -149,9 +149,9 @@ pub struct ExtraLayers {
 
 #[derive(LayoutData)]
 pub struct BufferData {
-    #[transform]
+    #[substrate(transform)]
     pub inv1: Instance<Inverter>,
-    #[transform]
+    #[substrate(transform)]
     pub inv2: Instance<Inverter>,
 }
 
@@ -204,7 +204,7 @@ impl HasLayoutImpl<T> for Buffer {
 
 #[derive(Default, LayoutData)]
 pub struct BufferNData {
-    #[transform]
+    #[substrate(transform)]
     pub buffers: Vec<Instance<Buffer>>,
 }
 

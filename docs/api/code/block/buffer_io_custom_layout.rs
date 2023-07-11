@@ -1,5 +1,5 @@
 #[derive(Io, Clone, Default)]
-#[io(layout_type = "BufferIoLayout")]
+#[substrate(layout_type = "BufferIoLayout")]
 pub struct BufferIo {
     vdd: InOut<Signal>,
     vss: InOut<Signal>,

@@ -1,393 +1,427 @@
+use crate::derive::struct_body;
+use crate::derive::FieldTokens;
 use crate::substrate_ident;
-use darling::{ast, FromDeriveInput, FromMeta};
+use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
-use syn::Field;
+use quote::{format_ident, quote};
+use syn::parse_quote;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(supports(struct_any))]
-pub struct SchematicIoInputReceiver {
-    ident: syn::Ident,
-    generics: syn::Generics,
-    data: ast::Data<(), Field>,
-    vis: syn::Visibility,
-}
-
-#[derive(Debug, FromMeta)]
-pub struct IoData {
-    layout_type: syn::Type,
-}
-
-impl ToTokens for SchematicIoInputReceiver {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let SchematicIoInputReceiver {
-            ref ident,
-            ref generics,
-            ref data,
-            ref vis,
-        } = *self;
-
-        let substrate = substrate_ident();
-
-        let (imp, ty, wher) = generics.split_for_impl();
-        let strukt = data.as_ref().take_struct().expect("Should never be enum");
-        let fields = strukt.fields;
-
-        let mut data_len = Vec::new();
-        let mut data_fields = Vec::new();
-        let mut nested_view_fields = Vec::new();
-        let mut construct_data_fields = Vec::new();
-        let mut construct_nested_view_fields = Vec::new();
-        let mut instantiate_fields = Vec::new();
-        let mut flatten_dir_fields = Vec::new();
-        let mut flatten_node_fields = Vec::new();
-
-        let data_ident = format_ident!("{}Schematic", ident);
-        let nested_view_ident = format_ident!("Nested{}SchematicView", ident);
-
-        for f in fields {
-            let field_ident = f
-                .ident
-                .as_ref()
-                .expect("could not find identifier for field");
-            let field_ty = &f.ty;
-            let field_vis = &f.vis;
-
-            data_len.push(quote! {
-                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::FlatLen>::len(&self.#field_ident)
-            });
-            data_fields.push(quote! {
-                #field_vis #field_ident: <#field_ty as #substrate::io::SchematicType>::Data,
-            });
-            nested_view_fields.push(quote! {
-                #field_vis #field_ident: #substrate::schematic::NestedView<'a, <#field_ty as #substrate::io::SchematicType>::Data>,
-            });
-            construct_data_fields.push(quote! {
-                #field_ident,
-            });
-            construct_nested_view_fields.push(quote! {
-                #field_ident: <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::schematic::HasNestedView>::nested_view(&self.#field_ident, parent),
-            });
-            instantiate_fields.push(quote! {
-                let (#field_ident, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&self.#field_ident, __substrate_node_ids);
-            });
-            flatten_dir_fields.push(quote! {
-                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&self.#field_ident, __substrate_output_sink);
-            });
-            flatten_node_fields.push(quote! {
-                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&self.#field_ident, __substrate_output_sink);
-            });
-        }
-
-        // Return 0 from `FlatLen::len` if struct has no fields.
-        if data_len.is_empty() {
-            data_len.push(quote! { 0 });
-        }
-
-        tokens.extend(quote! {
-            #[allow(missing_docs)]
-            #[derive(Clone)]
-            #vis struct #data_ident #ty #wher {
-                #( #data_fields )*
-            }
-            #[allow(missing_docs)]
-            #vis struct #nested_view_ident<'a> {
-                #( #nested_view_fields )*
-            }
-            impl #imp #substrate::io::FlatLen for #data_ident #ty #wher {
-                fn len(&self) -> usize {
-                    #( #data_len )+*
-                }
-            }
-
-            impl #imp #substrate::io::Flatten<#substrate::io::Direction> for #ident #ty #wher {
-                fn flatten<E>(&self, __substrate_output_sink: &mut E)
-                where
-                    E: ::std::iter::Extend<#substrate::io::Direction> {
-                    #( #flatten_dir_fields )*
-                }
-            }
-
-            impl #imp #substrate::io::Flatten<#substrate::io::Node> for #data_ident #ty #wher {
-                fn flatten<E>(&self, __substrate_output_sink: &mut E)
-                where
-                    E: ::std::iter::Extend<#substrate::io::Node> {
-                    #( #flatten_node_fields )*
-                }
-            }
-
-            // TODO: How to handle generics?
-            impl #imp #substrate::schematic::HasNestedView for #data_ident #ty #wher {
-                type NestedView<'a> = #nested_view_ident<'a>;
-
-                fn nested_view<'a>(&'a self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<'a> {
-                    Self::NestedView {
-                        #( #construct_nested_view_fields )*
-                    }
-                }
-            }
-
-            impl #imp #substrate::io::SchematicType for #ident #ty #wher {
-                type Data = #data_ident;
-                fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Data, &'n [#substrate::io::Node]) {
-                    #( #instantiate_fields )*
-                    (#data_ident { #( #construct_data_fields )* }, __substrate_node_ids)
-                }
-            }
-        });
-    }
-}
-
-#[derive(Debug, FromDeriveInput)]
-#[darling(forward_attrs, supports(struct_any))]
-pub struct LayoutIoInputReceiver {
-    ident: syn::Ident,
-    generics: syn::Generics,
-    data: ast::Data<(), Field>,
-    attrs: Vec<syn::Attribute>,
-    vis: syn::Visibility,
-}
-
-impl ToTokens for LayoutIoInputReceiver {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let LayoutIoInputReceiver {
-            ref ident,
-            ref generics,
-            ref attrs,
-            ref data,
-            ref vis,
-        } = *self;
-
-        let substrate = substrate_ident();
-
-        let (imp, ty, wher) = generics.split_for_impl();
-
-        if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("io")) {
-            let IoData { layout_type } =
-                IoData::from_meta(&attr.meta).expect("could not parse provided arguments");
-            tokens.extend(quote! {
-                impl #imp #substrate::io::LayoutType for #ident #ty #wher {
-                    type Data = <#layout_type as #substrate::io::LayoutType>::Data;
-                    type Builder = <#layout_type as #substrate::io::LayoutType>::Builder;
-
-                    fn builder(&self) -> Self::Builder {
-                        <#layout_type as #substrate::io::LayoutType>::builder(&<#layout_type as #substrate::io::CustomLayoutType<#ident>>::from_layout_type(self))
-                    }
-                }
-            });
-            return;
-        }
-        let fields = data
-            .as_ref()
-            .take_struct()
-            .expect("Should never be enum")
-            .fields;
-
-        let mut ty_len = Vec::new();
-        let mut layout_data_len = Vec::new();
-        let mut layout_data_fields = Vec::new();
-        let mut layout_builder_fields = Vec::new();
-        let mut transformed_layout_data_fields = Vec::new();
-        let mut flatten_port_geometry_fields = Vec::new();
-        let mut create_builder_fields = Vec::new();
-        let mut transformed_view_fields = Vec::new();
-        let mut build_data_fields = Vec::new();
-
-        let layout_data_ident = format_ident!("{}Layout", ident);
-        let layout_builder_ident = format_ident!("{}LayoutBuilder", ident);
-        let transformed_layout_data_ident = format_ident!("Transformed{}Layout", ident);
-
-        for f in fields {
-            let field_ident = f
-                .ident
-                .as_ref()
-                .expect("could not find identifier for field");
-            let (field_ty, switch_type) =
-                if let Some(attr) = f.attrs.iter().find(|attr| attr.path().is_ident("io")) {
-                    let IoData { layout_type } =
-                        IoData::from_meta(&attr.meta).expect("could not parse provided arguments");
-                    (layout_type, true)
-                } else {
-                    (f.ty.clone(), false)
-                };
-            let original_field_ty = &f.ty;
-            let field_vis = &f.vis;
-
-            ty_len.push(quote! {
-                <#field_ty as #substrate::io::FlatLen>::len(&self.#field_ident)
-            });
-            layout_data_len.push(quote! {
-                <<#field_ty as #substrate::io::LayoutType>::Data as #substrate::io::FlatLen>::len(&self.#field_ident)
-            });
-            layout_data_fields.push(quote! {
-                #field_vis #field_ident: <#field_ty as #substrate::io::LayoutType>::Data,
-            });
-            layout_builder_fields.push(quote! {
-                #field_vis #field_ident: <#field_ty as #substrate::io::LayoutType>::Builder,
-            });
-            transformed_layout_data_fields.push(quote! {
-                #field_vis #field_ident: #substrate::geometry::transform::Transformed<'a, <#field_ty as #substrate::io::LayoutType>::Data>,
-            });
-            flatten_port_geometry_fields.push(quote! {
-                <<#field_ty as #substrate::io::LayoutType>::Data as #substrate::io::Flatten<#substrate::io::PortGeometry>>::flatten(&self.#field_ident, __substrate_output_sink);
-            });
-            if switch_type {
-                create_builder_fields.push(quote! {
-                    #field_ident: <#field_ty as #substrate::io::LayoutType>::builder(&<#field_ty as #substrate::io::CustomLayoutType<#original_field_ty>>::from_layout_type(&self.#field_ident)),
-                });
-            } else {
-                create_builder_fields.push(quote! {
-                    #field_ident: <#field_ty as #substrate::io::LayoutType>::builder(&self.#field_ident),
-                });
-            }
-            transformed_view_fields.push(quote! {
-                #field_ident: #substrate::geometry::transform::HasTransformedView::transformed_view(&self.#field_ident, trans),
-            });
-            build_data_fields.push(quote! {
-                #field_ident: #substrate::io::LayoutDataBuilder::<<#field_ty as #substrate::io::LayoutType>::Data>::build(self.#field_ident)?,
-            });
-        }
-
-        // Return 0 from `FlatLen::len` if struct has no fields.
-        if ty_len.is_empty() {
-            ty_len.push(quote! { 0 });
-        }
-
-        if layout_data_len.is_empty() {
-            layout_data_len.push(quote! { 0 });
-        }
-
-        tokens.extend(quote! {
-            impl #imp #substrate::io::LayoutType for #ident #ty #wher {
-                type Data = #layout_data_ident;
-                type Builder = #layout_builder_ident;
-
-                fn builder(&self) -> Self::Builder {
-                    Self::Builder {
-                        #( #create_builder_fields )*
-                    }
-                }
-            }
-
-            #[allow(missing_docs)]
-            #vis struct #layout_data_ident #ty #wher {
-                #( #layout_data_fields )*
-            }
-
-            #[allow(missing_docs)]
-            #vis struct #layout_builder_ident #ty #wher {
-                #( #layout_builder_fields )*
-            }
-
-            impl #imp #substrate::io::FlatLen for #layout_data_ident #ty #wher {
-                fn len(&self) -> usize {
-                    #( #layout_data_len )+*
-                }
-            }
-
-            impl #imp #substrate::io::Flatten<#substrate::io::PortGeometry> for #layout_data_ident #ty #wher {
-                fn flatten<E>(&self, __substrate_output_sink: &mut E)
-                where
-                    E: ::std::iter::Extend<#substrate::io::PortGeometry> {
-                    #( #flatten_port_geometry_fields )*
-                }
-            }
-
-            // TODO: How to correctly handle generics?
-            #[allow(missing_docs)]
-            #vis struct #transformed_layout_data_ident<'a> {
-                #( #transformed_layout_data_fields )*
-            }
-
-            impl #imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #ty #wher {
-                type TransformedView<'a> = #transformed_layout_data_ident<'a>;
-
-                fn transformed_view(
-                    &self,
-                    trans: #substrate::geometry::transform::Transformation,
-                ) -> Self::TransformedView<'_> {
-                    Self::TransformedView {
-                        #( #transformed_view_fields )*
-                    }
-                }
-            }
-
-            impl #imp #substrate::io::LayoutDataBuilder<#layout_data_ident #ty> for #layout_builder_ident #ty #wher {
-                fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {
-                    #substrate::error::Result::Ok(#layout_data_ident {
-                        #( #build_data_fields )*
-                    })
-                }
-            }
-        });
-    }
-}
-
-#[derive(Debug, FromDeriveInput)]
-#[darling(supports(struct_any))]
+#[darling(
+    attributes(substrate),
+    supports(struct_any),
+    forward_attrs(allow, doc, cfg)
+)]
 pub struct IoInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
-    data: ast::Data<(), Field>,
+    data: ast::Data<(), IoField>,
+    vis: syn::Visibility,
+    attrs: Vec<syn::Attribute>,
+    #[darling(default)]
+    layout_type: Option<syn::Type>,
 }
 
-impl ToTokens for IoInputReceiver {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let IoInputReceiver {
-            ref ident,
-            ref generics,
-            ref data,
-        } = *self;
+#[derive(Debug, FromField)]
+#[darling(attributes(substrate), forward_attrs(allow, doc, cfg))]
+pub struct IoField {
+    ident: Option<syn::Ident>,
+    vis: syn::Visibility,
+    ty: syn::Type,
+    attrs: Vec<syn::Attribute>,
+    #[darling(default)]
+    layout_type: Option<syn::Type>,
+}
 
-        let (imp, ty, wher) = generics.split_for_impl();
-        let fields = data
-            .as_ref()
-            .take_struct()
-            .expect("Should never be enum")
-            .fields;
+pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
+    let IoInputReceiver {
+        ref ident,
+        ref generics,
+        ref data,
+        ref vis,
+        ref attrs,
+        ..
+    } = *input;
 
-        let mut ty_len = Vec::new();
-        let mut name_fields = Vec::new();
+    let substrate = substrate_ident();
 
-        let substrate = substrate_ident();
+    let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
+    let mut ref_generics = generics.clone();
+    ref_generics.params.push(lifetime.clone());
 
-        for f in fields {
-            let field_ident = f
-                .ident
-                .as_ref()
-                .expect("could not find identifier for field");
-            let field_ty = &f.ty;
-
-            ty_len.push(quote! {
-                <#field_ty as #substrate::io::FlatLen>::len(&self.#field_ident)
-            });
-            name_fields.push(quote! {
-                (#substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as #substrate::io::HasNameTree>::names(&self.#field_ident))
-            });
+    let mut idents = Vec::new();
+    for param in &ref_generics.params {
+        if let syn::GenericParam::Type(ref type_param) = *param {
+            idents.push(type_param.ident.clone());
         }
+    }
+    let ref_wher = ref_generics.make_where_clause();
+    for ident in idents {
+        ref_wher
+            .predicates
+            .push(syn::parse_quote!(<#ident as substrate::io::SchematicType>::Data: #lifetime));
+    }
 
-        // Return 0 from `FlatLen::len` if struct has no fields.
-        if ty_len.is_empty() {
-            ty_len.push(quote! { 0 });
-        }
+    let (imp, ty, wher) = generics.split_for_impl();
+    let (_ref_imp, ref_ty, ref_wher) = ref_generics.split_for_impl();
+    let fields = data.as_ref().take_struct().unwrap();
 
-        tokens.extend(quote! {
-            impl #imp #substrate::io::FlatLen for #ident #ty #wher {
-                fn len(&self) -> usize {
-                    #( #ty_len )+*
-                }
-            }
+    let mut data_len = Vec::new();
+    let mut data_fields = Vec::new();
+    let mut nested_view_fields = Vec::new();
+    let mut construct_data_fields = Vec::new();
+    let mut construct_nested_view_fields = Vec::new();
+    let mut instantiate_fields = Vec::new();
+    let mut flatten_dir_fields = Vec::new();
+    let mut flatten_node_fields = Vec::new();
 
-            impl #imp #substrate::io::HasNameTree for #ident #ty #wher {
-                fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::io::NameTree>> {
-                    if <Self as #substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
-                    ::std::option::Option::Some([ #( #name_fields ),* ]
-                         .into_iter()
-                         .filter_map(|(frag, children)| children.map(|c| #substrate::io::NameTree::new(frag, c)))
-                         .collect()
-                    )
-                }
-            }
+    let data_ident = format_ident!("{}Schematic", ident);
+    let nested_view_ident = format_ident!("{}NestedSchematicView", ident);
+
+    for (i, &f) in fields.iter().enumerate() {
+        let field_ty = &f.ty;
+        let field_vis = &f.vis;
+        let field_ident = &f.ident;
+        let attrs = &f.attrs;
+
+        let FieldTokens {
+            declare,
+            refer,
+            assign,
+            temp,
+            ..
+        } = crate::derive::field_tokens(fields.style, field_vis, attrs, i, field_ident);
+
+        data_len.push(quote! {
+                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::FlatLen>::len(&#refer)
+            });
+        data_fields.push(quote! {
+            #declare <#field_ty as #substrate::io::SchematicType>::Data,
         });
+        nested_view_fields.push(quote! {
+                #declare #substrate::schematic::NestedView<#lifetime, <#field_ty as #substrate::io::SchematicType>::Data>,
+        });
+        construct_data_fields.push(quote! {
+            #assign #temp,
+        });
+        construct_nested_view_fields.push(quote! {
+                #assign <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
+        });
+        instantiate_fields.push(quote! {
+                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&#refer, __substrate_node_ids);
+        });
+        flatten_dir_fields.push(quote! {
+                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&#refer, __substrate_output_sink);
+        });
+        flatten_node_fields.push(quote! {
+                <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&#refer, __substrate_output_sink);
+        });
+    }
+
+    // Return 0 from `FlatLen::len` if struct has no fields.
+    if data_len.is_empty() {
+        data_len.push(quote! { 0 });
+    }
+
+    let data_body = struct_body(fields.style, true, quote!( #(#data_fields)* ));
+    let nested_view_body = struct_body(fields.style, true, quote!( #(#nested_view_fields)* ));
+    let construct_nested_view_body = struct_body(
+        fields.style,
+        false,
+        quote!( #(#construct_nested_view_fields)* ),
+    );
+    let construct_data_body =
+        struct_body(fields.style, false, quote!( #(#construct_data_fields)* ));
+
+    quote! {
+        #[derive(Clone)]
+        #(#attrs)*
+        #vis struct #data_ident #ty #wher #data_body
+        #(#attrs)*
+        #vis struct #nested_view_ident #ref_ty #ref_wher #nested_view_body
+        impl #imp #substrate::io::FlatLen for #data_ident #ty #wher {
+            fn len(&self) -> usize {
+                #( #data_len )+*
+            }
+        }
+
+        impl #imp #substrate::io::Flatten<#substrate::io::Direction> for #ident #ty #wher {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: ::std::iter::Extend<#substrate::io::Direction> {
+                #( #flatten_dir_fields )*
+            }
+        }
+
+        impl #imp #substrate::io::Flatten<#substrate::io::Node> for #data_ident #ty #wher {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: ::std::iter::Extend<#substrate::io::Node> {
+                #( #flatten_node_fields )*
+            }
+        }
+
+        impl #imp #substrate::schematic::HasNestedView for #data_ident #ty #wher {
+            type NestedView<#lifetime> = #nested_view_ident #ref_ty;
+
+            fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
+                #nested_view_ident #construct_nested_view_body
+                // todo!()
+            }
+        }
+
+        impl #imp #substrate::io::SchematicType for #ident #ty #wher {
+            type Data = #data_ident #ty;
+            fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Data, &'n [#substrate::io::Node]) {
+                #( #instantiate_fields )*
+                (#data_ident #construct_data_body, __substrate_node_ids)
+            }
+        }
+    }
+}
+
+pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
+    let IoInputReceiver {
+        ref ident,
+        ref generics,
+        ref attrs,
+        ref data,
+        ref vis,
+        ref layout_type,
+    } = *input;
+
+    let substrate = substrate_ident();
+
+    let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
+    let mut ref_generics = generics.clone();
+    ref_generics.params.push(lifetime.clone());
+
+    let mut idents = Vec::new();
+    for param in &ref_generics.params {
+        if let syn::GenericParam::Type(ref type_param) = *param {
+            idents.push(type_param.ident.clone());
+        }
+    }
+    let ref_wher = ref_generics.make_where_clause();
+    for ident in idents {
+        ref_wher
+            .predicates
+            .push(syn::parse_quote!(<#ident as substrate::io::SchematicType>::Data: #lifetime));
+    }
+
+    let (imp, ty, wher) = generics.split_for_impl();
+    let (_ref_imp, ref_ty, ref_wher) = ref_generics.split_for_impl();
+    let fields = data.as_ref().take_struct().unwrap();
+
+    if let Some(layout_type) = layout_type {
+        return quote! {
+            impl #imp #substrate::io::LayoutType for #ident #ty #wher {
+                type Data = <#layout_type as #substrate::io::LayoutType>::Data;
+                type Builder = <#layout_type as #substrate::io::LayoutType>::Builder;
+
+                fn builder(&self) -> Self::Builder {
+                    <#layout_type as #substrate::io::LayoutType>::builder(&<#layout_type as #substrate::io::CustomLayoutType<#ident>>::from_layout_type(self))
+                }
+            }
+        };
+    }
+
+    let mut ty_len = Vec::new();
+    let mut layout_data_len = Vec::new();
+    let mut layout_data_fields = Vec::new();
+    let mut layout_builder_fields = Vec::new();
+    let mut transformed_layout_data_fields = Vec::new();
+    let mut flatten_port_geometry_fields = Vec::new();
+    let mut create_builder_fields = Vec::new();
+    let mut transformed_view_fields = Vec::new();
+    let mut build_data_fields = Vec::new();
+
+    let layout_data_ident = format_ident!("{}Layout", ident);
+    let layout_builder_ident = format_ident!("{}LayoutBuilder", ident);
+    let transformed_layout_data_ident = format_ident!("{}TransformedLayout", ident);
+
+    for (i, &f) in fields.iter().enumerate() {
+        let (field_ty, switch_type) = match f.layout_type {
+            Some(ref ty) => (ty.clone(), true),
+            None => (f.ty.clone(), false),
+        };
+        let original_field_ty = &f.ty;
+
+        let FieldTokens {
+            declare,
+            refer,
+            assign,
+            ..
+        } = crate::derive::field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
+
+        ty_len.push(quote! {
+            <#field_ty as #substrate::io::FlatLen>::len(&#refer)
+        });
+        layout_data_len.push(quote! {
+                <<#field_ty as #substrate::io::LayoutType>::Data as #substrate::io::FlatLen>::len(&#refer)
+            });
+        layout_data_fields.push(quote! {
+            #declare <#field_ty as #substrate::io::LayoutType>::Data,
+        });
+        layout_builder_fields.push(quote! {
+            #declare <#field_ty as #substrate::io::LayoutType>::Builder,
+        });
+        transformed_layout_data_fields.push(quote! {
+                #declare #substrate::geometry::transform::Transformed<#lifetime, <#field_ty as #substrate::io::LayoutType>::Data>,
+            });
+        flatten_port_geometry_fields.push(quote! {
+                <<#field_ty as #substrate::io::LayoutType>::Data as #substrate::io::Flatten<#substrate::io::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
+            });
+        if switch_type {
+            create_builder_fields.push(quote! {
+                    #assign <#field_ty as #substrate::io::LayoutType>::builder(&<#field_ty as #substrate::io::CustomLayoutType<#original_field_ty>>::from_layout_type(&#refer)),
+                });
+        } else {
+            create_builder_fields.push(quote! {
+                #assign <#field_ty as #substrate::io::LayoutType>::builder(&#refer),
+            });
+        }
+        transformed_view_fields.push(quote! {
+                #assign #substrate::geometry::transform::HasTransformedView::transformed_view(&#refer, trans),
+            });
+        build_data_fields.push(quote! {
+                #assign #substrate::io::LayoutDataBuilder::<<#field_ty as #substrate::io::LayoutType>::Data>::build(#refer)?,
+            });
+    }
+
+    // Return 0 from `FlatLen::len` if struct has no fields.
+    if ty_len.is_empty() {
+        ty_len.push(quote! { 0 });
+    }
+
+    if layout_data_len.is_empty() {
+        layout_data_len.push(quote! { 0 });
+    }
+
+    let layout_data_body = struct_body(fields.style, true, quote! { #( #layout_data_fields )* });
+    let layout_builder_body =
+        struct_body(fields.style, true, quote! { #( #layout_builder_fields )* });
+    let create_builder_body =
+        struct_body(fields.style, false, quote! { #( #create_builder_fields )* });
+    let transformed_layout_data_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #transformed_layout_data_fields )* },
+    );
+    let transformed_view_body = struct_body(
+        fields.style,
+        false,
+        quote! { #( #transformed_view_fields )* },
+    );
+    let build_layout_data_body =
+        struct_body(fields.style, false, quote! { #( #build_data_fields )* });
+
+    quote! {
+        impl #imp #substrate::io::LayoutType for #ident #ty #wher {
+            type Data = #layout_data_ident #ty;
+            type Builder = #layout_builder_ident #ty;
+
+            fn builder(&self) -> Self::Builder {
+                #layout_builder_ident #create_builder_body
+            }
+        }
+
+        #(#attrs)*
+        #vis struct #layout_data_ident #ty #wher #layout_data_body
+
+        #(#attrs)*
+        #vis struct #layout_builder_ident #ty #wher #layout_builder_body
+
+        impl #imp #substrate::io::FlatLen for #layout_data_ident #ty #wher {
+            fn len(&self) -> usize {
+                #( #layout_data_len )+*
+            }
+        }
+
+        impl #imp #substrate::io::Flatten<#substrate::io::PortGeometry> for #layout_data_ident #ty #wher {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: ::std::iter::Extend<#substrate::io::PortGeometry> {
+                #( #flatten_port_geometry_fields )*
+            }
+        }
+
+        #(#attrs)*
+        #vis struct #transformed_layout_data_ident #ref_ty #ref_wher #transformed_layout_data_body
+
+        impl #imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #ty #wher {
+            type TransformedView<#lifetime> = #transformed_layout_data_ident #ref_ty;
+
+            fn transformed_view(
+                &self,
+                trans: #substrate::geometry::transform::Transformation,
+            ) -> Self::TransformedView<'_> {
+                #transformed_layout_data_ident #transformed_view_body
+            }
+        }
+
+        impl #imp #substrate::io::LayoutDataBuilder<#layout_data_ident #ty> for #layout_builder_ident #ty #wher {
+            fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {
+                #substrate::error::Result::Ok(#layout_data_ident #build_layout_data_body)
+            }
+        }
+    }
+}
+
+pub(crate) fn io_impl(input: &IoInputReceiver) -> TokenStream {
+    let IoInputReceiver {
+        ref ident,
+        ref generics,
+        ref data,
+        ..
+    } = *input;
+
+    let (imp, ty, wher) = generics.split_for_impl();
+    let fields = data.as_ref().take_struct().unwrap();
+
+    let mut ty_len = Vec::new();
+    let mut name_fields = Vec::new();
+
+    let substrate = substrate_ident();
+
+    for (i, &f) in fields.iter().enumerate() {
+        let FieldTokens {
+            refer,
+            pretty_ident,
+            ..
+        } = crate::derive::field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
+
+        let field_ty = &f.ty;
+
+        ty_len.push(quote! {
+            <#field_ty as #substrate::io::FlatLen>::len(&#refer)
+        });
+        name_fields.push(quote! {
+                (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#field_ty as #substrate::io::HasNameTree>::names(&#refer))
+            });
+    }
+
+    // Return 0 from `FlatLen::len` if struct has no fields.
+    if ty_len.is_empty() {
+        ty_len.push(quote! { 0 });
+    }
+
+    quote! {
+        impl #imp #substrate::io::FlatLen for #ident #ty #wher {
+            fn len(&self) -> usize {
+                #( #ty_len )+*
+            }
+        }
+
+        impl #imp #substrate::io::HasNameTree for #ident #ty #wher {
+            fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::io::NameTree>> {
+                if <Self as #substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
+                ::std::option::Option::Some([ #( #name_fields ),* ]
+                     .into_iter()
+                     .filter_map(|(frag, children)| children.map(|c| #substrate::io::NameTree::new(frag, c)))
+                     .collect()
+                )
+            }
+        }
     }
 }
