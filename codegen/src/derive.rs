@@ -36,6 +36,9 @@ pub(crate) struct FieldTokens {
     /// For named structs: "field"
     /// For tuple structs: "__substrate_derive_field2"
     pub(crate) temp: TokenStream,
+    /// For named structs: "field"
+    /// For tuple structs: "elem2"
+    pub(crate) pretty_ident: TokenStream,
 }
 
 pub(crate) fn field_tokens(
@@ -46,14 +49,16 @@ pub(crate) fn field_tokens(
     ident: &Option<syn::Ident>,
 ) -> FieldTokens {
     let tuple_ident = format_ident!("__substrate_derive_field{idx}");
+    let pretty_tuple_ident = format_ident!("elem{idx}");
     let idx = syn::Index::from(idx);
 
-    let (declare, refer, assign, temp) = match style {
-        Style::Unit => (quote!(), quote!(), quote!(), quote!()),
+    let (declare, refer, assign, temp, pretty_ident) = match style {
+        Style::Unit => (quote!(), quote!(), quote!(), quote!(), quote!()),
         Style::Struct => (
             quote!(#(#attrs)* #vis #ident:),
             quote!(self.#ident),
             quote!(#ident:),
+            quote!(#ident),
             quote!(#ident),
         ),
         Style::Tuple => (
@@ -61,6 +66,7 @@ pub(crate) fn field_tokens(
             quote!(self.#idx),
             quote!(),
             quote!(#tuple_ident),
+            quote!(#pretty_tuple_ident),
         ),
     };
 
@@ -69,6 +75,7 @@ pub(crate) fn field_tokens(
         refer,
         assign,
         temp,
+        pretty_ident,
     }
 }
 
@@ -188,10 +195,18 @@ pub(crate) fn derive_trait(
     }
 }
 
-pub(crate) fn struct_body(style: Style, contents: TokenStream) -> TokenStream {
-    match style {
-        Style::Unit => quote!(;),
-        Style::Tuple => quote!( (  #contents ) ),
-        Style::Struct => quote!( {  #contents } ),
+pub(crate) fn struct_body(style: Style, decl: bool, contents: TokenStream) -> TokenStream {
+    if decl {
+        match style {
+            Style::Unit => quote!(;),
+            Style::Tuple => quote!( (  #contents ); ),
+            Style::Struct => quote!( {  #contents } ),
+        }
+    } else {
+        match style {
+            Style::Unit => quote!(),
+            Style::Tuple => quote!( (  #contents ) ),
+            Style::Struct => quote!( {  #contents } ),
+        }
     }
 }

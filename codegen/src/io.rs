@@ -89,6 +89,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             refer,
             assign,
             temp,
+            ..
         } = crate::derive::field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         data_len.push(quote! {
@@ -99,22 +100,22 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         });
         nested_view_fields.push(quote! {
                 #declare #substrate::schematic::NestedView<#lifetime, <#field_ty as #substrate::io::SchematicType>::Data>,
-            });
+        });
         construct_data_fields.push(quote! {
             #assign #temp,
         });
         construct_nested_view_fields.push(quote! {
                 #assign <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
-            });
+        });
         instantiate_fields.push(quote! {
                 let (#temp, __substrate_node_ids) = <#field_ty as #substrate::io::SchematicType>::instantiate(&#refer, __substrate_node_ids);
-            });
+        });
         flatten_dir_fields.push(quote! {
                 <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&#refer, __substrate_output_sink);
-            });
+        });
         flatten_node_fields.push(quote! {
                 <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&#refer, __substrate_output_sink);
-            });
+        });
     }
 
     // Return 0 from `FlatLen::len` if struct has no fields.
@@ -122,10 +123,15 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         data_len.push(quote! { 0 });
     }
 
-    let data_body = struct_body(fields.style, quote!( #(#data_fields)* ));
-    let nested_view_body = struct_body(fields.style, quote!( #(#nested_view_fields)* ));
-    let construct_nested_view_body =
-        struct_body(fields.style, quote!( #(#construct_nested_view_fields)* ));
+    let data_body = struct_body(fields.style, true, quote!( #(#data_fields)* ));
+    let nested_view_body = struct_body(fields.style, true, quote!( #(#nested_view_fields)* ));
+    let construct_nested_view_body = struct_body(
+        fields.style,
+        false,
+        quote!( #(#construct_nested_view_fields)* ),
+    );
+    let construct_data_body =
+        struct_body(fields.style, false, quote!( #(#construct_data_fields)* ));
 
     quote! {
         #[derive(Clone)]
@@ -159,7 +165,8 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             type NestedView<#lifetime> = #nested_view_ident #ref_ty;
 
             fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
-                Self::NestedView #construct_nested_view_body
+                #nested_view_ident #construct_nested_view_body
+                // todo!()
             }
         }
 
@@ -167,7 +174,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             type Data = #data_ident #ty;
             fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Data, &'n [#substrate::io::Node]) {
                 #( #instantiate_fields )*
-                (#data_ident { #( #construct_data_fields )* }, __substrate_node_ids)
+                (#data_ident #construct_data_body, __substrate_node_ids)
             }
         }
     }
@@ -244,7 +251,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             declare,
             refer,
             assign,
-            temp: _,
+            ..
         } = crate::derive::field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
 
         ty_len.push(quote! {
@@ -291,16 +298,23 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         layout_data_len.push(quote! { 0 });
     }
 
-    let layout_data_body = struct_body(fields.style, quote! { #( #layout_data_fields )* });
-    let layout_builder_body = struct_body(fields.style, quote! { #( #layout_builder_fields )* });
-    let create_builder_body = struct_body(fields.style, quote! { #( #create_builder_fields )* });
+    let layout_data_body = struct_body(fields.style, true, quote! { #( #layout_data_fields )* });
+    let layout_builder_body =
+        struct_body(fields.style, true, quote! { #( #layout_builder_fields )* });
+    let create_builder_body =
+        struct_body(fields.style, false, quote! { #( #create_builder_fields )* });
     let transformed_layout_data_body = struct_body(
         fields.style,
+        true,
         quote! { #( #transformed_layout_data_fields )* },
     );
-    let transformed_view_body =
-        struct_body(fields.style, quote! { #( #transformed_view_fields )* });
-    let build_layout_data_body = struct_body(fields.style, quote! { #( #build_data_fields )* });
+    let transformed_view_body = struct_body(
+        fields.style,
+        false,
+        quote! { #( #transformed_view_fields )* },
+    );
+    let build_layout_data_body =
+        struct_body(fields.style, false, quote! { #( #build_data_fields )* });
 
     quote! {
         impl #imp #substrate::io::LayoutType for #ident #ty #wher {
@@ -308,7 +322,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             type Builder = #layout_builder_ident #ty;
 
             fn builder(&self) -> Self::Builder {
-                Self::Builder #create_builder_body
+                #layout_builder_ident #create_builder_body
             }
         }
 
@@ -342,7 +356,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
                 &self,
                 trans: #substrate::geometry::transform::Transformation,
             ) -> Self::TransformedView<'_> {
-                Self::TransformedView #transformed_view_body
+                #transformed_layout_data_ident #transformed_view_body
             }
         }
 
@@ -363,29 +377,27 @@ pub(crate) fn io_impl(input: &IoInputReceiver) -> TokenStream {
     } = *input;
 
     let (imp, ty, wher) = generics.split_for_impl();
-    let fields = data
-        .as_ref()
-        .take_struct()
-        .expect("Should never be enum")
-        .fields;
+    let fields = data.as_ref().take_struct().unwrap();
 
     let mut ty_len = Vec::new();
     let mut name_fields = Vec::new();
 
     let substrate = substrate_ident();
 
-    for f in fields {
-        let field_ident = f
-            .ident
-            .as_ref()
-            .expect("could not find identifier for field");
+    for (i, &f) in fields.iter().enumerate() {
+        let FieldTokens {
+            refer,
+            pretty_ident,
+            ..
+        } = crate::derive::field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
+
         let field_ty = &f.ty;
 
         ty_len.push(quote! {
-            <#field_ty as #substrate::io::FlatLen>::len(&self.#field_ident)
+            <#field_ty as #substrate::io::FlatLen>::len(&#refer)
         });
         name_fields.push(quote! {
-                (#substrate::arcstr::literal!(::std::stringify!(#field_ident)), <#field_ty as #substrate::io::HasNameTree>::names(&self.#field_ident))
+                (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#field_ty as #substrate::io::HasNameTree>::names(&#refer))
             });
     }
 

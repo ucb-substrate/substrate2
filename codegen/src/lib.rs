@@ -184,7 +184,7 @@ pub fn derive_derived_layers(input: TokenStream) -> TokenStream {
 /// circuits often have a single shape for several of their ports.
 ///
 /// Substrate allows you to customize the type of the ports you interact with when setting up IO in
-/// the layout view of a block using the `#[io(layout_type = "...")]` attribute.
+/// the layout view of a block using the `#[substrate(layout_type = "...")]` attribute.
 ///
 /// ```
 #[doc = include_str!("../build/docs/prelude.rs.hidden")]
