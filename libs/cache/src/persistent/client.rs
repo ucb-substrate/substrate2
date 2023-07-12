@@ -25,7 +25,7 @@ use crate::{
         local::{self, local_cache_client},
         remote::{self, remote_cache_client},
     },
-    CacheHandle,
+    CacheHandle, Cacheable,
 };
 
 /// The interval between polling the cache server on whether a value has finished loading.
@@ -399,6 +399,104 @@ impl LocalCacheClient {
         });
     }
 
+    fn generate_inner_result<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+    >(
+        self,
+        handle: CacheHandle<std::result::Result<V, E>>,
+        namespace: String,
+        hash: Vec<u8>,
+        key: K,
+        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+    ) {
+        thread::spawn(move || {
+            let inner = || -> Result<()> {
+                loop {
+                    let status = self.get_rpc(namespace.clone(), hash.clone())?;
+                    match status {
+                        local::get_reply::EntryStatus::Unassigned(_) => {
+                            CacheClient::run_generation(handle.clone(), key, generate_fn);
+                            break;
+                        }
+                        local::get_reply::EntryStatus::Assign(local::IdPath { id, path }) => {
+                            let self_clone = self.clone();
+                            let (s_heartbeat_stop, r_heartbeat_stopped) =
+                                CacheClient::start_heartbeats(move || -> Result<()> {
+                                    self_clone.heartbeat_rpc(id)
+                                });
+                            CacheClient::run_generation(handle.clone(), key, generate_fn);
+                            if let Ok(data) = handle.try_inner() {
+                                let _ = s_heartbeat_stop.send(());
+                                let _ = r_heartbeat_stopped.recv();
+                                let path = PathBuf::from(path);
+                                if let Some(parent) = path.parent() {
+                                    fs::create_dir_all(parent)?;
+                                }
+
+                                let mut f = OpenOptions::new()
+                                    .read(true)
+                                    .write(true)
+                                    .create(true)
+                                    .open(&path)?;
+                                f.write_all(&flexbuffers::to_vec(data).unwrap())?;
+                                self.done_rpc(id)?;
+                            }
+                            break;
+                        }
+                        local::get_reply::EntryStatus::Loading(_) => {
+                            thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
+                        }
+                        local::get_reply::EntryStatus::Ready(local::IdPath { id, path }) => {
+                            let mut file = std::fs::File::open(path)?;
+                            let mut buf = Vec::new();
+                            file.read_to_end(&mut buf)?;
+                            if handle
+                                .0
+                                .set(Ok(Ok(flexbuffers::from_slice::<V>(&buf)?)))
+                                .is_err()
+                            {
+                                panic!("failed to set cell value");
+                            }
+                            self.drop_rpc(id)?;
+                            break;
+                        }
+                    }
+                }
+                Ok(())
+            };
+            if let Err(e) = inner() {
+                let _ = handle.0.set(Err(e));
+            }
+        });
+    }
+
+    /// Gets a handle to a cacheable object from the cache.
+    ///
+    /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
+    /// to be cached should be included in the cached output or should be cached using
+    /// [`LocalCacheClient::get_with_err`].
+    pub fn get<K: Cacheable>(
+        &self,
+        namespace: impl Into<String>,
+        key: K,
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        self.generate_result(namespace, key, |key| key.generate())
+    }
+
+    /// Gets a handle to a cacheable object from the cache, caching failures as well.
+    pub fn get_with_err<
+        E: Send + Sync + Serialize + DeserializeOwned + Any,
+        K: Cacheable<Error = E>,
+    >(
+        &self,
+        namespace: impl Into<String>,
+        key: K,
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        self.generate(namespace, key, |key| key.generate())
+    }
+
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
     /// to generate it if it has not already been generated.
     ///
@@ -419,6 +517,35 @@ impl LocalCacheClient {
 
         self.clone()
             .generate_inner(handle.clone(), namespace, hash, key, generate_fn);
+
+        handle
+    }
+
+    /// Ensures that a result corresponding to `key` is generated, using `generate_fn`
+    /// to generate it if it has not already been generated.
+    ///
+    /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
+    /// As such, failures should happen quickly, or should be serializable and stored as part of
+    /// cached value using [`LocalCacheClient::generate`].
+    ///
+    /// Returns a handle to the value. If the value is not yet generated, it is generated
+    /// in the background.
+    pub fn generate_result<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+    >(
+        &self,
+        namespace: impl Into<String>,
+        key: K,
+        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+    ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
+        let hash = crate::hash(&flexbuffers::to_vec(&key).unwrap());
+        let handle = CacheHandle(Arc::new(OnceCell::new()));
+
+        self.clone()
+            .generate_inner_result(handle.clone(), namespace, hash, key, generate_fn);
 
         handle
     }

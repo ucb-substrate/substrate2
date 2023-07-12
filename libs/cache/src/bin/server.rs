@@ -11,9 +11,9 @@ use clap::Parser;
 pub struct Args {
     #[clap(short = 'H', long, default_value = "0.0.0.0")]
     host: IpAddr,
-    #[clap(short, long, default_value = "None")]
+    #[clap(short, long)]
     remote: Option<u16>,
-    #[clap(short, long, default_value = "None")]
+    #[clap(short, long)]
     local: Option<u16>,
     #[clap(value_parser)]
     root: PathBuf,

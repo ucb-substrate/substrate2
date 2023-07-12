@@ -20,4 +20,7 @@ pub enum Error {
     /// Error parsing PSF output files.
     #[error("error parsing PSF output file")]
     PsfParse,
+    /// Error caching results.
+    #[error("error caching spectre results")]
+    Caching,
 }

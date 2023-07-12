@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use cache::mem::Cache;
+use cache::persistent::client::LocalCacheClient;
 use cache::{CacheHandle, Cacheable, CacheableWithState};
+use config::config::Config;
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -62,6 +64,7 @@ pub struct Context<PDK: Pdk> {
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     executor: Arc<dyn Executor>,
+    cache: Option<LocalCacheClient>,
 }
 
 /// Builder for creating a Substrate [`Context`].
@@ -120,6 +123,12 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         let mut layer_ctx = LayerContext::new();
         let layers = layer_ctx.install_layers::<PDK::Layers>();
 
+        let provider: Option<String> = Config::default()
+            .ok()
+            .and_then(|config| config.get("cache.root").ok().flatten());
+
+        println!("{:?}", provider);
+
         Context {
             pdk: PdkData {
                 pdk: Arc::new(self.pdk.unwrap()),
@@ -128,6 +137,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
             executor: self.executor,
+            cache: provider.map(|provider| LocalCacheClient::new(PathBuf::from(provider))),
         }
     }
 }
@@ -139,6 +149,7 @@ impl<PDK: Pdk> Clone for Context<PDK> {
             inner: self.inner.clone(),
             simulators: self.simulators.clone(),
             executor: self.executor.clone(),
+            cache: self.cache.clone(),
         }
     }
 }
@@ -367,6 +378,7 @@ impl<PDK: Pdk> Context<PDK> {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),
             executor: self.executor.clone(),
+            cache: self.cache.clone(),
         };
         let controller = SimController {
             pdk: self.pdk.clone(),
@@ -411,6 +423,20 @@ impl<PDK: Pdk> Context<PDK> {
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
         let mut inner = self.inner.write().unwrap();
         inner.cache.get_with_state(key, state)
+    }
+
+    /// Gets a cacheable object from the context persistent cache, generating it if no cache is
+    /// configured.
+    pub fn persistent_cache_get<K: Cacheable>(
+        &self,
+        namespace: String,
+        key: K,
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        if let Some(client) = &self.cache {
+            client.get(namespace, key)
+        } else {
+            CacheHandle::new(move || key.generate())
+        }
     }
 }
 

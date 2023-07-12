@@ -13,6 +13,7 @@ use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha512};
 use substrate::io::NodePath;
 use substrate::schematic::conv::RawLib;
 use substrate::simulation::data::HasNodeData;
@@ -168,8 +169,8 @@ impl Spectre {
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&ctx.work_dir)?;
         let netlist = ctx.work_dir.join("netlist.scs");
-        let f = std::fs::File::create(&netlist)?;
-        let mut w = BufWriter::new(f);
+        let mut f = std::fs::File::create(&netlist)?;
+        let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
@@ -186,76 +187,99 @@ impl Spectre {
             writeln!(w)?;
         }
 
-        w.flush()?;
-        drop(w);
+        let mut hasher = Sha512::new();
+        hasher.update(&w);
+        let hash: Vec<u8> = hasher.finalize()[..].to_vec();
+        f.write_all(&w)?;
 
         let output_dir = ctx.work_dir.join("psf/");
         let log = ctx.work_dir.join("spectre.log");
         let run_script = ctx.work_dir.join("simulate.sh");
-        write_run_script(
-            RunScriptContext {
-                netlist: &netlist,
-                raw_output_dir: &output_dir,
-                log_path: &log,
-                bashrc: None,
-                format: "psfbin",
-                flags: "",
-            },
-            &run_script,
-        )?;
+        let work_dir = ctx.work_dir.clone();
+        let executor = ctx.executor.clone();
 
-        let mut perms = std::fs::metadata(&run_script)?.permissions();
-        perms.set_mode(0o744);
-        std::fs::set_permissions(&run_script, perms)?;
+        let generate_fn = move |_key: &Vec<u8>| -> Result<Vec<HashMap<String, Vec<f64>>>> {
+            write_run_script(
+                RunScriptContext {
+                    netlist: &netlist,
+                    raw_output_dir: &output_dir,
+                    log_path: &log,
+                    bashrc: None,
+                    format: "psfbin",
+                    flags: "",
+                },
+                &run_script,
+            )?;
 
-        let mut command = std::process::Command::new("/bin/bash");
-        command.arg(&run_script).current_dir(&ctx.work_dir);
-        ctx.executor
-            .execute(command, Default::default())
-            .map_err(|_| Error::SpectreError)?;
+            let mut perms = std::fs::metadata(&run_script)?.permissions();
+            perms.set_mode(0o744);
+            std::fs::set_permissions(&run_script, perms)?;
 
-        let mut outputs = Vec::with_capacity(input.len());
-        for (i, an) in input.iter().enumerate() {
-            match an {
-                Input::Tran(_) => {
-                    let file = output_dir.join(format!("analysis{i}.tran.tran"));
-                    let file = std::fs::read(file)?;
-                    let ast = psfparser::binary::parse(&file).map_err(|e| {
-                        tracing::error!("error parsing PSF file: {}", e);
-                        Error::PsfParse
-                    })?;
-                    let mut tid_map = HashMap::new();
-                    let mut values = HashMap::new();
-                    for sweep in ast.sweeps.iter() {
-                        tid_map.insert(sweep.id, sweep.name);
-                    }
-                    for trace in ast.traces.iter() {
-                        match trace {
-                            Trace::Group(g) => {
-                                for s in g.signals.iter() {
+            let mut command = std::process::Command::new("/bin/bash");
+            command.arg(&run_script).current_dir(&work_dir);
+            executor
+                .execute(command, Default::default())
+                .map_err(|_| Error::SpectreError)?;
+
+            let mut raw_outputs = Vec::with_capacity(input.len());
+            for (i, an) in input.iter().enumerate() {
+                match an {
+                    Input::Tran(_) => {
+                        let file = output_dir.join(format!("analysis{i}.tran.tran"));
+                        let file = std::fs::read(file)?;
+                        let ast = psfparser::binary::parse(&file).map_err(|e| {
+                            tracing::error!("error parsing PSF file: {}", e);
+                            Error::PsfParse
+                        })?;
+                        let mut tid_map = HashMap::new();
+                        let mut values = HashMap::new();
+                        for sweep in ast.sweeps.iter() {
+                            tid_map.insert(sweep.id, sweep.name);
+                        }
+                        for trace in ast.traces.iter() {
+                            match trace {
+                                Trace::Group(g) => {
+                                    for s in g.signals.iter() {
+                                        tid_map.insert(s.id, s.name);
+                                    }
+                                }
+                                Trace::Signal(s) => {
                                     tid_map.insert(s.id, s.name);
                                 }
                             }
-                            Trace::Signal(s) => {
-                                tid_map.insert(s.id, s.name);
-                            }
                         }
-                    }
-                    for (id, value) in ast.values.values.into_iter() {
-                        let name = tid_map[&id].to_string();
-                        let value = value.unwrap_real();
-                        values.insert(name, value);
-                    }
-                    outputs.push(
-                        TranOutput {
-                            lib: ctx.lib.clone(),
-                            values,
+                        for (id, value) in ast.values.values.into_iter() {
+                            let name = tid_map[&id].to_string();
+                            let value = value.unwrap_real();
+                            values.insert(name, value);
                         }
-                        .into(),
-                    );
+                        raw_outputs.push(values);
+                    }
                 }
             }
-        }
+            Ok(raw_outputs)
+        };
+        let raw_outputs = if let Some(cache) = &ctx.cache {
+            cache
+                .generate_result("spectre/tran_outputs", hash, generate_fn)
+                .try_inner()
+                // TODO: Increase granularity of caching errors.
+                .map_err(|_| Error::Caching)?
+                .clone()
+        } else {
+            generate_fn(&hash)?
+        };
+
+        let outputs = raw_outputs
+            .into_iter()
+            .map(|values| {
+                TranOutput {
+                    lib: ctx.lib.clone(),
+                    values,
+                }
+                .into()
+            })
+            .collect();
 
         Ok(outputs)
     }

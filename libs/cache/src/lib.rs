@@ -1,11 +1,11 @@
 //! Caching utilities.
 #![warn(missing_docs)]
 
-use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc};
+use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
-use error::Result;
+use error::{Error, Result};
 use once_cell::sync::OnceCell;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
@@ -47,9 +47,9 @@ pub mod rpc;
 ///     }
 /// }
 /// ```
-pub trait Cacheable: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
+pub trait Cacheable: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
     /// The output produced by generating the object.
-    type Output: Send + Sync + Serialize + Deserialize<'static>;
+    type Output: Send + Sync + Serialize + DeserializeOwned;
     /// The error type returned by [`Cacheable::generate`].
     type Error: Send + Sync;
 
@@ -98,10 +98,10 @@ pub trait Cacheable: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync 
 /// }
 /// ```
 pub trait CacheableWithState<S: Send + Sync + Any>:
-    Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any
+    Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any
 {
     /// The output produced by generating the object.
-    type Output: Send + Sync + Serialize + Deserialize<'static>;
+    type Output: Send + Sync + Serialize + DeserializeOwned;
     /// The error type returned by [`CacheableWithState::generate_with_state`].
     type Error: Send + Sync;
 
@@ -120,6 +120,28 @@ pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<Result<V>>>);
 impl<V> Clone for CacheHandle<V> {
     fn clone(&self) -> Self {
         CacheHandle(self.0.clone())
+    }
+}
+
+impl<V: Send + Sync + Any> CacheHandle<V> {
+    pub fn new(generate_fn: impl FnOnce() -> V + Send + Sync + Any) -> Self {
+        let handle = Self(Arc::new(OnceCell::new()));
+
+        let handle2 = handle.clone();
+        thread::spawn(move || {
+            let handle3 = handle2.clone();
+            let join_handle = thread::spawn(move || {
+                let value = generate_fn();
+                if handle3.0.set(Ok(value)).is_err() {
+                    panic!("failed to set cell value");
+                }
+            });
+            if join_handle.join().is_err() && handle2.0.set(Err(Error::Panic)).is_err() {
+                panic!("failed to set cell value on panic");
+            }
+        });
+
+        handle
     }
 }
 

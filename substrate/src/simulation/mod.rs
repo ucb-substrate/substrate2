@@ -4,6 +4,7 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use cache::persistent::client::LocalCacheClient;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +72,7 @@ pub struct SimulationContext {
     pub lib: Arc<RawLib>,
     /// The executor to which simulation commands should be submitted.
     pub executor: Arc<dyn Executor>,
+    pub cache: Option<LocalCacheClient>,
 }
 
 /// Indicates that a simulator supports a certain analysis.
