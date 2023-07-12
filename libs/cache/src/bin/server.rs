@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
     }
 
     if let Some(local) = args.local {
-        server = server.with_remote(SocketAddr::new(args.host, local));
+        server = server.with_local(SocketAddr::new(args.host, local));
     }
 
     server.start().await?;
