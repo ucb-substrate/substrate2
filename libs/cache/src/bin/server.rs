@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use cache::{error::Result, server::CacheServer};
+use cache::{error::Result, persistent::server::CacheServer};
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -11,8 +11,10 @@ use clap::Parser;
 pub struct Args {
     #[clap(short = 'H', long, default_value = "0.0.0.0")]
     host: IpAddr,
-    #[clap(short, long, default_value_t = 28055)]
-    port: u16,
+    #[clap(short, long, default_value = "None")]
+    remote: Option<u16>,
+    #[clap(short, long, default_value = "None")]
+    local: Option<u16>,
     #[clap(value_parser)]
     root: PathBuf,
 }
@@ -21,7 +23,16 @@ pub struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    let server = CacheServer::new(args.root, SocketAddr::new(args.host, args.port));
+    let mut server = CacheServer::new(args.root);
+
+    if let Some(remote) = args.remote {
+        server = server.with_remote(SocketAddr::new(args.host, remote));
+    }
+
+    if let Some(local) = args.local {
+        server = server.with_remote(SocketAddr::new(args.host, local));
+    }
+
     server.start().await?;
 
     Ok(())

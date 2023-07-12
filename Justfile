@@ -28,7 +28,7 @@ check-all:
     cargo hack --feature-powerset clippy --locked -- -D warnings
 
 check-docs:
-    cargo hack --all rustdoc --all-features -- -D warnings
+    RUSTDOCFLAGS='-D warnings' RUSTFLAGS='-D warnings' cargo hack --all rustdoc --all-features --all-targets
 
 gen-examples:
   just -f docs/api/Justfile gen-examples

@@ -8,12 +8,11 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub mod client;
 pub mod error;
 pub mod mem;
+pub mod persistent;
 #[doc(hidden)]
 pub mod rpc;
-pub mod server;
 
 /// A cacheable object.
 ///

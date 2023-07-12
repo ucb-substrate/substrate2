@@ -1,5 +1,9 @@
 //! Automatically generated utilities for RPCs.
 
-pub mod cache {
-    include!("cache.rs");
+pub mod remote {
+    include!("remote.rs");
+}
+
+pub mod local {
+    include!("local.rs");
 }
