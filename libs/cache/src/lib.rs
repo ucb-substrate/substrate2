@@ -3,9 +3,9 @@
 
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
-use error::{ArcResult, Error, Result};
+use error::{ArcResult, Error};
 use once_cell::sync::OnceCell;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
@@ -124,6 +124,8 @@ impl<V> Clone for CacheHandle<V> {
 }
 
 impl<V: Send + Sync + Any> CacheHandle<V> {
+    /// Creates a new cache handle, spawning a thread to generate its value using the provided
+    /// function.
     pub fn new(generate_fn: impl FnOnce() -> V + Send + Sync + Any) -> Self {
         let handle = Self(Arc::new(OnceCell::new()));
 

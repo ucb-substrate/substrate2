@@ -72,7 +72,7 @@ impl CacheClient {
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) -> ArcResult<V> {
         let join_handle = thread::spawn(move || generate_fn(&key));
-        Ok(join_handle.join().map_err(|_| Arc::new(Error::Panic))?)
+        join_handle.join().map_err(|_| Arc::new(Error::Panic))
     }
 
     fn start_heartbeats(
@@ -192,7 +192,7 @@ impl RemoteCacheClient {
                     match status {
                         remote::get_reply::EntryStatus::Unassigned(_) => {
                             let v = CacheClient::run_generation(key, generate_fn);
-                            handle.0.set(v);
+                            let _ = handle.0.set(v);
                             break;
                         }
                         remote::get_reply::EntryStatus::Assign(id) => {
@@ -207,7 +207,7 @@ impl RemoteCacheClient {
                                 let _ = r_heartbeat_stopped.recv();
                                 self.set_rpc(id, flexbuffers::to_vec(data).unwrap())?;
                             }
-                            handle.0.set(v);
+                            let _ = handle.0.set(v);
                             break;
                         }
                         remote::get_reply::EntryStatus::Loading(_) => {
@@ -344,7 +344,7 @@ impl LocalCacheClient {
                     match status {
                         local::get_reply::EntryStatus::Unassigned(_) => {
                             let v = CacheClient::run_generation(key, generate_fn);
-                            handle.0.set(v);
+                            let _ = handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Assign(local::IdPath { id, path }) => {
@@ -370,7 +370,7 @@ impl LocalCacheClient {
                                 f.write_all(&flexbuffers::to_vec(data).unwrap())?;
                                 self.done_rpc(id)?;
                             }
-                            handle.0.set(v);
+                            let _ = handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Loading(_) => {
@@ -413,7 +413,7 @@ impl LocalCacheClient {
                     match status {
                         local::get_reply::EntryStatus::Unassigned(_) => {
                             let v = CacheClient::run_generation(key, generate_fn);
-                            handle.0.set(v);
+                            let _ = handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Assign(local::IdPath { id, path }) => {
@@ -423,25 +423,23 @@ impl LocalCacheClient {
                                     self_clone.heartbeat_rpc(id)
                                 });
                             let v = CacheClient::run_generation(key, generate_fn);
-                            if let Ok(data) = &v {
-                                if let Ok(data) = data {
-                                    let _ = s_heartbeat_stop.send(());
-                                    let _ = r_heartbeat_stopped.recv();
-                                    let path = PathBuf::from(path);
-                                    if let Some(parent) = path.parent() {
-                                        fs::create_dir_all(parent)?;
-                                    }
-
-                                    let mut f = OpenOptions::new()
-                                        .read(true)
-                                        .write(true)
-                                        .create(true)
-                                        .open(&path)?;
-                                    f.write_all(&flexbuffers::to_vec(data).unwrap())?;
-                                    self.done_rpc(id)?;
+                            if let Ok(Ok(data)) = &v {
+                                let _ = s_heartbeat_stop.send(());
+                                let _ = r_heartbeat_stopped.recv();
+                                let path = PathBuf::from(path);
+                                if let Some(parent) = path.parent() {
+                                    fs::create_dir_all(parent)?;
                                 }
+
+                                let mut f = OpenOptions::new()
+                                    .read(true)
+                                    .write(true)
+                                    .create(true)
+                                    .open(&path)?;
+                                f.write_all(&flexbuffers::to_vec(data).unwrap())?;
+                                self.done_rpc(id)?;
                             }
-                            handle.0.set(v);
+                            let _ = handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Loading(_) => {

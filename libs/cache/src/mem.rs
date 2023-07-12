@@ -12,7 +12,7 @@ use std::{
 use once_cell::sync::OnceCell;
 
 use crate::{
-    error::{ArcResult, Error, Result},
+    error::{ArcResult, Error},
     CacheHandle, Cacheable, CacheableWithState,
 };
 

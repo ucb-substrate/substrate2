@@ -72,6 +72,7 @@ pub struct SimulationContext {
     pub lib: Arc<RawLib>,
     /// The executor to which simulation commands should be submitted.
     pub executor: Arc<dyn Executor>,
+    /// A cache client if one is configured in the Substrate configuration.
     pub cache: Option<LocalCacheClient>,
 }
 
