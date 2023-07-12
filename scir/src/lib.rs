@@ -762,6 +762,7 @@ impl CellInner {
         self.instance_id += 1;
         let id = InstanceId(self.instance_id);
         self.instances.insert(id, instance);
+        self.order.push(id);
         id
     }
 
@@ -780,6 +781,6 @@ impl CellInner {
     /// Iterate over the instances of this cell.
     #[inline]
     pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance)> {
-        self.instances.iter().map(|x| (*x.0, x.1))
+        self.order.iter().map(|x| (*x, &self.instances[x]))
     }
 }
