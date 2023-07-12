@@ -19,7 +19,7 @@ use tokio::{fs::File, io::AsyncReadExt, runtime::Runtime};
 use tonic::transport::{Channel, Endpoint};
 
 use crate::{
-    error::{Error, Result},
+    error::{ArcResult, Error, Result},
     persistent::server::{ConfigManifest, CONFIG_MANIFEST_NAME, HEARTBEAT_INTERVAL_SECS},
     rpc::{
         local::{self, local_cache_client},
@@ -68,20 +68,11 @@ impl CacheClient {
     }
 
     fn run_generation<K: Any + Send + Sync, V: Any + Send + Sync>(
-        handle: CacheHandle<V>,
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
-    ) {
-        let handle2 = handle.clone();
-        let join_handle = thread::spawn(move || {
-            let value = generate_fn(&key);
-            if handle2.0.set(Ok(value)).is_err() {
-                panic!("failed to set cell value");
-            }
-        });
-        if join_handle.join().is_err() && handle.0.set(Err(Arc::new(Error::Panic))).is_err() {
-            panic!("failed to set cell value on panic");
-        }
+    ) -> ArcResult<V> {
+        let join_handle = thread::spawn(move || generate_fn(&key));
+        Ok(join_handle.join().map_err(|_| Arc::new(Error::Panic))?)
     }
 
     fn start_heartbeats(
@@ -200,7 +191,8 @@ impl RemoteCacheClient {
                     let status = self.get_rpc(namespace.clone(), hash.clone())?;
                     match status {
                         remote::get_reply::EntryStatus::Unassigned(_) => {
-                            CacheClient::run_generation(handle.clone(), key, generate_fn);
+                            let v = CacheClient::run_generation(key, generate_fn);
+                            handle.0.set(v);
                             break;
                         }
                         remote::get_reply::EntryStatus::Assign(id) => {
@@ -209,12 +201,13 @@ impl RemoteCacheClient {
                                 CacheClient::start_heartbeats(move || -> Result<()> {
                                     self_clone.heartbeat_rpc(id)
                                 });
-                            CacheClient::run_generation(handle.clone(), key, generate_fn);
-                            if let Ok(data) = handle.try_get() {
+                            let v = CacheClient::run_generation(key, generate_fn);
+                            if let Ok(data) = v {
                                 let _ = s_heartbeat_stop.send(());
                                 let _ = r_heartbeat_stopped.recv();
                                 self.set_rpc(id, flexbuffers::to_vec(data).unwrap())?;
                             }
+                            handle.0.set(v);
                             break;
                         }
                         remote::get_reply::EntryStatus::Loading(_) => {
@@ -350,7 +343,8 @@ impl LocalCacheClient {
                     let status = self.get_rpc(namespace.clone(), hash.clone())?;
                     match status {
                         local::get_reply::EntryStatus::Unassigned(_) => {
-                            CacheClient::run_generation(handle.clone(), key, generate_fn);
+                            let v = CacheClient::run_generation(key, generate_fn);
+                            handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Assign(local::IdPath { id, path }) => {
@@ -359,8 +353,8 @@ impl LocalCacheClient {
                                 CacheClient::start_heartbeats(move || -> Result<()> {
                                     self_clone.heartbeat_rpc(id)
                                 });
-                            CacheClient::run_generation(handle.clone(), key, generate_fn);
-                            if let Ok(data) = handle.try_get() {
+                            let v = CacheClient::run_generation(key, generate_fn);
+                            if let Ok(data) = v {
                                 let _ = s_heartbeat_stop.send(());
                                 let _ = r_heartbeat_stopped.recv();
                                 let path = PathBuf::from(path);
@@ -376,6 +370,7 @@ impl LocalCacheClient {
                                 f.write_all(&flexbuffers::to_vec(data).unwrap())?;
                                 self.done_rpc(id)?;
                             }
+                            handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Loading(_) => {
@@ -385,8 +380,8 @@ impl LocalCacheClient {
                             let mut file = std::fs::File::open(path)?;
                             let mut buf = Vec::new();
                             file.read_to_end(&mut buf)?;
-                            CacheClient::set_handle(handle.clone(), &buf)?;
                             self.drop_rpc(id)?;
+                            CacheClient::set_handle(handle.clone(), &buf)?;
                             break;
                         }
                     }
@@ -417,7 +412,8 @@ impl LocalCacheClient {
                     let status = self.get_rpc(namespace.clone(), hash.clone())?;
                     match status {
                         local::get_reply::EntryStatus::Unassigned(_) => {
-                            CacheClient::run_generation(handle.clone(), key, generate_fn);
+                            let v = CacheClient::run_generation(key, generate_fn);
+                            handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Assign(local::IdPath { id, path }) => {
@@ -426,7 +422,7 @@ impl LocalCacheClient {
                                 CacheClient::start_heartbeats(move || -> Result<()> {
                                     self_clone.heartbeat_rpc(id)
                                 });
-                            CacheClient::run_generation(handle.clone(), key, generate_fn);
+                            let v = CacheClient::run_generation(key, generate_fn);
                             if let Ok(data) = handle.try_inner() {
                                 let _ = s_heartbeat_stop.send(());
                                 let _ = r_heartbeat_stopped.recv();
@@ -443,6 +439,7 @@ impl LocalCacheClient {
                                 f.write_all(&flexbuffers::to_vec(data).unwrap())?;
                                 self.done_rpc(id)?;
                             }
+                            handle.0.set(v);
                             break;
                         }
                         local::get_reply::EntryStatus::Loading(_) => {

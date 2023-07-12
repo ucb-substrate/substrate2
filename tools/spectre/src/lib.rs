@@ -266,7 +266,6 @@ impl Spectre {
                     generate_fn().map_err(Arc::new)
                 })
                 .try_inner()
-                // TODO: Increase granularity of caching errors.
                 .map_err(|e| match e {
                     TryInnerError::CacheError(e) => Error::Caching(e),
                     TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
