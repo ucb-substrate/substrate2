@@ -67,7 +67,7 @@ use crate::{
 ///     param2: "panic".to_string(),
 /// });
 ///
-/// assert!(matches!(handle.get_err(), Error::Panic));
+/// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
 /// ```
 ///
 /// ```
@@ -121,7 +121,7 @@ use crate::{
 ///     log.clone(),
 /// );
 ///
-/// assert!(matches!(handle.get_err(), Error::Panic));
+/// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
 ///
 /// assert_eq!(log.0.lock().unwrap().clone(), vec![Params(0), Params(5), Params(8)]);
 /// ```
