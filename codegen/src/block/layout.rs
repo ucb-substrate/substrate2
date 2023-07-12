@@ -2,8 +2,9 @@ use darling::ast::{Fields, Style};
 use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
+use syn::parse_quote;
 
-use crate::derive::add_trait_bounds;
+use crate::derive::{add_trait_bounds, struct_body};
 use crate::substrate_ident;
 
 #[derive(Debug, FromDeriveInput)]
@@ -82,10 +83,10 @@ fn transform_variant_match_arm(
     match fields.style {
         Style::Unit => quote!(Self::#ident => #transformed_ident::#ident,),
         Style::Tuple => {
-            quote!(Self::#ident( #(#destructure)* ) => #transformed_ident::#ident( #(#assign)* ),)
+            quote!(Self::#ident( #(#destructure),* ) => #transformed_ident::#ident( #(#assign)* ),)
         }
         Style::Struct => {
-            quote!(Self::#ident { #(#destructure)* } => #transformed_ident::#ident { #(#assign)* },)
+            quote!(Self::#ident { #(#destructure),* } => #transformed_ident::#ident { #(#assign)* },)
         }
     }
 }
@@ -100,9 +101,9 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
     } = field;
     let substrate = substrate_ident();
     let field_ty = if *transform {
-        quote!(#substrate::geometry::transform::Transformed<'a, #ty>)
+        quote!(#substrate::geometry::transform::Transformed<'__substrate_derive_lifetime, #ty>)
     } else {
-        quote!(&'a #ty)
+        quote!(&'__substrate_derive_lifetime #ty)
     };
 
     match ident {
@@ -161,12 +162,17 @@ impl ToTokens for DataInputReceiver {
             ref vis,
             ref attrs,
         } = *self;
-
         let generics = add_trait_bounds(
             quote!(#substrate::geometry::transform::HasTransformedView),
             generics.clone(),
         );
+
+        let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
+        let mut ref_generics = generics.clone();
+        ref_generics.params.push(lifetime.clone());
+
         let (imp, ty, wher) = generics.split_for_impl();
+        let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
         let transformed_ident = format_ident!("{}TransformedView", ident);
 
         let expanded = match data {
@@ -185,14 +191,14 @@ impl ToTokens for DataInputReceiver {
                     Style::Struct => quote!(#transformed_ident { #(#assignments)* }),
                 };
 
+                let body = struct_body(fields.style, true, quote! {#( #decls )*});
+
                 quote! {
                     #(#attrs)*
-                    #vis struct #transformed_ident<'a> {
-                        #( #decls )*
-                    }
+                    #vis struct #transformed_ident #ref_generics #body
 
                     impl #imp #substrate::geometry::transform::HasTransformedView for #ident #ty #wher {
-                        type TransformedView<'a> = #transformed_ident<'a>;
+                        type TransformedView<#lifetime> = #transformed_ident #ref_ty;
 
                         fn transformed_view(
                             &self,
@@ -210,11 +216,11 @@ impl ToTokens for DataInputReceiver {
                     .map(|v| transform_variant_match_arm(transformed_ident.clone(), v));
                 quote! {
                     #(#attrs)*
-                    #vis enum #transformed_ident<'a> {
+                    #vis enum #transformed_ident #ref_generics {
                         #( #decls )*
                     }
                     impl #imp #substrate::geometry::transform::HasTransformedView for #ident #ty #wher {
-                        type TransformedView<'a> = #transformed_ident<'a>;
+                        type TransformedView<#lifetime> = #transformed_ident #ref_ty;
 
                         fn transformed_view(
                             &self,
