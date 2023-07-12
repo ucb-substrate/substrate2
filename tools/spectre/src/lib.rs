@@ -8,6 +8,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use cache::TryInnerError;
 use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
@@ -198,7 +199,7 @@ impl Spectre {
         let work_dir = ctx.work_dir.clone();
         let executor = ctx.executor.clone();
 
-        let generate_fn = move |_key: &Vec<u8>| -> Result<Vec<HashMap<String, Vec<f64>>>> {
+        let generate_fn = move || -> Result<Vec<HashMap<String, Vec<f64>>>> {
             write_run_script(
                 RunScriptContext {
                     netlist: &netlist,
@@ -261,13 +262,18 @@ impl Spectre {
         };
         let raw_outputs = if let Some(cache) = &ctx.cache {
             cache
-                .generate_result("spectre/tran_outputs", hash, generate_fn)
+                .generate_result("spectre/tran_outputs", hash, move |_key: &Vec<u8>| {
+                    generate_fn().map_err(Arc::new)
+                })
                 .try_inner()
                 // TODO: Increase granularity of caching errors.
-                .map_err(|_| Error::Caching)?
+                .map_err(|e| match e {
+                    TryInnerError::CacheError(e) => Error::Caching(e),
+                    TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
+                })?
                 .clone()
         } else {
-            generate_fn(&hash)?
+            generate_fn()?
         };
 
         let outputs = raw_outputs

@@ -1,5 +1,7 @@
 //! Spectre errors.
 
+use std::sync::Arc;
+
 use thiserror::Error as ThisError;
 
 /// The result type returned by Spectre library functions.
@@ -20,7 +22,10 @@ pub enum Error {
     /// Error parsing PSF output files.
     #[error("error parsing PSF output file")]
     PsfParse,
+    /// Error generating results.
+    #[error("error generating spectre results")]
+    Generator(#[from] Arc<Error>),
     /// Error caching results.
-    #[error("error caching spectre results")]
-    Caching,
+    #[error("error generating spectre results")]
+    Caching(#[from] Arc<cache::error::Error>),
 }

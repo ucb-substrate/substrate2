@@ -16,5 +16,6 @@ tracing = "0.1"
 sha2 = "0.10"
 
 scir = { version = "0.1.0", registry = "substrate", path = "../../scir" }
+cache = { version = "0.1.0", registry = "substrate", path = "../../libs/cache" }
 substrate = { version = "0.2.0", registry = "substrate", path = "../../substrate" }
 opacity = { version = "0.1.0", path = "../../libs/opacity", registry = "substrate" }

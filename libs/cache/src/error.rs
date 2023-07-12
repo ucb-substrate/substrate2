@@ -1,7 +1,15 @@
 //! Cache error types.
 
+use std::sync::Arc;
+
 /// A result type returning cache errors.
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// A result type returning reference counted cache errors.
+///
+/// Stores an [`Arc<Error>`] since the error will be stuck inside a [`OnceCell`] and is
+/// cannot be owned without cloning.
+pub type ArcResult<T> = std::result::Result<T, Arc<Error>>;
 
 /// The error type for cache functions.
 #[derive(thiserror::Error, Debug)]

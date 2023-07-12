@@ -79,7 +79,7 @@ impl CacheClient {
                 panic!("failed to set cell value");
             }
         });
-        if join_handle.join().is_err() && handle.0.set(Err(Error::Panic)).is_err() {
+        if join_handle.join().is_err() && handle.0.set(Err(Arc::new(Error::Panic))).is_err() {
             panic!("failed to set cell value on panic");
         }
     }
@@ -229,7 +229,7 @@ impl RemoteCacheClient {
                 Ok(())
             };
             if let Err(e) = inner() {
-                let _ = handle.0.set(Err(e));
+                let _ = handle.0.set(Err(Arc::new(e)));
             }
         });
     }
@@ -394,7 +394,7 @@ impl LocalCacheClient {
                 Ok(())
             };
             if let Err(e) = inner() {
-                let _ = handle.0.set(Err(e));
+                let _ = handle.0.set(Err(Arc::new(e)));
             }
         });
     }
@@ -467,7 +467,7 @@ impl LocalCacheClient {
                 Ok(())
             };
             if let Err(e) = inner() {
-                let _ = handle.0.set(Err(e));
+                let _ = handle.0.set(Err(Arc::new(e)));
             }
         });
     }

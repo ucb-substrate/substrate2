@@ -12,7 +12,7 @@ use std::{
 use once_cell::sync::OnceCell;
 
 use crate::{
-    error::{Error, Result},
+    error::{ArcResult, Error, Result},
     CacheHandle, Cacheable, CacheableWithState,
 };
 
@@ -190,14 +190,14 @@ impl Cache {
         let entry = self
             .cells
             .entry(TypeId::of::<K>())
-            .or_insert(Arc::new(
-                Mutex::<HashMap<Arc<K>, Arc<OnceCell<Result<V>>>>>::default(),
-            ));
+            .or_insert(Arc::new(Mutex::<
+                HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>,
+            >::default()));
 
         let mut entry_locked = entry.lock().unwrap();
 
         let entry = entry_locked
-            .downcast_mut::<HashMap<Arc<K>, Arc<OnceCell<Result<V>>>>>()
+            .downcast_mut::<HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>>()
             .unwrap()
             .entry(key.clone());
 
@@ -216,7 +216,7 @@ impl Cache {
                             panic!("failed to set cell value");
                         }
                     });
-                    if handle.join().is_err() && cell2.set(Err(Error::Panic)).is_err() {
+                    if handle.join().is_err() && cell2.set(Err(Arc::new(Error::Panic))).is_err() {
                         panic!("failed to set cell value on panic");
                     }
                 });
@@ -252,14 +252,14 @@ impl Cache {
         let entry = self
             .cells_with_state
             .entry((TypeId::of::<K>(), TypeId::of::<S>()))
-            .or_insert(Arc::new(
-                Mutex::<HashMap<Arc<K>, Arc<OnceCell<Result<V>>>>>::default(),
-            ));
+            .or_insert(Arc::new(Mutex::<
+                HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>,
+            >::default()));
 
         let mut entry_locked = entry.lock().unwrap();
 
         let entry = entry_locked
-            .downcast_mut::<HashMap<Arc<K>, Arc<OnceCell<Result<V>>>>>()
+            .downcast_mut::<HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>>()
             .unwrap()
             .entry(key.clone());
 
@@ -278,7 +278,7 @@ impl Cache {
                             panic!("failed to set cell value");
                         }
                     });
-                    if handle.join().is_err() && cell2.set(Err(Error::Panic)).is_err() {
+                    if handle.join().is_err() && cell2.set(Err(Arc::new(Error::Panic))).is_err() {
                         panic!("failed to set cell value on panic");
                     }
                 });
@@ -432,7 +432,7 @@ mod tests {
             format!("{}", handle2.unwrap_err_inner().root_cause()),
             "invalid key"
         );
-        assert!(matches!(handle3.get_err(), crate::error::Error::Panic));
+        assert!(matches!(handle3.get_err().as_ref(), Error::Panic));
 
         let state = Arc::new(Mutex::new(Vec::new()));
         let handle1 = cache.get_with_state(Key(0), state.clone());
@@ -444,7 +444,7 @@ mod tests {
             format!("{}", handle2.unwrap_err_inner().root_cause()),
             "invalid key"
         );
-        assert!(matches!(handle3.get_err(), crate::error::Error::Panic));
+        assert!(matches!(handle3.get_err().as_ref(), Error::Panic));
 
         assert_eq!(state.lock().unwrap().clone(), vec![0]);
     }
@@ -510,6 +510,6 @@ mod tests {
         let handle =
             cache.generate::<_, usize>(Params1 { value: 5 }, |_| panic!("panic during generation"));
 
-        assert!(matches!(handle.get_err(), Error::Panic));
+        assert!(matches!(handle.get_err().as_ref(), Error::Panic));
     }
 }

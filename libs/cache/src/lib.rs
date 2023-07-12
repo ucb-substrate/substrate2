@@ -3,7 +3,7 @@
 
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
-use error::{Error, Result};
+use error::{ArcResult, Error, Result};
 use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -115,7 +115,7 @@ pub trait CacheableWithState<S: Send + Sync + Any>:
 
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
-pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<Result<V>>>);
+pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<ArcResult<V>>>);
 
 impl<V> Clone for CacheHandle<V> {
     fn clone(&self) -> Self {
@@ -136,7 +136,7 @@ impl<V: Send + Sync + Any> CacheHandle<V> {
                     panic!("failed to set cell value");
                 }
             });
-            if join_handle.join().is_err() && handle2.0.set(Err(Error::Panic)).is_err() {
+            if join_handle.join().is_err() && handle2.0.set(Err(Arc::new(Error::Panic))).is_err() {
                 panic!("failed to set cell value on panic");
             }
         });
@@ -149,14 +149,14 @@ impl<V> CacheHandle<V> {
     /// Blocks on the cache entry, returning the result once it is ready.
     ///
     /// Returns an error if one was returned by the generator.
-    pub fn try_get(&self) -> std::result::Result<&V, &error::Error> {
-        self.0.wait().as_ref()
+    pub fn try_get(&self) -> ArcResult<&V> {
+        self.0.wait().as_ref().map_err(|e| e.clone())
     }
 
     /// Checks whether the underlying entry is ready.
     ///
     /// Returns the entry if available, otherwise returns [`None`].
-    pub fn poll(&self) -> Option<&Result<V>> {
+    pub fn poll(&self) -> Option<&ArcResult<V>> {
         self.0.get()
     }
 
@@ -176,7 +176,7 @@ impl<V: Debug> CacheHandle<V> {
     /// # Panics
     ///
     /// Panics if no error was thrown by the cache.
-    pub fn get_err(&self) -> &error::Error {
+    pub fn get_err(&self) -> Arc<error::Error> {
         self.try_get().unwrap_err()
     }
 }
@@ -184,7 +184,7 @@ impl<V: Debug> CacheHandle<V> {
 /// The error type returned by [`CacheHandle::try_inner`].
 pub enum TryInnerError<'a, E> {
     /// An error thrown by the cache.
-    CacheError(&'a error::Error),
+    CacheError(Arc<error::Error>),
     /// An error thrown by the generator.
     GeneratorError(&'a E),
 }
