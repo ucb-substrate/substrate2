@@ -202,7 +202,7 @@ impl RemoteCacheClient {
                                     self_clone.heartbeat_rpc(id)
                                 });
                             let v = CacheClient::run_generation(key, generate_fn);
-                            if let Ok(data) = v {
+                            if let Ok(data) = &v {
                                 let _ = s_heartbeat_stop.send(());
                                 let _ = r_heartbeat_stopped.recv();
                                 self.set_rpc(id, flexbuffers::to_vec(data).unwrap())?;
@@ -354,7 +354,7 @@ impl LocalCacheClient {
                                     self_clone.heartbeat_rpc(id)
                                 });
                             let v = CacheClient::run_generation(key, generate_fn);
-                            if let Ok(data) = v {
+                            if let Ok(data) = &v {
                                 let _ = s_heartbeat_stop.send(());
                                 let _ = r_heartbeat_stopped.recv();
                                 let path = PathBuf::from(path);
@@ -423,21 +423,23 @@ impl LocalCacheClient {
                                     self_clone.heartbeat_rpc(id)
                                 });
                             let v = CacheClient::run_generation(key, generate_fn);
-                            if let Ok(data) = handle.try_inner() {
-                                let _ = s_heartbeat_stop.send(());
-                                let _ = r_heartbeat_stopped.recv();
-                                let path = PathBuf::from(path);
-                                if let Some(parent) = path.parent() {
-                                    fs::create_dir_all(parent)?;
-                                }
+                            if let Ok(data) = &v {
+                                if let Ok(data) = data {
+                                    let _ = s_heartbeat_stop.send(());
+                                    let _ = r_heartbeat_stopped.recv();
+                                    let path = PathBuf::from(path);
+                                    if let Some(parent) = path.parent() {
+                                        fs::create_dir_all(parent)?;
+                                    }
 
-                                let mut f = OpenOptions::new()
-                                    .read(true)
-                                    .write(true)
-                                    .create(true)
-                                    .open(&path)?;
-                                f.write_all(&flexbuffers::to_vec(data).unwrap())?;
-                                self.done_rpc(id)?;
+                                    let mut f = OpenOptions::new()
+                                        .read(true)
+                                        .write(true)
+                                        .create(true)
+                                        .open(&path)?;
+                                    f.write_all(&flexbuffers::to_vec(data).unwrap())?;
+                                    self.done_rpc(id)?;
+                                }
                             }
                             handle.0.set(v);
                             break;
