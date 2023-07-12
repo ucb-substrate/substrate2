@@ -458,7 +458,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let server = CacheServer::new(root.clone()).with_remote("0.0.0.0:28055".parse().unwrap());
+        let port = portpicker::pick_unused_port().unwrap();
+        let server =
+            CacheServer::new(root.clone()).with_remote(format!("0.0.0.0:{port}").parse().unwrap());
         let handle = runtime.spawn(async move { server.start().await });
 
         std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
@@ -480,7 +482,8 @@ mod tests {
 
         handle.abort();
 
-        let server = CacheServer::new(root).with_remote("0.0.0.0:28056".parse().unwrap());
+        let port = portpicker::pick_unused_port().unwrap();
+        let server = CacheServer::new(root).with_remote(format!("0.0.0.0:{port}").parse().unwrap());
         drop(runtime.spawn(async move { server.start().await }));
 
         std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
@@ -510,7 +513,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let server = CacheServer::new(root.clone()).with_local("0.0.0.0:28057".parse().unwrap());
+        let port = portpicker::pick_unused_port().unwrap();
+        let server =
+            CacheServer::new(root.clone()).with_local(format!("0.0.0.0:{port}").parse().unwrap());
         let handle = runtime.spawn(async move { server.start().await });
 
         std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
@@ -532,7 +537,8 @@ mod tests {
 
         handle.abort();
 
-        let server = CacheServer::new(root).with_local("0.0.0.0:28058".parse().unwrap());
+        let port = portpicker::pick_unused_port().unwrap();
+        let server = CacheServer::new(root).with_local(format!("0.0.0.0:{port}").parse().unwrap());
         drop(runtime.spawn(async move { server.start().await }));
 
         std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
@@ -562,7 +568,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let server = CacheServer::new(root.clone()).with_remote("0.0.0.0:28059".parse().unwrap());
+        let port = portpicker::pick_unused_port().unwrap();
+        let server =
+            CacheServer::new(root.clone()).with_local(format!("0.0.0.0:{port}").parse().unwrap());
         drop(runtime.spawn(async move { server.start().await }));
 
         std::thread::sleep(Duration::from_millis(400)); // Wait until server starts.
