@@ -1,10 +1,12 @@
 //! SPICE netlist exporter.
-#![warn(missing_docs)]
+// #![warn(missing_docs)]
 
 use opacity::Opacity;
 use scir::Slice;
 use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
 use std::io::{prelude::*, BufWriter};
+
+pub mod parser;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
