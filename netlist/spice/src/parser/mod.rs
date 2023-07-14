@@ -17,55 +17,132 @@ pub type Node = Substr;
 #[repr(transparent)]
 pub struct Substr(arcstr::Substr);
 
-pub struct Parser {}
+pub struct Parser {
+    buffer: Vec<Token>,
+    ast: Ast,
+}
 
 impl Parser {
     pub fn parse_file() {}
 
-    pub fn parse(data: Substr) {}
+    pub fn parse(&mut self, data: Substr) {
+    }
 
-    fn parse_inner(data: Substr, ast: &mut Ast) {}
+    fn parse_line(&mut self, data: Substr) {
+        let tokens = Tokenizer::new(data);
+        for token in tokens {
+            if token == Token::LineEnd {
+                self.process_buffer();
+            } else {
+                self.buffer.push(token);
+            }
+        }
+    }
+
+    fn parse_line_inner(&mut self) -> Option<Line> {
+        let line = match self.buffer.first().unwrap() {
+            Token::Directive(d) => {
+                if d.eq_ignore_ascii_case(".subckt") {
+                    // TODO params
+                    let ports = self.buffer[1..].iter().map(|tok| {
+                        tok.unwrap_ident().clone()
+                    }).collect();
+                    Some(Line::SubcktDecl { ports })
+                } else if d.eq_ignore_ascii_case(".ends") {
+                    Some(Line::EndSubckt)
+                } else {
+                    None
+                }
+            },
+            Token::Ident(id) => {
+                let pos = self.buffer.iter().position(|t| matches!(t, Token::Equals));
+                Some(Line::Component(todo!()))
+            },
+            tok => panic!("Unexpected token: {:?}", tok),
+        };
+        self.buffer.clear();
+        line
+    }
 }
 
 pub struct Ast {
+    /// The list of elements in the SPICE netlist.
     elems: Vec<Elem>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+enum Line {
+    SubcktDecl {
+        ports: Vec<Substr>
+    },
+    Component(Component),
+    EndSubckt,
+}
+
 pub enum Elem {
+    /// A subcircuit declaration.
     Subckt(Subckt),
+    /// A top-level component instance.
     Component(Component),
 }
+
 pub struct Subckt {
+    /// List of components in the subcircuit.
     components: Vec<Component>,
+    ports: Vec<Substr>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Component {
     Mos(Mos),
+    Instance(Instance),
 }
 
-pub struct Mos {
-    name: Substr,
-    d: Node,
-    g: Node,
-    s: Node,
-    b: Node,
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Instance {
+    ports: Vec<Substr>,
+    child: Substr,
     params: Params,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Mos {
+    name: Substr,
+    /// The drain.
+    d: Node,
+    /// The gate.
+    g: Node,
+    /// The source.
+    s: Node,
+    /// The body/substrate.
+    b: Node,
+    /// Parameters and their values.
+    params: Params,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Params {
     values: HashMap<Substr, Substr>,
 }
 
+#[inline]
 fn is_newline(c: char) -> bool {
     c == '\n' || c == '\r'
 }
 
+#[inline]
 fn is_space(c: char) -> bool {
     c == ' ' || c == '\t'
 }
 
+#[inline]
 fn is_space_or_newline(c: char) -> bool {
     is_space(c) || is_newline(c)
+}
+
+#[inline]
+fn is_special(c: char) -> bool {
+    is_space_or_newline(c) || c == '='
 }
 
 pub struct Tokenizer {
@@ -81,6 +158,7 @@ pub enum Token {
     Directive(Substr),
     Ident(Substr),
     LineEnd,
+    Equals,
 }
 
 #[derive(Copy, Clone, Default, Eq, PartialEq, Hash, Debug)]
@@ -120,6 +198,9 @@ impl Tokenizer {
             }
 
             let c = self.peek().unwrap();
+            if c == '=' {
+                return Some(Token::Equals);
+            }
             match self.state {
                 TokState::Init => {
                     if c == self.comment {
@@ -145,10 +226,10 @@ impl Tokenizer {
                     } else if c == self.comment {
                         self.take_until_newline();
                     } else if c == '.' {
-                        let word = self.take_until_ws();
+                        let word = self.take_ident();
                         return Some(Token::Directive(word));
                     } else {
-                        let word = self.take_until_ws();
+                        let word = self.take_ident();
                         return Some(Token::Ident(word));
                     }
                 }
@@ -168,7 +249,7 @@ impl Tokenizer {
         comment
     }
 
-    fn take_until_ws(&mut self) -> Substr {
+    fn take_ident(&mut self) -> Substr {
         let (rest, value) = take_till::<_, _, ()>(is_space_or_newline)(self.rem.clone()).unwrap();
         self.rem = rest;
         value
@@ -276,15 +357,30 @@ impl InputTakeAtPosition for Substr {
 
 impl<T> From<T> for Substr
 where
-    T: Into<arcstr::Substr>,
+    arcstr::Substr: From<T>,
 {
     fn from(value: T) -> Self {
-        Self(value.into())
+        Self(arcstr::Substr::from(value))
     }
 }
 
 impl Display for Substr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Into<arcstr::Substr> for Substr {
+    fn into(self) -> arcstr::Substr {
+        self.0
+    }
+}
+
+impl Token {
+    pub fn unwrap_ident(&self) -> &Substr {
+        match self {
+            Self::Ident(x) => x,
+            _ => panic!("not an ident"),
+        }
     }
 }
