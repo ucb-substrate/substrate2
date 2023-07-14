@@ -84,7 +84,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         Self {
             pdk: None,
             simulators: Default::default(),
-            executor: Arc::new(LocalExecutor::default()),
+            executor: Arc::new(LocalExecutor),
         }
     }
 
