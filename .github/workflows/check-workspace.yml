@@ -15,7 +15,7 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.70.0
+        uses: dtolnay/rust-toolchain@1.71.0
         id: toolchain
         with:
           toolchain: stable
@@ -48,7 +48,7 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.70.0
+        uses: dtolnay/rust-toolchain@1.71.0
         id: toolchain
         with:
           toolchain: stable
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.70.0
+        uses: dtolnay/rust-toolchain@1.71.0
         id: toolchain
         with:
           toolchain: stable
