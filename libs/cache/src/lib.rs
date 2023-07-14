@@ -3,7 +3,7 @@
 
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
-use error::{ArcResult, Error};
+use error::{ArcResult, Error, TryInnerError};
 use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
@@ -180,20 +180,6 @@ impl<V: Debug> CacheHandle<V> {
     /// Panics if no error was thrown by the cache.
     pub fn get_err(&self) -> Arc<error::Error> {
         self.try_get().unwrap_err()
-    }
-}
-
-/// The error type returned by [`CacheHandle::try_inner`].
-pub enum TryInnerError<'a, E> {
-    /// An error thrown by the cache.
-    CacheError(Arc<error::Error>),
-    /// An error thrown by the generator.
-    GeneratorError(&'a E),
-}
-
-impl<'a, E> From<&'a E> for TryInnerError<'a, E> {
-    fn from(value: &'a E) -> Self {
-        Self::GeneratorError(value)
     }
 }
 

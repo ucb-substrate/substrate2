@@ -19,13 +19,19 @@ message GetRequest {
 message GetReply {
   oneof entry_status {
     google.protobuf.Empty unassigned = 1;
-    IdPath assign = 2;
+    AssignReply assign = 2;
     google.protobuf.Empty loading = 3;
-    IdPath ready = 4;
+    ReadyReply ready = 4;
   }
 }
 
-message IdPath {
+message AssignReply {
+  uint64 id = 1;
+  string path = 2;
+  uint64 heartbeat_interval_ms = 3;
+}
+
+message ReadyReply {
   uint64 id = 1;
   string path = 2;
 }

@@ -43,3 +43,23 @@ pub enum Error {
     #[error("failed to connect to cache server")]
     Connection,
 }
+
+/// The error type returned by [`CacheHandle::try_inner`].
+pub enum TryInnerError<'a, E> {
+    /// An error thrown by the cache.
+    CacheError(Arc<Error>),
+    /// An error thrown by the generator.
+    GeneratorError(&'a E),
+}
+
+impl<'a, E> From<Arc<Error>> for TryInnerError<'a, E> {
+    fn from(value: Arc<Error>) -> Self {
+        Self::CacheError(value)
+    }
+}
+
+impl<'a, E> From<&'a E> for TryInnerError<'a, E> {
+    fn from(value: &'a E) -> Self {
+        Self::GeneratorError(value)
+    }
+}

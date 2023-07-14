@@ -1,4 +1,4 @@
-//! A gRPC persistent cache server.
+//! A persistent cache gRPC server.
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -15,7 +15,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tokio_rusqlite::Connection;
-use tonic::transport::Server;
 use tonic::Response;
 use tracing::Level;
 
@@ -36,10 +35,10 @@ pub const CONFIG_MANIFEST_NAME: &str = "Cache.toml";
 pub const MANIFEST_DB_NAME: &str = "cache.sqlite";
 
 /// The expected interval between heartbeats.
-pub const HEARTBEAT_INTERVAL_SECS: u64 = 2;
+pub const HEARTBEAT_INTERVAL_SECS_DEFAULT: u64 = 2;
 
 /// The timeout before an assigned task is assumed to have failed.
-pub const HEARTBEAT_TIMEOUT_SECS: u64 = HEARTBEAT_INTERVAL_SECS + 2;
+pub const HEARTBEAT_TIMEOUT_SECS_DEFAULT: u64 = HEARTBEAT_INTERVAL_SECS_DEFAULT + 2;
 
 const CREATE_MANIFEST_TABLE_STMT: &str = r#"
     CREATE TABLE IF NOT EXISTS manifest (
@@ -71,41 +70,96 @@ const DELETE_STATUS_STMT: &str = r#"
 "#;
 
 /// A gRPC cache server.
-pub struct CacheServer {
+#[derive(Debug)]
+pub struct Server {
     root: Arc<PathBuf>,
     remote_addr: Option<SocketAddr>,
     local_addr: Option<SocketAddr>,
+    heartbeat_interval: Duration,
+    heartbeat_timeout: Duration,
+}
+
+/// A builder for a gRPC cache server.
+#[derive(Default, Debug)]
+pub struct ServerBuilder {
+    root: Option<Arc<PathBuf>>,
+    remote_addr: Option<SocketAddr>,
+    local_addr: Option<SocketAddr>,
+    heartbeat_interval: Option<Duration>,
+    heartbeat_timeout: Option<Duration>,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub(crate) struct ConfigManifest {
     pub(crate) remote_addr: Option<SocketAddr>,
     pub(crate) local_addr: Option<SocketAddr>,
+    pub(crate) heartbeat_interval: Duration,
+    pub(crate) heartbeat_timeout: Duration,
 }
 
-impl CacheServer {
-    /// Creates a new [`CacheServer`] object without setting up any gRPC servers.
-    ///
-    /// Use [`CacheServer::with_remote`] and [`CacheServer::with_local`] to configure the desired
-    /// servers.
-    pub fn new(root: PathBuf) -> Self {
-        Self {
-            root: Arc::new(root),
-            remote_addr: None,
-            local_addr: None,
-        }
+impl ServerBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Set up the remote cache gRPC server.
-    pub fn with_remote(mut self, addr: SocketAddr) -> Self {
+    /// Sets the root directory of the cache server.
+    pub fn root(&mut self, path: PathBuf) -> &mut Self {
+        self.root = Some(Arc::new(path));
+        self
+    }
+
+    /// Configures the remote cache gRPC server.
+    pub fn remote(&mut self, addr: SocketAddr) -> &mut Self {
         self.remote_addr = Some(addr);
         self
     }
 
-    /// Set up the local cache gRPC server.
-    pub fn with_local(mut self, addr: SocketAddr) -> Self {
+    /// Configures the local cache gRPC server.
+    pub fn local(&mut self, addr: SocketAddr) -> &mut Self {
         self.local_addr = Some(addr);
         self
+    }
+
+    /// Sets the expected interval between hearbeats.
+    ///
+    /// Defaults to [`HEARTBEAT_INTERVAL_SECS_DEFAULT`].
+    pub fn heartbeat_interval(&mut self, duration: Duration) -> &mut Self {
+        self.heartbeat_interval = Some(duration);
+        self
+    }
+
+    /// Sets the timeout before an assigned task is marked for reassignment.
+    ///
+    /// Defaults to [`HEARTBEAT_TIMEOUT_SECS_DEFAULT`].
+    pub fn heartbeat_timeout(&mut self, duration: Duration) -> &mut Self {
+        self.heartbeat_timeout = Some(duration);
+        self
+    }
+
+    /// Builds a [`Server`] from the configured options.
+    pub fn build(&mut self) -> Server {
+        let server = Server {
+            root: self.root.unwrap(),
+            remote_addr: self.remote_addr,
+            local_addr: self.local_addr,
+            heartbeat_interval: self
+                .heartbeat_interval
+                .unwrap_or(Duration::from_secs(HEARTBEAT_INTERVAL_SECS_DEFAULT)),
+            heartbeat_timeout: self
+                .heartbeat_timeout
+                .unwrap_or(Duration::from_secs(HEARTBEAT_TIMEOUT_SECS_DEFAULT)),
+        };
+
+        assert!(server.heartbeat_interval < server.heartbeat_timeout);
+
+        server
+    }
+}
+
+impl Server {
+    /// Creates a new [`ServerBuilder`] object.
+    pub fn builder() -> ServerBuilder {
+        ServerBuilder::new()
     }
 
     /// Starts the gRPC server, listening on the configured address.
@@ -115,7 +169,10 @@ impl CacheServer {
                 Level::WARN,
                 "no local or remote address specified so no server is being run"
             );
+            return Ok(());
         }
+
+        // Write configuration options to the config manifest.
         let mut config_manifest = OpenOptions::new()
             .read(true)
             .write(true)
@@ -128,6 +185,8 @@ impl CacheServer {
                 &toml::to_string(&ConfigManifest {
                     remote_addr: self.remote_addr,
                     local_addr: self.local_addr,
+                    heartbeat_interval: self.heartbeat_interval,
+                    heartbeat_timeout: self.heartbeat_timeout,
                 })
                 .unwrap()
                 .into_bytes(),
@@ -136,41 +195,59 @@ impl CacheServer {
 
         let db_path = self.root.join(MANIFEST_DB_NAME);
         let inner = Arc::new(Mutex::new(CacheInner::new(&db_path).await?));
-        let imp = CacheImpl::new(self.root.clone(), inner);
-        let remote_svc = RemoteCacheServer::new(imp.clone());
-        let local_svc = LocalCacheServer::new(imp);
+
+        let imp = CacheImpl::new(
+            self.root.clone(),
+            self.heartbeat_interval,
+            self.heartbeat_timeout,
+            inner,
+        );
+
         let mut handle = None;
         if let Some(addr) = self.remote_addr {
+            let remote_svc = RemoteCacheServer::new(imp.clone());
             handle = Some(tokio::spawn(
-                Server::builder().add_service(remote_svc).serve(addr),
+                tonic::transport::Server::builder()
+                    .add_service(remote_svc)
+                    .serve(addr),
             ));
         }
         if let Some(addr) = self.local_addr {
+            let local_svc = LocalCacheServer::new(imp);
             handle = Some(tokio::spawn(
-                Server::builder().add_service(local_svc).serve(addr),
+                tonic::transport::Server::builder()
+                    .add_service(local_svc)
+                    .serve(addr),
             ));
         }
 
-        if let Some(handle) = handle {
-            handle.await??;
-        }
+        handle.unwrap().await??;
+
+        // Hold file lock until server terminates.
         drop(config_manifest);
+
         Ok(())
     }
 }
 
+/// Cache state.
 #[derive(Clone, Debug)]
 struct CacheInner {
     next_assignment_id: AssignmentId,
     next_handle_id: HandleId,
+    /// Status of entries currently in the cache.
     entry_status: HashMap<Arc<EntryKey>, EntryStatus>,
+    /// Status of entries that are currently loading.
     loading: HashMap<AssignmentId, LoadingData>,
+    /// Status of entries that have active handles.
     handles: HashMap<HandleId, Arc<EntryKey>>,
+    /// A wrapper around a [`tokio_rusqlite::Connection`].
     conn: CacheInnerConn,
 }
 
 impl CacheInner {
     async fn new(db_path: impl AsRef<Path>) -> Result<Self> {
+        // Set up the manifest database.
         let conn = Connection::open(db_path.as_ref()).await?;
         conn.call(|conn| {
             let tx = conn.transaction()?;
@@ -179,6 +256,7 @@ impl CacheInner {
             Ok(())
         })
         .await?;
+
         let mut cache = Self {
             next_assignment_id: AssignmentId(0),
             next_handle_id: HandleId(0),
@@ -187,7 +265,10 @@ impl CacheInner {
             handles: HashMap::new(),
             conn: CacheInnerConn(conn),
         };
+
+        // Load persisted state.
         cache.load_from_disk().await?;
+
         Ok(cache)
     }
 
@@ -197,8 +278,13 @@ impl CacheInner {
             .0
             .call(|conn| {
                 let tx = conn.transaction()?;
+
+                // Delete loading entries as we cannot recover assignment IDs on restart.
                 let mut stmt = tx.prepare(DELETE_ENTRIES_WITH_STATUS_STMT)?;
                 stmt.execute([DbEntryStatus::Loading.to_int()])?;
+
+                // Read remaining rows from the manifest, converting them into tuples mapping
+                // `EntryKey` to a `DbEntryStatus`.
                 let mut stmt = tx.prepare(READ_MANIFEST_STMT)?;
                 let rows = stmt.query_map(
                     [],
@@ -218,6 +304,8 @@ impl CacheInner {
             .into_iter()
             .map(|res| res.map_err(|e| e.into()))
             .collect::<std::result::Result<Vec<_>, tokio_rusqlite::Error>>()?;
+
+        // Map database entries into in-memory cache state.
         self.entry_status = HashMap::from_iter(rows.into_iter().filter_map(|v| {
             Some((
                 v.0,
@@ -228,6 +316,7 @@ impl CacheInner {
                 }?,
             ))
         }));
+
         Ok(())
     }
 }
@@ -308,6 +397,9 @@ enum EntryStatus {
 enum DbEntryStatus {
     Loading,
     Ready,
+    /// An entry that is marked for eviction.
+    ///
+    /// Currently unused.
     Evicting,
 }
 
@@ -373,14 +465,31 @@ impl GetReplyStatus {
 #[derive(Clone, Debug)]
 struct CacheImpl {
     root: Arc<PathBuf>,
+    heartbeat_interval: Duration,
+    heartbeat_timeout: Duration,
     inner: Arc<Mutex<CacheInner>>,
 }
 
 impl CacheImpl {
-    pub fn new(root: Arc<PathBuf>, inner: Arc<Mutex<CacheInner>>) -> Self {
-        Self { root, inner }
+    fn new(
+        root: Arc<PathBuf>,
+        heartbeat_interval: Duration,
+        heartbeat_timeout: Duration,
+        inner: Arc<Mutex<CacheInner>>,
+    ) -> Self {
+        Self {
+            root,
+            heartbeat_interval,
+            heartbeat_timeout,
+            inner,
+        }
     }
 
+    /// Responds to a `Get` RPC request for the given entry key, assigning unassigned tasks if
+    /// `assign` is `true`.
+    ///
+    /// If `local` is `true`, getting an existing key in the cache requires assigning a new entry
+    /// handle, which must be dropped by the client to allow the key to be evicted.
     async fn get_impl(
         &self,
         entry_key: Arc<EntryKey>,
@@ -398,6 +507,7 @@ impl CacheImpl {
             conn,
             ..
         } = &mut *inner;
+
         let path = get_file(self.root.as_ref(), &entry_key);
         Ok(match entry_status.entry(entry_key.clone()) {
             Entry::Occupied(mut o) => {
@@ -407,8 +517,13 @@ impl CacheImpl {
                         let data = loading
                             .get(id)
                             .ok_or(tonic::Status::internal("unable to retrieve status of key"))?;
+
+                        // If the entry is loading but hasn't received a heartbeat recently,
+                        // reassign it to be loaded by the new requester.
+                        //
+                        // Otherwise, notify the requester that the entry is currently loading.
                         if Instant::now().duration_since(data.last_heartbeat)
-                            > Duration::from_secs(HEARTBEAT_TIMEOUT_SECS)
+                            > self.heartbeat_timeout
                         {
                             if assign {
                                 loading.remove(id);
@@ -435,21 +550,29 @@ impl CacheImpl {
                     }
                     EntryStatus::Ready(in_use) => {
                         if local {
+                            // If the requested entry is ready, assign a new handle to the entry.
                             *in_use += 1;
                             next_handle_id.increment();
                             handles.insert(*next_handle_id, entry_key);
                             GetReplyStatus::ReadyLocal(*next_handle_id)
                         } else {
+                            // If the requested entry is ready, read it from disk and send it back
+                            // to the requester.
                             let mut file = File::open(path).await?;
                             let mut buf = Vec::new();
                             file.read_to_end(&mut buf).await?;
                             GetReplyStatus::Ready(buf)
                         }
                     }
+                    // If the entry is currently being evicted, do not assign it.
+                    //
+                    // The client is free to generate on their own, but the cache will not accept a
+                    // new value for the entry.
                     EntryStatus::Evicting => GetReplyStatus::Unassigned,
                 }
             }
             Entry::Vacant(v) => {
+                // If the entry doesn't exist, assign it to be loaded if needed.
                 if assign {
                     next_assignment_id.increment();
                     conn.insert_status(entry_key.clone(), DbEntryStatus::Loading)
@@ -496,6 +619,8 @@ impl CacheImpl {
             .ok_or(tonic::Status::invalid_argument("invalid assignment id"))?;
 
         let key = data.key.clone();
+
+        // If there is a value to write to disk, write it to the appropriate file.
         if let Some(value) = value {
             let path = get_file(self.root.as_ref(), &key);
 
@@ -512,17 +637,18 @@ impl CacheImpl {
             f.write_all(&value).await?;
         }
 
+        // Mark the entry as ready in the database and in memory.
         inner
             .conn
             .update_status(key.clone(), DbEntryStatus::Ready)
             .await
             .map_err(|_| tonic::Status::internal("unable to persist changes"))?;
-
         let status = inner
             .entry_status
             .get_mut(&key)
             .ok_or(tonic::Status::internal("unable to retrieve status of key"))?;
         *status = EntryStatus::Ready(0);
+
         Ok(())
     }
 }
@@ -618,6 +744,7 @@ impl LocalCache for CacheImpl {
         Ok(Response::new(()))
     }
 
+    // TODO: Untested since eviction is not yet implemented.
     async fn drop(
         &self,
         request: tonic::Request<local::DropRequest>,
