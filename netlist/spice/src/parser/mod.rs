@@ -117,6 +117,21 @@ impl Parser {
                         value: self.buffer[3].try_ident()?.clone(),
                     })),
                     'X' => {
+                        // An X instance line looks like this:
+                        //
+                        // ```spice
+                        // Xname port0 port1 port2 child param1=value1 param2=value2
+                        // ```
+                        //
+                        // The index of "child" is the index of the first equals sign minus 2.
+                        // If there is no equal sign, it is buffer.len() - 1.
+                        //
+                        // The tokens after Xname and before `child_idx` are ports;
+                        // the tokens after `child_idx` should come in groups of 3
+                        // and represent parameter values.
+                        //
+                        // TODO: this logic needs to change to support expressions
+                        // in parameter values.
                         let pos = self.buffer.iter().position(|t| matches!(t, Token::Equals));
                         let child_idx = pos.unwrap_or(self.buffer.len() + 1) - 2;
                         let child = self.buffer[child_idx].try_ident()?.clone();
