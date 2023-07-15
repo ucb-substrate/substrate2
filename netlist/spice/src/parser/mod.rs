@@ -154,7 +154,7 @@ impl Parser {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Ast {
     /// The list of elements in the SPICE netlist.
-    elems: Vec<Elem>,
+    pub elems: Vec<Elem>,
 }
 
 /// A single logical line in a SPICE netlist.
@@ -191,10 +191,14 @@ pub enum Elem {
 /// The contents of a subcircuit.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Subckt {
-    name: Substr,
-    ports: Vec<Substr>,
+    /// The subcircuit name.
+    pub name: Substr,
+    /// The list of ports.
+    ///
+    /// Each port is a node exposed by this subcircuit.
+    pub ports: Vec<Node>,
     /// List of components in the subcircuit.
-    components: Vec<Component>,
+    pub components: Vec<Component>,
 }
 
 /// A SPICE netlist component.
@@ -212,43 +216,43 @@ pub enum Component {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Res {
     /// The name of the resistor instance.
-    name: Substr,
+    pub name: Substr,
     /// The node connected to the positive terminal.
-    pos: Node,
+    pub pos: Node,
     /// The node connected to the negative terminal.
-    neg: Node,
+    pub neg: Node,
     /// The value of the resistor.
-    value: Substr,
+    pub value: Substr,
 }
 
 /// A subcircuit instance.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Instance {
     /// The name of the instance.
-    name: Substr,
+    pub name: Substr,
     /// The list of port connections.
-    ports: Vec<Substr>,
+    pub ports: Vec<Substr>,
     /// The name of the child cell.
-    child: Substr,
+    pub child: Substr,
     /// Instance parameters.
-    params: Params,
+    pub params: Params,
 }
 
 /// A MOSFET.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mos {
     /// The name of the MOSFET instance.
-    name: Substr,
+    pub name: Substr,
     /// The drain.
-    d: Node,
+    pub d: Node,
     /// The gate.
-    g: Node,
+    pub g: Node,
     /// The source.
-    s: Node,
+    pub s: Node,
     /// The body/substrate.
-    b: Node,
+    pub b: Node,
     /// Parameters and their values.
-    params: Params,
+    pub params: Params,
 }
 
 /// Parameter values.
