@@ -13,6 +13,7 @@ use arcstr::ArcStr;
 use nom::bytes::complete::{take_till, take_while};
 use nom::error::ErrorKind;
 use nom::{IResult, InputTakeAtPosition};
+use thiserror::Error;
 
 pub type Node = Substr;
 
@@ -35,18 +36,18 @@ enum ParseState {
 }
 
 impl Parser {
-    pub fn parse_file(path: impl AsRef<Path>) -> Ast {
+    pub fn parse_file(path: impl AsRef<Path>) -> Result<Ast, ParserError> {
         let path = path.as_ref();
         let s: ArcStr = std::fs::read_to_string(path).unwrap().into();
         let s = Substr(arcstr::Substr::full(s));
         let mut parser = Self::default();
-        parser.parse(s);
-        parser.ast
+        parser.parse(s)?;
+        Ok(parser.ast)
     }
 
-    pub fn parse(&mut self, data: Substr) {
+    pub fn parse(&mut self, data: Substr) -> Result<(), ParserError> {
         let mut tok = Tokenizer::new(data);
-        while let Some(line) = self.parse_line(&mut tok) {
+        while let Some(line) = self.parse_line(&mut tok)? {
             match (&mut self.state, line) {
                 (ParseState::Top, Line::SubcktDecl { name, ports }) => {
                     self.state = ParseState::Subckt(Subckt {
@@ -66,24 +67,25 @@ impl Parser {
                     self.ast.elems.push(Elem::Subckt(subckt));
                     self.state = ParseState::Top;
                 }
-                _ => panic!("Unexpected line"),
+                (_, line) => return Err(ParserError::UnexpectedLine(Box::new(line))),
             }
         }
+        Ok(())
     }
 
-    fn parse_line(&mut self, tok: &mut Tokenizer) -> Option<Line> {
-        while let Some(token) = tok.get() {
+    fn parse_line(&mut self, tok: &mut Tokenizer) -> Result<Option<Line>, ParserError> {
+        while let Some(token) = tok.get()? {
             if token == Token::LineEnd {
-                return Some(self.parse_line_inner());
+                return Ok(Some(self.parse_line_inner()?));
             } else {
                 self.buffer.push(token);
             }
         }
 
-        None
+        Ok(None)
     }
 
-    fn parse_line_inner(&mut self) -> Line {
+    fn parse_line_inner(&mut self) -> Result<Line, ParserError> {
         let line = match self.buffer.first().unwrap() {
             Token::Directive(d) => {
                 if d.eq_ignore_ascii_case(".subckt") {
@@ -97,7 +99,7 @@ impl Parser {
                 } else if d.eq_ignore_ascii_case(".ends") {
                     Line::EndSubckt
                 } else {
-                    panic!("unexpected directive: `{d}`");
+                    return Err(ParserError::UnexpectedDirective(d.clone()));
                 }
             }
             Token::Ident(id) => {
@@ -134,13 +136,13 @@ impl Parser {
                             params,
                         }))
                     }
-                    kind => panic!("unexpected component type: {kind}"),
+                    kind => return Err(ParserError::UnexpectedComponentType(kind)),
                 }
             }
-            tok => panic!("unexpected token: {:?}", tok),
+            tok => return Err(ParserError::UnexpectedToken(tok.clone())),
         };
         self.buffer.clear();
-        line
+        Ok(line)
     }
 }
 
@@ -151,7 +153,7 @@ pub struct Ast {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-enum Line {
+pub enum Line {
     SubcktDecl { name: Substr, ports: Vec<Substr> },
     Component(Component),
     EndSubckt,
@@ -237,6 +239,7 @@ fn is_special(c: char) -> bool {
 }
 
 pub struct Tokenizer {
+    data: Substr,
     rem: Substr,
     state: TokState,
     comment: char,
@@ -260,11 +263,36 @@ enum TokState {
     Line,
 }
 
+#[derive(Debug, Error)]
+pub enum ParserError {
+    #[error("tokenizer error: {0}")]
+    Tokenizer(#[from] TokenizerError),
+    #[error("unexpected line: {0:?}")]
+    UnexpectedLine(Box<Line>),
+    #[error("unexpected SPICE directive: {0}")]
+    UnexpectedDirective(Substr),
+    #[error("unexpected component type: {0}")]
+    UnexpectedComponentType(char),
+    #[error("unexpected token: {0:?}")]
+    UnexpectedToken(Token),
+}
+
+#[derive(Debug, Error)]
+#[allow(dead_code)]
+pub struct TokenizerError {
+    state: TokState,
+    ofs: usize,
+    data: Substr,
+    message: ArcStr,
+    token: Substr,
+}
+
 impl Tokenizer {
     pub fn new(data: impl Into<arcstr::Substr>) -> Self {
         let data = data.into();
         let rem = data.clone();
         Self {
+            data: Substr(data),
             rem: Substr(rem),
             state: TokState::Init,
             comment: '*',
@@ -272,22 +300,22 @@ impl Tokenizer {
         }
     }
 
-    pub fn get(&mut self) -> Option<Token> {
+    pub fn get(&mut self) -> Result<Option<Token>, TokenizerError> {
         loop {
             self.take_ws();
             if self.rem.is_empty() {
                 if self.state == TokState::Line {
                     self.state = TokState::Init;
-                    return Some(Token::LineEnd);
+                    return Ok(Some(Token::LineEnd));
                 } else {
-                    return None;
+                    return Ok(None);
                 }
             }
 
             let c = self.peek().unwrap();
             if c == '=' {
                 self.take1();
-                return Some(Token::Equals);
+                return Ok(Some(Token::Equals));
             }
             match self.state {
                 TokState::Init => {
@@ -296,8 +324,7 @@ impl Tokenizer {
                     } else if c.is_whitespace() {
                         self.take1();
                     } else if c == self.line_continuation {
-                        // TODO: error handling
-                        panic!("unexpected line continuation");
+                        self.err("unexpected line continuation", c)?;
                     } else {
                         self.state = TokState::Line;
                     }
@@ -307,7 +334,7 @@ impl Tokenizer {
                         self.take_ws();
                         if self.peek().unwrap_or(self.line_continuation) != self.line_continuation {
                             self.state = TokState::Init;
-                            return Some(Token::LineEnd);
+                            return Ok(Some(Token::LineEnd));
                         }
                     } else if c == self.line_continuation {
                         self.take1();
@@ -315,14 +342,28 @@ impl Tokenizer {
                         self.take_until_newline();
                     } else if c == '.' {
                         let word = self.take_ident();
-                        return Some(Token::Directive(word));
+                        return Ok(Some(Token::Directive(word)));
                     } else {
                         let word = self.take_ident();
-                        return Some(Token::Ident(word));
+                        return Ok(Some(Token::Ident(word)));
                     }
                 }
             }
         }
+    }
+
+    fn err(
+        &self,
+        message: impl Into<ArcStr>,
+        token: impl Into<Substr>,
+    ) -> Result<(), TokenizerError> {
+        Err(TokenizerError {
+            state: self.state,
+            ofs: self.rem.range().start,
+            data: self.data.clone(),
+            message: message.into(),
+            token: token.into(),
+        })
     }
 
     fn take1(&mut self) -> Option<char> {
@@ -358,14 +399,14 @@ pub struct Tokens {
 }
 
 impl Iterator for Tokens {
-    type Item = Token;
+    type Item = Result<Token, TokenizerError>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.tok.get()
+        self.tok.get().transpose()
     }
 }
 
 impl IntoIterator for Tokenizer {
-    type Item = Token;
+    type Item = Result<Token, TokenizerError>;
     type IntoIter = Tokens;
     fn into_iter(self) -> Self::IntoIter {
         Tokens { tok: self }
@@ -467,6 +508,12 @@ impl From<arcstr::Substr> for Substr {
     }
 }
 
+impl From<char> for Substr {
+    fn from(value: char) -> Self {
+        Self(arcstr::Substr::from(value.to_string()))
+    }
+}
+
 impl Token {
     pub fn unwrap_ident(&self) -> &Substr {
         match self {
@@ -494,5 +541,15 @@ impl Params {
 impl Borrow<str> for Substr {
     fn borrow(&self) -> &str {
         &self.0
+    }
+}
+
+impl Display for TokenizerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} (token {} at offset {})",
+            self.message, self.token, self.ofs
+        )
     }
 }

@@ -8,3 +8,4 @@ scir = { version = "0.1.0", registry = "substrate", path = "../../scir" }
 opacity = { version = "0.1.0", path = "../../libs/opacity", registry = "substrate" }
 arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
 nom = "7"
+thiserror = "1"

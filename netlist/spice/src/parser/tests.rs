@@ -18,7 +18,7 @@ pub fn test_data(file_name: &str) -> PathBuf {
 #[test]
 fn spice_resistor_tokens() {
     let tok = Tokenizer::new(SPICE_RESISTOR);
-    let toks = tok.into_iter().collect::<Vec<_>>();
+    let toks = tok.into_iter().collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(
         toks,
         vec![
@@ -40,7 +40,7 @@ fn spice_resistor_tokens() {
 
 #[test]
 fn parse_dff() {
-    let ast = Parser::parse_file(test_data("spice/dff.spice"));
+    let ast = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
     assert_eq!(ast.elems.len(), 1);
     match &ast.elems[0] {
         Elem::Subckt(Subckt {
