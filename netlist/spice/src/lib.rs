@@ -1,5 +1,5 @@
 //! SPICE netlist exporter.
-// #![warn(missing_docs)]
+#![warn(missing_docs)]
 
 use opacity::Opacity;
 use scir::Slice;

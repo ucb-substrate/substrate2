@@ -15,12 +15,15 @@ use nom::error::ErrorKind;
 use nom::{IResult, InputTakeAtPosition};
 use thiserror::Error;
 
+/// The type representing nodes in a parsed SPICE circuit.
 pub type Node = Substr;
 
+/// A substring of a file being parsed.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct Substr(arcstr::Substr);
 
+/// Parses SPICE netlists.
 #[derive(Clone, Default, Eq, PartialEq, Debug)]
 pub struct Parser {
     buffer: Vec<Token>,
@@ -36,6 +39,7 @@ enum ParseState {
 }
 
 impl Parser {
+    /// Parse the given file.
     pub fn parse_file(path: impl AsRef<Path>) -> Result<Ast, ParserError> {
         let path = path.as_ref();
         let s: ArcStr = std::fs::read_to_string(path).unwrap().into();
@@ -45,7 +49,7 @@ impl Parser {
         Ok(parser.ast)
     }
 
-    pub fn parse(&mut self, data: Substr) -> Result<(), ParserError> {
+    fn parse(&mut self, data: Substr) -> Result<(), ParserError> {
         let mut tok = Tokenizer::new(data);
         while let Some(line) = self.parse_line(&mut tok)? {
             match (&mut self.state, line) {
@@ -146,19 +150,36 @@ impl Parser {
     }
 }
 
+/// The abstract syntax tree (AST) of a parsed SPICE netlist.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Ast {
     /// The list of elements in the SPICE netlist.
     elems: Vec<Elem>,
 }
 
+/// A single logical line in a SPICE netlist.
+///
+/// A logical line may contain multiple lines in a file
+/// if all lines after the first are separated by the line continuation
+/// character (typically '+').
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Line {
-    SubcktDecl { name: Substr, ports: Vec<Substr> },
+    /// A subcircuit declaration.
+    SubcktDecl {
+        /// The name of the subcircuit.
+        name: Substr,
+        /// A list of ports.
+        ///
+        /// Each port is the name of a node exposed by the subcircuit.
+        ports: Vec<Node>,
+    },
+    /// A component instantiation.
     Component(Component),
+    /// The end of a subcircuit.
     EndSubckt,
 }
 
+/// An element of a SPICE netlist AST.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Elem {
     /// A subcircuit declaration.
@@ -167,6 +188,7 @@ pub enum Elem {
     Component(Component),
 }
 
+/// The contents of a subcircuit.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Subckt {
     name: Substr,
@@ -175,31 +197,47 @@ pub struct Subckt {
     components: Vec<Component>,
 }
 
+/// A SPICE netlist component.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Component {
+    /// A MOSFET (declared with an 'M').
     Mos(Mos),
+    /// A resistor (declared with an 'R').
     Res(Res),
+    /// An instance of a subcircuit (declared with an 'X').
     Instance(Instance),
 }
 
+/// A resistor.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Res {
+    /// The name of the resistor instance.
     name: Substr,
+    /// The node connected to the positive terminal.
     pos: Node,
+    /// The node connected to the negative terminal.
     neg: Node,
+    /// The value of the resistor.
     value: Substr,
 }
 
+/// A subcircuit instance.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Instance {
+    /// The name of the instance.
     name: Substr,
+    /// The list of port connections.
     ports: Vec<Substr>,
+    /// The name of the child cell.
     child: Substr,
+    /// Instance parameters.
     params: Params,
 }
 
+/// A MOSFET.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mos {
+    /// The name of the MOSFET instance.
     name: Substr,
     /// The drain.
     d: Node,
@@ -213,8 +251,10 @@ pub struct Mos {
     params: Params,
 }
 
+/// Parameter values.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Params {
+    /// A map of key-value pairs.
     values: HashMap<Substr, Substr>,
 }
 
@@ -238,7 +278,7 @@ fn is_special(c: char) -> bool {
     is_space_or_newline(c) || c == '='
 }
 
-pub struct Tokenizer {
+struct Tokenizer {
     data: Substr,
     rem: Substr,
     state: TokState,
@@ -246,11 +286,21 @@ pub struct Tokenizer {
     line_continuation: char,
 }
 
+/// A SPICE token.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Token {
+    /// A SPICE directive that starts with a leading dot.
+    ///
+    /// Examples: ".subckt", ".ends", ".include".
+    ///
+    /// The tokenizer returns tokens with case matching the input file.
+    /// No conversion to upper/lowercase is made.
     Directive(Substr),
+    /// A SPICE identifier.
     Ident(Substr),
+    /// A line end indicator.
     LineEnd,
+    /// An equal sign token ('=').
     Equals,
 }
 
@@ -263,24 +313,35 @@ enum TokState {
     Line,
 }
 
+/// An error arising from parsing a SPICE netlist.
 #[derive(Debug, Error)]
 pub enum ParserError {
+    /// A tokenizer error.
     #[error("tokenizer error: {0}")]
     Tokenizer(#[from] TokenizerError),
+    /// Found a SPICE line in the wrong context.
+    ///
+    /// For example, a ".ends" line with no matching ".subckt" line.
     #[error("unexpected line: {0:?}")]
     UnexpectedLine(Box<Line>),
+    /// An unsupported or unexpected SPICE directive.
     #[error("unexpected SPICE directive: {0}")]
     UnexpectedDirective(Substr),
+    /// An unsupported or unexpected SPICE component type.
     #[error("unexpected component type: {0}")]
     UnexpectedComponentType(char),
+    /// An unsupported or unexpected token.
     #[error("unexpected token: {0:?}")]
     UnexpectedToken(Token),
 }
 
+/// A tokenizer error.
 #[derive(Debug, Error)]
 #[allow(dead_code)]
 pub struct TokenizerError {
+    /// The state of the tokenizer at the time this error occurred.
     state: TokState,
+    /// The byte offset in the file being tokenized.
     ofs: usize,
     data: Substr,
     message: ArcStr,
@@ -288,7 +349,7 @@ pub struct TokenizerError {
 }
 
 impl Tokenizer {
-    pub fn new(data: impl Into<arcstr::Substr>) -> Self {
+    fn new(data: impl Into<arcstr::Substr>) -> Self {
         let data = data.into();
         let rem = data.clone();
         Self {
@@ -394,7 +455,7 @@ impl Tokenizer {
     }
 }
 
-pub struct Tokens {
+struct Tokens {
     tok: Tokenizer,
 }
 
@@ -515,13 +576,7 @@ impl From<char> for Substr {
 }
 
 impl Token {
-    pub fn unwrap_ident(&self) -> &Substr {
-        match self {
-            Self::Ident(x) => x,
-            _ => panic!("not an ident"),
-        }
-    }
-    pub fn try_ident(&self) -> Result<&Substr, ParserError> {
+    fn try_ident(&self) -> Result<&Substr, ParserError> {
         match self {
             Self::Ident(x) => Ok(x),
             _ => Err(ParserError::UnexpectedToken(self.clone())),
@@ -530,15 +585,18 @@ impl Token {
 }
 
 impl Params {
+    /// Create a new, empty parameter set.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Insert a key-value pair into the parameter set.
     pub fn insert(&mut self, k: impl Into<Substr>, v: impl Into<Substr>) {
         self.values.insert(k.into(), v.into());
     }
 
+    /// Get the value corresponding to the given key.
     pub fn get(&self, k: &str) -> Option<&Substr> {
         self.values.get(k)
     }
