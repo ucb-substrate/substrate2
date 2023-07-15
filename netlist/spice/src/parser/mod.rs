@@ -90,11 +90,11 @@ impl Parser {
             Token::Directive(d) => {
                 if d.eq_ignore_ascii_case(".subckt") {
                     // TODO params
-                    let name = self.buffer[1].unwrap_ident().clone();
+                    let name = self.buffer[1].try_ident()?.clone();
                     let ports = self.buffer[2..]
                         .iter()
-                        .map(|tok| tok.unwrap_ident().clone())
-                        .collect();
+                        .map(|tok| tok.try_ident().map(Clone::clone))
+                        .collect::<Result<_, _>>()?;
                     Line::SubcktDecl { name, ports }
                 } else if d.eq_ignore_ascii_case(".ends") {
                     Line::EndSubckt
@@ -107,30 +107,30 @@ impl Parser {
 
                 match kind {
                     'R' => Line::Component(Component::Res(Res {
-                        name: self.buffer[0].unwrap_ident().substr(1..).clone().into(),
-                        pos: self.buffer[1].unwrap_ident().clone(),
-                        neg: self.buffer[2].unwrap_ident().clone(),
-                        value: self.buffer[3].unwrap_ident().clone(),
+                        name: self.buffer[0].try_ident()?.substr(1..).clone().into(),
+                        pos: self.buffer[1].try_ident()?.clone(),
+                        neg: self.buffer[2].try_ident()?.clone(),
+                        value: self.buffer[3].try_ident()?.clone(),
                     })),
                     'X' => {
                         let pos = self.buffer.iter().position(|t| matches!(t, Token::Equals));
                         let child_idx = pos.unwrap_or(self.buffer.len() + 1) - 2;
-                        let child = self.buffer[child_idx].unwrap_ident().clone();
+                        let child = self.buffer[child_idx].try_ident()?.clone();
                         let ports = self.buffer[1..child_idx]
                             .iter()
-                            .map(|x| x.unwrap_ident().clone())
-                            .collect();
+                            .map(|x| x.try_ident().map(Clone::clone))
+                            .collect::<Result<_, _>>()?;
 
                         let mut params = Params::default();
                         for i in (child_idx + 1..self.buffer.len()).step_by(3) {
-                            let k = self.buffer[i].unwrap_ident().clone();
+                            let k = self.buffer[i].try_ident()?.clone();
                             assert!(matches!(self.buffer[i + 1], Token::Equals));
-                            let v = self.buffer[i + 2].unwrap_ident().clone();
+                            let v = self.buffer[i + 2].try_ident()?.clone();
                             params.insert(k, v);
                         }
 
                         Line::Component(Component::Instance(Instance {
-                            name: self.buffer[0].unwrap_ident().substr(1..).clone().into(),
+                            name: self.buffer[0].try_ident()?.substr(1..).clone().into(),
                             ports,
                             child,
                             params,
@@ -519,6 +519,12 @@ impl Token {
         match self {
             Self::Ident(x) => x,
             _ => panic!("not an ident"),
+        }
+    }
+    pub fn try_ident(&self) -> Result<&Substr, ParserError> {
+        match self {
+            Self::Ident(x) => Ok(x),
+            _ => Err(ParserError::UnexpectedToken(self.clone())),
         }
     }
 }
