@@ -47,13 +47,17 @@ jobs:
     uses: ./.github/workflows/check-workspace.yml
   publish-crates:
     name: Publish crates
-    runs-on: bwrc
+    runs-on: ubuntu-22.04
     environment: main
     needs: [ release-please, check-workspace ]
     steps:
       - uses: actions/checkout@v3
         with:
           path: substrate
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         id: toolchain
@@ -65,6 +69,13 @@ jobs:
           repository: rohanku/cargo-workspaces
           path: cargo-workspaces
           ref: dev
+      - name: Cache workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: |
+            ./substrate -> target
+            ./cargo-workspaces/cargo-workspaces -> target
       - name: Build `cargo-workspaces`
         working-directory: cargo-workspaces/cargo-workspaces
         run: cargo build
