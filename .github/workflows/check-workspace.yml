@@ -13,11 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.71.0
-        id: toolchain
-        with:
-          toolchain: stable
-          components: clippy
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
       - uses: extractions/setup-just@v1
@@ -38,12 +33,6 @@ jobs:
     runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.71.0
-        id: toolchain
-        with:
-          toolchain: stable
-          components: clippy
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
       - uses: extractions/setup-just@v1
@@ -61,11 +50,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.71.0
-        id: toolchain
-        with:
-          toolchain: stable
-          components: clippy
       - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
