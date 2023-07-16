@@ -12,10 +12,6 @@ jobs:
     runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-      - name: Install `cargo-hack`
-        uses: taiki-e/install-action@cargo-hack
-      - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
       - name: Check formatting
@@ -33,9 +29,6 @@ jobs:
     runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Install `cargo-hack`
-        uses: taiki-e/install-action@cargo-hack
-      - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
       - name: Check docs
@@ -49,8 +42,6 @@ jobs:
     runs-on: [bwrc, nfs]
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-      - uses: extractions/setup-just@v1
       - name: Generate examples
         run: just gen-examples
       - name: Test
