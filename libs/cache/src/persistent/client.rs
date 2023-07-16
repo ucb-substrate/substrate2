@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+use backoff::ExponentialBackoff;
 use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime::{Handle, Runtime};
@@ -27,9 +28,6 @@ use crate::{
     CacheHandle, Cacheable,
 };
 
-/// The interval between polling the cache server on whether a value has finished loading.
-pub const POLL_INTERVAL_MS: u64 = 100;
-
 /// The timeout for connecting to the cache server.
 pub const CONNECTION_TIMEOUT_MS_DEFAULT: u64 = 1000;
 
@@ -40,74 +38,93 @@ pub const REQUEST_TIMEOUT_MS_DEFAULT: u64 = 1000;
 #[derive(Debug)]
 pub struct ClientConfig {
     url: String,
-    poll_interval_base: Duration,
-    poll_interval_exp: f64,
-    poll_interval_max: Duration,
+    poll_backoff: ExponentialBackoff,
     connection_timeout: Duration,
     request_timeout: Duration,
     handle: Handle,
+    // Only used to own the runtime.
+    #[allow(dead_code)]
     runtime: Option<Runtime>,
 }
 
+/// A builder for a cache client configuration.
 #[derive(Default, Clone, Debug)]
 pub struct ClientConfigBuilder {
     url: Option<String>,
-    poll_interval_base: Option<Duration>,
-    poll_interval_exp: Option<f64>,
-    poll_interval_max: Option<Duration>,
+    poll_backoff: Option<ExponentialBackoff>,
     connection_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
     handle: Option<Handle>,
 }
 
 impl ClientConfig {
+    /// Creates a [`ClientConfigBuilder`].
     pub fn builder() -> ClientConfigBuilder {
         ClientConfigBuilder::new()
     }
 }
 
 impl ClientConfigBuilder {
+    /// Creates a new [`ClientConfigBuilder`].
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Sets the configured server URL.
     pub fn url(&mut self, url: String) -> &mut Self {
         self.url = Some(url);
         self
     }
 
-    pub fn poll_interval(&mut self, base: Duration, exp: f64, max: Duration) -> &mut Self {
-        self.poll_interval_base(base).poll
-    }
-
-    pub fn poll_interval_base(&mut self, base: Duration) -> &mut Self {
-        self.poll_interval_base = Some(base);
+    /// Configures the exponential backoff used when polling the server for cache entry
+    /// statuses.
+    pub fn poll_backoff(&mut self, backoff: ExponentialBackoff) -> &mut Self {
+        self.poll_backoff = Some(backoff);
         self
     }
 
-    pub fn poll_interval_exp(&mut self, exp: f64) -> &mut Self {
-        self.poll_interval_base = Some(exp);
-        self
-    }
-
-    pub fn poll_interval_max(&mut self, max: String) -> &mut Self {
-        self.poll_interval_max = Some(max);
-        self
-    }
-
+    /// Sets the timeout for connecting to the server.
     pub fn connection_timeout(&mut self, timeout: Duration) -> &mut Self {
         self.connection_timeout = Some(timeout);
         self
     }
 
+    /// Sets the timeout for receiving a reply from the server.
     pub fn request_timeout(&mut self, timeout: Duration) -> &mut Self {
         self.request_timeout = Some(timeout);
         self
     }
 
+    /// Configures a [`Handle`] for making asynchronous gRPC requests.
     pub fn runtime_handle(&mut self, handle: Handle) -> &mut Self {
         self.handle = Some(handle);
         self
+    }
+
+    /// Builds a [`ClientConfig`] object with the configured parameters.
+    pub fn build(&mut self) -> ClientConfig {
+        let (handle, runtime) = match self.handle.clone() {
+            Some(handle) => (handle, None),
+            None => {
+                let runtime = tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                (runtime.handle().clone(), Some(runtime))
+            }
+        };
+        ClientConfig {
+            url: self.url.clone().expect("must specify server URL"),
+            poll_backoff: self.poll_backoff.clone().unwrap_or_default(),
+            connection_timeout: self
+                .connection_timeout
+                .unwrap_or(Duration::from_millis(CONNECTION_TIMEOUT_MS_DEFAULT)),
+            request_timeout: self
+                .request_timeout
+                .unwrap_or(Duration::from_millis(REQUEST_TIMEOUT_MS_DEFAULT)),
+            handle,
+            runtime,
+        }
     }
 }
 
@@ -121,10 +138,6 @@ impl Client {
     ///
     /// Starts a [`tokio::runtime::Runtime`] for making asynchronous gRPC requests.
     fn new(config: ClientConfig) -> Self {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
         Self {
             config: Arc::new(config),
         }
@@ -137,16 +150,16 @@ impl Client {
     ) -> (String, Vec<u8>, CacheHandle<V>) {
         (
             namespace.into(),
-            crate::hash(&flexbuffers::to_vec(&key).unwrap()),
+            crate::hash(&flexbuffers::to_vec(key).unwrap()),
             CacheHandle(Arc::new(OnceCell::new())),
         )
     }
 
     /// Spawns a new thread to generate the desired value asynchronously.
-    fn generate_inner<V: Send + Sync>(
+    fn generate_inner<V: Send + Sync + Any>(
         self,
-        generate_loop: impl FnOnce() -> Result<()> + Send + Any,
         handle: CacheHandle<V>,
+        generate_loop: impl FnOnce() -> Result<()> + Send + Any,
     ) {
         thread::spawn(move || {
             if let Err(e) = generate_loop() {
@@ -155,11 +168,13 @@ impl Client {
         });
     }
 
+    /// Deserializes a cached value into a [`Result`] that can be stored in a [`CacheHandle`].
     fn deserialize_cache_value<V: DeserializeOwned>(data: &[u8]) -> Result<V> {
         let data = flexbuffers::from_slice(data)?;
         Ok(data)
     }
 
+    /// Deserializes a cached value into a containing result with the appropriate error type.
     fn deserialize_cache_result<V: DeserializeOwned, E>(
         data: &[u8],
     ) -> Result<std::result::Result<V, E>> {
@@ -287,7 +302,8 @@ impl Client {
 
     /// Runs the generate loop for the remote cache protocol, checking whether the desired entry is
     /// loaded and generating it if needed.
-    fn generate_loop_remote<K: Send + Sync, V: Send + Sync>(
+    #[allow(clippy::too_many_arguments)]
+    fn generate_loop_remote<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
         namespace: String,
         hash: Vec<u8>,
@@ -297,37 +313,47 @@ impl Client {
         deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
         handle: CacheHandle<V>,
     ) -> Result<()> {
-        loop {
-            let status = self.get_rpc_remote(namespace.clone(), hash.clone(), true)?;
-            match status {
-                remote::get_reply::EntryStatus::Unassigned(_) => {
-                    let v = Client::run_generation(key, generate_fn);
-                    let _ = handle.0.set(v);
-                    break;
-                }
-                remote::get_reply::EntryStatus::Assign(remote::AssignReply {
-                    id,
-                    heartbeat_interval_ms,
-                }) => {
-                    let self_clone = self.clone();
-                    let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
-                        Duration::from_millis(heartbeat_interval_ms),
-                        move || -> Result<()> { self_clone.heartbeat_rpc_remote(id) },
-                    );
-                    let v = Client::run_generation(key, generate_fn);
-                    let _ = s_heartbeat_stop.send(());
-                    let _ = r_heartbeat_stopped.recv();
-                    write_generated_value(self, id, &v)?;
-                    let _ = handle.0.set(v);
-                    break;
-                }
-                remote::get_reply::EntryStatus::Loading(_) => {
-                    thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
-                }
-                remote::get_reply::EntryStatus::Ready(data) => {
-                    Client::set_handle(&handle, deserialize_cache_data(&data)?);
-                    break;
-                }
+        let status = backoff::retry(self.config.poll_backoff.clone(), move || {
+            let inner = || -> Result<(remote::get_reply::EntryStatus, bool)> {
+                let status = self.get_rpc_remote(namespace.clone(), hash.clone(), true)?;
+                let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
+
+                Ok((status, retry))
+            };
+            inner()
+                .map_err(backoff::Error::Permanent)
+                .and_then(|(status, retry)| {
+                    if retry {
+                        Err(backoff::Error::transient(Error::EntryLoading))
+                    } else {
+                        Ok(status)
+                    }
+                })
+        })
+        .map_err(Box::new)?;
+        match status {
+            remote::get_reply::EntryStatus::Unassigned(_) => {
+                let v = Client::run_generation(key, generate_fn);
+                let _ = handle.0.set(v);
+            }
+            remote::get_reply::EntryStatus::Assign(remote::AssignReply {
+                id,
+                heartbeat_interval_ms,
+            }) => {
+                let self_clone = self.clone();
+                let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
+                    Duration::from_millis(heartbeat_interval_ms),
+                    move || -> Result<()> { self_clone.heartbeat_rpc_remote(id) },
+                );
+                let v = Client::run_generation(key, generate_fn);
+                let _ = s_heartbeat_stop.send(());
+                let _ = r_heartbeat_stopped.recv();
+                write_generated_value(self, id, &v)?;
+                let _ = handle.0.set(v);
+            }
+            remote::get_reply::EntryStatus::Loading(_) => unreachable!(),
+            remote::get_reply::EntryStatus::Ready(data) => {
+                Client::set_handle(&handle, deserialize_cache_data(&data)?);
             }
         }
         Ok(())
@@ -347,6 +373,7 @@ impl Client {
         &self,
         namespace: String,
         key: Vec<u8>,
+        assign: bool,
     ) -> Result<local::get_reply::EntryStatus> {
         let out: Result<local::GetReply> = self.config.handle.block_on(async {
             let mut client = self.connect_local().await?;
@@ -354,7 +381,7 @@ impl Client {
                 .get(local::GetRequest {
                     namespace,
                     key,
-                    assign: true,
+                    assign,
                 })
                 .await?
                 .into_inner())
@@ -441,7 +468,8 @@ impl Client {
 
     /// Runs the generate loop for the local cache protocol, checking whether the desired entry is
     /// loaded and generating it if needed.
-    fn generate_loop_local<K: Send + Sync, V: Send + Sync>(
+    #[allow(clippy::too_many_arguments)]
+    fn generate_loop_local<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
         namespace: String,
         hash: Vec<u8>,
@@ -451,42 +479,52 @@ impl Client {
         deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
         handle: CacheHandle<V>,
     ) -> Result<()> {
-        loop {
-            let status = self.get_rpc_local(namespace.clone(), hash.clone())?;
-            match status {
-                local::get_reply::EntryStatus::Unassigned(_) => {
-                    let v = Client::run_generation(key, generate_fn);
-                    let _ = handle.0.set(v);
-                    break;
-                }
-                local::get_reply::EntryStatus::Assign(local::AssignReply {
-                    id,
-                    path,
-                    heartbeat_interval_ms,
-                }) => {
-                    let self_clone = self.clone();
-                    let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
-                        Duration::from_millis(heartbeat_interval_ms),
-                        move || -> Result<()> { self_clone.heartbeat_rpc_local(id) },
-                    );
-                    let v = Client::run_generation(key, generate_fn);
-                    let _ = s_heartbeat_stop.send(());
-                    let _ = r_heartbeat_stopped.recv();
-                    write_generated_value(self, id, path, &v);
-                    let _ = handle.0.set(v);
-                    break;
-                }
-                local::get_reply::EntryStatus::Loading(_) => {
-                    thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
-                }
-                local::get_reply::EntryStatus::Ready(local::ReadyReply { id, path }) => {
-                    let mut file = std::fs::File::open(path)?;
-                    let mut buf = Vec::new();
-                    file.read_to_end(&mut buf)?;
-                    self.drop_rpc_local(id)?;
-                    Client::set_handle(&handle, deserialize_cache_data(&buf)?);
-                    break;
-                }
+        let status = backoff::retry(self.config.poll_backoff.clone(), move || {
+            let inner = || -> Result<(local::get_reply::EntryStatus, bool)> {
+                let status = self.get_rpc_local(namespace.clone(), hash.clone(), true)?;
+                let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
+
+                Ok((status, retry))
+            };
+            inner()
+                .map_err(backoff::Error::Permanent)
+                .and_then(|(status, retry)| {
+                    if retry {
+                        Err(backoff::Error::transient(Error::EntryLoading))
+                    } else {
+                        Ok(status)
+                    }
+                })
+        })
+        .map_err(Box::new)?;
+        match status {
+            local::get_reply::EntryStatus::Unassigned(_) => {
+                let v = Client::run_generation(key, generate_fn);
+                let _ = handle.0.set(v);
+            }
+            local::get_reply::EntryStatus::Assign(local::AssignReply {
+                id,
+                path,
+                heartbeat_interval_ms,
+            }) => {
+                let self_clone = self.clone();
+                let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
+                    Duration::from_millis(heartbeat_interval_ms),
+                    move || -> Result<()> { self_clone.heartbeat_rpc_local(id) },
+                );
+                let v = Client::run_generation(key, generate_fn);
+                let _ = s_heartbeat_stop.send(());
+                let _ = r_heartbeat_stopped.recv();
+                write_generated_value(self, id, path, &v)?;
+                let _ = handle.0.set(v);
+            }
+            local::get_reply::EntryStatus::Loading(_) => unreachable!(),
+            local::get_reply::EntryStatus::Ready(local::ReadyReply { id, path }) => {
+                let mut file = std::fs::File::open(path)?;
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf)?;
+                self.drop_rpc_local(id)?;
+                Client::set_handle(&handle, deserialize_cache_data(&buf)?);
             }
         }
         Ok(())
@@ -503,10 +541,10 @@ impl RemoteClient {
     /// Creates a new gRPC cache client, querying the remote cache server for server configuration.
     ///
     /// Starts a [`tokio::runtime::Runtime`] for making asynchronous gRPC requests.
-    pub fn new(config: ClientConfig) -> Result<Self> {
-        Ok(Self {
+    pub fn new(config: ClientConfig) -> Self {
+        Self {
             inner: Client::new(config),
-        })
+        }
     }
 
     fn generate_inner<
@@ -520,20 +558,17 @@ impl RemoteClient {
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) {
-        self.inner.generate_inner(
-            move || {
-                self.inner.generate_loop_remote(
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                    Client::write_generated_value_remote,
-                    Client::deserialize_cache_value,
-                    handle,
-                )
-            },
-            handle,
-        );
+        self.inner.clone().generate_inner(handle.clone(), move || {
+            self.inner.generate_loop_remote(
+                namespace,
+                hash,
+                key,
+                generate_fn,
+                Client::write_generated_value_remote,
+                Client::deserialize_cache_value,
+                handle,
+            )
+        });
     }
 
     fn generate_result_inner<
@@ -548,20 +583,17 @@ impl RemoteClient {
         key: K,
         generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
     ) {
-        self.inner.generate_inner(
-            move || {
-                self.inner.generate_loop_remote(
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                    Client::write_generated_result_remote,
-                    Client::deserialize_cache_result,
-                    handle,
-                )
-            },
-            handle,
-        );
+        self.inner.clone().generate_inner(handle.clone(), move || {
+            self.inner.generate_loop_remote(
+                namespace,
+                hash,
+                key,
+                generate_fn,
+                Client::write_generated_result_remote,
+                Client::deserialize_cache_result,
+                handle,
+            )
+        });
     }
 
     /// Gets a handle to a cacheable object from the cache.
@@ -648,7 +680,7 @@ impl LocalClient {
     /// Creates a new gRPC cache client
     ///
     /// Starts a [`tokio::runtime::Runtime`] for making asynchronous gRPC requests.
-    pub fn new(url: impl Into<String>, config: ClientConfig) -> Self {
+    pub fn new(config: ClientConfig) -> Self {
         Self {
             inner: Client::new(config),
         }
@@ -665,20 +697,17 @@ impl LocalClient {
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) {
-        self.inner.generate_inner(
-            move || {
-                self.inner.generate_loop_local(
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                    Client::write_generated_value_local,
-                    Client::deserialize_cache_value,
-                    handle,
-                )
-            },
-            handle,
-        );
+        self.inner.clone().generate_inner(handle.clone(), move || {
+            self.inner.generate_loop_local(
+                namespace,
+                hash,
+                key,
+                generate_fn,
+                Client::write_generated_value_local,
+                Client::deserialize_cache_value,
+                handle,
+            )
+        });
     }
 
     fn generate_result_inner<
@@ -693,20 +722,17 @@ impl LocalClient {
         key: K,
         generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
     ) {
-        self.inner.generate_inner(
-            move || {
-                self.inner.generate_loop_local(
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                    Client::write_generated_result_local,
-                    Client::deserialize_cache_result,
-                    handle,
-                )
-            },
-            handle,
-        );
+        self.inner.clone().generate_inner(handle.clone(), move || {
+            self.inner.generate_loop_local(
+                namespace,
+                hash,
+                key,
+                generate_fn,
+                Client::write_generated_result_local,
+                Client::deserialize_cache_result,
+                handle,
+            )
+        });
     }
 
     /// Gets a handle to a cacheable object from the cache.

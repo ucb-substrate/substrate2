@@ -98,6 +98,7 @@ pub(crate) struct ConfigManifest {
 }
 
 impl ServerBuilder {
+    /// Creates a new [`ServerBuilder`].
     pub fn new() -> Self {
         Self::default()
     }
@@ -139,7 +140,7 @@ impl ServerBuilder {
     /// Builds a [`Server`] from the configured options.
     pub fn build(&mut self) -> Server {
         let server = Server {
-            root: self.root.unwrap(),
+            root: self.root.clone().unwrap(),
             remote_addr: self.remote_addr,
             local_addr: self.local_addr,
             heartbeat_interval: self
@@ -150,7 +151,16 @@ impl ServerBuilder {
                 .unwrap_or(Duration::from_secs(HEARTBEAT_TIMEOUT_SECS_DEFAULT)),
         };
 
-        assert!(server.heartbeat_interval < server.heartbeat_timeout);
+        assert!(
+            server.heartbeat_interval < server.heartbeat_timeout,
+            "heartbeat interval must be less than the heartbeat interval"
+        );
+
+        assert_eq!(
+            server.heartbeat_interval.subsec_micros() % 1000,
+            0,
+            "heartbeat interval cannot have finer than millisecond resolution"
+        );
 
         server
     }
@@ -431,7 +441,7 @@ struct LoadingData {
 #[derive(Clone, Debug)]
 enum GetReplyStatus {
     Unassigned,
-    Assign(AssignmentId),
+    Assign(AssignmentId, Duration),
     Loading,
     Ready(Vec<u8>),
     ReadyLocal(HandleId),
@@ -441,7 +451,12 @@ impl GetReplyStatus {
     fn into_remote(self) -> remote::get_reply::EntryStatus {
         match self {
             Self::Unassigned => remote::get_reply::EntryStatus::Unassigned(()),
-            Self::Assign(id) => remote::get_reply::EntryStatus::Assign(id.0),
+            Self::Assign(id, heartbeat_interval) => {
+                remote::get_reply::EntryStatus::Assign(remote::AssignReply {
+                    id: id.0,
+                    heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
+                })
+            }
             Self::Loading => remote::get_reply::EntryStatus::Loading(()),
             Self::Ready(val) => remote::get_reply::EntryStatus::Ready(val),
             Self::ReadyLocal(_) => panic!("cannot convert local statuses to remote statuses"),
@@ -450,12 +465,16 @@ impl GetReplyStatus {
     fn into_local(self, path: String) -> local::get_reply::EntryStatus {
         match self {
             Self::Unassigned => local::get_reply::EntryStatus::Unassigned(()),
-            Self::Assign(id) => {
-                local::get_reply::EntryStatus::Assign(local::IdPath { id: id.0, path })
+            Self::Assign(id, heartbeat_interval) => {
+                local::get_reply::EntryStatus::Assign(local::AssignReply {
+                    id: id.0,
+                    path,
+                    heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
+                })
             }
             Self::Loading => local::get_reply::EntryStatus::Loading(()),
             Self::ReadyLocal(id) => {
-                local::get_reply::EntryStatus::Ready(local::IdPath { id: id.0, path })
+                local::get_reply::EntryStatus::Ready(local::ReadyReply { id: id.0, path })
             }
             Self::Ready(_) => panic!("cannot convert remote statuses to local statuses"),
         }
@@ -536,7 +555,7 @@ impl CacheImpl {
                                         key: entry_key,
                                     },
                                 );
-                                GetReplyStatus::Assign(*id)
+                                GetReplyStatus::Assign(*id, self.heartbeat_interval)
                             } else {
                                 conn.delete_status(entry_key.clone()).await.map_err(|_| {
                                     tonic::Status::internal("unable to persist changes")
@@ -586,7 +605,7 @@ impl CacheImpl {
                             key: entry_key,
                         },
                     );
-                    GetReplyStatus::Assign(*next_assignment_id)
+                    GetReplyStatus::Assign(*next_assignment_id, self.heartbeat_interval)
                 } else {
                     GetReplyStatus::Unassigned
                 }

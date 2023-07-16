@@ -36,15 +36,18 @@ pub enum Error {
     #[allow(missing_docs)]
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
-    /// An error thrown when a user-provided generator panics.
+    /// The user-provided generator panicked.
     #[error("generator panicked")]
     Panic,
-    /// An error thrown by failing to connect to the cache server.
-    #[error("failed to connect to cache server")]
-    Connection,
+    /// Exponential backoff for polling the server failed.
+    #[error("generator panicked")]
+    Backoff(#[from] Box<backoff::Error<Error>>),
+    /// The desired cache entry is currently being loaded.
+    #[error("entry is currently being loaded")]
+    EntryLoading,
 }
 
-/// The error type returned by [`CacheHandle::try_inner`].
+/// The error type returned by [`CacheHandle::try_inner`](crate::CacheHandle::try_inner).
 pub enum TryInnerError<'a, E> {
     /// An error thrown by the cache.
     CacheError(Arc<Error>),

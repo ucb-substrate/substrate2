@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use cache::{error::Result, persistent::server::CacheServer};
+use cache::{error::Result, persistent::server::Server};
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -25,15 +25,19 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let mut server = CacheServer::new(args.root);
+    let mut builder = Server::builder();
+
+    builder.root(args.root);
 
     if let Some(remote) = args.remote {
-        server = server.with_remote(SocketAddr::new(args.host, remote));
+        builder.remote(SocketAddr::new(args.host, remote));
     }
 
     if let Some(local) = args.local {
-        server = server.with_local(SocketAddr::new(args.host, local));
+        builder.local(SocketAddr::new(args.host, local));
     }
+
+    let server = builder.build();
 
     server.start().await?;
 
