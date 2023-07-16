@@ -9,22 +9,15 @@ env:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-22.04
+    runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v2
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.71.0
         id: toolchain
         with:
           toolchain: stable
           components: clippy
-      - name: Cache workspace
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
-          workspaces: ". -> target"
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
       - uses: extractions/setup-just@v1
@@ -42,22 +35,15 @@ jobs:
         working-directory: examples
   check-docs:
     name: check-docs
-    runs-on: ubuntu-22.04
+    runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v2
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.71.0
         id: toolchain
         with:
           toolchain: stable
           components: clippy
-      - name: Cache workspace
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
-          workspaces: ". -> target"
       - name: Install `cargo-hack`
         uses: taiki-e/install-action@cargo-hack
       - uses: extractions/setup-just@v1
