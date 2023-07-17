@@ -672,7 +672,7 @@ impl Display for TokenizerError {
 
 impl ParsedSpice {
     /// Convert this SPICE netlist to a SCIR library.
-    pub fn to_scir(&self) -> scir::Library {
+    pub fn to_scir(&self) -> conv::ConvResult<scir::Library> {
         let conv = ScirConverter::new(self.name.clone(), &self.ast);
         conv.convert()
     }

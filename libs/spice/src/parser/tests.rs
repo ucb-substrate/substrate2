@@ -98,7 +98,7 @@ fn convert_dff_to_scir() {
     let mut converter = ScirConverter::new("openram_dff", &parsed.ast);
     converter.blackbox("sky130_fd_pr__nfet_01v8");
     converter.blackbox("sky130_fd_pr__pfet_01v8");
-    let lib = converter.convert();
+    let lib = converter.convert().unwrap();
     let issues = lib.validate();
     assert_eq!(issues.num_errors(), 0);
     assert_eq!(issues.num_warnings(), 0);
