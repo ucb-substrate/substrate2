@@ -96,13 +96,7 @@ jobs:
     needs: [ check-workspace ]
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        id: toolchain
-        with:
-          toolchain: stable
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: extractions/setup-just@v1
       - run: just build
         working-directory: docs/api
       - run: flyctl deploy --remote-only --detach
