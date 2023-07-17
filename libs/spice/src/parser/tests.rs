@@ -128,3 +128,40 @@ fn convert_dff_to_scir() {
         _ => panic!("match failed"),
     }
 }
+
+#[test]
+fn convert_blackbox_to_scir() {
+    let parsed = Parser::parse_file(test_data("spice/blackbox.spice")).unwrap();
+    let mut converter = ScirConverter::new("top", &parsed.ast);
+    converter.blackbox("blackbox1");
+    converter.blackbox("blackbox2");
+    let lib = converter.convert().unwrap();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(lib.cells().count(), 1);
+    let cell = lib.cell_named("top");
+    assert_eq!(
+        cell.contents().as_ref().unwrap_clear().primitives().count(),
+        4
+    );
+    let inst = cell
+        .contents()
+        .as_ref()
+        .unwrap_clear()
+        .primitives()
+        .nth(2)
+        .unwrap();
+    match inst {
+        scir::PrimitiveDevice::RawInstance {
+            ports,
+            cell,
+            params,
+        } => {
+            assert_eq!(ports.len(), 2);
+            assert_eq!(cell, "blackbox2");
+            assert_eq!(params.len(), 0);
+        }
+        _ => panic!("match failed"),
+    }
+}
