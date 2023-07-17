@@ -73,8 +73,8 @@ const DELETE_STATUS_STMT: &str = r#"
 #[derive(Debug)]
 pub struct Server {
     root: Arc<PathBuf>,
-    remote_addr: Option<SocketAddr>,
     local_addr: Option<SocketAddr>,
+    remote_addr: Option<SocketAddr>,
     heartbeat_interval: Duration,
     heartbeat_timeout: Duration,
 }
@@ -83,16 +83,16 @@ pub struct Server {
 #[derive(Default, Debug)]
 pub struct ServerBuilder {
     root: Option<Arc<PathBuf>>,
-    remote_addr: Option<SocketAddr>,
     local_addr: Option<SocketAddr>,
+    remote_addr: Option<SocketAddr>,
     heartbeat_interval: Option<Duration>,
     heartbeat_timeout: Option<Duration>,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub(crate) struct ConfigManifest {
-    pub(crate) remote_addr: Option<SocketAddr>,
     pub(crate) local_addr: Option<SocketAddr>,
+    pub(crate) remote_addr: Option<SocketAddr>,
     pub(crate) heartbeat_interval: Duration,
     pub(crate) heartbeat_timeout: Duration,
 }
@@ -109,15 +109,15 @@ impl ServerBuilder {
         self
     }
 
-    /// Configures the remote cache gRPC server.
-    pub fn remote(&mut self, addr: SocketAddr) -> &mut Self {
-        self.remote_addr = Some(addr);
-        self
-    }
-
     /// Configures the local cache gRPC server.
     pub fn local(&mut self, addr: SocketAddr) -> &mut Self {
         self.local_addr = Some(addr);
+        self
+    }
+
+    /// Configures the remote cache gRPC server.
+    pub fn remote(&mut self, addr: SocketAddr) -> &mut Self {
+        self.remote_addr = Some(addr);
         self
     }
 
@@ -141,8 +141,8 @@ impl ServerBuilder {
     pub fn build(&mut self) -> Server {
         let server = Server {
             root: self.root.clone().unwrap(),
-            remote_addr: self.remote_addr,
             local_addr: self.local_addr,
+            remote_addr: self.remote_addr,
             heartbeat_interval: self
                 .heartbeat_interval
                 .unwrap_or(Duration::from_secs(HEARTBEAT_INTERVAL_SECS_DEFAULT)),
@@ -193,8 +193,8 @@ impl Server {
         config_manifest
             .write_all(
                 &toml::to_string(&ConfigManifest {
-                    remote_addr: self.remote_addr,
                     local_addr: self.local_addr,
+                    remote_addr: self.remote_addr,
                     heartbeat_interval: self.heartbeat_interval,
                     heartbeat_timeout: self.heartbeat_timeout,
                 })
@@ -214,19 +214,19 @@ impl Server {
         );
 
         let mut handle = None;
-        if let Some(addr) = self.remote_addr {
-            let remote_svc = RemoteCacheServer::new(imp.clone());
-            handle = Some(tokio::spawn(
-                tonic::transport::Server::builder()
-                    .add_service(remote_svc)
-                    .serve(addr),
-            ));
-        }
         if let Some(addr) = self.local_addr {
-            let local_svc = LocalCacheServer::new(imp);
+            let local_svc = LocalCacheServer::new(imp.clone());
             handle = Some(tokio::spawn(
                 tonic::transport::Server::builder()
                     .add_service(local_svc)
+                    .serve(addr),
+            ));
+        }
+        if let Some(addr) = self.remote_addr {
+            let remote_svc = RemoteCacheServer::new(imp);
+            handle = Some(tokio::spawn(
+                tonic::transport::Server::builder()
+                    .add_service(remote_svc)
                     .serve(addr),
             ));
         }
@@ -443,25 +443,11 @@ enum GetReplyStatus {
     Unassigned,
     Assign(AssignmentId, Duration),
     Loading,
-    Ready(Vec<u8>),
+    ReadyRemote(Vec<u8>),
     ReadyLocal(HandleId),
 }
 
 impl GetReplyStatus {
-    fn into_remote(self) -> remote::get_reply::EntryStatus {
-        match self {
-            Self::Unassigned => remote::get_reply::EntryStatus::Unassigned(()),
-            Self::Assign(id, heartbeat_interval) => {
-                remote::get_reply::EntryStatus::Assign(remote::AssignReply {
-                    id: id.0,
-                    heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
-                })
-            }
-            Self::Loading => remote::get_reply::EntryStatus::Loading(()),
-            Self::Ready(val) => remote::get_reply::EntryStatus::Ready(val),
-            Self::ReadyLocal(_) => panic!("cannot convert local statuses to remote statuses"),
-        }
-    }
     fn into_local(self, path: String) -> local::get_reply::EntryStatus {
         match self {
             Self::Unassigned => local::get_reply::EntryStatus::Unassigned(()),
@@ -476,7 +462,21 @@ impl GetReplyStatus {
             Self::ReadyLocal(id) => {
                 local::get_reply::EntryStatus::Ready(local::ReadyReply { id: id.0, path })
             }
-            Self::Ready(_) => panic!("cannot convert remote statuses to local statuses"),
+            Self::ReadyRemote(_) => panic!("cannot convert remote statuses to local statuses"),
+        }
+    }
+    fn into_remote(self) -> remote::get_reply::EntryStatus {
+        match self {
+            Self::Unassigned => remote::get_reply::EntryStatus::Unassigned(()),
+            Self::Assign(id, heartbeat_interval) => {
+                remote::get_reply::EntryStatus::Assign(remote::AssignReply {
+                    id: id.0,
+                    heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
+                })
+            }
+            Self::Loading => remote::get_reply::EntryStatus::Loading(()),
+            Self::ReadyRemote(val) => remote::get_reply::EntryStatus::Ready(val),
+            Self::ReadyLocal(_) => panic!("cannot convert local statuses to remote statuses"),
         }
     }
 }
@@ -580,7 +580,7 @@ impl CacheImpl {
                             let mut file = File::open(path).await?;
                             let mut buf = Vec::new();
                             file.read_to_end(&mut buf).await?;
-                            GetReplyStatus::Ready(buf)
+                            GetReplyStatus::ReadyRemote(buf)
                         }
                     }
                     // If the entry is currently being evicted, do not assign it.
@@ -673,49 +673,6 @@ impl CacheImpl {
 }
 
 #[tonic::async_trait]
-impl RemoteCache for CacheImpl {
-    async fn get(
-        &self,
-        request: tonic::Request<remote::GetRequest>,
-    ) -> std::result::Result<tonic::Response<remote::GetReply>, tonic::Status> {
-        let request = request.into_inner();
-
-        let entry_key = Arc::new(EntryKey {
-            namespace: request.namespace,
-            key: request.key,
-        });
-
-        let entry_status = self
-            .get_impl(entry_key, request.assign, false)
-            .await?
-            .into_remote();
-
-        Ok(Response::new(remote::GetReply {
-            entry_status: Some(entry_status),
-        }))
-    }
-
-    async fn heartbeat(
-        &self,
-        request: tonic::Request<remote::HeartbeatRequest>,
-    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-        self.heartbeat_impl(AssignmentId(request.into_inner().id))
-            .await?;
-        Ok(Response::new(()))
-    }
-
-    async fn set(
-        &self,
-        request: tonic::Request<remote::SetRequest>,
-    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-        let request = request.into_inner();
-        self.set_impl(AssignmentId(request.id), Some(request.value))
-            .await?;
-        Ok(Response::new(()))
-    }
-}
-
-#[tonic::async_trait]
 impl LocalCache for CacheImpl {
     async fn get(
         &self,
@@ -790,6 +747,49 @@ impl LocalCache for CacheImpl {
         } else {
             return Err(tonic::Status::internal("inconsistent internal state"));
         }
+        Ok(Response::new(()))
+    }
+}
+
+#[tonic::async_trait]
+impl RemoteCache for CacheImpl {
+    async fn get(
+        &self,
+        request: tonic::Request<remote::GetRequest>,
+    ) -> std::result::Result<tonic::Response<remote::GetReply>, tonic::Status> {
+        let request = request.into_inner();
+
+        let entry_key = Arc::new(EntryKey {
+            namespace: request.namespace,
+            key: request.key,
+        });
+
+        let entry_status = self
+            .get_impl(entry_key, request.assign, false)
+            .await?
+            .into_remote();
+
+        Ok(Response::new(remote::GetReply {
+            entry_status: Some(entry_status),
+        }))
+    }
+
+    async fn heartbeat(
+        &self,
+        request: tonic::Request<remote::HeartbeatRequest>,
+    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
+        self.heartbeat_impl(AssignmentId(request.into_inner().id))
+            .await?;
+        Ok(Response::new(()))
+    }
+
+    async fn set(
+        &self,
+        request: tonic::Request<remote::SetRequest>,
+    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
+        let request = request.into_inner();
+        self.set_impl(AssignmentId(request.id), Some(request.value))
+            .await?;
         Ok(Response::new(()))
     }
 }

@@ -13,6 +13,8 @@ pub mod mem;
 pub mod persistent;
 #[doc(hidden)]
 pub mod rpc;
+#[cfg(test)]
+mod tests;
 
 /// A cacheable object.
 ///

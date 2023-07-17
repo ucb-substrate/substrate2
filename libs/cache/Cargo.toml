@@ -25,7 +25,7 @@ hex = "0.4"
 flexbuffers = "2"
 path-absolutize = "3"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 backoff = "0.4"
 
 [build-dependencies]
@@ -34,6 +34,8 @@ tonic-build = "0.9"
 [dev-dependencies]
 crossbeam-channel = "0.5"
 anyhow = "1"
+portpicker = "0.1"
+test-log = { version = "0.2", default_features = false, features = ["trace"] }
 
 [[bin]]
 name="server"

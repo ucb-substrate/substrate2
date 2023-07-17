@@ -68,8 +68,9 @@ pub fn supported_pdks(args: TokenStream, input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(Layer, attributes(layer))]
 pub fn derive_layer(input: TokenStream) -> TokenStream {
-    let receiver =
-        LayerInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
+    let receiver = handle_error!(LayerInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    )));
     quote!(
         #receiver
     )
@@ -81,9 +82,9 @@ pub fn derive_layer(input: TokenStream) -> TokenStream {
 /// See the [`Layers` derive macro](`derive_layers`) for a full example.
 #[proc_macro_derive(LayerFamily, attributes(layer))]
 pub fn derive_layer_family(input: TokenStream) -> TokenStream {
-    let receiver =
-        LayerFamilyInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
-            .unwrap();
+    let receiver = handle_error!(LayerFamilyInputReceiver::from_derive_input(
+        &parse_macro_input!(input as DeriveInput)
+    ));
     quote!(
         #receiver
     )
@@ -100,8 +101,9 @@ pub fn derive_layer_family(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(Layers, attributes(layer, layer_family))]
 pub fn derive_layers(input: TokenStream) -> TokenStream {
-    let receiver =
-        LayersInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput)).unwrap();
+    let receiver = handle_error!(LayersInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    )));
     quote!(
         #receiver
     )
@@ -115,8 +117,8 @@ pub fn derive_layers(input: TokenStream) -> TokenStream {
 pub fn derive_derived_layer_family(input: TokenStream) -> TokenStream {
     let receiver = DerivedLayerFamilyInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
-    ))
-    .unwrap();
+    ));
+    let receiver = handle_error!(receiver);
     quote!(
         #receiver
     )
@@ -135,9 +137,9 @@ pub fn derive_derived_layer_family(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(DerivedLayers, attributes(layer_family))]
 pub fn derive_derived_layers(input: TokenStream) -> TokenStream {
-    let receiver =
-        DerivedLayersInputReceiver::from_derive_input(&parse_macro_input!(input as DeriveInput))
-            .unwrap();
+    let receiver = handle_error!(DerivedLayersInputReceiver::from_derive_input(
+        &parse_macro_input!(input as DeriveInput)
+    ));
     quote!(
         #receiver
     )
@@ -282,8 +284,8 @@ pub fn derive_layout_data(input: TokenStream) -> TokenStream {
 pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
     let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
-    ))
-    .unwrap();
+    ));
+    let receiver = handle_error!(receiver);
     quote!(
         #receiver
     )
@@ -335,7 +337,7 @@ pub fn simulator_tuples(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TranslateMut)]
 pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = DeriveInputReceiver::from_derive_input(&parsed).unwrap();
+    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
     let substrate = substrate_ident();
     let config = DeriveTrait {
         trait_: quote!(#substrate::geometry::transform::TranslateMut),
@@ -352,7 +354,7 @@ pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TransformMut)]
 pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = DeriveInputReceiver::from_derive_input(&parsed).unwrap();
+    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
     let substrate = substrate_ident();
     let config = DeriveTrait {
         trait_: quote!(#substrate::geometry::transform::TransformMut),

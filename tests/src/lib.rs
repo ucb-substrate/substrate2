@@ -5,8 +5,9 @@
 pub mod bsub;
 #[cfg(test)]
 pub mod cache;
+pub mod derive;
 pub mod external;
-pub mod io;
+pub mod hard_macro;
 #[cfg(test)]
 pub mod layout;
 #[cfg(test)]
