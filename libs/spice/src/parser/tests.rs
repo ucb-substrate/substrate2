@@ -108,4 +108,23 @@ fn convert_dff_to_scir() {
         cell.contents().as_ref().unwrap_clear().primitives().count(),
         22
     );
+    let inst = cell
+        .contents()
+        .as_ref()
+        .unwrap_clear()
+        .primitives()
+        .nth(10)
+        .unwrap();
+    match inst {
+        scir::PrimitiveDevice::RawInstance {
+            ports,
+            cell,
+            params,
+        } => {
+            assert_eq!(ports.len(), 4);
+            assert_eq!(cell, "sky130_fd_pr__pfet_01v8");
+            assert_eq!(params.len(), 2);
+        }
+        _ => panic!("match failed"),
+    }
 }
