@@ -1,5 +1,6 @@
 //! SPICE netlist parser.
 
+pub mod conv;
 #[cfg(test)]
 mod tests;
 
@@ -7,13 +8,15 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use arcstr::ArcStr;
 use nom::bytes::complete::{take_till, take_while};
 use nom::error::ErrorKind;
 use nom::{IResult, InputTakeAtPosition};
 use thiserror::Error;
+
+use self::conv::ScirConverter;
 
 /// The type representing nodes in a parsed SPICE circuit.
 pub type Node = Substr;
@@ -40,13 +43,23 @@ enum ParseState {
 
 impl Parser {
     /// Parse the given file.
-    pub fn parse_file(path: impl AsRef<Path>) -> Result<Ast, ParserError> {
+    pub fn parse_file(path: impl AsRef<Path>) -> Result<ParsedSpice, ParserError> {
         let path = path.as_ref();
         let s: ArcStr = std::fs::read_to_string(path).unwrap().into();
         let s = Substr(arcstr::Substr::full(s));
         let mut parser = Self::default();
+        let name = match s.lines().next() {
+            Some(name) => ArcStr::from(name),
+            None => arcstr::format!("{:?}", path),
+        };
         parser.parse(s)?;
-        Ok(parser.ast)
+
+        let parsed = ParsedSpice {
+            ast: parser.ast,
+            root: path.to_path_buf(),
+            name,
+        };
+        Ok(parsed)
     }
 
     fn parse(&mut self, data: Substr) -> Result<(), ParserError> {
@@ -163,6 +176,21 @@ impl Parser {
         self.buffer.clear();
         Ok(line)
     }
+}
+
+/// Data associated with parsing a SPICE file.
+pub struct ParsedSpice {
+    /// The parsed contents of the spice file.
+    pub ast: Ast,
+
+    /// The file path at the root of the `include` tree.
+    pub root: PathBuf,
+
+    /// The name of the netlist.
+    ///
+    /// By default, this is the first line of the root file,
+    /// with whitespace trimmed.
+    pub name: ArcStr,
 }
 
 /// The abstract syntax tree (AST) of a parsed SPICE netlist.
@@ -619,6 +647,11 @@ impl Params {
     pub fn get(&self, k: &str) -> Option<&Substr> {
         self.values.get(k)
     }
+
+    /// An iterator over all key-value pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&Substr, &Substr)> {
+        self.values.iter()
+    }
 }
 
 impl Borrow<str> for Substr {
@@ -634,5 +667,13 @@ impl Display for TokenizerError {
             "{} (token {} at offset {})",
             self.message, self.token, self.ofs
         )
+    }
+}
+
+impl ParsedSpice {
+    /// Convert this SPICE netlist to a SCIR library.
+    pub fn to_scir(&self) -> conv::ConvResult<scir::Library> {
+        let conv = ScirConverter::new(self.name.clone(), &self.ast);
+        conv.convert()
     }
 }
