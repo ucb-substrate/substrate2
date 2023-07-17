@@ -40,9 +40,9 @@ fn spice_resistor_tokens() {
 
 #[test]
 fn parse_dff() {
-    let ast = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
-    assert_eq!(ast.elems.len(), 1);
-    match &ast.elems[0] {
+    let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
+    assert_eq!(parsed.ast.elems.len(), 1);
+    match &parsed.ast.elems[0] {
         Elem::Subckt(Subckt {
             name,
             ports,
