@@ -91,3 +91,21 @@ fn parse_dff() {
         _ => panic!("match failed"),
     }
 }
+
+#[test]
+fn convert_dff_to_scir() {
+    let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
+    let mut converter = ScirConverter::new("openram_dff", &parsed.ast);
+    converter.blackbox("sky130_fd_pr__nfet_01v8");
+    converter.blackbox("sky130_fd_pr__pfet_01v8");
+    let lib = converter.convert();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(lib.cells().count(), 1);
+    let cell = lib.cell_named("openram_dff");
+    assert_eq!(
+        cell.contents().as_ref().unwrap_clear().primitives().count(),
+        22
+    );
+}
