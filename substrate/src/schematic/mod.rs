@@ -734,7 +734,7 @@ impl<T: HasSchematic> Instance<T> {
 }
 
 /// A primitive device.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum PrimitiveDevice {
     /// An ideal 2-terminal resistor.
     Res2 {
@@ -755,6 +755,11 @@ pub enum PrimitiveDevice {
         cell: ArcStr,
         /// Parameters to the cell being instantiated.
         params: HashMap<ArcStr, scir::Expr>,
+    },
+    /// An instance of a SCIR cell.
+    ScirInstance {
+        lib: Arc<scir::Library>,
+        instance: scir::Instance,
     },
 }
 
