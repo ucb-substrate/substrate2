@@ -26,6 +26,9 @@ pub enum ConvError {
     #[error("invalid literal: `{0}`")]
     /// The given expression is not a valid literal.
     InvalidLiteral(Substr),
+    /// Attempted to export a blackboxed subcircuit.
+    #[error("cannot export a blackboxed subcircuit")]
+    ExportBlackbox,
 }
 
 /// Converts a parsed SPICE netlist to [`scir`].
@@ -63,7 +66,12 @@ impl<'a> ScirConverter<'a> {
         for elem in self.ast.elems.iter() {
             match elem {
                 Elem::Subckt(subckt) => {
-                    self.convert_subckt(subckt)?;
+                    match self.convert_subckt(subckt) {
+                        // Export blackbox errors can be ignored; we just skip
+                        // exporting a SCIR cell for blackboxed subcircuits.
+                        Ok(_) | Err(ConvError::ExportBlackbox) => (),
+                        Err(e) => return Err(e),
+                    };
                 }
                 _ => continue,
             }
@@ -85,6 +93,10 @@ impl<'a> ScirConverter<'a> {
     fn convert_subckt(&mut self, subckt: &Subckt) -> ConvResult<scir::CellId> {
         if let Some(&id) = self.ids.get(&subckt.name) {
             return Ok(id);
+        }
+
+        if self.blackbox_cells.contains(&subckt.name) {
+            return Err(ConvError::ExportBlackbox);
         }
 
         let mut cell = scir::Cell::new_whitebox(ArcStr::from(subckt.name.as_str()));
