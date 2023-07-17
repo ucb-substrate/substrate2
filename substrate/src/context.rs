@@ -6,13 +6,13 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use cache::mem::Cache;
-use cache::persistent::client::LocalCacheClient;
+use cache::persistent::client::Client;
 use cache::{CacheHandle, Cacheable, CacheableWithState};
 use config::config::Config;
 use tracing::{span, Level};
 
 use crate::block::Block;
+use crate::cache::Cache;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
@@ -64,7 +64,7 @@ pub struct Context<PDK: Pdk> {
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     executor: Arc<dyn Executor>,
-    cache: Option<LocalCacheClient>,
+    cache: Arc<Cache>,
 }
 
 /// Builder for creating a Substrate [`Context`].
@@ -72,6 +72,7 @@ pub struct ContextBuilder<PDK: Pdk> {
     pdk: Option<PDK>,
     simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     executor: Arc<dyn Executor>,
+    cache_provider: Option<Client>,
 }
 
 impl<PDK: Pdk> Default for ContextBuilder<PDK> {
@@ -88,23 +89,24 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             pdk: None,
             simulators: Default::default(),
             executor: Arc::new(LocalExecutor),
+            cache_provider: None,
         }
     }
 
-    /// Set the PDK.
+    /// Sets the PDK.
     #[inline]
     pub fn pdk(mut self, pdk: PDK) -> Self {
         self.pdk = Some(pdk);
         self
     }
 
-    /// Set the executor.
+    /// Sets the executor.
     pub fn executor<E: Executor>(mut self, executor: E) -> Self {
         self.executor = Arc::new(executor);
         self
     }
 
-    /// Install the given simulator.
+    /// Installs the given simulator.
     ///
     /// Only one simulator of any given type can exist.
     #[inline]
@@ -117,7 +119,13 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         self
     }
 
-    /// Build the context based on the configuration in this builder.
+    /// Sets the client for interacting with the cache provider.
+    pub fn cache_provider(mut self, client: Client) -> Self {
+        self.cache_provider = Some(client);
+        self
+    }
+
+    /// Builds the context based on the configuration in this builder.
     pub fn build(self) -> Context<PDK> {
         // Instantiate PDK layers.
         let mut layer_ctx = LayerContext::new();
@@ -176,7 +184,6 @@ pub(crate) struct ContextInner {
     layers: LayerContext,
     schematic: SchematicContext,
     layout: LayoutContext,
-    cache: Cache,
 }
 
 impl<PDK: Pdk> Context<PDK> {

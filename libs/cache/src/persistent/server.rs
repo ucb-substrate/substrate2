@@ -797,6 +797,8 @@ impl RemoteCache for CacheImpl {
 fn get_file(root: impl AsRef<Path>, key: impl AsRef<EntryKey>) -> PathBuf {
     let root = root.as_ref();
     let key = key.as_ref();
+    // TODO: Require namespace to be filesystem compatible so that cache folder names don't need to
+    // be hashed.
     root.join(hex::encode(crate::hash(key.namespace.as_bytes())))
         .join(hex::encode(crate::hash(&key.key)))
 }

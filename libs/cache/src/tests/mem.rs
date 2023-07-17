@@ -4,7 +4,7 @@ use crossbeam_channel::unbounded;
 
 use crate::error::Error;
 
-use crate::mem::Cache;
+use crate::mem::TypeCache;
 use crate::tests::Key;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -26,7 +26,7 @@ struct Value<T> {
 
 #[test]
 fn generates_in_background_and_caches_values() {
-    let mut cache = Cache::new();
+    let mut cache = TypeCache::new();
     let num_gen = Arc::new(Mutex::new(0));
     let (s, r) = unbounded();
 
@@ -94,7 +94,7 @@ fn generates_in_background_and_caches_values() {
 
 #[test]
 fn cacheable_api_works() {
-    let mut cache = Cache::new();
+    let mut cache = TypeCache::new();
     let handle1 = cache.get(Key(0));
     let handle2 = cache.get(Key(5));
     let handle3 = cache.get(Key(8));
@@ -123,7 +123,7 @@ fn cacheable_api_works() {
 
 #[test]
 fn can_cache_multiple_types() {
-    let mut cache = Cache::new();
+    let mut cache = TypeCache::new();
     let num_gen = Arc::new(Mutex::new(0));
 
     let num_gen_clone = num_gen.clone();
@@ -169,7 +169,7 @@ fn can_cache_multiple_types() {
 #[test]
 #[should_panic]
 fn panics_on_mismatched_types() {
-    let mut cache = Cache::new();
+    let mut cache = TypeCache::new();
 
     let _ = cache.generate(Params1 { value: 5 }, |_| "cell".to_string());
     let _ = cache.generate(Params1 { value: 10 }, |_| 5);
@@ -177,7 +177,7 @@ fn panics_on_mismatched_types() {
 
 #[test]
 fn cache_should_not_hang_on_panic() {
-    let mut cache = Cache::new();
+    let mut cache = TypeCache::new();
 
     let handle =
         cache.generate::<_, usize>(Params1 { value: 5 }, |_| panic!("panic during generation"));

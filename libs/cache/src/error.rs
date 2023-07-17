@@ -45,6 +45,12 @@ pub enum Error {
     /// The desired cache entry is currently being loaded.
     #[error("entry is currently being loaded")]
     EntryLoading,
+    /// The desired cache entry is currently unavailable.
+    #[error("entry is currently unavailable")]
+    EntryUnavailable,
+    /// The desired cache entry cannot be assigned.
+    #[error("entry cannot be assigned")]
+    EntryUnassignable,
 }
 
 /// The error type returned by [`CacheHandle::try_inner`](crate::CacheHandle::try_inner).

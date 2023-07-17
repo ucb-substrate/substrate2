@@ -29,6 +29,8 @@ use crate::{
     CacheHandle, Cacheable, CacheableWithState,
 };
 
+// TODO: Add hierarchical cache client.
+
 /// The timeout for connecting to the cache server.
 pub const CONNECTION_TIMEOUT_MS_DEFAULT: u64 = 1000;
 
@@ -216,7 +218,6 @@ impl Client {
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -305,7 +306,6 @@ impl Client {
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -375,7 +375,7 @@ impl Client {
     ///
     /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
     /// As such, failures should happen quickly, or should be serializable and stored as part of
-    /// cached value using [`RemoteClient::generate`].
+    /// cached value using [`Client::generate`].
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     ///
@@ -386,7 +386,6 @@ impl Client {
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -475,7 +474,7 @@ impl Client {
     ///
     /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
     /// As such, failures should happen quickly, or should be serializable and stored as part of
-    /// cached value using [`RemoteClient::generate`].
+    /// cached value using [`Client::generate_with_state`].
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
@@ -491,7 +490,6 @@ impl Client {
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -597,7 +595,6 @@ impl Client {
     /// }
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -687,7 +684,6 @@ impl Client {
     /// }
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -741,7 +737,7 @@ impl Client {
     ///
     /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
     /// to be cached should be included in the cached output or should be cached using
-    /// [`LocalClient::get_with_state_and_err`].
+    /// [`Client::get_with_state_and_err`].
     ///
     /// # Examples
     ///
@@ -776,7 +772,6 @@ impl Client {
     ///
     /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    ///
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -856,7 +851,7 @@ impl Client {
         })
     }
 
-    /// Sets up the necessary objects to be passed in to [`Client::generate_inner`].
+    /// Sets up the necessary objects to be passed in to [`Client::spawn_handler`].
     fn setup_generate<K: Serialize, V>(
         namespace: impl Into<String>,
         key: &K,
@@ -869,13 +864,13 @@ impl Client {
     }
 
     /// Spawns a new thread to generate the desired value asynchronously.
-    fn generate_inner<V: Send + Sync + Any>(
+    fn spawn_handler<V: Send + Sync + Any>(
         self,
         handle: CacheHandle<V>,
-        generate_loop: impl FnOnce() -> Result<()> + Send + Any,
+        handler: impl FnOnce() -> Result<()> + Send + Any,
     ) {
         thread::spawn(move || {
-            if let Err(e) = generate_loop() {
+            if let Err(e) = handler() {
                 tracing::event!(
                     Level::ERROR,
                     "encountered error while executing cached generation: {}",
@@ -939,8 +934,8 @@ impl Client {
     }
 
     /// Sets the provided handle to deserialized data, panicking if unable to.
-    fn set_handle<V>(handle: &CacheHandle<V>, data: V) {
-        if handle.0.set(Ok(data)).is_err() {
+    fn set_handle<V>(handle: &CacheHandle<V>, data: ArcResult<V>) {
+        if handle.0.set(data).is_err() {
             panic!("failed to set cell value");
         }
     }
@@ -1123,7 +1118,7 @@ impl Client {
                 file.read_to_end(&mut buf)?;
                 self.drop_rpc_local(id)?;
                 tracing::event!(Level::DEBUG, "finished reading entry from disk");
-                Client::set_handle(&handle, deserialize_cache_data(&buf)?);
+                Client::set_handle(&handle, Ok(deserialize_cache_data(&buf)?));
             }
         }
         Ok(())
@@ -1141,7 +1136,7 @@ impl Client {
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) {
         tracing::event!(Level::DEBUG, "generating using local cache API");
-        self.clone().generate_inner(handle.clone(), move || {
+        self.clone().spawn_handler(handle.clone(), move || {
             self.generate_loop_local(
                 namespace,
                 hash,
@@ -1166,7 +1161,7 @@ impl Client {
         key: K,
         generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
     ) {
-        self.clone().generate_inner(handle.clone(), move || {
+        self.clone().spawn_handler(handle.clone(), move || {
             self.generate_loop_local(
                 namespace,
                 hash,
@@ -1305,7 +1300,7 @@ impl Client {
             }
             remote::get_reply::EntryStatus::Loading(_) => unreachable!(),
             remote::get_reply::EntryStatus::Ready(data) => {
-                Client::set_handle(&handle, deserialize_cache_data(&data)?);
+                Client::set_handle(&handle, Ok(deserialize_cache_data(&data)?));
             }
         }
         Ok(())
@@ -1323,7 +1318,7 @@ impl Client {
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) {
         tracing::event!(Level::DEBUG, "generating using remote cache API");
-        self.clone().generate_inner(handle.clone(), move || {
+        self.clone().spawn_handler(handle.clone(), move || {
             self.generate_loop_remote(
                 namespace,
                 hash,
@@ -1348,7 +1343,7 @@ impl Client {
         key: K,
         generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
     ) {
-        self.clone().generate_inner(handle.clone(), move || {
+        self.clone().spawn_handler(handle.clone(), move || {
             self.generate_loop_remote(
                 namespace,
                 hash,

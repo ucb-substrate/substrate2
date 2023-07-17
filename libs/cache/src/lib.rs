@@ -9,6 +9,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
+// pub mod hierarchical;
 pub mod mem;
 pub mod persistent;
 #[doc(hidden)]
