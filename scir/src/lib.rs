@@ -33,6 +33,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
+pub mod merge;
 mod slice;
 
 pub use slice::{IndexOwned, Slice, SliceRange};
@@ -275,9 +276,10 @@ pub struct Top {
 /// A library of SCIR cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Library {
-    /// The last ID assigned.
+    /// The current ID counter.
     ///
     /// Initialized to 0 when the library is created.
+    /// Should be incremented before assigning a new ID.
     cell_id: u64,
 
     /// The name of the library.
@@ -386,12 +388,38 @@ impl Library {
     ///
     /// Returns the ID of the newly added cell.
     pub fn add_cell(&mut self, cell: Cell) -> CellId {
-        self.cell_id += 1;
-        let id = CellId(self.cell_id);
+        let id = self.alloc_id();
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         self.order.push(id);
         id
+    }
+
+    #[inline]
+    pub(crate) fn alloc_id(&mut self) -> CellId {
+        self.cell_id += 1;
+        self.curr_id()
+    }
+
+    #[inline]
+    pub(crate) fn curr_id(&self) -> CellId {
+        CellId(self.cell_id)
+    }
+
+    /// Adds the given cell to the library with the given cell ID.
+    ///
+    /// Returns the ID of the newly added cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is already in use.
+    pub(crate) fn add_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
+        let id = id.into();
+        assert!(!self.cells.contains_key(&id));
+        self.cell_id = id.0;
+        self.name_map.insert(cell.name.clone(), id);
+        self.cells.insert(id, cell);
+        self.order.push(id);
     }
 
     /// Sets the top cell to the given cell ID.
@@ -446,6 +474,15 @@ impl Library {
     /// Panics if no cell has the given name.
     pub fn cell_named(&self, name: &str) -> &Cell {
         self.cell(*self.name_map.get(name).unwrap())
+    }
+
+    /// Gets the cell ID corresponding to the given name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no cell has the given name.
+    pub fn cell_id_named(&self, name: &str) -> CellId {
+        *self.name_map.get(name).unwrap()
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.
@@ -781,5 +818,11 @@ impl CellInner {
     #[inline]
     pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance)> {
         self.instances.iter().map(|x| (*x.0, x.1))
+    }
+
+    /// Iterate over mutable references to the instances of this cell.
+    #[inline]
+    pub fn instances_mut(&mut self) -> impl Iterator<Item = (InstanceId, &mut Instance)> {
+        self.instances.iter_mut().map(|x| (*x.0, x.1))
     }
 }

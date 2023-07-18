@@ -2105,6 +2105,7 @@ dependencies = [
  "test-log",
  "tracing",
  "tracing-subscriber",
+ "uniquify",
 ]
 
 [[package]]
