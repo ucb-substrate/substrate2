@@ -383,7 +383,7 @@ impl MultiCache {
                         break;
                     }
                     tracing::debug!(
-                        "did not received value from generate handle {}, trying next handle",
+                        "did not receive value from generate handle {}, trying next handle",
                         i
                     );
                 }
