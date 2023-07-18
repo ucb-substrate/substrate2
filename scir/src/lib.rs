@@ -250,6 +250,13 @@ impl Concat {
     }
 }
 
+impl FromIterator<Slice> for Concat {
+    fn from_iter<T: IntoIterator<Item = Slice>>(iter: T) -> Self {
+        let parts = iter.into_iter().collect();
+        Self { parts }
+    }
+}
+
 impl From<Vec<Slice>> for Concat {
     #[inline]
     fn from(value: Vec<Slice>) -> Self {

@@ -191,25 +191,42 @@ impl RawCell {
                 }
 
                 for p in contents.primitives.iter() {
-                    let sp = match p {
+                    match p {
                         super::PrimitiveDevice::Res2 { pos, neg, value } => {
-                            scir::PrimitiveDevice::Res2 {
+                            inner.add_primitive(scir::PrimitiveDevice::Res2 {
                                 pos: nodes[pos],
                                 neg: nodes[neg],
                                 value: scir::Expr::NumericLiteral(*value),
-                            }
+                            });
                         }
                         super::PrimitiveDevice::RawInstance {
                             ports,
                             cell,
                             params,
-                        } => scir::PrimitiveDevice::RawInstance {
-                            ports: ports.iter().map(|p| nodes[p]).collect(),
-                            cell: cell.clone(),
-                            params: params.clone(),
-                        },
+                        } => {
+                            inner.add_primitive(scir::PrimitiveDevice::RawInstance {
+                                ports: ports.iter().map(|p| nodes[p]).collect(),
+                                cell: cell.clone(),
+                                params: params.clone(),
+                            });
+                        }
+                        super::PrimitiveDevice::ScirInstance {
+                            lib,
+                            cell,
+                            name,
+                            connections,
+                        } => {
+                            let mapping = data.lib.merge(lib);
+                            let cell = mapping.new_cell_id(*cell);
+                            let mut inst = scir::Instance::new(name, cell);
+
+                            for (port, elems) in connections {
+                                let concat: scir::Concat = elems.iter().map(|n| nodes[n]).collect();
+                                inst.connect(port, concat);
+                            }
+                            inner.add_instance(inst);
+                        }
                     };
-                    inner.add_primitive(sp);
                 }
                 Opacity::Clear(inner)
             }
