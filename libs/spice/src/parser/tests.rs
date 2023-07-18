@@ -64,7 +64,7 @@ fn parse_dff() {
             let c = &components[10];
             match c {
                 Component::Instance(inst) => {
-                    assert_eq!(inst.name, "10".into());
+                    assert_eq!(inst.name, "X10".into());
                     assert_eq!(inst.child, "sky130_fd_pr__pfet_01v8".into());
                     assert_eq!(
                         inst.ports,
