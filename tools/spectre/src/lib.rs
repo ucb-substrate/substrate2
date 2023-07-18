@@ -15,7 +15,6 @@ use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha512};
 use substrate::execute::Executor;
 use substrate::io::NodePath;
 use substrate::schematic::conv::RawLib;
@@ -164,11 +163,11 @@ impl Options {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub struct CachedSim {
+struct CachedSim {
     simulation_netlist: Vec<u8>,
 }
 
-pub struct CachedSimState {
+struct CachedSimState {
     input: Vec<Input>,
     netlist: PathBuf,
     output_dir: PathBuf,

@@ -2301,7 +2301,6 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
- "sha2",
  "substrate",
  "tera",
  "thiserror",
