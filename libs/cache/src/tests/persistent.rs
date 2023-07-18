@@ -23,28 +23,28 @@ use crate::{
 
 use crate::persistent::client::{Client, ClientKind};
 
-const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const BASIC_TEST_NAMESPACE: &str = "test";
-const BASIC_TEST_PARAM: (u64, u64) = (3, 5);
-const BASIC_TEST_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_sum;
-const BASIC_TEST_ALT_NAMESPACE: &str = "test_alt";
-const BASIC_TEST_ALT_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_multiply;
+pub(crate) const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
+pub(crate) const BASIC_TEST_NAMESPACE: &str = "test";
+pub(crate) const BASIC_TEST_PARAM: (u64, u64) = (3, 5);
+pub(crate) const BASIC_TEST_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_sum;
+pub(crate) const BASIC_TEST_ALT_NAMESPACE: &str = "test_alt";
+pub(crate) const BASIC_TEST_ALT_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_multiply;
 
-fn start_local_server(root: PathBuf, port: u16) -> Server {
+pub(crate) fn build_local_server(root: PathBuf, port: u16) -> Server {
     Server::builder()
         .root(root)
         .local(format!("0.0.0.0:{port}").parse().unwrap())
         .build()
 }
 
-fn start_remote_server(root: PathBuf, port: u16) -> Server {
+pub(crate) fn build_remote_server(root: PathBuf, port: u16) -> Server {
     Server::builder()
         .root(root)
         .remote(format!("0.0.0.0:{port}").parse().unwrap())
         .build()
 }
 
-fn start_local_remote_server(root: PathBuf, local: u16, remote: u16) -> Server {
+pub(crate) fn build_local_remote_server(root: PathBuf, local: u16, remote: u16) -> Server {
     Server::builder()
         .root(root)
         .local(format!("0.0.0.0:{local}").parse().unwrap())
@@ -52,7 +52,7 @@ fn start_local_remote_server(root: PathBuf, local: u16, remote: u16) -> Server {
         .build()
 }
 
-fn pick_n_ports(n: usize) -> Vec<u16> {
+pub(crate) fn pick_n_ports(n: usize) -> Vec<u16> {
     let mut ports = Vec::new();
     let mut temporary_listeners = Vec::new();
 
@@ -66,7 +66,7 @@ fn pick_n_ports(n: usize) -> Vec<u16> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum ServerKind {
+pub(crate) enum ServerKind {
     Local,
     Remote,
     Both,
@@ -81,11 +81,11 @@ impl From<ClientKind> for ServerKind {
     }
 }
 
-fn remote_url(port: u16) -> String {
+pub(crate) fn remote_url(port: u16) -> String {
     format!("http://0.0.0.0:{port}")
 }
 
-fn create_server_and_clients(
+pub(crate) fn create_server_and_clients(
     root: PathBuf,
     kind: ServerKind,
     handle: &Handle,
@@ -94,9 +94,9 @@ fn create_server_and_clients(
     (
         {
             let server = match kind {
-                ServerKind::Local => start_local_server(root, ports[0]),
-                ServerKind::Remote => start_remote_server(root, ports[1]),
-                ServerKind::Both => start_local_remote_server(root, ports[0], ports[1]),
+                ServerKind::Local => build_local_server(root, ports[0]),
+                ServerKind::Remote => build_remote_server(root, ports[1]),
+                ServerKind::Both => build_local_remote_server(root, ports[0], ports[1]),
             };
             let join_handle = handle.spawn(async move { server.start().await });
             std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
@@ -107,7 +107,7 @@ fn create_server_and_clients(
     )
 }
 
-fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
+pub(crate) fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
     if path.exists() {
         fs::remove_dir_all(path)?;
@@ -116,7 +116,7 @@ fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-fn cached_generate<
+pub(crate) fn cached_generate<
     K: Serialize + Send + Sync + Any,
     V: Serialize + DeserializeOwned + Send + Sync + Any,
 >(
@@ -139,22 +139,26 @@ fn cached_generate<
     })
 }
 
-fn tuple_sum(tuple: &(u64, u64)) -> u64 {
+pub(crate) fn tuple_sum(tuple: &(u64, u64)) -> u64 {
     tuple.0 + tuple.1
 }
 
-fn tuple_multiply(tuple: &(u64, u64)) -> u64 {
+pub(crate) fn tuple_multiply(tuple: &(u64, u64)) -> u64 {
     tuple.0 * tuple.1
 }
 
-fn setup_test(test_name: &str) -> (PathBuf, Arc<Mutex<u64>>, Runtime) {
+pub(crate) fn create_runtime() -> Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+}
+
+pub(crate) fn setup_test(test_name: &str) -> (PathBuf, Arc<Mutex<u64>>, Runtime) {
     (
         PathBuf::from(BUILD_DIR).join(test_name),
         Arc::new(Mutex::new(0)),
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap(),
+        create_runtime(),
     )
 }
 
@@ -162,7 +166,7 @@ fn setup_test(test_name: &str) -> (PathBuf, Arc<Mutex<u64>>, Runtime) {
 ///
 /// The generate function for each namespace should only be called once, adding 2 to the count of
 /// generate function calls (unless the values are already computed before calling this function.
-fn run_basic_test(
+pub(crate) fn run_basic_test(
     root: impl AsRef<Path>,
     client_kind: ClientKind,
     count: Option<Arc<Mutex<u64>>>,
@@ -173,7 +177,7 @@ fn run_basic_test(
 
     reset_directory(root)?;
 
-    let (server, local, remote) =
+    let (_, local, remote) =
         create_server_and_clients(root.to_path_buf(), client_kind.into(), handle);
 
     let client = match client_kind {
@@ -227,11 +231,10 @@ fn run_basic_test(
         BASIC_TEST_ALT_GENERATE_FN(&BASIC_TEST_PARAM)
     );
 
-    server.abort();
     Ok(())
 }
 
-fn run_basic_persistence_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
+pub(crate) fn run_basic_persistence_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
     let (root, count, runtime) = setup_test(test_name);
 
     run_basic_test(
@@ -241,6 +244,9 @@ fn run_basic_persistence_test(test_name: &str, client_kind: ClientKind) -> Resul
         None,
         runtime.handle(),
     )?;
+
+    runtime.shutdown_timeout(Duration::from_millis(100));
+    let runtime = create_runtime();
 
     let (_, local, remote) =
         create_server_and_clients(root.clone(), client_kind.into(), runtime.handle());
@@ -275,7 +281,10 @@ fn run_basic_persistence_test(test_name: &str, client_kind: ClientKind) -> Resul
     Ok(())
 }
 
-fn run_basic_long_running_task_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
+pub(crate) fn run_basic_long_running_task_test(
+    test_name: &str,
+    client_kind: ClientKind,
+) -> Result<()> {
     let (root, count, runtime) = setup_test(test_name);
     run_basic_test(
         root,
@@ -288,7 +297,7 @@ fn run_basic_long_running_task_test(test_name: &str, client_kind: ClientKind) ->
     Ok(())
 }
 
-fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
+pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
     let (root, _, runtime) = setup_test(test_name);
 
     reset_directory(&root)?;

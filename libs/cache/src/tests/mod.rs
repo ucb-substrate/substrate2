@@ -5,8 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Cacheable, CacheableWithState};
 
-mod mem;
-mod persistent;
+pub(crate) mod mem;
+pub(crate) mod multi;
+pub(crate) mod persistent;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Key(u64);

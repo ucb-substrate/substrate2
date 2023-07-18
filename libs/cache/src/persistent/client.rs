@@ -217,7 +217,7 @@ impl Client {
     /// use std::sync::{Arc, Mutex};
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -238,7 +238,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> u64 {
     ///     tuple.0 + tuple.1
@@ -304,7 +304,7 @@ impl Client {
     /// #[derive(Clone)]
     /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
@@ -326,7 +326,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
     ///     println!("Logging parameters...");
@@ -382,10 +382,9 @@ impl Client {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::{Arc, Mutex};
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -406,7 +405,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> anyhow::Result<u64> {
     ///     if *tuple == (5, 5) {
@@ -488,7 +487,7 @@ impl Client {
     /// #[derive(Clone)]
     /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
@@ -511,7 +510,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> anyhow::Result<u64> {
     ///     println!("Logging parameters...");
@@ -594,7 +593,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -615,7 +614,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// let handle = client.get("example.namespace", Params {
     ///     param1: 50,
@@ -683,7 +682,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
     /// # use cache::persistent::server::Server;
@@ -704,7 +703,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// let handle = client.get_with_err("example.namespace", Params {
     ///     param1: 5,
@@ -770,7 +769,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let mut client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     /// # use std::path::PathBuf;
     /// # use std::time::Duration;
@@ -792,7 +791,7 @@ impl Client {
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
-    /// # let mut client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// let handle = client.get_with_state(
     ///     "example.namespace",

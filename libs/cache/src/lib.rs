@@ -9,13 +9,13 @@ use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
-// pub mod hierarchical;
 pub mod mem;
+pub mod multi;
 pub mod persistent;
 #[doc(hidden)]
 pub mod rpc;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 /// A cacheable object.
 ///
@@ -58,6 +58,15 @@ pub trait Cacheable: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + An
 
     /// Generates the output of the cacheable object.
     fn generate(&self) -> std::result::Result<Self::Output, Self::Error>;
+}
+
+impl<T: Cacheable> Cacheable for Arc<T> {
+    type Output = T::Output;
+    type Error = T::Error;
+
+    fn generate(&self) -> std::result::Result<Self::Output, Self::Error> {
+        <T as Cacheable>::generate(self)
+    }
 }
 
 /// A cacheable object whose generator needs to store state.
@@ -116,6 +125,15 @@ pub trait CacheableWithState<S: Send + Sync + Any>:
     fn generate_with_state(&self, state: S) -> std::result::Result<Self::Output, Self::Error>;
 }
 
+impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for Arc<T> {
+    type Output = T::Output;
+    type Error = T::Error;
+
+    fn generate_with_state(&self, state: S) -> std::result::Result<Self::Output, Self::Error> {
+        <T as CacheableWithState<S>>::generate_with_state(self, state)
+    }
+}
+
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
 pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<ArcResult<V>>>);
@@ -147,6 +165,10 @@ impl<V: Send + Sync + Any> CacheHandle<V> {
         });
 
         handle
+    }
+
+    fn empty() -> Self {
+        Self(Arc::new(OnceCell::new()))
     }
 }
 

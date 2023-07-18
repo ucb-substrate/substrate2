@@ -10,6 +10,7 @@ use std::{
 };
 
 use once_cell::sync::OnceCell;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     error::{ArcResult, Error},
@@ -30,18 +31,12 @@ impl<T> Default for Cells<T> {
 }
 
 impl<T: Hash + PartialEq + Eq> Cells<T> {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
+    fn generate_arc<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         namespace: T,
-        key: K,
+        key: Arc<K>,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) -> CacheHandle<V> {
-        let key = Arc::new(key);
-
         let entry = self.cells.entry(namespace).or_insert(Arc::new(Mutex::<
             HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>,
         >::default()));
@@ -76,6 +71,15 @@ impl<T: Hash + PartialEq + Eq> Cells<T> {
                 cell.clone()
             }
         })
+    }
+
+    fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
+        &mut self,
+        namespace: T,
+        key: K,
+        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+    ) -> CacheHandle<V> {
+        self.generate_arc(namespace, Arc::new(key), generate_fn)
     }
 }
 
@@ -350,14 +354,18 @@ impl TypeCache {
     }
 }
 
+type ByteCacheMap = HashMap<Vec<u8>, CacheHandle<Option<Vec<u8>>>>;
+
 /// An abstraction for generating values in the background and caching them
 /// based on a namespace string in memory.
+///
+/// Unlike a [`TypeCache`], a [`NamespaceCache`] works by serializing and deserializing keys and
+/// values. As such, an entry can be accessed with several generic types as long as all of the
+/// types serialize/deserialize to/from the same bytes.
 #[derive(Default, Debug, Clone)]
 pub struct NamespaceCache {
     /// A map from namespace to another map from key to value handle.
-    ///
-    /// Effectively, the type of this map is `String -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells: Cells<String>,
+    cells: HashMap<String, ByteCacheMap>,
 }
 
 impl NamespaceCache {
@@ -381,7 +389,6 @@ impl NamespaceCache {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::{Arc, Mutex};
     /// use cache::{mem::NamespaceCache, error::Error, CacheableWithState};
     ///
     /// let mut cache = NamespaceCache::new();
@@ -421,13 +428,22 @@ impl NamespaceCache {
     ///
     /// assert_eq!(*handle.get(), 30);
     /// ```
-    pub fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
+    pub fn generate<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+    >(
         &mut self,
         namespace: impl Into<String>,
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) -> CacheHandle<V> {
-        self.cells.generate(namespace.into(), key, generate_fn)
+        self.generate_inner(
+            namespace,
+            key,
+            generate_fn,
+            |value| Some(flexbuffers::to_vec(value).unwrap()),
+            |value| flexbuffers::from_slice(value).map_err(|e| Arc::new(e.into())),
+        )
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -483,8 +499,8 @@ impl NamespaceCache {
     /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 6)]);
     /// ```
     pub fn generate_with_state<
-        K: Hash + Eq + Any + Send + Sync,
-        V: Send + Sync + Any,
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
         S: Send + Sync + Any,
     >(
         &mut self,
@@ -493,8 +509,145 @@ impl NamespaceCache {
         state: S,
         generate_fn: impl FnOnce(&K, S) -> V + Send + Any,
     ) -> CacheHandle<V> {
-        self.cells
-            .generate(namespace.into(), key, |key| generate_fn(key, state))
+        self.generate(namespace.into(), key, |key| generate_fn(key, state))
+    }
+
+    /// Ensures that a result corresponding to `key` is generated, using `generate_fn`
+    /// to generate it if it has not already been generated.
+    ///
+    /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
+    /// As such, failures should happen quickly, or should be serializable and stored as part of
+    /// cached value using [`NamespaceCache::generate`].
+    ///
+    /// Returns a handle to the value. If the value is not yet generated, it is generated
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cache::{mem::NamespaceCache, error::Error, Cacheable};
+    ///
+    /// let mut cache = NamespaceCache::new();
+    ///
+    /// fn generate_fn(tuple: &(u64, u64)) -> anyhow::Result<u64> {
+    ///     if *tuple == (5, 5) {
+    ///         Err(anyhow::anyhow!("invalid tuple"))
+    ///     } else {
+    ///         Ok(tuple.0 + tuple.1)
+    ///     }
+    /// }
+    ///
+    /// let handle = cache.generate_result(
+    ///     "example.namespace",
+    ///     (5, 5),
+    ///     generate_fn,
+    /// );
+    ///
+    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
+    ///
+    /// // Calls `generate_fn` again as the error was not cached.
+    /// let handle = cache.generate_result(
+    ///     "example.namespace",
+    ///     (5, 5),
+    ///     generate_fn,
+    /// );
+    ///
+    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
+    /// ```
+    pub fn generate_result<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: impl Into<String>,
+        key: K,
+        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+    ) -> CacheHandle<std::result::Result<V, E>> {
+        self.generate_inner(
+            namespace,
+            key,
+            generate_fn,
+            |value| {
+                value
+                    .as_ref()
+                    .ok()
+                    .map(|value| flexbuffers::to_vec(value).unwrap())
+            },
+            |value| {
+                flexbuffers::from_slice(value)
+                    .map(|value| Ok(value))
+                    .map_err(|e| Arc::new(e.into()))
+            },
+        )
+    }
+
+    /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
+    /// to generate it if it has not already been generated.
+    ///
+    /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
+    /// As such, failures should happen quickly, or should be serializable and stored as part of
+    /// cached value using [`NamespaceCache::generate_with_state`].
+    ///
+    /// Returns a handle to the value. If the value is not yet generated, it is generated
+    /// in the background.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::{Arc, Mutex};
+    /// use cache::{mem::NamespaceCache, error::Error, Cacheable};
+    ///
+    /// #[derive(Clone)]
+    /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
+    ///
+    /// let mut cache = NamespaceCache::new();
+    /// let log = Log(Arc::new(Mutex::new(Vec::new())));
+    ///
+    /// fn generate_fn(tuple: &(u64, u64), state: Log) -> anyhow::Result<u64> {
+    ///     println!("Logging parameters...");
+    ///     state.0.lock().unwrap().push(*tuple);
+    ///
+    ///     if *tuple == (5, 5) {
+    ///         Err(anyhow::anyhow!("invalid tuple"))
+    ///     } else {
+    ///         Ok(tuple.0 + tuple.1)
+    ///     }
+    /// }
+    ///
+    /// let handle = cache.generate_result_with_state(
+    ///     "example.namespace",
+    ///     (5, 5),
+    ///     log.clone(),
+    ///     generate_fn,
+    /// );
+    ///
+    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
+    ///
+    /// // Calls `generate_fn` again as the error was not cached.
+    /// let handle = cache.generate_result_with_state(
+    ///     "example.namespace",
+    ///     (5, 5),
+    ///     log.clone(),
+    ///     generate_fn,
+    /// );
+    ///
+    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
+    ///
+    /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 5), (5, 5)]);
+    /// ```
+    pub fn generate_result_with_state<
+        K: Serialize + Send + Sync + Any,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+        S: Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: impl Into<String>,
+        key: K,
+        state: S,
+        generate_fn: impl FnOnce(&K, S) -> std::result::Result<V, E> + Send + Any,
+    ) -> CacheHandle<std::result::Result<V, E>> {
+        self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
 
     /// Gets a handle to a cacheable object from the cache, generating the object in the background
@@ -560,6 +713,70 @@ impl NamespaceCache {
     /// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
     /// ```
     pub fn get<K: Cacheable>(
+        &mut self,
+        namespace: impl Into<String>,
+        key: K,
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        self.generate_result(namespace, key, |key| key.generate())
+    }
+
+    /// Gets a handle to a cacheable object from the cache, caching failures as well.
+    ///
+    /// Generates the object in the background if needed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cache::{mem::NamespaceCache, error::Error, Cacheable};
+    /// use serde::{Deserialize, Serialize};
+    ///
+    /// #[derive(Deserialize, Serialize, Hash, Eq, PartialEq)]
+    /// pub struct Params {
+    ///     param1: u64,
+    ///     param2: String,
+    /// };
+    ///
+    /// impl Cacheable for Params {
+    ///     type Output = u64;
+    ///     type Error = bool;
+    ///
+    ///     fn generate(&self) -> Result<Self::Output, Self::Error> {
+    ///         if &self.param2 == "panic" {
+    ///             panic!("unrecoverable param");
+    ///         }
+    ///
+    ///         // Expensive computation...
+    ///         # let computation_result = 5;
+    ///
+    ///         if computation_result == 5 {
+    ///             return Err(false);
+    ///         }
+    ///
+    ///         Ok(2 * self.param1)
+    ///     }
+    /// }
+    ///
+    /// let mut cache = NamespaceCache::new();
+    ///
+    /// let handle = cache.get_with_err("example.namespace", Params {
+    ///     param1: 5,
+    ///     param2: "cache".to_string(),
+    /// });
+    ///
+    /// assert_eq!(*handle.unwrap_err_inner(), false);
+    ///
+    /// // Does not need to carry out the expensive computation again as the error is cached.
+    /// let handle = cache.get_with_err("example.namespace", Params {
+    ///     param1: 5,
+    ///     param2: "cache".to_string(),
+    /// });
+    ///
+    /// assert_eq!(*handle.unwrap_err_inner(), false);
+    /// ```
+    pub fn get_with_err<
+        E: Send + Sync + Serialize + DeserializeOwned + Any,
+        K: Cacheable<Error = E>,
+    >(
         &mut self,
         namespace: impl Into<String>,
         key: K,
@@ -644,8 +861,95 @@ impl NamespaceCache {
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        self.generate_result_with_state(namespace, key, state, |key, state| {
+            key.generate_with_state(state)
+        })
+    }
+
+    /// Gets a handle to a cacheable object from the cache, caching failures as well.
+    ///
+    /// Generates the object in the background if needed.
+    ///
+    /// See [`NamespaceCache::get_with_err`] and [`NamespaceCache::get_with_state`] for related examples.
+    pub fn get_with_state_and_err<
+        S: Send + Sync + Any,
+        E: Send + Sync + Serialize + DeserializeOwned + Any,
+        K: CacheableWithState<S, Error = E>,
+    >(
+        &mut self,
+        namespace: impl Into<String>,
+        key: K,
+        state: S,
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
         self.generate_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
+    }
+
+    fn set_handle<V>(handle: &CacheHandle<V>, data: ArcResult<V>) {
+        if handle.0.set(data).is_err() {
+            panic!("failed to set cell value");
+        }
+    }
+
+    fn generate_inner<K: Serialize + Any + Send + Sync, V: Send + Sync + Any>(
+        &mut self,
+        namespace: impl Into<String>,
+        key: K,
+        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        serialize_value: impl FnOnce(&V) -> Option<Vec<u8>> + Send + Any,
+        deserialize_value: impl FnOnce(&[u8]) -> ArcResult<V> + Send + Any,
+    ) -> CacheHandle<V> {
+        let handle = CacheHandle::empty();
+        let hash = crate::hash(&flexbuffers::to_vec(&key).unwrap());
+
+        let (vacant, cell) = match self
+            .cells
+            .entry(namespace.into())
+            .or_insert(HashMap::new())
+            .entry(hash)
+        {
+            Entry::Vacant(v) => (true, v.insert(CacheHandle::empty()).clone()),
+            Entry::Occupied(o) => (false, o.get().clone()),
+        }
+        .clone();
+
+        let cell2 = cell.clone();
+        let handle2 = handle.clone();
+        thread::spawn(move || {
+            let value = if vacant {
+                None
+            } else {
+                match cell.try_get() {
+                    Ok(Some(value)) => Some(Ok(value)),
+                    Ok(None) => None,
+                    Err(e) => Some(Err(e)),
+                }
+            };
+            if let Some(value) = value {
+                NamespaceCache::set_handle(
+                    &handle2,
+                    value.and_then(|value| deserialize_value(value)),
+                );
+            } else {
+                thread::spawn(move || {
+                    let cell3 = cell2.clone();
+                    let handle3 = handle2.clone();
+                    let handle = thread::spawn(move || {
+                        let value = generate_fn(&key);
+                        if vacant {
+                            NamespaceCache::set_handle(&cell3, Ok(serialize_value(&value)));
+                        }
+                        NamespaceCache::set_handle(&handle3, Ok(value));
+                    });
+                    if handle.join().is_err() {
+                        NamespaceCache::set_handle(&cell2, Err(Arc::new(Error::Panic)));
+                        NamespaceCache::set_handle(&handle2, Err(Arc::new(Error::Panic)));
+                    }
+                });
+            }
+        });
+
+        handle
     }
 }
