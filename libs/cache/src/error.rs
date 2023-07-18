@@ -40,7 +40,7 @@ pub enum Error {
     #[error("generator panicked")]
     Panic,
     /// Exponential backoff for polling the server failed.
-    #[error("generator panicked")]
+    #[error(transparent)]
     Backoff(#[from] Box<backoff::Error<Error>>),
     /// The desired cache entry is currently being loaded.
     #[error("entry is currently being loaded")]
