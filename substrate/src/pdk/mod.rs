@@ -6,6 +6,8 @@ pub mod layers;
 
 use std::any::Any;
 
+use arcstr::ArcStr;
+
 use self::corner::*;
 use self::layers::Layers;
 
@@ -15,6 +17,16 @@ pub trait Pdk: Send + Sync + Any {
     type Layers: Layers;
     /// The type representing a corner in this PDK.
     type Corner: Corner;
+
+    /// The names of all schematic primitives in the PDK.
+    ///
+    /// This should include the names of transistors,
+    /// resistors, capacitors, inductors, etc.
+    ///
+    /// The default implementation returns an empty list.
+    fn schematic_primitives(&self) -> Vec<ArcStr> {
+        Vec::new()
+    }
 }
 
 /// The type of a PDK's layer set.

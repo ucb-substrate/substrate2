@@ -48,11 +48,12 @@ pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
 /// A builder for creating a schematic cell.
 #[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
+    /// The current global context.
+    pub ctx: Context<PDK>,
     pub(crate) id: CellId,
     pub(crate) next_instance_id: InstanceId,
     /// The root instance path that all nested paths should be relative to.
     pub(crate) root: InstancePath,
-    pub(crate) ctx: Context<PDK>,
     pub(crate) node_ctx: NodeContext,
     pub(crate) instances: Vec<Receiver<Option<RawInstance>>>,
     pub(crate) primitives: Vec<PrimitiveDevice>,
