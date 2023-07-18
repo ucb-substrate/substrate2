@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
+use cache::multi::MultiCache;
+use cache::persistent::client::{Client, ClientKind};
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use spectre::Spectre;
 use substrate::block::Block;
+use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::corner::Corner;
@@ -137,6 +140,14 @@ pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
     Context::builder()
         .pdk(Sky130CommercialPdk::new(pdk_root))
         .with_simulator(Spectre::default())
+        .cache(Cache::new(
+            MultiCache::builder()
+                .with_provider(Client::with_default_config(
+                    ClientKind::Local,
+                    "http://0.0.0.0:28055",
+                ))
+                .build(),
+        ))
         .build()
 }
 
