@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use scir::Expr;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130CommercialPdk;
+use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use spectre::Spectre;
 use substrate::block::Block;
 use substrate::context::Context;
@@ -136,6 +136,24 @@ pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
         .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     Context::builder()
         .pdk(Sky130CommercialPdk::new(pdk_root))
+        .with_simulator(Spectre::default())
+        .build()
+}
+
+/// Create a new Substrate context for the SKY130 open-source PDK.
+///
+/// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
+/// environment variable.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
+/// or if the value of that variable is not a valid UTF-8 string.
+pub fn sky130_open_ctx() -> Context<Sky130OpenPdk> {
+    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
+        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .pdk(Sky130OpenPdk::new(pdk_root))
         .with_simulator(Spectre::default())
         .build()
 }

@@ -757,9 +757,20 @@ pub enum PrimitiveDevice {
         params: HashMap<ArcStr, scir::Expr>,
     },
     /// An instance of a SCIR cell.
+    ///
+    /// Substrate does not support creating
+    /// SCIR instances with parameters.
     ScirInstance {
+        /// The SCIR library containing the child cell.
         lib: Arc<scir::Library>,
-        instance: scir::Instance,
+        /// The ID of the child cell.
+        cell: scir::CellId,
+        /// The name of the instance.
+        ///
+        /// This need not be related to the name of the child cell.
+        name: ArcStr,
+        /// The connections to the ports of the child cell.
+        connections: HashMap<ArcStr, Vec<Node>>,
     },
 }
 

@@ -124,7 +124,7 @@ impl Parser {
 
                 match kind {
                     'R' => Line::Component(Component::Res(Res {
-                        name: self.buffer[0].try_ident()?.substr(1..).clone().into(),
+                        name: self.buffer[0].try_ident()?.clone(),
                         pos: self.buffer[1].try_ident()?.clone(),
                         neg: self.buffer[2].try_ident()?.clone(),
                         value: self.buffer[3].try_ident()?.clone(),
@@ -162,7 +162,7 @@ impl Parser {
                         }
 
                         Line::Component(Component::Instance(Instance {
-                            name: self.buffer[0].try_ident()?.substr(1..).clone().into(),
+                            name: self.buffer[0].try_ident()?.clone(),
                             ports,
                             child,
                             params,
