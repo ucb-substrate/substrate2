@@ -334,7 +334,7 @@ impl MultiCache {
             Receiver<Option<V>>,
         ) -> CacheHandle<V>,
         recover_value: impl FnOnce(ArcResult<&V>) -> Option<V> + Send + Any,
-        send_value_to_providers: impl Fn(&V, Vec<GenerateHandle<V, Option<V>>>) + Send + Any,
+        send_value_to_providers: impl Fn(&V, &mut [GenerateHandle<V, Option<V>>]) + Send + Any,
     ) -> CacheHandle<V> {
         let namespace = namespace.into();
         let key = Arc::new(key);
@@ -393,7 +393,15 @@ impl MultiCache {
                     generate_fn(key.as_ref())
                 });
 
-                send_value_to_providers(&value, client_handles);
+                tracing::debug!("sending generated value to all clients");
+                send_value_to_providers(&value, &mut client_handles);
+
+                // Block until all clients have finished handling the received values.
+                for (i, GenerateHandle { handle, .. }) in client_handles.iter().enumerate() {
+                    tracing::debug!("blocking on client {}", i);
+                    let _ = handle.try_get();
+                }
+
                 if let Some(mem_handle) = mem_handle {
                     let _ = mem_handle.value_s.send(value);
                 } else if handle3.0.set(Ok(value)).is_err() {
@@ -434,9 +442,9 @@ impl MultiCache {
 
     fn send_value_to_providers<V: Serialize + DeserializeOwned>(
         value: &V,
-        client_handles: Vec<OptionGenerateHandle<V>>,
+        client_handles: &mut [OptionGenerateHandle<V>],
     ) {
-        for GenerateHandle { value_s, .. } in client_handles.iter() {
+        for GenerateHandle { value_s, .. } in client_handles.iter_mut() {
             let _ = value_s.send(Some(
                 flexbuffers::from_slice(&flexbuffers::to_vec(value).unwrap()).unwrap(),
             ));
@@ -445,9 +453,9 @@ impl MultiCache {
 
     fn send_result_to_providers<V: Serialize + DeserializeOwned, E>(
         value: &Result<V, E>,
-        client_handles: Vec<OptionGenerateHandle<Result<V, E>>>,
+        client_handles: &mut [OptionGenerateHandle<Result<V, E>>],
     ) {
-        for GenerateHandle { value_s, .. } in client_handles.iter() {
+        for GenerateHandle { value_s, .. } in client_handles.iter_mut() {
             if let Ok(value) = value {
                 let _ = value_s.send(Some(Ok(flexbuffers::from_slice(
                     &flexbuffers::to_vec(value).unwrap(),
