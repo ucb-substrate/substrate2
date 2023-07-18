@@ -20,7 +20,7 @@ geometry = { version = "0.2.0", registry = "substrate", path = "../libs/geometry
 substrate = { version = "0.2.0", registry = "substrate", path = "../substrate" }
 scir = { version = "0.1.0", registry = "substrate", path = "../scir" }
 cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }
-spice = { version = "0.0.0", registry = "substrate", path = "../netlist/spice" }
+spice = { version = "0.0.0", registry = "substrate", path = "../libs/spice" }
 spectre = { version = "0.2.0", registry = "substrate", path = "../tools/spectre" }
 sky130pdk = { version = "0.2.0", registry = "substrate", path = "../pdks/sky130pdk" }
 

@@ -17,6 +17,8 @@ pub mod paths;
 pub mod pdk;
 #[cfg(test)]
 pub mod schematic;
+#[cfg(test)]
+pub mod scir;
 pub mod shared;
 #[cfg(test)]
 pub mod sim;

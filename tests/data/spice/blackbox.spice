@@ -1,0 +1,16 @@
+* blackbox
+
+* An empty circuit.
+.subckt blackbox1 a b
+.ends
+
+* Another empty circuit.
+.subckt blackbox2 a b
+.ends
+
+.subckt top in out vdd vss
+X0 in out blackbox1
+X1 in vdd blackbox1
+X2 out vdd blackbox2
+X3 out vss blackbox2
+.ends

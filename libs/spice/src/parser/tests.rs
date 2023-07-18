@@ -40,9 +40,9 @@ fn spice_resistor_tokens() {
 
 #[test]
 fn parse_dff() {
-    let ast = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
-    assert_eq!(ast.elems.len(), 1);
-    match &ast.elems[0] {
+    let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
+    assert_eq!(parsed.ast.elems.len(), 1);
+    match &parsed.ast.elems[0] {
         Elem::Subckt(Subckt {
             name,
             ports,
@@ -64,7 +64,7 @@ fn parse_dff() {
             let c = &components[10];
             match c {
                 Component::Instance(inst) => {
-                    assert_eq!(inst.name, "10".into());
+                    assert_eq!(inst.name, "X10".into());
                     assert_eq!(inst.child, "sky130_fd_pr__pfet_01v8".into());
                     assert_eq!(
                         inst.ports,
@@ -87,6 +87,80 @@ fn parse_dff() {
                 }
                 _ => panic!("match failed"),
             }
+        }
+        _ => panic!("match failed"),
+    }
+}
+
+#[test]
+fn convert_dff_to_scir() {
+    let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
+    let mut converter = ScirConverter::new("openram_dff", &parsed.ast);
+    converter.blackbox("sky130_fd_pr__nfet_01v8");
+    converter.blackbox("sky130_fd_pr__pfet_01v8");
+    let lib = converter.convert().unwrap();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(lib.cells().count(), 1);
+    let cell = lib.cell_named("openram_dff");
+    assert_eq!(
+        cell.contents().as_ref().unwrap_clear().primitives().count(),
+        22
+    );
+    let inst = cell
+        .contents()
+        .as_ref()
+        .unwrap_clear()
+        .primitives()
+        .nth(10)
+        .unwrap();
+    match inst {
+        scir::PrimitiveDevice::RawInstance {
+            ports,
+            cell,
+            params,
+        } => {
+            assert_eq!(ports.len(), 4);
+            assert_eq!(cell, "sky130_fd_pr__pfet_01v8");
+            assert_eq!(params.len(), 2);
+        }
+        _ => panic!("match failed"),
+    }
+}
+
+#[test]
+fn convert_blackbox_to_scir() {
+    let parsed = Parser::parse_file(test_data("spice/blackbox.spice")).unwrap();
+    let mut converter = ScirConverter::new("top", &parsed.ast);
+    converter.blackbox("blackbox1");
+    converter.blackbox("blackbox2");
+    let lib = converter.convert().unwrap();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(lib.cells().count(), 1);
+    let cell = lib.cell_named("top");
+    assert_eq!(
+        cell.contents().as_ref().unwrap_clear().primitives().count(),
+        4
+    );
+    let inst = cell
+        .contents()
+        .as_ref()
+        .unwrap_clear()
+        .primitives()
+        .nth(2)
+        .unwrap();
+    match inst {
+        scir::PrimitiveDevice::RawInstance {
+            ports,
+            cell,
+            params,
+        } => {
+            assert_eq!(ports.len(), 2);
+            assert_eq!(cell, "blackbox2");
+            assert_eq!(params.len(), 0);
         }
         _ => panic!("match failed"),
     }

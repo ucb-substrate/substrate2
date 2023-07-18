@@ -26,13 +26,38 @@ impl<K: Hash + Eq> Default for Names<K> {
 
 impl<K: Hash + Eq> Names<K> {
     /// Creates a new, empty name set.
+    #[inline]
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Creates a new, empty name set with the given initial capacity.
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            names: HashSet::with_capacity(capacity),
+            assignments: HashMap::with_capacity(capacity),
+        }
+    }
+
     /// Returns the name associated with this key, if it exists.
+    #[inline]
     pub fn name(&self, id: &K) -> Option<ArcStr> {
         self.assignments.get(id).cloned()
+    }
+
+    /// Attempts to assign the given name to key `id`.
+    ///
+    /// If the name is not currently in use, it is assigned to the key `id` and `true` is returned.
+    /// If the name is already in use, `false` is returned and no changes are made.
+    pub fn reserve_name(&mut self, id: K, name: impl Into<ArcStr>) -> bool {
+        let name = name.into();
+        if !self.names.insert(name.clone()) {
+            false
+        } else {
+            self.assignments.insert(id, name);
+            true
+        }
     }
 
     /// Allocates a new, unique name associated with the given ID.

@@ -56,6 +56,8 @@ jobs:
           path: substrate
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         id: toolchain
@@ -89,26 +91,12 @@ jobs:
     uses: ./.github/workflows/coverage.yml
   deploy-api-docs:
     name: Deploy API documentation
-    runs-on: ubuntu-22.04
+    runs-on: bwrc
     environment: main
     needs: [ check-workspace ]
     steps:
       - uses: actions/checkout@v3
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v2
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        id: toolchain
-        with:
-          toolchain: stable
-      - name: Cache workspace
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
-          workspaces: |
-            ./docs/api -> target
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: extractions/setup-just@v1
       - run: just build
         working-directory: docs/api
       - run: flyctl deploy --remote-only --detach
