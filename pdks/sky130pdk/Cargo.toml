@@ -7,7 +7,6 @@ edition = "2021"
 substrate = { version = "0.2.0", registry = "substrate", path = "../../substrate" }
 spectre = { version = "0.2.0", registry = "substrate", path = "../../tools/spectre" }
 rust_decimal = "1.30"
-rust_decimal_macros = "1.30"
 
 serde = { version = "1", features = ["derive"] }
 arcstr = { version = "1", features = ["serde"] }
