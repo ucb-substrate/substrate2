@@ -4,11 +4,11 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use cache::persistent::client::LocalCacheClient;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
+use crate::cache::Cache;
 use crate::context::PdkData;
 use crate::execute::Executor;
 use crate::io::{SchematicType, TestbenchIo};
@@ -72,8 +72,8 @@ pub struct SimulationContext {
     pub lib: Arc<RawLib>,
     /// The executor to which simulation commands should be submitted.
     pub executor: Arc<dyn Executor>,
-    /// A cache client if one is configured in the Substrate configuration.
-    pub cache: Option<LocalCacheClient>,
+    /// The cache for storing the results of expensive computations.
+    pub cache: Cache,
 }
 
 /// Indicates that a simulator supports a certain analysis.

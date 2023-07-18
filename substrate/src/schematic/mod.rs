@@ -2,7 +2,8 @@
 
 pub mod conv;
 
-use cache::mem::Cache;
+use cache::error::TryInnerError;
+use cache::mem::TypeCache;
 use cache::CacheHandle;
 use opacity::Opacity;
 use pathtree::PathTree;
@@ -573,8 +574,8 @@ impl<T: HasSchematic> CellHandle<T> {
     pub fn try_cell(&self) -> Result<&Cell<T>> {
         self.cell.try_inner().map_err(|e| match e {
             // TODO: Handle cache errors with more granularity.
-            cache::TryInnerError::CacheError(_) => Error::Internal,
-            cache::TryInnerError::GeneratorError(e) => e.clone(),
+            TryInnerError::CacheError(_) => Error::Internal,
+            TryInnerError::GeneratorError(e) => e.clone(),
         })
     }
 
@@ -762,7 +763,7 @@ pub enum PrimitiveDevice {
 #[derive(Debug, Default, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
-    pub(crate) cell_cache: Cache,
+    pub(crate) cell_cache: TypeCache,
 }
 
 impl SchematicContext {

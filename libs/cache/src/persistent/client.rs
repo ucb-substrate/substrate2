@@ -214,7 +214,6 @@ impl Client {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::{Arc, Mutex};
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");

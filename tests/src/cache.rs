@@ -64,7 +64,11 @@ impl HasSchematicImpl<ExamplePdkA> for CacheBlock {
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let design = *cell.ctx().cache_get(CachedDesignScript(5)).unwrap_inner();
+        let design = *cell
+            .ctx()
+            .cache
+            .type_get(CachedDesignScript(5))
+            .unwrap_inner();
 
         Ok(CacheBlockData { design })
     }

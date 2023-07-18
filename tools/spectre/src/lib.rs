@@ -8,13 +8,15 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use cache::TryInnerError;
+use cache::error::TryInnerError;
+use cache::CacheableWithState;
 use error::*;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
+use substrate::execute::Executor;
 use substrate::io::NodePath;
 use substrate::schematic::conv::RawLib;
 use substrate::simulation::data::HasNodeData;
@@ -161,45 +163,39 @@ impl Options {
     }
 }
 
-impl Spectre {
-    fn simulate(
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub struct CachedSim {
+    simulation_netlist: Vec<u8>,
+}
+
+pub struct CachedSimState {
+    input: Vec<Input>,
+    netlist: PathBuf,
+    output_dir: PathBuf,
+    log: PathBuf,
+    run_script: PathBuf,
+    work_dir: PathBuf,
+    executor: Arc<dyn Executor>,
+}
+
+impl CacheableWithState<CachedSimState> for CachedSim {
+    type Output = Vec<HashMap<String, Vec<f64>>>;
+    type Error = Arc<Error>;
+
+    fn generate_with_state(
         &self,
-        ctx: &SimulationContext,
-        options: Options,
-        input: Vec<Input>,
-    ) -> Result<Vec<Output>> {
-        std::fs::create_dir_all(&ctx.work_dir)?;
-        let netlist = ctx.work_dir.join("netlist.scs");
-        let mut f = std::fs::File::create(&netlist)?;
-        let mut w = Vec::new();
-
-        let mut includes = options.includes.into_iter().collect::<Vec<_>>();
-        // Sorting the include list makes repeated netlist invocations
-        // produce the same output. If we were to iterate over the HashSet directly,
-        // the order of includes may change even if the contents of the set did not change.
-        includes.sort();
-
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
-        netlister.export()?;
-
-        for (i, an) in input.iter().enumerate() {
-            write!(w, "analysis{i} ")?;
-            an.netlist(&mut w)?;
-            writeln!(w)?;
-        }
-
-        let mut hasher = Sha512::new();
-        hasher.update(&w);
-        let hash: Vec<u8> = hasher.finalize()[..].to_vec();
-        f.write_all(&w)?;
-
-        let output_dir = ctx.work_dir.join("psf/");
-        let log = ctx.work_dir.join("spectre.log");
-        let run_script = ctx.work_dir.join("simulate.sh");
-        let work_dir = ctx.work_dir.clone();
-        let executor = ctx.executor.clone();
-
-        let generate_fn = move || -> Result<Vec<HashMap<String, Vec<f64>>>> {
+        state: CachedSimState,
+    ) -> std::result::Result<Self::Output, Self::Error> {
+        let inner = || -> Result<Self::Output> {
+            let CachedSimState {
+                input,
+                netlist,
+                output_dir,
+                log,
+                run_script,
+                work_dir,
+                executor,
+            } = state;
             write_run_script(
                 RunScriptContext {
                     netlist: &netlist,
@@ -260,20 +256,67 @@ impl Spectre {
             }
             Ok(raw_outputs)
         };
-        let raw_outputs = if let Some(cache) = &ctx.cache {
-            cache
-                .generate_result("spectre/tran_outputs", hash, move |_key: &Vec<u8>| {
-                    generate_fn().map_err(Arc::new)
-                })
-                .try_inner()
-                .map_err(|e| match e {
-                    TryInnerError::CacheError(e) => Error::Caching(e),
-                    TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
-                })?
-                .clone()
-        } else {
-            generate_fn()?
-        };
+        inner().map_err(Arc::new)
+    }
+}
+
+impl Spectre {
+    fn simulate(
+        &self,
+        ctx: &SimulationContext,
+        options: Options,
+        input: Vec<Input>,
+    ) -> Result<Vec<Output>> {
+        std::fs::create_dir_all(&ctx.work_dir)?;
+        let netlist = ctx.work_dir.join("netlist.scs");
+        let mut f = std::fs::File::create(&netlist)?;
+        let mut w = Vec::new();
+
+        let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        // Sorting the include list makes repeated netlist invocations
+        // produce the same output. If we were to iterate over the HashSet directly,
+        // the order of includes may change even if the contents of the set did not change.
+        includes.sort();
+
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
+        netlister.export()?;
+
+        for (i, an) in input.iter().enumerate() {
+            write!(w, "analysis{i} ")?;
+            an.netlist(&mut w)?;
+            writeln!(w)?;
+        }
+        f.write_all(&w)?;
+
+        let output_dir = ctx.work_dir.join("psf/");
+        let log = ctx.work_dir.join("spectre.log");
+        let run_script = ctx.work_dir.join("simulate.sh");
+        let work_dir = ctx.work_dir.clone();
+        let executor = ctx.executor.clone();
+
+        let raw_outputs = ctx
+            .cache
+            .get_with_state(
+                "spectre.simulation.outputs",
+                CachedSim {
+                    simulation_netlist: w,
+                },
+                CachedSimState {
+                    input,
+                    netlist,
+                    output_dir,
+                    log,
+                    run_script,
+                    work_dir,
+                    executor,
+                },
+            )
+            .try_inner()
+            .map_err(|e| match e {
+                TryInnerError::CacheError(e) => Error::Caching(e),
+                TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
+            })?
+            .clone();
 
         let outputs = raw_outputs
             .into_iter()

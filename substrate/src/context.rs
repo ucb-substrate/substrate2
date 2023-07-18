@@ -6,9 +6,6 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use cache::persistent::client::Client;
-use cache::{CacheHandle, Cacheable, CacheableWithState};
-use config::config::Config;
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -64,7 +61,8 @@ pub struct Context<PDK: Pdk> {
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     executor: Arc<dyn Executor>,
-    cache: Arc<Cache>,
+    /// A cache for storing the results of expensive computations.
+    pub cache: Cache,
 }
 
 /// Builder for creating a Substrate [`Context`].
@@ -72,7 +70,7 @@ pub struct ContextBuilder<PDK: Pdk> {
     pdk: Option<PDK>,
     simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     executor: Arc<dyn Executor>,
-    cache_provider: Option<Client>,
+    cache: Option<Cache>,
 }
 
 impl<PDK: Pdk> Default for ContextBuilder<PDK> {
@@ -80,7 +78,6 @@ impl<PDK: Pdk> Default for ContextBuilder<PDK> {
         Self::new()
     }
 }
-
 impl<PDK: Pdk> ContextBuilder<PDK> {
     /// Creates a new, uninitialized builder.
     #[inline]
@@ -89,7 +86,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             pdk: None,
             simulators: Default::default(),
             executor: Arc::new(LocalExecutor),
-            cache_provider: None,
+            cache: None,
         }
     }
 
@@ -119,9 +116,9 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         self
     }
 
-    /// Sets the client for interacting with the cache provider.
-    pub fn cache_provider(mut self, client: Client) -> Self {
-        self.cache_provider = Some(client);
+    /// Sets the desired cache configuration.
+    pub fn cache(mut self, cache: Cache) -> Self {
+        self.cache = Some(cache);
         self
     }
 
@@ -131,12 +128,6 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         let mut layer_ctx = LayerContext::new();
         let layers = layer_ctx.install_layers::<PDK::Layers>();
 
-        let provider: Option<String> = Config::default()
-            .ok()
-            .and_then(|config| config.get("cache.root").ok().flatten());
-
-        println!("{:?}", provider);
-
         Context {
             pdk: PdkData {
                 pdk: Arc::new(self.pdk.unwrap()),
@@ -145,7 +136,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
             executor: self.executor,
-            cache: provider.map(|provider| LocalCacheClient::new(PathBuf::from(provider))),
+            cache: self.cache.unwrap_or_default(),
         }
     }
 }
@@ -401,50 +392,6 @@ impl<PDK: Pdk> Context<PDK> {
         let arc = self.simulators.get(&TypeId::of::<S>()).unwrap().clone();
         arc.downcast().unwrap()
     }
-
-    /// Gets a cacheable object from the context cache.
-    pub fn cache_get<K: Cacheable>(
-        &self,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get(key)
-    }
-
-    /// Gets a cacheable object from the context cache, injecting the context as state during
-    /// generation.
-    pub fn cache_get_with_ctx<K: CacheableWithState<Context<PDK>>>(
-        &self,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, self.clone())
-    }
-
-    /// Gets a cacheable object from the context cache, injecting user-defined state during
-    /// generation.
-    pub fn cache_get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
-        &self,
-        key: K,
-        state: S,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, state)
-    }
-
-    /// Gets a cacheable object from the context persistent cache, generating it if no cache is
-    /// configured.
-    pub fn persistent_cache_get<K: Cacheable>(
-        &self,
-        namespace: String,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        if let Some(client) = &self.cache {
-            client.get(namespace, key)
-        } else {
-            CacheHandle::new(move || key.generate())
-        }
-    }
 }
 
 impl ContextInner {
@@ -454,7 +401,6 @@ impl ContextInner {
             layers,
             schematic: Default::default(),
             layout: Default::default(),
-            cache: Cache::new(),
         }
     }
 }
