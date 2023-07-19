@@ -20,7 +20,7 @@
 // Based on Cargo's [`home` crate](https://github.com/rust-lang/cargo/tree/master/crates/home)
 // with substantial modifications.
 
-pub mod env;
+pub(crate) mod env;
 
 #[cfg(target_os = "windows")]
 mod windows;
@@ -52,13 +52,14 @@ use std::path::{Path, PathBuf};
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust,ignore
 /// match config::home::home_dir() {
 ///     Some(path) if !path.as_os_str().is_empty() => println!("{}", path.display()),
 ///     _ => println!("Unable to get your home dir!"),
 /// }
 /// ```
-pub fn home_dir() -> Option<PathBuf> {
+#[allow(dead_code)]
+pub(crate) fn home_dir() -> Option<PathBuf> {
     env::home_dir_with_env(&env::OS_ENV)
 }
 
@@ -92,18 +93,20 @@ fn home_dir_inner() -> Option<PathBuf> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust,ignore
 /// match config::home::substrate_home() {
 ///     Ok(path) => println!("{}", path.display()),
 ///     Err(err) => eprintln!("Cannot get your Substrate home dir: {:?}", err),
 /// }
 /// ```
-pub fn substrate_home() -> io::Result<PathBuf> {
+#[allow(dead_code)]
+pub(crate) fn substrate_home() -> io::Result<PathBuf> {
     env::substrate_home_with_env(&env::OS_ENV)
 }
 
 /// Returns the storage directory used by Substrate within `cwd`.
 /// For more details, see [`substrate_home`].
-pub fn substrate_home_with_cwd(cwd: &Path) -> io::Result<PathBuf> {
+#[allow(dead_code)]
+pub(crate) fn substrate_home_with_cwd(cwd: &Path) -> io::Result<PathBuf> {
     env::substrate_home_with_cwd_env(&env::OS_ENV, cwd)
 }

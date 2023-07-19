@@ -5,7 +5,7 @@
 // Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
 // with substantial modifications.
 
-use super::{Config, UnmergedStringList, Value};
+use super::{RawConfig, UnmergedStringList, Value};
 use serde::{de::Error, Deserialize};
 use std::path::PathBuf;
 
@@ -14,16 +14,18 @@ use std::path::PathBuf;
 /// location of the config file.
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(transparent)]
-pub struct ConfigRelativePath(Value<String>);
+pub(crate) struct ConfigRelativePath(Value<String>);
 
 impl ConfigRelativePath {
     /// Returns the underlying value.
-    pub fn value(&self) -> &Value<String> {
+    #[allow(dead_code)]
+    pub(crate) fn value(&self) -> &Value<String> {
         &self.0
     }
 
     /// Returns the raw underlying configuration value for this key.
-    pub fn raw_value(&self) -> &str {
+    #[allow(dead_code)]
+    pub(crate) fn raw_value(&self) -> &str {
         &self.0.val
     }
 
@@ -31,7 +33,8 @@ impl ConfigRelativePath {
     ///
     /// This will always return an absolute path where it's relative to the
     /// location for configuration for this value.
-    pub fn resolve_path(&self, config: &Config) -> PathBuf {
+    #[allow(dead_code)]
+    pub(crate) fn resolve_path(&self, config: &RawConfig) -> PathBuf {
         self.0.definition.root(config).join(&self.0.val)
     }
 
@@ -41,7 +44,7 @@ impl ConfigRelativePath {
     /// Values which don't look like a filesystem path (don't contain `/` or
     /// `\`) will be returned as-is, and everything else will fall through to an
     /// absolute path.
-    pub fn resolve_program(&self, config: &Config) -> PathBuf {
+    pub(crate) fn resolve_program(&self, config: &RawConfig) -> PathBuf {
         config.string_to_path(&self.0.val, &self.0.definition)
     }
 }
@@ -57,9 +60,11 @@ impl ConfigRelativePath {
 /// Typically you should use `ConfigRelativePath::resolve_program` on the path
 /// to get the actual program.
 #[derive(Debug, Clone)]
-pub struct PathAndArgs {
-    pub path: ConfigRelativePath,
-    pub args: Vec<String>,
+pub(crate) struct PathAndArgs {
+    #[allow(dead_code)]
+    pub(crate) path: ConfigRelativePath,
+    #[allow(dead_code)]
+    pub(crate) args: Vec<String>,
 }
 
 impl<'de> serde::Deserialize<'de> for PathAndArgs {

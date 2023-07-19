@@ -1,17 +1,17 @@
 //! Support for deserializing configuration via `serde`
 
-use crate::config::value;
-use crate::config::{Config, ConfigError, ConfigKey};
-use crate::config::{ConfigValue as CV, Definition, Value};
+use crate::raw::value;
+use crate::raw::{ConfigError, ConfigKey, RawConfig};
+use crate::raw::{ConfigValue as CV, Definition, Value};
 use serde::{de, de::IntoDeserializer};
 use std::collections::HashSet;
 use std::vec;
 
 /// Serde deserializer used to convert config values to a target type using
-/// [`Config::get`].
+/// [`RawConfig::get`].
 #[derive(Clone)]
 pub(super) struct Deserializer<'config> {
-    pub(super) config: &'config Config,
+    pub(super) config: &'config RawConfig,
     /// The current key being deserialized.
     pub(super) key: ConfigKey,
     /// Whether or not this key part is allowed to be an inner table. For

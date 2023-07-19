@@ -20,19 +20,10 @@ use serde::{de::DeserializeOwned, Serialize};
 ///
 /// Exposes a unified API for accessing an in-memory [`NamespaceCache`] as well as persistent
 /// cache [`Client`]s.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct MultiCache {
     namespace_cache: Option<NamespaceCache>,
     clients: Vec<Client>,
-}
-
-impl Default for MultiCache {
-    fn default() -> Self {
-        Self {
-            namespace_cache: Some(NamespaceCache::new()),
-            clients: Vec::new(),
-        }
-    }
 }
 
 /// A builder for a [`MultiCache`].

@@ -1,28 +1,18 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use anyhow::Result;
-use serde::Deserialize;
+use cache::persistent::client::ClientKind;
 
-use crate::config::Config;
+use crate::{raw::RawConfig, CacheProviderConfig, Config};
 
 const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/data");
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Deserialize)]
-enum CacheProviderMethod {
-    Http,
-    Filesystem,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize)]
-struct CacheProvider {
-    method: CacheProviderMethod,
-    addr: String,
-    port: usize,
-}
-
 #[test]
-fn test_substrate_config() -> Result<()> {
-    let mut cfg = Config::new(
+fn test_raw_config() -> Result<()> {
+    let mut cfg = RawConfig::new(
         PathBuf::from(DATA_DIR).join("test_substrate_config/projects"),
         "".into(),
     );
@@ -36,24 +26,22 @@ fn test_substrate_config() -> Result<()> {
         .map(|(a, b)| (a.to_string(), b.to_string())),
     ));
 
-    let providers: Option<HashMap<String, CacheProvider>> = cfg.get("cache.providers")?;
+    let providers: Option<HashMap<String, CacheProviderConfig>> = cfg.get("cache.providers")?;
     let providers = providers.unwrap();
 
     assert_eq!(
         providers.get("bwrc"),
-        Some(&CacheProvider {
-            method: CacheProviderMethod::Http,
-            addr: "substratecache.eecs.berkeley.edu".to_string(),
-            port: 1234,
+        Some(&CacheProviderConfig {
+            kind: ClientKind::Local,
+            url: "http://0.0.0.0:1234".to_string(),
         })
     );
 
     assert_eq!(
         providers.get("public"),
-        Some(&CacheProvider {
-            method: CacheProviderMethod::Http,
-            addr: "cache.substratelabs.io".to_string(),
-            port: 1234,
+        Some(&CacheProviderConfig {
+            kind: ClientKind::Remote,
+            url: "https://cache.substratelabs.io:1234".to_string(),
         })
     );
 
@@ -70,6 +58,37 @@ fn test_substrate_config() -> Result<()> {
 
     let cache_enable: Option<bool> = cfg.get("cache.enable")?;
     assert!(cache_enable.unwrap());
+
+    Ok(())
+}
+
+#[test]
+fn test_config() -> Result<()> {
+    let cfg = Config::new(
+        PathBuf::from(DATA_DIR).join("test_substrate_config/projects"),
+        "".into(),
+    )?;
+
+    assert!(cfg.cache.enable);
+    assert!(cfg.cache.skip_memory);
+    assert_eq!(
+        cfg.cache.providers.get("bwrc"),
+        Some(&CacheProviderConfig {
+            kind: ClientKind::Local,
+            url: "http://0.0.0.0:1234".to_string(),
+        })
+    );
+    assert_eq!(
+        cfg.cache.providers.get("public"),
+        Some(&CacheProviderConfig {
+            kind: ClientKind::Remote,
+            url: "https://cache.substratelabs.io:1234".to_string(),
+        })
+    );
+    assert_eq!(
+        cfg.cache.selected_providers,
+        HashSet::from_iter(["bwrc".to_string(), "public".to_string()])
+    );
 
     Ok(())
 }

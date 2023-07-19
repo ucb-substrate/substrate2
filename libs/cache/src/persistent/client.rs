@@ -14,7 +14,7 @@ use std::{
 };
 
 use backoff::ExponentialBackoff;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::runtime::{Handle, Runtime};
 use tonic::transport::{Channel, Endpoint};
 
@@ -37,7 +37,7 @@ pub const REQUEST_TIMEOUT_MS_DEFAULT: u64 = 1000;
 /// An enumeration of client kinds.
 ///
 /// Each interacts with a different cache server API, depending on the desired functionality.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ClientKind {
     /// A client that shares a filesystem with the server.
     ///

@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use config::Config;
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -128,6 +129,8 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         let mut layer_ctx = LayerContext::new();
         let layers = layer_ctx.install_layers::<PDK::Layers>();
 
+        let cfg = Config::default().expect("requires valid Substrate configuration");
+
         Context {
             pdk: PdkData {
                 pdk: Arc::new(self.pdk.unwrap()),
@@ -136,7 +139,13 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
             executor: self.executor,
-            cache: self.cache.unwrap_or_default(),
+            cache: self.cache.unwrap_or_else(|| {
+                Cache::new(
+                    cfg.cache
+                        .into_cache()
+                        .expect("requires valid Substrate cache configuration"),
+                )
+            }),
         }
     }
 }
