@@ -947,11 +947,11 @@ impl Client {
     /// loaded and generating it if needed.
     fn generate_loop_local<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
+        handle: CacheHandle<V>,
         key: GenerateKey<K>,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
         write_generated_value: impl FnOnce(&Self, u64, String, &ArcResult<V>) -> Result<()> + Send + Any,
         deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
-        handle: CacheHandle<V>,
     ) -> Result<()> {
         let GenerateKey {
             namespace,
@@ -1024,9 +1024,7 @@ impl Client {
     >(
         self,
         handle: CacheHandle<V>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
+        key: GenerateKey<K>,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) {
         tracing::debug!("generating using local cache API");
@@ -1146,13 +1144,13 @@ impl Client {
     #[allow(clippy::too_many_arguments)]
     fn generate_loop_remote<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
+        handle: CacheHandle<V>,
         namespace: String,
         hash: Vec<u8>,
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
         write_generated_value: impl FnOnce(&Self, u64, &ArcResult<V>) -> Result<()> + Send + Any,
         deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
-        handle: CacheHandle<V>,
     ) -> Result<()> {
         let status = backoff::retry(self.inner.poll_backoff.clone(), move || {
             let inner = || -> Result<(remote::get_reply::EntryStatus, bool)> {
