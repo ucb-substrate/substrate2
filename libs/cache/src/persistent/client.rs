@@ -771,7 +771,7 @@ impl Client {
             if let Err(e) = handler() {
                 tracing::event!(
                     Level::ERROR,
-                    "encountered error while executing cached generation: {}",
+                    "encountered error while executing generator: {}",
                     e,
                 );
                 Client::set_handle(&handle, Err(Arc::new(e)));
@@ -793,8 +793,8 @@ impl Client {
         Ok(Ok(data))
     }
 
-    /// Runs the provided generation function in a new thread, returning the result.
-    fn run_generation<K: Any + Send + Sync, V: Any + Send + Sync>(
+    /// Runs the provided generator in a new thread, returning the result.
+    fn run_generator<K: Any + Send + Sync, V: Any + Send + Sync>(
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) -> ArcResult<V> {
@@ -984,7 +984,7 @@ impl Client {
         match status {
             local::get_reply::EntryStatus::Unassigned(_) => {
                 tracing::event!(Level::DEBUG, "entry is unassigned, generating locally");
-                let v = Client::run_generation(key, generate_fn);
+                let v = Client::run_generator(key, generate_fn);
                 Client::set_handle(&handle, v);
             }
             local::get_reply::EntryStatus::Assign(local::AssignReply {
@@ -1001,7 +1001,7 @@ impl Client {
                     Duration::from_millis(heartbeat_interval_ms),
                     move || -> Result<()> { self_clone.heartbeat_rpc_local(id) },
                 );
-                let v = Client::run_generation(key, generate_fn);
+                let v = Client::run_generator(key, generate_fn);
                 let _ = s_heartbeat_stop.send(());
                 let _ = r_heartbeat_stopped.recv();
                 tracing::event!(Level::DEBUG, "finished generating, writing value to cache");
@@ -1178,7 +1178,7 @@ impl Client {
         .map_err(Box::new)?;
         match status {
             remote::get_reply::EntryStatus::Unassigned(_) => {
-                let v = Client::run_generation(key, generate_fn);
+                let v = Client::run_generator(key, generate_fn);
                 Client::set_handle(&handle, v);
             }
             remote::get_reply::EntryStatus::Assign(remote::AssignReply {
@@ -1190,7 +1190,7 @@ impl Client {
                     Duration::from_millis(heartbeat_interval_ms),
                     move || -> Result<()> { self_clone.heartbeat_rpc_remote(id) },
                 );
-                let v = Client::run_generation(key, generate_fn);
+                let v = Client::run_generator(key, generate_fn);
                 let _ = s_heartbeat_stop.send(());
                 let _ = r_heartbeat_stopped.recv();
                 write_generated_value(self, id, &v)?;

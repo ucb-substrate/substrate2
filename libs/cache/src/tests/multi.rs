@@ -47,8 +47,8 @@ fn multi_cache_writes_through() -> Result<()> {
 }
 
 #[test]
-fn multi_cache_blocks_on_generation_in_nested_cache() -> Result<()> {
-    let (root, count, runtime) = setup_test("multi_cache_blocks_on_generation_in_nested_cache");
+fn multi_cache_blocks_on_generator_in_nested_cache() -> Result<()> {
+    let (root, count, runtime) = setup_test("multi_cache_blocks_on_generator_in_nested_cache");
 
     reset_directory(&root)?;
 
