@@ -1,7 +1,7 @@
 use std::{
     any::Any,
     fs,
-    net::TcpListener,
+    net::{SocketAddr, TcpListener},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
@@ -16,7 +16,7 @@ use tokio::{
 
 use crate::{
     error::{Error, Result},
-    persistent::server::{Server, HEARTBEAT_TIMEOUT_SECS_DEFAULT},
+    persistent::server::Server,
     tests::Key,
     CacheHandle,
 };
@@ -29,28 +29,8 @@ pub(crate) const BASIC_TEST_PARAM: (u64, u64) = (3, 5);
 pub(crate) const BASIC_TEST_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_sum;
 pub(crate) const BASIC_TEST_ALT_NAMESPACE: &str = "test_alt";
 pub(crate) const BASIC_TEST_ALT_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_multiply;
-
-pub(crate) fn build_local_server(root: PathBuf, port: u16) -> Server {
-    Server::builder()
-        .root(root)
-        .local(format!("0.0.0.0:{port}").parse().unwrap())
-        .build()
-}
-
-pub(crate) fn build_remote_server(root: PathBuf, port: u16) -> Server {
-    Server::builder()
-        .root(root)
-        .remote(format!("0.0.0.0:{port}").parse().unwrap())
-        .build()
-}
-
-pub(crate) fn build_local_remote_server(root: PathBuf, local: u16, remote: u16) -> Server {
-    Server::builder()
-        .root(root)
-        .local(format!("0.0.0.0:{local}").parse().unwrap())
-        .remote(format!("0.0.0.0:{remote}").parse().unwrap())
-        .build()
-}
+pub(crate) const TEST_SERVER_HEARTBEAT_INTERVAL: Duration = Duration::from_millis(200);
+pub(crate) const TEST_SERVER_HEARTBEAT_TIMEOUT: Duration = Duration::from_millis(500);
 
 pub(crate) fn pick_n_ports(n: usize) -> Vec<u16> {
     let mut ports = Vec::new();
@@ -81,7 +61,11 @@ impl From<ClientKind> for ServerKind {
     }
 }
 
-pub(crate) fn remote_url(port: u16) -> String {
+pub(crate) fn server_url(port: u16) -> SocketAddr {
+    format!("0.0.0.0:{port}").parse().unwrap()
+}
+
+pub(crate) fn client_url(port: u16) -> String {
     format!("http://0.0.0.0:{port}")
 }
 
@@ -93,17 +77,28 @@ pub(crate) fn create_server_and_clients(
     let ports = pick_n_ports(2);
     (
         {
+            let mut builder = Server::builder();
+
+            builder
+                .heartbeat_interval(TEST_SERVER_HEARTBEAT_INTERVAL)
+                .heartbeat_timeout(TEST_SERVER_HEARTBEAT_TIMEOUT)
+                .root(root);
+
             let server = match kind {
-                ServerKind::Local => build_local_server(root, ports[0]),
-                ServerKind::Remote => build_remote_server(root, ports[1]),
-                ServerKind::Both => build_local_remote_server(root, ports[0], ports[1]),
-            };
+                ServerKind::Local => builder.local(server_url(ports[0])),
+                ServerKind::Remote => builder.remote(server_url(ports[1])),
+                ServerKind::Both => builder
+                    .local(server_url(ports[0]))
+                    .remote(server_url(ports[1])),
+            }
+            .build();
+
             let join_handle = handle.spawn(async move { server.start().await });
             std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
             join_handle
         },
-        Client::with_default_config(ClientKind::Local, remote_url(ports[0])),
-        Client::with_default_config(ClientKind::Remote, remote_url(ports[1])),
+        Client::with_default_config(ClientKind::Local, client_url(ports[0])),
+        Client::with_default_config(ClientKind::Remote, client_url(ports[1])),
     )
 }
 
@@ -291,10 +286,78 @@ pub(crate) fn run_basic_long_running_task_test(
         root,
         client_kind,
         Some(count.clone()),
-        Some(Duration::from_secs(HEARTBEAT_TIMEOUT_SECS_DEFAULT + 1)),
+        Some(TEST_SERVER_HEARTBEAT_TIMEOUT + Duration::from_millis(500)),
         runtime.handle(),
     )?;
     assert_eq!(*count.lock().unwrap(), 2);
+    Ok(())
+}
+
+pub(crate) fn run_failure_test(
+    test_name: &str,
+    client_kind: ClientKind,
+    restart_server: bool,
+) -> Result<()> {
+    let (root, count, mut runtime) = setup_test(test_name);
+
+    reset_directory(&root)?;
+
+    let (_, local, remote) =
+        create_server_and_clients(root.clone(), client_kind.into(), runtime.handle());
+
+    let mut client = match client_kind {
+        ClientKind::Local => local,
+        ClientKind::Remote => remote,
+    };
+
+    // Generator should panic and stop sending heartbeats. Since the generator does not
+    // successfully, the task should be reassigned.
+    let handle1 = cached_generate(
+        &client,
+        None,
+        None,
+        BASIC_TEST_NAMESPACE,
+        BASIC_TEST_PARAM,
+        |_param| -> u64 { panic!() },
+    );
+
+    assert!(matches!(handle1.get_err().as_ref(), Error::Panic));
+
+    if restart_server {
+        runtime.shutdown_timeout(Duration::from_millis(500));
+        runtime = create_runtime();
+
+        let (_, local, remote) =
+            create_server_and_clients(root, client_kind.into(), runtime.handle());
+
+        client = match client_kind {
+            ClientKind::Local => local,
+            ClientKind::Remote => remote,
+        };
+    }
+
+    // The task should be assigned once, and new requesters should be able to retrieve the new
+    // value.
+    let handle2 = cached_generate(
+        &client,
+        None,
+        Some(count.clone()),
+        BASIC_TEST_NAMESPACE,
+        BASIC_TEST_PARAM,
+        BASIC_TEST_GENERATE_FN,
+    );
+    let handle3 = cached_generate(
+        &client,
+        None,
+        Some(count.clone()),
+        BASIC_TEST_NAMESPACE,
+        BASIC_TEST_PARAM,
+        BASIC_TEST_GENERATE_FN,
+    );
+
+    assert_eq!(*handle2.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
+    assert_eq!(*handle3.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
+    assert_eq!(*count.lock().unwrap(), 1);
     Ok(())
 }
 
@@ -400,7 +463,6 @@ fn local_remote_apis_work_concurrently() -> Result<()> {
 }
 
 #[test]
-#[ignore = "long"]
 fn local_server_does_not_reassign_long_running_tasks() -> Result<()> {
     run_basic_long_running_task_test(
         "local_server_does_not_reassign_long_running_tasks",
@@ -409,10 +471,45 @@ fn local_server_does_not_reassign_long_running_tasks() -> Result<()> {
 }
 
 #[test]
-#[ignore = "long"]
 fn remote_server_does_not_reassign_long_running_tasks() -> Result<()> {
     run_basic_long_running_task_test(
         "remote_server_does_not_reassign_long_running_tasks",
         ClientKind::Remote,
+    )
+}
+
+#[test]
+fn local_server_reassigns_failed_tasks() -> Result<()> {
+    run_failure_test(
+        "local_server_reassigns_failed_tasks",
+        ClientKind::Local,
+        false,
+    )
+}
+
+#[test]
+fn remote_server_reassigns_failed_tasks() -> Result<()> {
+    run_failure_test(
+        "remote_server_reassigns_failed_tasks",
+        ClientKind::Remote,
+        false,
+    )
+}
+
+#[test]
+fn local_server_recovers_from_failures_on_restart() -> Result<()> {
+    run_failure_test(
+        "local_server_recovers_from_failures_on_restart",
+        ClientKind::Local,
+        true,
+    )
+}
+
+#[test]
+fn remote_server_recovers_from_failures_on_restart() -> Result<()> {
+    run_failure_test(
+        "remote_server_recovers_from_failures_on_restart",
+        ClientKind::Remote,
+        true,
     )
 }

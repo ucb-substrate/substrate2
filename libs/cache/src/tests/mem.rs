@@ -179,8 +179,7 @@ fn panics_on_mismatched_types() {
 fn cache_should_not_hang_on_panic() {
     let mut cache = TypeCache::new();
 
-    let handle =
-        cache.generate::<_, usize>(Params1 { value: 5 }, |_| panic!("panic during generation"));
+    let handle = cache.generate::<_, usize>(Params1 { value: 5 }, |_| panic!("generator panicked"));
 
     assert!(matches!(handle.get_err().as_ref(), Error::Panic));
 }

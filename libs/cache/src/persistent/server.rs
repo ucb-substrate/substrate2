@@ -16,7 +16,6 @@ use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tokio_rusqlite::Connection;
 use tonic::Response;
-use tracing::Level;
 
 use crate::error::Result;
 use crate::rpc::local::{
@@ -175,10 +174,7 @@ impl Server {
     /// Starts the gRPC server, listening on the configured address.
     pub async fn start(&self) -> Result<()> {
         if let (None, None) = (self.local_addr, self.remote_addr) {
-            tracing::event!(
-                Level::WARN,
-                "no local or remote address specified so no server is being run"
-            );
+            tracing::warn!("no local or remote address specified so no server is being run");
             return Ok(());
         }
 
@@ -215,6 +211,7 @@ impl Server {
 
         let mut handle = None;
         if let Some(addr) = self.local_addr {
+            tracing::debug!("local server listening on address {}", addr);
             let local_svc = LocalCacheServer::new(imp.clone());
             handle = Some(tokio::spawn(
                 tonic::transport::Server::builder()
@@ -223,6 +220,7 @@ impl Server {
             ));
         }
         if let Some(addr) = self.remote_addr {
+            tracing::debug!("remote server listening on address {}", addr);
             let remote_svc = RemoteCacheServer::new(imp);
             handle = Some(tokio::spawn(
                 tonic::transport::Server::builder()
@@ -257,12 +255,14 @@ struct CacheInner {
 
 impl CacheInner {
     async fn new(db_path: impl AsRef<Path>) -> Result<Self> {
+        tracing::debug!("connecting to manifest database");
         // Set up the manifest database.
         let conn = Connection::open(db_path.as_ref()).await?;
         conn.call(|conn| {
             let tx = conn.transaction()?;
             tx.execute(CREATE_MANIFEST_TABLE_STMT, ())?;
             tx.commit()?;
+            tracing::debug!("ensured that manifest table has been created");
             Ok(())
         })
         .await?;
@@ -283,6 +283,7 @@ impl CacheInner {
     }
 
     async fn load_from_disk(&mut self) -> Result<()> {
+        tracing::debug!("loading cache state from disk");
         let rows = self
             .conn
             .0
@@ -290,11 +291,14 @@ impl CacheInner {
                 let tx = conn.transaction()?;
 
                 // Delete loading entries as we cannot recover assignment IDs on restart.
+                tracing::debug!("deleting loading entries from database");
                 let mut stmt = tx.prepare(DELETE_ENTRIES_WITH_STATUS_STMT)?;
                 stmt.execute([DbEntryStatus::Loading.to_int()])?;
+                drop(stmt);
 
                 // Read remaining rows from the manifest, converting them into tuples mapping
                 // `EntryKey` to a `DbEntryStatus`.
+                tracing::debug!("reading remaining entries from database");
                 let mut stmt = tx.prepare(READ_MANIFEST_STMT)?;
                 let rows = stmt.query_map(
                     [],
@@ -308,7 +312,11 @@ impl CacheInner {
                         ))
                     },
                 )?;
-                Ok(rows.collect::<Vec<_>>())
+                let res = Ok(rows.collect::<Vec<_>>());
+                drop(stmt);
+
+                tx.commit()?;
+                res
             })
             .await?
             .into_iter()
@@ -515,6 +523,7 @@ impl CacheImpl {
         assign: bool,
         local: bool,
     ) -> std::result::Result<GetReplyStatus, tonic::Status> {
+        tracing::debug!("received get request");
         let mut inner = self.inner.lock().await;
 
         let CacheInner {
@@ -544,10 +553,12 @@ impl CacheImpl {
                         if Instant::now().duration_since(data.last_heartbeat)
                             > self.heartbeat_timeout
                         {
+                            tracing::debug!("assigned worker has not sent a heartbeat recently, entry is no longer loading");
                             if assign {
                                 loading.remove(id);
                                 next_assignment_id.increment();
                                 *id = *next_assignment_id;
+                                tracing::debug!("assigning task with id {:?}", id);
                                 loading.insert(
                                     *id,
                                     LoadingData {
@@ -564,10 +575,12 @@ impl CacheImpl {
                                 GetReplyStatus::Unassigned
                             }
                         } else {
+                            tracing::debug!("entry is currently loading");
                             GetReplyStatus::Loading
                         }
                     }
                     EntryStatus::Ready(in_use) => {
+                        tracing::debug!("entry is ready, sending relevant data to client");
                         if local {
                             // If the requested entry is ready, assign a new handle to the entry.
                             *in_use += 1;
@@ -587,17 +600,22 @@ impl CacheImpl {
                     //
                     // The client is free to generate on their own, but the cache will not accept a
                     // new value for the entry.
-                    EntryStatus::Evicting => GetReplyStatus::Unassigned,
+                    EntryStatus::Evicting => {
+                        tracing::debug!("entry is currently being evicted");
+                        GetReplyStatus::Unassigned
+                    }
                 }
             }
             Entry::Vacant(v) => {
                 // If the entry doesn't exist, assign it to be loaded if needed.
+                tracing::debug!("entry does not exist, creating a new entry");
                 if assign {
                     next_assignment_id.increment();
                     conn.insert_status(entry_key.clone(), DbEntryStatus::Loading)
                         .await
                         .map_err(|_| tonic::Status::internal("unable to persist changes"))?;
                     v.insert(EntryStatus::Loading(*next_assignment_id));
+                    tracing::debug!("assigning task with id {:?}", next_assignment_id);
                     loading.insert(
                         *next_assignment_id,
                         LoadingData {
@@ -614,10 +632,15 @@ impl CacheImpl {
     }
 
     async fn heartbeat_impl(&self, id: AssignmentId) -> std::result::Result<(), tonic::Status> {
+        tracing::debug!("received heartbeat request for id {:?}", id);
         let mut inner = self.inner.lock().await;
         match inner.loading.entry(id) {
             Entry::Vacant(_) => {
-                return Err(tonic::Status::invalid_argument("invalid assignment id"))
+                tracing::error!(
+                    "received heartbeat request for invalid assignment id {:?}",
+                    id
+                );
+                return Err(tonic::Status::invalid_argument("invalid assignment id"));
             }
             Entry::Occupied(o) => {
                 o.into_mut().last_heartbeat = Instant::now();
@@ -631,11 +654,12 @@ impl CacheImpl {
         id: AssignmentId,
         value: Option<Vec<u8>>,
     ) -> std::result::Result<(), tonic::Status> {
+        tracing::debug!("received set request for id {:?}", id);
         let mut inner = self.inner.lock().await;
-        let data = inner
-            .loading
-            .get(&id)
-            .ok_or(tonic::Status::invalid_argument("invalid assignment id"))?;
+        let data = inner.loading.get(&id).ok_or_else(|| {
+            tracing::error!("received set request for invalid id {:?}", id);
+            tonic::Status::invalid_argument("invalid assignment id")
+        })?;
 
         let key = data.key.clone();
 
