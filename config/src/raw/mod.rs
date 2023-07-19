@@ -908,6 +908,7 @@ impl ConfigValue {
     }
 
     /// Extracts an integer and its definition location from a [`ConfigValue`].
+    #[allow(dead_code)]
     pub(crate) fn i64(&self, key: &str) -> Result<(i64, &Definition)> {
         match self {
             CV::Integer(i, def) => Ok((*i, def)),
@@ -916,6 +917,7 @@ impl ConfigValue {
     }
 
     /// Extracts a string and its definition location from a [`ConfigValue`].
+    #[allow(dead_code)]
     pub(crate) fn string(&self, key: &str) -> Result<(&str, &Definition)> {
         match self {
             CV::String(s, def) => Ok((s, def)),
@@ -924,6 +926,7 @@ impl ConfigValue {
     }
 
     /// Extracts a table and its definition location from a [`ConfigValue`].
+    #[allow(dead_code)]
     pub(crate) fn table(&self, key: &str) -> Result<(&HashMap<String, ConfigValue>, &Definition)> {
         match self {
             CV::Table(table, def) => Ok((table, def)),
@@ -932,6 +935,7 @@ impl ConfigValue {
     }
 
     /// Extracts a list and its definition location from a [`ConfigValue`].
+    #[allow(dead_code)]
     pub(crate) fn list(&self, key: &str) -> Result<&[(String, Definition)]> {
         match self {
             CV::List(list, _) => Ok(list),
@@ -940,6 +944,7 @@ impl ConfigValue {
     }
 
     /// Extracts a boolean value and its definition location from a [`ConfigValue`].
+    #[allow(dead_code)]
     pub(crate) fn boolean(&self, key: &str) -> Result<(bool, &Definition)> {
         match self {
             CV::Boolean(b, def) => Ok((*b, def)),
@@ -1000,6 +1005,7 @@ pub(crate) struct StringList(Vec<String>);
 
 impl StringList {
     /// Returns the [`StringList`] object as a [`String`] slice.
+    #[allow(dead_code)]
     pub(crate) fn as_slice(&self) -> &[String] {
         &self.0
     }

@@ -18,11 +18,13 @@ pub(crate) struct ConfigRelativePath(Value<String>);
 
 impl ConfigRelativePath {
     /// Returns the underlying value.
+    #[allow(dead_code)]
     pub(crate) fn value(&self) -> &Value<String> {
         &self.0
     }
 
     /// Returns the raw underlying configuration value for this key.
+    #[allow(dead_code)]
     pub(crate) fn raw_value(&self) -> &str {
         &self.0.val
     }
@@ -31,6 +33,7 @@ impl ConfigRelativePath {
     ///
     /// This will always return an absolute path where it's relative to the
     /// location for configuration for this value.
+    #[allow(dead_code)]
     pub(crate) fn resolve_path(&self, config: &RawConfig) -> PathBuf {
         self.0.definition.root(config).join(&self.0.val)
     }
@@ -58,7 +61,9 @@ impl ConfigRelativePath {
 /// to get the actual program.
 #[derive(Debug, Clone)]
 pub(crate) struct PathAndArgs {
+    #[allow(dead_code)]
     pub(crate) path: ConfigRelativePath,
+    #[allow(dead_code)]
     pub(crate) args: Vec<String>,
 }
 

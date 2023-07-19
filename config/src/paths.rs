@@ -55,6 +55,7 @@ impl<'a> Iterator for PathAncestors<'a> {
 }
 
 /// Equivalent to [`std::fs::create_dir_all`] with better error messages.
+#[allow(dead_code)]
 pub(crate) fn create_dir_all(p: impl AsRef<Path>) -> Result<()> {
     _create_dir_all(p.as_ref())
 }
@@ -68,6 +69,7 @@ fn _create_dir_all(p: &Path) -> Result<()> {
 /// Equivalent to [`std::fs::remove_dir_all`] with better error messages.
 ///
 /// This does *not* follow symlinks.
+#[allow(dead_code)]
 pub(crate) fn remove_dir_all<P: AsRef<Path>>(p: P) -> Result<()> {
     _remove_dir_all(p.as_ref()).or_else(|prev_err| {
         // `std::fs::remove_dir_all` is highly specialized for different platforms
@@ -106,6 +108,7 @@ fn _remove_dir_all(p: &Path) -> Result<()> {
 }
 
 /// Equivalent to [`std::fs::remove_dir`] with better error messages.
+#[allow(dead_code)]
 pub(crate) fn remove_dir<P: AsRef<Path>>(p: P) -> Result<()> {
     _remove_dir(p.as_ref())
 }

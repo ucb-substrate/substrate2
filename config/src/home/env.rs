@@ -28,9 +28,7 @@ pub(crate) trait Env {
 /// allow in-process divergence on what is normally process wide state.
 ///
 /// Implementations should be provided by whatever testing framework the caller
-/// is using. Code that is not performing in-process threaded testing requiring
-/// isolated Substrate directories does not need this trait or the _from
-/// functions.
+/// is using.
 pub(crate) struct OsEnv;
 impl Env for OsEnv {
     fn home_dir(&self) -> Option<PathBuf> {
