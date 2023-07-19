@@ -158,8 +158,6 @@ fn multi_cache_works_without_in_memory_caching() -> Result<()> {
 
     runtime.shutdown_timeout(Duration::from_millis(1000));
 
-    tracing::error!("sus");
-
     let count_clone = count.clone();
 
     let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
