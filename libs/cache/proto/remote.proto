@@ -18,10 +18,15 @@ message GetRequest {
 message GetReply {
   oneof entry_status {
     google.protobuf.Empty unassigned = 1;
-    uint64 assign = 2;
+    AssignReply assign = 2;
     google.protobuf.Empty loading = 3;
     bytes ready = 4;
   }
+}
+
+message AssignReply {
+  uint64 id = 1;
+  uint64 heartbeat_interval_ms = 2;
 }
 
 message HeartbeatRequest {

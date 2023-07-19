@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 once_cell = "1"
 tonic = "0.9"
 futures-core = "0.3"
@@ -25,6 +25,8 @@ hex = "0.4"
 flexbuffers = "2"
 path-absolutize = "3"
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+backoff = "0.4"
 
 [build-dependencies]
 tonic-build = "0.9"
@@ -33,6 +35,7 @@ tonic-build = "0.9"
 crossbeam-channel = "0.5"
 anyhow = "1"
 portpicker = "0.1"
+test-log = { version = "0.2", default_features = false, features = ["trace"] }
 
 [[bin]]
 name="server"

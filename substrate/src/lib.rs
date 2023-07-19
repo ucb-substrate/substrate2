@@ -12,6 +12,7 @@ pub use scir;
 pub use spice;
 
 pub mod block;
+pub mod cache;
 pub mod context;
 pub mod error;
 pub mod execute;

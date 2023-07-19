@@ -6,11 +6,10 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use cache::mem::Cache;
-use cache::{CacheHandle, Cacheable, CacheableWithState};
 use tracing::{span, Level};
 
 use crate::block::Block;
+use crate::cache::Cache;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
@@ -62,6 +61,8 @@ pub struct Context<PDK: Pdk> {
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     executor: Arc<dyn Executor>,
+    /// A cache for storing the results of expensive computations.
+    pub cache: Cache,
 }
 
 /// Builder for creating a Substrate [`Context`].
@@ -69,6 +70,7 @@ pub struct ContextBuilder<PDK: Pdk> {
     pdk: Option<PDK>,
     simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     executor: Arc<dyn Executor>,
+    cache: Option<Cache>,
 }
 
 impl<PDK: Pdk> Default for ContextBuilder<PDK> {
@@ -76,7 +78,6 @@ impl<PDK: Pdk> Default for ContextBuilder<PDK> {
         Self::new()
     }
 }
-
 impl<PDK: Pdk> ContextBuilder<PDK> {
     /// Creates a new, uninitialized builder.
     #[inline]
@@ -85,23 +86,24 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             pdk: None,
             simulators: Default::default(),
             executor: Arc::new(LocalExecutor),
+            cache: None,
         }
     }
 
-    /// Set the PDK.
+    /// Sets the PDK.
     #[inline]
     pub fn pdk(mut self, pdk: PDK) -> Self {
         self.pdk = Some(pdk);
         self
     }
 
-    /// Set the executor.
+    /// Sets the executor.
     pub fn executor<E: Executor>(mut self, executor: E) -> Self {
         self.executor = Arc::new(executor);
         self
     }
 
-    /// Install the given simulator.
+    /// Installs the given simulator.
     ///
     /// Only one simulator of any given type can exist.
     #[inline]
@@ -114,7 +116,13 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         self
     }
 
-    /// Build the context based on the configuration in this builder.
+    /// Sets the desired cache configuration.
+    pub fn cache(mut self, cache: Cache) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    /// Builds the context based on the configuration in this builder.
     pub fn build(self) -> Context<PDK> {
         // Instantiate PDK layers.
         let mut layer_ctx = LayerContext::new();
@@ -128,6 +136,7 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
             executor: self.executor,
+            cache: self.cache.unwrap_or_default(),
         }
     }
 }
@@ -139,6 +148,7 @@ impl<PDK: Pdk> Clone for Context<PDK> {
             inner: self.inner.clone(),
             simulators: self.simulators.clone(),
             executor: self.executor.clone(),
+            cache: self.cache.clone(),
         }
     }
 }
@@ -165,7 +175,6 @@ pub(crate) struct ContextInner {
     layers: LayerContext,
     schematic: SchematicContext,
     layout: LayoutContext,
-    cache: Cache,
 }
 
 impl<PDK: Pdk> Context<PDK> {
@@ -367,6 +376,7 @@ impl<PDK: Pdk> Context<PDK> {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),
             executor: self.executor.clone(),
+            cache: self.cache.clone(),
         };
         let controller = SimController {
             pdk: self.pdk.clone(),
@@ -382,36 +392,6 @@ impl<PDK: Pdk> Context<PDK> {
         let arc = self.simulators.get(&TypeId::of::<S>()).unwrap().clone();
         arc.downcast().unwrap()
     }
-
-    /// Gets a cacheable object from the context cache.
-    pub fn cache_get<K: Cacheable>(
-        &self,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get(key)
-    }
-
-    /// Gets a cacheable object from the context cache, injecting the context as state during
-    /// generation.
-    pub fn cache_get_with_ctx<K: CacheableWithState<Context<PDK>>>(
-        &self,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, self.clone())
-    }
-
-    /// Gets a cacheable object from the context cache, injecting user-defined state during
-    /// generation.
-    pub fn cache_get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
-        &self,
-        key: K,
-        state: S,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let mut inner = self.inner.write().unwrap();
-        inner.cache.get_with_state(key, state)
-    }
 }
 
 impl ContextInner {
@@ -421,7 +401,6 @@ impl ContextInner {
             layers,
             schematic: Default::default(),
             layout: Default::default(),
-            cache: Cache::new(),
         }
     }
 }
