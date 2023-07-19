@@ -537,9 +537,11 @@ dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.1",
  "proc-macro-crate 1.3.1",
+ "proc-macro-error",
  "proc-macro2",
  "quote",
  "serde",
+ "sky130pdk",
  "substrate",
  "syn 2.0.23",
 ]
@@ -2316,6 +2318,7 @@ dependencies = [
  "opacity",
  "scir",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -2351,6 +2354,8 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
+ "sky130pdk",
+ "spice",
  "thiserror",
  "toml 0.7.6",
  "tracing",
