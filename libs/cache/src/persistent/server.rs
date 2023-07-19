@@ -523,6 +523,7 @@ impl CacheImpl {
         assign: bool,
         local: bool,
     ) -> std::result::Result<GetReplyStatus, tonic::Status> {
+        tracing::debug!("received get request");
         let mut inner = self.inner.lock().await;
 
         let CacheInner {
@@ -552,10 +553,12 @@ impl CacheImpl {
                         if Instant::now().duration_since(data.last_heartbeat)
                             > self.heartbeat_timeout
                         {
+                            tracing::debug!("assigned worker has not sent a heartbeat recently, entry is no longer loading");
                             if assign {
                                 loading.remove(id);
                                 next_assignment_id.increment();
                                 *id = *next_assignment_id;
+                                tracing::debug!("assigning task with id {:?}", id);
                                 loading.insert(
                                     *id,
                                     LoadingData {
@@ -572,10 +575,12 @@ impl CacheImpl {
                                 GetReplyStatus::Unassigned
                             }
                         } else {
+                            tracing::debug!("entry is currently loading");
                             GetReplyStatus::Loading
                         }
                     }
                     EntryStatus::Ready(in_use) => {
+                        tracing::debug!("entry is ready, sending relevant data to client");
                         if local {
                             // If the requested entry is ready, assign a new handle to the entry.
                             *in_use += 1;
@@ -595,17 +600,22 @@ impl CacheImpl {
                     //
                     // The client is free to generate on their own, but the cache will not accept a
                     // new value for the entry.
-                    EntryStatus::Evicting => GetReplyStatus::Unassigned,
+                    EntryStatus::Evicting => {
+                        tracing::debug!("entry is currently being evicted");
+                        GetReplyStatus::Unassigned
+                    }
                 }
             }
             Entry::Vacant(v) => {
                 // If the entry doesn't exist, assign it to be loaded if needed.
+                tracing::debug!("entry does not exist, creating a new entry");
                 if assign {
                     next_assignment_id.increment();
                     conn.insert_status(entry_key.clone(), DbEntryStatus::Loading)
                         .await
                         .map_err(|_| tonic::Status::internal("unable to persist changes"))?;
                     v.insert(EntryStatus::Loading(*next_assignment_id));
+                    tracing::debug!("assigning task with id {:?}", next_assignment_id);
                     loading.insert(
                         *next_assignment_id,
                         LoadingData {
@@ -622,10 +632,15 @@ impl CacheImpl {
     }
 
     async fn heartbeat_impl(&self, id: AssignmentId) -> std::result::Result<(), tonic::Status> {
+        tracing::debug!("received heartbeat request for id {:?}", id);
         let mut inner = self.inner.lock().await;
         match inner.loading.entry(id) {
             Entry::Vacant(_) => {
-                return Err(tonic::Status::invalid_argument("invalid assignment id"))
+                tracing::error!(
+                    "received heartbeat request for invalid assignment id {:?}",
+                    id
+                );
+                return Err(tonic::Status::invalid_argument("invalid assignment id"));
             }
             Entry::Occupied(o) => {
                 o.into_mut().last_heartbeat = Instant::now();
@@ -639,11 +654,12 @@ impl CacheImpl {
         id: AssignmentId,
         value: Option<Vec<u8>>,
     ) -> std::result::Result<(), tonic::Status> {
+        tracing::debug!("received set request for id {:?}", id);
         let mut inner = self.inner.lock().await;
-        let data = inner
-            .loading
-            .get(&id)
-            .ok_or(tonic::Status::invalid_argument("invalid assignment id"))?;
+        let data = inner.loading.get(&id).ok_or_else(|| {
+            tracing::error!("received set request for invalid id {:?}", id);
+            tonic::Status::invalid_argument("invalid assignment id")
+        })?;
 
         let key = data.key.clone();
 
