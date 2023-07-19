@@ -1,5 +1,5 @@
 use darling::ast::{Fields, Style};
-use darling::{ast, FromDeriveInput, FromField, FromVariant};
+use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
@@ -232,6 +232,121 @@ impl ToTokens for DataInputReceiver {
                     }
                 }
             }
+        };
+
+        tokens.extend(quote! {
+            #expanded
+        });
+    }
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(substrate), supports(any))]
+pub struct HasSchematicImplInputReceiver {
+    ident: syn::Ident,
+    generics: syn::Generics,
+    #[allow(unused)]
+    io: darling::util::Ignored,
+    #[darling(multiple)]
+    schematic: Vec<SchematicHardMacro>,
+}
+
+#[derive(Debug, FromMeta)]
+pub struct SchematicHardMacro {
+    source: syn::Expr,
+    fmt: darling::util::SpannedValue<String>,
+    pdk: syn::Type,
+    name: String,
+}
+
+impl ToTokens for HasSchematicImplInputReceiver {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let substrate = substrate_ident();
+        let HasSchematicImplInputReceiver {
+            ref ident,
+            ref generics,
+            ref schematic,
+            ..
+        } = *self;
+
+        let (imp, ty, wher) = generics.split_for_impl();
+
+        let has_schematic = quote! {
+            impl #imp #substrate::schematic::HasSchematic for #ident #ty #wher {
+                type Data = ();
+            }
+        };
+
+        let has_schematic_impls = schematic.iter().map(|schematic| {
+            let SchematicHardMacro { source, fmt, pdk, name } = schematic;
+
+            let parsed_to_scir = quote! {
+                let mut conv = #substrate::spice::parser::conv::ScirConverter::new(::std::stringify!(#ident), &parsed.ast);
+
+                for prim in cell.ctx.pdk.pdk.schematic_primitives() {
+                    conv.blackbox(#substrate::arcstr::Substr::full(prim));
+                }
+
+                let lib = ::std::sync::Arc::new(conv.convert().unwrap());
+                let cell_id = lib.cell_id_named(#name);
+
+                (lib, cell_id)
+            };
+
+            // The SCIR token stream must create two variables:
+            // * lib, of type Arc<scir::Library>
+            // * cell_id, of type scir::CellId
+            // The token stream has access to source.
+            let scir = match fmt.as_str() {
+                "spice" => quote! {
+                    let parsed = #substrate::spice::parser::Parser::parse_file(source).unwrap();
+                    #parsed_to_scir
+                },
+                "inline-spice" | "inline_spice" => quote! {
+                    let parsed = #substrate::spice::parser::Parser::parse(source).unwrap();
+                    #parsed_to_scir
+                },
+                fmtstr => proc_macro_error::abort!(fmt.span(), "unsupported schematic hard macro format: `{}`", fmtstr),
+            };
+
+            quote! {
+                impl #imp #substrate::schematic::HasSchematicImpl<#pdk> for #ident #ty #wher {
+                    fn schematic(
+                        &self,
+                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Data,
+                        cell: &mut #substrate::schematic::CellBuilder<#pdk, Self>,
+                    ) -> #substrate::error::Result<Self::Data> {
+                        use #substrate::pdk::Pdk;
+
+                        let source = {
+                            #source
+                        };
+
+                        let (lib, cell_id) = { #scir };
+
+                        use #substrate::io::StructData;
+                        let connections: ::std::collections::HashMap<#substrate::arcstr::ArcStr, ::std::vec::Vec<#substrate::io::Node>> =
+                            ::std::collections::HashMap::from_iter(io.fields().into_iter().map(|f| {
+                                let nodes = io.field_nodes(&f).unwrap();
+                                (f, nodes)
+                            }));
+
+                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::ScirInstance {
+                            lib,
+                            cell: cell_id,
+                            name: #substrate::arcstr::literal!(#name),
+                            connections,
+                        });
+                        Ok(())
+                    }
+                }
+            }
+        });
+
+        let expanded = quote! {
+            #has_schematic
+
+            #(#has_schematic_impls)*
         };
 
         tokens.extend(quote! {
