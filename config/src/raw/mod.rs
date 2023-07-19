@@ -117,7 +117,6 @@ pub(crate) struct RawConfig {
     env: Env,
 }
 
-#[allow(dead_code)]
 impl RawConfig {
     /// Creates a new [`RawConfig`] instance.
     ///
@@ -154,6 +153,7 @@ impl RawConfig {
     }
 
     /// Gets the user's Substrate home directory (OS-dependent).
+    #[allow(dead_code)]
     pub(crate) fn home(&self) -> &PathBuf {
         &self.home_path
     }
@@ -161,6 +161,7 @@ impl RawConfig {
     /// Returns a path to display to the user with the location of their home
     /// config file (to only be used for displaying a diagnostics suggestion,
     /// such as recommending where to add a config value).
+    #[allow(dead_code)]
     pub(crate) fn diagnostic_home_config(&self) -> String {
         let home = self.home_path.clone();
         let path = home.join("config.toml");
@@ -178,6 +179,7 @@ impl RawConfig {
 
     /// Sets the path where ancestor config file searching will stop. The
     /// given path is included, but its ancestors are not.
+    #[allow(dead_code)]
     pub(crate) fn set_search_stop_path<P: Into<PathBuf>>(&mut self, path: P) {
         let path = path.into();
         debug_assert!(self.cwd.starts_with(&path));
@@ -186,6 +188,7 @@ impl RawConfig {
 
     /// Reloads on-disk configuration values, starting at the given path and
     /// walking up its ancestors.
+    #[allow(dead_code)]
     pub(crate) fn reload_rooted_at<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let values = self.load_values_from(path.as_ref())?;
         self.values.replace(values);
@@ -340,6 +343,7 @@ impl RawConfig {
     /// Get the value of environment variable `key` through the [`RawConfig`] snapshot.
     ///
     /// This can be used similarly to `std::env::var`.
+    #[allow(dead_code)]
     pub(crate) fn get_env(&self, key: impl AsRef<OsStr>) -> Result<String> {
         self.env.get_env(key)
     }
@@ -347,6 +351,7 @@ impl RawConfig {
     /// Get the value of environment variable `key` through the [`RawConfig`] snapshot.
     ///
     /// This can be used similarly to `std::env::var_os`.
+    #[allow(dead_code)]
     pub(crate) fn get_env_os(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
         self.env.get_env_os(key)
     }
@@ -386,6 +391,7 @@ impl RawConfig {
     /// Get a string config value.
     ///
     /// See [`RawConfig::get`] for more details.
+    #[allow(dead_code)]
     pub(crate) fn get_string(&self, key: &str) -> Result<OptValue<String>> {
         self.get::<Option<Value<String>>>(key)
     }
@@ -395,6 +401,7 @@ impl RawConfig {
     /// This returns a relative path if the value does not contain any
     /// directory separators. See [`ConfigRelativePath::resolve_program`] for
     /// more details.
+    #[allow(dead_code)]
     pub(crate) fn get_path(&self, key: &str) -> Result<OptValue<PathBuf>> {
         self.get::<Option<Value<ConfigRelativePath>>>(key).map(|v| {
             v.map(|v| Value {
@@ -404,6 +411,7 @@ impl RawConfig {
         })
     }
 
+    #[allow(dead_code)]
     fn string_to_path(&self, value: &str, definition: &Definition) -> PathBuf {
         let is_path = value.contains('/') || (cfg!(windows) && value.contains('\\'));
         if is_path {
