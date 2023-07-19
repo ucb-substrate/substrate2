@@ -4,7 +4,7 @@ _default:
     @just --list
 
 # Runs clippy on the source code
-check:
+check: gen-examples
   cargo clippy --locked --all-features --all-targets -- -D warnings
 
 # Runs clippy on the source code, attempting to fix any errors
@@ -24,10 +24,10 @@ check-fmt:
 test: gen-examples test-examples
   cargo test --locked
 
-check-all:
+check-all: gen-examples
     cargo hack --feature-powerset clippy --locked -- -D warnings
 
-check-docs:
+check-docs: gen-examples
     RUSTDOCFLAGS='-D warnings' RUSTFLAGS='-D warnings' cargo hack --all rustdoc --all-features --all-targets
 
 gen-examples:
