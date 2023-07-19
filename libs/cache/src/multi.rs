@@ -326,10 +326,10 @@ impl MultiCache {
 
         let handle = generate_fn(cache, namespace, key, has_value_s.clone(), value_r);
 
-        let handle2 = handle.clone();
+        let handle_clone = handle.clone();
         std::thread::spawn(move || {
-            let _ = handle2.try_get();
-            let _ = has_value_s.send(Some(handle2));
+            let _ = handle_clone.try_get();
+            let _ = has_value_s.send(Some(handle_clone));
         });
 
         GenerateHandle {
@@ -377,7 +377,7 @@ impl MultiCache {
             ));
         }
 
-        let handle2 = handle.clone();
+        let handle_clone = handle.clone();
 
         tracing::debug!("spawning thread to aggregate results");
         std::thread::spawn(move || {
@@ -421,10 +421,10 @@ impl MultiCache {
                     if let Some(mem_handle) = mem_handle {
                         let _ = mem_handle.value_s.send(value);
                     } else {
-                        handle2.set(Ok(value));
+                        handle_clone.set(Ok(value));
                     }
                 }
-                e @ Err(_) => handle2.set(e),
+                e @ Err(_) => handle_clone.set(e),
             }
         });
 

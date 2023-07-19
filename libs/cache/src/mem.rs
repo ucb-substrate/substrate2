@@ -782,7 +782,7 @@ impl NamespaceCache {
         .clone();
 
         let entry2 = entry.clone();
-        let handle2 = handle.clone();
+        let handle_clone = handle.clone();
         thread::spawn(move || {
             let value = if in_progress {
                 match entry.try_get() {
@@ -794,13 +794,13 @@ impl NamespaceCache {
                 None
             };
             if let Some(value) = value {
-                handle2.set(value.and_then(|value| deserialize_value(value)));
+                handle_clone.set(value.and_then(|value| deserialize_value(value)));
             } else {
                 let v = run_generator(move || generate_fn(&key));
                 if !in_progress {
                     entry2.set(v.as_ref().map(serialize_value).map_err(|e| e.clone()));
                 }
-                handle2.set(v);
+                handle_clone.set(v);
             }
         });
 
