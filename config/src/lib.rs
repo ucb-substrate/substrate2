@@ -30,19 +30,13 @@ pub struct Config {
 impl Config {
     /// Creates a new [`Config`] instance.
     ///
-    /// This is typically used for tests or other special cases. `default` is
+    /// This is typically used for tests or other special cases. [`Config::default`] is
     /// preferred otherwise.
-    ///
-    /// This does only minimal initialization. In particular, it does not load
-    /// any config files from disk. Those will be loaded lazily as-needed.
     pub fn new(cwd: PathBuf, homedir: PathBuf) -> Result<Self> {
         Self::from_raw_config(&RawConfig::new(cwd, homedir))
     }
 
-    /// Creates a new [`RawConfig`] instance, with all default settings.
-    ///
-    /// This does only minimal initialization. In particular, it does not load
-    /// any config files from disk. Those will be loaded lazily as-needed.
+    /// Creates a new [`Config`] instance, with all default settings.
     #[allow(clippy::should_implement_trait)]
     pub fn default() -> Result<Self> {
         Self::from_raw_config(&RawConfig::default()?)
