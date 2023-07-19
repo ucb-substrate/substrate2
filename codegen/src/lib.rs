@@ -371,6 +371,10 @@ pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
 /// Derives `substrate::schematic::HasSchematicImpl` for any Substrate block.
 ///
 /// This turns the block into a schematic hard macro.
+/// You must add a `#[substrate(schematic(...))]` attribute to configure this macro;
+/// see the examples below.
+/// Using multiple `#[substrate(schematic(...))]` attributes allows you to
+/// generate `HasSchematicImpl` implementations for multiple PDKs.
 ///
 /// This macro only works on Substrate blocks,
 /// so you must also add a `#[derive(Block)]` attribute
