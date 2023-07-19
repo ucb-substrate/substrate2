@@ -11,3 +11,12 @@ toml_edit = "0.19"
 log = "0.4"
 toml = "0.7"
 windows-sys = "0.48"
+
+[target.'cfg(windows)'.dependencies.windows-sys]
+features = [
+  "Win32_Foundation",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Console",
+  "Win32_System_Threading",
+  "Win32_System_JobObjects",
+]
