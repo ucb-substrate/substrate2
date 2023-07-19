@@ -241,7 +241,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> u64 {
@@ -318,7 +318,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
@@ -385,7 +385,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> anyhow::Result<u64> {
@@ -479,7 +479,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> anyhow::Result<u64> {
@@ -565,7 +565,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// let handle = client.get(
@@ -633,7 +633,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// let handle = client.get_with_err(
@@ -707,7 +707,7 @@ impl Client {
     /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
     /// #     .build();
     /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
     /// let handle = client.get_with_state(

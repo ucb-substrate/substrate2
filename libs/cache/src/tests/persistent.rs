@@ -99,7 +99,7 @@ pub(crate) fn create_server_and_clients(
                 ServerKind::Both => build_local_remote_server(root, ports[0], ports[1]),
             };
             let join_handle = handle.spawn(async move { server.start().await });
-            std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
+            std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
             join_handle
         },
         Client::with_default_config(ClientKind::Local, remote_url(ports[0])),
@@ -246,7 +246,7 @@ pub(crate) fn run_basic_persistence_test(test_name: &str, client_kind: ClientKin
         runtime.handle(),
     )?;
 
-    runtime.shutdown_timeout(Duration::from_millis(100));
+    runtime.shutdown_timeout(Duration::from_millis(500));
     let runtime = create_runtime();
 
     let (_, local, remote) =
