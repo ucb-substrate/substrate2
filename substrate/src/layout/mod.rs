@@ -32,7 +32,7 @@ use std::{
 };
 
 use arcstr::ArcStr;
-use cache::{mem::Cache, CacheHandle};
+use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
 use geometry::{
     prelude::{Bbox, Orientation, Point},
     transform::{
@@ -80,7 +80,7 @@ pub trait HasLayoutImpl<PDK: Pdk>: HasLayout {
 #[derive(Debug, Default, Clone)]
 pub struct LayoutContext {
     next_id: CellId,
-    pub(crate) cell_cache: Cache,
+    pub(crate) cell_cache: TypeCache,
 }
 
 impl LayoutContext {
@@ -180,8 +180,8 @@ impl<T: HasLayout> CellHandle<T> {
     pub fn try_cell(&self) -> Result<&Cell<T>> {
         self.cell.try_inner().map_err(|e| match e {
             // TODO: Increase granularity of cache errors.
-            cache::TryInnerError::CacheError(_) => Error::Internal,
-            cache::TryInnerError::GeneratorError(e) => e.clone(),
+            TryInnerError::CacheError(_) => Error::Internal,
+            TryInnerError::GeneratorError(e) => e.clone(),
         })
     }
 

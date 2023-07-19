@@ -15,5 +15,6 @@ serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 
 scir = { version = "0.1.0", registry = "substrate", path = "../../scir" }
+cache = { version = "0.1.0", registry = "substrate", path = "../../libs/cache" }
 substrate = { version = "0.2.0", registry = "substrate", path = "../../substrate" }
 opacity = { version = "0.1.0", path = "../../libs/opacity", registry = "substrate" }

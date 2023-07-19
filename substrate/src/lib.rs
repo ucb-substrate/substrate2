@@ -10,6 +10,7 @@ pub use geometry;
 pub use scir;
 
 pub mod block;
+pub mod cache;
 pub mod context;
 pub mod error;
 pub mod execute;

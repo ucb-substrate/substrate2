@@ -1,18 +1,21 @@
 //! Caching utilities.
 #![warn(missing_docs)]
 
-use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc};
+use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
-use error::Result;
+use error::{ArcResult, Error, TryInnerError};
 use once_cell::sync::OnceCell;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
 pub mod mem;
+pub mod multi;
 pub mod persistent;
 #[doc(hidden)]
 pub mod rpc;
+#[cfg(test)]
+pub(crate) mod tests;
 
 /// A cacheable object.
 ///
@@ -47,14 +50,23 @@ pub mod rpc;
 ///     }
 /// }
 /// ```
-pub trait Cacheable: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
+pub trait Cacheable: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
     /// The output produced by generating the object.
-    type Output: Send + Sync + Serialize + Deserialize<'static>;
+    type Output: Send + Sync + Serialize + DeserializeOwned;
     /// The error type returned by [`Cacheable::generate`].
     type Error: Send + Sync;
 
     /// Generates the output of the cacheable object.
     fn generate(&self) -> std::result::Result<Self::Output, Self::Error>;
+}
+
+impl<T: Cacheable> Cacheable for Arc<T> {
+    type Output = T::Output;
+    type Error = T::Error;
+
+    fn generate(&self) -> std::result::Result<Self::Output, Self::Error> {
+        <T as Cacheable>::generate(self)
+    }
 }
 
 /// A cacheable object whose generator needs to store state.
@@ -98,10 +110,10 @@ pub trait Cacheable: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync 
 /// }
 /// ```
 pub trait CacheableWithState<S: Send + Sync + Any>:
-    Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any
+    Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any
 {
     /// The output produced by generating the object.
-    type Output: Send + Sync + Serialize + Deserialize<'static>;
+    type Output: Send + Sync + Serialize + DeserializeOwned;
     /// The error type returned by [`CacheableWithState::generate_with_state`].
     type Error: Send + Sync;
 
@@ -113,9 +125,18 @@ pub trait CacheableWithState<S: Send + Sync + Any>:
     fn generate_with_state(&self, state: S) -> std::result::Result<Self::Output, Self::Error>;
 }
 
+impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for Arc<T> {
+    type Output = T::Output;
+    type Error = T::Error;
+
+    fn generate_with_state(&self, state: S) -> std::result::Result<Self::Output, Self::Error> {
+        <T as CacheableWithState<S>>::generate_with_state(self, state)
+    }
+}
+
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
-pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<Result<V>>>);
+pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<ArcResult<V>>>);
 
 impl<V> Clone for CacheHandle<V> {
     fn clone(&self) -> Self {
@@ -123,18 +144,46 @@ impl<V> Clone for CacheHandle<V> {
     }
 }
 
+impl<V: Send + Sync + Any> CacheHandle<V> {
+    /// Creates a new cache handle, spawning a thread to generate its value using the provided
+    /// function.
+    pub fn new(generate_fn: impl FnOnce() -> V + Send + Sync + Any) -> Self {
+        let handle = Self(Arc::new(OnceCell::new()));
+
+        let handle2 = handle.clone();
+        thread::spawn(move || {
+            let handle3 = handle2.clone();
+            let join_handle = thread::spawn(move || {
+                let value = generate_fn();
+                if handle3.0.set(Ok(value)).is_err() {
+                    panic!("failed to set cell value");
+                }
+            });
+            if join_handle.join().is_err() && handle2.0.set(Err(Arc::new(Error::Panic))).is_err() {
+                panic!("failed to set cell value on panic");
+            }
+        });
+
+        handle
+    }
+
+    fn empty() -> Self {
+        Self(Arc::new(OnceCell::new()))
+    }
+}
+
 impl<V> CacheHandle<V> {
     /// Blocks on the cache entry, returning the result once it is ready.
     ///
     /// Returns an error if one was returned by the generator.
-    pub fn try_get(&self) -> std::result::Result<&V, &error::Error> {
-        self.0.wait().as_ref()
+    pub fn try_get(&self) -> ArcResult<&V> {
+        self.0.wait().as_ref().map_err(|e| e.clone())
     }
 
     /// Checks whether the underlying entry is ready.
     ///
     /// Returns the entry if available, otherwise returns [`None`].
-    pub fn poll(&self) -> Option<&Result<V>> {
+    pub fn poll(&self) -> Option<&ArcResult<V>> {
         self.0.get()
     }
 
@@ -154,22 +203,8 @@ impl<V: Debug> CacheHandle<V> {
     /// # Panics
     ///
     /// Panics if no error was thrown by the cache.
-    pub fn get_err(&self) -> &error::Error {
+    pub fn get_err(&self) -> Arc<error::Error> {
         self.try_get().unwrap_err()
-    }
-}
-
-/// The error type returned by [`CacheHandle::try_inner`].
-pub enum TryInnerError<'a, E> {
-    /// An error thrown by the cache.
-    CacheError(&'a error::Error),
-    /// An error thrown by the generator.
-    GeneratorError(&'a E),
-}
-
-impl<'a, E> From<&'a E> for TryInnerError<'a, E> {
-    fn from(value: &'a E) -> Self {
-        Self::GeneratorError(value)
     }
 }
 
