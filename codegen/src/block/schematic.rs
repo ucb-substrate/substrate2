@@ -246,7 +246,7 @@ pub struct HasSchematicImplInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     #[allow(unused)]
-    io: syn::Type,
+    io: darling::util::Ignored,
     #[darling(multiple)]
     schematic: Vec<SchematicHardMacro>,
 }

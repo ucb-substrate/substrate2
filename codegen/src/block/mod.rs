@@ -9,11 +9,7 @@ pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(
-    attributes(substrate),
-    supports(struct_any, enum_any),
-    forward_attrs(substrate, schematic)
-)]
+#[darling(attributes(substrate), supports(struct_any, enum_any))]
 pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
