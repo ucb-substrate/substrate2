@@ -390,10 +390,9 @@ pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
 ///
 /// The following formats are supported:
 ///
-/// | `fmt`        | `source`                                              |
-/// |--------------|-------------------------------------------------------|
-/// | spice        | An expression that evaluates to a file path.          |
-/// | inline-spice | An expression that evaluates to a String-like object. |
+/// * `spice`: Source should be an expression that evaluates to the file path of a SPICE netlist.
+/// * `inline-spice`: Source should be an expression that evaluates to a String-like object
+///   (`&str`, `String`, `ArcStr`, etc.) that contains a SPICE netlist.
 ///
 /// Note that expressions can be arbitrary Rust expressions. Here are some examples:
 /// * `fmt = "\"/path/to/netlist.spice\""` (note that you need the escaped quotes to make this a

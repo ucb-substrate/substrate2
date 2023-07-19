@@ -31,3 +31,4 @@ spice = { version = "0.0.0", registry = "substrate", path = "../libs/spice" }
 [dev-dependencies]
 toml = "0.7"
 approx = "0.5"
+sky130pdk = { version = "<=0.2.0", registry = "substrate", path = "../pdks/sky130pdk" }

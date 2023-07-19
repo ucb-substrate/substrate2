@@ -2338,6 +2338,7 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
+ "sky130pdk",
  "spice",
  "thiserror",
  "toml 0.7.6",
