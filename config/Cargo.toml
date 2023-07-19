@@ -10,3 +10,4 @@ serde = { version = "1", features = ["derive"] }
 toml_edit = "0.19"
 log = "0.4"
 toml = "0.7"
+windows-sys = "0.48"
