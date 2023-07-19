@@ -136,7 +136,7 @@ impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for A
 
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
-pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<ArcResult<V>>>);
+pub struct CacheHandle<V>(Arc<OnceCell<ArcResult<V>>>);
 
 impl<V> Clone for CacheHandle<V> {
     fn clone(&self) -> Self {
@@ -194,6 +194,18 @@ impl<V> CacheHandle<V> {
     /// Panics if the generator failed to run or an internal error was thrown by the cache.
     pub fn get(&self) -> &V {
         self.try_get().unwrap()
+    }
+
+    /// Sets the value of the cache handle.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cache handle has already been set.
+    pub(crate) fn set(&self, value: ArcResult<V>) {
+        if self.0.set(value).is_err() {
+            tracing::error!("failed to set cache handle value");
+            panic!("failed to set cache handle value");
+        }
     }
 }
 

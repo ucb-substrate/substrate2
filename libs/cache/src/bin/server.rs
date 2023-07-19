@@ -3,10 +3,7 @@
 //! Can be configured to expose a remote or local API, or both.
 #![warn(missing_docs)]
 
-use std::{
-    net::{IpAddr, SocketAddr},
-    path::PathBuf,
-};
+use std::{net::SocketAddr, path::PathBuf};
 
 use cache::{error::Result, persistent::server::Server};
 use clap::Parser;
@@ -15,15 +12,12 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-    /// The host IP address that the configured gRPC servers should listen on.
-    #[clap(short = 'H', long, default_value = "0.0.0.0", value_hint = clap::ValueHint::Hostname)]
-    pub host: IpAddr,
-    /// The port that the local API gRPC server should listen on.
-    #[clap(short, long, value_name = "PORT")]
-    pub local: Option<u16>,
-    /// The port that the remote API gRPC server should listen on.
-    #[clap(short, long, value_name = "PORT")]
-    pub remote: Option<u16>,
+    /// The socket address that the local API gRPC server should listen on.
+    #[clap(short, long, value_name = "ENDPOINT")]
+    pub local: Option<SocketAddr>,
+    /// The socket address that the remote API gRPC server should listen on.
+    #[clap(short, long, value_name = "ENDPOINT")]
+    pub remote: Option<SocketAddr>,
     /// The root directory of the cache server.
     ///
     /// All cached data and metadata will be stored in this directory.
@@ -42,11 +36,11 @@ async fn main() -> Result<()> {
     builder.root(args.root);
 
     if let Some(remote) = args.remote {
-        builder.remote(SocketAddr::new(args.host, remote));
+        builder.remote(remote);
     }
 
     if let Some(local) = args.local {
-        builder.local(SocketAddr::new(args.host, local));
+        builder.local(local);
     }
 
     let server = builder.build();

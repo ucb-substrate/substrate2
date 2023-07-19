@@ -18,7 +18,6 @@ use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime::{Handle, Runtime};
 use tonic::transport::{Channel, Endpoint};
-use tracing::Level;
 
 use crate::{
     error::{ArcResult, Error, Result},
@@ -83,21 +82,21 @@ pub struct ClientBuilder {
     handle: Option<Handle>,
 }
 
+struct GenerateKey<K> {
+    namespace: String,
+    hash: Vec<u8>,
+    key: K,
+}
+
 impl ClientBuilder {
     /// Creates a new [`ClientBuilder`].
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Sets the configured client type to [`ClientKind::Local`].
-    pub fn local(&mut self) -> &mut Self {
-        self.kind = Some(ClientKind::Local);
-        self
-    }
-
-    /// Sets the configured client type to [`ClientKind::Remote`].
-    pub fn remote(&mut self) -> &mut Self {
-        self.kind = Some(ClientKind::Remote);
+    /// Sets the configured server URL.
+    pub fn url(&mut self, url: impl Into<String>) -> &mut Self {
+        self.url = Some(url.into());
         self
     }
 
@@ -106,11 +105,20 @@ impl ClientBuilder {
         self.kind = Some(kind);
         self
     }
+    /// Creates a new [`ClientBuilder`] with configured client type [`ClientKind::Local`] and a
+    /// server URL `url`.
+    pub fn local(url: impl Into<String>) -> Self {
+        let mut builder = Self::new();
+        builder.kind(ClientKind::Local).url(url);
+        builder
+    }
 
-    /// Sets the configured server URL.
-    pub fn url(&mut self, url: impl Into<String>) -> &mut Self {
-        self.url = Some(url.into());
-        self
+    /// Creates a new [`ClientBuilder`] with configured client type [`ClientKind::Remote`] and a
+    /// server URL `url`.
+    pub fn remote(url: impl Into<String>) -> Self {
+        let mut builder = Self::new();
+        builder.kind(ClientKind::Remote).url(url);
+        builder
     }
 
     /// Configures the exponential backoff used when polling the server for cache entry
@@ -192,19 +200,15 @@ impl Client {
     /// Creates a new local gRPC cache client.
     ///
     /// See [`ClientKind`] for an explanation of the different kinds of clients.
-    pub fn local() -> ClientBuilder {
-        let mut builder = ClientBuilder::new();
-        builder.local();
-        builder
+    pub fn local(url: impl Into<String>) -> ClientBuilder {
+        ClientBuilder::local(url)
     }
 
     /// Creates a new remote gRPC cache client.
     ///
     /// See [`ClientKind`] for an explanation of the different kinds of clients.
-    pub fn remote() -> ClientBuilder {
-        let mut builder = ClientBuilder::new();
-        builder.remote();
-        builder
+    pub fn remote(url: impl Into<String>) -> ClientBuilder {
+        ClientBuilder::remote(url)
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -771,10 +775,10 @@ impl Client {
             if let Err(e) = handler() {
                 tracing::event!(
                     Level::ERROR,
-                    "encountered error while executing generator: {}",
+                    "encountered error while executing handler: {}",
                     e,
                 );
-                Client::set_handle(&handle, Err(Arc::new(e)));
+                handle.set(Err(Arc::new(e)));
             }
         });
     }
@@ -811,6 +815,7 @@ impl Client {
         heartbeat_interval: Duration,
         send_heartbeat: impl Fn() -> Result<()> + Send + Any,
     ) -> (Sender<()>, Receiver<()>) {
+        tracing::debug!("starting heartbeats");
         let (s_heartbeat_stop, r_heartbeat_stop) = channel();
         let (s_heartbeat_stopped, r_heartbeat_stopped) = channel();
         thread::spawn(move || {
@@ -829,13 +834,6 @@ impl Client {
             let _ = s_heartbeat_stopped.send(());
         });
         (s_heartbeat_stop, r_heartbeat_stopped)
-    }
-
-    /// Sets the provided handle to deserialized data, panicking if unable to.
-    fn set_handle<V>(handle: &CacheHandle<V>, data: ArcResult<V>) {
-        if handle.0.set(data).is_err() {
-            panic!("failed to set cell value");
-        }
     }
 
     /// Connects to a local cache gRPC server.
@@ -947,23 +945,23 @@ impl Client {
 
     /// Runs the generate loop for the local cache protocol, checking whether the desired entry is
     /// loaded and generating it if needed.
-    #[allow(clippy::too_many_arguments)]
     fn generate_loop_local<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
+        key: GenerateKey<K>,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
         write_generated_value: impl FnOnce(&Self, u64, String, &ArcResult<V>) -> Result<()> + Send + Any,
         deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
         handle: CacheHandle<V>,
     ) -> Result<()> {
+        let GenerateKey {
+            namespace,
+            hash,
+            key,
+        } = key;
+
         let status = backoff::retry(self.inner.poll_backoff.clone(), move || {
             let inner = || -> Result<(local::get_reply::EntryStatus, bool)> {
-                tracing::event!(
-                    Level::DEBUG,
-                    "attempting local get request to retrieve entry status"
-                );
+                tracing::debug!("attempting local get request to retrieve entry status");
                 let status = self.get_rpc_local(namespace.clone(), hash.clone(), true)?;
                 let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
 
@@ -973,7 +971,7 @@ impl Client {
                 .map_err(backoff::Error::Permanent)
                 .and_then(|(status, retry)| {
                     if retry {
-                        tracing::event!(Level::DEBUG, "entry is currently loading, retrying later");
+                        tracing::debug!("entry is currently loading, retrying later");
                         Err(backoff::Error::transient(Error::EntryLoading))
                     } else {
                         Ok(status)
@@ -981,21 +979,19 @@ impl Client {
                 })
         })
         .map_err(Box::new)?;
+
         match status {
             local::get_reply::EntryStatus::Unassigned(_) => {
-                tracing::event!(Level::DEBUG, "entry is unassigned, generating locally");
+                tracing::debug!("entry is unassigned, generating locally");
                 let v = Client::run_generator(key, generate_fn);
-                Client::set_handle(&handle, v);
+                handle.set(v);
             }
             local::get_reply::EntryStatus::Assign(local::AssignReply {
                 id,
                 path,
                 heartbeat_interval_ms,
             }) => {
-                tracing::event!(
-                    Level::DEBUG,
-                    "entry has been assigned to the client, generating locally"
-                );
+                tracing::debug!("entry has been assigned to the client, generating locally");
                 let self_clone = self.clone();
                 let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
                     Duration::from_millis(heartbeat_interval_ms),
@@ -1004,19 +1000,19 @@ impl Client {
                 let v = Client::run_generator(key, generate_fn);
                 let _ = s_heartbeat_stop.send(());
                 let _ = r_heartbeat_stopped.recv();
-                tracing::event!(Level::DEBUG, "finished generating, writing value to cache");
+                tracing::debug!("finished generating, writing value to cache");
                 write_generated_value(self, id, path, &v)?;
-                Client::set_handle(&handle, v);
+                handle.set(v);
             }
             local::get_reply::EntryStatus::Loading(_) => unreachable!(),
             local::get_reply::EntryStatus::Ready(local::ReadyReply { id, path }) => {
-                tracing::event!(Level::DEBUG, "entry is ready, reading from cache");
+                tracing::debug!("entry is ready, reading from cache");
                 let mut file = std::fs::File::open(path)?;
                 let mut buf = Vec::new();
                 file.read_to_end(&mut buf)?;
                 self.drop_rpc_local(id)?;
-                tracing::event!(Level::DEBUG, "finished reading entry from disk");
-                Client::set_handle(&handle, Ok(deserialize_cache_data(&buf)?));
+                tracing::debug!("finished reading entry from disk");
+                handle.set(Ok(deserialize_cache_data(&buf)?));
             }
         }
         Ok(())
@@ -1033,7 +1029,7 @@ impl Client {
         key: K,
         generate_fn: impl FnOnce(&K) -> V + Send + Any,
     ) {
-        tracing::event!(Level::DEBUG, "generating using local cache API");
+        tracing::debug!("generating using local cache API");
         self.clone().spawn_handler(handle.clone(), move || {
             self.generate_loop_local(
                 namespace,
