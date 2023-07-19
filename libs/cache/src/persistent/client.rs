@@ -29,8 +29,6 @@ use crate::{
     CacheHandle, Cacheable, CacheableWithState,
 };
 
-// TODO: Add hierarchical cache client.
-
 /// The timeout for connecting to the cache server.
 pub const CONNECTION_TIMEOUT_MS_DEFAULT: u64 = 1000;
 
@@ -66,6 +64,9 @@ struct ClientInner {
 }
 
 /// A gRPC cache client.
+///
+/// The semantics of the [`Client`] API are the same as those of the
+/// [`NamespaceCache`](crate::mem::NamespaceCache) API.
 #[derive(Debug, Clone)]
 pub struct Client {
     inner: Arc<ClientInner>,
@@ -152,6 +153,7 @@ impl ClientBuilder {
             Some(handle) => (handle, None),
             None => {
                 let runtime = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(1)
                     .enable_all()
                     .build()
                     .unwrap();
@@ -211,6 +213,9 @@ impl Client {
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
     ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::generate`](crate::mem::NamespaceCache::generate).
+    ///
     /// # Examples
     ///
     /// ```
@@ -243,21 +248,7 @@ impl Client {
     ///     tuple.0 + tuple.1
     /// }
     ///
-    /// let handle = client.generate(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     generate_fn,
-    /// );
-    ///
-    /// assert_eq!(*handle.get(), 11);
-    ///
-    /// // Does not call `generate_fn` again as the result has been cached.
-    /// let handle = client.generate(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = client.generate("example.namespace", (5, 6), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     /// ```
     pub fn generate<
@@ -293,6 +284,9 @@ impl Client {
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
+    ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::generate_with_state`](crate::mem::NamespaceCache::generate_with_state).
     ///
     /// # Examples
     ///
@@ -330,29 +324,13 @@ impl Client {
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
     ///     println!("Logging parameters...");
     ///     state.0.lock().unwrap().push(*tuple);
-    ///
     ///     tuple.0 + tuple.1
     /// }
     ///
     /// let handle = client.generate_with_state(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     log.clone(),
-    ///     generate_fn,
+    ///     "example.namespace", (5, 6), log.clone(), generate_fn
     /// );
-    ///
     /// assert_eq!(*handle.get(), 11);
-    ///
-    /// // Does not call `generate_fn` again as the result has been cached.
-    /// let handle = client.generate_with_state(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     log.clone(),
-    ///     generate_fn,
-    /// );
-    ///
-    /// assert_eq!(*handle.get(), 11);
-    ///
     /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 6)]);
     /// ```
     pub fn generate_with_state<
@@ -376,7 +354,11 @@ impl Client {
     /// As such, failures should happen quickly, or should be serializable and stored as part of
     /// cached value using [`Client::generate`].
     ///
-    /// Returns a handle to the value. If the value is not yet generated, it is generated
+    /// Returns a handle to the value. If the value is not yet generated, it is generated in the
+    /// background.
+    ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::generate_result`](crate::mem::NamespaceCache::generate_result).
     ///
     /// # Examples
     ///
@@ -414,21 +396,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let handle = client.generate_result(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     generate_fn,
-    /// );
-    ///
-    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
-    ///
-    /// // Calls `generate_fn` again as the error was not cached.
-    /// let handle = client.generate_result(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = client.generate_result("example.namespace", (5, 5), generate_fn);
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
     /// ```
     pub fn generate_result<
@@ -477,6 +445,9 @@ impl Client {
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
     ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::generate_result_with_state`](crate::mem::NamespaceCache::generate_result_with_state).
+    ///
     /// # Examples
     ///
     /// ```
@@ -523,25 +494,10 @@ impl Client {
     /// }
     ///
     /// let handle = client.generate_result_with_state(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     log.clone(),
-    ///     generate_fn,
+    ///     "example.namespace", (5, 5), log.clone(), generate_fn,
     /// );
-    ///
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
-    ///
-    /// // Calls `generate_fn` again as the error was not cached.
-    /// let handle = client.generate_result_with_state(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     log.clone(),
-    ///     generate_fn,
-    /// );
-    ///
-    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
-    ///
-    /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 5), (5, 5)]);
+    /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 5)]);
     /// ```
     pub fn generate_result_with_state<
         K: Serialize + Send + Sync + Any,
@@ -565,6 +521,9 @@ impl Client {
     /// to be cached should be included in the cached output or should be cached using
     /// [`Client::get_with_err`].
     ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::get`](crate::mem::NamespaceCache::get).
+    ///
     /// # Examples
     ///
     /// ```
@@ -582,12 +541,6 @@ impl Client {
     ///     type Error = anyhow::Error;
     ///
     ///     fn generate(&self) -> anyhow::Result<u64> {
-    ///         if self.param1 == 5 {
-    ///             anyhow::bail!("invalid param");
-    ///         } else if &self.param2 == "panic" {
-    ///             panic!("unrecoverable param");
-    ///         }
-    ///
     ///         Ok(2 * self.param1)
     ///     }
     /// }
@@ -615,27 +568,10 @@ impl Client {
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
-    /// let handle = client.get("example.namespace", Params {
-    ///     param1: 50,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
+    /// let handle = client.get(
+    ///     "example.namespace", Params { param1: 50, param2: "cache".to_string() }
+    /// );
     /// assert_eq!(*handle.unwrap_inner(), 100);
-    ///
-    /// // Result is not cached as an error is retruned.
-    /// let handle = client.get("example.namespace", Params {
-    ///     param1: 5,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
-    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid param");
-    ///
-    /// let handle = client.get("example.namespace", Params {
-    ///     param1: 50,
-    ///     param2: "panic".to_string(),
-    /// });
-    ///
-    /// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
     /// ```
     pub fn get<K: Cacheable>(
         &self,
@@ -648,6 +584,9 @@ impl Client {
     /// Gets a handle to a cacheable object from the cache, caching failures as well.
     ///
     /// Generates the object in the background if needed.
+    ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::get_with_err`](crate::mem::NamespaceCache::get_with_err).
     ///
     /// # Examples
     ///
@@ -663,21 +602,14 @@ impl Client {
     ///
     /// impl Cacheable for Params {
     ///     type Output = u64;
-    ///     type Error = bool;
+    ///     type Error = String;
     ///
     ///     fn generate(&self) -> Result<Self::Output, Self::Error> {
-    ///         if &self.param2 == "panic" {
-    ///             panic!("unrecoverable param");
+    ///         if self.param1 == 5 {
+    ///             Err("invalid param".to_string())
+    ///         } else {
+    ///             Ok(2 * self.param1)
     ///         }
-    ///
-    ///         // Expensive computation...
-    ///         # let computation_result = 5;
-    ///
-    ///         if computation_result == 5 {
-    ///             return Err(false);
-    ///         }
-    ///
-    ///         Ok(2 * self.param1)
     ///     }
     /// }
     ///
@@ -704,20 +636,10 @@ impl Client {
     /// # std::thread::sleep(Duration::from_millis(100)); // Wait until server starts.
     /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
     ///
-    /// let handle = client.get_with_err("example.namespace", Params {
-    ///     param1: 5,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
-    /// assert_eq!(*handle.unwrap_err_inner(), false);
-    ///
-    /// // Does not need to carry out the expensive computation again as the error is cached.
-    /// let handle = client.get_with_err("example.namespace", Params {
-    ///     param1: 5,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
-    /// assert_eq!(*handle.unwrap_err_inner(), false);
+    /// let handle = client.get_with_err(
+    ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
+    /// );
+    /// assert_eq!(handle.unwrap_err_inner(), "invalid param");
     /// ```
     pub fn get_with_err<
         E: Send + Sync + Serialize + DeserializeOwned + Any,
@@ -736,6 +658,9 @@ impl Client {
     /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
     /// to be cached should be included in the cached output or should be cached using
     /// [`Client::get_with_state_and_err`].
+    ///
+    /// For more detailed examples, refer to
+    /// [`NamespaceCache::get_with_state`](crate::mem::NamespaceCache::get_with_state).
     ///
     /// # Examples
     ///
@@ -757,13 +682,6 @@ impl Client {
     ///     fn generate_with_state(&self, state: Log) -> anyhow::Result<u64> {
     ///         println!("Logging parameters...");
     ///         state.0.lock().unwrap().push(self.clone());
-    ///
-    ///         if self.0 == 5 {
-    ///             anyhow::bail!("invalid param");
-    ///         } else if self.0 == 8 {
-    ///             panic!("unrecoverable param");
-    ///         }
-    ///
     ///         Ok(2 * self.0)
     ///     }
     /// }
@@ -797,26 +715,8 @@ impl Client {
     ///     Params(0),
     ///     log.clone(),
     /// );
-    ///
     /// assert_eq!(*handle.unwrap_inner(), 0);
-    ///
-    /// let handle = client.get_with_state(
-    ///     "example.namespace",
-    ///     Params(5),
-    ///     log.clone(),
-    /// );
-    ///
-    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid param");
-    ///
-    /// let handle = client.get_with_state(
-    ///     "example.namespace",
-    ///     Params(8),
-    ///     log.clone(),
-    /// );
-    ///
-    /// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
-    ///
-    /// assert_eq!(log.0.lock().unwrap().clone(), vec![Params(0), Params(5), Params(8)]);
+    /// assert_eq!(log.0.lock().unwrap().clone(), vec![Params(0)]);
     /// ```
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &self,

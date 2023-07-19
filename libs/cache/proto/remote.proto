@@ -9,9 +9,6 @@ service RemoteCache {
   rpc Set (SetRequest) returns (google.protobuf.Empty) {}
 }
 
-message ConfigReply {
-}
-
 message GetRequest {
   string namespace = 1;
   bytes key = 2;

@@ -67,9 +67,6 @@ impl MultiCacheBuilder {
     }
 
     /// Adds a new provider to the cache.
-    ///
-    /// Providers are accessed in the order in which they are added. As such, faster providers
-    /// (i.e. local/private providers) should be added first.
     pub fn with_provider(&mut self, client: Client) -> &mut Self {
         self.clients.push(client);
         self
@@ -104,6 +101,8 @@ impl MultiCache {
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
+    ///
+    /// See [`Client::generate`] and [`NamespaceCache::generate`] for related examples.
     pub fn generate<
         K: Serialize + Any + Send + Sync,
         V: Serialize + DeserializeOwned + Send + Sync + Any,
@@ -140,6 +139,8 @@ impl MultiCache {
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
+    ///
+    /// See [`Client::generate_with_state`] and [`NamespaceCache::generate_with_state`] for related examples.
     pub fn generate_with_state<
         K: Serialize + Send + Sync + Any,
         V: Serialize + DeserializeOwned + Send + Sync + Any,
@@ -159,9 +160,11 @@ impl MultiCache {
     ///
     /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
     /// As such, failures should happen quickly, or should be serializable and stored as part of
-    /// cached value using [`Client::generate`].
+    /// cached value using [`MultiCache::generate`].
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
+    ///
+    /// See [`Client::generate_result`] and [`NamespaceCache::generate_result`] for related examples.
     pub fn generate_result<
         K: Serialize + Any + Send + Sync,
         V: Serialize + DeserializeOwned + Send + Sync + Any,
@@ -199,10 +202,13 @@ impl MultiCache {
     ///
     /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
     /// As such, failures should happen quickly, or should be serializable and stored as part of
-    /// cached value using [`Client::generate_with_state`].
+    /// cached value using [`MultiCache::generate_with_state`].
     ///
     /// Returns a handle to the value. If the value is not yet generated, it is generated
     /// in the background.
+    ///
+    /// See [`Client::generate_result_with_state`] and
+    /// [`NamespaceCache::generate_result_with_state`] for related examples.
     pub fn generate_result_with_state<
         K: Serialize + Send + Sync + Any,
         V: Serialize + DeserializeOwned + Send + Sync + Any,
@@ -223,7 +229,9 @@ impl MultiCache {
     ///
     /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
     /// to be cached should be included in the cached output or should be cached using
-    /// [`Client::get_with_err`].
+    /// [`MultiCache::get_with_err`].
+    ///
+    /// See [`Client::get`] and [`NamespaceCache::get`] for related examples.
     pub fn get<K: Cacheable>(
         &mut self,
         namespace: impl Into<String>,
@@ -235,6 +243,8 @@ impl MultiCache {
     /// Gets a handle to a cacheable object from the cache, caching failures as well.
     ///
     /// Generates the object in the background if needed.
+    ///
+    /// See [`Client::get_with_err`] and [`NamespaceCache::get_with_err`] for related examples.
     pub fn get_with_err<
         E: Send + Sync + Serialize + DeserializeOwned + Any,
         K: Cacheable<Error = E>,
@@ -251,7 +261,9 @@ impl MultiCache {
     ///
     /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
     /// to be cached should be included in the cached output or should be cached using
-    /// [`Client::get_with_state_and_err`].
+    /// [`MultiCache::get_with_state_and_err`].
+    ///
+    /// See [`Client::get_with_state`] and [`NamespaceCache::get_with_state`] for related examples.
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &mut self,
         namespace: impl Into<String>,
@@ -267,7 +279,7 @@ impl MultiCache {
     ///
     /// Generates the object in the background if needed.
     ///
-    /// See [`Client::get_with_err`] and [`Client::get_with_state`] for related examples.
+    /// See [`MultiCache::get_with_err`] and [`MultiCache::get_with_state`] for related examples.
     pub fn get_with_state_and_err<
         S: Send + Sync + Any,
         E: Send + Sync + Serialize + DeserializeOwned + Any,

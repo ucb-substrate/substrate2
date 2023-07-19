@@ -140,14 +140,6 @@ pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
     Context::builder()
         .pdk(Sky130CommercialPdk::new(pdk_root))
         .with_simulator(Spectre::default())
-        .cache(Cache::new(
-            MultiCache::builder()
-                .with_provider(Client::with_default_config(
-                    ClientKind::Local,
-                    "http://0.0.0.0:28055",
-                ))
-                .build(),
-        ))
         .build()
 }
 

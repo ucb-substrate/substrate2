@@ -38,7 +38,7 @@ impl Cache {
     ///
     /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
     /// to be cached should be included in the cached output or should be cached using
-    /// [`Client::get_with_err`].
+    /// [`Cache::get_with_err`].
     pub fn get<K: Cacheable>(
         &self,
         namespace: impl Into<String>,
@@ -71,7 +71,7 @@ impl Cache {
     ///
     /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
     /// to be cached should be included in the cached output or should be cached using
-    /// [`Client::get_with_state_and_err`].
+    /// [`Cache::get_with_state_and_err`].
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &self,
         namespace: impl Into<String>,
@@ -87,7 +87,7 @@ impl Cache {
     /// Generates the object in the background if needed and persists data to disk according to
     /// configuration.
     ///
-    /// See [`Client::get_with_err`] and [`Client::get_with_state`] for related examples.
+    /// See [`Cache::get_with_err`] and [`Cache::get_with_state`] for related examples.
     pub fn get_with_state_and_err<
         S: Send + Sync + Any,
         E: Send + Sync + Serialize + DeserializeOwned + Any,

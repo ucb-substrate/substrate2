@@ -149,6 +149,7 @@ pub(crate) fn tuple_multiply(tuple: &(u64, u64)) -> u64 {
 
 pub(crate) fn create_runtime() -> Runtime {
     tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
         .enable_all()
         .build()
         .unwrap()

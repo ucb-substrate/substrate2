@@ -83,8 +83,7 @@ impl<T: Hash + PartialEq + Eq> Cells<T> {
     }
 }
 
-/// An abstraction for generating values in the background and caching them
-/// based on hashable types in memory.
+/// An in-memory cache based on hashable types.
 #[derive(Default, Debug, Clone)]
 pub struct TypeCache {
     /// A map from key type to another map from key to value handle.
@@ -128,19 +127,11 @@ impl TypeCache {
     ///     tuple.0 + tuple.1
     /// }
     ///
-    /// let handle = cache.generate(
-    ///     (5, 6),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate((5, 6), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// // Does not call `generate_fn` again as the result has been cached.
-    /// let handle = cache.generate(
-    ///     (5, 6),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate((5, 6), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     /// ```
     pub fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
@@ -178,25 +169,14 @@ impl TypeCache {
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
     ///     println!("Logging parameters...");
     ///     state.0.lock().unwrap().push(*tuple);
-    ///
     ///     tuple.0 + tuple.1
     /// }
     ///
-    /// let handle = cache.generate_with_state(
-    ///     (5, 6),
-    ///     log.clone(),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate_with_state((5, 6), log.clone(), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// // Does not call `generate_fn` again as the result has been cached.
-    /// let handle = cache.generate_with_state(
-    ///     (5, 6),
-    ///     log.clone(),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate_with_state((5, 6), log.clone(), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 6)]);
@@ -242,32 +222,19 @@ impl TypeCache {
     ///         } else if &self.param2 == "panic" {
     ///             panic!("unrecoverable param");
     ///         }
-    ///
     ///         Ok(2 * self.param1)
     ///     }
     /// }
     ///
     /// let mut cache = TypeCache::new();
     ///
-    /// let handle = cache.get(Params {
-    ///     param1: 50,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
+    /// let handle = cache.get(Params { param1: 50, param2: "cache".to_string() });
     /// assert_eq!(*handle.unwrap_inner(), 100);
     ///
-    /// let handle = cache.get(Params {
-    ///     param1: 5,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
+    /// let handle = cache.get(Params { param1: 5, param2: "cache".to_string() });
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid param");
     ///
-    /// let handle = cache.get(Params {
-    ///     param1: 50,
-    ///     param2: "panic".to_string(),
-    /// });
-    ///
+    /// let handle = cache.get(Params { param1: 50, param2: "panic".to_string() });
     /// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
     /// ```
     pub fn get<K: Cacheable>(
@@ -314,7 +281,6 @@ impl TypeCache {
     ///         } else if self.0 == 8 {
     ///             panic!("unrecoverable param");
     ///         }
-    ///
     ///         Ok(2 * self.0)
     ///     }
     /// }
@@ -322,25 +288,13 @@ impl TypeCache {
     /// let mut cache = TypeCache::new();
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     ///
-    /// let handle = cache.get_with_state(
-    ///     Params(0),
-    ///     log.clone(),
-    /// );
-    ///
+    /// let handle = cache.get_with_state(Params(0), log.clone());
     /// assert_eq!(*handle.unwrap_inner(), 0);
     ///
-    /// let handle = cache.get_with_state(
-    ///     Params(5),
-    ///     log.clone(),
-    /// );
-    ///
+    /// let handle = cache.get_with_state(Params(5), log.clone());
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid param");
     ///
-    /// let handle = cache.get_with_state(
-    ///     Params(8),
-    ///     log.clone(),
-    /// );
-    ///
+    /// let handle = cache.get_with_state(Params(8), log.clone());
     /// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
     ///
     /// assert_eq!(log.0.lock().unwrap().clone(), vec![Params(0), Params(5), Params(8)]);
@@ -356,8 +310,8 @@ impl TypeCache {
 
 type ByteCacheMap = HashMap<Vec<u8>, CacheHandle<Option<Vec<u8>>>>;
 
-/// An abstraction for generating values in the background and caching them
-/// based on a namespace string in memory.
+/// An in-memory cache based on namespace strings and types that implement [`Serialize`] and
+/// [`Deserialize`](serde::Deserialize).
 ///
 /// Unlike a [`TypeCache`], a [`NamespaceCache`] works by serializing and deserializing keys and
 /// values. As such, an entry can be accessed with several generic types as long as all of the
@@ -401,31 +355,16 @@ impl NamespaceCache {
     ///     tuple.0 * tuple.1
     /// }
     ///
-    /// let handle = cache.generate(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate("example.namespace", (5, 6), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// // Does not call `generate_fn` again as the result has been cached.
-    /// let handle = cache.generate(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate("example.namespace", (5, 6), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// // Calls the new `generate_fn2` as the namespace is different,
     /// // even though the key is the same.
-    /// let handle = cache.generate(
-    ///     "example.namespace2",
-    ///     (5, 6),
-    ///     generate_fn2,
-    /// );
-    ///
+    /// let handle = cache.generate("example.namespace2", (5, 6), generate_fn2);
     /// assert_eq!(*handle.get(), 30);
     /// ```
     pub fn generate<
@@ -473,27 +412,14 @@ impl NamespaceCache {
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
     ///     println!("Logging parameters...");
     ///     state.0.lock().unwrap().push(*tuple);
-    ///
     ///     tuple.0 + tuple.1
     /// }
     ///
-    /// let handle = cache.generate_with_state(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     log.clone(),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate_with_state("example.namespace", (5, 6), log.clone(), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// // Does not call `generate_fn` again as the result has been cached.
-    /// let handle = cache.generate_with_state(
-    ///     "example.namespace",
-    ///     (5, 6),
-    ///     log.clone(),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate_with_state("example.namespace", (5, 6), log.clone(), generate_fn);
     /// assert_eq!(*handle.get(), 11);
     ///
     /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 6)]);
@@ -536,21 +462,11 @@ impl NamespaceCache {
     ///     }
     /// }
     ///
-    /// let handle = cache.generate_result(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate_result("example.namespace", (5, 5), generate_fn);
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
     ///
     /// // Calls `generate_fn` again as the error was not cached.
-    /// let handle = cache.generate_result(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     generate_fn,
-    /// );
-    ///
+    /// let handle = cache.generate_result("example.namespace", (5, 5), generate_fn);
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
     /// ```
     pub fn generate_result<
@@ -615,22 +531,14 @@ impl NamespaceCache {
     /// }
     ///
     /// let handle = cache.generate_result_with_state(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     log.clone(),
-    ///     generate_fn,
+    ///     "example.namespace", (5, 5), log.clone(), generate_fn
     /// );
-    ///
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
     ///
     /// // Calls `generate_fn` again as the error was not cached.
     /// let handle = cache.generate_result_with_state(
-    ///     "example.namespace",
-    ///     (5, 5),
-    ///     log.clone(),
-    ///     generate_fn,
+    ///     "example.namespace", (5, 5), log.clone(), generate_fn
     /// );
-    ///
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
     ///
     /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 5), (5, 5)]);
@@ -675,7 +583,6 @@ impl NamespaceCache {
     ///         } else if &self.param2 == "panic" {
     ///             panic!("unrecoverable param");
     ///         }
-    ///
     ///         Ok(2 * self.param1)
     ///     }
     /// }
@@ -683,33 +590,18 @@ impl NamespaceCache {
     /// let mut cache = NamespaceCache::new();
     ///
     /// let handle = cache.get(
-    ///     "example.namespace",
-    ///     Params {
-    ///         param1: 50,
-    ///         param2: "cache".to_string(),
-    ///     }
+    ///     "example.namespace", Params { param1: 50, param2: "cache".to_string() }
     /// );
-    ///
     /// assert_eq!(*handle.unwrap_inner(), 100);
     ///
     /// let handle = cache.get(
-    ///     "example.namespace",
-    ///     Params {
-    ///         param1: 5,
-    ///         param2: "cache".to_string(),
-    ///     }
+    ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
     /// );
-    ///
     /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid param");
     ///
     /// let handle = cache.get(
-    ///     "example.namespace",
-    ///     Params {
-    ///         param1: 50,
-    ///         param2: "panic".to_string(),
-    ///     }
+    ///     "example.namespace",Params { param1: 50, param2: "panic".to_string() }
     /// );
-    ///
     /// assert!(matches!(handle.get_err().as_ref(), Error::Panic));
     /// ```
     pub fn get<K: Cacheable>(
@@ -744,33 +636,26 @@ impl NamespaceCache {
     ///         if &self.param2 == "panic" {
     ///             panic!("unrecoverable param");
     ///         }
-    ///
     ///         // Expensive computation...
     ///         # let computation_result = 5;
-    ///
     ///         if computation_result == 5 {
     ///             return Err(false);
     ///         }
-    ///
     ///         Ok(2 * self.param1)
     ///     }
     /// }
     ///
     /// let mut cache = NamespaceCache::new();
     ///
-    /// let handle = cache.get_with_err("example.namespace", Params {
-    ///     param1: 5,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
+    /// let handle = cache.get_with_err(
+    ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
+    /// );
     /// assert_eq!(*handle.unwrap_err_inner(), false);
     ///
     /// // Does not need to carry out the expensive computation again as the error is cached.
-    /// let handle = cache.get_with_err("example.namespace", Params {
-    ///     param1: 5,
-    ///     param2: "cache".to_string(),
-    /// });
-    ///
+    /// let handle = cache.get_with_err(
+    ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
+    /// );
     /// assert_eq!(*handle.unwrap_err_inner(), false);
     /// ```
     pub fn get_with_err<
@@ -932,21 +817,19 @@ impl NamespaceCache {
                     value.and_then(|value| deserialize_value(value)),
                 );
             } else {
-                thread::spawn(move || {
-                    let cell3 = cell2.clone();
-                    let handle3 = handle2.clone();
-                    let handle = thread::spawn(move || {
-                        let value = generate_fn(&key);
-                        if vacant {
-                            NamespaceCache::set_handle(&cell3, Ok(serialize_value(&value)));
-                        }
-                        NamespaceCache::set_handle(&handle3, Ok(value));
-                    });
-                    if handle.join().is_err() {
-                        NamespaceCache::set_handle(&cell2, Err(Arc::new(Error::Panic)));
-                        NamespaceCache::set_handle(&handle2, Err(Arc::new(Error::Panic)));
+                let cell3 = cell2.clone();
+                let handle3 = handle2.clone();
+                let join_handle = thread::spawn(move || {
+                    let value = generate_fn(&key);
+                    if vacant {
+                        NamespaceCache::set_handle(&cell3, Ok(serialize_value(&value)));
                     }
+                    NamespaceCache::set_handle(&handle3, Ok(value));
                 });
+                if join_handle.join().is_err() {
+                    NamespaceCache::set_handle(&cell2, Err(Arc::new(Error::Panic)));
+                    NamespaceCache::set_handle(&handle2, Err(Arc::new(Error::Panic)));
+                }
             }
         });
 
