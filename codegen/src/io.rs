@@ -74,6 +74,8 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     let mut instantiate_fields = Vec::new();
     let mut flatten_dir_fields = Vec::new();
     let mut flatten_node_fields = Vec::new();
+    let mut field_list_elems = Vec::new();
+    let mut field_match_arms = Vec::new();
 
     let data_ident = format_ident!("{}Schematic", ident);
     let nested_view_ident = format_ident!("{}NestedSchematicView", ident);
@@ -89,7 +91,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             refer,
             assign,
             temp,
-            ..
+            pretty_ident,
         } = crate::derive::field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         data_len.push(quote! {
@@ -115,6 +117,12 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         });
         flatten_node_fields.push(quote! {
                 <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&#refer, __substrate_output_sink);
+        });
+
+        field_list_elems
+            .push(quote! { #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)) });
+        field_match_arms.push(quote! {
+            ::std::stringify!(#pretty_ident) => ::std::option::Option::Some(<<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten_vec(&#refer)),
         });
     }
 
@@ -166,6 +174,19 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
             fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
                 #nested_view_ident #construct_nested_view_body
+            }
+        }
+
+        impl #imp #substrate::io::StructData for #data_ident #ty #wher {
+            fn fields(&self) -> ::std::vec::Vec<#substrate::arcstr::ArcStr> {
+                std::vec![#(#field_list_elems),*]
+            }
+
+            fn field_nodes(&self, name: &str) -> ::std::option::Option<::std::vec::Vec<#substrate::io::Node>> {
+                match name {
+                    #(#field_match_arms)*
+                    _ => None,
+                }
             }
         }
 

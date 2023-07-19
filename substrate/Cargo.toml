@@ -26,6 +26,7 @@ opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" 
 scir = { version = "0.1.0", registry = "substrate", path = "../scir" }
 pathtree = { version = "0.1.0", registry = "substrate", path = "../libs/pathtree" }
 uniquify = { version = "0.1.0", registry = "substrate", path = "../libs/uniquify" }
+spice = { version = "0.0.0", registry = "substrate", path = "../libs/spice" }
 
 [dev-dependencies]
 toml = "0.7"

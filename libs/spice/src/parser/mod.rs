@@ -45,6 +45,7 @@ impl Parser {
     /// Parse the given file.
     pub fn parse_file(path: impl AsRef<Path>) -> Result<ParsedSpice, ParserError> {
         let path = path.as_ref();
+        tracing::debug!("reading SPICE file: {:?}", path);
         let s: ArcStr = std::fs::read_to_string(path).unwrap().into();
         let s = Substr(arcstr::Substr::full(s));
         let mut parser = Self::default();
@@ -52,17 +53,35 @@ impl Parser {
             Some(name) => ArcStr::from(name),
             None => arcstr::format!("{:?}", path),
         };
-        parser.parse(s)?;
+        parser.parse_inner(s)?;
 
         let parsed = ParsedSpice {
             ast: parser.ast,
-            root: path.to_path_buf(),
+            root: Some(path.to_path_buf()),
             name,
         };
         Ok(parsed)
     }
 
-    fn parse(&mut self, data: Substr) -> Result<(), ParserError> {
+    /// Parse the given string.
+    pub fn parse(data: impl Into<Substr>) -> Result<ParsedSpice, ParserError> {
+        let data = data.into();
+        let mut parser = Self::default();
+        let name = match data.lines().next() {
+            Some(name) => ArcStr::from(name),
+            None => arcstr::literal!("scir_library"),
+        };
+        parser.parse_inner(data)?;
+
+        let parsed = ParsedSpice {
+            ast: parser.ast,
+            root: None,
+            name,
+        };
+        Ok(parsed)
+    }
+
+    fn parse_inner(&mut self, data: Substr) -> Result<(), ParserError> {
         let mut tok = Tokenizer::new(data);
         while let Some(line) = self.parse_line(&mut tok)? {
             match (&mut self.state, line) {
@@ -184,7 +203,7 @@ pub struct ParsedSpice {
     pub ast: Ast,
 
     /// The file path at the root of the `include` tree.
-    pub root: PathBuf,
+    pub root: Option<PathBuf>,
 
     /// The name of the netlist.
     ///
@@ -613,6 +632,12 @@ impl From<&str> for Substr {
 impl From<arcstr::Substr> for Substr {
     fn from(value: arcstr::Substr) -> Self {
         Self(value)
+    }
+}
+
+impl From<ArcStr> for Substr {
+    fn from(value: ArcStr) -> Self {
+        Self(arcstr::Substr::full(value))
     }
 }
 

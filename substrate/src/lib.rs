@@ -8,6 +8,8 @@ pub use codegen::*;
 pub use geometry;
 #[doc(inline)]
 pub use scir;
+#[doc(inline)]
+pub use spice;
 
 pub mod block;
 pub mod context;
