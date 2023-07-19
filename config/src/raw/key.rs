@@ -16,7 +16,7 @@ use std::fmt;
 /// intention here is that this is built up and torn down over time efficiently,
 /// avoiding clones and such as possible.
 #[derive(Debug, Clone)]
-pub struct ConfigKey {
+pub(crate) struct ConfigKey {
     // The current environment variable this configuration key maps to. This is
     // updated with `push` methods and looks like `SUBSTRATE_FOO_BAR` for pushing
     // `foo` and then `bar`.
@@ -34,7 +34,7 @@ impl ConfigKey {
     /// Creates a new blank configuration key which is ready to get built up by
     /// using `push` and `push_sensitive`.
     #[allow(clippy::new_without_default)]
-    pub fn new() -> ConfigKey {
+    pub(crate) fn new() -> ConfigKey {
         ConfigKey {
             env: "SUBSTRATE".to_string(),
             parts: Vec::new(),
@@ -46,7 +46,7 @@ impl ConfigKey {
     /// The `key` specified is expected to be a period-separated toml
     /// configuration key.
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(key: &str) -> ConfigKey {
+    pub(crate) fn from_str(key: &str) -> ConfigKey {
         let mut cfg = ConfigKey::new();
         for part in key.split('.') {
             cfg.push(part);
@@ -61,7 +61,7 @@ impl ConfigKey {
     /// corrseponding toml key is appended with this `name` as-is and the
     /// corresponding env key is appended with `name` after transforming it to
     /// uppercase characters.
-    pub fn push(&mut self, name: &str) {
+    pub(crate) fn push(&mut self, name: &str) {
         let env = name.replace('-', "_").to_uppercase();
         self._push(&env, name);
     }
@@ -70,7 +70,7 @@ impl ConfigKey {
     /// environment variable does not get the uppercase letters of `name` but
     /// instead `name` is pushed raw onto the corresponding environment
     /// variable.
-    pub fn push_sensitive(&mut self, name: &str) {
+    pub(crate) fn push_sensitive(&mut self, name: &str) {
         self._push(name, name);
     }
 
@@ -82,14 +82,14 @@ impl ConfigKey {
 
     /// Rewinds this `ConfigKey` back to the state it was at before the last
     /// `push` method being called.
-    pub fn pop(&mut self) {
+    pub(crate) fn pop(&mut self) {
         let (_part, env) = self.parts.pop().unwrap();
         self.env.truncate(env);
     }
 
     /// Returns the corresponding environment variable key for this
     /// configuration value.
-    pub fn as_env_key(&self) -> &str {
+    pub(crate) fn as_env_key(&self) -> &str {
         &self.env
     }
 
@@ -99,7 +99,7 @@ impl ConfigKey {
     }
 
     /// Returns whether or not this is a key for the root table.
-    pub fn is_root(&self) -> bool {
+    pub(crate) fn is_root(&self) -> bool {
         self.parts.is_empty()
     }
 }
