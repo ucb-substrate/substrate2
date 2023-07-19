@@ -16,7 +16,6 @@ use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tokio_rusqlite::Connection;
 use tonic::Response;
-use tracing::Level;
 
 use crate::error::Result;
 use crate::rpc::local::{
@@ -175,10 +174,7 @@ impl Server {
     /// Starts the gRPC server, listening on the configured address.
     pub async fn start(&self) -> Result<()> {
         if let (None, None) = (self.local_addr, self.remote_addr) {
-            tracing::event!(
-                Level::WARN,
-                "no local or remote address specified so no server is being run"
-            );
+            tracing::warn!("no local or remote address specified so no server is being run");
             return Ok(());
         }
 
@@ -215,6 +211,7 @@ impl Server {
 
         let mut handle = None;
         if let Some(addr) = self.local_addr {
+            tracing::debug!("local server listening on address {}", addr);
             let local_svc = LocalCacheServer::new(imp.clone());
             handle = Some(tokio::spawn(
                 tonic::transport::Server::builder()
@@ -223,6 +220,7 @@ impl Server {
             ));
         }
         if let Some(addr) = self.remote_addr {
+            tracing::debug!("remote server listening on address {}", addr);
             let remote_svc = RemoteCacheServer::new(imp);
             handle = Some(tokio::spawn(
                 tonic::transport::Server::builder()
@@ -257,12 +255,14 @@ struct CacheInner {
 
 impl CacheInner {
     async fn new(db_path: impl AsRef<Path>) -> Result<Self> {
+        tracing::debug!("connecting to manifest database");
         // Set up the manifest database.
         let conn = Connection::open(db_path.as_ref()).await?;
         conn.call(|conn| {
             let tx = conn.transaction()?;
             tx.execute(CREATE_MANIFEST_TABLE_STMT, ())?;
             tx.commit()?;
+            tracing::debug!("ensured that manifest table has been created");
             Ok(())
         })
         .await?;
@@ -283,6 +283,7 @@ impl CacheInner {
     }
 
     async fn load_from_disk(&mut self) -> Result<()> {
+        tracing::debug!("loading cache state from disk");
         let rows = self
             .conn
             .0
@@ -290,11 +291,14 @@ impl CacheInner {
                 let tx = conn.transaction()?;
 
                 // Delete loading entries as we cannot recover assignment IDs on restart.
+                tracing::debug!("deleting loading entries from database");
                 let mut stmt = tx.prepare(DELETE_ENTRIES_WITH_STATUS_STMT)?;
                 stmt.execute([DbEntryStatus::Loading.to_int()])?;
+                drop(stmt);
 
                 // Read remaining rows from the manifest, converting them into tuples mapping
                 // `EntryKey` to a `DbEntryStatus`.
+                tracing::debug!("reading remaining entries from database");
                 let mut stmt = tx.prepare(READ_MANIFEST_STMT)?;
                 let rows = stmt.query_map(
                     [],
@@ -308,7 +312,11 @@ impl CacheInner {
                         ))
                     },
                 )?;
-                Ok(rows.collect::<Vec<_>>())
+                let res = Ok(rows.collect::<Vec<_>>());
+                drop(stmt);
+
+                tx.commit()?;
+                res
             })
             .await?
             .into_iter()

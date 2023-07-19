@@ -14,7 +14,6 @@ use std::{
 };
 
 use backoff::ExponentialBackoff;
-use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime::{Handle, Runtime};
 use tonic::transport::{Channel, Endpoint};
@@ -25,7 +24,8 @@ use crate::{
         local::{self, local_cache_client},
         remote::{self, remote_cache_client},
     },
-    CacheHandle, Cacheable, CacheableWithState,
+    run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn, GenerateResultFn,
+    GenerateResultWithStateFn, GenerateWithStateFn,
 };
 
 /// The timeout for connecting to the cache server.
@@ -82,11 +82,40 @@ pub struct ClientBuilder {
     handle: Option<Handle>,
 }
 
-struct GenerateKey<K> {
+struct GenerateState<K, V> {
+    handle: CacheHandle<V>,
     namespace: String,
     hash: Vec<u8>,
     key: K,
 }
+
+/// Sends a heartbeat RPC to the server.
+trait HeartbeatFn: Fn(&Client) -> Result<()> + Send + Any {}
+impl<T: Fn(&Client) -> Result<()> + Send + Any> HeartbeatFn for T {}
+
+/// Writes a generated value to the given `String` path, using the provided assignment ID `u64` to
+/// notify the cache server once completed.
+trait LocalWriteValueFn<V>:
+    FnOnce(&Client, u64, String, &ArcResult<V>) -> Result<()> + Send + Any
+{
+}
+impl<V, T: FnOnce(&Client, u64, String, &ArcResult<V>) -> Result<()> + Send + Any>
+    LocalWriteValueFn<V> for T
+{
+}
+
+/// Writes a generated value to the cache server, using the provided assignment ID `u64` to
+/// tell the cache server which task completed.
+trait RemoteWriteValueFn<V>: FnOnce(&Client, u64, &ArcResult<V>) -> Result<()> + Send + Any {}
+impl<V, T: FnOnce(&Client, u64, &ArcResult<V>) -> Result<()> + Send + Any> RemoteWriteValueFn<V>
+    for T
+{
+}
+
+/// Deserializes desired value from bytes stored in the cache. If `V` is a result, would need to
+/// wrap the bytes from the cache with an `Ok` since `Err` results are not stored in the cache.
+trait DeserializeValueFn<V>: FnOnce(&[u8]) -> Result<V> + Send + Any {}
+impl<V, T: FnOnce(&[u8]) -> Result<V> + Send + Any> DeserializeValueFn<V> for T {}
 
 impl ClientBuilder {
     /// Creates a new [`ClientBuilder`].
@@ -262,22 +291,14 @@ impl Client {
         &self,
         namespace: impl Into<String>,
         key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        let (namespace, hash, handle) = Client::setup_generate(namespace, &key);
+        let state = Client::setup_generate(namespace, key);
+        let handle = state.handle.clone();
 
         match self.inner.kind {
-            ClientKind::Local => {
-                self.clone()
-                    .generate_inner_local(handle.clone(), namespace, hash, key, generate_fn)
-            }
-            ClientKind::Remote => self.clone().generate_inner_remote(
-                handle.clone(),
-                namespace,
-                hash,
-                key,
-                generate_fn,
-            ),
+            ClientKind::Local => self.clone().generate_inner_local(state, generate_fn),
+            ClientKind::Remote => self.clone().generate_inner_remote(state, generate_fn),
         }
 
         handle
@@ -346,7 +367,7 @@ impl Client {
         namespace: impl Into<String>,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> V + Send + Any,
+        generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
         self.generate(namespace, key, move |k| generate_fn(k, state))
     }
@@ -411,28 +432,18 @@ impl Client {
         &self,
         namespace: impl Into<String>,
         key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
-        let (namespace, hash, handle) = Client::setup_generate(namespace, &key);
+        let state = Client::setup_generate(namespace, key);
+        let handle = state.handle.clone();
 
         match self.inner.kind {
             ClientKind::Local => {
-                self.clone().generate_result_inner_local(
-                    handle.clone(),
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                );
+                self.clone().generate_result_inner_local(state, generate_fn);
             }
             ClientKind::Remote => {
-                self.clone().generate_result_inner_remote(
-                    handle.clone(),
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                );
+                self.clone()
+                    .generate_result_inner_remote(state, generate_fn);
             }
         }
 
@@ -513,7 +524,7 @@ impl Client {
         namespace: impl Into<String>,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> std::result::Result<V, E> + Send + Any,
+        generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
         self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
@@ -756,16 +767,19 @@ impl Client {
     /// Sets up the necessary objects to be passed in to [`Client::spawn_handler`].
     fn setup_generate<K: Serialize, V>(
         namespace: impl Into<String>,
-        key: &K,
-    ) -> (String, Vec<u8>, CacheHandle<V>) {
-        (
-            namespace.into(),
-            crate::hash(&flexbuffers::to_vec(key).unwrap()),
-            CacheHandle(Arc::new(OnceCell::new())),
-        )
+        key: K,
+    ) -> GenerateState<K, V> {
+        GenerateState {
+            handle: CacheHandle::empty(),
+            namespace: namespace.into(),
+            hash: crate::hash(&flexbuffers::to_vec(&key).unwrap()),
+            key,
+        }
     }
 
     /// Spawns a new thread to generate the desired value asynchronously.
+    ///
+    /// If the provided handler returns a error, stores an [`Arc`]ed error in the handle.
     fn spawn_handler<V: Send + Sync + Any>(
         self,
         handle: CacheHandle<V>,
@@ -773,11 +787,7 @@ impl Client {
     ) {
         thread::spawn(move || {
             if let Err(e) = handler() {
-                tracing::event!(
-                    Level::ERROR,
-                    "encountered error while executing handler: {}",
-                    e,
-                );
+                tracing::error!("encountered error while executing handler: {}", e,);
                 handle.set(Err(Arc::new(e)));
             }
         });
@@ -797,15 +807,6 @@ impl Client {
         Ok(Ok(data))
     }
 
-    /// Runs the provided generator in a new thread, returning the result.
-    fn run_generator<K: Any + Send + Sync, V: Any + Send + Sync>(
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-    ) -> ArcResult<V> {
-        let join_handle = thread::spawn(move || generate_fn(&key));
-        join_handle.join().map_err(|_| Arc::new(Error::Panic))
-    }
-
     /// Starts sending heartbeats to the server in a new thread .
     ///
     /// Returns a sender for telling the spawned thread to stop sending heartbeats and
@@ -813,11 +814,12 @@ impl Client {
     fn start_heartbeats(
         &self,
         heartbeat_interval: Duration,
-        send_heartbeat: impl Fn() -> Result<()> + Send + Any,
+        send_heartbeat: impl HeartbeatFn,
     ) -> (Sender<()>, Receiver<()>) {
         tracing::debug!("starting heartbeats");
         let (s_heartbeat_stop, r_heartbeat_stop) = channel();
         let (s_heartbeat_stopped, r_heartbeat_stopped) = channel();
+        let self_clone = self.clone();
         thread::spawn(move || {
             loop {
                 match r_heartbeat_stop.recv_timeout(heartbeat_interval) {
@@ -825,7 +827,7 @@ impl Client {
                         break;
                     }
                     Err(RecvTimeoutError::Timeout) => {
-                        if send_heartbeat().is_err() {
+                        if send_heartbeat(&self_clone).is_err() {
                             break;
                         }
                     }
@@ -834,6 +836,59 @@ impl Client {
             let _ = s_heartbeat_stopped.send(());
         });
         (s_heartbeat_stop, r_heartbeat_stopped)
+    }
+
+    /// Converts a [`Result<(S, bool)>`] to a [`std::result::Result<S, backoff::Error<Error>>`].
+    ///
+    /// If the `retry` boolean is `true`, returns a [`backoff::Error::Transient`]. If the provided
+    /// result is [`Err`], returns a [`backoff::Error::Permanent`]. Otherwise, returns the entry
+    /// status of type `S`.
+    fn run_backoff_loop<S>(&self, get_status_fn: impl Fn() -> Result<(S, bool)>) -> Result<S> {
+        Ok(backoff::retry(self.inner.poll_backoff.clone(), move || {
+            tracing::debug!("attempting get request to retrieve entry status");
+            get_status_fn()
+                .map_err(backoff::Error::Permanent)
+                .and_then(|(status, retry)| {
+                    if retry {
+                        tracing::debug!("entry is loading, retrying later");
+                        Err(backoff::Error::transient(Error::EntryLoading))
+                    } else {
+                        tracing::debug!("entry status retrieved");
+                        Ok(status)
+                    }
+                })
+        })
+        .map_err(Box::new)?)
+    }
+
+    /// Handles an unassigned entry by generating it locally.
+    fn handle_unassigned<K: Send + Sync + Any, V: Send + Sync + Any>(
+        handle: CacheHandle<V>,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) {
+        tracing::debug!("entry is unassigned, generating locally");
+        let v = run_generator(move || generate_fn(&key));
+        handle.set(v);
+    }
+
+    /// Handles an assigned entry by generating it locally and sending heartbeats periodically
+    /// while the generator is running.
+    fn handle_assigned<K: Send + Sync + Any, V: Send + Sync + Any>(
+        &self,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+        heartbeat_interval_ms: u64,
+        send_heartbeat: impl HeartbeatFn,
+    ) -> ArcResult<V> {
+        tracing::debug!("entry has been assigned to the client, generating locally");
+        let (s_heartbeat_stop, r_heartbeat_stopped) =
+            self.start_heartbeats(Duration::from_millis(heartbeat_interval_ms), send_heartbeat);
+        let v = run_generator(move || generate_fn(&key));
+        let _ = s_heartbeat_stop.send(());
+        let _ = r_heartbeat_stopped.recv();
+        tracing::debug!("finished generating, writing value to cache");
+        v
     }
 
     /// Connects to a local cache gRPC server.
@@ -947,60 +1002,40 @@ impl Client {
     /// loaded and generating it if needed.
     fn generate_loop_local<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
-        handle: CacheHandle<V>,
-        key: GenerateKey<K>,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-        write_generated_value: impl FnOnce(&Self, u64, String, &ArcResult<V>) -> Result<()> + Send + Any,
-        deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
+        write_generated_value: impl LocalWriteValueFn<V>,
+        deserialize_cache_data: impl DeserializeValueFn<V>,
     ) -> Result<()> {
-        let GenerateKey {
+        let GenerateState {
+            handle,
             namespace,
             hash,
             key,
-        } = key;
+        } = state;
 
-        let status = backoff::retry(self.inner.poll_backoff.clone(), move || {
-            let inner = || -> Result<(local::get_reply::EntryStatus, bool)> {
-                tracing::debug!("attempting local get request to retrieve entry status");
-                let status = self.get_rpc_local(namespace.clone(), hash.clone(), true)?;
-                let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
+        let status = self.run_backoff_loop(|| {
+            let status = self.get_rpc_local(namespace.clone(), hash.clone(), true)?;
+            let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
 
-                Ok((status, retry))
-            };
-            inner()
-                .map_err(backoff::Error::Permanent)
-                .and_then(|(status, retry)| {
-                    if retry {
-                        tracing::debug!("entry is currently loading, retrying later");
-                        Err(backoff::Error::transient(Error::EntryLoading))
-                    } else {
-                        Ok(status)
-                    }
-                })
-        })
-        .map_err(Box::new)?;
+            Ok((status, retry))
+        })?;
 
         match status {
             local::get_reply::EntryStatus::Unassigned(_) => {
-                tracing::debug!("entry is unassigned, generating locally");
-                let v = Client::run_generator(key, generate_fn);
-                handle.set(v);
+                Client::handle_unassigned(handle, key, generate_fn);
             }
             local::get_reply::EntryStatus::Assign(local::AssignReply {
                 id,
                 path,
                 heartbeat_interval_ms,
             }) => {
-                tracing::debug!("entry has been assigned to the client, generating locally");
-                let self_clone = self.clone();
-                let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
-                    Duration::from_millis(heartbeat_interval_ms),
-                    move || -> Result<()> { self_clone.heartbeat_rpc_local(id) },
+                let v = self.handle_assigned(
+                    key,
+                    generate_fn,
+                    heartbeat_interval_ms,
+                    move |client| -> Result<()> { client.heartbeat_rpc_local(id) },
                 );
-                let v = Client::run_generator(key, generate_fn);
-                let _ = s_heartbeat_stop.send(());
-                let _ = r_heartbeat_stopped.recv();
-                tracing::debug!("finished generating, writing value to cache");
                 write_generated_value(self, id, path, &v)?;
                 handle.set(v);
             }
@@ -1023,20 +1058,16 @@ impl Client {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<V>,
-        key: GenerateKey<K>,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
     ) {
         tracing::debug!("generating using local cache API");
-        self.clone().spawn_handler(handle.clone(), move || {
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_local(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_value_local,
                 Client::deserialize_cache_value,
-                handle,
             )
         });
     }
@@ -1047,21 +1078,15 @@ impl Client {
         E: Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<std::result::Result<V, E>>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        state: GenerateState<K, std::result::Result<V, E>>,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) {
-        self.clone().spawn_handler(handle.clone(), move || {
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_local(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_result_local,
                 Client::deserialize_cache_result,
-                handle,
             )
         });
     }
@@ -1141,58 +1166,48 @@ impl Client {
 
     /// Runs the generate loop for the remote cache protocol, checking whether the desired entry is
     /// loaded and generating it if needed.
-    #[allow(clippy::too_many_arguments)]
     fn generate_loop_remote<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
-        handle: CacheHandle<V>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-        write_generated_value: impl FnOnce(&Self, u64, &ArcResult<V>) -> Result<()> + Send + Any,
-        deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
+        write_generated_value: impl RemoteWriteValueFn<V>,
+        deserialize_cache_data: impl DeserializeValueFn<V>,
     ) -> Result<()> {
-        let status = backoff::retry(self.inner.poll_backoff.clone(), move || {
-            let inner = || -> Result<(remote::get_reply::EntryStatus, bool)> {
-                let status = self.get_rpc_remote(namespace.clone(), hash.clone(), true)?;
-                let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
+        let GenerateState {
+            handle,
+            namespace,
+            hash,
+            key,
+        } = state;
 
-                Ok((status, retry))
-            };
-            inner()
-                .map_err(backoff::Error::Permanent)
-                .and_then(|(status, retry)| {
-                    if retry {
-                        Err(backoff::Error::transient(Error::EntryLoading))
-                    } else {
-                        Ok(status)
-                    }
-                })
-        })
-        .map_err(Box::new)?;
+        let status = self.run_backoff_loop(|| {
+            let status = self.get_rpc_remote(namespace.clone(), hash.clone(), true)?;
+            let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
+
+            Ok((status, retry))
+        })?;
+
         match status {
             remote::get_reply::EntryStatus::Unassigned(_) => {
-                let v = Client::run_generator(key, generate_fn);
-                Client::set_handle(&handle, v);
+                Client::handle_unassigned(handle, key, generate_fn);
             }
             remote::get_reply::EntryStatus::Assign(remote::AssignReply {
                 id,
                 heartbeat_interval_ms,
             }) => {
-                let self_clone = self.clone();
-                let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
-                    Duration::from_millis(heartbeat_interval_ms),
-                    move || -> Result<()> { self_clone.heartbeat_rpc_remote(id) },
+                let v = self.handle_assigned(
+                    key,
+                    generate_fn,
+                    heartbeat_interval_ms,
+                    move |client| -> Result<()> { client.heartbeat_rpc_remote(id) },
                 );
-                let v = Client::run_generator(key, generate_fn);
-                let _ = s_heartbeat_stop.send(());
-                let _ = r_heartbeat_stopped.recv();
                 write_generated_value(self, id, &v)?;
-                Client::set_handle(&handle, v);
+                handle.set(v);
             }
             remote::get_reply::EntryStatus::Loading(_) => unreachable!(),
             remote::get_reply::EntryStatus::Ready(data) => {
-                Client::set_handle(&handle, Ok(deserialize_cache_data(&data)?));
+                tracing::debug!("entry is ready");
+                handle.set(Ok(deserialize_cache_data(&data)?));
             }
         }
         Ok(())
@@ -1203,22 +1218,16 @@ impl Client {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<V>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
     ) {
-        tracing::event!(Level::DEBUG, "generating using remote cache API");
-        self.clone().spawn_handler(handle.clone(), move || {
+        tracing::debug!("generating using remote cache API");
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_remote(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_value_remote,
                 Client::deserialize_cache_value,
-                handle,
             )
         });
     }
@@ -1229,21 +1238,15 @@ impl Client {
         E: Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<std::result::Result<V, E>>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        state: GenerateState<K, std::result::Result<V, E>>,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) {
-        self.clone().spawn_handler(handle.clone(), move || {
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_remote(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_result_remote,
                 Client::deserialize_cache_result,
-                handle,
             )
         });
     }

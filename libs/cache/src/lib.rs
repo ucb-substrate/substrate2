@@ -17,6 +17,32 @@ pub mod rpc;
 #[cfg(test)]
 pub(crate) mod tests;
 
+/// A function that can be used to generate a value in a background thread.
+pub trait RawGenerateFn<V>: FnOnce() -> V + Send + Any {}
+impl<V, T: FnOnce() -> V + Send + Any> RawGenerateFn<V> for T {}
+
+/// A function that can be used to generate a value based on a key in a background thread.
+pub trait GenerateFn<K, V>: FnOnce(&K) -> V + Send + Any {}
+impl<K, V, T: FnOnce(&K) -> V + Send + Any> GenerateFn<K, V> for T {}
+
+/// A stateful function that can be used to generate a value based on a key in a background thread.
+pub trait GenerateWithStateFn<K, S, V>: FnOnce(&K, S) -> V + Send + Any {}
+impl<K, S, V, T: FnOnce(&K, S) -> V + Send + Any> GenerateWithStateFn<K, S, V> for T {}
+
+/// A function that can be used to generate a result based on a key in a background thread.
+pub trait GenerateResultFn<K, V, E>: FnOnce(&K) -> Result<V, E> + Send + Any {}
+impl<K, V, E, T: FnOnce(&K) -> Result<V, E> + Send + Any> GenerateResultFn<K, V, E> for T {}
+
+/// A stateful function that can be used to generate a result based on a key in a background thread.
+pub trait GenerateResultWithStateFn<K, S, V, E>:
+    FnOnce(&K, S) -> Result<V, E> + Send + Any
+{
+}
+impl<K, S, V, E, T: FnOnce(&K, S) -> Result<V, E> + Send + Any>
+    GenerateResultWithStateFn<K, S, V, E> for T
+{
+}
+
 /// A cacheable object.
 ///
 /// # Examples
@@ -144,31 +170,25 @@ impl<V> Clone for CacheHandle<V> {
     }
 }
 
+impl<V> CacheHandle<V> {
+    /// Creates an empty cache handle.
+    pub(crate) fn empty() -> Self {
+        Self(Arc::new(OnceCell::new()))
+    }
+}
+
 impl<V: Send + Sync + Any> CacheHandle<V> {
     /// Creates a new cache handle, spawning a thread to generate its value using the provided
     /// function.
-    pub fn new(generate_fn: impl FnOnce() -> V + Send + Sync + Any) -> Self {
+    pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
         let handle = Self(Arc::new(OnceCell::new()));
 
-        let handle2 = handle.clone();
+        let handle_clone = handle.clone();
         thread::spawn(move || {
-            let handle3 = handle2.clone();
-            let join_handle = thread::spawn(move || {
-                let value = generate_fn();
-                if handle3.0.set(Ok(value)).is_err() {
-                    panic!("failed to set cell value");
-                }
-            });
-            if join_handle.join().is_err() && handle2.0.set(Err(Arc::new(Error::Panic))).is_err() {
-                panic!("failed to set cell value on panic");
-            }
+            handle_clone.set(run_generator(generate_fn));
         });
 
         handle
-    }
-
-    fn empty() -> Self {
-        Self(Arc::new(OnceCell::new()))
     }
 }
 
@@ -260,4 +280,12 @@ pub(crate) fn hash(val: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(val);
     hasher.finalize()[..].into()
+}
+
+/// Runs the provided generator in a new thread, returning the result.
+pub(crate) fn run_generator<V: Any + Send + Sync>(
+    generate_fn: impl FnOnce() -> V + Send + Any,
+) -> ArcResult<V> {
+    let join_handle = thread::spawn(generate_fn);
+    join_handle.join().map_err(|_| Arc::new(Error::Panic))
 }

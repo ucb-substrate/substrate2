@@ -293,14 +293,19 @@ pub(crate) fn run_basic_long_running_task_test(
     Ok(())
 }
 
-pub(crate) fn run_task_reassignment_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
-    let (root, count, runtime) = setup_test(test_name);
+pub(crate) fn run_failure_test(
+    test_name: &str,
+    client_kind: ClientKind,
+    restart_server: bool,
+) -> Result<()> {
+    let (root, count, mut runtime) = setup_test(test_name);
 
     reset_directory(&root)?;
 
-    let (_, local, remote) = create_server_and_clients(root, client_kind.into(), runtime.handle());
+    let (_, local, remote) =
+        create_server_and_clients(root.clone(), client_kind.into(), runtime.handle());
 
-    let client = match client_kind {
+    let mut client = match client_kind {
         ClientKind::Local => local,
         ClientKind::Remote => remote,
     };
@@ -317,6 +322,19 @@ pub(crate) fn run_task_reassignment_test(test_name: &str, client_kind: ClientKin
     );
 
     assert!(matches!(handle1.get_err().as_ref(), Error::Panic));
+
+    if restart_server {
+        runtime.shutdown_timeout(Duration::from_millis(500));
+        runtime = create_runtime();
+
+        let (_, local, remote) =
+            create_server_and_clients(root, client_kind.into(), runtime.handle());
+
+        client = match client_kind {
+            ClientKind::Local => local,
+            ClientKind::Remote => remote,
+        };
+    }
 
     // The task should be assigned once, and new requesters should be able to retrieve the new
     // value.
@@ -462,10 +480,36 @@ fn remote_server_does_not_reassign_long_running_tasks() -> Result<()> {
 
 #[test]
 fn local_server_reassigns_failed_tasks() -> Result<()> {
-    run_task_reassignment_test("local_server_reassigns_failed_tasks", ClientKind::Local)
+    run_failure_test(
+        "local_server_reassigns_failed_tasks",
+        ClientKind::Local,
+        false,
+    )
 }
 
 #[test]
 fn remote_server_reassigns_failed_tasks() -> Result<()> {
-    run_task_reassignment_test("remote_server_reassigns_failed_tasks", ClientKind::Remote)
+    run_failure_test(
+        "remote_server_reassigns_failed_tasks",
+        ClientKind::Remote,
+        false,
+    )
+}
+
+#[test]
+fn local_server_recovers_from_failures_on_restart() -> Result<()> {
+    run_failure_test(
+        "local_server_recovers_from_failures_on_restart",
+        ClientKind::Local,
+        true,
+    )
+}
+
+#[test]
+fn remote_server_recovers_from_failures_on_restart() -> Result<()> {
+    run_failure_test(
+        "remote_server_recovers_from_failures_on_restart",
+        ClientKind::Remote,
+        true,
+    )
 }
