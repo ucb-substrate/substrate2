@@ -381,16 +381,11 @@ impl<'a> GdsImporter<'a> {
         for strukt in GdsDepOrder::new(self.gds).total_order() {
             self.import_and_add(strukt)?;
         }
-        Ok(ImportedGds {
-            cells: self.cells,
-        })
+        Ok(ImportedGds { cells: self.cells })
     }
 
     /// Imports a single cell and all of its dependencies into the provided cell.
-    pub fn import_cell(
-        &mut self,
-        name: impl Into<ArcStr>,
-    ) -> GdsImportResult<Arc<RawCell>> {
+    pub fn import_cell(&mut self, name: impl Into<ArcStr>) -> GdsImportResult<Arc<RawCell>> {
         let name = name.into();
         self.run_preimport_checks()?;
 
@@ -405,7 +400,7 @@ impl<'a> GdsImporter<'a> {
 
         match cell {
             Some(cell) => Ok(cell),
-            None => Err(GdsImportError::CellNotFound(name))
+            None => Err(GdsImportError::CellNotFound(name)),
         }
     }
     /// Runs relevant checks before importing from a GDS library.
@@ -451,7 +446,11 @@ impl<'a> GdsImporter<'a> {
         Ok(cell)
     }
     /// Imports a GDS Cell ([gds::GdsStruct]) into a [Cell]
-    fn import_gds_struct(&mut self, strukt: &gds::GdsStruct, cell: &mut RawCell) -> GdsImportResult<()> {
+    fn import_gds_struct(
+        &mut self,
+        strukt: &gds::GdsStruct,
+        cell: &mut RawCell,
+    ) -> GdsImportResult<()> {
         let span = span!(Level::INFO, "cell", name=%cell.name);
         let _guard = span.enter();
         // Importing each layout requires at least two passes over its elements.
