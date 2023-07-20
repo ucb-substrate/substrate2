@@ -5,17 +5,15 @@ use test_log::test;
 use crate::{
     error::Result,
     multi::MultiCache,
+    persistent::client::{create_server_and_clients, setup_test, ServerKind},
     tests::persistent::{
-        cached_generate, create_server_and_clients, reset_directory, setup_test, ServerKind,
-        BASIC_TEST_GENERATE_FN, BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM,
+        cached_generate, BASIC_TEST_GENERATE_FN, BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM,
     },
 };
 
 #[test]
 fn multi_cache_writes_through() -> Result<()> {
-    let (root, count, runtime) = setup_test("multi_cache_writes_through");
-
-    reset_directory(&root)?;
+    let (root, count, runtime) = setup_test("multi_cache_writes_through")?;
 
     let (_, local, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
 
@@ -48,9 +46,7 @@ fn multi_cache_writes_through() -> Result<()> {
 
 #[test]
 fn multi_cache_blocks_on_generator_in_nested_cache() -> Result<()> {
-    let (root, count, runtime) = setup_test("multi_cache_blocks_on_generator_in_nested_cache");
-
-    reset_directory(&root)?;
+    let (root, count, runtime) = setup_test("multi_cache_blocks_on_generator_in_nested_cache")?;
 
     let (_, local, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
 
@@ -92,9 +88,7 @@ fn multi_cache_blocks_on_generator_in_nested_cache() -> Result<()> {
 
 #[test]
 fn multi_cache_caches_results_in_memory() -> Result<()> {
-    let (root, count, runtime) = setup_test("multi_cache_caches_results_in_memory");
-
-    reset_directory(&root)?;
+    let (root, count, runtime) = setup_test("multi_cache_caches_results_in_memory")?;
 
     let (_, local, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
 
@@ -127,9 +121,7 @@ fn multi_cache_caches_results_in_memory() -> Result<()> {
 
 #[test]
 fn multi_cache_works_without_in_memory_caching() -> Result<()> {
-    let (root, count, runtime) = setup_test("multi_cache_works_without_in_memory_caching");
-
-    reset_directory(&root)?;
+    let (root, count, runtime) = setup_test("multi_cache_works_without_in_memory_caching")?;
 
     let (_, local, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
 

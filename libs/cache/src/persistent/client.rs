@@ -4,10 +4,11 @@ use std::{
     any::Any,
     fs::{self, OpenOptions},
     io::{Read, Write},
-    path::PathBuf,
+    net::TcpListener,
+    path::{Path, PathBuf},
     sync::{
         mpsc::{channel, Receiver, RecvTimeoutError, Sender},
-        Arc,
+        Arc, Mutex,
     },
     thread,
     time::Duration,
@@ -27,6 +28,8 @@ use crate::{
     run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn, GenerateResultFn,
     GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
+
+use super::server::Server;
 
 /// The timeout for connecting to the cache server.
 pub const CONNECTION_TIMEOUT_MS_DEFAULT: u64 = 1000;
@@ -255,27 +258,9 @@ impl Client {
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> u64 {
     ///     tuple.0 + tuple.1
@@ -325,27 +310,9 @@ impl Client {
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate_with_state");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_with_state").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
     ///     println!("Logging parameters...");
@@ -393,27 +360,9 @@ impl Client {
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate_result");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> anyhow::Result<u64> {
     ///     if *tuple == (5, 5) {
@@ -477,28 +426,9 @@ impl Client {
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root =
-    /// # PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate_result_with_state");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result_with_state").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> anyhow::Result<u64> {
     ///     println!("Logging parameters...");
@@ -565,27 +495,9 @@ impl Client {
     /// }
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_get");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// let handle = client.get(
     ///     "example.namespace", Params { param1: 50, param2: "cache".to_string() }
@@ -634,27 +546,9 @@ impl Client {
     /// }
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_get_with_err");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_err").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// let handle = client.get_with_err(
     ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
@@ -709,27 +603,9 @@ impl Client {
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_get_with_state");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_state").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// let handle = client.get_with_state(
     ///     "example.namespace",
@@ -1255,4 +1131,122 @@ impl Client {
             )
         });
     }
+}
+
+pub(crate) const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
+pub(crate) const TEST_SERVER_HEARTBEAT_INTERVAL: Duration = Duration::from_millis(200);
+pub(crate) const TEST_SERVER_HEARTBEAT_TIMEOUT: Duration = Duration::from_millis(500);
+
+pub(crate) fn get_listeners(n: usize) -> Vec<(TcpListener, u16)> {
+    let mut listeners = Vec::new();
+
+    for _ in 0..n {
+        let listener = TcpListener::bind("0.0.0.0:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        listeners.push((listener, port));
+    }
+
+    listeners
+}
+
+#[doc(hidden)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ServerKind {
+    Local,
+    Remote,
+    Both,
+}
+
+impl From<ClientKind> for ServerKind {
+    fn from(value: ClientKind) -> Self {
+        match value {
+            ClientKind::Local => ServerKind::Local,
+            ClientKind::Remote => ServerKind::Remote,
+        }
+    }
+}
+
+pub(crate) fn client_url(port: u16) -> String {
+    format!("http://0.0.0.0:{port}")
+}
+
+#[doc(hidden)]
+pub fn create_server_and_clients(
+    root: PathBuf,
+    kind: ServerKind,
+    handle: &Handle,
+) -> (CacheHandle<Result<()>>, Client, Client) {
+    let mut listeners = handle.block_on(async {
+        get_listeners(2)
+            .into_iter()
+            .map(|(listener, port)| {
+                listener.set_nonblocking(true).unwrap();
+                (tokio::net::TcpListener::from_std(listener).unwrap(), port)
+            })
+            .collect::<Vec<_>>()
+    });
+    let (local_listener, local_port) = listeners.pop().unwrap();
+    let (remote_listener, remote_port) = listeners.pop().unwrap();
+
+    (
+        {
+            let mut builder = Server::builder();
+
+            builder = builder
+                .heartbeat_interval(TEST_SERVER_HEARTBEAT_INTERVAL)
+                .heartbeat_timeout(TEST_SERVER_HEARTBEAT_TIMEOUT)
+                .root(root);
+
+            let server = match kind {
+                ServerKind::Local => builder.local_with_incoming(local_listener),
+                ServerKind::Remote => builder.remote_with_incoming(remote_listener),
+                ServerKind::Both => builder
+                    .local_with_incoming(local_listener)
+                    .remote_with_incoming(remote_listener),
+            }
+            .build();
+
+            let join_handle = handle.spawn(async move { server.start().await });
+            let handle_clone = handle.clone();
+            CacheHandle::new(move || {
+                let res = handle_clone.block_on(join_handle).unwrap_or_else(|res| {
+                    if res.is_cancelled() {
+                        Ok(())
+                    } else {
+                        Err(Error::Panic)
+                    }
+                });
+                if let Err(e) = res.as_ref() {
+                    tracing::error!("server failed to start: {:?}", e);
+                }
+                res
+            })
+        },
+        Client::with_default_config(ClientKind::Local, client_url(local_port)),
+        Client::with_default_config(ClientKind::Remote, client_url(remote_port)),
+    )
+}
+
+pub(crate) fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
+    if path.exists() {
+        fs::remove_dir_all(path)?;
+    }
+    fs::create_dir_all(path)?;
+    Ok(())
+}
+
+pub(crate) fn create_runtime() -> Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap()
+}
+
+#[doc(hidden)]
+pub fn setup_test(test_name: &str) -> Result<(PathBuf, Arc<Mutex<u64>>, Runtime)> {
+    let path = PathBuf::from(BUILD_DIR).join(test_name);
+    reset_directory(&path)?;
+    Ok((path, Arc::new(Mutex::new(0)), create_runtime()))
 }

@@ -1,115 +1,31 @@
 use std::{
     any::Any,
-    fs,
-    net::{SocketAddr, TcpListener},
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
 use test_log::test;
-use tokio::{
-    runtime::{Handle, Runtime},
-    task::JoinHandle,
-};
+use tokio::runtime::Handle;
 
 use crate::{
     error::{Error, Result},
-    persistent::server::Server,
+    persistent::client::{
+        create_runtime, create_server_and_clients, setup_test, ServerKind,
+        TEST_SERVER_HEARTBEAT_TIMEOUT,
+    },
     tests::Key,
     CacheHandle,
 };
 
 use crate::persistent::client::{Client, ClientKind};
 
-pub(crate) const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub(crate) const BASIC_TEST_NAMESPACE: &str = "test";
 pub(crate) const BASIC_TEST_PARAM: (u64, u64) = (3, 5);
 pub(crate) const BASIC_TEST_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_sum;
 pub(crate) const BASIC_TEST_ALT_NAMESPACE: &str = "test_alt";
 pub(crate) const BASIC_TEST_ALT_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_multiply;
-pub(crate) const TEST_SERVER_HEARTBEAT_INTERVAL: Duration = Duration::from_millis(200);
-pub(crate) const TEST_SERVER_HEARTBEAT_TIMEOUT: Duration = Duration::from_millis(500);
-
-pub(crate) fn pick_n_ports(n: usize) -> Vec<u16> {
-    let mut ports = Vec::new();
-    let mut temporary_listeners = Vec::new();
-
-    for _ in 0..n {
-        let port = portpicker::pick_unused_port().expect("no ports free");
-        temporary_listeners.push(TcpListener::bind(format!("0.0.0.0:{port}")));
-        ports.push(port);
-    }
-
-    ports
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) enum ServerKind {
-    Local,
-    Remote,
-    Both,
-}
-
-impl From<ClientKind> for ServerKind {
-    fn from(value: ClientKind) -> Self {
-        match value {
-            ClientKind::Local => ServerKind::Local,
-            ClientKind::Remote => ServerKind::Remote,
-        }
-    }
-}
-
-pub(crate) fn server_url(port: u16) -> SocketAddr {
-    format!("0.0.0.0:{port}").parse().unwrap()
-}
-
-pub(crate) fn client_url(port: u16) -> String {
-    format!("http://0.0.0.0:{port}")
-}
-
-pub(crate) fn create_server_and_clients(
-    root: PathBuf,
-    kind: ServerKind,
-    handle: &Handle,
-) -> (JoinHandle<Result<()>>, Client, Client) {
-    let ports = pick_n_ports(2);
-    (
-        {
-            let mut builder = Server::builder();
-
-            builder
-                .heartbeat_interval(TEST_SERVER_HEARTBEAT_INTERVAL)
-                .heartbeat_timeout(TEST_SERVER_HEARTBEAT_TIMEOUT)
-                .root(root);
-
-            let server = match kind {
-                ServerKind::Local => builder.local(server_url(ports[0])),
-                ServerKind::Remote => builder.remote(server_url(ports[1])),
-                ServerKind::Both => builder
-                    .local(server_url(ports[0]))
-                    .remote(server_url(ports[1])),
-            }
-            .build();
-
-            let join_handle = handle.spawn(async move { server.start().await });
-            std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-            join_handle
-        },
-        Client::with_default_config(ClientKind::Local, client_url(ports[0])),
-        Client::with_default_config(ClientKind::Remote, client_url(ports[1])),
-    )
-}
-
-pub(crate) fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
-    let path = path.as_ref();
-    if path.exists() {
-        fs::remove_dir_all(path)?;
-    }
-    fs::create_dir_all(path)?;
-    Ok(())
-}
 
 pub(crate) fn cached_generate<
     K: Serialize + Send + Sync + Any,
@@ -142,22 +58,6 @@ pub(crate) fn tuple_multiply(tuple: &(u64, u64)) -> u64 {
     tuple.0 * tuple.1
 }
 
-pub(crate) fn create_runtime() -> Runtime {
-    tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_all()
-        .build()
-        .unwrap()
-}
-
-pub(crate) fn setup_test(test_name: &str) -> (PathBuf, Arc<Mutex<u64>>, Runtime) {
-    (
-        PathBuf::from(BUILD_DIR).join(test_name),
-        Arc::new(Mutex::new(0)),
-        create_runtime(),
-    )
-}
-
 /// Generates values corresponding to the same key in two namespaces, potentially multiple times.
 ///
 /// The generate function for each namespace should only be called once, adding 2 to the count of
@@ -170,8 +70,6 @@ pub(crate) fn run_basic_test(
     handle: &Handle,
 ) -> Result<()> {
     let root = root.as_ref();
-
-    reset_directory(root)?;
 
     let (_, local, remote) =
         create_server_and_clients(root.to_path_buf(), client_kind.into(), handle);
@@ -231,7 +129,7 @@ pub(crate) fn run_basic_test(
 }
 
 pub(crate) fn run_basic_persistence_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
-    let (root, count, runtime) = setup_test(test_name);
+    let (root, count, runtime) = setup_test(test_name)?;
 
     run_basic_test(
         &root,
@@ -281,7 +179,7 @@ pub(crate) fn run_basic_long_running_task_test(
     test_name: &str,
     client_kind: ClientKind,
 ) -> Result<()> {
-    let (root, count, runtime) = setup_test(test_name);
+    let (root, count, runtime) = setup_test(test_name)?;
     run_basic_test(
         root,
         client_kind,
@@ -298,9 +196,7 @@ pub(crate) fn run_failure_test(
     client_kind: ClientKind,
     restart_server: bool,
 ) -> Result<()> {
-    let (root, count, mut runtime) = setup_test(test_name);
-
-    reset_directory(&root)?;
+    let (root, count, mut runtime) = setup_test(test_name)?;
 
     let (_, local, remote) =
         create_server_and_clients(root.clone(), client_kind.into(), runtime.handle());
@@ -362,9 +258,7 @@ pub(crate) fn run_failure_test(
 }
 
 pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
-    let (root, _, runtime) = setup_test(test_name);
-
-    reset_directory(&root)?;
+    let (root, _, runtime) = setup_test(test_name)?;
 
     let (_, local, remote) = create_server_and_clients(root, client_kind.into(), runtime.handle());
 
@@ -402,11 +296,12 @@ pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -
 }
 
 #[test]
-fn servers_cannot_be_started_with_same_root() {
-    let (root, _, runtime) = setup_test("servers_cannot_be_started_with_same_root");
+fn servers_cannot_be_started_with_same_root() -> Result<()> {
+    let (root, _, runtime) = setup_test("servers_cannot_be_started_with_same_root")?;
     let (_, _, _) = create_server_and_clients(root.clone(), ServerKind::Local, runtime.handle());
     let (server2, _, _) = create_server_and_clients(root, ServerKind::Remote, runtime.handle());
-    assert!(runtime.block_on(server2).unwrap().is_err());
+    assert!(server2.get().is_err());
+    Ok(())
 }
 
 #[test]
@@ -431,9 +326,7 @@ fn remote_client_cacheable_api_works() -> Result<()> {
 
 #[test]
 fn local_remote_apis_work_concurrently() -> Result<()> {
-    let (root, count, runtime) = setup_test("local_remote_apis_work_concurrently");
-
-    reset_directory(&root)?;
+    let (root, count, runtime) = setup_test("local_remote_apis_work_concurrently")?;
 
     let (_, local, remote) =
         create_server_and_clients(root.to_path_buf(), ServerKind::Both, runtime.handle());
