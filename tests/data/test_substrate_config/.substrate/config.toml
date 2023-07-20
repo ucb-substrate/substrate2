@@ -1,10 +1,8 @@
 [cache]
 [cache.providers.bwrc]
-method = "Http"
-addr = "substratecache.eecs.berkeley.edu"
-port = 1234
+kind = "Local"
+url = "http://0.0.0.0:1234"
 
 [cache.providers.public]
-method = "Http"
-addr = "cache.substratelabs.io"
-port = 1234
+kind = "Remote"
+url = "https://cache.substratelabs.io:1234"

@@ -45,7 +45,7 @@ fn make_case_insensitive_and_normalized_env(
 ///
 /// This type contains the env var snapshot and helper methods for both APIs.
 #[derive(Default, Debug)]
-pub struct Env {
+pub(crate) struct Env {
     /// A snapshot of the process's environment variables.
     env: HashMap<OsString, OsString>,
     /// Used in the typed Config value API for warning messages when config keys are
@@ -67,9 +67,10 @@ pub struct Env {
     case_insensitive_env: HashMap<String, String>,
 }
 
+#[allow(dead_code)]
 impl Env {
     /// Create a new `Env` from process's environment variables.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         // ALLOWED: This is the only permissible usage of `std::env::vars{_os}`
         // within Substrate. If you do need access to individual variables without
         // interacting with `Config` system, please use `std::env::var{_os}`
@@ -99,14 +100,14 @@ impl Env {
 
     /// Returns all environment variables as an iterator,
     /// keeping only entries where both the key and value are valid UTF-8.
-    pub fn iter_str(&self) -> impl Iterator<Item = (&str, &str)> {
+    pub(crate) fn iter_str(&self) -> impl Iterator<Item = (&str, &str)> {
         self.env
             .iter()
             .filter_map(|(k, v)| Some((k.to_str()?, v.to_str()?)))
     }
 
     /// Returns all environment variable keys, filtering out keys that are not valid UTF-8.
-    pub fn keys_str(&self) -> impl Iterator<Item = &str> {
+    pub(crate) fn keys_str(&self) -> impl Iterator<Item = &str> {
         self.env.keys().filter_map(|k| k.to_str())
     }
 
@@ -114,7 +115,7 @@ impl Env {
     ///
     /// This can be used similarly to `std::env::var_os`.
     /// On Windows, we check for case mismatch since environment keys are case-insensitive.
-    pub fn get_env_os(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
+    pub(crate) fn get_env_os(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
         match self.env.get(key.as_ref()) {
             Some(s) => Some(s.clone()),
             None => {
@@ -131,7 +132,7 @@ impl Env {
     ///
     /// This can be used similarly to `std::env::var`.
     /// On Windows, we check for case mismatch since environment keys are case-insensitive.
-    pub fn get_env(&self, key: impl AsRef<OsStr>) -> Result<String> {
+    pub(crate) fn get_env(&self, key: impl AsRef<OsStr>) -> Result<String> {
         let key = key.as_ref();
         let s = self
             .get_env_os(key)

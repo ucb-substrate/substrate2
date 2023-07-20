@@ -12,11 +12,11 @@ use path_absolutize::Absolutize;
 use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tokio_rusqlite::Connection;
 use tonic::Response;
-use tracing::Level;
 
 use crate::error::Result;
 use crate::rpc::local::{
@@ -27,6 +27,7 @@ use crate::rpc::remote::{
     self,
     remote_cache_server::{RemoteCache, RemoteCacheServer},
 };
+use crate::Namespace;
 
 /// The name of the config manifest TOML file.
 pub const CONFIG_MANIFEST_NAME: &str = "Cache.toml";
@@ -73,8 +74,8 @@ const DELETE_STATUS_STMT: &str = r#"
 #[derive(Debug)]
 pub struct Server {
     root: Arc<PathBuf>,
-    local_addr: Option<SocketAddr>,
-    remote_addr: Option<SocketAddr>,
+    local: Option<TcpListener>,
+    remote: Option<TcpListener>,
     heartbeat_interval: Duration,
     heartbeat_timeout: Duration,
 }
@@ -83,8 +84,8 @@ pub struct Server {
 #[derive(Default, Debug)]
 pub struct ServerBuilder {
     root: Option<Arc<PathBuf>>,
-    local_addr: Option<SocketAddr>,
-    remote_addr: Option<SocketAddr>,
+    local: Option<TcpListener>,
+    remote: Option<TcpListener>,
     heartbeat_interval: Option<Duration>,
     heartbeat_timeout: Option<Duration>,
 }
@@ -104,27 +105,43 @@ impl ServerBuilder {
     }
 
     /// Sets the root directory of the cache server.
-    pub fn root(&mut self, path: PathBuf) -> &mut Self {
+    pub fn root(mut self, path: PathBuf) -> Self {
         self.root = Some(Arc::new(path));
         self
     }
 
     /// Configures the local cache gRPC server.
-    pub fn local(&mut self, addr: SocketAddr) -> &mut Self {
-        self.local_addr = Some(addr);
-        self
+    ///
+    /// Returns an error if the provided address cannot be bound.
+    pub async fn local(mut self, addr: SocketAddr) -> std::io::Result<Self> {
+        self.local = Some(TcpListener::bind(addr).await?);
+        Ok(self)
     }
 
     /// Configures the remote cache gRPC server.
-    pub fn remote(&mut self, addr: SocketAddr) -> &mut Self {
-        self.remote_addr = Some(addr);
+    ///
+    /// Returns an error if the provided address cannot be bound.
+    pub async fn remote(mut self, addr: SocketAddr) -> std::io::Result<Self> {
+        self.remote = Some(TcpListener::bind(addr).await?);
+        Ok(self)
+    }
+
+    /// Configures the local cache gRPC server to use the provided [`TcpListener`].
+    pub fn local_with_incoming(mut self, incoming: TcpListener) -> Self {
+        self.local = Some(incoming);
+        self
+    }
+
+    /// Configures the remote cache gRPC server to use the provided [`TcpListener`].
+    pub fn remote_with_incoming(mut self, incoming: TcpListener) -> Self {
+        self.remote = Some(incoming);
         self
     }
 
     /// Sets the expected interval between hearbeats.
     ///
     /// Defaults to [`HEARTBEAT_INTERVAL_SECS_DEFAULT`].
-    pub fn heartbeat_interval(&mut self, duration: Duration) -> &mut Self {
+    pub fn heartbeat_interval(mut self, duration: Duration) -> Self {
         self.heartbeat_interval = Some(duration);
         self
     }
@@ -132,17 +149,17 @@ impl ServerBuilder {
     /// Sets the timeout before an assigned task is marked for reassignment.
     ///
     /// Defaults to [`HEARTBEAT_TIMEOUT_SECS_DEFAULT`].
-    pub fn heartbeat_timeout(&mut self, duration: Duration) -> &mut Self {
+    pub fn heartbeat_timeout(mut self, duration: Duration) -> Self {
         self.heartbeat_timeout = Some(duration);
         self
     }
 
     /// Builds a [`Server`] from the configured options.
-    pub fn build(&mut self) -> Server {
+    pub fn build(self) -> Server {
         let server = Server {
             root: self.root.clone().unwrap(),
-            local_addr: self.local_addr,
-            remote_addr: self.remote_addr,
+            local: self.local,
+            remote: self.remote,
             heartbeat_interval: self
                 .heartbeat_interval
                 .unwrap_or(Duration::from_secs(HEARTBEAT_INTERVAL_SECS_DEFAULT)),
@@ -173,12 +190,9 @@ impl Server {
     }
 
     /// Starts the gRPC server, listening on the configured address.
-    pub async fn start(&self) -> Result<()> {
-        if let (None, None) = (self.local_addr, self.remote_addr) {
-            tracing::event!(
-                Level::WARN,
-                "no local or remote address specified so no server is being run"
-            );
+    pub async fn start(self) -> Result<()> {
+        if let (None, None) = (&self.local, &self.remote) {
+            tracing::warn!("no local or remote listener specified so no server is being run");
             return Ok(());
         }
 
@@ -193,8 +207,16 @@ impl Server {
         config_manifest
             .write_all(
                 &toml::to_string(&ConfigManifest {
-                    local_addr: self.local_addr,
-                    remote_addr: self.remote_addr,
+                    local_addr: self
+                        .local
+                        .as_ref()
+                        .map(|value| value.local_addr())
+                        .map_or(Ok(None), |v| v.map(Some))?,
+                    remote_addr: self
+                        .remote
+                        .as_ref()
+                        .map(|value| value.local_addr())
+                        .map_or(Ok(None), |v| v.map(Some))?,
                     heartbeat_interval: self.heartbeat_interval,
                     heartbeat_timeout: self.heartbeat_timeout,
                 })
@@ -213,25 +235,41 @@ impl Server {
             inner,
         );
 
-        let mut handle = None;
-        if let Some(addr) = self.local_addr {
+        let Server { local, remote, .. } = self;
+
+        let local_handle = if let Some(local) = local {
+            tracing::debug!("local server listening on address {}", local.local_addr()?);
             let local_svc = LocalCacheServer::new(imp.clone());
-            handle = Some(tokio::spawn(
+            Some(tokio::spawn(
                 tonic::transport::Server::builder()
                     .add_service(local_svc)
-                    .serve(addr),
-            ));
-        }
-        if let Some(addr) = self.remote_addr {
+                    .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(local)),
+            ))
+        } else {
+            None
+        };
+        let remote_handle = if let Some(remote) = remote {
+            tracing::debug!(
+                "remote server listening on address {}",
+                remote.local_addr()?
+            );
             let remote_svc = RemoteCacheServer::new(imp);
-            handle = Some(tokio::spawn(
+            Some(tokio::spawn(
                 tonic::transport::Server::builder()
                     .add_service(remote_svc)
-                    .serve(addr),
-            ));
+                    .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(remote)),
+            ))
+        } else {
+            None
+        };
+
+        if let Some(local_handle) = local_handle {
+            local_handle.await??;
         }
 
-        handle.unwrap().await??;
+        if let Some(remote_handle) = remote_handle {
+            remote_handle.await??;
+        }
 
         // Hold file lock until server terminates.
         drop(config_manifest);
@@ -257,12 +295,14 @@ struct CacheInner {
 
 impl CacheInner {
     async fn new(db_path: impl AsRef<Path>) -> Result<Self> {
+        tracing::debug!("connecting to manifest database");
         // Set up the manifest database.
         let conn = Connection::open(db_path.as_ref()).await?;
         conn.call(|conn| {
             let tx = conn.transaction()?;
             tx.execute(CREATE_MANIFEST_TABLE_STMT, ())?;
             tx.commit()?;
+            tracing::debug!("ensured that manifest table has been created");
             Ok(())
         })
         .await?;
@@ -283,6 +323,7 @@ impl CacheInner {
     }
 
     async fn load_from_disk(&mut self) -> Result<()> {
+        tracing::debug!("loading cache state from disk");
         let rows = self
             .conn
             .0
@@ -290,25 +331,32 @@ impl CacheInner {
                 let tx = conn.transaction()?;
 
                 // Delete loading entries as we cannot recover assignment IDs on restart.
+                tracing::debug!("deleting loading entries from database");
                 let mut stmt = tx.prepare(DELETE_ENTRIES_WITH_STATUS_STMT)?;
                 stmt.execute([DbEntryStatus::Loading.to_int()])?;
+                drop(stmt);
 
                 // Read remaining rows from the manifest, converting them into tuples mapping
                 // `EntryKey` to a `DbEntryStatus`.
+                tracing::debug!("reading remaining entries from database");
                 let mut stmt = tx.prepare(READ_MANIFEST_STMT)?;
                 let rows = stmt.query_map(
                     [],
                     |row| -> rusqlite::Result<(Arc<EntryKey>, DbEntryStatus)> {
                         Ok((
                             Arc::new(EntryKey {
-                                namespace: row.get(0)?,
+                                namespace: Namespace::new(row.get::<_, String>(0)?),
                                 key: row.get(1)?,
                             }),
                             DbEntryStatus::from_int(row.get(2)?).unwrap(),
                         ))
                     },
                 )?;
-                Ok(rows.collect::<Vec<_>>())
+                let res = Ok(rows.collect::<Vec<_>>());
+                drop(stmt);
+
+                tx.commit()?;
+                res
             })
             .await?
             .into_iter()
@@ -339,7 +387,11 @@ impl CacheInnerConn {
         self.0
             .call(move |conn| {
                 let mut stmt = conn.prepare(INSERT_STATUS_STMT)?;
-                stmt.execute((key.namespace.clone(), key.key.clone(), status.to_int()))?;
+                stmt.execute((
+                    key.namespace.clone().into_inner(),
+                    key.key.clone(),
+                    status.to_int(),
+                ))?;
                 Ok(())
             })
             .await?;
@@ -350,7 +402,11 @@ impl CacheInnerConn {
         self.0
             .call(move |conn| {
                 let mut stmt = conn.prepare(UPDATE_STATUS_STMT)?;
-                stmt.execute((status.to_int(), key.namespace.clone(), key.key.clone()))?;
+                stmt.execute((
+                    status.to_int(),
+                    key.namespace.clone().into_inner(),
+                    key.key.clone(),
+                ))?;
                 Ok(())
             })
             .await?;
@@ -361,7 +417,7 @@ impl CacheInnerConn {
         self.0
             .call(move |conn| {
                 let mut stmt = conn.prepare(DELETE_STATUS_STMT)?;
-                stmt.execute((key.namespace.clone(), key.key.clone()))?;
+                stmt.execute((key.namespace.clone().into_inner(), key.key.clone()))?;
                 Ok(())
             })
             .await?;
@@ -391,7 +447,7 @@ impl HandleId {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct EntryKey {
-    namespace: String,
+    namespace: Namespace,
     key: Vec<u8>,
 }
 
@@ -515,6 +571,7 @@ impl CacheImpl {
         assign: bool,
         local: bool,
     ) -> std::result::Result<GetReplyStatus, tonic::Status> {
+        tracing::debug!("received get request");
         let mut inner = self.inner.lock().await;
 
         let CacheInner {
@@ -544,10 +601,12 @@ impl CacheImpl {
                         if Instant::now().duration_since(data.last_heartbeat)
                             > self.heartbeat_timeout
                         {
+                            tracing::debug!("assigned worker has not sent a heartbeat recently, entry is no longer loading");
                             if assign {
                                 loading.remove(id);
                                 next_assignment_id.increment();
                                 *id = *next_assignment_id;
+                                tracing::debug!("assigning task with id {:?}", id);
                                 loading.insert(
                                     *id,
                                     LoadingData {
@@ -564,10 +623,12 @@ impl CacheImpl {
                                 GetReplyStatus::Unassigned
                             }
                         } else {
+                            tracing::debug!("entry is currently loading");
                             GetReplyStatus::Loading
                         }
                     }
                     EntryStatus::Ready(in_use) => {
+                        tracing::debug!("entry is ready, sending relevant data to client");
                         if local {
                             // If the requested entry is ready, assign a new handle to the entry.
                             *in_use += 1;
@@ -587,17 +648,22 @@ impl CacheImpl {
                     //
                     // The client is free to generate on their own, but the cache will not accept a
                     // new value for the entry.
-                    EntryStatus::Evicting => GetReplyStatus::Unassigned,
+                    EntryStatus::Evicting => {
+                        tracing::debug!("entry is currently being evicted");
+                        GetReplyStatus::Unassigned
+                    }
                 }
             }
             Entry::Vacant(v) => {
                 // If the entry doesn't exist, assign it to be loaded if needed.
+                tracing::debug!("entry does not exist, creating a new entry");
                 if assign {
                     next_assignment_id.increment();
                     conn.insert_status(entry_key.clone(), DbEntryStatus::Loading)
                         .await
                         .map_err(|_| tonic::Status::internal("unable to persist changes"))?;
                     v.insert(EntryStatus::Loading(*next_assignment_id));
+                    tracing::debug!("assigning task with id {:?}", next_assignment_id);
                     loading.insert(
                         *next_assignment_id,
                         LoadingData {
@@ -614,10 +680,15 @@ impl CacheImpl {
     }
 
     async fn heartbeat_impl(&self, id: AssignmentId) -> std::result::Result<(), tonic::Status> {
+        tracing::debug!("received heartbeat request for id {:?}", id);
         let mut inner = self.inner.lock().await;
         match inner.loading.entry(id) {
             Entry::Vacant(_) => {
-                return Err(tonic::Status::invalid_argument("invalid assignment id"))
+                tracing::error!(
+                    "received heartbeat request for invalid assignment id {:?}",
+                    id
+                );
+                return Err(tonic::Status::invalid_argument("invalid assignment id"));
             }
             Entry::Occupied(o) => {
                 o.into_mut().last_heartbeat = Instant::now();
@@ -631,11 +702,12 @@ impl CacheImpl {
         id: AssignmentId,
         value: Option<Vec<u8>>,
     ) -> std::result::Result<(), tonic::Status> {
+        tracing::debug!("received set request for id {:?}", id);
         let mut inner = self.inner.lock().await;
-        let data = inner
-            .loading
-            .get(&id)
-            .ok_or(tonic::Status::invalid_argument("invalid assignment id"))?;
+        let data = inner.loading.get(&id).ok_or_else(|| {
+            tracing::error!("received set request for invalid id {:?}", id);
+            tonic::Status::invalid_argument("invalid assignment id")
+        })?;
 
         let key = data.key.clone();
 
@@ -680,8 +752,12 @@ impl LocalCache for CacheImpl {
     ) -> std::result::Result<tonic::Response<local::GetReply>, tonic::Status> {
         let request = request.into_inner();
 
+        if !Namespace::validate(&request.namespace) {
+            return Err(tonic::Status::invalid_argument("invalid namespace"));
+        }
+
         let entry_key = Arc::new(EntryKey {
-            namespace: request.namespace,
+            namespace: Namespace::new(request.namespace),
             key: request.key,
         });
 
@@ -759,8 +835,12 @@ impl RemoteCache for CacheImpl {
     ) -> std::result::Result<tonic::Response<remote::GetReply>, tonic::Status> {
         let request = request.into_inner();
 
+        if !Namespace::validate(&request.namespace) {
+            return Err(tonic::Status::invalid_argument("invalid namespace"));
+        }
+
         let entry_key = Arc::new(EntryKey {
-            namespace: request.namespace,
+            namespace: Namespace::new(request.namespace),
             key: request.key,
         });
 
@@ -799,6 +879,6 @@ fn get_file(root: impl AsRef<Path>, key: impl AsRef<EntryKey>) -> PathBuf {
     let key = key.as_ref();
     // TODO: Require namespace to be filesystem compatible so that cache folder names don't need to
     // be hashed.
-    root.join(hex::encode(crate::hash(key.namespace.as_bytes())))
+    root.join(key.namespace.as_ref())
         .join(hex::encode(crate::hash(&key.key)))
 }

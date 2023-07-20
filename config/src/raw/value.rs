@@ -13,7 +13,7 @@
 // Based on Cargo's [`config` module](https://github.com/rust-lang/cargo/tree/master/src/cargo/util/config)
 // with substantial modifications.
 
-use crate::config::Config;
+use crate::raw::RawConfig;
 use serde::de;
 use std::fmt;
 use std::marker;
@@ -23,16 +23,16 @@ use std::path::{Path, PathBuf};
 /// A type which can be deserialized as a configuration value which records
 /// where it was deserialized from.
 #[derive(Debug, PartialEq, Clone)]
-pub struct Value<T> {
+pub(crate) struct Value<T> {
     /// The inner value that was deserialized.
-    pub val: T,
+    pub(crate) val: T,
     /// The location where `val` was defined in configuration (e.g. file it was
     /// defined in, env var etc).
-    pub definition: Definition,
+    pub(crate) definition: Definition,
 }
 
 /// Optional value type.
-pub type OptValue<T> = Option<Value<T>>;
+pub(crate) type OptValue<T> = Option<Value<T>>;
 
 // Deserializing `Value<T>` is pretty special, and serde doesn't have built-in
 // support for this operation. To implement this we extend serde's "data model"
@@ -59,7 +59,7 @@ pub(crate) static FIELDS: [&str; 2] = [VALUE_FIELD, DEFINITION_FIELD];
 
 /// Location where a config value is defined.
 #[derive(Clone, Debug, Eq)]
-pub enum Definition {
+pub(crate) enum Definition {
     /// Defined in a `.substrate/config.toml`, includes the path to the file.
     Path(PathBuf),
     /// Defined in an environment variable, includes the environment key.
@@ -71,7 +71,7 @@ impl Definition {
     ///
     /// If from a file, it is the directory above `.substrate/config.toml`.
     /// env is the current working directory.
-    pub fn root<'a>(&'a self, config: &'a Config) -> &'a Path {
+    pub(crate) fn root<'a>(&'a self, config: &'a RawConfig) -> &'a Path {
         match self {
             Definition::Path(p) => p.parent().unwrap().parent().unwrap(),
             Definition::Environment(_) => config.cwd(),
@@ -81,7 +81,7 @@ impl Definition {
     /// Returns true if self is a higher priority to other.
     ///
     /// Environment is preferred over files.
-    pub fn is_higher_priority(&self, other: &Definition) -> bool {
+    pub(crate) fn is_higher_priority(&self, other: &Definition) -> bool {
         matches!(
             (self, other),
             (Definition::Environment(_), Definition::Path(_))

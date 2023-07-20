@@ -3,8 +3,8 @@ local_path = ".substrate/cache"
 project = "sram22" # Optional, uses `local_path` directly
                    # by default (otherwise appends `project`)
 enable = true # Optional, false by default
-write_through_on_hit = true # Optional, true by default
-provider_hierarchy = ["bwrc", "public"]
+skip_memory = true # Optional, false by default
+selected_providers = ["bwrc", "public"]
 
 [cache.projects.bwrc]
 project = "my_project_id_on_bwrcrepo"

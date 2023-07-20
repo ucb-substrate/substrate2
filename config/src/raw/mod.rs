@@ -1,12 +1,12 @@
-//! Substrate's config system.
+//! Raw string configuration utilities.
 //!
-//! The `Config` object contains general information about the environment,
+//! The `RawConfig` object contains general information about the environment,
 //! and provides access to Substrate's configuration files.
 //!
 //! ## Config value API
 //!
 //! The primary API for fetching user-defined config values is the
-//! `Config::get` method. It uses `serde` to translate config values to a
+//! `RawConfig::get` method. It uses `serde` to translate config values to a
 //! target type.
 //!
 //! There are a variety of helper types for deserializing some common formats:
@@ -67,10 +67,10 @@ use lazycell::LazyCell;
 use serde::Deserialize;
 
 use de::Deserializer;
-pub use environment::Env;
-pub use key::ConfigKey;
-pub use path::ConfigRelativePath;
-pub use value::{Definition, OptValue, Value};
+pub(crate) use environment::Env;
+pub(crate) use key::ConfigKey;
+pub(crate) use path::ConfigRelativePath;
+pub(crate) use value::{Definition, OptValue, Value};
 
 mod de;
 mod environment;
@@ -104,7 +104,7 @@ macro_rules! get_value_typed {
 
 /// Configuration information for Substrate.
 #[derive(Debug)]
-pub struct Config {
+pub(crate) struct RawConfig {
     /// The location of the user's Substrate home directory. OS-dependent.
     home_path: PathBuf,
     /// A collection of configuration options
@@ -117,16 +117,16 @@ pub struct Config {
     env: Env,
 }
 
-impl Config {
-    /// Creates a new [`Config`] instance.
+impl RawConfig {
+    /// Creates a new [`RawConfig`] instance.
     ///
     /// This is typically used for tests or other special cases. `default` is
     /// preferred otherwise.
     ///
     /// This does only minimal initialization. In particular, it does not load
     /// any config files from disk. Those will be loaded lazily as-needed.
-    pub fn new(cwd: PathBuf, homedir: PathBuf) -> Config {
-        Config {
+    pub(crate) fn new(cwd: PathBuf, homedir: PathBuf) -> RawConfig {
+        RawConfig {
             home_path: homedir,
             cwd,
             search_stop_path: None,
@@ -135,12 +135,12 @@ impl Config {
         }
     }
 
-    /// Creates a new [`Config`] instance, with all default settings.
+    /// Creates a new [`RawConfig`] instance, with all default settings.
     ///
     /// This does only minimal initialization. In particular, it does not load
     /// any config files from disk. Those will be loaded lazily as-needed.
     #[allow(clippy::should_implement_trait)]
-    pub fn default() -> Result<Config> {
+    pub(crate) fn default() -> Result<RawConfig> {
         let cwd = env::current_dir()
             .with_context(|| "couldn't get the current directory of the process")?;
         let homedir = homedir(&cwd).ok_or_else(|| {
@@ -149,18 +149,20 @@ impl Config {
                  This probably means that $HOME was not set."
             )
         })?;
-        Ok(Config::new(cwd, homedir))
+        Ok(RawConfig::new(cwd, homedir))
     }
 
     /// Gets the user's Substrate home directory (OS-dependent).
-    pub fn home(&self) -> &PathBuf {
+    #[allow(dead_code)]
+    pub(crate) fn home(&self) -> &PathBuf {
         &self.home_path
     }
 
     /// Returns a path to display to the user with the location of their home
     /// config file (to only be used for displaying a diagnostics suggestion,
     /// such as recommending where to add a config value).
-    pub fn diagnostic_home_config(&self) -> String {
+    #[allow(dead_code)]
+    pub(crate) fn diagnostic_home_config(&self) -> String {
         let home = self.home_path.clone();
         let path = home.join("config.toml");
         path.to_string_lossy().to_string()
@@ -177,7 +179,8 @@ impl Config {
 
     /// Sets the path where ancestor config file searching will stop. The
     /// given path is included, but its ancestors are not.
-    pub fn set_search_stop_path<P: Into<PathBuf>>(&mut self, path: P) {
+    #[allow(dead_code)]
+    pub(crate) fn set_search_stop_path<P: Into<PathBuf>>(&mut self, path: P) {
         let path = path.into();
         debug_assert!(self.cwd.starts_with(&path));
         self.search_stop_path = Some(path);
@@ -185,20 +188,21 @@ impl Config {
 
     /// Reloads on-disk configuration values, starting at the given path and
     /// walking up its ancestors.
-    pub fn reload_rooted_at<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+    #[allow(dead_code)]
+    pub(crate) fn reload_rooted_at<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let values = self.load_values_from(path.as_ref())?;
         self.values.replace(values);
         Ok(())
     }
 
     /// The current working directory.
-    pub fn cwd(&self) -> &Path {
+    pub(crate) fn cwd(&self) -> &Path {
         &self.cwd
     }
 
     /// Get a configuration value by key.
     ///
-    /// This does NOT look at environment variables. See [`Config::get_cv_with_env`] for
+    /// This does NOT look at environment variables. See [`RawConfig::get_cv_with_env`] for
     /// a variant that supports environment variables.
     fn get_cv(&self, key: &ConfigKey) -> Result<Option<ConfigValue>> {
         self.get_cv_helper(key, self.values()?)
@@ -336,21 +340,23 @@ impl Config {
         }
     }
 
-    /// Get the value of environment variable `key` through the [`Config`] snapshot.
+    /// Get the value of environment variable `key` through the [`RawConfig`] snapshot.
     ///
     /// This can be used similarly to `std::env::var`.
-    pub fn get_env(&self, key: impl AsRef<OsStr>) -> Result<String> {
+    #[allow(dead_code)]
+    pub(crate) fn get_env(&self, key: impl AsRef<OsStr>) -> Result<String> {
         self.env.get_env(key)
     }
 
-    /// Get the value of environment variable `key` through the [`Config`] snapshot.
+    /// Get the value of environment variable `key` through the [`RawConfig`] snapshot.
     ///
     /// This can be used similarly to `std::env::var_os`.
-    pub fn get_env_os(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
+    #[allow(dead_code)]
+    pub(crate) fn get_env_os(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
         self.env.get_env_os(key)
     }
 
-    /// Check if the [`Config`] contains a given [`ConfigKey`].
+    /// Check if the [`RawConfig`] contains a given [`ConfigKey`].
     ///
     /// See `ConfigMapAccess` for a description of `env_prefix_ok`.
     fn has_key(&self, key: &ConfigKey, env_prefix_ok: bool) -> Result<bool> {
@@ -384,8 +390,9 @@ impl Config {
 
     /// Get a string config value.
     ///
-    /// See [`Config::get`] for more details.
-    pub fn get_string(&self, key: &str) -> Result<OptValue<String>> {
+    /// See [`RawConfig::get`] for more details.
+    #[allow(dead_code)]
+    pub(crate) fn get_string(&self, key: &str) -> Result<OptValue<String>> {
         self.get::<Option<Value<String>>>(key)
     }
 
@@ -394,7 +401,8 @@ impl Config {
     /// This returns a relative path if the value does not contain any
     /// directory separators. See [`ConfigRelativePath::resolve_program`] for
     /// more details.
-    pub fn get_path(&self, key: &str) -> Result<OptValue<PathBuf>> {
+    #[allow(dead_code)]
+    pub(crate) fn get_path(&self, key: &str) -> Result<OptValue<PathBuf>> {
         self.get::<Option<Value<ConfigRelativePath>>>(key).map(|v| {
             v.map(|v| Value {
                 val: v.val.resolve_program(self),
@@ -403,6 +411,7 @@ impl Config {
         })
     }
 
+    #[allow(dead_code)]
     fn string_to_path(&self, value: &str, definition: &Definition) -> PathBuf {
         let is_path = value.contains('/') || (cfg!(windows) && value.contains('\\'));
         if is_path {
@@ -415,7 +424,7 @@ impl Config {
 
     /// Get a list of strings.
     ///
-    /// NOTE: this does **not** support environment variables. Use [`Config::get`] instead
+    /// NOTE: this does **not** support environment variables. Use [`RawConfig::get`] instead
     /// if you want that.
     fn _get_list(&self, key: &ConfigKey) -> Result<OptValue<Vec<(String, Definition)>>> {
         match self.get_cv(key)? {
@@ -499,7 +508,7 @@ impl Config {
     }
 
     /// Loads configuration from the filesystem.
-    pub fn load_values(&self) -> Result<HashMap<String, ConfigValue>> {
+    pub(crate) fn load_values(&self) -> Result<HashMap<String, ConfigValue>> {
         self.load_values_from(&self.cwd)
     }
 
@@ -677,7 +686,7 @@ impl Config {
     /// quoting. Avoid key components that may have dots. For example,
     /// `foo.'a.b'.bar" does not work if you try to fetch `foo.'a.b'". You can
     /// fetch `foo` if it is a map, though.
-    pub fn get<'de, T: serde::de::Deserialize<'de>>(&self, key: &str) -> Result<T> {
+    pub(crate) fn get<'de, T: serde::de::Deserialize<'de>>(&self, key: &str) -> Result<T> {
         let d = Deserializer {
             config: self,
             key: ConfigKey::from_str(key),
@@ -689,7 +698,7 @@ impl Config {
 
 /// Internal error for serde errors.
 #[derive(Debug)]
-pub struct ConfigError {
+pub(crate) struct ConfigError {
     error: anyhow::Error,
     definition: Option<Definition>,
 }
@@ -766,7 +775,7 @@ impl From<anyhow::Error> for ConfigError {
 
 #[derive(Eq, PartialEq, Clone)]
 /// A configuration value to deserialize.
-pub enum ConfigValue {
+pub(crate) enum ConfigValue {
     /// An integer configuration value.
     Integer(i64, Definition),
     /// A string configuration value.
@@ -907,7 +916,8 @@ impl ConfigValue {
     }
 
     /// Extracts an integer and its definition location from a [`ConfigValue`].
-    pub fn i64(&self, key: &str) -> Result<(i64, &Definition)> {
+    #[allow(dead_code)]
+    pub(crate) fn i64(&self, key: &str) -> Result<(i64, &Definition)> {
         match self {
             CV::Integer(i, def) => Ok((*i, def)),
             _ => self.expected("integer", key),
@@ -915,7 +925,8 @@ impl ConfigValue {
     }
 
     /// Extracts a string and its definition location from a [`ConfigValue`].
-    pub fn string(&self, key: &str) -> Result<(&str, &Definition)> {
+    #[allow(dead_code)]
+    pub(crate) fn string(&self, key: &str) -> Result<(&str, &Definition)> {
         match self {
             CV::String(s, def) => Ok((s, def)),
             _ => self.expected("string", key),
@@ -923,7 +934,8 @@ impl ConfigValue {
     }
 
     /// Extracts a table and its definition location from a [`ConfigValue`].
-    pub fn table(&self, key: &str) -> Result<(&HashMap<String, ConfigValue>, &Definition)> {
+    #[allow(dead_code)]
+    pub(crate) fn table(&self, key: &str) -> Result<(&HashMap<String, ConfigValue>, &Definition)> {
         match self {
             CV::Table(table, def) => Ok((table, def)),
             _ => self.expected("table", key),
@@ -931,7 +943,8 @@ impl ConfigValue {
     }
 
     /// Extracts a list and its definition location from a [`ConfigValue`].
-    pub fn list(&self, key: &str) -> Result<&[(String, Definition)]> {
+    #[allow(dead_code)]
+    pub(crate) fn list(&self, key: &str) -> Result<&[(String, Definition)]> {
         match self {
             CV::List(list, _) => Ok(list),
             _ => self.expected("list", key),
@@ -939,7 +952,8 @@ impl ConfigValue {
     }
 
     /// Extracts a boolean value and its definition location from a [`ConfigValue`].
-    pub fn boolean(&self, key: &str) -> Result<(bool, &Definition)> {
+    #[allow(dead_code)]
+    pub(crate) fn boolean(&self, key: &str) -> Result<(bool, &Definition)> {
         match self {
             CV::Boolean(b, def) => Ok((*b, def)),
             _ => self.expected("bool", key),
@@ -947,7 +961,7 @@ impl ConfigValue {
     }
 
     /// Returns a string description of the type of this [`ConfigValue`].
-    pub fn desc(&self) -> &'static str {
+    pub(crate) fn desc(&self) -> &'static str {
         match *self {
             CV::Table(..) => "table",
             CV::List(..) => "array",
@@ -958,7 +972,7 @@ impl ConfigValue {
     }
 
     /// Extracts a [`Definition`] describing where this [`ConfigValue`] was defined.
-    pub fn definition(&self) -> &Definition {
+    pub(crate) fn definition(&self) -> &Definition {
         match self {
             CV::Boolean(_, def)
             | CV::Integer(_, def)
@@ -980,7 +994,7 @@ impl ConfigValue {
 }
 
 /// Returns the Substrate home directory.
-pub fn homedir(cwd: &Path) -> Option<PathBuf> {
+pub(crate) fn homedir(cwd: &Path) -> Option<PathBuf> {
     crate::home::substrate_home_with_cwd(cwd).ok()
 }
 
@@ -995,11 +1009,12 @@ pub fn homedir(cwd: &Path) -> Option<PathBuf> {
 /// b = ['a', 'b', 'c']
 /// ```
 #[derive(Debug, Deserialize, Clone)]
-pub struct StringList(Vec<String>);
+pub(crate) struct StringList(Vec<String>);
 
 impl StringList {
     /// Returns the [`StringList`] object as a [`String`] slice.
-    pub fn as_slice(&self) -> &[String] {
+    #[allow(dead_code)]
+    pub(crate) fn as_slice(&self) -> &[String] {
         &self.0
     }
 }
@@ -1010,4 +1025,4 @@ impl StringList {
 ///
 /// This is currently only used by `PathAndArgs`
 #[derive(Debug, Deserialize)]
-pub struct UnmergedStringList(Vec<String>);
+pub(crate) struct UnmergedStringList(Vec<String>);
