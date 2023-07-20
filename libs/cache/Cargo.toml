@@ -10,7 +10,7 @@ tonic = "0.9"
 futures-core = "0.3"
 futures-util = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
-tokio-stream = "0.1"
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 prost = "0.11"
 prost-types = "0.11"

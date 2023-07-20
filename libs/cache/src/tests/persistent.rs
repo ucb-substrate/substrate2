@@ -13,114 +13,24 @@ use tokio::runtime::{Handle, Runtime};
 
 use crate::{
     error::{Error, Result},
-    persistent::server::Server,
+    persistent::{
+        client::{
+            create_runtime, create_server_and_clients, setup_test, ServerKind,
+            TEST_SERVER_HEARTBEAT_TIMEOUT,
+        },
+        server::Server,
+    },
     tests::Key,
     CacheHandle,
 };
 
 use crate::persistent::client::{Client, ClientKind};
 
-pub(crate) const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub(crate) const BASIC_TEST_NAMESPACE: &str = "test";
 pub(crate) const BASIC_TEST_PARAM: (u64, u64) = (3, 5);
 pub(crate) const BASIC_TEST_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_sum;
 pub(crate) const BASIC_TEST_ALT_NAMESPACE: &str = "test_alt";
 pub(crate) const BASIC_TEST_ALT_GENERATE_FN: fn(&(u64, u64)) -> u64 = tuple_multiply;
-pub(crate) const TEST_SERVER_HEARTBEAT_INTERVAL: Duration = Duration::from_millis(200);
-pub(crate) const TEST_SERVER_HEARTBEAT_TIMEOUT: Duration = Duration::from_millis(500);
-
-pub(crate) fn pick_n_ports(n: usize) -> Vec<u16> {
-    let mut ports = Vec::new();
-    let mut temporary_listeners = Vec::new();
-
-    for _ in 0..n {
-        let port = portpicker::pick_unused_port().expect("no ports free");
-        temporary_listeners.push(TcpListener::bind(format!("0.0.0.0:{port}")));
-        ports.push(port);
-    }
-
-    ports
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) enum ServerKind {
-    Local,
-    Remote,
-    Both,
-}
-
-impl From<ClientKind> for ServerKind {
-    fn from(value: ClientKind) -> Self {
-        match value {
-            ClientKind::Local => ServerKind::Local,
-            ClientKind::Remote => ServerKind::Remote,
-        }
-    }
-}
-
-pub(crate) fn server_url(port: u16) -> SocketAddr {
-    format!("0.0.0.0:{port}").parse().unwrap()
-}
-
-pub(crate) fn client_url(port: u16) -> String {
-    format!("http://0.0.0.0:{port}")
-}
-
-pub(crate) fn create_server_and_clients(
-    root: PathBuf,
-    kind: ServerKind,
-    handle: &Handle,
-) -> (CacheHandle<Result<()>>, Client, Client) {
-    let ports = pick_n_ports(2);
-    (
-        {
-            let mut builder = Server::builder();
-
-            builder
-                .heartbeat_interval(TEST_SERVER_HEARTBEAT_INTERVAL)
-                .heartbeat_timeout(TEST_SERVER_HEARTBEAT_TIMEOUT)
-                .root(root);
-
-            let server = match kind {
-                ServerKind::Local => builder.local(server_url(ports[0])),
-                ServerKind::Remote => builder.remote(server_url(ports[1])),
-                ServerKind::Both => builder
-                    .local(server_url(ports[0]))
-                    .remote(server_url(ports[1])),
-            }
-            .build();
-
-            let join_handle = handle.spawn(async move { server.start().await });
-            let handle_clone = handle.clone();
-            let join_handle = CacheHandle::new(move || {
-                let res = handle_clone.block_on(join_handle).unwrap_or_else(|res| {
-                    if res.is_cancelled() {
-                        Ok(())
-                    } else {
-                        Err(Error::Panic)
-                    }
-                });
-                if let Err(e) = res.as_ref() {
-                    tracing::error!("server failed to start: {:?}", e);
-                }
-                res
-            });
-            std::thread::sleep(Duration::from_millis(2000)); // Wait until server starts.
-            join_handle
-        },
-        Client::with_default_config(ClientKind::Local, client_url(ports[0])),
-        Client::with_default_config(ClientKind::Remote, client_url(ports[1])),
-    )
-}
-
-pub(crate) fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
-    let path = path.as_ref();
-    if path.exists() {
-        fs::remove_dir_all(path)?;
-    }
-    fs::create_dir_all(path)?;
-    Ok(())
-}
 
 pub(crate) fn cached_generate<
     K: Serialize + Send + Sync + Any,
@@ -151,20 +61,6 @@ pub(crate) fn tuple_sum(tuple: &(u64, u64)) -> u64 {
 
 pub(crate) fn tuple_multiply(tuple: &(u64, u64)) -> u64 {
     tuple.0 * tuple.1
-}
-
-pub(crate) fn create_runtime() -> Runtime {
-    tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_all()
-        .build()
-        .unwrap()
-}
-
-pub(crate) fn setup_test(test_name: &str) -> Result<(PathBuf, Arc<Mutex<u64>>, Runtime)> {
-    let path = PathBuf::from(BUILD_DIR).join(test_name);
-    reset_directory(&path)?;
-    Ok((path, Arc::new(Mutex::new(0)), create_runtime()))
 }
 
 /// Generates values corresponding to the same key in two namespaces, potentially multiple times.

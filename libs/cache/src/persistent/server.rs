@@ -12,6 +12,7 @@ use path_absolutize::Absolutize;
 use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tokio_rusqlite::Connection;
@@ -73,8 +74,8 @@ const DELETE_STATUS_STMT: &str = r#"
 #[derive(Debug)]
 pub struct Server {
     root: Arc<PathBuf>,
-    local_addr: Option<SocketAddr>,
-    remote_addr: Option<SocketAddr>,
+    local: Option<TcpListener>,
+    remote: Option<TcpListener>,
     heartbeat_interval: Duration,
     heartbeat_timeout: Duration,
 }
@@ -83,8 +84,8 @@ pub struct Server {
 #[derive(Default, Debug)]
 pub struct ServerBuilder {
     root: Option<Arc<PathBuf>>,
-    local_addr: Option<SocketAddr>,
-    remote_addr: Option<SocketAddr>,
+    local: Option<TcpListener>,
+    remote: Option<TcpListener>,
     heartbeat_interval: Option<Duration>,
     heartbeat_timeout: Option<Duration>,
 }
@@ -104,27 +105,43 @@ impl ServerBuilder {
     }
 
     /// Sets the root directory of the cache server.
-    pub fn root(&mut self, path: PathBuf) -> &mut Self {
+    pub fn root(mut self, path: PathBuf) -> Self {
         self.root = Some(Arc::new(path));
         self
     }
 
     /// Configures the local cache gRPC server.
-    pub fn local(&mut self, addr: SocketAddr) -> &mut Self {
-        self.local_addr = Some(addr);
-        self
+    ///
+    /// Returns an error if the provided address cannot be bound.
+    pub async fn local(mut self, addr: SocketAddr) -> std::io::Result<Self> {
+        self.local = Some(TcpListener::bind(addr).await?);
+        Ok(self)
     }
 
     /// Configures the remote cache gRPC server.
-    pub fn remote(&mut self, addr: SocketAddr) -> &mut Self {
-        self.remote_addr = Some(addr);
+    ///
+    /// Returns an error if the provided address cannot be bound.
+    pub async fn remote(mut self, addr: SocketAddr) -> std::io::Result<Self> {
+        self.remote = Some(TcpListener::bind(addr).await?);
+        Ok(self)
+    }
+
+    /// Configures the local cache gRPC server to use the provided [`TcpListener`].
+    pub fn local_with_incoming(mut self, incoming: TcpListener) -> Self {
+        self.local = Some(incoming);
+        self
+    }
+
+    /// Configures the remote cache gRPC server to use the provided [`TcpListener`].
+    pub fn remote_with_incoming(mut self, incoming: TcpListener) -> Self {
+        self.remote = Some(incoming);
         self
     }
 
     /// Sets the expected interval between hearbeats.
     ///
     /// Defaults to [`HEARTBEAT_INTERVAL_SECS_DEFAULT`].
-    pub fn heartbeat_interval(&mut self, duration: Duration) -> &mut Self {
+    pub fn heartbeat_interval(mut self, duration: Duration) -> Self {
         self.heartbeat_interval = Some(duration);
         self
     }
@@ -132,17 +149,17 @@ impl ServerBuilder {
     /// Sets the timeout before an assigned task is marked for reassignment.
     ///
     /// Defaults to [`HEARTBEAT_TIMEOUT_SECS_DEFAULT`].
-    pub fn heartbeat_timeout(&mut self, duration: Duration) -> &mut Self {
+    pub fn heartbeat_timeout(mut self, duration: Duration) -> Self {
         self.heartbeat_timeout = Some(duration);
         self
     }
 
     /// Builds a [`Server`] from the configured options.
-    pub fn build(&mut self) -> Server {
+    pub fn build(self) -> Server {
         let server = Server {
             root: self.root.clone().unwrap(),
-            local_addr: self.local_addr,
-            remote_addr: self.remote_addr,
+            local: self.local,
+            remote: self.remote,
             heartbeat_interval: self
                 .heartbeat_interval
                 .unwrap_or(Duration::from_secs(HEARTBEAT_INTERVAL_SECS_DEFAULT)),
@@ -173,9 +190,9 @@ impl Server {
     }
 
     /// Starts the gRPC server, listening on the configured address.
-    pub async fn start(&self) -> Result<()> {
-        if let (None, None) = (self.local_addr, self.remote_addr) {
-            tracing::warn!("no local or remote address specified so no server is being run");
+    pub async fn start(self) -> Result<()> {
+        if let (None, None) = (&self.local, &self.remote) {
+            tracing::warn!("no local or remote listener specified so no server is being run");
             return Ok(());
         }
 
@@ -190,8 +207,16 @@ impl Server {
         config_manifest
             .write_all(
                 &toml::to_string(&ConfigManifest {
-                    local_addr: self.local_addr,
-                    remote_addr: self.remote_addr,
+                    local_addr: self
+                        .local
+                        .as_ref()
+                        .map(|value| value.local_addr())
+                        .map_or(Ok(None), |v| v.map(Some))?,
+                    remote_addr: self
+                        .remote
+                        .as_ref()
+                        .map(|value| value.local_addr())
+                        .map_or(Ok(None), |v| v.map(Some))?,
                     heartbeat_interval: self.heartbeat_interval,
                     heartbeat_timeout: self.heartbeat_timeout,
                 })
@@ -210,27 +235,41 @@ impl Server {
             inner,
         );
 
-        let mut handle = None;
-        if let Some(addr) = self.local_addr {
-            tracing::debug!("local server listening on address {}", addr);
+        let Server { local, remote, .. } = self;
+
+        let local_handle = if let Some(local) = local {
+            tracing::debug!("local server listening on address {}", local.local_addr()?);
             let local_svc = LocalCacheServer::new(imp.clone());
-            handle = Some(tokio::spawn(
+            Some(tokio::spawn(
                 tonic::transport::Server::builder()
                     .add_service(local_svc)
-                    .serve(addr),
-            ));
-        }
-        if let Some(addr) = self.remote_addr {
-            tracing::debug!("remote server listening on address {}", addr);
+                    .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(local)),
+            ))
+        } else {
+            None
+        };
+        let remote_handle = if let Some(remote) = remote {
+            tracing::debug!(
+                "remote server listening on address {}",
+                remote.local_addr()?
+            );
             let remote_svc = RemoteCacheServer::new(imp);
-            handle = Some(tokio::spawn(
+            Some(tokio::spawn(
                 tonic::transport::Server::builder()
                     .add_service(remote_svc)
-                    .serve(addr),
-            ));
+                    .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(remote)),
+            ))
+        } else {
+            None
+        };
+
+        if let Some(local_handle) = local_handle {
+            local_handle.await??;
         }
 
-        handle.unwrap().await??;
+        if let Some(remote_handle) = remote_handle {
+            remote_handle.await??;
+        }
 
         // Hold file lock until server terminates.
         drop(config_manifest);

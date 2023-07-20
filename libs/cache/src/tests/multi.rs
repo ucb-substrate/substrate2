@@ -5,9 +5,9 @@ use test_log::test;
 use crate::{
     error::Result,
     multi::MultiCache,
+    persistent::client::{create_server_and_clients, setup_test, ServerKind},
     tests::persistent::{
-        cached_generate, create_server_and_clients, setup_test, ServerKind, BASIC_TEST_GENERATE_FN,
-        BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM,
+        cached_generate, BASIC_TEST_GENERATE_FN, BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM,
     },
 };
 

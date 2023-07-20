@@ -33,14 +33,14 @@ async fn main() -> Result<()> {
 
     let mut builder = Server::builder();
 
-    builder.root(args.root);
+    builder = builder.root(args.root);
 
     if let Some(remote) = args.remote {
-        builder.remote(remote);
+        builder = builder.remote(remote).await?;
     }
 
     if let Some(local) = args.local {
-        builder.local(local);
+        builder = builder.local(local).await?;
     }
 
     let server = builder.build();
