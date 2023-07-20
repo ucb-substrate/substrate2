@@ -27,6 +27,8 @@ path-absolutize = "3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 backoff = "0.4"
+regex = "1.9"
+lazy_static = "1.4"
 
 [build-dependencies]
 tonic-build = "0.9"

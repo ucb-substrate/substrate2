@@ -11,7 +11,7 @@ use std::{
 use crate::{
     error::ArcResult, mem::NamespaceCache, persistent::client::Client, run_generator, CacheHandle,
     Cacheable, CacheableWithState, GenerateFn, GenerateResultFn, GenerateResultWithStateFn,
-    GenerateWithStateFn,
+    GenerateWithStateFn, Namespace,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -47,7 +47,7 @@ struct GenerateHandle<V, R> {
 /// The receiver can then be used to recover value that the [`MultiCache`] gets, potentially from
 /// other caches.
 trait MultiGenerateFn<C, K, V, R>:
-    Fn(&mut C, String, Arc<K>, Sender<Option<CacheHandle<V>>>, Receiver<R>) -> CacheHandle<V>
+    Fn(&mut C, Namespace, Arc<K>, Sender<Option<CacheHandle<V>>>, Receiver<R>) -> CacheHandle<V>
 {
 }
 impl<
@@ -55,7 +55,13 @@ impl<
         K,
         V,
         R,
-        T: Fn(&mut C, String, Arc<K>, Sender<Option<CacheHandle<V>>>, Receiver<R>) -> CacheHandle<V>,
+        T: Fn(
+            &mut C,
+            Namespace,
+            Arc<K>,
+            Sender<Option<CacheHandle<V>>>,
+            Receiver<R>,
+        ) -> CacheHandle<V>,
     > MultiGenerateFn<C, K, V, R> for T
 {
 }
@@ -117,10 +123,11 @@ impl MultiCache {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         self.generate_inner(
             namespace,
             key,
@@ -156,11 +163,12 @@ impl MultiCache {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
         generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         self.generate(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -180,10 +188,11 @@ impl MultiCache {
         E: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_inner(
             namespace,
             key,
@@ -225,11 +234,12 @@ impl MultiCache {
         E: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
         generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
     ) -> CacheHandle<Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -243,9 +253,10 @@ impl MultiCache {
     /// See [`Client::get`] and [`NamespaceCache::get`] for related examples.
     pub fn get<K: Cacheable>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, |key| key.generate())
     }
 
@@ -259,9 +270,10 @@ impl MultiCache {
         K: Cacheable<Error = E>,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate(namespace, key, |key| key.generate())
     }
 
@@ -275,10 +287,11 @@ impl MultiCache {
     /// See [`Client::get_with_state`] and [`NamespaceCache::get_with_state`] for related examples.
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
@@ -295,10 +308,11 @@ impl MultiCache {
         K: CacheableWithState<S, Error = E>,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
@@ -308,7 +322,7 @@ impl MultiCache {
     /// the background.
     fn start_generate<C, K, V: Send + Sync + Any, R>(
         cache: &mut C,
-        namespace: String,
+        namespace: Namespace,
         key: Arc<K>,
         generate_fn: impl MultiGenerateFn<C, K, V, R>,
     ) -> GenerateHandle<V, R> {
@@ -333,7 +347,7 @@ impl MultiCache {
     #[allow(clippy::too_many_arguments)]
     fn generate_inner<K: Send + Sync + Any, V: Send + Sync + Any>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: Namespace,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
         namespace_generate: impl MultiGenerateFn<NamespaceCache, K, V, V>,
@@ -341,7 +355,6 @@ impl MultiCache {
         recover_value: impl FnOnce(ArcResult<&V>) -> Option<V> + Send + Any,
         send_value_to_providers: impl Fn(&V, &mut [GenerateHandle<V, Option<V>>]) + Send + Any,
     ) -> CacheHandle<V> {
-        let namespace = namespace.into();
         let key = Arc::new(key);
 
         let mut handle = CacheHandle::empty();

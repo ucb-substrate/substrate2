@@ -13,7 +13,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     error::ArcResult, run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn,
-    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn,
+    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
 
 #[derive(Debug, Clone)]
@@ -307,7 +307,7 @@ impl<V, T: FnOnce(&[u8]) -> ArcResult<V> + Send + Any> DeserializeValueFn<V> for
 #[derive(Default, Debug, Clone)]
 pub struct NamespaceCache {
     /// A map from namespace to another map from key to value handle.
-    entries: HashMap<String, NamespaceEntryMap>,
+    entries: HashMap<Namespace, NamespaceEntryMap>,
 }
 
 impl NamespaceCache {
@@ -360,10 +360,11 @@ impl NamespaceCache {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         self.generate_inner(
             namespace,
             key,
@@ -418,12 +419,13 @@ impl NamespaceCache {
         S: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
         generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
-        self.generate(namespace.into(), key, |key| generate_fn(key, state))
+        let namespace = namespace.into();
+        self.generate(namespace, key, |key| generate_fn(key, state))
     }
 
     /// Ensures that a result corresponding to `key` is generated, using `generate_fn`
@@ -463,10 +465,11 @@ impl NamespaceCache {
         E: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_inner(
             namespace,
             key,
@@ -538,11 +541,12 @@ impl NamespaceCache {
         S: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
         generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -594,9 +598,10 @@ impl NamespaceCache {
     /// ```
     pub fn get<K: Cacheable>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, |key| key.generate())
     }
 
@@ -651,9 +656,10 @@ impl NamespaceCache {
         K: Cacheable<Error = E>,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate(namespace, key, |key| key.generate())
     }
 
@@ -730,7 +736,7 @@ impl NamespaceCache {
     /// ```
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
@@ -750,10 +756,11 @@ impl NamespaceCache {
         K: CacheableWithState<S, Error = E>,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
@@ -761,7 +768,7 @@ impl NamespaceCache {
 
     fn generate_inner<K: Serialize + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: Namespace,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
         serialize_value: impl SerializeValueFn<V>,
@@ -772,7 +779,7 @@ impl NamespaceCache {
 
         let (in_progress, entry) = match self
             .entries
-            .entry(namespace.into())
+            .entry(namespace)
             .or_insert(HashMap::new())
             .entry(hash)
         {

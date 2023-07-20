@@ -25,7 +25,7 @@ use crate::{
         remote::{self, remote_cache_client},
     },
     run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn, GenerateResultFn,
-    GenerateResultWithStateFn, GenerateWithStateFn,
+    GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
 
 /// The timeout for connecting to the cache server.
@@ -84,7 +84,7 @@ pub struct ClientBuilder {
 
 struct GenerateState<K, V> {
     handle: CacheHandle<V>,
-    namespace: String,
+    namespace: Namespace,
     hash: Vec<u8>,
     key: K,
 }
@@ -289,10 +289,11 @@ impl Client {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         let state = Client::setup_generate(namespace, key);
         let handle = state.handle.clone();
 
@@ -364,11 +365,12 @@ impl Client {
         S: Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
         generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         self.generate(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -430,10 +432,11 @@ impl Client {
         E: Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         let state = Client::setup_generate(namespace, key);
         let handle = state.handle.clone();
 
@@ -521,11 +524,12 @@ impl Client {
         S: Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
         generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -590,9 +594,10 @@ impl Client {
     /// ```
     pub fn get<K: Cacheable>(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, |key| key.generate())
     }
 
@@ -661,9 +666,10 @@ impl Client {
         K: Cacheable<Error = E>,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate(namespace, key, |key| key.generate())
     }
 
@@ -735,10 +741,11 @@ impl Client {
     /// ```
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
@@ -755,23 +762,21 @@ impl Client {
         K: CacheableWithState<S, Error = E>,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
     }
 
     /// Sets up the necessary objects to be passed in to [`Client::spawn_handler`].
-    fn setup_generate<K: Serialize, V>(
-        namespace: impl Into<String>,
-        key: K,
-    ) -> GenerateState<K, V> {
+    fn setup_generate<K: Serialize, V>(namespace: Namespace, key: K) -> GenerateState<K, V> {
         GenerateState {
             handle: CacheHandle::empty(),
-            namespace: namespace.into(),
+            namespace,
             hash: crate::hash(&flexbuffers::to_vec(&key).unwrap()),
             key,
         }
@@ -1015,7 +1020,7 @@ impl Client {
         } = state;
 
         let status = self.run_backoff_loop(|| {
-            let status = self.get_rpc_local(namespace.clone(), hash.clone(), true)?;
+            let status = self.get_rpc_local(namespace.clone().into_inner(), hash.clone(), true)?;
             let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
 
             Ok((status, retry))
@@ -1181,7 +1186,7 @@ impl Client {
         } = state;
 
         let status = self.run_backoff_loop(|| {
-            let status = self.get_rpc_remote(namespace.clone(), hash.clone(), true)?;
+            let status = self.get_rpc_remote(namespace.clone().into_inner(), hash.clone(), true)?;
             let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
 
             Ok((status, retry))

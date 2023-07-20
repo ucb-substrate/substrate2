@@ -1,11 +1,14 @@
 //! Caching utilities.
 #![warn(missing_docs)]
 
+use std::ops::Deref;
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
 use error::{ArcResult, Error, TryInnerError};
+use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
-use serde::{de::DeserializeOwned, Serialize};
+use regex::Regex;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
@@ -16,6 +19,12 @@ pub mod persistent;
 pub mod rpc;
 #[cfg(test)]
 pub(crate) mod tests;
+
+lazy_static! {
+    /// A regex for matching valid namespaces.
+    pub static ref NAMESPACE_REGEX: Regex =
+        Regex::new(r"^([A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*$").unwrap();
+}
 
 /// A function that can be used to generate a value in a background thread.
 pub trait RawGenerateFn<V>: FnOnce() -> V + Send + Any {}
@@ -41,6 +50,60 @@ pub trait GenerateResultWithStateFn<K, S, V, E>:
 impl<K, S, V, E, T: FnOnce(&K, S) -> Result<V, E> + Send + Any>
     GenerateResultWithStateFn<K, S, V, E> for T
 {
+}
+
+/// A namespace used for addressing a set of cached items.
+///
+/// Must match the [`NAMESPACE_REGEX`] regular expression.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Namespace(String);
+
+impl Namespace {
+    /// Creates a new [`Namespace`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided string does not match [`NAMESPACE_REGEX`].
+    pub fn new(namespace: impl Into<String>) -> Self {
+        let namespace: String = namespace.into();
+        if !Namespace::validate(&namespace) {
+            panic!(
+                "invalid namespace, does not match regex {:?}",
+                NAMESPACE_REGEX.as_str(),
+            );
+        }
+        Self(namespace)
+    }
+
+    /// Returns `true` if the provided string is a valid regex.
+    pub fn validate(namespace: &str) -> bool {
+        NAMESPACE_REGEX.is_match(namespace)
+    }
+
+    /// Converts the namespace into its string value.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl<T: Into<String>> From<T> for Namespace {
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl Deref for Namespace {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Namespace {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
 }
 
 /// A cacheable object.
