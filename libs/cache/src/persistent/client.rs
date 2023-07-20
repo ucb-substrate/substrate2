@@ -1222,8 +1222,18 @@ pub fn create_server_and_clients(
                 res
             })
         },
-        Client::with_default_config(ClientKind::Local, client_url(local_port)),
-        Client::with_default_config(ClientKind::Remote, client_url(remote_port)),
+        Client::builder()
+            .kind(ClientKind::Local)
+            .url(client_url(local_port))
+            .connection_timeout(Duration::from_secs(3))
+            .request_timeout(Duration::from_secs(3))
+            .build(),
+        Client::builder()
+            .kind(ClientKind::Remote)
+            .url(client_url(remote_port))
+            .connection_timeout(Duration::from_secs(3))
+            .request_timeout(Duration::from_secs(3))
+            .build(),
     )
 }
 
