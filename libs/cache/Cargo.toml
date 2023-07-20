@@ -36,7 +36,6 @@ tonic-build = "0.9"
 [dev-dependencies]
 crossbeam-channel = "0.5"
 anyhow = "1"
-portpicker = "0.1"
 test-log = { version = "0.2", default_features = false, features = ["trace"] }
 
 [[bin]]

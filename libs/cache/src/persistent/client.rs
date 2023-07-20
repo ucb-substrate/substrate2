@@ -1208,7 +1208,7 @@ pub fn create_server_and_clients(
 
             let join_handle = handle.spawn(async move { server.start().await });
             let handle_clone = handle.clone();
-            let join_handle = CacheHandle::new(move || {
+            CacheHandle::new(move || {
                 let res = handle_clone.block_on(join_handle).unwrap_or_else(|res| {
                     if res.is_cancelled() {
                         Ok(())
@@ -1220,9 +1220,7 @@ pub fn create_server_and_clients(
                     tracing::error!("server failed to start: {:?}", e);
                 }
                 res
-            });
-            std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-            join_handle
+            })
         },
         Client::with_default_config(ClientKind::Local, client_url(local_port)),
         Client::with_default_config(ClientKind::Remote, client_url(remote_port)),

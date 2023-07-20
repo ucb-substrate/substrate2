@@ -1,24 +1,19 @@
 use std::{
     any::Any,
-    fs,
-    net::{SocketAddr, TcpListener},
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
 use test_log::test;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Handle;
 
 use crate::{
     error::{Error, Result},
-    persistent::{
-        client::{
-            create_runtime, create_server_and_clients, setup_test, ServerKind,
-            TEST_SERVER_HEARTBEAT_TIMEOUT,
-        },
-        server::Server,
+    persistent::client::{
+        create_runtime, create_server_and_clients, setup_test, ServerKind,
+        TEST_SERVER_HEARTBEAT_TIMEOUT,
     },
     tests::Key,
     CacheHandle,
