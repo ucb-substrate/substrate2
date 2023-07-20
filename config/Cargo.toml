@@ -17,3 +17,5 @@ features = [
   "Win32_Foundation",
   "Win32_UI_Shell",
 ]
+
+cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }

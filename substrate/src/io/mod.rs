@@ -109,6 +109,17 @@ pub trait LayoutType: FlatLen + HasNameTree + Clone {
     fn builder(&self) -> Self::Builder;
 }
 
+/// A schematic hardware data struct.
+///
+/// Only intended for use by Substrate procedural macros.
+pub trait StructData {
+    /// Returns a list of the names of the fields in this struct.
+    fn fields(&self) -> Vec<ArcStr>;
+
+    /// Returns the list of nodes contained by the field of the given name.
+    fn field_nodes(&self, name: &str) -> Option<Vec<Node>>;
+}
+
 /// Schematic hardware data.
 ///
 /// An instance of a [`SchematicType`].

@@ -1,6 +1,15 @@
+use std::process::Command;
+use std::sync::{Arc, Mutex};
+
 use approx::relative_eq;
+use cache::multi::MultiCache;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
+use sky130pdk::Sky130CommercialPdk;
+use spectre::Spectre;
+use substrate::cache::Cache;
+use substrate::context::Context;
+use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::pdk::corner::Pvt;
 use test_log::test;
 
@@ -41,7 +50,7 @@ fn spectre_vdivider_array_tran() {
 }
 
 #[test]
-pub fn inv_tb() {
+fn inv_tb() {
     let test_name = "inv_tb";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
@@ -56,4 +65,39 @@ pub fn inv_tb() {
         ),
         sim_dir,
     );
+}
+
+#[test]
+fn spectre_caches_simulations() {
+    #[derive(Clone, Debug, Default)]
+    struct CountExecutor {
+        executor: LocalExecutor,
+        count: Arc<Mutex<u64>>,
+    }
+
+    impl Executor for CountExecutor {
+        fn execute(&self, command: Command, opts: ExecOpts) -> Result<(), substrate::error::Error> {
+            *self.count.lock().unwrap() += 1;
+            self.executor.execute(command, opts)
+        }
+    }
+
+    let test_name = "spectre_caches_simulations";
+    let sim_dir = get_path(test_name, "sim/");
+    let executor = CountExecutor::default();
+    let count = executor.count.clone();
+
+    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
+        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+    let ctx = Context::builder()
+        .pdk(Sky130CommercialPdk::new(pdk_root))
+        .with_simulator(Spectre::default())
+        .cache(Cache::new(MultiCache::builder().build()))
+        .executor(executor)
+        .build();
+
+    ctx.simulate(VdividerTb, &sim_dir);
+    ctx.simulate(VdividerTb, &sim_dir);
+
+    assert_eq!(*count.lock().unwrap(), 1);
 }

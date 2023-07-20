@@ -1,11 +1,14 @@
 //! Caching utilities.
 #![warn(missing_docs)]
 
+use std::ops::Deref;
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
 use error::{ArcResult, Error, TryInnerError};
+use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
-use serde::{de::DeserializeOwned, Serialize};
+use regex::Regex;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
@@ -16,6 +19,92 @@ pub mod persistent;
 pub mod rpc;
 #[cfg(test)]
 pub(crate) mod tests;
+
+lazy_static! {
+    /// A regex for matching valid namespaces.
+    pub static ref NAMESPACE_REGEX: Regex =
+        Regex::new(r"^([A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*$").unwrap();
+}
+
+/// A function that can be used to generate a value in a background thread.
+pub trait RawGenerateFn<V>: FnOnce() -> V + Send + Any {}
+impl<V, T: FnOnce() -> V + Send + Any> RawGenerateFn<V> for T {}
+
+/// A function that can be used to generate a value based on a key in a background thread.
+pub trait GenerateFn<K, V>: FnOnce(&K) -> V + Send + Any {}
+impl<K, V, T: FnOnce(&K) -> V + Send + Any> GenerateFn<K, V> for T {}
+
+/// A stateful function that can be used to generate a value based on a key in a background thread.
+pub trait GenerateWithStateFn<K, S, V>: FnOnce(&K, S) -> V + Send + Any {}
+impl<K, S, V, T: FnOnce(&K, S) -> V + Send + Any> GenerateWithStateFn<K, S, V> for T {}
+
+/// A function that can be used to generate a result based on a key in a background thread.
+pub trait GenerateResultFn<K, V, E>: FnOnce(&K) -> Result<V, E> + Send + Any {}
+impl<K, V, E, T: FnOnce(&K) -> Result<V, E> + Send + Any> GenerateResultFn<K, V, E> for T {}
+
+/// A stateful function that can be used to generate a result based on a key in a background thread.
+pub trait GenerateResultWithStateFn<K, S, V, E>:
+    FnOnce(&K, S) -> Result<V, E> + Send + Any
+{
+}
+impl<K, S, V, E, T: FnOnce(&K, S) -> Result<V, E> + Send + Any>
+    GenerateResultWithStateFn<K, S, V, E> for T
+{
+}
+
+/// A namespace used for addressing a set of cached items.
+///
+/// Must match the [`NAMESPACE_REGEX`](static@NAMESPACE_REGEX) regular expression.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Namespace(String);
+
+impl Namespace {
+    /// Creates a new [`Namespace`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided string does not match [`NAMESPACE_REGEX`](static@NAMESPACE_REGEX).
+    pub fn new(namespace: impl Into<String>) -> Self {
+        let namespace: String = namespace.into();
+        if !Namespace::validate(&namespace) {
+            panic!(
+                "invalid namespace, does not match regex {:?}",
+                NAMESPACE_REGEX.as_str(),
+            );
+        }
+        Self(namespace)
+    }
+
+    /// Returns `true` if the provided string is a valid namespace.
+    pub fn validate(namespace: &str) -> bool {
+        NAMESPACE_REGEX.is_match(namespace)
+    }
+
+    /// Converts the namespace into its string value.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl<T: Into<String>> From<T> for Namespace {
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl Deref for Namespace {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Namespace {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 
 /// A cacheable object.
 ///
@@ -136,7 +225,7 @@ impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for A
 
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
-pub struct CacheHandle<V>(pub(crate) Arc<OnceCell<ArcResult<V>>>);
+pub struct CacheHandle<V>(Arc<OnceCell<ArcResult<V>>>);
 
 impl<V> Clone for CacheHandle<V> {
     fn clone(&self) -> Self {
@@ -144,31 +233,25 @@ impl<V> Clone for CacheHandle<V> {
     }
 }
 
+impl<V> CacheHandle<V> {
+    /// Creates an empty cache handle.
+    pub(crate) fn empty() -> Self {
+        Self(Arc::new(OnceCell::new()))
+    }
+}
+
 impl<V: Send + Sync + Any> CacheHandle<V> {
     /// Creates a new cache handle, spawning a thread to generate its value using the provided
     /// function.
-    pub fn new(generate_fn: impl FnOnce() -> V + Send + Sync + Any) -> Self {
+    pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
         let handle = Self(Arc::new(OnceCell::new()));
 
-        let handle2 = handle.clone();
+        let handle_clone = handle.clone();
         thread::spawn(move || {
-            let handle3 = handle2.clone();
-            let join_handle = thread::spawn(move || {
-                let value = generate_fn();
-                if handle3.0.set(Ok(value)).is_err() {
-                    panic!("failed to set cell value");
-                }
-            });
-            if join_handle.join().is_err() && handle2.0.set(Err(Arc::new(Error::Panic))).is_err() {
-                panic!("failed to set cell value on panic");
-            }
+            handle_clone.set(run_generator(generate_fn));
         });
 
         handle
-    }
-
-    fn empty() -> Self {
-        Self(Arc::new(OnceCell::new()))
     }
 }
 
@@ -194,6 +277,18 @@ impl<V> CacheHandle<V> {
     /// Panics if the generator failed to run or an internal error was thrown by the cache.
     pub fn get(&self) -> &V {
         self.try_get().unwrap()
+    }
+
+    /// Sets the value of the cache handle.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cache handle has already been set.
+    pub(crate) fn set(&self, value: ArcResult<V>) {
+        if self.0.set(value).is_err() {
+            tracing::error!("failed to set cache handle value");
+            panic!("failed to set cache handle value");
+        }
     }
 }
 
@@ -248,4 +343,12 @@ pub(crate) fn hash(val: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(val);
     hasher.finalize()[..].into()
+}
+
+/// Runs the provided generator in a new thread, returning the result.
+pub(crate) fn run_generator<V: Any + Send + Sync>(
+    generate_fn: impl FnOnce() -> V + Send + Any,
+) -> ArcResult<V> {
+    let join_handle = thread::spawn(generate_fn);
+    join_handle.join().map_err(|_| Arc::new(Error::Panic))
 }

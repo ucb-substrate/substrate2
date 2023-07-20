@@ -10,7 +10,7 @@ tonic = "0.9"
 futures-core = "0.3"
 futures-util = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
-tokio-stream = "0.1"
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 prost = "0.11"
 prost-types = "0.11"
@@ -27,6 +27,8 @@ path-absolutize = "3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 backoff = "0.4"
+regex = "1.9"
+lazy_static = "1.4"
 
 [build-dependencies]
 tonic-build = "0.9"
@@ -34,7 +36,6 @@ tonic-build = "0.9"
 [dev-dependencies]
 crossbeam-channel = "0.5"
 anyhow = "1"
-portpicker = "0.1"
 test-log = { version = "0.2", default_features = false, features = ["trace"] }
 
 [[bin]]

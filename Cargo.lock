@@ -413,11 +413,12 @@ dependencies = [
  "futures-core",
  "futures-util",
  "hex",
+ "lazy_static",
  "once_cell",
  "path-absolutize",
- "portpicker",
  "prost",
  "prost-types",
+ "regex",
  "rusqlite",
  "serde",
  "sha2",
@@ -537,9 +538,11 @@ dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.1",
  "proc-macro-crate 1.3.1",
+ "proc-macro-error",
  "proc-macro2",
  "quote",
  "serde",
+ "sky130pdk",
  "substrate",
  "syn 2.0.23",
 ]
@@ -1697,15 +1700,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
-name = "portpicker"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
-dependencies = [
- "rand",
-]
-
-[[package]]
 name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2317,6 +2311,7 @@ dependencies = [
  "opacity",
  "scir",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -2352,6 +2347,8 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
+ "sky130pdk",
+ "spice",
  "thiserror",
  "toml 0.7.6",
  "tracing",

@@ -1,53 +1,47 @@
 use crate::shared::buffer::BufferIo;
-use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130OpenPdk;
-use spice::parser::conv::ScirConverter;
-use std::collections::HashMap;
-use std::sync::Arc;
-use substrate::io::{Flatten, Node};
-use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};
+use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use substrate::Block;
+use substrate::HasSchematicImpl;
+use test_log::test;
 
-#[derive(Block, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-#[substrate(
-    io = "BufferIo",
-    // schematic(path = "/path/to/schematic", fmt = "spectre")
-)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[substrate(io = "BufferIo")]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/buffer.spice\")",
+    name = "buffer",
+    fmt = "spice",
+    pdk = "Sky130OpenPdk"
+))]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/buffer_commercial.spice\")",
+    name = "buffer",
+    fmt = "spice",
+    pdk = "Sky130CommercialPdk"
+))]
 pub struct BufferHardMacro;
 
-impl HasSchematic for BufferHardMacro {
-    type Data = ();
-}
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[substrate(io = "BufferIo")]
+#[substrate(schematic(
+    source = "r#\"
+        * CMOS buffer
 
-impl HasSchematicImpl<Sky130OpenPdk> for BufferHardMacro {
-    fn schematic(
-        &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::CellBuilder<Sky130OpenPdk, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        let path = crate::paths::test_data("spice/buffer.spice");
-        let parsed = spice::parser::Parser::parse_file(path).unwrap();
-        let mut conv = ScirConverter::new("buffer", &parsed.ast);
-        conv.blackbox("sky130_fd_pr__nfet_01v8");
-        conv.blackbox("sky130_fd_pr__pfet_01v8");
-        let lib = Arc::new(conv.convert().unwrap());
-        let cell_id = lib.cell_id_named("buffer");
-        let connections: HashMap<ArcStr, Vec<Node>> = HashMap::from_iter([
-            ("din".into(), io.din.flatten_vec()),
-            ("dout".into(), io.dout.flatten_vec()),
-            ("vdd".into(), io.vdd.flatten_vec()),
-            ("vss".into(), io.vss.flatten_vec()),
-        ]);
-        cell.add_primitive(PrimitiveDevice::ScirInstance {
-            lib,
-            cell: cell_id,
-            name: "buffer_hard_macro_inner".into(),
-            connections,
-        });
-        Ok(())
-    }
-}
+        .subckt buffer din dout vdd vss
+        X0 din dinb vdd vss inverter
+        X1 dinb dout vdd vss inverter
+        .ends
+
+        .subckt inverter din dout vdd vss
+        X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
+        X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
+        .ends
+    \"#",
+    name = "buffer",
+    fmt = "inline-spice",
+    pdk = "Sky130OpenPdk"
+))]
+pub struct BufferInlineHardMacro;
 
 #[test]
 fn export_hard_macro() {
@@ -55,6 +49,42 @@ fn export_hard_macro() {
 
     let ctx = sky130_open_ctx();
     let lib = ctx.export_scir(BufferHardMacro);
+    assert_eq!(lib.scir.cells().count(), 3);
+
+    println!("SCIR Library:\n{:?}", lib.scir);
+
+    let mut buf: Vec<u8> = Vec::new();
+    let includes = Vec::new();
+    let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
+    netlister.export().unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("Netlist:\n{}", string);
+}
+
+#[test]
+fn export_hard_macro_in_another_pdk() {
+    use crate::shared::pdk::sky130_commercial_ctx;
+
+    let ctx = sky130_commercial_ctx();
+    let lib = ctx.export_scir(BufferHardMacro);
+    assert_eq!(lib.scir.cells().count(), 3);
+
+    println!("SCIR Library:\n{:?}", lib.scir);
+
+    let mut buf: Vec<u8> = Vec::new();
+    let includes = Vec::new();
+    let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
+    netlister.export().unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("Netlist:\n{}", string);
+}
+
+#[test]
+fn export_inline_hard_macro() {
+    use crate::shared::pdk::sky130_open_ctx;
+
+    let ctx = sky130_open_ctx();
+    let lib = ctx.export_scir(BufferInlineHardMacro);
     assert_eq!(lib.scir.cells().count(), 3);
 
     println!("SCIR Library:\n{:?}", lib.scir);

@@ -489,7 +489,13 @@ impl Library {
     ///
     /// Panics if no cell has the given name.
     pub fn cell_id_named(&self, name: &str) -> CellId {
-        *self.name_map.get(name).unwrap()
+        match self.name_map.get(name) {
+            Some(&cell) => cell,
+            None => {
+                tracing::error!("no cell named `{}` in SCIR library `{}`", name, self.name);
+                panic!("no cell named `{}` in SCIR library `{}`", name, self.name);
+            }
+        }
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.

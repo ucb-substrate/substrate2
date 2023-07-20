@@ -20,7 +20,7 @@ impl Cacheable for Key {
         if self.0 == 5 {
             bail!("invalid key");
         } else if self.0 == 8 {
-            panic!("panic during generation");
+            panic!("generator panicked");
         }
         Ok(self.0)
     }

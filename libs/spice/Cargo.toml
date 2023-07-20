@@ -9,3 +9,4 @@ opacity = { version = "0.1.0", path = "../../libs/opacity", registry = "substrat
 arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
 nom = "7"
 thiserror = "1"
+tracing = "0.1"
