@@ -257,7 +257,7 @@ impl Client {
     /// ```
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate").unwrap();
     /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
@@ -308,7 +308,7 @@ impl Client {
     /// #[derive(Clone)]
     /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_with_state").unwrap();
@@ -359,7 +359,7 @@ impl Client {
     /// ```
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result").unwrap();
     /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
@@ -424,7 +424,7 @@ impl Client {
     /// #[derive(Clone)]
     /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result_with_state").unwrap();
@@ -494,7 +494,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_get").unwrap();
     /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
@@ -545,7 +545,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_err").unwrap();
     /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
@@ -601,7 +601,7 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
     /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_state").unwrap();
@@ -1141,7 +1141,7 @@ pub(crate) fn get_listeners(n: usize) -> Vec<(TcpListener, u16)> {
     let mut listeners = Vec::new();
 
     for _ in 0..n {
-        let listener = TcpListener::bind("0.0.0.0:0").unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         listeners.push((listener, port));
     }
@@ -1167,7 +1167,7 @@ impl From<ClientKind> for ServerKind {
 }
 
 pub(crate) fn client_url(port: u16) -> String {
-    format!("http://0.0.0.0:{port}")
+    format!("http://127.0.0.1:{port}")
 }
 
 #[doc(hidden)]
