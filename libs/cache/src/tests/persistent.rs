@@ -105,7 +105,7 @@ pub(crate) fn create_server_and_clients(
                 }
                 res
             });
-            std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
+            std::thread::sleep(Duration::from_millis(2000)); // Wait until server starts.
             join_handle
         },
         Client::with_default_config(ClientKind::Local, client_url(ports[0])),
