@@ -54,7 +54,7 @@ impl<K, S, V, E, T: FnOnce(&K, S) -> Result<V, E> + Send + Any>
 
 /// A namespace used for addressing a set of cached items.
 ///
-/// Must match the [`NAMESPACE_REGEX`] regular expression.
+/// Must match the [`NAMESPACE_REGEX`](static@NAMESPACE_REGEX) regular expression.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Namespace(String);
 
@@ -63,7 +63,7 @@ impl Namespace {
     ///
     /// # Panics
     ///
-    /// Panics if the provided string does not match [`NAMESPACE_REGEX`].
+    /// Panics if the provided string does not match [`NAMESPACE_REGEX`](static@NAMESPACE_REGEX).
     pub fn new(namespace: impl Into<String>) -> Self {
         let namespace: String = namespace.into();
         if !Namespace::validate(&namespace) {
@@ -75,7 +75,7 @@ impl Namespace {
         Self(namespace)
     }
 
-    /// Returns `true` if the provided string is a valid regex.
+    /// Returns `true` if the provided string is a valid namespace.
     pub fn validate(namespace: &str) -> bool {
         NAMESPACE_REGEX.is_match(namespace)
     }
