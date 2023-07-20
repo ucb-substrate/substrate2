@@ -26,6 +26,7 @@ use crate::rpc::remote::{
     self,
     remote_cache_server::{RemoteCache, RemoteCacheServer},
 };
+use crate::Namespace;
 
 /// The name of the config manifest TOML file.
 pub const CONFIG_MANIFEST_NAME: &str = "Cache.toml";
@@ -305,7 +306,7 @@ impl CacheInner {
                     |row| -> rusqlite::Result<(Arc<EntryKey>, DbEntryStatus)> {
                         Ok((
                             Arc::new(EntryKey {
-                                namespace: row.get(0)?,
+                                namespace: Namespace::new(row.get::<_, String>(0)?),
                                 key: row.get(1)?,
                             }),
                             DbEntryStatus::from_int(row.get(2)?).unwrap(),
@@ -347,7 +348,11 @@ impl CacheInnerConn {
         self.0
             .call(move |conn| {
                 let mut stmt = conn.prepare(INSERT_STATUS_STMT)?;
-                stmt.execute((key.namespace.clone(), key.key.clone(), status.to_int()))?;
+                stmt.execute((
+                    key.namespace.clone().into_inner(),
+                    key.key.clone(),
+                    status.to_int(),
+                ))?;
                 Ok(())
             })
             .await?;
@@ -358,7 +363,11 @@ impl CacheInnerConn {
         self.0
             .call(move |conn| {
                 let mut stmt = conn.prepare(UPDATE_STATUS_STMT)?;
-                stmt.execute((status.to_int(), key.namespace.clone(), key.key.clone()))?;
+                stmt.execute((
+                    status.to_int(),
+                    key.namespace.clone().into_inner(),
+                    key.key.clone(),
+                ))?;
                 Ok(())
             })
             .await?;
@@ -369,7 +378,7 @@ impl CacheInnerConn {
         self.0
             .call(move |conn| {
                 let mut stmt = conn.prepare(DELETE_STATUS_STMT)?;
-                stmt.execute((key.namespace.clone(), key.key.clone()))?;
+                stmt.execute((key.namespace.clone().into_inner(), key.key.clone()))?;
                 Ok(())
             })
             .await?;
@@ -399,7 +408,7 @@ impl HandleId {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct EntryKey {
-    namespace: String,
+    namespace: Namespace,
     key: Vec<u8>,
 }
 
@@ -704,8 +713,12 @@ impl LocalCache for CacheImpl {
     ) -> std::result::Result<tonic::Response<local::GetReply>, tonic::Status> {
         let request = request.into_inner();
 
+        if !Namespace::validate(&request.namespace) {
+            return Err(tonic::Status::invalid_argument("invalid namespace"));
+        }
+
         let entry_key = Arc::new(EntryKey {
-            namespace: request.namespace,
+            namespace: Namespace::new(request.namespace),
             key: request.key,
         });
 
@@ -783,8 +796,12 @@ impl RemoteCache for CacheImpl {
     ) -> std::result::Result<tonic::Response<remote::GetReply>, tonic::Status> {
         let request = request.into_inner();
 
+        if !Namespace::validate(&request.namespace) {
+            return Err(tonic::Status::invalid_argument("invalid namespace"));
+        }
+
         let entry_key = Arc::new(EntryKey {
-            namespace: request.namespace,
+            namespace: Namespace::new(request.namespace),
             key: request.key,
         });
 
@@ -823,6 +840,6 @@ fn get_file(root: impl AsRef<Path>, key: impl AsRef<EntryKey>) -> PathBuf {
     let key = key.as_ref();
     // TODO: Require namespace to be filesystem compatible so that cache folder names don't need to
     // be hashed.
-    root.join(hex::encode(crate::hash(key.namespace.as_bytes())))
+    root.join(key.namespace.as_ref())
         .join(hex::encode(crate::hash(&key.key)))
 }
