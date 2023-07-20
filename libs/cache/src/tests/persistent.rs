@@ -9,10 +9,7 @@ use std::{
 
 use serde::{de::DeserializeOwned, Serialize};
 use test_log::test;
-use tokio::{
-    runtime::{Handle, Runtime},
-    task::JoinHandle,
-};
+use tokio::runtime::{Handle, Runtime};
 
 use crate::{
     error::{Error, Result},
@@ -73,7 +70,7 @@ pub(crate) fn create_server_and_clients(
     root: PathBuf,
     kind: ServerKind,
     handle: &Handle,
-) -> (JoinHandle<Result<()>>, Client, Client) {
+) -> (CacheHandle<Result<()>>, Client, Client) {
     let ports = pick_n_ports(2);
     (
         {
@@ -94,6 +91,20 @@ pub(crate) fn create_server_and_clients(
             .build();
 
             let join_handle = handle.spawn(async move { server.start().await });
+            let handle_clone = handle.clone();
+            let join_handle = CacheHandle::new(move || {
+                let res = handle_clone.block_on(join_handle).unwrap_or_else(|res| {
+                    if res.is_cancelled() {
+                        Ok(())
+                    } else {
+                        Err(Error::Panic)
+                    }
+                });
+                if let Err(e) = res.as_ref() {
+                    tracing::error!("server failed to start: {:?}", e);
+                }
+                res
+            });
             std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
             join_handle
         },
@@ -150,12 +161,10 @@ pub(crate) fn create_runtime() -> Runtime {
         .unwrap()
 }
 
-pub(crate) fn setup_test(test_name: &str) -> (PathBuf, Arc<Mutex<u64>>, Runtime) {
-    (
-        PathBuf::from(BUILD_DIR).join(test_name),
-        Arc::new(Mutex::new(0)),
-        create_runtime(),
-    )
+pub(crate) fn setup_test(test_name: &str) -> Result<(PathBuf, Arc<Mutex<u64>>, Runtime)> {
+    let path = PathBuf::from(BUILD_DIR).join(test_name);
+    reset_directory(&path)?;
+    Ok((path, Arc::new(Mutex::new(0)), create_runtime()))
 }
 
 /// Generates values corresponding to the same key in two namespaces, potentially multiple times.
@@ -170,8 +179,6 @@ pub(crate) fn run_basic_test(
     handle: &Handle,
 ) -> Result<()> {
     let root = root.as_ref();
-
-    reset_directory(root)?;
 
     let (_, local, remote) =
         create_server_and_clients(root.to_path_buf(), client_kind.into(), handle);
@@ -231,7 +238,7 @@ pub(crate) fn run_basic_test(
 }
 
 pub(crate) fn run_basic_persistence_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
-    let (root, count, runtime) = setup_test(test_name);
+    let (root, count, runtime) = setup_test(test_name)?;
 
     run_basic_test(
         &root,
@@ -281,7 +288,7 @@ pub(crate) fn run_basic_long_running_task_test(
     test_name: &str,
     client_kind: ClientKind,
 ) -> Result<()> {
-    let (root, count, runtime) = setup_test(test_name);
+    let (root, count, runtime) = setup_test(test_name)?;
     run_basic_test(
         root,
         client_kind,
@@ -298,9 +305,7 @@ pub(crate) fn run_failure_test(
     client_kind: ClientKind,
     restart_server: bool,
 ) -> Result<()> {
-    let (root, count, mut runtime) = setup_test(test_name);
-
-    reset_directory(&root)?;
+    let (root, count, mut runtime) = setup_test(test_name)?;
 
     let (_, local, remote) =
         create_server_and_clients(root.clone(), client_kind.into(), runtime.handle());
@@ -362,9 +367,7 @@ pub(crate) fn run_failure_test(
 }
 
 pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
-    let (root, _, runtime) = setup_test(test_name);
-
-    reset_directory(&root)?;
+    let (root, _, runtime) = setup_test(test_name)?;
 
     let (_, local, remote) = create_server_and_clients(root, client_kind.into(), runtime.handle());
 
@@ -402,11 +405,12 @@ pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -
 }
 
 #[test]
-fn servers_cannot_be_started_with_same_root() {
-    let (root, _, runtime) = setup_test("servers_cannot_be_started_with_same_root");
+fn servers_cannot_be_started_with_same_root() -> Result<()> {
+    let (root, _, runtime) = setup_test("servers_cannot_be_started_with_same_root")?;
     let (_, _, _) = create_server_and_clients(root.clone(), ServerKind::Local, runtime.handle());
     let (server2, _, _) = create_server_and_clients(root, ServerKind::Remote, runtime.handle());
-    assert!(runtime.block_on(server2).unwrap().is_err());
+    assert!(server2.get().is_err());
+    Ok(())
 }
 
 #[test]
@@ -431,9 +435,7 @@ fn remote_client_cacheable_api_works() -> Result<()> {
 
 #[test]
 fn local_remote_apis_work_concurrently() -> Result<()> {
-    let (root, count, runtime) = setup_test("local_remote_apis_work_concurrently");
-
-    reset_directory(&root)?;
+    let (root, count, runtime) = setup_test("local_remote_apis_work_concurrently")?;
 
     let (_, local, remote) =
         create_server_and_clients(root.to_path_buf(), ServerKind::Both, runtime.handle());
