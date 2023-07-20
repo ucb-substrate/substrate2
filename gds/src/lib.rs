@@ -1019,6 +1019,7 @@ impl SerdeFile for GdsStruct {}
 ///
 /// `GdsLayerSpecs` generalize across these via the `xtype` field,
 /// which holds whichever is appropriate for the given element.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct GdsLayerSpec {
     /// Layer ID number.
     pub layer: i16,

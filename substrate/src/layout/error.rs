@@ -1,6 +1,7 @@
 //! Layout result and error types.
 
 use arcstr::ArcStr;
+use rust_decimal::Decimal;
 
 /// The [`LayoutError`] result type.
 pub type LayoutResult<T> = Result<T, LayoutError>;
@@ -74,4 +75,7 @@ pub enum GdsImportError {
     /// GDS boundaries must start and end at the same point.
     #[error("invalid GDS boundary (boundaries must start and end at the same point)")]
     InvalidGdsBoundary,
+    /// The database unit in a GDS file does not match that expected by the PDK.
+    #[error("GDS file units ({0}) do not match PDK units ({1})")]
+    MismatchedUnits(Decimal, Decimal),
 }

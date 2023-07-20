@@ -11,10 +11,13 @@ use geometry::{
     prelude::{Corner, NamedOrientation, Orientation, Point},
     rect::Rect,
 };
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use tracing::{span, Level};
 use uniquify::Names;
 
 use crate::io::{LayoutDataBuilder, LayoutType};
+use crate::pdk::layers::LayerInfo;
 use crate::{
     io::{IoShape, NameBuf, PortGeometry},
     pdk::layers::{GdsLayerSpec, HasPin, LayerContext, LayerId},
@@ -351,10 +354,12 @@ pub struct GdsImporter<'a> {
     cells: HashMap<ArcStr, Arc<RawCell>>,
     gds: &'a gds::GdsLibrary,
     layouts: &'a mut LayoutContext,
-    layers: &'a LayerContext,
+    layers: &'a mut LayerContext,
+    units: Option<Decimal>,
 }
 
 /// An imported GDS file, after conversion to Substrate [`RawCell`]s.
+#[derive(Debug, Clone)]
 pub struct ImportedGds {
     /// A mapping from cell name to imported cell.
     pub cells: HashMap<ArcStr, Arc<RawCell>>,
@@ -365,13 +370,15 @@ impl<'a> GdsImporter<'a> {
     pub fn new(
         gds: &'a gds::GdsLibrary,
         layouts: &'a mut LayoutContext,
-        layers: &'a LayerContext,
+        layers: &'a mut LayerContext,
+        units: Option<Decimal>,
     ) -> Self {
         Self {
             cells: Default::default(),
             gds,
             layouts,
             layers,
+            units,
         }
     }
 
@@ -422,8 +429,23 @@ impl<'a> GdsImporter<'a> {
         self.check_units(&self.gds.units)
     }
     /// Checks that the database units match up with the units specified by the PDK.
-    fn check_units(&mut self, _units: &gds::GdsUnits) -> GdsImportResult<()> {
-        // TODO
+    fn check_units(&mut self, units: &gds::GdsUnits) -> GdsImportResult<()> {
+        let gdsunit = units.db_unit();
+        let rv = if (gdsunit - 1e-9).abs() < 1e-12 {
+            dec!(1e-9)
+        } else if (gdsunit - 1e-6).abs() < 1e-9 {
+            dec!(1e-6)
+        } else {
+            return Err(GdsImportError::Unsupported(arcstr::format!(
+                "unsupported GDS units: {gdsunit:10.3e}"
+            )));
+        };
+
+        if let Some(expected_units) = self.units {
+            if rv != expected_units {
+                return Err(GdsImportError::MismatchedUnits(rv, expected_units));
+            }
+        }
         Ok(())
     }
     /// Imports and adds a cell if not already defined
@@ -786,12 +808,19 @@ impl<'a> GdsImporter<'a> {
     /// Layers are created if they do not already exist,
     /// although this may eventually be a per-importer setting.
     fn import_element_layer(&mut self, elem: &impl gds::HasLayer) -> GdsImportResult<LayerId> {
-        let spec = elem.layerspec().try_into()?;
+        let spec = elem.layerspec();
+        let span = span!(Level::INFO, "layer", spec=?spec);
+        let _guard = span.enter();
+        let spec = spec.try_into()?;
         let layers = &mut self.layers;
         Ok(if let Some(layer_spec) = layers.get_gds_layer(spec) {
             layer_spec
         } else {
-            todo!("add layer")
+            self.layers.new_layer_with_id(|id| LayerInfo {
+                id,
+                name: arcstr::format!("gds_{}_{}", spec.0, spec.1),
+                gds: Some(spec),
+            })
         })
     }
 }

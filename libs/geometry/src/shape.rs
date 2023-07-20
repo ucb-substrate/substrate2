@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// An enumeration of geometric shapes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Shape {
     /// A rectangle.
     Rect(Rect),

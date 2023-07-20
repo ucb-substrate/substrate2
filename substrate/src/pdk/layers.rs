@@ -53,6 +53,21 @@ impl LayerContext {
         self.next_id
     }
 
+    /// Installs a new layer, using a closure that produces a [`LayerInfo`]
+    /// when given a new [`LayerId`].
+    pub(crate) fn new_layer_with_id<F>(&mut self, f: F) -> LayerId
+    where
+        F: FnOnce(LayerId) -> LayerInfo,
+    {
+        let id = self.new_layer();
+        let info = f(id);
+        self.layers_id_to_info.insert(id, info.clone());
+        if let Some(gds) = info.gds {
+            self.layers_gds_to_info.insert(gds, info);
+        }
+        id
+    }
+
     pub(crate) fn new() -> Self {
         Self::default()
     }
