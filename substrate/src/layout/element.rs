@@ -44,10 +44,10 @@ pub struct RawCell {
 }
 
 impl RawCell {
-    pub(crate) fn new(id: CellId, name: ArcStr) -> Self {
+    pub(crate) fn new(id: CellId, name: impl Into<ArcStr>) -> Self {
         Self {
             id,
-            name,
+            name: name.into(),
             elements: Vec::new(),
             blockages: Vec::new(),
             ports: HashMap::new(),
@@ -64,6 +64,13 @@ impl RawCell {
 
     pub(crate) fn add_blockage(&mut self, shape: impl Into<Shape>) {
         self.blockages.push(shape.into());
+    }
+
+    /// Adds a port to this cell.
+    ///
+    /// Primarily for use in GDS import.
+    pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
+        self.ports.insert(name.into(), port.into());
     }
 }
 
@@ -85,6 +92,22 @@ pub struct RawInstance {
 }
 
 impl RawInstance {
+    /// Create a new raw instance of the given cell.
+    pub(crate) fn new(
+        cell: impl Into<Arc<RawCell>>,
+        loc: Point,
+        orientation: impl Into<Orientation>,
+    ) -> Self {
+        Self {
+            cell: cell.into(),
+            loc,
+            orientation: orientation.into(),
+        }
+    }
+    /// Set the orientation of this instance.
+    pub(crate) fn set_orientation(&mut self, orientation: impl Into<Orientation>) {
+        self.orientation = orientation.into();
+    }
     /// Returns the current transformation of `self`.
     pub fn transformation(&self) -> Transformation {
         Transformation::from_offset_and_orientation(self.loc, self.orientation)

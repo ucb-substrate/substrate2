@@ -1,5 +1,6 @@
 //! An enumeration of geometric shapes and their properties.
 
+use crate::contains::Contains;
 use crate::{
     bbox::Bbox,
     prelude::Transform,
@@ -43,6 +44,17 @@ impl Bbox for Shape {
     fn bbox(&self) -> Option<Rect> {
         match self {
             Shape::Rect(rect) => rect.bbox(),
+        }
+    }
+}
+
+impl<T> Contains<T> for Shape
+where
+    Rect: Contains<T>,
+{
+    fn contains(&self, other: &T) -> crate::contains::Containment {
+        match self {
+            Self::Rect(r) => r.contains(other),
         }
     }
 }
