@@ -394,7 +394,7 @@ impl<T: HasLayout> HasTransformedView for Instance<T> {
 }
 
 impl<PDK: Pdk, I: HasLayoutImpl<PDK>> Draw<PDK> for Instance<I> {
-    fn draw<T>(self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
+    fn draw<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
         cell.draw_instance(self);
         Ok(())
     }
@@ -463,7 +463,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
         Ok(Instance::new(cell))
     }
 
-    pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: Instance<I>) {
+    pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: &Instance<I>) {
         let (send, recv) = mpsc::channel();
 
         self.instances.push(recv);
@@ -504,24 +504,8 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// # Panics
     ///
     /// May cause a panic if generation of an underlying instance fails.
-    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
-        obj.draw(self)
-    }
-
-    /// Draw layout object `obj` from its reference.
-    ///
-    /// For instances, a new thread is spawned to add the instance once the underlying cell has
-    /// been generated. If generation fails, the spawned thread may panic after this function has
-    /// been called.
-    ///
-    /// For error recovery, instance generation results should be checked using [`Instance::try_cell`]
-    /// before calling `draw`.
-    ///
-    /// # Panics
-    ///
-    /// May cause a panic if generation of an underlying instance fails.
-    pub fn draw_ref(&mut self, obj: &impl DrawRef<PDK>) -> Result<()> {
-        obj.draw_ref(self)
+    pub fn draw<D: Draw<PDK>, R: AsRef<D>>(&mut self, obj: R) -> Result<()> {
+        obj.as_ref().draw(self)
     }
 
     /// Gets the global context.
@@ -533,18 +517,12 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
 /// An object that can be drawn in a [`CellBuilder`].
 pub trait Draw<PDK: Pdk> {
     /// Draws `self` inside `cell`.
-    fn draw<T>(self, cell: &mut CellBuilder<PDK, T>) -> Result<()>;
+    fn draw<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()>;
 }
 
-/// An object that can be drawn in a [`CellBuilder`] from its reference.
-pub trait DrawRef<PDK: Pdk> {
-    /// Draws `self` inside `cell` from its reference.
-    fn draw_ref<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()>;
-}
-
-impl<E: Into<Element>, PDK: Pdk> Draw<PDK> for E {
-    fn draw<T>(self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
-        cell.draw_element(self.into());
+impl<E: Clone + Into<Element>, PDK: Pdk> Draw<PDK> for E {
+    fn draw<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
+        cell.draw_element(self.clone().into());
         Ok(())
     }
 }
