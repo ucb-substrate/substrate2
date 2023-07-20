@@ -12,10 +12,10 @@ log = "0.4"
 toml = "0.7"
 windows-sys = "0.48"
 
+cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }
+
 [target.'cfg(windows)'.dependencies.windows-sys]
 features = [
   "Win32_Foundation",
   "Win32_UI_Shell",
 ]
-
-cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }
