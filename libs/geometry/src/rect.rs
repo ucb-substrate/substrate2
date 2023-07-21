@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::bbox::Bbox;
+use crate::contains::{Containment, Contains};
 use crate::corner::Corner;
 use crate::dims::Dims;
 use crate::dir::Dir;
@@ -197,7 +198,9 @@ impl Rect {
     /// assert_eq!(rect.top(), 40);
     /// ```
     #[inline]
-    pub fn new(p0: Point, p1: Point) -> Self {
+    pub fn new(lower_left: Point, upper_right: Point) -> Self {
+        let p0 = lower_left;
+        let p1 = upper_right;
         Self {
             p0: Point::new(p0.x.min(p1.x), p0.y.min(p1.y)),
             p1: Point::new(p0.x.max(p1.x), p0.y.max(p1.y)),
@@ -1302,6 +1305,20 @@ impl From<Dims> for Rect {
     #[inline]
     fn from(value: Dims) -> Self {
         Self::from_dims(value)
+    }
+}
+
+impl Contains<Point> for Rect {
+    fn contains(&self, other: &Point) -> Containment {
+        if other.x >= self.p0.x
+            && other.x <= self.p1.x
+            && other.y >= self.p0.y
+            && other.y <= self.p1.y
+        {
+            Containment::Full
+        } else {
+            Containment::None
+        }
     }
 }
 

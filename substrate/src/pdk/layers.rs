@@ -8,6 +8,7 @@ use std::{
 
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use slotmap::{new_key_type, SlotMap};
 use tracing::Level;
 
 /// A context-wide unique identifier for a layer.
@@ -29,6 +30,11 @@ impl AsRef<LayerId> for LayerId {
     }
 }
 
+new_key_type! {
+    /// A key for layer families in a [`LayerContext`].
+    pub(crate) struct LayerFamilyKey;
+}
+
 /// A context used for assigning identifiers to user-defined layers.
 #[derive(Default, Debug, Clone)]
 pub struct LayerContext {
@@ -36,6 +42,8 @@ pub struct LayerContext {
     installed_layers: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     layers_gds_to_info: HashMap<GdsLayerSpec, LayerInfo>,
     layers_id_to_info: HashMap<LayerId, LayerInfo>,
+    layer_id_to_family_key: HashMap<LayerId, LayerFamilyKey>,
+    layer_families: SlotMap<LayerFamilyKey, LayerFamilyInfo>,
 }
 
 impl LayerContext {
@@ -43,6 +51,21 @@ impl LayerContext {
     pub fn new_layer(&mut self) -> LayerId {
         self.next_id.increment();
         self.next_id
+    }
+
+    /// Installs a new layer, using a closure that produces a [`LayerInfo`]
+    /// when given a new [`LayerId`].
+    pub(crate) fn new_layer_with_id<F>(&mut self, f: F) -> LayerId
+    where
+        F: FnOnce(LayerId) -> LayerInfo,
+    {
+        let id = self.new_layer();
+        let info = f(id);
+        self.layers_id_to_info.insert(id, info.clone());
+        if let Some(gds) = info.gds {
+            self.layers_gds_to_info.insert(gds, info);
+        }
+        id
     }
 
     pub(crate) fn new() -> Self {
@@ -53,7 +76,9 @@ impl LayerContext {
         let layers = L::new(self);
         let id = TypeId::of::<L>();
         for layer_family in layers.flatten() {
-            for layer in layer_family.layers {
+            let family_key = self.layer_families.insert(layer_family);
+            let layer_family = &self.layer_families[family_key];
+            for layer in layer_family.layers.iter() {
                 if let Some(gds) = layer.gds {
                     if self.layers_gds_to_info.insert(gds, layer.clone()).is_some() {
                         tracing::event!(
@@ -63,7 +88,8 @@ impl LayerContext {
                         );
                     }
                 }
-                self.layers_id_to_info.insert(layer.id, layer);
+                self.layers_id_to_info.insert(layer.id, layer.clone());
+                self.layer_id_to_family_key.insert(layer.id, family_key);
             }
         }
         self.installed_layers
@@ -81,6 +107,11 @@ impl LayerContext {
     pub(crate) fn get_gds_layer_from_id(&self, id: LayerId) -> Option<GdsLayerSpec> {
         self.layers_id_to_info.get(&id).unwrap().gds
     }
+
+    pub(crate) fn layer_family_for_layer_id(&self, id: LayerId) -> Option<&LayerFamilyInfo> {
+        let fkey = *self.layer_id_to_family_key.get(&id)?;
+        self.layer_families.get(fkey)
+    }
 }
 
 /// A GDS layer specification.
@@ -88,6 +119,7 @@ impl LayerContext {
 pub struct GdsLayerSpec(pub u8, pub u8);
 
 /// A struct containing general information for a PDK layer family.
+#[derive(Debug, Clone)]
 pub struct LayerFamilyInfo {
     /// A list of contained layers.
     pub layers: Vec<LayerInfo>,
@@ -166,4 +198,13 @@ pub trait Layers: Any + Send + Sync {
     fn new(ctx: &mut LayerContext) -> Self;
     /// Flattens `self` into a list of [`LayerInfo`] objects for Substrate's internal purposes.
     fn flatten(&self) -> Vec<LayerFamilyInfo>;
+}
+
+impl TryFrom<gds::GdsLayerSpec> for GdsLayerSpec {
+    type Error = std::num::TryFromIntError;
+    fn try_from(value: gds::GdsLayerSpec) -> Result<Self, Self::Error> {
+        let layer = u8::try_from(value.layer)?;
+        let xtype = u8::try_from(value.xtype)?;
+        Ok(Self(layer, xtype))
+    }
 }

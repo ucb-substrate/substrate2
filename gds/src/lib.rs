@@ -489,6 +489,12 @@ impl GdsPoint {
     }
 }
 
+impl std::fmt::Display for GdsPoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
 /// An enumeration of GDS mask formats.
 ///
 /// As set by the FORMAT record.
@@ -1013,6 +1019,7 @@ impl SerdeFile for GdsStruct {}
 ///
 /// `GdsLayerSpecs` generalize across these via the `xtype` field,
 /// which holds whichever is appropriate for the given element.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct GdsLayerSpec {
     /// Layer ID number.
     pub layer: i16,

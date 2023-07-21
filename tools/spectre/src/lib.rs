@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::io::Write;
+#[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -208,6 +209,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             )?;
 
             let mut perms = std::fs::metadata(&run_script)?.permissions();
+            #[cfg(any(unix, target_os = "redox"))]
             perms.set_mode(0o744);
             std::fs::set_permissions(&run_script, perms)?;
 

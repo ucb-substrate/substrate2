@@ -867,6 +867,12 @@ impl From<ArcStr> for NameFragment {
     }
 }
 
+impl From<&ArcStr> for NameFragment {
+    fn from(value: &ArcStr) -> Self {
+        Self::Str(value.clone())
+    }
+}
+
 impl From<&str> for NameFragment {
     fn from(value: &str) -> Self {
         Self::Str(ArcStr::from(value))
@@ -876,6 +882,38 @@ impl From<&str> for NameFragment {
 impl From<usize> for NameFragment {
     fn from(value: usize) -> Self {
         Self::Idx(value)
+    }
+}
+
+impl From<ArcStr> for NameBuf {
+    fn from(value: ArcStr) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
+    }
+}
+
+impl From<&ArcStr> for NameBuf {
+    fn from(value: &ArcStr) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
+    }
+}
+
+impl From<&str> for NameBuf {
+    fn from(value: &str) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
+    }
+}
+
+impl From<usize> for NameBuf {
+    fn from(value: usize) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
     }
 }
 
