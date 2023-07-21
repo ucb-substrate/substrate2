@@ -16,6 +16,7 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
+use crate::layout::BuildFrom;
 use crate::{
     block::Block,
     error::Result,
@@ -494,6 +495,14 @@ impl PortGeometryBuilder {
     }
 }
 
+impl BuildFrom<PortGeometry> for PortGeometryBuilder {
+    fn build_from(&mut self, source: &PortGeometry) {
+        self.primary = Some(source.primary.clone());
+        self.unnamed_shapes.clone_from(&source.unnamed_shapes);
+        self.named_shapes.clone_from(&source.named_shapes);
+    }
+}
+
 /// A simple builder that allows setting data at runtime.
 ///
 /// ```
@@ -511,6 +520,12 @@ impl<T> Default for OptionBuilder<T> {
 }
 
 impl<T> OptionBuilder<T> {
+    /// Constructs a new, empty `OptionBuilder`.
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Set the value of the data contained by the builder.
     pub fn set(&mut self, inner: T) {
         let _ = self.0.insert(inner);
@@ -519,6 +534,12 @@ impl<T> OptionBuilder<T> {
     /// Returns the data contained by the builder.
     pub fn build(self) -> Result<T> {
         Ok(self.0.ok_or(LayoutError::IoDefinition)?)
+    }
+}
+
+impl BuildFrom<PortGeometry> for OptionBuilder<IoShape> {
+    fn build_from(&mut self, source: &PortGeometry) {
+        self.set(source.primary.clone());
     }
 }
 

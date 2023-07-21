@@ -16,6 +16,16 @@ pub enum Shape {
     Rect(Rect),
 }
 
+impl Shape {
+    /// If this shape is a rectangle, returns the contained rectangle.
+    /// Otherwise, returns [`None`].
+    pub fn rect(&self) -> Option<Rect> {
+        match self {
+            Self::Rect(r) => Some(*r),
+        }
+    }
+}
+
 impl TranslateMut for Shape {
     fn translate_mut(&mut self, p: crate::point::Point) {
         match self {

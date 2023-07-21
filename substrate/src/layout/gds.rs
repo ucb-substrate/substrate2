@@ -13,6 +13,7 @@ use geometry::{
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use slotmap::{new_key_type, SlotMap};
 use tracing::{span, Level};
 use uniquify::Names;
 
@@ -29,6 +30,11 @@ use super::{
     element::{CellId, Element, RawCell, RawInstance, Shape, Text},
     error::GdsExportResult,
 };
+
+new_key_type! {
+    /// A key used for identifying elements when importing a GDSII file.
+    pub struct ElementKey;
+}
 
 /// An exporter for GDS files.
 ///
@@ -104,7 +110,7 @@ impl ExportGds for RawCell {
 
         let mut cell = gds::GdsStruct::new(name);
 
-        cell.elems.extend(self.ports.export(exporter)?);
+        cell.elems.extend(self.port_map().export(exporter)?);
 
         for element in self.elements.iter() {
             if let Some(elem) = element.export(exporter)? {
@@ -124,7 +130,6 @@ impl ExportGds for HashMap<NameBuf, PortGeometry> {
     fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
         let mut elements = Vec::new();
         for (name_buf, geometry) in self {
-            elements.extend((name_buf, &geometry.primary).export(exporter)?);
             for shape in geometry.unnamed_shapes.iter() {
                 elements.extend((name_buf, shape).export(exporter)?);
             }
@@ -479,9 +484,9 @@ impl<'a> GdsImporter<'a> {
         // In the first pass we add each [Instance] and geometric element,
         // And keep a list of [gds::GdsTextElem] on the side.
         let mut texts: Vec<&gds::GdsTextElem> = Vec::new();
-        let mut elems: Vec<Shape> = Vec::new();
+        let mut elems: SlotMap<ElementKey, Shape> = SlotMap::with_key();
         // Also keep a hash of by-layer elements, to aid in text-assignment in our second pass
-        let mut layers: HashMap<LayerId, Vec<usize>> = HashMap::new();
+        let mut layers: HashMap<LayerId, Vec<ElementKey>> = HashMap::new();
         for elem in &strukt.elems {
             use gds::GdsElement::*;
             let e = match elem {
@@ -501,6 +506,7 @@ impl<'a> GdsImporter<'a> {
                     None
                 }
                 GdsTextElem(ref x) => {
+                    tracing::debug!(?x, "found text element");
                     texts.push(x);
                     None
                 }
@@ -514,12 +520,11 @@ impl<'a> GdsImporter<'a> {
             // If we got a new element, add it to our per-layer hash
             if let Some(e) = e {
                 let layer = e.layer();
-                let idx = elems.len();
-                elems.push(e);
+                let key = elems.insert(e);
                 if let Some(ref mut bucket) = layers.get_mut(&layer) {
-                    bucket.push(idx);
+                    bucket.push(key);
                 } else {
-                    layers.insert(layer, vec![idx]);
+                    layers.insert(layer, vec![key]);
                 }
             }
         }
@@ -545,6 +550,7 @@ impl<'a> GdsImporter<'a> {
                 Some(text_layer) == family.and_then(|f| f.label) && pin_layer.is_some();
 
             if extract_pins {
+                tracing::debug!("importing port `{}`", net_name);
                 let pin_layer = pin_layer.unwrap();
                 let family = family.unwrap();
                 let mut port = crate::io::Signal.builder();
@@ -588,7 +594,7 @@ impl<'a> GdsImporter<'a> {
             }
         }
         // Pull the elements out of the local slot-map, into the vector that [Layout] wants
-        for elem in elems.drain(..) {
+        for elem in elems.drain().map(|(_k, v)| v) {
             cell.add_element(elem);
         }
         Ok(())

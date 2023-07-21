@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use arcstr::ArcStr;
 use config::Config;
 use tracing::{span, Level};
 
@@ -17,6 +18,7 @@ use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
     SchematicType,
 };
+use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
@@ -270,6 +272,24 @@ impl<PDK: Pdk> Context<PDK> {
             ..
         } = *inner;
         let imported = GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import()?;
+        Ok(imported)
+    }
+
+    /// Reads the layout of a single cell from a GDS file.
+    pub fn read_gds_cell(
+        &self,
+        path: impl AsRef<Path>,
+        cell: impl Into<ArcStr>,
+    ) -> Result<Arc<RawCell>> {
+        let lib = gds::GdsLibrary::load(path)?;
+        let mut inner = self.inner.write().unwrap();
+        let ContextInner {
+            ref mut layers,
+            ref mut layout,
+            ..
+        } = *inner;
+        let imported =
+            GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import_cell(cell)?;
         Ok(imported)
     }
 
