@@ -17,6 +17,7 @@ rust_decimal_macros = "1.30"
 ena = "0.14"
 duplicate = "1"
 derive_builder = "0.12"
+slotmap = "1"
 
 config = { version = "0.1.0", registry = "substrate", path = "../config" }
 cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }

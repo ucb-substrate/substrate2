@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use corner::*;
+use rust_decimal_macros::dec;
 use substrate::pdk::Pdk;
 use substrate::{LayerFamily, Layers};
 
@@ -25,6 +26,7 @@ impl Sky130OpenPdk {
 impl Pdk for Sky130OpenPdk {
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
+    const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
     fn schematic_primitives(&self) -> Vec<arcstr::ArcStr> {
         vec![
             arcstr::literal!("sky130_fd_pr__nfet_01v8"),
@@ -60,6 +62,7 @@ impl Sky130CommercialPdk {
 impl Pdk for Sky130CommercialPdk {
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
+    const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
 
     fn schematic_primitives(&self) -> Vec<arcstr::ArcStr> {
         vec![

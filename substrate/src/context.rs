@@ -18,7 +18,7 @@ use crate::io::{
     SchematicType,
 };
 use crate::layout::error::{GdsExportError, LayoutError};
-use crate::layout::gds::GdsExporter;
+use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::HasLayoutImpl;
 use crate::layout::LayoutContext;
@@ -241,7 +241,7 @@ impl<PDK: Pdk> Context<PDK> {
         }
     }
 
-    /// Writes a layout to a GDS files.
+    /// Writes a layout to a GDS file.
     pub fn write_layout<T: HasLayoutImpl<PDK>>(
         &self,
         block: T,
@@ -258,6 +258,19 @@ impl<PDK: Pdk> Context<PDK> {
             .map_err(GdsExportError::from)
             .map_err(LayoutError::from)?;
         Ok(())
+    }
+
+    /// Reads a layout from a GDS file.
+    pub fn read_gds(&self, path: impl AsRef<Path>) -> Result<ImportedGds> {
+        let lib = gds::GdsLibrary::load(path)?;
+        let mut inner = self.inner.write().unwrap();
+        let ContextInner {
+            ref mut layers,
+            ref mut layout,
+            ..
+        } = *inner;
+        let imported = GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import()?;
+        Ok(imported)
     }
 
     /// Generates a schematic for `block` in the background.

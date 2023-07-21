@@ -117,6 +117,15 @@ impl From<NamedOrientation> for Orientation {
 }
 
 impl Orientation {
+    /// Creates a new orientation with the given reflection and angle settings.
+    #[inline]
+    pub fn from_reflect_and_angle(reflect_vert: bool, angle: f64) -> Self {
+        Self {
+            reflect_vert,
+            angle,
+        }
+    }
+
     /// Returns the identity orientation with `reflect_vert = false` and `angle = 0.`.
     pub fn identity() -> Self {
         Self::default()

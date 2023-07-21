@@ -337,7 +337,7 @@ impl NodeContext {
 }
 
 /// A layer ID that describes where the components of an [`IoShape`] are drawn.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct IoLayerId {
     drawing: LayerId,
     pin: LayerId,
@@ -357,7 +357,7 @@ impl HasPin for IoLayerId {
 }
 
 /// A shape used to describe the geometry of a port.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct IoShape {
     layer: IoLayerId,
     shape: geometry::shape::Shape,
@@ -431,16 +431,18 @@ impl HasTransformedView for IoShape {
 }
 
 /// A layout port with a generic set of associated geometry.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct PortGeometry {
     /// The primary shape of the port.
     ///
     /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
     /// explicitly. It is kept separately for ease of access.
-    pub(crate) primary: IoShape,
-    pub(crate) unnamed_shapes: Vec<IoShape>,
-    pub(crate) named_shapes: HashMap<ArcStr, IoShape>,
+    pub primary: IoShape,
+    /// A set of unnamed shapes contained by the port.
+    pub unnamed_shapes: Vec<IoShape>,
+    /// A set of named shapes contained by the port.
+    pub named_shapes: HashMap<ArcStr, IoShape>,
 }
 
 /// A set of transformed geometry associated with a layout port.

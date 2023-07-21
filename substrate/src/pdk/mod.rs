@@ -7,6 +7,7 @@ pub mod layers;
 use std::any::Any;
 
 use arcstr::ArcStr;
+use rust_decimal::Decimal;
 
 use self::corner::*;
 use self::layers::Layers;
@@ -17,6 +18,8 @@ pub trait Pdk: Send + Sync + Any {
     type Layers: Layers;
     /// The type representing a corner in this PDK.
     type Corner: Corner;
+    /// The layout database unit for this PDK.
+    const LAYOUT_DB_UNITS: Option<Decimal> = None;
 
     /// The names of all schematic primitives in the PDK.
     ///

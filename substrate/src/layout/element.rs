@@ -34,7 +34,7 @@ impl CellId {
 }
 
 /// A raw layout cell.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct RawCell {
     pub(crate) id: CellId,
     pub(crate) name: ArcStr,
@@ -44,10 +44,10 @@ pub struct RawCell {
 }
 
 impl RawCell {
-    pub(crate) fn new(id: CellId, name: ArcStr) -> Self {
+    pub(crate) fn new(id: CellId, name: impl Into<ArcStr>) -> Self {
         Self {
             id,
-            name,
+            name: name.into(),
             elements: Vec::new(),
             blockages: Vec::new(),
             ports: HashMap::new(),
@@ -65,6 +65,28 @@ impl RawCell {
     pub(crate) fn add_blockage(&mut self, shape: impl Into<Shape>) {
         self.blockages.push(shape.into());
     }
+
+    /// Adds a port to this cell.
+    ///
+    /// Primarily for use in GDS import.
+    pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
+        self.ports.insert(name.into(), port.into());
+    }
+
+    /// The ID of this cell.
+    pub fn id(&self) -> CellId {
+        self.id
+    }
+
+    /// Returns an iterator over the elements of this cell.
+    pub fn elements(&self) -> impl Iterator<Item = &Element> {
+        self.elements.iter()
+    }
+
+    /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
+    pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, &PortGeometry)> {
+        self.ports.iter()
+    }
 }
 
 impl Bbox for RawCell {
@@ -76,7 +98,7 @@ impl Bbox for RawCell {
 /// A raw layout instance.
 ///
 /// Consists of a pointer to an underlying cell and its instantiated location and orientation.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub struct RawInstance {
     pub(crate) cell: Arc<RawCell>,
@@ -85,9 +107,31 @@ pub struct RawInstance {
 }
 
 impl RawInstance {
+    /// Create a new raw instance of the given cell.
+    pub(crate) fn new(
+        cell: impl Into<Arc<RawCell>>,
+        loc: Point,
+        orientation: impl Into<Orientation>,
+    ) -> Self {
+        Self {
+            cell: cell.into(),
+            loc,
+            orientation: orientation.into(),
+        }
+    }
+    /// Set the orientation of this instance.
+    pub(crate) fn set_orientation(&mut self, orientation: impl Into<Orientation>) {
+        self.orientation = orientation.into();
+    }
     /// Returns the current transformation of `self`.
     pub fn transformation(&self) -> Transformation {
         Transformation::from_offset_and_orientation(self.loc, self.orientation)
+    }
+
+    /// Returns a reference to the child cell.
+    #[inline]
+    pub fn cell(&self) -> &Arc<RawCell> {
+        &self.cell
     }
 }
 
@@ -112,7 +156,7 @@ impl<T: HasLayout> TryFrom<Instance<T>> for RawInstance {
 }
 
 /// A primitive layout shape consisting of a layer and a geometric shape.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct Shape {
     layer: LayerId,
@@ -165,7 +209,7 @@ impl HasTransformedView for Shape {
 }
 
 /// A primitive text annotation consisting of a layer, string, and location.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub struct Text {
     layer: LayerId,
@@ -218,7 +262,7 @@ impl Bbox for Text {
 }
 
 /// A primitive layout element.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Element {
     /// A raw layout instance.
     Instance(RawInstance),
@@ -226,6 +270,87 @@ pub enum Element {
     Shape(Shape),
     /// A primitive text annotation.
     Text(Text),
+}
+
+/// A pointer to a primitive layout element.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ElementRef<'a> {
+    /// A raw layout instance.
+    Instance(&'a RawInstance),
+    /// A primitive layout shape.
+    Shape(&'a Shape),
+    /// A primitive text annotation.
+    Text(&'a Text),
+}
+
+impl Element {
+    /// Converts from `&Element` to `ElementRef`.
+    ///
+    /// Produces a new `ElementRef` containing a reference into
+    /// the original element, but leaves the original in place.
+    pub fn as_ref(&self) -> ElementRef<'_> {
+        match self {
+            Self::Instance(x) => ElementRef::Instance(x),
+            Self::Shape(x) => ElementRef::Shape(x),
+            Self::Text(x) => ElementRef::Text(x),
+        }
+    }
+
+    /// If this is an `Instance` variant, returns the contained instance.
+    /// Otherwise, returns [`None`].
+    pub fn instance(self) -> Option<RawInstance> {
+        match self {
+            Self::Instance(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Shape` variant, returns the contained shape.
+    /// Otherwise, returns [`None`].
+    pub fn shape(self) -> Option<Shape> {
+        match self {
+            Self::Shape(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Text` variant, returns the contained text.
+    /// Otherwise, returns [`None`].
+    pub fn text(self) -> Option<Text> {
+        match self {
+            Self::Text(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> ElementRef<'a> {
+    /// If this is an `Instance` variant, returns the contained instance.
+    /// Otherwise, returns [`None`].
+    pub fn instance(self) -> Option<&'a RawInstance> {
+        match self {
+            Self::Instance(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Shape` variant, returns the contained shape.
+    /// Otherwise, returns [`None`].
+    pub fn shape(self) -> Option<&'a Shape> {
+        match self {
+            Self::Shape(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Text` variant, returns the contained text.
+    /// Otherwise, returns [`None`].
+    pub fn text(self) -> Option<&'a Text> {
+        match self {
+            Self::Text(x) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 impl Bbox for Element {
