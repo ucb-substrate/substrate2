@@ -2,12 +2,17 @@ use geometry::{
     align::AlignBboxMut,
     prelude::{AlignBbox, AlignMode, Bbox},
     rect::Rect,
+    side::Side,
     union::BoundingUnion,
 };
 
 use substrate::{
     io::IoShape,
-    layout::{element::Shape, HasLayout, HasLayoutImpl, Instance},
+    layout::{
+        element::Shape,
+        tiling::{ArrayTiler, Tile, TileAlignMode},
+        HasLayout, HasLayoutImpl, Instance,
+    },
     pdk::{layers::HasPin, PdkLayers},
     supported_pdks, DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
 };
@@ -219,28 +224,38 @@ impl HasLayoutImpl<T> for BufferN {
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut buffer = cell.generate(Buffer::new(self.strength));
+        let buffer = cell.generate(Buffer::new(self.strength));
 
         let mut data = BufferNData::default();
+        let mut tiler = ArrayTiler::builder()
+            .horiz_mode(TileAlignMode::PosAdjacent)
+            .horiz_offset(10)
+            .vert_mode(TileAlignMode::Center)
+            .build();
 
-        cell.draw(buffer.clone())?;
-        data.buffers.push(buffer.clone());
-
-        for i in 1..self.n {
-            buffer.align_bbox_mut(AlignMode::ToTheRight, buffer.bbox(), 10);
-            cell.draw(buffer.clone())?;
+        for _ in 0..self.n {
             data.buffers.push(buffer.clone());
+        }
 
-            cell.draw(Shape::new(
-                buffer.io().dout.layer().drawing(),
-                buffer
-                    .io()
-                    .din
-                    .bounding_union(&data.buffers[i - 1].io().dout),
-            ))?;
+        for buffer in data.buffers.iter_mut() {
+            tiler.push(Tile::from_bbox_ref(buffer));
+        }
 
-            io.vdd.push(buffer.io().vdd.clone());
-            io.vss.push(buffer.io().vss.clone());
+        cell.draw(tiler)?;
+
+        for i in 0..self.n {
+            if i > 0 {
+                cell.draw(Shape::new(
+                    data.buffers[i].io().dout.layer().drawing(),
+                    data.buffers[i]
+                        .io()
+                        .din
+                        .bounding_union(&data.buffers[i - 1].io().dout),
+                ))?;
+            }
+
+            io.vdd.push(data.buffers[i].io().vdd.clone());
+            io.vss.push(data.buffers[i].io().vss.clone());
         }
 
         io.din.set(data.buffers[0].io().din);
@@ -261,19 +276,25 @@ impl HasLayoutImpl<T> for BufferNxM {
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut buffern = cell.generate(BufferN::new(self.strength, self.n));
+        let buffern = cell.generate(BufferN::new(self.strength, self.n));
+        let mut bufferns = (0..self.n).map(|_| buffern.clone()).collect::<Vec<_>>();
+        let mut tiler = ArrayTiler::builder()
+            .horiz_mode(TileAlignMode::Center)
+            .vert_mode(TileAlignMode::NegAdjacent)
+            .vert_offset(20)
+            .build();
 
-        for i in 0..self.n {
-            if i != 0 {
-                buffern.align_bbox_mut(AlignMode::Beneath, buffern.bbox(), 20);
-            }
+        for buffer in bufferns.iter_mut() {
+            tiler.push(Tile::from_bbox_ref(buffer));
+        }
 
+        cell.draw(tiler)?;
+
+        for (i, buffern) in bufferns.iter().enumerate() {
             io.vdd.merge(buffern.io().vdd);
             io.vss.merge(buffern.io().vss);
             io.din[i].set(buffern.io().din);
             io.dout[i].set(buffern.io().dout);
-
-            cell.draw(buffern.clone())?;
         }
 
         Ok(())

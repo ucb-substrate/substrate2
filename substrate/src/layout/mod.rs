@@ -50,6 +50,7 @@ use self::element::{CellId, Element, RawCell, RawInstance, Shape};
 pub mod element;
 pub mod error;
 pub mod gds;
+pub mod tiling;
 
 /// An object used to store data created during layout generation.
 pub trait Data: HasTransformedView + Send + Sync {}
@@ -394,9 +395,15 @@ impl<T: HasLayout> HasTransformedView for Instance<T> {
 }
 
 impl<PDK: Pdk, I: HasLayoutImpl<PDK>> Draw<PDK> for Instance<I> {
-    fn draw<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()> {
         cell.draw_instance(self);
         Ok(())
+    }
+}
+
+impl<PDK: Pdk, I: HasLayoutImpl<PDK>> DrawRef<PDK> for Instance<I> {
+    fn draw_ref(&self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.clone().draw(cell)
     }
 }
 
@@ -405,8 +412,7 @@ impl<PDK: Pdk, I: HasLayoutImpl<PDK>> Draw<PDK> for Instance<I> {
 /// Constructed once for each invocation of [`HasLayoutImpl::layout`].
 pub struct CellBuilder<PDK: Pdk, T> {
     phantom: PhantomData<T>,
-    instances: Vec<Receiver<Option<RawInstance>>>,
-    cell: RawCell,
+    container: DrawContainer<PDK>,
     /// The current global context.
     pub ctx: Context<PDK>,
 }
@@ -415,21 +421,13 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     pub(crate) fn new(id: CellId, name: ArcStr, ctx: Context<PDK>) -> Self {
         Self {
             phantom: PhantomData,
-            instances: Vec::new(),
-            cell: RawCell::new(id, name),
+            container: DrawContainer::new(id, name),
             ctx,
         }
     }
 
     pub(crate) fn finish(mut self) -> RawCell {
-        for instance in self
-            .instances
-            .into_iter()
-            .map(|instance| instance.recv().unwrap().unwrap())
-        {
-            self.cell.add_element(instance);
-        }
-        self.cell
+        self.container.finish()
     }
 
     /// Generate an instance of `block`.
@@ -463,7 +461,73 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
         Ok(Instance::new(cell))
     }
 
-    pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: &Instance<I>) {
+    pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: Instance<I>) {
+        self.container.draw_instance(inst)
+    }
+
+    pub(crate) fn draw_element(&mut self, element: Element) {
+        self.container.draw_element(element);
+    }
+
+    /// Draw a blockage.
+    pub fn draw_blockage(&mut self, shape: Shape) {
+        self.container.draw_blockage(shape)
+    }
+
+    /// Draw layout object `obj`.
+    ///
+    /// For instances, a new thread is spawned to add the instance once the underlying cell has
+    /// been generated. If generation fails, the spawned thread may panic after this function has
+    /// been called.
+    ///
+    /// For error recovery, instance generation results should be checked using [`Instance::try_cell`]
+    /// before calling `draw`.
+    ///
+    /// # Panics
+    ///
+    /// May cause a panic if generation of an underlying instance fails.
+    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
+        self.container.draw(obj)
+    }
+
+    /// Draw layout object `obj` from its reference.
+    ///
+    /// For instances, a new thread is spawned to add the instance once the underlying cell has
+    /// been generated. If generation fails, the spawned thread may panic after this function has
+    /// been called.
+    ///
+    /// For error recovery, instance generation results should be checked using [`Instance::try_cell`]
+    /// before calling `draw`.
+    ///
+    /// # Panics
+    ///
+    /// May cause a panic if generation of an underlying instance fails.
+    pub fn draw_ref(&mut self, obj: &impl DrawRef<PDK>) -> Result<()> {
+        self.container.draw_ref(obj)
+    }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &Context<PDK> {
+        &self.ctx
+    }
+}
+
+pub struct DrawContainer<PDK> {
+    phantom: PhantomData<PDK>,
+    instances: Vec<Receiver<Option<RawInstance>>>,
+    cell: RawCell,
+}
+
+impl<PDK: Pdk> DrawContainer<PDK> {
+    pub(crate) fn new(id: CellId, name: ArcStr) -> Self {
+        Self {
+            phantom: PhantomData,
+            instances: Vec::new(),
+            cell: RawCell::new(id, name),
+        }
+    }
+
+    pub(crate) fn draw_instance<I: HasLayoutImpl<PDK>>(&mut self, inst: Instance<I>) {
         let (send, recv) = mpsc::channel();
 
         self.instances.push(recv);
@@ -504,25 +568,62 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// # Panics
     ///
     /// May cause a panic if generation of an underlying instance fails.
-    pub fn draw<D: Draw<PDK>, R: AsRef<D>>(&mut self, obj: R) -> Result<()> {
-        obj.as_ref().draw(self)
+    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
+        obj.draw(self)
     }
 
-    /// Gets the global context.
-    pub fn ctx(&self) -> &Context<PDK> {
-        &self.ctx
+    /// Draw layout object `obj` from its reference.
+    ///
+    /// For instances, a new thread is spawned to add the instance once the underlying cell has
+    /// been generated. If generation fails, the spawned thread may panic after this function has
+    /// been called.
+    ///
+    /// For error recovery, instance generation results should be checked using [`Instance::try_cell`]
+    /// before calling `draw`.
+    ///
+    /// # Panics
+    ///
+    /// May cause a panic if generation of an underlying instance fails.
+    pub fn draw_ref(&mut self, obj: &impl DrawRef<PDK>) -> Result<()> {
+        obj.draw_ref(self)
+    }
+
+    pub(crate) fn finish(mut self) -> RawCell {
+        for instance in self
+            .instances
+            .into_iter()
+            .map(|instance| instance.recv().unwrap().unwrap())
+        {
+            self.cell.add_element(instance);
+        }
+        self.cell
     }
 }
 
 /// An object that can be drawn in a [`CellBuilder`].
 pub trait Draw<PDK: Pdk> {
     /// Draws `self` inside `cell`.
-    fn draw<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()>;
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()>;
 }
 
-impl<E: Clone + Into<Element>, PDK: Pdk> Draw<PDK> for E {
-    fn draw<T>(&self, cell: &mut CellBuilder<PDK, T>) -> Result<()> {
-        cell.draw_element(self.clone().into());
-        Ok(())
+pub trait DrawBoxed<PDK: Pdk> {
+    fn draw_boxed(self: Box<Self>, cell: &mut DrawContainer<PDK>) -> Result<()>;
+}
+
+impl<PDK: Pdk, T: ?Sized + Draw<PDK>> DrawBoxed<PDK> for T {
+    fn draw_boxed(self: Box<Self>, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.draw(cell)
     }
+}
+
+impl<PDK: Pdk, T: ?Sized + Draw<PDK>> Draw<PDK> for Box<T> {
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.draw_boxed(cell)
+    }
+}
+
+/// An object that can be drawn in a [`CellBuilder`] from its reference.
+pub trait DrawRef<PDK: Pdk>: Draw<PDK> {
+    /// Draws `self` inside `cell` from its reference.
+    fn draw_ref(&self, cell: &mut DrawContainer<PDK>) -> Result<()>;
 }

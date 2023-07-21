@@ -16,10 +16,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{Error, Result},
     io::{NameBuf, PortGeometry},
-    pdk::layers::LayerId,
+    pdk::{layers::LayerId, Pdk},
 };
 
-use super::{HasLayout, Instance};
+use super::{Draw, DrawContainer, DrawRef, HasLayout, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -111,6 +111,19 @@ impl<T: HasLayout> TryFrom<Instance<T>> for RawInstance {
     }
 }
 
+impl<PDK: Pdk> Draw<PDK> for RawInstance {
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        cell.draw_element(self.into());
+        Ok(())
+    }
+}
+
+impl<PDK: Pdk> DrawRef<PDK> for RawInstance {
+    fn draw_ref(&self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.clone().draw(cell)
+    }
+}
+
 /// A primitive layout shape consisting of a layer and a geometric shape.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -161,6 +174,19 @@ impl HasTransformedView for Shape {
             layer: self.layer,
             shape: self.shape.transformed_view(trans),
         }
+    }
+}
+
+impl<PDK: Pdk> Draw<PDK> for Shape {
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        cell.draw_element(self.into());
+        Ok(())
+    }
+}
+
+impl<PDK: Pdk> DrawRef<PDK> for Shape {
+    fn draw_ref(&self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.clone().draw(cell)
     }
 }
 
@@ -217,6 +243,19 @@ impl Bbox for Text {
     }
 }
 
+impl<PDK: Pdk> Draw<PDK> for Text {
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        cell.draw_element(self.into());
+        Ok(())
+    }
+}
+
+impl<PDK: Pdk> DrawRef<PDK> for Text {
+    fn draw_ref(&self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.clone().draw(cell)
+    }
+}
+
 /// A primitive layout element.
 #[derive(Debug, Clone)]
 pub enum Element {
@@ -253,5 +292,18 @@ impl From<Shape> for Element {
 impl From<Text> for Element {
     fn from(value: Text) -> Self {
         Self::Text(value)
+    }
+}
+
+impl<PDK: Pdk> Draw<PDK> for Element {
+    fn draw(self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        cell.draw_element(self);
+        Ok(())
+    }
+}
+
+impl<PDK: Pdk> DrawRef<PDK> for Element {
+    fn draw_ref(&self, cell: &mut DrawContainer<PDK>) -> Result<()> {
+        self.clone().draw(cell)
     }
 }

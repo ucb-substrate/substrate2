@@ -2,6 +2,7 @@ use geometry::prelude::{NamedOrientation, Point};
 use geometry::{prelude::Bbox, rect::Rect};
 use substrate::context::Context;
 use substrate::geometry::transform::{Transform, Translate};
+use substrate::layout::tiling::{ArrayTiler, Tile, TileAlignMode};
 use substrate::layout::Instance;
 use substrate::{LayoutData, TransformMut, TranslateMut};
 
