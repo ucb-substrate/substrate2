@@ -101,7 +101,8 @@ impl RawCell {
 
     /// Returns a reference to the port with the given name, if it exists.
     pub fn port_named(&self, name: &str) -> Option<&PortGeometry> {
-        self.ports.get(&NameBuf::from(name))
+        let name_buf = self.port_names.get(name)?;
+        self.ports.get(name_buf)
     }
 }
 
