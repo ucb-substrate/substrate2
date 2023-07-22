@@ -87,7 +87,7 @@ impl Block for Vdivider {
 }
 
 #[derive(Debug, Clone, Io)]
-struct VdividerArrayIo {
+pub struct VdividerArrayIo {
     pub elements: Array<PowerIo>,
 }
 
