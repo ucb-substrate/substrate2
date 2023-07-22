@@ -255,8 +255,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let mut create_builder_fields = Vec::new();
     let mut transformed_view_fields = Vec::new();
     let mut build_data_fields = Vec::new();
-    let mut field_list_elems = Vec::new();
-    let mut field_match_arms = Vec::new();
 
     let layout_data_ident = format_ident!("{}Layout", ident);
     let layout_builder_ident = format_ident!("{}LayoutBuilder", ident);
@@ -273,7 +271,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             declare,
             refer,
             assign,
-            pretty_ident,
             ..
         } = crate::derive::field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
 
@@ -310,11 +307,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         build_data_fields.push(quote! {
                 #assign #substrate::io::LayoutDataBuilder::<<#field_ty as #substrate::io::LayoutType>::Data>::build(#refer)?,
             });
-        field_list_elems
-            .push(quote! { #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)) });
-        field_match_arms.push(quote! {
-            ::std::stringify!(#pretty_ident) => ::std::option::Option::Some(<<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten_vec(&#refer)),
-        });
     }
 
     // Return 0 from `FlatLen::len` if struct has no fields.
@@ -373,7 +365,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
                 #( #flatten_port_geometry_fields )*
             }
         }
-
 
         #(#attrs)*
         #vis struct #transformed_layout_data_ident #ref_ty #ref_wher #transformed_layout_data_body
