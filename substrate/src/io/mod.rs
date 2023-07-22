@@ -16,7 +16,7 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
-use crate::layout::BuildFrom;
+use crate::layout::element::NamedPorts;
 use crate::{
     block::Block,
     error::Result,
@@ -78,9 +78,9 @@ pub trait HasNameTree {
     fn names(&self) -> Option<Vec<NameTree>>;
 
     /// Returns a flattened list of node names.
-    fn flat_names(&self, root: impl Into<NameFragment>) -> Vec<NameBuf> {
+    fn flat_names(&self, root: Option<NameFragment>) -> Vec<NameBuf> {
         self.names()
-            .map(|t| NameTree::new(root.into(), t).flatten())
+            .map(|t| NameTree::with_optional_fragment(root, t).flatten())
             .unwrap_or_default()
     }
 }
@@ -147,6 +147,21 @@ pub trait CustomLayoutType<T: LayoutType>: LayoutType {
     fn from_layout_type(other: &T) -> Self;
 }
 
+pub trait HierarchicalBuildFrom<T> {
+    fn build_from(&mut self, path: &mut NameBuf, source: &T);
+
+    fn build_from_top(&mut self, source: &T) {
+        let mut buf = NameBuf::new();
+        self.build_from(&mut buf, source);
+    }
+
+    fn build_from_top_prefix(&mut self, prefix: impl Into<NameFragment>, source: &T) {
+        let mut buf = NameBuf::new();
+        buf.push(prefix);
+        self.build_from(&mut buf, source);
+    }
+}
+
 // END TRAITS
 
 // BEGIN TYPES
@@ -169,7 +184,7 @@ pub struct NameBuf {
 /// A tree for hierarchical node naming.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct NameTree {
-    fragment: NameFragment,
+    fragment: Option<NameFragment>,
     children: Vec<NameTree>,
 }
 
@@ -497,14 +512,6 @@ impl PortGeometryBuilder {
     }
 }
 
-impl BuildFrom<PortGeometry> for PortGeometryBuilder {
-    fn build_from(&mut self, source: &PortGeometry) {
-        self.primary = Some(source.primary.clone());
-        self.unnamed_shapes.clone_from(&source.unnamed_shapes);
-        self.named_shapes.clone_from(&source.named_shapes);
-    }
-}
-
 /// A simple builder that allows setting data at runtime.
 ///
 /// ```
@@ -536,12 +543,6 @@ impl<T> OptionBuilder<T> {
     /// Returns the data contained by the builder.
     pub fn build(self) -> Result<T> {
         Ok(self.0.ok_or(LayoutError::IoDefinition)?)
-    }
-}
-
-impl BuildFrom<PortGeometry> for OptionBuilder<IoShape> {
-    fn build_from(&mut self, source: &PortGeometry) {
-        self.set(source.primary.clone());
     }
 }
 

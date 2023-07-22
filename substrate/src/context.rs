@@ -227,7 +227,7 @@ impl<PDK: Pdk> Context<PDK> {
                 let ports = HashMap::from_iter(
                     block
                         .io()
-                        .flat_names(arcstr::literal!("io"))
+                        .flat_names(None)
                         .into_iter()
                         .zip(io.flatten_vec().into_iter()),
                 );
@@ -462,7 +462,7 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     assert!(nodes_rest.is_empty());
     let cell_name = block.name();
 
-    let names = io.flat_names(arcstr::literal!("io"));
+    let names = io.flat_names(None);
     let dirs = io.flatten_vec();
     assert_eq!(nodes.len(), names.len());
     assert_eq!(nodes.len(), dirs.len());

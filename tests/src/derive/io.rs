@@ -1,7 +1,8 @@
 //! Tests for ensuring that `#[derive(Io)]` works.
 
-use substrate::io::{Input, LayoutType, Output, SchematicType, Signal, Undirected};
+use substrate::io::{Input, LayoutType, Output, SchematicType, Signal, Undirected, HierarchicalBuildFrom};
 use substrate::Io;
+use substrate::layout::element::NamedPorts;
 
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
@@ -10,7 +11,7 @@ where
     T: Clone + Undirected + SchematicType + LayoutType + 'static,
     <T as SchematicType>::Data: Undirected,
     <T as LayoutType>::Data: Undirected,
-    <T as LayoutType>::Builder: Undirected,
+    <T as LayoutType>::Builder: Undirected + HierarchicalBuildFrom<NamedPorts>,
 {
     /// A single input field.
     pub signal: Input<T>,

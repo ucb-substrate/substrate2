@@ -2,13 +2,14 @@ use crate::shared::buffer::{BufferIo, BufferIoLayoutBuilder};
 use geometry::prelude::{Orientation, Point};
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
-use substrate::layout::element::RawInstance;
-use substrate::layout::{BuildFrom, HasLayout, HasLayoutImpl};
+use substrate::io::HierarchicalBuildFrom;
+use substrate::layout::element::{NamedPorts, RawInstance};
+use substrate::layout::{HasLayout, HasLayoutImpl};
 use substrate::Block;
-use substrate::HasSchematicImpl;
+use substrate::{HasSchematicImpl, HasLayoutImpl};
 use test_log::test;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl, HasLayoutImpl)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",
@@ -21,6 +22,12 @@ use test_log::test;
     name = "buffer",
     fmt = "spice",
     pdk = "Sky130CommercialPdk"
+))]
+#[substrate(layout(
+    source = "crate::paths::test_data(\"gds/buffer.gds\")",
+    name = "buffer",
+    fmt = "gds",
+    pdk = "Sky130OpenPdk"
 ))]
 pub struct BufferHardMacro;
 
@@ -45,35 +52,6 @@ pub struct BufferHardMacro;
     pdk = "Sky130OpenPdk"
 ))]
 pub struct BufferInlineHardMacro;
-
-impl HasLayout for BufferHardMacro {
-    type Data = ();
-}
-
-impl HasLayoutImpl<Sky130OpenPdk> for BufferHardMacro {
-    fn layout(
-        &self,
-        io: &mut BufferIoLayoutBuilder,
-        cell: &mut substrate::layout::CellBuilder<Sky130OpenPdk, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        let path = crate::paths::test_data("gds/buffer.gds");
-        let inner = cell.ctx.read_gds_cell(path, "buffer")?;
-
-        println!("inner = {inner:?}");
-        let port = inner.port_named("vdd").unwrap();
-        BuildFrom::build_from(&mut io.vdd, port);
-        let port = inner.port_named("vss").unwrap();
-        BuildFrom::build_from(&mut io.vss, port);
-        let port = inner.port_named("din").unwrap();
-        BuildFrom::build_from(&mut io.din, port);
-        let port = inner.port_named("dout").unwrap();
-        BuildFrom::build_from(&mut io.dout, port);
-
-        let inst = RawInstance::new(inner, Point::zero(), Orientation::default());
-        cell.draw(inst)?;
-        Ok(())
-    }
-}
 
 #[test]
 fn export_hard_macro() {
