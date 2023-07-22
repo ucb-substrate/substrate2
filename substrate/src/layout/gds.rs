@@ -507,7 +507,6 @@ impl<'a> GdsImporter<'a> {
                     None
                 }
                 GdsTextElem(ref x) => {
-                    tracing::debug!(?x, "found text element");
                     texts.push(x);
                     None
                 }
