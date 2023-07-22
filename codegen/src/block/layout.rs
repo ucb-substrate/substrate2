@@ -297,9 +297,9 @@ impl ToTokens for HasLayoutImplInputReceiver {
                 impl #imp #substrate::layout::HasLayoutImpl<#pdk> for #ident #ty #wher {
                     fn layout(
                         &self,
-                        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-                        cell: &mut substrate::layout::CellBuilder<Sky130OpenPdk, Self>,
-                    ) -> substrate::error::Result<Self::Data> {
+                        io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,
+                        cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
+                    ) -> #substrate::error::Result<Self::Data> {
 
                         let source = { #source };
 
