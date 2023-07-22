@@ -1,15 +1,24 @@
-use crate::shared::buffer::{BufferIo, BufferIoLayoutBuilder};
-use geometry::prelude::{Orientation, Point};
+use crate::shared::buffer::BufferIo;
+
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
-use substrate::io::HierarchicalBuildFrom;
-use substrate::layout::element::{NamedPorts, RawInstance};
-use substrate::layout::{HasLayout, HasLayoutImpl};
+
 use substrate::Block;
-use substrate::{HasSchematicImpl, HasLayoutImpl};
+use substrate::{HasLayoutImpl, HasSchematicImpl};
 use test_log::test;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl, HasLayoutImpl)]
+#[derive(
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Block,
+    HasSchematicImpl,
+    HasLayoutImpl,
+)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",

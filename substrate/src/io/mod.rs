@@ -147,14 +147,19 @@ pub trait CustomLayoutType<T: LayoutType>: LayoutType {
     fn from_layout_type(other: &T) -> Self;
 }
 
+/// Construct an instance of `Self` hierarchically given a name buffer and a source of type `T`.
 pub trait HierarchicalBuildFrom<T> {
+    /// Build `self` from the given root path and source.
     fn build_from(&mut self, path: &mut NameBuf, source: &T);
 
+    /// Build `self` from the given source, starting with an empty top-level name buffer.
     fn build_from_top(&mut self, source: &T) {
         let mut buf = NameBuf::new();
         self.build_from(&mut buf, source);
     }
 
+    /// Build `self` from the given source, starting with a top-level name buffer containing the
+    /// given name fragment.
     fn build_from_top_prefix(&mut self, prefix: impl Into<NameFragment>, source: &T) {
         let mut buf = NameBuf::new();
         buf.push(prefix);

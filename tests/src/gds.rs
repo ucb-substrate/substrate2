@@ -167,13 +167,7 @@ fn test_gds_reexport() {
     assert!(b.port_named("din").is_some());
     assert!(b.port_named("dout").is_some());
 
-    let r = b
-        .port_named("vdd")
-        .unwrap()
-        .primary
-        .shape()
-        .rect()
-        .unwrap();
+    let r = b.port_named("vdd").unwrap().primary.shape().rect().unwrap();
     assert_eq!(r.width(), 50);
     assert_eq!(r.height(), 25);
 

@@ -260,7 +260,7 @@ impl Undirected for IoShape {}
 
 impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
     fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
-        self.set(source.get(&path).unwrap().primary.clone());
+        self.set(source.get(path).unwrap().primary.clone());
     }
 }
 
@@ -347,7 +347,7 @@ impl Undirected for PortGeometryBuilder {}
 
 impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
     fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
-        let source = source.get(&path).unwrap();
+        let source = source.get(path).unwrap();
         self.primary = Some(source.primary.clone());
         self.unnamed_shapes.clone_from(&source.unnamed_shapes);
         self.named_shapes.clone_from(&source.named_shapes);
@@ -739,7 +739,9 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
 }
 
 impl<T, S> HierarchicalBuildFrom<S> for ArrayData<T>
-where T: HierarchicalBuildFrom<S> {
+where
+    T: HierarchicalBuildFrom<S>,
+{
     fn build_from(&mut self, path: &mut NameBuf, source: &S) {
         for (i, elem) in self.elems.iter_mut().enumerate() {
             path.push(i);
@@ -974,7 +976,10 @@ impl NameTree {
     }
 
     /// Create a new name tree rooted at the given **optional** name fragment.
-    pub fn with_optional_fragment(fragment: Option<impl Into<NameFragment>>, children: Vec<NameTree>) -> Self {
+    pub fn with_optional_fragment(
+        fragment: Option<impl Into<NameFragment>>,
+        children: Vec<NameTree>,
+    ) -> Self {
         Self {
             fragment: fragment.map(|f| f.into()),
             children,
@@ -1082,10 +1087,7 @@ mod tests {
             vec![
                 NameTree::new(
                     "pwr",
-                    vec![
-                        NameTree::new("vdd", vec![]),
-                        NameTree::new("vss", vec![]),
-                    ],
+                    vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
                 ),
                 NameTree::new("out", vec![]),
             ],
@@ -1118,18 +1120,13 @@ mod tests {
 
     #[test]
     fn flatten_name_tree_with_empty_root() {
-        let tree = NameTree::with_empty_fragment(
-            vec![
-                NameTree::new(
-                    "pwr",
-                    vec![
-                        NameTree::new("vdd", vec![]),
-                        NameTree::new("vss", vec![]),
-                    ],
-                ),
-                NameTree::new("out", vec![]),
-            ],
-        );
+        let tree = NameTree::with_empty_fragment(vec![
+            NameTree::new(
+                "pwr",
+                vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
+            ),
+            NameTree::new("out", vec![]),
+        ]);
 
         assert_eq!(
             tree.flatten(),

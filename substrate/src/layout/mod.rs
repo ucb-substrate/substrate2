@@ -40,7 +40,7 @@ use geometry::{
     },
 };
 
-use crate::io::{LayoutType, NameBuf, NameFragment};
+use crate::io::LayoutType;
 use crate::pdk::Pdk;
 use crate::{block::Block, error::Error};
 use crate::{context::Context, error::Result};
@@ -548,4 +548,3 @@ impl<E: Into<Element>, PDK: Pdk> Draw<PDK> for E {
         Ok(())
     }
 }
-

@@ -1,5 +1,5 @@
 use darling::ast::{Fields, Style};
-use darling::{ast, FromDeriveInput, FromMeta, FromField, FromVariant};
+use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
