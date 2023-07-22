@@ -2,7 +2,7 @@ use arcstr::ArcStr;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{Array, ArrayData, InOut, Output, Signal};
+use substrate::io::{Array, InOut, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{
     CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice,
@@ -86,8 +86,13 @@ impl Block for Vdivider {
     }
 }
 
+#[derive(Debug, Clone, Io)]
+struct VdividerArrayIo {
+    pub elements: Array<PowerIo>,
+}
+
 impl Block for VdividerArray {
-    type Io = Array<PowerIo>;
+    type Io = VdividerArrayIo;
 
     fn id() -> ArcStr {
         arcstr::literal!("vdivider_array")
@@ -98,7 +103,9 @@ impl Block for VdividerArray {
     }
 
     fn io(&self) -> Self::Io {
-        Array::new(self.vdividers.len(), Default::default())
+        VdividerArrayIo {
+            elements: Array::new(self.vdividers.len(), Default::default()),
+        }
     }
 }
 
@@ -157,7 +164,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
 impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
     fn schematic(
         &self,
-        io: &ArrayData<PowerIoSchematic>,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut vdividers = Vec::new();
@@ -165,7 +172,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
         for (i, vdivider) in self.vdividers.iter().enumerate() {
             let vdiv = cell.instantiate(*vdivider);
 
-            cell.connect(&vdiv.io().pwr, &io[i]);
+            cell.connect(&vdiv.io().pwr, &io.elements[i]);
 
             vdividers.push(vdiv);
         }
