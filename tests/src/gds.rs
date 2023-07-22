@@ -162,18 +162,12 @@ fn test_gds_reexport() {
     assert_eq!(b_elems.len(), 0, "expected no elements in cell B");
     assert_eq!(b_annotations.len(), 0, "expected 0 annotations in cell B");
     assert_eq!(b.ports().count(), 4);
-    assert!(b.port_named("io_vdd").is_some());
-    assert!(b.port_named("io_vss").is_some());
-    assert!(b.port_named("io_din").is_some());
-    assert!(b.port_named("io_dout").is_some());
+    assert!(b.port_named("vdd").is_some());
+    assert!(b.port_named("vss").is_some());
+    assert!(b.port_named("din").is_some());
+    assert!(b.port_named("dout").is_some());
 
-    let r = b
-        .port_named("io_vdd")
-        .unwrap()
-        .primary
-        .shape()
-        .rect()
-        .unwrap();
+    let r = b.port_named("vdd").unwrap().primary.shape().rect().unwrap();
     assert_eq!(r.width(), 50);
     assert_eq!(r.height(), 25);
 

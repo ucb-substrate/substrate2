@@ -114,7 +114,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         assert!(ids_rest.is_empty());
 
         let nodes = data.flatten_vec();
-        let names = ty.flat_names(name.into());
+        let names = ty.flat_names(Some(name.into().into()));
         assert_eq!(nodes.len(), names.len());
 
         self.node_names.extend(nodes.iter().copied().zip(names));
@@ -204,7 +204,9 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         assert!(ids_rest.is_empty());
 
         let connections = io_data.flatten_vec();
-        let names = io.flat_names(arcstr::format!("xinst{}", self.instances.len()));
+        let names = io.flat_names(Some(
+            arcstr::format!("xinst{}", self.instances.len()).into(),
+        ));
         assert_eq!(connections.len(), names.len());
 
         self.node_names

@@ -33,6 +33,9 @@ impl CellId {
     }
 }
 
+/// A mapping from names to ports.
+pub type NamedPorts = HashMap<NameBuf, PortGeometry>;
+
 /// A raw layout cell.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct RawCell {
@@ -40,7 +43,7 @@ pub struct RawCell {
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    ports: HashMap<NameBuf, PortGeometry>,
+    ports: NamedPorts,
     port_names: HashMap<String, NameBuf>,
 }
 
@@ -65,7 +68,8 @@ impl RawCell {
         }
     }
 
-    pub(crate) fn port_map(&self) -> &HashMap<NameBuf, PortGeometry> {
+    #[doc(hidden)]
+    pub fn port_map(&self) -> &NamedPorts {
         &self.ports
     }
 
