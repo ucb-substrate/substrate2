@@ -161,11 +161,11 @@ fn test_gds_reexport() {
 
     assert_eq!(b_elems.len(), 0, "expected no elements in cell B");
     assert_eq!(b_annotations.len(), 0, "expected 0 annotations in cell B");
+    assert_eq!(b.ports().count(), 4);
     assert!(b.port_named("io_vdd").is_some());
     assert!(b.port_named("io_vss").is_some());
     assert!(b.port_named("io_din").is_some());
     assert!(b.port_named("io_dout").is_some());
-    assert_eq!(b.ports().count(), 4);
 
     let r = b
         .port_named("io_vdd")

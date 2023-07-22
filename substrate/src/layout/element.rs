@@ -81,7 +81,9 @@ impl RawCell {
     ///
     /// Primarily for use in GDS import.
     pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
-        self.ports.insert(name.into(), port.into());
+        let name = name.into();
+        self.ports.insert(name.clone(), port.into());
+        self.port_names.insert(name.to_string(), name);
     }
 
     /// The ID of this cell.

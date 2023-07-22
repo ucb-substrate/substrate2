@@ -437,8 +437,7 @@ impl HasTransformedView for IoShape {
 pub struct PortGeometry {
     /// The primary shape of the port.
     ///
-    /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
-    /// explicitly. It is kept separately for ease of access.
+    /// **Not** contained in `named_shapes` or `unnamed_shapes`.
     pub primary: IoShape,
     /// A set of unnamed shapes contained by the port.
     pub unnamed_shapes: Vec<IoShape>,
@@ -472,13 +471,16 @@ pub struct PortGeometryBuilder {
 impl PortGeometryBuilder {
     /// Push an unnamed shape to the port.
     ///
-    /// If the primary shape has not been set yet, sets the primary shape to the new shape. This
-    /// can be overriden using [`PortGeometryBuilder::set_primary`].
+    /// If the primary shape has not been set yet, sets the primary shape to the new shape
+    /// **instead** of adding to the unnamed shapes list.
+    ///
+    /// The primary shape can be overriden using [`PortGeometryBuilder::set_primary`].
     pub fn push(&mut self, shape: IoShape) {
         if self.primary.is_none() {
             self.primary = Some(shape.clone());
+        } else {
+            self.unnamed_shapes.push(shape);
         }
-        self.unnamed_shapes.push(shape);
     }
 
     /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes.

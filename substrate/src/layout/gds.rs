@@ -130,6 +130,7 @@ impl ExportGds for HashMap<NameBuf, PortGeometry> {
     fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
         let mut elements = Vec::new();
         for (name_buf, geometry) in self {
+            elements.extend((name_buf, &geometry.primary).export(exporter)?);
             for shape in geometry.unnamed_shapes.iter() {
                 elements.extend((name_buf, shape).export(exporter)?);
             }

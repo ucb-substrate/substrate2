@@ -59,6 +59,7 @@ impl HasLayoutImpl<Sky130OpenPdk> for BufferHardMacro {
         let path = crate::paths::test_data("gds/buffer.gds");
         let inner = cell.ctx.read_gds_cell(path, "buffer")?;
 
+        println!("inner = {inner:?}");
         let port = inner.port_named("vdd").unwrap();
         BuildFrom::build_from(&mut io.vdd, port);
         let port = inner.port_named("vss").unwrap();
