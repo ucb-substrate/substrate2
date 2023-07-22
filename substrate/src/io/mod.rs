@@ -16,6 +16,7 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
+use crate::layout::BuildFrom;
 use crate::{
     block::Block,
     error::Result,
@@ -436,8 +437,7 @@ impl HasTransformedView for IoShape {
 pub struct PortGeometry {
     /// The primary shape of the port.
     ///
-    /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
-    /// explicitly. It is kept separately for ease of access.
+    /// **Not** contained in `named_shapes` or `unnamed_shapes`.
     pub primary: IoShape,
     /// A set of unnamed shapes contained by the port.
     pub unnamed_shapes: Vec<IoShape>,
@@ -471,13 +471,16 @@ pub struct PortGeometryBuilder {
 impl PortGeometryBuilder {
     /// Push an unnamed shape to the port.
     ///
-    /// If the primary shape has not been set yet, sets the primary shape to the new shape. This
-    /// can be overriden using [`PortGeometryBuilder::set_primary`].
+    /// If the primary shape has not been set yet, sets the primary shape to the new shape
+    /// **instead** of adding to the unnamed shapes list.
+    ///
+    /// The primary shape can be overriden using [`PortGeometryBuilder::set_primary`].
     pub fn push(&mut self, shape: IoShape) {
         if self.primary.is_none() {
             self.primary = Some(shape.clone());
+        } else {
+            self.unnamed_shapes.push(shape);
         }
-        self.unnamed_shapes.push(shape);
     }
 
     /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes.
@@ -491,6 +494,14 @@ impl PortGeometryBuilder {
     /// Sets the primary shape of this port.
     pub fn set_primary(&mut self, shape: IoShape) {
         self.primary = Some(shape);
+    }
+}
+
+impl BuildFrom<PortGeometry> for PortGeometryBuilder {
+    fn build_from(&mut self, source: &PortGeometry) {
+        self.primary = Some(source.primary.clone());
+        self.unnamed_shapes.clone_from(&source.unnamed_shapes);
+        self.named_shapes.clone_from(&source.named_shapes);
     }
 }
 
@@ -511,6 +522,12 @@ impl<T> Default for OptionBuilder<T> {
 }
 
 impl<T> OptionBuilder<T> {
+    /// Constructs a new, empty `OptionBuilder`.
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Set the value of the data contained by the builder.
     pub fn set(&mut self, inner: T) {
         let _ = self.0.insert(inner);
@@ -519,6 +536,12 @@ impl<T> OptionBuilder<T> {
     /// Returns the data contained by the builder.
     pub fn build(self) -> Result<T> {
         Ok(self.0.ok_or(LayoutError::IoDefinition)?)
+    }
+}
+
+impl BuildFrom<PortGeometry> for OptionBuilder<IoShape> {
+    fn build_from(&mut self, source: &PortGeometry) {
+        self.set(source.primary.clone());
     }
 }
 

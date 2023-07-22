@@ -548,3 +548,18 @@ impl<E: Into<Element>, PDK: Pdk> Draw<PDK> for E {
         Ok(())
     }
 }
+
+/// Indicates that a layout port or port builder can be constructed from a reference to `T`.
+pub trait BuildFrom<T> {
+    /// Mutates `self`, taking data from `source`.
+    fn build_from(&mut self, source: &T);
+}
+
+impl<T> BuildFrom<T> for T
+where
+    T: Clone,
+{
+    fn build_from(&mut self, source: &T) {
+        self.clone_from(source);
+    }
+}

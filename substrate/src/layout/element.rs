@@ -40,7 +40,8 @@ pub struct RawCell {
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    pub(crate) ports: HashMap<NameBuf, PortGeometry>,
+    ports: HashMap<NameBuf, PortGeometry>,
+    port_names: HashMap<String, NameBuf>,
 }
 
 impl RawCell {
@@ -51,11 +52,21 @@ impl RawCell {
             elements: Vec::new(),
             blockages: Vec::new(),
             ports: HashMap::new(),
+            port_names: HashMap::new(),
         }
     }
 
     pub(crate) fn with_ports(self, ports: HashMap<NameBuf, PortGeometry>) -> Self {
-        Self { ports, ..self }
+        let port_names = ports.keys().map(|k| (k.to_string(), k.clone())).collect();
+        Self {
+            ports,
+            port_names,
+            ..self
+        }
+    }
+
+    pub(crate) fn port_map(&self) -> &HashMap<NameBuf, PortGeometry> {
+        &self.ports
     }
 
     pub(crate) fn add_element(&mut self, elem: impl Into<Element>) {
@@ -70,7 +81,9 @@ impl RawCell {
     ///
     /// Primarily for use in GDS import.
     pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
-        self.ports.insert(name.into(), port.into());
+        let name = name.into();
+        self.ports.insert(name.clone(), port.into());
+        self.port_names.insert(name.to_string(), name);
     }
 
     /// The ID of this cell.
@@ -86,6 +99,12 @@ impl RawCell {
     /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
     pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, &PortGeometry)> {
         self.ports.iter()
+    }
+
+    /// Returns a reference to the port with the given name, if it exists.
+    pub fn port_named(&self, name: &str) -> Option<&PortGeometry> {
+        let name_buf = self.port_names.get(name)?;
+        self.ports.get(name_buf)
     }
 }
 
@@ -108,7 +127,7 @@ pub struct RawInstance {
 
 impl RawInstance {
     /// Create a new raw instance of the given cell.
-    pub(crate) fn new(
+    pub fn new(
         cell: impl Into<Arc<RawCell>>,
         loc: Point,
         orientation: impl Into<Orientation>,
