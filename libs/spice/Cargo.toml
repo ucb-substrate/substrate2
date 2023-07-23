@@ -1,10 +1,10 @@
 [package]
 name = "spice"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-scir = { version = "0.1.0", registry = "substrate", path = "../../scir" }
+scir = { version = "0.2.0", registry = "substrate", path = "../../scir" }
 opacity = { version = "0.1.0", path = "../../libs/opacity", registry = "substrate" }
 arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
 nom = "7"

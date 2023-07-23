@@ -1,6 +1,6 @@
 [package]
 name = "codegen"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 include = ["src", "build/docs"]
 
@@ -16,8 +16,8 @@ convert_case = "0.6"
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
-substrate = { version = "<=0.2.0", registry = "substrate", path = "../substrate" }
-sky130pdk = { version = "<=0.2.0", registry = "substrate", path = "../pdks/sky130pdk" }
+substrate = { version = "<=0.3.0", registry = "substrate", path = "../substrate" }
+sky130pdk = { version = "<=0.3.0", registry = "substrate", path = "../pdks/sky130pdk" }
 
 [lib]
 proc-macro = true

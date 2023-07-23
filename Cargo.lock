@@ -402,7 +402,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cache"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "backoff",
@@ -532,7 +532,7 @@ version = "0.0.0"
 
 [[package]]
 name = "codegen"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
@@ -555,7 +555,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cache",
@@ -958,7 +958,7 @@ dependencies = [
 
 [[package]]
 name = "gds"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -988,7 +988,7 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "approx",
  "array_map",
@@ -2111,7 +2111,7 @@ version = "0.0.0"
 
 [[package]]
 name = "scir"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -2241,7 +2241,7 @@ checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
 name = "sky130pdk"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arcstr",
  "rust_decimal",
@@ -2302,7 +2302,7 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arcstr",
  "cache",
@@ -2321,7 +2321,7 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "nom",
@@ -2343,7 +2343,7 @@ version = "0.0.0"
 
 [[package]]
 name = "substrate"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -2910,7 +2910,7 @@ checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "uniquify"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "serde",

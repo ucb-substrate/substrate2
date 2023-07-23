@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/gds-v0.1.0...gds-v0.2.0) (2023-07-23)
+
+
+### Features
+
+* **gds-import:** implement GDS to RawCell importer ([#196](https://github.com/substrate-labs/substrate2/issues/196)) ([fc37eeb](https://github.com/substrate-labs/substrate2/commit/fc37eeb6bac10779491b98bcadcc0eeaeb7d8ec5))
+
 ## 0.1.0 (2023-07-07)
 
 
