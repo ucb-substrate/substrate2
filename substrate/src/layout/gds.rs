@@ -7,6 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use gds::HasLayer;
+use geometry::transform::Transformation;
 use geometry::{
     prelude::{Corner, NamedOrientation, Orientation, Point},
     rect::Rect,
@@ -178,8 +179,7 @@ impl ExportGds for (&NameBuf, &IoShape) {
         if let Some(element) = Text::new(
             shape.layer().label(),
             name_buf.to_string(),
-            shape.shape().label_loc(),
-            NamedOrientation::R0.into_orientation(),
+            Transformation::from_offset(shape.shape().label_loc()),
         )
         .export(exporter)?
         {
@@ -219,8 +219,8 @@ impl ExportGds for RawInstance {
 
         Ok(gds::GdsStructRef {
             name: cell_name,
-            xy: self.loc.export(exporter)?,
-            strans: Some(self.orientation.export(exporter)?),
+            xy: self.trans.offset_point().export(exporter)?,
+            strans: Some(self.trans.orientation().export(exporter)?),
             ..Default::default()
         })
     }
@@ -261,8 +261,8 @@ impl ExportGds for Text {
                 string: self.text().clone(),
                 layer: layer.layer,
                 texttype: layer.xtype,
-                xy: self.loc().export(exporter)?,
-                strans: Some(self.orientation().export(exporter)?),
+                xy: self.trans.offset_point().export(exporter)?,
+                strans: Some(self.trans.orientation().export(exporter)?),
                 ..Default::default()
             })
         } else {
@@ -677,7 +677,7 @@ impl<'a> GdsImporter<'a> {
         // Convert its location
         let loc = self.import_point(&sref.xy)?;
         let layer = self.import_element_layer(sref)?;
-        Ok(Text::new(layer, string, loc, Default::default()))
+        Ok(Text::new(layer, string, Transformation::from_offset(loc)))
     }
     /// Import a [gds::GdsStructRef] cell/struct-instance into an [Instance]
     fn import_instance(&mut self, sref: &gds::GdsStructRef) -> GdsImportResult<RawInstance> {
@@ -692,11 +692,17 @@ impl<'a> GdsImporter<'a> {
             .clone();
         // Convert its location
         let loc = self.import_point(&sref.xy)?;
-        let mut inst = RawInstance::new(cell, loc, Orientation::default());
-        // If defined, convert orientation settings
-        if let Some(strans) = &sref.strans {
-            inst.set_orientation(self.import_orientation(strans)?);
-        }
+        let mut inst = RawInstance::new(
+            cell,
+            Transformation::from_offset_and_orientation(
+                loc,
+                sref.strans
+                    .as_ref()
+                    .map(|value| self.import_orientation(value))
+                    .map_or(Ok(None), |v| v.map(Some))?
+                    .unwrap_or_default(),
+            ),
+        );
         Ok(inst)
     }
     /// Imports a (two-dimensional) [`gds::GdsArrayRef`] into [`Instance`]s.
@@ -765,8 +771,7 @@ impl<'a> GdsImporter<'a> {
                 let y = p0.y + iy * ystep;
                 insts.push(RawInstance::new(
                     cell.clone(),
-                    Point::new(x, y),
-                    orientation,
+                    Transformation::from_offset_and_orientation(Point::new(x, y), orientation),
                 ));
             }
         }

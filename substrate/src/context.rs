@@ -217,7 +217,7 @@ impl<PDK: Pdk> Context<PDK> {
         LayoutCellHandle {
             cell: inner_mut.layout.cell_cache.generate(block, move |block| {
                 let mut io_builder = block.io().builder();
-                let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+                let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
                 let data = block.layout(&mut io_builder, &mut cell_builder);
 
@@ -234,7 +234,7 @@ impl<PDK: Pdk> Context<PDK> {
                         block.clone(),
                         data,
                         Arc::new(io),
-                        Arc::new(cell_builder.finish().with_ports(ports)),
+                        Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
                     )
                 })
             }),

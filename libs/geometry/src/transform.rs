@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::slice::SliceIndex;
 
+use approx::{AbsDiffEq, RelativeEq, UlpsEq};
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
@@ -14,13 +15,20 @@ use crate::wrap_angle;
 /// A transformation representing translation, rotation, and reflection of geometry.
 ///
 /// This object does not support scaling of geometry.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transformation {
     /// The transformation matrix represented in row-major order.
     pub(crate) a: [[f64; 2]; 2],
     /// The x-y translation applied after the transformation.
     pub(crate) b: [f64; 2],
 }
+
+impl Default for Transformation {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
 impl Transformation {
     /// Returns the identity transform, leaving any transformed object unmodified.
     pub fn identity() -> Self {
@@ -135,6 +143,31 @@ impl Transformation {
             angle,
         }
     }
+
+    /// Returns the inverse [`Transformation`] of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use geometry::transform::Transformation;
+    /// use approx::assert_abs_diff_eq;
+    ///
+    /// let trans = Transformation::cascade(
+    ///     Transformation::rotate(90.),
+    ///     Transformation::translate(5., 10.),
+    /// );
+    /// let inv = trans.inv();
+    ///
+    /// assert_abs_diff_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// ```
+    pub fn inv(&self) -> Transformation {
+        let inv = matinv(&self.a);
+        let invb = matvec(&inv, &self.b);
+        Self {
+            a: inv,
+            b: [-invb[0], -invb[1]],
+        }
+    }
 }
 
 impl<T> From<T> for Transformation
@@ -143,6 +176,44 @@ where
 {
     fn from(value: T) -> Self {
         Self::builder().orientation(value).build()
+    }
+}
+
+impl AbsDiffEq for Transformation {
+    type Epsilon = f64;
+
+    fn default_epsilon() -> Self::Epsilon {
+        f64::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: f64) -> bool {
+        self.a[0].abs_diff_eq(&other.a[0], epsilon)
+            && self.a[1].abs_diff_eq(&other.a[1], epsilon)
+            && self.b.abs_diff_eq(&other.b, epsilon)
+    }
+}
+
+impl RelativeEq for Transformation {
+    fn default_max_relative() -> f64 {
+        f64::default_max_relative()
+    }
+
+    fn relative_eq(&self, other: &Self, epsilon: f64, max_relative: f64) -> bool {
+        self.a[0].relative_eq(&other.a[0], epsilon, max_relative)
+            && self.a[1].relative_eq(&other.a[1], epsilon, max_relative)
+            && self.b.relative_eq(&other.b, epsilon, max_relative)
+    }
+}
+
+impl UlpsEq for Transformation {
+    fn default_max_ulps() -> u32 {
+        f64::default_max_ulps()
+    }
+
+    fn ulps_eq(&self, other: &Self, epsilon: f64, max_ulps: u32) -> bool {
+        self.a[0].ulps_eq(&other.a[0], epsilon, max_ulps)
+            && self.a[1].ulps_eq(&other.a[1], epsilon, max_ulps)
+            && self.b.ulps_eq(&other.b, epsilon, max_ulps)
     }
 }
 
@@ -209,12 +280,21 @@ fn matmul(a: &[[f64; 2]; 2], b: &[[f64; 2]; 2]) -> [[f64; 2]; 2] {
         ],
     ]
 }
+
 /// Multiplies a 2x2 matrix by a 2-entry vector, returning a new 2-entry vector.
 fn matvec(a: &[[f64; 2]; 2], b: &[f64; 2]) -> [f64; 2] {
     [
         a[0][0] * b[0] + a[0][1] * b[1],
         a[1][0] * b[0] + a[1][1] * b[1],
     ]
+}
+
+/// Finds the inverse of the matrix.
+///
+/// The determinant factor is unecessary since all transformation matrices have determinant 1 (no
+/// scaling).
+fn matinv(a: &[[f64; 2]; 2]) -> [[f64; 2]; 2] {
+    [[a[1][1], -a[0][1]], [-a[1][0], a[0][0]]]
 }
 
 /// A trait for specifying how an object is changed by a transformation.
@@ -353,10 +433,14 @@ impl<T: HasTransformedView> HasTransformedView for [T] {
 impl<'a, T: HasTransformedView> TransformedVec<'a, T> {
     /// Creates transform views of the contained elements and returns them in a vector.
     pub fn to_vec(&self) -> Vec<Transformed<T>> {
+        self.iter().collect()
+    }
+
+    /// Returns an iterator the transformed views of the contained elements.
+    pub fn iter(&self) -> impl Iterator<Item = Transformed<T>> {
         self.inner
             .iter()
             .map(|elem| elem.transformed_view(self.trans))
-            .collect()
     }
 }
 
@@ -441,6 +525,15 @@ impl<K, V: HasTransformedView> HasTransformedView for HashMap<K, V> {
     }
 }
 
+impl<'a, K, V: HasTransformedView> TransformedHashMap<'a, K, V> {
+    /// Returns an iterator the transformed views of the contained elements.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, Transformed<V>)> {
+        self.inner
+            .iter()
+            .map(|(k, v)| (k, v.transformed_view(self.trans)))
+    }
+}
+
 impl<'a, K: Hash + Eq, V: HasTransformedView> TransformedHashMap<'a, K, V> {
     /// Creates transformed views of the contained elements and returns a HashMap mapping the
     /// original keys to the transformed views.
@@ -509,6 +602,8 @@ impl<'a, K: Hash + Eq, V> TransformedHashMap<'a, K, V> {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use approx::assert_abs_diff_eq;
+
     use super::*;
     use crate::{orientation::NamedOrientation, rect::Rect};
 
@@ -524,6 +619,13 @@ mod tests {
         let a = [[1., 2.], [3., 4.]];
         let b = [[5., 6.], [7., 8.]];
         assert_eq!(matmul(&a, &b), [[19., 22.], [43., 50.]]);
+    }
+
+    #[test]
+    fn matinv_works() {
+        let a = [[1., 2.], [3., 4.]];
+        let inv = matinv(&a);
+        assert_abs_diff_eq!(matmul(&a, &inv), [[1., 0.], [0., 1.]]);
     }
 
     #[test]

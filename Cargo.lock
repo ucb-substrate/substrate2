@@ -773,6 +773,12 @@ name = "digital"
 version = "0.0.0"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "drc"
 version = "0.0.0"
 
@@ -984,6 +990,7 @@ dependencies = [
 name = "geometry"
 version = "0.2.0"
 dependencies = [
+ "approx",
  "array_map",
  "impl-trait-for-tuples",
  "serde",
@@ -2345,6 +2352,7 @@ dependencies = [
  "codegen",
  "config",
  "derive_builder",
+ "downcast-rs",
  "duplicate",
  "ena",
  "gds",
