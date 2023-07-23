@@ -1,9 +1,9 @@
 //! Automatically generated utilities for RPCs.
 
-pub mod remote {
-    include!("remote.rs");
+pub mod local {
+    tonic::include_proto!("local");
 }
 
-pub mod local {
-    include!("local.rs");
+pub mod remote {
+    tonic::include_proto!("remote");
 }
