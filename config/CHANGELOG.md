@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/config-v0.1.0...config-v0.2.0) (2023-07-23)
+
+
+### Features
+
+* **cache-config:** allow configuration of cache via config files ([#192](https://github.com/substrate-labs/substrate2/issues/192)) ([0461402](https://github.com/substrate-labs/substrate2/commit/0461402edfc1ec0886bbb25cf5471ee8480754fc))
+* **tiling:** array and grid tiling API ([#201](https://github.com/substrate-labs/substrate2/issues/201)) ([b3b7c2b](https://github.com/substrate-labs/substrate2/commit/b3b7c2bfb7ba72198872d0f08ded3e0bc757479d))
+* **windows:** fix issues for windows ([#197](https://github.com/substrate-labs/substrate2/issues/197)) ([008b607](https://github.com/substrate-labs/substrate2/commit/008b607b2c21c14ac3106dca6eb74d806131ef8f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.1.0 to 0.2.0
+
 ## 0.1.0 (2023-07-07)
 
 

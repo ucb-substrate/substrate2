@@ -1,6 +1,6 @@
 [package]
 name = "substrate"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 include = ["src", "build/docs"]
 
@@ -20,18 +20,18 @@ derive_builder = "0.12"
 slotmap = "1"
 downcast-rs = "1"
 
-config = { version = "0.1.0", registry = "substrate", path = "../config" }
-cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }
-codegen = { version = "0.2.0", registry = "substrate", path = "../codegen" }
-geometry = { version = "0.2.0", registry = "substrate", path = "../libs/geometry" }
-gds = { version = "0.1.0", registry = "substrate", path = "../gds" }
+config = { version = "0.2.0", registry = "substrate", path = "../config" }
+cache = { version = "0.2.0", registry = "substrate", path = "../libs/cache" }
+codegen = { version = "0.3.0", registry = "substrate", path = "../codegen" }
+geometry = { version = "0.3.0", registry = "substrate", path = "../libs/geometry" }
+gds = { version = "0.2.0", registry = "substrate", path = "../gds" }
 opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" }
-scir = { version = "0.1.0", registry = "substrate", path = "../scir" }
+scir = { version = "0.2.0", registry = "substrate", path = "../scir" }
 pathtree = { version = "0.1.0", registry = "substrate", path = "../libs/pathtree" }
-uniquify = { version = "0.1.0", registry = "substrate", path = "../libs/uniquify" }
-spice = { version = "0.0.0", registry = "substrate", path = "../libs/spice" }
+uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
+spice = { version = "0.1.0", registry = "substrate", path = "../libs/spice" }
 
 [dev-dependencies]
 toml = "0.7"
 approx = "0.5"
-sky130pdk = { version = "<=0.2.0", registry = "substrate", path = "../pdks/sky130pdk" }
+sky130pdk = { version = "<=0.3.0", registry = "substrate", path = "../pdks/sky130pdk" }
