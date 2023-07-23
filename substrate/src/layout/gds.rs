@@ -9,7 +9,7 @@ use arcstr::ArcStr;
 use gds::HasLayer;
 use geometry::transform::Transformation;
 use geometry::{
-    prelude::{Corner, NamedOrientation, Orientation, Point},
+    prelude::{Corner, Orientation, Point},
     rect::Rect,
 };
 use rust_decimal::Decimal;
@@ -692,7 +692,7 @@ impl<'a> GdsImporter<'a> {
             .clone();
         // Convert its location
         let loc = self.import_point(&sref.xy)?;
-        let mut inst = RawInstance::new(
+        Ok(RawInstance::new(
             cell,
             Transformation::from_offset_and_orientation(
                 loc,
@@ -702,8 +702,7 @@ impl<'a> GdsImporter<'a> {
                     .map_or(Ok(None), |v| v.map(Some))?
                     .unwrap_or_default(),
             ),
-        );
-        Ok(inst)
+        ))
     }
     /// Imports a (two-dimensional) [`gds::GdsArrayRef`] into [`Instance`]s.
     ///

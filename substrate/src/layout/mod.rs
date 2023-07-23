@@ -27,7 +27,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc, thread};
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
 use geometry::{
-    prelude::{Bbox, Orientation, Point},
+    prelude::{Bbox, Point},
     transform::{
         HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
     },
@@ -377,8 +377,8 @@ impl<T: HasLayout> HasTransformedView for Instance<T> {
 }
 
 impl<PDK: Pdk, I: HasLayoutImpl<PDK>> Draw<PDK> for Instance<I> {
-    fn draw(self, cell: &mut DrawReceiver<PDK>) -> Result<()> {
-        cell.draw_instance(self);
+    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+        recv.draw_instance(self);
         Ok(())
     }
 }
@@ -402,7 +402,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
         }
     }
 
-    pub(crate) fn finish(mut self, id: CellId, name: ArcStr) -> RawCell {
+    pub(crate) fn finish(self, id: CellId, name: ArcStr) -> RawCell {
         let mut elements = Vec::new();
         let mut blockages = Vec::new();
 
@@ -481,6 +481,9 @@ impl<PDK: Pdk, T> Bbox for CellBuilder<PDK, T> {
     }
 }
 
+/// A receiver for drawing layout objects.
+///
+/// Implements the primitive functions that layout objects need to implement [`Draw`].
 #[derive(Debug, Clone)]
 pub struct DrawReceiver<PDK> {
     phantom: PhantomData<PDK>,
@@ -607,13 +610,15 @@ pub trait Draw<PDK: Pdk>: DrawBoxed<PDK> {
     fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()>;
 }
 
+/// An object where `Box<Self>` can be drawn.
 pub trait DrawBoxed<PDK: Pdk> {
-    fn draw_boxed(self: Box<Self>, cell: &mut DrawReceiver<PDK>) -> Result<()>;
+    /// Draws `self` inside `recv`.
+    fn draw_boxed(self: Box<Self>, recv: &mut DrawReceiver<PDK>) -> Result<()>;
 }
 
 impl<PDK: Pdk, T: Draw<PDK>> DrawBoxed<PDK> for T {
-    fn draw_boxed(self: Box<Self>, cell: &mut DrawReceiver<PDK>) -> Result<()> {
-        (*self).draw(cell)
+    fn draw_boxed(self: Box<Self>, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+        (*self).draw(recv)
     }
 }
 
@@ -631,8 +636,8 @@ impl<PDK: Pdk, T: Draw<PDK>> DrawContainer<PDK> for T {
 }
 
 impl<PDK: Pdk, T: Draw<PDK> + ?Sized> Draw<PDK> for Box<T> {
-    fn draw(self, cell: &mut DrawReceiver<PDK>) -> Result<()> {
-        self.draw_boxed(cell)
+    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+        self.draw_boxed(recv)
     }
 }
 

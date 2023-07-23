@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use geometry::{
-    prelude::{Bbox, Orientation, Point},
+    prelude::{Bbox, Point},
     rect::Rect,
     transform::{
         HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
@@ -64,6 +64,7 @@ impl RawCell {
         self.elements.push(elem.into());
     }
 
+    #[allow(dead_code)]
     pub(crate) fn add_blockage(&mut self, shape: impl Into<Shape>) {
         self.blockages.push(shape.into());
     }
@@ -97,10 +98,13 @@ impl Bbox for RawCell {
     }
 }
 
+/// A transformed view of a raw cell, usually created by accessing the cell of an instance.
 pub struct TransformedRawCell<'a> {
     id: CellId,
+    #[allow(dead_code)]
     name: ArcStr,
     elements: Transformed<'a, Vec<Element>>,
+    #[allow(dead_code)]
     blockages: Transformed<'a, Vec<Shape>>,
     ports: Transformed<'a, HashMap<NameBuf, PortGeometry>>,
 }

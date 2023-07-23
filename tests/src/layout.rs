@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use substrate::context::Context;
 use substrate::geometry::transform::{Transform, Translate};
 use substrate::layout::element::Shape;
-use substrate::layout::tiling::{ArrayTiler, GridTile, GridTiler, Tile, TileAlignMode};
+use substrate::layout::tiling::{GridTile, GridTiler, Tile};
 use substrate::layout::{HasLayout, HasLayoutImpl, Instance};
 use substrate::Block;
 use substrate::{LayoutData, TransformMut, TranslateMut};

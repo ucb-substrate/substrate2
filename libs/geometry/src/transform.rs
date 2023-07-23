@@ -625,7 +625,11 @@ mod tests {
     fn matinv_works() {
         let a = [[1., 2.], [3., 4.]];
         let inv = matinv(&a);
-        assert_abs_diff_eq!(matmul(&a, &inv), [[1., 0.], [0., 1.]]);
+        let a_mul_inv = matmul(&a, &inv);
+        assert_abs_diff_eq!(a_mul_inv[0][0], 1.);
+        assert_abs_diff_eq!(a_mul_inv[0][1], 0.);
+        assert_abs_diff_eq!(a_mul_inv[1][0], 0.);
+        assert_abs_diff_eq!(a_mul_inv[1][1], 1.);
     }
 
     #[test]

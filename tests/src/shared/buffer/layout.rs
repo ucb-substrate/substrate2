@@ -1,9 +1,7 @@
 use geometry::{
-    align::AlignBboxMut,
     prelude::{AlignBbox, AlignMode, Bbox},
     rect::Rect,
-    side::{Side, Sides},
-    transform::{TransformMut, Transformation},
+    side::Sides,
     union::BoundingUnion,
 };
 

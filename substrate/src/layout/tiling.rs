@@ -1,4 +1,6 @@
-use std::{collections::LinkedList, marker::PhantomData};
+//! Tiling structures and helpers.
+
+use std::marker::PhantomData;
 
 use downcast_rs::{impl_downcast, Downcast};
 use geometry::{
@@ -250,6 +252,7 @@ impl<T> Clone for GridTileKey<T> {
 
 impl<T> Copy for GridTileKey<T> {}
 
+/// A tile within a [`GridTiler`].
 #[derive(Debug, Clone, Copy)]
 pub struct GridTile<T> {
     tile: Option<Tile<T>>,
@@ -311,10 +314,22 @@ impl<PDK: Pdk, T: Tileable<PDK>> From<GridTile<T>> for RawGridTile<PDK> {
     }
 }
 
+/// A grid tiler.
 pub struct GridTiler<PDK: Pdk> {
+    #[allow(dead_code)]
     config: GridTilerConfig,
     tiles: SlotMap<RawTileKey, RawGridTile<PDK>>,
     grid: Vec<Vec<RawTileKey>>,
+}
+
+impl<PDK: Pdk> Default for GridTiler<PDK> {
+    fn default() -> Self {
+        Self {
+            config: GridTilerConfig {},
+            tiles: SlotMap::with_key(),
+            grid: vec![vec![]],
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -376,6 +391,7 @@ impl GridConstraintSolver {
     }
 }
 
+/// An immutable tiled grid created by a [`GridTiler`].
 pub struct TiledGrid<PDK: Pdk> {
     tiles: SlotMap<RawTileKey, RawGridTile<PDK>>,
 }
@@ -385,11 +401,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
     ///
     /// Populated from left-to-right and top-to-bottom.
     pub fn new() -> Self {
-        Self {
-            config: GridTilerConfig {},
-            tiles: SlotMap::with_key(),
-            grid: vec![vec![]],
-        }
+        Self::default()
     }
 
     /// Pushes a new tile to the tiler, returning a key for accessing the tiled object.
@@ -426,6 +438,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
         self.grid.last_mut().unwrap()
     }
 
+    /// Ends a row of the tiler, starting a new one.
     pub fn end_row(&mut self) {
         self.grid.push(Vec::new());
     }
@@ -473,6 +486,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
         indices
     }
 
+    /// Aligns the inserted tiles in a [`TiledGrid`].
     pub fn tile(mut self) -> TiledGrid<PDK> {
         let mut row_constraints = GridConstraintSolver::new();
         let mut col_constraints = GridConstraintSolver::new();
@@ -483,16 +497,8 @@ impl<PDK: Pdk> GridTiler<PDK> {
             let tile = &self.tiles[key];
 
             if let Some(raw) = &tile.raw {
-                row_constraints.add(GridConstraint {
-                    start_index: i,
-                    end_index: i + tile.rowspan,
-                    distance: raw.rect.height(),
-                });
-                col_constraints.add(GridConstraint {
-                    start_index: j,
-                    end_index: j + tile.colspan,
-                    distance: raw.rect.width(),
-                });
+                row_constraints.add(GridConstraint::new(i, i + tile.rowspan, raw.rect.height()));
+                col_constraints.add(GridConstraint::new(j, j + tile.colspan, raw.rect.width()));
             }
         }
 
