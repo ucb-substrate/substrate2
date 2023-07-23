@@ -12,12 +12,13 @@ thiserror = "1"
 once_cell = "1"
 impl-trait-for-tuples = "0.2"
 tracing = "0.1"
-rust_decimal = "1.30"
-rust_decimal_macros = "1.30"
+rust_decimal = "1"
+rust_decimal_macros = "1"
 ena = "0.14"
 duplicate = "1"
 derive_builder = "0.12"
 slotmap = "1"
+downcast-rs = "1"
 
 config = { version = "0.1.0", registry = "substrate", path = "../config" }
 cache = { version = "0.1.0", registry = "substrate", path = "../libs/cache" }

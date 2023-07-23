@@ -1,11 +1,16 @@
 use geometry::prelude::{NamedOrientation, Point};
+use geometry::side::Sides;
 use geometry::{prelude::Bbox, rect::Rect};
+use serde::{Deserialize, Serialize};
 use substrate::context::Context;
 use substrate::geometry::transform::{Transform, Translate};
-use substrate::layout::Instance;
+use substrate::layout::element::Shape;
+use substrate::layout::tiling::{GridTile, GridTiler, Tile};
+use substrate::layout::{HasLayout, HasLayoutImpl, Instance};
+use substrate::Block;
 use substrate::{LayoutData, TransformMut, TranslateMut};
 
-use crate::shared::buffer::Inverter;
+use crate::shared::buffer::{BufferNxM, Inverter};
 
 use crate::{
     paths::get_path,
@@ -25,6 +30,52 @@ pub struct TwoPointGroup {
 pub enum PointEnum {
     First(Point),
     Second { pt: Point },
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Block, Serialize, Deserialize, Hash)]
+#[substrate(io = "()")]
+pub struct GridTilerExample;
+
+impl HasLayout for GridTilerExample {
+    type Data = ();
+}
+
+impl HasLayoutImpl<ExamplePdkA> for GridTilerExample {
+    fn layout(
+        &self,
+        _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let mut tiler = GridTiler::new();
+
+        let tile1 = Tile::from_bbox(Shape::new(
+            cell.ctx.pdk.layers.polya,
+            Rect::from_sides(0, 0, 100, 100),
+        ))
+        .with_padding(Sides::uniform(10));
+
+        let tile2 = Tile::from_bbox(Shape::new(
+            cell.ctx.pdk.layers.met2a,
+            Rect::from_sides(0, 0, 220, 220),
+        ))
+        .with_padding(Sides::uniform(10));
+
+        tiler.push_num(tile1.clone(), 6);
+        tiler.end_row();
+        tiler.push_num(tile1.clone(), 2);
+        tiler.push(GridTile::new(tile2).with_colspan(2).with_rowspan(2));
+        tiler.push_num(tile1.clone(), 2);
+        tiler.end_row();
+        tiler.push_num(tile1.clone(), 4);
+        tiler.end_row();
+        tiler.push_num(tile1, 6);
+
+        let grid = tiler.tile();
+
+        cell.draw(grid)?;
+
+        Ok(())
+    }
 }
 
 #[test]
@@ -103,6 +154,31 @@ fn nested_transform_views_work() {
         cell.data().buffers[9].data().inv2.bbox(),
         Some(Rect::from_sides(2090, 0, 2190, 200))
     );
+}
+
+#[test]
+fn cell_builder_supports_bbox() {
+    let test_name = "cell_builder_supports_bbox";
+
+    let block = BufferNxM::new(5, 10, 6);
+
+    let ctx = Context::new(ExamplePdkA);
+    ctx.write_layout(block, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
+
+    let handle = ctx.generate_layout(block);
+    let cell = handle.cell();
+
+    assert_eq!(cell.bbox(), Some(Rect::from_sides(-10, -1110, 2200, 210)));
+}
+
+#[test]
+fn grid_tiler_works_with_various_spans() {
+    let test_name = "grid_tiler_works_with_various_spans";
+
+    let ctx = Context::new(ExamplePdkA);
+    ctx.write_layout(GridTilerExample, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
 }
 
 #[test]

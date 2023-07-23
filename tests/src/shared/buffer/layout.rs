@@ -1,13 +1,17 @@
 use geometry::{
-    align::AlignBboxMut,
     prelude::{AlignBbox, AlignMode, Bbox},
     rect::Rect,
+    side::Sides,
     union::BoundingUnion,
 };
 
 use substrate::{
     io::IoShape,
-    layout::{element::Shape, HasLayout, HasLayoutImpl, Instance},
+    layout::{
+        element::Shape,
+        tiling::{ArrayTiler, Tile, TileAlignMode},
+        HasLayout, HasLayoutImpl, Instance,
+    },
     pdk::{layers::HasPin, PdkLayers},
     supported_pdks, DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
 };
@@ -219,32 +223,40 @@ impl HasLayoutImpl<T> for BufferN {
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut buffer = cell.generate(Buffer::new(self.strength));
+        let buffer = cell.generate(Buffer::new(self.strength));
 
         let mut data = BufferNData::default();
+        let mut tiler = ArrayTiler::new(TileAlignMode::PosAdjacent, TileAlignMode::Center);
+        let buffers = tiler
+            .push_num(
+                Tile::from_bbox(buffer.clone()).with_padding(Sides::uniform(5)),
+                self.n,
+            )
+            .iter()
+            .map(|key| tiler[*key].clone())
+            .collect::<Vec<_>>();
 
-        cell.draw(buffer.clone())?;
-        data.buffers.push(buffer.clone());
+        for i in 0..self.n {
+            if i > 0 {
+                cell.draw(Shape::new(
+                    buffers[i].io().dout.layer().drawing(),
+                    buffers[i]
+                        .io()
+                        .din
+                        .bounding_union(&buffers[i - 1].io().dout),
+                ))?;
+            }
 
-        for i in 1..self.n {
-            buffer.align_bbox_mut(AlignMode::ToTheRight, buffer.bbox(), 10);
-            cell.draw(buffer.clone())?;
-            data.buffers.push(buffer.clone());
-
-            cell.draw(Shape::new(
-                buffer.io().dout.layer().drawing(),
-                buffer
-                    .io()
-                    .din
-                    .bounding_union(&data.buffers[i - 1].io().dout),
-            ))?;
-
-            io.vdd.push(buffer.io().vdd.clone());
-            io.vss.push(buffer.io().vss.clone());
+            io.vdd.push(buffers[i].io().vdd.clone());
+            io.vss.push(buffers[i].io().vss.clone());
         }
 
-        io.din.set(data.buffers[0].io().din);
-        io.dout.set(data.buffers[self.n - 1].io().dout);
+        io.din.set(buffers[0].io().din);
+        io.dout.set(buffers[self.n - 1].io().dout);
+
+        data.buffers = buffers;
+
+        cell.draw(tiler)?;
 
         Ok(data)
     }
@@ -261,21 +273,24 @@ impl HasLayoutImpl<T> for BufferNxM {
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut buffern = cell.generate(BufferN::new(self.strength, self.n));
+        let derived_layers = DerivedLayers::from(cell.ctx.pdk.layers.as_ref());
+        let buffern = cell.generate(BufferN::new(self.strength, self.n));
+        let mut tiler = ArrayTiler::new(TileAlignMode::Center, TileAlignMode::NegAdjacent);
 
-        for i in 0..self.n {
-            if i != 0 {
-                buffern.align_bbox_mut(AlignMode::Beneath, buffern.bbox(), 20);
-            }
-
-            io.vdd.merge(buffern.io().vdd);
-            io.vss.merge(buffern.io().vss);
-            io.din[i].set(buffern.io().din);
-            io.dout[i].set(buffern.io().dout);
-
-            cell.draw(buffern.clone())?;
+        for i in 0..self.m {
+            let key = tiler.push(Tile::from_bbox(buffern.clone()).with_padding(Sides::uniform(10)));
+            io.vdd.merge(tiler[key].io().vdd);
+            io.vss.merge(tiler[key].io().vss);
+            io.din[i].set(tiler[key].io().din);
+            io.dout[i].set(tiler[key].io().dout);
         }
 
+        cell.draw(tiler)?;
+
+        cell.draw(Shape::new(
+            derived_layers.m2,
+            cell.bbox().unwrap().expand_all(10),
+        ))?;
         Ok(())
     }
 }
