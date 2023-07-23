@@ -312,12 +312,6 @@ impl Text {
     }
 }
 
-impl Bbox for Text {
-    fn bbox(&self) -> Option<geometry::rect::Rect> {
-        Some(Rect::from_point(self.trans.offset_point()))
-    }
-}
-
 impl HasTransformedView for Text {
     type TransformedView<'a> = Text;
 
@@ -442,7 +436,7 @@ impl Bbox for Element {
         match self {
             Element::Instance(inst) => inst.bbox(),
             Element::Shape(shape) => shape.bbox(),
-            Element::Text(text) => text.bbox(),
+            Element::Text(text) => None,
         }
     }
 }

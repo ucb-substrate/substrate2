@@ -14,7 +14,8 @@ use crate::wrap_angle;
 
 /// A transformation representing translation, rotation, and reflection of geometry.
 ///
-/// This object does not support scaling of geometry.
+/// This object does not support scaling of geometry, and as such all transformation matrices
+/// should be unitary.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transformation {
     /// The transformation matrix represented in row-major order.
@@ -150,7 +151,7 @@ impl Transformation {
     ///
     /// ```
     /// use geometry::transform::Transformation;
-    /// use approx::assert_abs_diff_eq;
+    /// use approx::assert_relative_eq;
     ///
     /// let trans = Transformation::cascade(
     ///     Transformation::rotate(90.),
@@ -158,10 +159,10 @@ impl Transformation {
     /// );
     /// let inv = trans.inv();
     ///
-    /// assert_abs_diff_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_relative_eq!(Transformation::cascade(inv, trans), Transformation::identity());
     /// ```
     pub fn inv(&self) -> Transformation {
-        let inv = matinv(&self.a);
+        let inv = unitary_matinv(&self.a);
         let invb = matvec(&inv, &self.b);
         Self {
             a: inv,
@@ -293,7 +294,7 @@ fn matvec(a: &[[f64; 2]; 2], b: &[f64; 2]) -> [f64; 2] {
 ///
 /// The determinant factor is unecessary since all transformation matrices have determinant 1 (no
 /// scaling).
-fn matinv(a: &[[f64; 2]; 2]) -> [[f64; 2]; 2] {
+fn unitary_matinv(a: &[[f64; 2]; 2]) -> [[f64; 2]; 2] {
     [[a[1][1], -a[0][1]], [-a[1][0], a[0][0]]]
 }
 
@@ -602,7 +603,7 @@ impl<'a, K: Hash + Eq, V> TransformedHashMap<'a, K, V> {
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use approx::assert_abs_diff_eq;
+    use approx::assert_relative_eq;
 
     use super::*;
     use crate::{orientation::NamedOrientation, rect::Rect};
@@ -622,14 +623,14 @@ mod tests {
     }
 
     #[test]
-    fn matinv_works() {
-        let a = [[1., 2.], [3., 4.]];
-        let inv = matinv(&a);
+    fn unitary_matinv_works() {
+        let a = [[1., 1.], [3., 4.]];
+        let inv = unitary_matinv(&a);
         let a_mul_inv = matmul(&a, &inv);
-        assert_abs_diff_eq!(a_mul_inv[0][0], 1.);
-        assert_abs_diff_eq!(a_mul_inv[0][1], 0.);
-        assert_abs_diff_eq!(a_mul_inv[1][0], 0.);
-        assert_abs_diff_eq!(a_mul_inv[1][1], 1.);
+        assert_relative_eq!(a_mul_inv[0][0], 1.);
+        assert_relative_eq!(a_mul_inv[0][1], 0.);
+        assert_relative_eq!(a_mul_inv[1][0], 0.);
+        assert_relative_eq!(a_mul_inv[1][1], 1.);
     }
 
     #[test]

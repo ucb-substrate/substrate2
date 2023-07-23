@@ -405,8 +405,8 @@ impl<PDK: Pdk> GridTiler<PDK> {
     }
 
     /// Pushes a new tile to the tiler, returning a key for accessing the tiled object.
-    pub fn push<T: Tileable<PDK>>(&mut self, tile: GridTile<T>) -> GridTileKey<T> {
-        let raw_tile: RawGridTile<_> = tile.into();
+    pub fn push<T: Tileable<PDK>>(&mut self, tile: impl Into<GridTile<T>>) -> GridTileKey<T> {
+        let raw_tile: RawGridTile<_> = tile.into().into();
         let key = self.tiles.insert(raw_tile);
         self.last_row_mut().push(key);
         GridTileKey {
@@ -419,9 +419,10 @@ impl<PDK: Pdk> GridTiler<PDK> {
     /// new tiled objects.
     pub fn push_num<T: Tileable<PDK> + Clone>(
         &mut self,
-        tile: GridTile<T>,
+        tile: impl Into<GridTile<T>>,
         num: usize,
     ) -> Vec<GridTileKey<T>> {
+        let tile = tile.into();
         (0..num).map(|_| self.push(tile.clone())).collect()
     }
 
@@ -429,7 +430,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
     /// tiled objects.
     pub fn push_iter<'a, T: Tileable<PDK>>(
         &'a mut self,
-        tiles: impl Iterator<Item = GridTile<T>> + 'a,
+        tiles: impl Iterator<Item = impl Into<GridTile<T>>> + 'a,
     ) -> impl Iterator<Item = GridTileKey<T>> + 'a {
         tiles.into_iter().map(|tile| self.push(tile))
     }

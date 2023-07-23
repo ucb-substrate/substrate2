@@ -60,15 +60,15 @@ impl HasLayoutImpl<ExamplePdkA> for GridTilerExample {
         ))
         .with_padding(Sides::uniform(10));
 
-        tiler.push_num(tile1.clone().into(), 6);
+        tiler.push_num(tile1.clone(), 6);
         tiler.end_row();
-        tiler.push_num(tile1.clone().into(), 2);
+        tiler.push_num(tile1.clone(), 2);
         tiler.push(GridTile::new(tile2).with_colspan(2).with_rowspan(2));
-        tiler.push_num(tile1.clone().into(), 2);
+        tiler.push_num(tile1.clone(), 2);
         tiler.end_row();
-        tiler.push_num(tile1.clone().into(), 4);
+        tiler.push_num(tile1.clone(), 4);
         tiler.end_row();
-        tiler.push_num(tile1.into(), 6);
+        tiler.push_num(tile1, 6);
 
         let grid = tiler.tile();
 
