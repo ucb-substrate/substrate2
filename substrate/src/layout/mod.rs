@@ -22,7 +22,7 @@
 #![doc = include_str!("../../build/docs/layout/buffer.rs")]
 //! ```
 
-use std::{collections::HashMap, marker::PhantomData, sync::Arc, thread};
+use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
@@ -403,18 +403,12 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     }
 
     pub(crate) fn finish(self, id: CellId, name: ArcStr) -> RawCell {
-        let mut elements = Vec::new();
-        let mut blockages = Vec::new();
+        let mut cell = RawCell::new(id, name);
 
-        self.container.finish(&mut elements, &mut blockages);
+        self.container
+            .finish(&mut cell.elements, &mut cell.blockages);
 
-        RawCell {
-            id,
-            name,
-            elements,
-            blockages,
-            ports: HashMap::new(),
-        }
+        cell
     }
 
     /// Generate an instance of `block`.

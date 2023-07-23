@@ -35,6 +35,9 @@ impl CellId {
     }
 }
 
+/// A mapping from names to ports.
+pub type NamedPorts = HashMap<NameBuf, PortGeometry>;
+
 /// A raw layout cell.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct RawCell {
@@ -42,7 +45,8 @@ pub struct RawCell {
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    pub(crate) ports: HashMap<NameBuf, PortGeometry>,
+    ports: NamedPorts,
+    port_names: HashMap<String, NameBuf>,
 }
 
 impl RawCell {
@@ -53,11 +57,22 @@ impl RawCell {
             elements: Vec::new(),
             blockages: Vec::new(),
             ports: HashMap::new(),
+            port_names: HashMap::new(),
         }
     }
 
     pub(crate) fn with_ports(self, ports: HashMap<NameBuf, PortGeometry>) -> Self {
-        Self { ports, ..self }
+        let port_names = ports.keys().map(|k| (k.to_string(), k.clone())).collect();
+        Self {
+            ports,
+            port_names,
+            ..self
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn port_map(&self) -> &NamedPorts {
+        &self.ports
     }
 
     pub(crate) fn add_element(&mut self, elem: impl Into<Element>) {
@@ -69,11 +84,23 @@ impl RawCell {
         self.blockages.push(shape.into());
     }
 
+    #[allow(dead_code)]
+    pub(crate) fn add_elements(&mut self, elems: impl IntoIterator<Item = impl Into<Element>>) {
+        self.elements.extend(elems.into_iter().map(|x| x.into()));
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn add_blockages(&mut self, shapes: impl IntoIterator<Item = impl Into<Shape>>) {
+        self.blockages.extend(shapes.into_iter().map(|x| x.into()));
+    }
+
     /// Adds a port to this cell.
     ///
     /// Primarily for use in GDS import.
     pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
-        self.ports.insert(name.into(), port.into());
+        let name = name.into();
+        self.ports.insert(name.clone(), port.into());
+        self.port_names.insert(name.to_string(), name);
     }
 
     /// The ID of this cell.
@@ -89,6 +116,12 @@ impl RawCell {
     /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
     pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, &PortGeometry)> {
         self.ports.iter()
+    }
+
+    /// Returns a reference to the port with the given name, if it exists.
+    pub fn port_named(&self, name: &str) -> Option<&PortGeometry> {
+        let name_buf = self.port_names.get(name)?;
+        self.ports.get(name_buf)
     }
 }
 
@@ -152,7 +185,7 @@ pub struct RawInstance {
 
 impl RawInstance {
     /// Create a new raw instance of the given cell.
-    pub(crate) fn new(cell: impl Into<Arc<RawCell>>, trans: Transformation) -> Self {
+    pub fn new(cell: impl Into<Arc<RawCell>>, trans: Transformation) -> Self {
         Self {
             cell: cell.into(),
             trans,
@@ -436,7 +469,7 @@ impl Bbox for Element {
         match self {
             Element::Instance(inst) => inst.bbox(),
             Element::Shape(shape) => shape.bbox(),
-            Element::Text(text) => None,
+            Element::Text(_) => None,
         }
     }
 }
@@ -499,7 +532,7 @@ impl Bbox for ElementRef<'_> {
         match self {
             ElementRef::Instance(inst) => inst.bbox(),
             ElementRef::Shape(shape) => shape.bbox(),
-            ElementRef::Text(text) => text.bbox(),
+            ElementRef::Text(_) => None,
         }
     }
 }

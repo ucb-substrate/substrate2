@@ -17,6 +17,9 @@ pub struct BlockInputReceiver {
     #[darling(multiple)]
     #[allow(unused)]
     schematic: Vec<darling::util::Ignored>,
+    #[darling(multiple)]
+    #[allow(unused)]
+    layout: Vec<darling::util::Ignored>,
 }
 
 impl ToTokens for BlockInputReceiver {

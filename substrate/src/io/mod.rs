@@ -16,6 +16,7 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
+use crate::layout::element::NamedPorts;
 use crate::{
     block::Block,
     error::Result,
@@ -77,9 +78,9 @@ pub trait HasNameTree {
     fn names(&self) -> Option<Vec<NameTree>>;
 
     /// Returns a flattened list of node names.
-    fn flat_names(&self, root: impl Into<NameFragment>) -> Vec<NameBuf> {
+    fn flat_names(&self, root: Option<NameFragment>) -> Vec<NameBuf> {
         self.names()
-            .map(|t| NameTree::new(root.into(), t).flatten())
+            .map(|t| NameTree::with_optional_fragment(root, t).flatten())
             .unwrap_or_default()
     }
 }
@@ -146,6 +147,26 @@ pub trait CustomLayoutType<T: LayoutType>: LayoutType {
     fn from_layout_type(other: &T) -> Self;
 }
 
+/// Construct an instance of `Self` hierarchically given a name buffer and a source of type `T`.
+pub trait HierarchicalBuildFrom<T> {
+    /// Build `self` from the given root path and source.
+    fn build_from(&mut self, path: &mut NameBuf, source: &T);
+
+    /// Build `self` from the given source, starting with an empty top-level name buffer.
+    fn build_from_top(&mut self, source: &T) {
+        let mut buf = NameBuf::new();
+        self.build_from(&mut buf, source);
+    }
+
+    /// Build `self` from the given source, starting with a top-level name buffer containing the
+    /// given name fragment.
+    fn build_from_top_prefix(&mut self, prefix: impl Into<NameFragment>, source: &T) {
+        let mut buf = NameBuf::new();
+        buf.push(prefix);
+        self.build_from(&mut buf, source);
+    }
+}
+
 // END TRAITS
 
 // BEGIN TYPES
@@ -168,7 +189,7 @@ pub struct NameBuf {
 /// A tree for hierarchical node naming.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct NameTree {
-    fragment: NameFragment,
+    fragment: Option<NameFragment>,
     children: Vec<NameTree>,
 }
 
@@ -436,8 +457,7 @@ impl HasTransformedView for IoShape {
 pub struct PortGeometry {
     /// The primary shape of the port.
     ///
-    /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
-    /// explicitly. It is kept separately for ease of access.
+    /// **Not** contained in `named_shapes` or `unnamed_shapes`.
     pub primary: IoShape,
     /// A set of unnamed shapes contained by the port.
     pub unnamed_shapes: Vec<IoShape>,
@@ -471,13 +491,16 @@ pub struct PortGeometryBuilder {
 impl PortGeometryBuilder {
     /// Push an unnamed shape to the port.
     ///
-    /// If the primary shape has not been set yet, sets the primary shape to the new shape. This
-    /// can be overriden using [`PortGeometryBuilder::set_primary`].
+    /// If the primary shape has not been set yet, sets the primary shape to the new shape
+    /// **instead** of adding to the unnamed shapes list.
+    ///
+    /// The primary shape can be overriden using [`PortGeometryBuilder::set_primary`].
     pub fn push(&mut self, shape: IoShape) {
         if self.primary.is_none() {
             self.primary = Some(shape.clone());
+        } else {
+            self.unnamed_shapes.push(shape);
         }
-        self.unnamed_shapes.push(shape);
     }
 
     /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes.
@@ -511,6 +534,12 @@ impl<T> Default for OptionBuilder<T> {
 }
 
 impl<T> OptionBuilder<T> {
+    /// Constructs a new, empty `OptionBuilder`.
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Set the value of the data contained by the builder.
     pub fn set(&mut self, inner: T) {
         let _ = self.0.insert(inner);

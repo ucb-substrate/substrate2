@@ -79,12 +79,12 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
     ) -> substrate::error::Result<Self::Data> {
         use std::fmt::Write;
         let contents = match self {
-            Self::Dc(dc) => format!("V0 ( io_p io_n ) vsource type=dc dc={}", dc),
+            Self::Dc(dc) => format!("V0 ( p n ) vsource type=dc dc={}", dc),
             Self::Pulse(pulse) => {
                 let mut s = String::new();
                 write!(
                     &mut s,
-                    "V0 ( io_p io_n ) vsource type=pulse val0={} val1={}",
+                    "V0 ( p n ) vsource type=pulse val0={} val1={}",
                     pulse.val0, pulse.val1
                 )
                 .unwrap();
