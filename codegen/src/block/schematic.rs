@@ -248,6 +248,9 @@ pub struct HasSchematicImplInputReceiver {
     #[allow(unused)]
     io: darling::util::Ignored,
     #[darling(multiple)]
+    #[allow(unused)]
+    layout: Vec<darling::util::Ignored>,
+    #[darling(multiple)]
     schematic: Vec<SchematicHardMacro>,
 }
 

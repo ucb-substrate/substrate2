@@ -1,11 +1,24 @@
 use crate::shared::buffer::BufferIo;
+
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
+
 use substrate::Block;
-use substrate::HasSchematicImpl;
+use substrate::{HasLayoutImpl, HasSchematicImpl};
 use test_log::test;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[derive(
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Block,
+    HasSchematicImpl,
+    HasLayoutImpl,
+)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",
@@ -18,6 +31,12 @@ use test_log::test;
     name = "buffer",
     fmt = "spice",
     pdk = "Sky130CommercialPdk"
+))]
+#[substrate(layout(
+    source = "crate::paths::test_data(\"gds/buffer.gds\")",
+    name = "buffer",
+    fmt = "gds",
+    pdk = "Sky130OpenPdk"
 ))]
 pub struct BufferHardMacro;
 
@@ -59,6 +78,18 @@ fn export_hard_macro() {
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
+}
+
+#[test]
+fn export_hard_macro_gds() {
+    use crate::shared::pdk::sky130_open_ctx;
+
+    let ctx = sky130_open_ctx();
+    ctx.write_layout(
+        BufferHardMacro,
+        crate::paths::get_path("export_hard_macro_gds", "layout.gds"),
+    )
+    .unwrap();
 }
 
 #[test]
