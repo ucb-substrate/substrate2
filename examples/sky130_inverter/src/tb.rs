@@ -23,7 +23,7 @@ use super::Inverter;
 
 // begin-code-snippet struct-and-impl
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[block(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,

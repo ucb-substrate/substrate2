@@ -6,9 +6,9 @@ publish = false
 
 # begin-code-snippet dependencies
 [dependencies]
-substrate = { version = "0.2.0", registry = "substrate" }
-spectre = { version = "0.2.0", registry = "substrate" }
-sky130pdk = { version = "0.2.0", registry = "substrate" }
+substrate = { version = "0.3.0", registry = "substrate" }
+spectre = { version = "0.3.0", registry = "substrate" }
+sky130pdk = { version = "0.3.0", registry = "substrate" }
 
 serde = { version = "1", features = ["derive"] }
 rust_decimal = "1.30"
