@@ -14,3 +14,4 @@ pub use crate::side::{Side, Sides};
 pub use crate::sign::Sign;
 pub use crate::span::Span;
 pub use crate::transform::{Transform, Transformation};
+pub use crate::polygon::Polygon;

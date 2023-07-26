@@ -21,6 +21,7 @@ pub mod intersect;
 pub mod orientation;
 pub mod place;
 pub mod point;
+pub mod polygon;
 pub mod prelude;
 pub mod rect;
 pub mod shape;
