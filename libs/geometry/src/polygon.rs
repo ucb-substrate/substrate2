@@ -2,8 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-
+use crate::bbox::Bbox;
 use crate::point::Point;
+use crate::rect::Rect;
 
 
 /// A polygon, with vertex coordinates given
@@ -12,10 +13,10 @@ use crate::point::Point;
 
 pub struct Polygon {
     ///vector of points
-    verticies: Vec<Point>,
+    vertices: Vec<Point>,
 }
 impl Polygon {
-    /// Creates a polygon with given verticies.
+    /// Creates a polygon with given vertices.
     ///
     /// # Example
     ///
@@ -26,10 +27,36 @@ impl Polygon {
     ///     Point { x: 1.0, y: 2.5 },
     ///     Point { x: -3.2, y: 5.7 },
     /// ];
-    /// let polygon = Polygon:from_verts(points);
+    /// let polygon = Polygon::from_verts(points);
     /// assert_eq!(polygon.stuff, stuff);
     /// ```
     pub fn from_verts(vec: Vec<Point>) -> Self {
-        Self{verticies: vec}
+        Self{vertices: vec}
+    }
+
+    pub fn bot(&self) -> i64 {
+        self.vertices.iter().map(|point|point.y).min().unwrap() 
+    }
+
+    pub fn top(&self) -> i64 {
+        self.vertices.iter().map(|point|point.y).max().unwrap() 
+    }
+
+    pub fn left(&self) -> i64 {
+        self.vertices.iter().map(|point|point.x).min().unwrap() 
+    }
+
+    pub fn right(&self) -> i64 {
+        self.vertices.iter().map(|point|point.x).max().unwrap() 
+    }
+}
+
+impl Bbox for Polygon {
+    fn bbox(&self) -> Option<Rect> {
+        match self {
+            polygon => {
+                Rect::from_sides_option(polygon.left(), polygon.bot(), polygon.right(), polygon.top())
+            }
+        }
     }
 }
