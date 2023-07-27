@@ -41,9 +41,6 @@ pub trait Io: Directed + SchematicType + LayoutType {
 pub trait Directed: Flatten<Direction> {}
 impl<T: Flatten<Direction>> Directed for T {}
 
-/// A marker trait indicating that a hardware type does not specify signal directions.
-pub trait Undirected {}
-
 /// Flatten a structure into a list.
 pub trait Flatten<T>: FlatLen {
     /// Flatten a structure into a list.
@@ -197,15 +194,21 @@ pub struct NameTree {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An input port of hardware type `T`.
-pub struct Input<T: Undirected>(pub T);
+///
+/// Recursively overrides the direction of all components of `T` to be [`Input`](Direction::Input)
+pub struct Input<T>(pub T);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An output port of hardware type `T`.
-pub struct Output<T: Undirected>(pub T);
+///
+/// Recursively overrides the direction of all components of `T` to be [`Output`](Direction::Output)
+pub struct Output<T>(pub T);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An inout port of hardware type `T`.
-pub struct InOut<T: Undirected>(pub T);
+///
+/// Recursively overrides the direction of all components of `T` to be [`InOut`](Direction::InOut)
+pub struct InOut<T>(pub T);
 
 /// A type representing a single hardware wire.
 #[derive(Debug, Default, Clone, Copy)]
