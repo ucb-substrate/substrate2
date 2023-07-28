@@ -72,8 +72,8 @@ pub struct BlackboxContents {
     ///
     /// During netlisting, each blackbox element will be
     /// injected into the final netlist.
-    /// Netlister implementations are free to add whitespace
-    /// before, within, and after the list of blackbox elements.
+    /// Netlister implementations should add spaces before each element
+    /// in the list, except for the first element.
     pub elems: Vec<BlackboxElement>,
 }
 
