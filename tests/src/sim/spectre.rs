@@ -12,6 +12,8 @@ use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::pdk::corner::Pvt;
 use test_log::test;
+use spectre::netlist::Netlister;
+use substrate::pdk::Pdk;
 
 use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
@@ -100,4 +102,18 @@ fn spectre_caches_simulations() {
     ctx.simulate(VdividerTb, &sim_dir);
 
     assert_eq!(*count.lock().unwrap(), 1);
+}
+
+#[test]
+fn spectre_can_include_sections() {
+    pub struct LibIncludePdk(Sky130CommercialPdk);
+    pub struct LibIncludeLayers;
+    pub struct LibIncludeCorner(Sky130Corner);
+
+    impl Pdk for LibIncludePdk {
+        type Layers = LibIncludeLayers;
+        type Corner = LibIncludeCorner;
+    }
+    let test_name = "spectre_caches_simulations";
+    let netlist_path = get_path(test_name, "netlist.scs");
 }

@@ -9,10 +9,11 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
-use netlist::Netlister;
+use netlist::{Include, Netlister};
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -153,13 +154,17 @@ pub struct Spectre {}
 /// A single simulation contains zero or more analyses.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    includes: HashSet<PathBuf>,
+    includes: HashSet<Include>,
 }
 
 impl Options {
     /// Include the given file.
     pub fn include(&mut self, path: impl Into<PathBuf>) {
-        self.includes.insert(path.into());
+        self.includes.insert(Include::new(path));
+    }
+    /// Include the given section of a file.
+    pub fn include_section(&mut self, path: impl Into<PathBuf>, section: impl Into<ArcStr>) {
+        self.includes.insert(Include::new(path).section(section));
     }
 }
 
