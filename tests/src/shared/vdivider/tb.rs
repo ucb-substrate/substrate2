@@ -164,7 +164,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .data()
             .into_iter()
             .map(|inst| {
-                (inst.block().r1.value / (inst.block().r1.value + inst.block().r2.value))
+                (inst.block().r2.value / (inst.block().r1.value + inst.block().r2.value))
                     .to_f64()
                     .unwrap()
                     * 1.8f64
