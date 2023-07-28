@@ -6,6 +6,7 @@
     "codegen": {},
     "config": {},
     "libs/cache": {},
+    "libs/diagnostics": {},
     "libs/gds": {},
     "libs/geometry": {},
     "libs/opacity": {},

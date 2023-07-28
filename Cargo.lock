@@ -527,10 +527,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 
 [[package]]
-name = "cli"
-version = "0.0.0"
-
-[[package]]
 name = "codegen"
 version = "0.3.0"
 dependencies = [
@@ -747,10 +743,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "850878694b7933ca4c9569d30a34b55031b9b139ee1fc7b94a527c4ef960d690"
 
 [[package]]
-name = "dex"
-version = "0.0.0"
-
-[[package]]
 name = "diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -769,18 +761,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "digital"
-version = "0.0.0"
-
-[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
-
-[[package]]
-name = "drc"
-version = "0.0.0"
 
 [[package]]
 name = "duplicate"
@@ -1332,10 +1316,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
-name = "lef"
-version = "0.0.0"
-
-[[package]]
 name = "libc"
 version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1368,10 +1348,6 @@ name = "log"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
-
-[[package]]
-name = "lvs"
-version = "0.0.0"
 
 [[package]]
 name = "matchers"
@@ -1532,10 +1508,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
-name = "par"
-version = "0.0.0"
-
-[[package]]
 name = "parse-zoneinfo"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1625,10 +1597,6 @@ dependencies = [
  "fixedbitset",
  "indexmap 1.9.3",
 ]
-
-[[package]]
-name = "pex"
-version = "0.0.0"
 
 [[package]]
 name = "phf"
@@ -2102,14 +2070,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sbm"
-version = "0.0.0"
-
-[[package]]
-name = "scg"
-version = "0.0.0"
-
-[[package]]
 name = "scir"
 version = "0.2.0"
 dependencies = [
@@ -2124,10 +2084,6 @@ dependencies = [
  "tracing-subscriber",
  "uniquify",
 ]
-
-[[package]]
-name = "sde"
-version = "0.0.0"
 
 [[package]]
 name = "seahash"
@@ -2222,10 +2178,6 @@ checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "sim"
-version = "0.0.0"
 
 [[package]]
 name = "simdutf8"
@@ -2336,10 +2288,6 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "subfile"
-version = "0.0.0"
 
 [[package]]
 name = "substrate"
@@ -2529,10 +2477,6 @@ dependencies = [
  "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi",
 ]
-
-[[package]]
-name = "timing"
-version = "0.0.0"
 
 [[package]]
 name = "tinyvec"

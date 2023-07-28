@@ -14,7 +14,7 @@ lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 
-scir = { version = "0.2.0", registry = "substrate", path = "../../scir" }
 cache = { version = "0.2.0", registry = "substrate", path = "../../libs/cache" }
+scir = { version = "0.2.0", registry = "substrate", path = "../../libs/scir" }
 substrate = { version = "0.3.0", registry = "substrate", path = "../../substrate" }
 opacity = { version = "0.1.0", path = "../../libs/opacity", registry = "substrate" }
