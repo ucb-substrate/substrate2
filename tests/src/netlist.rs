@@ -57,7 +57,7 @@ pub(crate) fn vdivider_blackbox() -> Library {
     wrapper.add_blackbox_elem("Rblackbox");
     wrapper.add_blackbox_elem(pos);
     wrapper.add_blackbox_elem(neg);
-    wrapper.add_blackbox_elem(" 3300");
+    wrapper.add_blackbox_elem("3300");
     wrapper.expose_port(pos);
     wrapper.expose_port(neg);
     let wrapper = lib.add_cell(wrapper);

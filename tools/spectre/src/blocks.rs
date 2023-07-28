@@ -80,33 +80,33 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
         let mut contents = BlackboxContents::new();
         match self {
             Self::Dc(dc) => {
-                contents.push("V0 ( ");
+                contents.push("V0 (");
                 contents.push(*io.p);
                 contents.push(*io.n);
-                contents.push(format!(" ) vsource type=dc dc={}", dc));
+                contents.push(format!(") vsource type=dc dc={}", dc));
             }
             Self::Pulse(pulse) => {
-                contents.push("V0 ( ");
+                contents.push("V0 (");
                 contents.push(*io.p);
                 contents.push(*io.n);
                 contents.push(format!(
-                    " ) vsource type=pulse val0={} val1={}",
+                    ") vsource type=pulse val0={} val1={}",
                     pulse.val0, pulse.val1
                 ));
                 if let Some(period) = pulse.period {
-                    contents.push(format!(" period={period}"));
+                    contents.push(format!("period={period}"));
                 }
                 if let Some(rise) = pulse.rise {
-                    contents.push(format!(" rise={rise}"));
+                    contents.push(format!("rise={rise}"));
                 }
                 if let Some(fall) = pulse.fall {
-                    contents.push(format!(" fall={fall}"));
+                    contents.push(format!("fall={fall}"));
                 }
                 if let Some(width) = pulse.width {
-                    contents.push(format!(" width={width}"));
+                    contents.push(format!("width={width}"));
                 }
                 if let Some(delay) = pulse.delay {
-                    contents.push(format!(" delay={delay}"));
+                    contents.push(format!("delay={delay}"));
                 }
             }
         };
