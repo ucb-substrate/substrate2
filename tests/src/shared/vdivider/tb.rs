@@ -1,3 +1,4 @@
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::Vsource;
@@ -41,8 +42,8 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
         let dut = cell.instantiate(Vdivider {
-            r1: Resistor { r: 20 },
-            r2: Resistor { r: 20 },
+            r1: Resistor::new(20),
+            r2: Resistor::new(20),
         });
 
         cell.connect(dut.io().pwr.vdd, vdd);
@@ -164,7 +165,10 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .data()
             .into_iter()
             .map(|inst| {
-                inst.block().r1.r as f64 / (inst.block().r1.r + inst.block().r2.r) as f64 * 1.8
+                (inst.block().r1.value / (inst.block().r1.value + inst.block().r2.value))
+                    .to_f64()
+                    .unwrap()
+                    * 1.8f64
             })
             .collect();
 

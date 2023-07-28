@@ -22,8 +22,8 @@ use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 fn can_generate_vdivider_schematic() {
     let ctx = Context::new(ExamplePdkA);
     let vdivider = Vdivider {
-        r1: Resistor { r: 300 },
-        r2: Resistor { r: 100 },
+        r1: Resistor::new(300),
+        r2: Resistor::new(100),
     };
     let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
     assert_eq!(scir.cells().count(), 3);
