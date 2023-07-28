@@ -1,5 +1,5 @@
 use arcstr::ArcStr;
-use rust_decimal_macros::dec;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
@@ -31,7 +31,16 @@ pub struct VdividerIo {
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Resistor {
-    pub r: usize,
+    pub value: Decimal,
+}
+
+impl Resistor {
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,10 +50,11 @@ pub struct Vdivider {
 }
 
 impl Vdivider {
-    fn new(r1: usize, r2: usize) -> Self {
+    #[inline]
+    fn new(r1: impl Into<Decimal>, r2: impl Into<Decimal>) -> Self {
         Self {
-            r1: Resistor { r: r1 },
-            r2: Resistor { r: r2 },
+            r1: Resistor::new(r1),
+            r2: Resistor::new(r2),
         }
     }
 }
@@ -62,7 +72,7 @@ impl Block for Resistor {
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::format!("resistor_{}", self.r)
+        arcstr::format!("resistor_{}", self.value)
     }
 
     fn io(&self) -> Self::Io {
@@ -78,7 +88,7 @@ impl Block for Vdivider {
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::format!("vdivider_{}_{}", self.r1.r, self.r2.r)
+        arcstr::format!("vdivider_{}_{}", self.r1.value, self.r2.value)
     }
 
     fn io(&self) -> Self::Io {
@@ -138,7 +148,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
         cell.add_primitive(PrimitiveDevice::Res2 {
             pos: *io.p,
             neg: *io.n,
-            value: dec!(1000),
+            value: self.value,
         });
         Ok(())
     }
