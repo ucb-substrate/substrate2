@@ -9,7 +9,7 @@ use uniquify::Names;
 
 use crate::io::{Node, NodePath};
 
-use super::{CellId, InstanceId, RawCell};
+use super::{BlackboxElement, CellId, InstanceId, RawCell};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -171,7 +171,19 @@ impl RawCell {
         }
 
         let contents = match self.contents.as_ref() {
-            Opacity::Opaque(s) => Opacity::Opaque(s.clone()),
+            Opacity::Opaque(contents) => {
+                let transformed = contents
+                    .elems
+                    .iter()
+                    .map(|e| match e {
+                        BlackboxElement::RawString(s) => {
+                            scir::BlackboxElement::RawString(s.clone())
+                        }
+                        BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n]),
+                    })
+                    .collect();
+                Opacity::Opaque(transformed)
+            }
             Opacity::Clear(contents) => {
                 let mut inner = CellInner::new();
                 for (i, instance) in contents.instances.iter().enumerate() {

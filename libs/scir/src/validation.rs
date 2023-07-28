@@ -627,7 +627,8 @@ mod tests {
     #[test]
     fn duplicate_cell_names() {
         let c1 = Cell::new_whitebox("duplicate_cell_name");
-        let c2 = Cell::new_blackbox("duplicate_cell_name", "* contents of cell");
+        let mut c2 = Cell::new_blackbox("duplicate_cell_name");
+        c2.add_blackbox_elem("* contents of cell");
         let mut lib = Library::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);

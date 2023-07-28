@@ -53,7 +53,8 @@ fn duplicate_instance_names() {
 #[test]
 fn instantiate_blackbox() {
     let mut lib = Library::new("library");
-    let cell1 = Cell::new_blackbox("cell1", "* content");
+    let mut cell1 = Cell::new_blackbox("cell1");
+    cell1.add_blackbox_elem("* content");
     let cell1 = lib.add_cell(cell1);
 
     let mut cell2 = Cell::new_whitebox("cell2");
@@ -69,17 +70,20 @@ fn instantiate_blackbox() {
 #[should_panic]
 fn cannot_add_instance_to_blackbox() {
     let mut lib = Library::new("library");
-    let cell1 = Cell::new_blackbox("cell1", "* content");
+    let mut cell1 = Cell::new_blackbox("cell1");
+    cell1.add_blackbox_elem("* content");
     let cell1 = lib.add_cell(cell1);
 
-    let mut cell2 = Cell::new_blackbox("cell2", "* content");
+    let mut cell2 = Cell::new_blackbox("cell2");
+    cell2.add_blackbox_elem("* content");
     cell2.add_instance(Instance::new("cell1", cell1));
 }
 
 #[test]
 #[should_panic]
 fn cannot_add_primitive_to_blackbox() {
-    let mut cell = Cell::new_blackbox("cell", "* content");
+    let mut cell = Cell::new_blackbox("cell");
+    cell.add_blackbox_elem("* content");
     cell.add_primitive(PrimitiveDevice::RawInstance {
         ports: vec![],
         cell: "raw_subckt".into(),
