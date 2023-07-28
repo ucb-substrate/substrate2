@@ -8,29 +8,29 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::{Sky130CommercialPdk, Sky130Layers};
+use spectre::blocks::Vsource;
+use spectre::netlist::Netlister;
 use spectre::{Options, Spectre, Tran};
+use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::pdk::corner::{Corner, InstallCorner, Pvt};
-use test_log::test;
-use spectre::blocks::Vsource;
-use spectre::netlist::Netlister;
-use substrate::{Block, Io, Layers};
-use substrate::block::Block;
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
+use substrate::pdk::corner::{Corner, InstallCorner, Pvt};
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, Instance, TestbenchCellBuilder};
-use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Simulator, Testbench};
 use substrate::simulation::data::HasNodeData;
+use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Simulator, Testbench};
+use substrate::{Block, Io, Layers};
+use test_log::test;
 
+use crate::paths::test_data;
 use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::VdividerArrayTb;
-use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
-use crate::paths::test_data;
 use crate::shared::vdivider::Resistor;
+use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 
 #[test]
 fn spectre_vdivider_tran() {
@@ -129,12 +129,19 @@ fn spectre_can_include_sections() {
     }
 
     impl InstallCorner<Spectre> for LibIncludePdk {
-        fn install_corner(&self, corner: impl AsRef<<Self as Pdk>::Corner>, opts: &mut <Spectre as Simulator>::Options) {
+        fn install_corner(
+            &self,
+            corner: impl AsRef<<Self as Pdk>::Corner>,
+            opts: &mut <Spectre as Simulator>::Options,
+        ) {
             let corner = corner.as_ref();
-            opts.include_section(test_data("spectre/example_lib.scs"), match corner {
-                Sky130Corner::Tt => "section_a",
-                _ => "section_b",
-            });
+            opts.include_section(
+                test_data("spectre/example_lib.scs"),
+                match corner {
+                    Sky130Corner::Tt => "section_a",
+                    _ => "section_b",
+                },
+            );
             self.0.install_corner(corner, opts);
         }
     }
@@ -149,32 +156,39 @@ fn spectre_can_include_sections() {
     #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl HasSchematic for LibIncludeResistor { type Data = (); }
+    impl HasSchematic for LibIncludeResistor {
+        type Data = ();
+    }
 
     impl HasTestbenchSchematicImpl<LibIncludePdk, Spectre> for LibIncludeResistor {
-        fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Data, cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>) -> substrate::error::Result<Self::Data> {
-            cell.set_blackbox(r#"
-                subckt lib_include_resistor (p n)
-                    res0 (p n) example_resistor
-                ends lib_include_resistor
-            "#);
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Data,
+            cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>,
+        ) -> substrate::error::Result<Self::Data> {
+            cell.set_blackbox("res0 (p n) example_resistor");
 
             Ok(())
         }
     }
 
-
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
     #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
-    impl HasSchematic for LibIncludeTb { type Data = Instance<LibIncludeResistor>; }
+    impl HasSchematic for LibIncludeTb {
+        type Data = Instance<LibIncludeResistor>;
+    }
 
     impl HasTestbenchSchematicImpl<LibIncludePdk, Spectre> for LibIncludeTb {
-        fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Data, cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>) -> substrate::error::Result<Self::Data> {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Data,
+            cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>,
+        ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
-            let dut = cell.instantiate_tb(LibIncludeResistor );
-            let res = cell.instantiate(Resistor{ r: 1000 });
+            let dut = cell.instantiate_tb(LibIncludeResistor);
+            let res = cell.instantiate(Resistor { r: 1000 });
 
             cell.connect(dut.io().p, vdd);
             cell.connect(dut.io().n, res.io().p);
@@ -191,19 +205,34 @@ fn spectre_can_include_sections() {
     impl Testbench<LibIncludePdk, Spectre> for LibIncludeTb {
         type Output = f64;
 
-        fn run(&self, cell: &Cell<Self>, sim: SimController<LibIncludePdk, Spectre>) -> Self::Output {
+        fn run(
+            &self,
+            cell: &Cell<Self>,
+            sim: SimController<LibIncludePdk, Spectre>,
+        ) -> Self::Output {
             let mut opts = Options::default();
-            sim.pdk.pdk.install_corner(match self.0.as_str() {
-                "tt" => Sky130Corner::Tt,
-                _ => Sky130Corner::Ss,
-
-            }, &mut opts);
-            let output = sim.simulate(opts, Tran {
-                stop: dec!(2e-9),
-                errpreset: Some(spectre::ErrPreset::Conservative),
-                ..Default::default()
-            }).expect("failed to run simulation");
-            *output.get_data(&cell.data().io().n).unwrap().first().unwrap()
+            sim.pdk.pdk.install_corner(
+                match self.0.as_str() {
+                    "tt" => Sky130Corner::Tt,
+                    _ => Sky130Corner::Ss,
+                },
+                &mut opts,
+            );
+            let output = sim
+                .simulate(
+                    opts,
+                    Tran {
+                        stop: dec!(2e-9),
+                        errpreset: Some(spectre::ErrPreset::Conservative),
+                        ..Default::default()
+                    },
+                )
+                .expect("failed to run simulation");
+            *output
+                .get_data(&cell.data().io().n)
+                .unwrap()
+                .first()
+                .unwrap()
         }
     }
 
