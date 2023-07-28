@@ -85,8 +85,14 @@ impl<'a, W: Write> Netlister<'a, W> {
         }
 
         match cell.contents() {
-            Opacity::Opaque(s) => {
-                writeln!(self.out, "{}", s)?;
+            Opacity::Opaque(contents) => {
+                for elem in contents.elems.iter() {
+                    match elem {
+                        scir::BlackboxElement::RawString(s) => write!(self.out, "{}", s)?,
+                        scir::BlackboxElement::Slice(s) => self.write_slice(cell, *s, ground)?,
+                    }
+                }
+                writeln!(self.out)?;
             }
             Opacity::Clear(contents) => {
                 for (_id, inst) in contents.instances() {

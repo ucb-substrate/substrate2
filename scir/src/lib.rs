@@ -349,7 +349,28 @@ pub struct Instance {
 }
 
 /// The (possibly blackboxed) contents of a SCIR cell.
-pub type CellContents = Opacity<ArcStr, CellInner>;
+pub type CellContents = Opacity<BlackboxContents, CellInner>;
+
+/// The contents of a blackbox cell.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct BlackboxContents {
+    /// The list of [`BlackboxElement`]s comprising this cell.
+    ///
+    /// During netlisting, each blackbox element will be
+    /// injected into the final netlist.
+    /// Netlister implementations are free to add whitespace
+    /// before, within, and after the list of blackbox elements.
+    pub elems: Vec<BlackboxElement>,
+}
+
+/// An element in the contents of a blackbox cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BlackboxElement {
+    /// A reference to a [`Slice`].
+    Slice(Slice),
+    /// A raw, opaque [`String`].
+    RawString(String),
+}
 
 /// A cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -568,14 +589,14 @@ impl Cell {
     ///
     /// This does not automatically expose ports.
     /// See [`Cell::expose_port`] for more information on exposing ports.
-    pub fn new_blackbox(name: impl Into<ArcStr>, contents: impl Into<ArcStr>) -> Self {
+    pub fn new_blackbox(name: impl Into<ArcStr>) -> Self {
         Self {
             signal_id: 0,
             name: name.into(),
             ports: Vec::new(),
             signals: HashMap::new(),
             params: HashMap::new(),
-            contents: CellContents::Opaque(contents.into()),
+            contents: CellContents::Opaque(Default::default()),
         }
     }
 
@@ -715,6 +736,20 @@ impl Cell {
             .primitives
             .push(device);
     }
+
+    /// Add the given [`BlackboxElement`] to the cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this cell is **not** blackbox.
+    #[inline]
+    pub fn add_blackbox_elem(&mut self, elem: impl Into<BlackboxElement>) {
+        self.contents
+            .as_mut()
+            .unwrap_opaque()
+            .elems
+            .push(elem.into());
+    }
 }
 
 impl Instance {
@@ -838,5 +873,42 @@ impl CellInner {
     #[inline]
     pub fn instances_mut(&mut self) -> impl Iterator<Item = (InstanceId, &mut Instance)> {
         self.instances.iter_mut().map(|x| (*x.0, x.1))
+    }
+}
+
+impl FromIterator<BlackboxElement> for BlackboxContents {
+    fn from_iter<T: IntoIterator<Item = BlackboxElement>>(iter: T) -> Self {
+        Self {
+            elems: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl From<String> for BlackboxElement {
+    #[inline]
+    fn from(value: String) -> Self {
+        Self::RawString(value)
+    }
+}
+
+impl From<&str> for BlackboxElement {
+    #[inline]
+    fn from(value: &str) -> Self {
+        Self::RawString(value.to_string())
+    }
+}
+
+impl From<Slice> for BlackboxElement {
+    #[inline]
+    fn from(value: Slice) -> Self {
+        Self::Slice(value)
+    }
+}
+
+impl From<String> for BlackboxContents {
+    fn from(value: String) -> Self {
+        Self {
+            elems: vec![BlackboxElement::RawString(value)],
+        }
     }
 }

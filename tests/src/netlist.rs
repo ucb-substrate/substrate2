@@ -51,9 +51,13 @@ pub(crate) fn vdivider() -> Library {
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library {
     let mut lib = Library::new("vdivider");
-    let mut wrapper = Cell::new_blackbox("resistor_wrapper", "Rblackbox pos neg 3300");
+    let mut wrapper = Cell::new_blackbox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
+    wrapper.add_blackbox_elem("Rblackbox");
+    wrapper.add_blackbox_elem(pos);
+    wrapper.add_blackbox_elem(neg);
+    wrapper.add_blackbox_elem(" 3300");
     wrapper.expose_port(pos);
     wrapper.expose_port(neg);
     let wrapper = lib.add_cell(wrapper);
