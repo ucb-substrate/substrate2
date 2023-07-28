@@ -9,19 +9,18 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::{Sky130CommercialPdk, Sky130Layers};
 use spectre::blocks::Vsource;
-use spectre::netlist::Netlister;
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
-use substrate::pdk::corner::{Corner, InstallCorner, Pvt};
+use substrate::pdk::corner::{InstallCorner, Pvt};
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, Instance, TestbenchCellBuilder};
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Simulator, Testbench};
-use substrate::{Block, Io, Layers};
+use substrate::{Block, Io};
 use test_log::test;
 
 use crate::paths::test_data;
@@ -163,7 +162,7 @@ fn spectre_can_include_sections() {
     impl HasTestbenchSchematicImpl<LibIncludePdk, Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Data,
+            _io: &<<Self as Block>::Io as SchematicType>::Data,
             cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             cell.set_blackbox("res0 (p n) example_resistor");
@@ -188,7 +187,7 @@ fn spectre_can_include_sections() {
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate_tb(LibIncludeResistor);
-            let res = cell.instantiate(Resistor { r: 1000 });
+            let res = cell.instantiate(Resistor::new(1000));
 
             cell.connect(dut.io().p, vdd);
             cell.connect(dut.io().n, res.io().p);
