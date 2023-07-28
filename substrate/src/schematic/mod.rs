@@ -143,6 +143,14 @@ impl From<String> for BlackboxContents {
     }
 }
 
+impl From<&str> for BlackboxContents {
+    fn from(value: &str) -> Self {
+        Self {
+            elems: vec![BlackboxElement::RawString(value.to_string())],
+        }
+    }
+}
+
 /// A builder for creating a testbench schematic cell.
 pub struct TestbenchCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
     pub(crate) simulator: Arc<S>,
