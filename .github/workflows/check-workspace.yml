@@ -12,8 +12,6 @@ jobs:
     runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Generate examples
-        run: just gen-examples
       - name: Check formatting
         run: |
           cargo fmt --check
@@ -29,8 +27,6 @@ jobs:
     runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Generate examples
-        run: just gen-examples
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features
@@ -42,8 +38,6 @@ jobs:
     runs-on: [bwrc, nfs]
     steps:
       - uses: actions/checkout@v3
-      - name: Generate examples
-        run: just gen-examples
       - name: Test
         run: cargo test --locked --all-features
       - name: Test examples
@@ -58,9 +52,9 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
-          cache-dependency-path: docs/substrate/yarn.lock
+          cache-dependency-path: docs/site/yarn.lock
       - run: yarn install
-        working-directory: docs/substrate
+        working-directory: docs/site
       - run: yarn build
-        working-directory: docs/substrate
+        working-directory: docs/site
 

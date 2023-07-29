@@ -12,9 +12,6 @@ jobs:
     runs-on: [bwrc, nfs]
     steps:
       - uses: actions/checkout@v3
-      - name: Generate examples
-        run: just gen-examples
-        working-directory: substrate
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:

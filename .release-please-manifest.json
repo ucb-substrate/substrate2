@@ -1,6 +1,7 @@
 {
   "codegen": "0.3.0",
   "config": "0.2.0",
+  "docs/examples": "0.0.0",
   "libs/cache": "0.2.0",
   "libs/diagnostics": "0.1.0",
   "libs/gds": "0.2.0",

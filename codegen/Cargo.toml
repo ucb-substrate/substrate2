@@ -2,7 +2,6 @@
 name = "codegen"
 version = "0.3.0"
 edition = "2021"
-include = ["src", "build/docs"]
 
 [dependencies]
 darling = "0.20"
@@ -12,6 +11,8 @@ proc-macro2 = "1"
 proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
+
+examples = { version = "<=0.0.0", registry = "substrate", path = "../docs/examples" }
 
 [dev-dependencies]
 arcstr = "1"

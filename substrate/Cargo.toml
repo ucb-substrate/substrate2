@@ -21,6 +21,7 @@ slotmap = "1"
 downcast-rs = "1"
 
 config = { version = "0.2.0", registry = "substrate", path = "../config" }
+examples = { version = "0.0.0", registry = "substrate", path = "../docs/examples" }
 cache = { version = "0.2.0", registry = "substrate", path = "../libs/cache" }
 codegen = { version = "0.3.0", registry = "substrate", path = "../codegen" }
 geometry = { version = "0.3.0", registry = "substrate", path = "../libs/geometry" }
