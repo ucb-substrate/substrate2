@@ -1,7 +1,7 @@
 use crate::shared::buffer::BufferIo;
 
 use serde::{Deserialize, Serialize};
-use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
+use sky130pdk::Sky130OpenPdk;
 
 use substrate::Block;
 use substrate::{HasLayoutImpl, HasSchematicImpl};
@@ -32,7 +32,7 @@ use test_log::test;
         source = "crate::paths::test_data(\"spice/buffer_commercial.spice\")",
         name = "buffer",
         fmt = "spice",
-        pdk = "Sky130CommercialPdk"
+        pdk = "sky130pdk::Sky130CommercialPdk"
     ))
 )]
 #[substrate(layout(
@@ -96,6 +96,7 @@ fn export_hard_macro_gds() {
 }
 
 #[test]
+#[cfg(feature = "spectre")]
 fn export_hard_macro_in_another_pdk() {
     use crate::shared::pdk::sky130_commercial_ctx;
 
