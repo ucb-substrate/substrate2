@@ -3,29 +3,16 @@
 //! # Examples
 //!
 //! ## Simple
-//! ```
-#![doc = include_str!("../../build/docs/prelude.rs.hidden")]
-#![doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
-#![doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
-#![doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
-#![doc = include_str!("../../build/docs/layout/inverter.rs")]
-//! ```
+#![doc = examples::get_snippets!("core", "inverter_layout")]
 //!
 //! ## With data
-//! ```
-#![doc = include_str!("../../build/docs/prelude.rs.hidden")]
-#![doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
-#![doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
-#![doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
-#![doc = include_str!("../../build/docs/layout/inverter.rs.hidden")]
-#![doc = include_str!("../../build/docs/block/buffer.rs.hidden")]
-#![doc = include_str!("../../build/docs/layout/buffer.rs")]
-//! ```
+#![doc = examples::get_snippets!("core", "buffer_layout")]
 
 use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
+use examples::get_snippets;
 use geometry::{
     prelude::{Bbox, Point},
     transform::{
@@ -98,16 +85,7 @@ impl LayoutContext {
 ///
 /// # Examples
 ///
-/// ```
-#[doc = include_str!("../../build/docs/prelude.rs.hidden")]
-#[doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
-#[doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
-#[doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
-#[doc = include_str!("../../build/docs/layout/inverter.rs.hidden")]
-#[doc = include_str!("../../build/docs/block/buffer.rs.hidden")]
-#[doc = include_str!("../../build/docs/layout/buffer.rs.hidden")]
-#[doc = include_str!("../../build/docs/layout/generate.rs")]
-/// ```
+#[doc = get_snippets!("core", "generate")]
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct Cell<T: HasLayout> {
@@ -418,15 +396,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     ///
     /// # Examples
     ///
-    /// ```
-    #[doc = include_str!("../../build/docs/prelude.rs.hidden")]
-    #[doc = include_str!("../../build/docs/pdk/layers.rs.hidden")]
-    #[doc = include_str!("../../build/docs/pdk/pdk.rs.hidden")]
-    #[doc = include_str!("../../build/docs/block/inverter.rs.hidden")]
-    #[doc = include_str!("../../build/docs/layout/inverter.rs.hidden")]
-    #[doc = include_str!("../../build/docs/block/buffer.rs.hidden")]
-    #[doc = include_str!("../../build/docs/layout/buffer.rs")]
-    /// ```
+    #[doc = get_snippets!("core", "cell_builder_generate")]
     pub fn generate<I: HasLayoutImpl<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
         Instance::new(cell)
