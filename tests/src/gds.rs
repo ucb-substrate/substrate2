@@ -43,7 +43,7 @@ fn test_gds_import() {
     );
     assert_eq!(
         a_shape_0.layer(),
-        *ctx.pdk.layers.met1.met1_drawing.as_ref(),
+        *ctx.layers.met1.drawing.as_ref(),
         "expected rectangle in cell A to be on met1_drawing"
     );
 
@@ -138,14 +138,14 @@ fn test_gds_reexport() {
     assert_eq!(
         a_elems
             .iter()
-            .filter(|s| s.layer() == *ctx.pdk.layers.met1.met1_drawing.as_ref())
+            .filter(|s| s.layer() == *ctx.layers.met1.drawing.as_ref())
             .count(),
         4
     );
     assert_eq!(
         a_elems
             .iter()
-            .filter(|s| s.layer() == *ctx.pdk.layers.poly.poly_drawing.as_ref())
+            .filter(|s| s.layer() == *ctx.layers.poly.drawing.as_ref())
             .count(),
         1
     );

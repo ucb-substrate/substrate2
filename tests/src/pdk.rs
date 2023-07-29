@@ -11,20 +11,14 @@ fn test_pdk_layers() {
     let ctx = Context::new(ExamplePdkA);
 
     assert_eq!(
-        ctx.pdk.layers.met1a.drawing.info().gds,
+        ctx.layers.met1a.drawing.info().gds,
         Some(GdsLayerSpec(68, 20))
     );
-    assert_eq!(
-        ctx.pdk.layers.met1a.pin.info().gds,
-        Some(GdsLayerSpec(68, 16))
-    );
-    assert_eq!(
-        ctx.pdk.layers.met1a.label.info().gds,
-        Some(GdsLayerSpec(68, 5))
-    );
-    assert_eq!(ctx.pdk.layers.met2a.info().gds, Some(GdsLayerSpec(69, 20)));
+    assert_eq!(ctx.layers.met1a.pin.info().gds, Some(GdsLayerSpec(68, 16)));
+    assert_eq!(ctx.layers.met1a.label.info().gds, Some(GdsLayerSpec(68, 5)));
+    assert_eq!(ctx.layers.met2a.info().gds, Some(GdsLayerSpec(69, 20)));
 
-    assert_eq!(ctx.pdk.layers.polya.custom_property(), 5)
+    assert_eq!(ctx.layers.polya.custom_property(), 5)
 }
 
 #[test]

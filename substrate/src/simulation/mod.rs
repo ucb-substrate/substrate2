@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::cache::Cache;
-use crate::context::PdkData;
 use crate::execute::Executor;
 use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::Pdk;
@@ -111,7 +110,7 @@ where
 pub struct SimController<PDK: Pdk, S> {
     pub(crate) simulator: Arc<S>,
     /// The current PDK.
-    pub pdk: PdkData<PDK>,
+    pub pdk: Arc<PDK>,
     pub(crate) ctx: SimulationContext,
 }
 

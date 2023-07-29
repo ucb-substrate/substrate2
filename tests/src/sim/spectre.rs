@@ -210,7 +210,7 @@ fn spectre_can_include_sections() {
             sim: SimController<LibIncludePdk, Spectre>,
         ) -> Self::Output {
             let mut opts = Options::default();
-            sim.pdk.pdk.install_corner(
+            sim.pdk.install_corner(
                 match self.0.as_str() {
                     "tt" => Sky130Corner::Tt,
                     _ => Sky130Corner::Ss,

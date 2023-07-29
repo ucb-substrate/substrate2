@@ -286,7 +286,7 @@ impl ToTokens for HasSchematicImplInputReceiver {
             let parsed_to_scir = quote! {
                 let mut conv = #substrate::spice::parser::conv::ScirConverter::new(::std::stringify!(#ident), &parsed.ast);
 
-                for prim in cell.ctx.pdk.pdk.schematic_primitives() {
+                for prim in cell.ctx.pdk.schematic_primitives() {
                     conv.blackbox(#substrate::arcstr::Substr::full(prim));
                 }
 

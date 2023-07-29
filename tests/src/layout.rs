@@ -49,13 +49,13 @@ impl HasLayoutImpl<ExamplePdkA> for GridTilerExample {
         let mut tiler = GridTiler::new();
 
         let tile1 = Tile::from_bbox(Shape::new(
-            cell.ctx.pdk.layers.polya,
+            cell.ctx.layers.polya,
             Rect::from_sides(0, 0, 100, 100),
         ))
         .with_padding(Sides::uniform(10));
 
         let tile2 = Tile::from_bbox(Shape::new(
-            cell.ctx.pdk.layers.met2a,
+            cell.ctx.layers.met2a,
             Rect::from_sides(0, 0, 220, 220),
         ))
         .with_padding(Sides::uniform(10));

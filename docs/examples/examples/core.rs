@@ -224,23 +224,23 @@ impl HasLayoutImpl<ExamplePdk> for Inverter {
         cell: &mut substrate::layout::CellBuilder<ExamplePdk, Self>,
     ) -> substrate::error::Result<Self::Data> {
         io.vss.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1,
+            cell.ctx.layers.met1,
             Rect::from_sides(25, 0, 75, 25),
         ));
         io.vdd.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1,
+            cell.ctx.layers.met1,
             Rect::from_sides(25, 175, 75, 200),
         ));
         io.din.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1,
+            cell.ctx.layers.met1,
             Rect::from_sides(0, 50, 25, 150),
         ));
         io.dout.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1,
+            cell.ctx.layers.met1,
             Rect::from_sides(75, 50, 100, 150),
         ));
         cell.draw(Shape::new(
-            cell.ctx.pdk.layers.met1,
+            cell.ctx.layers.met1,
             Rect::from_sides(0, 0, 100, 200),
         ))?;
         Ok(())
@@ -250,63 +250,67 @@ impl HasLayoutImpl<ExamplePdk> for Inverter {
 
 // begin-code-snippet inverter_multiprocess
 impl HasLayoutImpl<ExamplePdkA> for Inverter {
+    // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         io.vss.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(25, 0, 75, 25),
         ));
         io.vdd.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(25, 175, 75, 200),
         ));
         io.din.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(0, 50, 25, 150),
         ));
         io.dout.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(75, 50, 100, 150),
         ));
         cell.draw(Shape::new(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(0, 0, 100, 200),
         ))?;
         Ok(())
     }
+    // end-ellipses inverter_multiprocess
 }
 
 impl HasLayoutImpl<ExamplePdkB> for Inverter {
+    // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         io.vss.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1b,
+            cell.ctx.layers.met1b,
             Rect::from_sides(50, 0, 150, 25),
         ));
         io.vdd.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1b,
+            cell.ctx.layers.met1b,
             Rect::from_sides(50, 75, 150, 100),
         ));
         io.din.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1b,
+            cell.ctx.layers.met1b,
             Rect::from_sides(0, 25, 25, 75),
         ));
         io.dout.push(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1b,
+            cell.ctx.layers.met1b,
             Rect::from_sides(175, 25, 200, 75),
         ));
         cell.draw(Shape::new(
-            cell.ctx.pdk.layers.met1b,
+            cell.ctx.layers.met1b,
             Rect::from_sides(0, 0, 200, 100),
         ))?;
         Ok(())
     }
+    // end-ellipses inverter_multiprocess
 }
 // end-code-snippet inverter_multiprocess
 
