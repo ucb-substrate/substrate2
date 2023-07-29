@@ -62,7 +62,93 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) cell_name: ArcStr,
     pub(crate) phantom: PhantomData<T>,
     pub(crate) ports: Vec<Port>,
-    pub(crate) blackbox: Option<ArcStr>,
+    pub(crate) blackbox: Option<BlackboxContents>,
+}
+
+/// The contents of a blackbox cell.
+#[derive(Debug, Default, Clone)]
+pub struct BlackboxContents {
+    /// The list of [`BlackboxElement`]s comprising this cell.
+    ///
+    /// During netlisting, each blackbox element will be
+    /// injected into the final netlist.
+    /// Netlister implementations should add spaces before each element
+    /// in the list, except for the first element.
+    pub elems: Vec<BlackboxElement>,
+}
+
+/// An element in the contents of a blackbox cell.
+#[derive(Debug, Clone)]
+pub enum BlackboxElement {
+    /// A reference to a [`Node`].
+    Node(Node),
+    /// A raw, opaque [`String`].
+    RawString(String),
+}
+
+impl BlackboxContents {
+    /// Creates a new, empty [`BlackboxContents`].
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Adds the given element to the list of blackbox elements.
+    pub fn push(&mut self, elem: impl Into<BlackboxElement>) {
+        self.elems.push(elem.into());
+    }
+}
+
+impl FromIterator<BlackboxElement> for BlackboxContents {
+    fn from_iter<T: IntoIterator<Item = BlackboxElement>>(iter: T) -> Self {
+        Self {
+            elems: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl From<String> for BlackboxElement {
+    #[inline]
+    fn from(value: String) -> Self {
+        Self::RawString(value)
+    }
+}
+
+impl From<&str> for BlackboxElement {
+    #[inline]
+    fn from(value: &str) -> Self {
+        Self::RawString(value.to_string())
+    }
+}
+
+impl From<Node> for BlackboxElement {
+    #[inline]
+    fn from(value: Node) -> Self {
+        Self::Node(value)
+    }
+}
+
+impl From<&Node> for BlackboxElement {
+    #[inline]
+    fn from(value: &Node) -> Self {
+        Self::Node(*value)
+    }
+}
+
+impl From<String> for BlackboxContents {
+    fn from(value: String) -> Self {
+        Self {
+            elems: vec![BlackboxElement::RawString(value)],
+        }
+    }
+}
+
+impl From<&str> for BlackboxContents {
+    fn from(value: &str) -> Self {
+        Self {
+            elems: vec![BlackboxElement::RawString(value.to_string())],
+        }
+    }
 }
 
 /// A builder for creating a testbench schematic cell.
@@ -290,7 +376,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// Panics if any instances or primitive devices have already been
     /// added to this cell. A blackbox cell cannot contain instances or
     /// primitive devices.
-    pub fn set_blackbox(&mut self, contents: impl Into<ArcStr>) {
+    pub fn set_blackbox(&mut self, contents: impl Into<BlackboxContents>) {
         self.blackbox = Some(contents.into());
     }
 
@@ -411,7 +497,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     /// Panics if any instances or primitive devices have already been
     /// added to this cell. A blackbox cell cannot contain instances or
     /// primitive devices.
-    pub fn set_blackbox(&mut self, contents: impl Into<ArcStr>) {
+    pub fn set_blackbox(&mut self, contents: impl Into<BlackboxContents>) {
         self.inner.set_blackbox(contents)
     }
 
@@ -648,7 +734,7 @@ pub(crate) struct RawCell {
 }
 
 /// The (possibly blackboxed) contents of a raw cell.
-pub(crate) type RawCellContents = Opacity<ArcStr, RawCellInner>;
+pub(crate) type RawCellContents = Opacity<BlackboxContents, RawCellInner>;
 
 /// The inner contents of a not-blackboxed [`RawCell`].
 #[derive(Debug, Clone)]
