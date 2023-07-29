@@ -26,12 +26,15 @@ use test_log::test;
     fmt = "spice",
     pdk = "Sky130OpenPdk"
 ))]
-#[substrate(schematic(
-    source = "crate::paths::test_data(\"spice/buffer_commercial.spice\")",
-    name = "buffer",
-    fmt = "spice",
-    pdk = "Sky130CommercialPdk"
-))]
+#[cfg_attr(
+    feature = "spectre",
+    substrate(schematic(
+        source = "crate::paths::test_data(\"spice/buffer_commercial.spice\")",
+        name = "buffer",
+        fmt = "spice",
+        pdk = "Sky130CommercialPdk"
+    ))
+)]
 #[substrate(layout(
     source = "crate::paths::test_data(\"gds/buffer.gds\")",
     name = "buffer",

@@ -51,8 +51,10 @@ use crate::simulation::{
 ///
 #[doc = get_snippets!("core", "generate")]
 pub struct Context<PDK: Pdk> {
-    /// PDK-specific data.
-    pub pdk: PdkData<PDK>,
+    /// PDK configuration and general data.
+    pub pdk: Arc<PDK>,
+    /// The PDK layer set.
+    pub layers: Arc<PDK::Layers>,
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     executor: Arc<dyn Executor>,
@@ -126,10 +128,8 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         let cfg = Config::default().expect("requires valid Substrate configuration");
 
         Context {
-            pdk: PdkData {
-                pdk: Arc::new(self.pdk.unwrap()),
-                layers,
-            },
+            pdk: Arc::new(self.pdk.unwrap()),
+            layers,
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
             executor: self.executor,
@@ -148,27 +148,11 @@ impl<PDK: Pdk> Clone for Context<PDK> {
     fn clone(&self) -> Self {
         Self {
             pdk: self.pdk.clone(),
+            layers: self.layers.clone(),
             inner: self.inner.clone(),
             simulators: self.simulators.clone(),
             executor: self.executor.clone(),
             cache: self.cache.clone(),
-        }
-    }
-}
-
-/// PDK data stored in the global context.
-pub struct PdkData<PDK: Pdk> {
-    /// PDK configuration and general data.
-    pub pdk: Arc<PDK>,
-    /// The PDK layer set.
-    pub layers: Arc<PDK::Layers>,
-}
-
-impl<PDK: Pdk> Clone for PdkData<PDK> {
-    fn clone(&self) -> Self {
-        Self {
-            pdk: self.pdk.clone(),
-            layers: self.layers.clone(),
         }
     }
 }

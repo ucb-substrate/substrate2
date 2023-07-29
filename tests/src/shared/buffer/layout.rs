@@ -31,27 +31,27 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
         cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            cell.ctx.pdk.layers.polya,
+            cell.ctx.layers.polya,
             Rect::from_sides(0, 0, 100, 200),
         ))?;
 
         io.din.set(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(0, 75, 25, 125),
         ));
 
         io.dout.set(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(75, 75, 100, 125),
         ));
 
         io.vdd.set(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(25, 175, 75, 200),
         ));
 
         io.vss.set(IoShape::with_layers(
-            cell.ctx.pdk.layers.met1a,
+            cell.ctx.layers.met1a,
             Rect::from_sides(25, 0, 75, 25),
         ));
 
@@ -66,35 +66,35 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.draw(Shape::new(
-            cell.ctx.pdk.layers.polyb,
+            cell.ctx.layers.polyb,
             Rect::from_sides(0, 0, 200, 100),
         ))?;
 
         io.din.set(IoShape::new(
-            cell.ctx.pdk.layers.met1b,
-            cell.ctx.pdk.layers.met1b_pin,
-            cell.ctx.pdk.layers.met1b_label,
+            cell.ctx.layers.met1b,
+            cell.ctx.layers.met1b_pin,
+            cell.ctx.layers.met1b_label,
             Rect::from_sides(0, 25, 25, 75),
         ));
 
         io.dout.set(IoShape::new(
-            cell.ctx.pdk.layers.met1b,
-            cell.ctx.pdk.layers.met1b_pin,
-            cell.ctx.pdk.layers.met1b_label,
+            cell.ctx.layers.met1b,
+            cell.ctx.layers.met1b_pin,
+            cell.ctx.layers.met1b_label,
             Rect::from_sides(175, 25, 200, 75),
         ));
 
         io.vdd.set(IoShape::new(
-            cell.ctx.pdk.layers.met1b,
-            cell.ctx.pdk.layers.met1b_pin,
-            cell.ctx.pdk.layers.met1b_label,
+            cell.ctx.layers.met1b,
+            cell.ctx.layers.met1b_pin,
+            cell.ctx.layers.met1b_label,
             Rect::from_sides(75, 75, 125, 100),
         ));
 
         io.vss.set(IoShape::new(
-            cell.ctx.pdk.layers.met1b,
-            cell.ctx.pdk.layers.met1b_pin,
-            cell.ctx.pdk.layers.met1b_label,
+            cell.ctx.layers.met1b,
+            cell.ctx.layers.met1b_pin,
+            cell.ctx.layers.met1b_label,
             Rect::from_sides(75, 0, 125, 25),
         ));
 
@@ -170,7 +170,7 @@ impl HasLayoutImpl<T> for Buffer {
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let derived_layers = DerivedLayers::from(cell.ctx.pdk.layers.as_ref());
+        let derived_layers = DerivedLayers::from(cell.ctx.layers.as_ref());
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
 
         let inv1 = cell.generate(Inverter::new(self.strength));
@@ -273,7 +273,7 @@ impl HasLayoutImpl<T> for BufferNxM {
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<T, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let derived_layers = DerivedLayers::from(cell.ctx.pdk.layers.as_ref());
+        let derived_layers = DerivedLayers::from(cell.ctx.layers.as_ref());
         let buffern = cell.generate(BufferN::new(self.strength, self.n));
         let mut tiler = ArrayTiler::new(TileAlignMode::Center, TileAlignMode::NegAdjacent);
 
