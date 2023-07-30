@@ -7,9 +7,9 @@ use spectre::Spectre;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::MosIo;
-use substrate::pdk::corner::Corner;
 use substrate::pdk::Pdk;
 use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};
+use substrate::Corner;
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
@@ -29,14 +29,8 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
 pub struct ExampleCorner;
-
-impl Corner for ExampleCorner {
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("example_corner")
-    }
-}
 
 /// An NMOS in PDK A.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
