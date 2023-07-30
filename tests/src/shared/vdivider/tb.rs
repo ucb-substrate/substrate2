@@ -1,3 +1,4 @@
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::Vsource;
@@ -41,8 +42,8 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
         let dut = cell.instantiate(Vdivider {
-            r1: Resistor { r: 20 },
-            r2: Resistor { r: 20 },
+            r1: Resistor::new(20),
+            r2: Resistor::new(20),
         });
 
         cell.connect(dut.io().pwr.vdd, vdd);
@@ -113,18 +114,17 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
         cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
-        // TODO: Use other resistor sizings once primitive parametrization is implemented.
         let dut = cell.instantiate(VdividerArray {
             vdividers: vec![
                 Vdivider::new(300, 300),
-                Vdivider::new(600, 600),
-                Vdivider::new(800, 800),
+                Vdivider::new(600, 800),
+                Vdivider::new(3600, 1600),
             ],
         });
 
         for i in 0..3 {
-            cell.connect(dut.io()[i].vdd, vdd);
-            cell.connect(dut.io()[i].vss, io.vss);
+            cell.connect(dut.io().elements[i].vdd, vdd);
+            cell.connect(dut.io().elements[i].vss, io.vss);
         }
 
         let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
@@ -164,7 +164,10 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .data()
             .into_iter()
             .map(|inst| {
-                inst.block().r1.r as f64 / (inst.block().r1.r + inst.block().r2.r) as f64 * 1.8
+                (inst.block().r2.value / (inst.block().r1.value + inst.block().r2.value))
+                    .to_f64()
+                    .unwrap()
+                    * 1.8f64
             })
             .collect();
 
@@ -183,7 +186,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .collect();
 
         let vdd = output
-            .get_data(&cell.data().cell().io()[0].vdd)
+            .get_data(&cell.data().cell().io().elements[0].vdd)
             .unwrap()
             .clone();
 

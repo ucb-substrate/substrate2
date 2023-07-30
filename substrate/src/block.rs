@@ -11,10 +11,7 @@ use crate::io::Io;
 ///
 /// # Examples
 ///
-/// ```
-#[doc = include_str!("../build/docs/prelude.rs.hidden")]
-#[doc = include_str!("../build/docs/block/inverter.rs")]
-/// ```
+#[doc = examples::get_snippets!("core", "inverter")]
 pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;

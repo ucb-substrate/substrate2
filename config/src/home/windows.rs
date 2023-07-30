@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use windows_sys::Win32::Foundation::{MAX_PATH, S_OK};
 use windows_sys::Win32::UI::Shell::{SHGetFolderPathW, CSIDL_PROFILE};
 
-pub fn home_dir_inner() -> Option<PathBuf> {
+pub(crate) fn home_dir_inner() -> Option<PathBuf> {
     env::var_os("USERPROFILE")
         .filter(|s| !s.is_empty())
         .map(PathBuf::from)

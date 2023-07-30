@@ -6,6 +6,35 @@
   * dev-dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.2.0...codegen-v0.3.0) (2023-07-23)
+
+
+### Features
+
+* **codegen:** implement derive proc macro for layout hard macros ([#200](https://github.com/substrate-labs/substrate2/issues/200)) ([5138224](https://github.com/substrate-labs/substrate2/commit/5138224013f537e678dfb20204e964852ed40ccb))
+* **gds-import:** implement GDS to RawCell importer ([#196](https://github.com/substrate-labs/substrate2/issues/196)) ([fc37eeb](https://github.com/substrate-labs/substrate2/commit/fc37eeb6bac10779491b98bcadcc0eeaeb7d8ec5))
+* **proc-macros:** codegen for schematic hard macros ([#191](https://github.com/substrate-labs/substrate2/issues/191)) ([50240b1](https://github.com/substrate-labs/substrate2/commit/50240b167876873c4133315d35298b44e8eeac51))
+* **proc-macros:** derive macros for geometry traits ([#164](https://github.com/substrate-labs/substrate2/issues/164)) ([a86074a](https://github.com/substrate-labs/substrate2/commit/a86074a69b714b1be551ae00c775beb04c13f776))
+* **proc-macros:** support enums, tuple structs, etc. ([#165](https://github.com/substrate-labs/substrate2/issues/165)) ([bda83f7](https://github.com/substrate-labs/substrate2/commit/bda83f7c3049178024b114eb4e1bf65c6a128998))
+* **proc-macros:** support generics in derive schematic/layout data ([#169](https://github.com/substrate-labs/substrate2/issues/169)) ([5bc11d8](https://github.com/substrate-labs/substrate2/commit/5bc11d8eee266c21247694299285b6147631166e))
+* **simulation:** proc macros for implementing Supports on tuples ([#163](https://github.com/substrate-labs/substrate2/issues/163)) ([bf77832](https://github.com/substrate-labs/substrate2/commit/bf778329d6e9fd317bea789d093c4c7d8790f5ac))
+* **tiling:** array and grid tiling API ([#201](https://github.com/substrate-labs/substrate2/issues/201)) ([b3b7c2b](https://github.com/substrate-labs/substrate2/commit/b3b7c2bfb7ba72198872d0f08ded3e0bc757479d))
+
+
+### Bug Fixes
+
+* **ci:** add workaround for dev deps ([180c924](https://github.com/substrate-labs/substrate2/commit/180c92434b38a5da8d5d1f0494faae6a0b227c26))
+* **ci:** test another workaround for dev deps ([c15bc6d](https://github.com/substrate-labs/substrate2/commit/c15bc6d30afc02512237223db5f31cd9cb089ede))
+* **tests:** increase cache server wait time ([#167](https://github.com/substrate-labs/substrate2/issues/167)) ([b0db3aa](https://github.com/substrate-labs/substrate2/commit/b0db3aa6285367de1650e972c9cf7e2185a68250))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.2.0 to <=0.3.0
+    * sky130pdk bumped from <=0.2.0 to <=0.3.0
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.1.1...codegen-v0.2.0) (2023-07-07)
 
 

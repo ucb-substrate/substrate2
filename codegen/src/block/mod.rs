@@ -14,6 +14,12 @@ pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
+    #[darling(multiple)]
+    #[allow(unused)]
+    schematic: Vec<darling::util::Ignored>,
+    #[darling(multiple)]
+    #[allow(unused)]
+    layout: Vec<darling::util::Ignored>,
 }
 
 impl ToTokens for BlockInputReceiver {
@@ -23,6 +29,7 @@ impl ToTokens for BlockInputReceiver {
             ref ident,
             ref generics,
             ref io,
+            ..
         } = *self;
 
         let (imp, ty, wher) = generics.split_for_impl();

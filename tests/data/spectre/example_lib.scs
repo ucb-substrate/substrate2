@@ -1,0 +1,21 @@
+simulator lang=spectre
+
+section section_a
+
+subckt example_resistor ( p n )
+
+  res0 ( p n ) resistor r=1000
+
+ends example_resistor
+
+endsection section_a
+
+section section_b
+
+subckt example_resistor ( p n )
+
+  res0 ( p n ) resistor r=500
+
+ends example_resistor
+
+endsection section_b

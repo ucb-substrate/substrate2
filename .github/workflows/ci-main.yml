@@ -80,9 +80,6 @@ jobs:
         working-directory: cargo-workspaces/cargo-workspaces
         run: cargo build
       - uses: extractions/setup-just@v1
-      - name: Generate examples
-        run: just gen-examples
-        working-directory: substrate
       - name: Publish crates
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
@@ -115,13 +112,13 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
-          cache-dependency-path: docs/substrate/yarn.lock
+          cache-dependency-path: docs/site/yarn.lock
       - run: yarn install
-        working-directory: docs/substrate
+        working-directory: docs/site
       - run: yarn build 
-        working-directory: docs/substrate
+        working-directory: docs/site
       - run: flyctl deploy --remote-only --detach
-        working-directory: docs/substrate
+        working-directory: docs/site
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
 

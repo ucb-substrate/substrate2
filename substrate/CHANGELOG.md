@@ -5,6 +5,46 @@
     * codegen bumped from 0.1.0 to 0.1.1
     * substrate_api bumped from 0.1.0 to 0.1.1
 
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/substrate-v0.2.0...substrate-v0.3.0) (2023-07-23)
+
+
+### Features
+
+* **cache-config:** allow configuration of cache via config files ([#192](https://github.com/substrate-labs/substrate2/issues/192)) ([0461402](https://github.com/substrate-labs/substrate2/commit/0461402edfc1ec0886bbb25cf5471ee8480754fc))
+* **cache:** implement persistent caching ([#171](https://github.com/substrate-labs/substrate2/issues/171)) ([1f8ea24](https://github.com/substrate-labs/substrate2/commit/1f8ea24f805085392bfd1a2067bb8774d0fa4ae4))
+* **codegen:** implement derive proc macro for layout hard macros ([#200](https://github.com/substrate-labs/substrate2/issues/200)) ([5138224](https://github.com/substrate-labs/substrate2/commit/5138224013f537e678dfb20204e964852ed40ccb))
+* **executors:** executor API and local executor implementation ([#161](https://github.com/substrate-labs/substrate2/issues/161)) ([c372d51](https://github.com/substrate-labs/substrate2/commit/c372d511e1c67ad976dc86958c87e9ad13bdfde4))
+* **executors:** LSF (bsub) executor implementation ([#162](https://github.com/substrate-labs/substrate2/issues/162)) ([ff8404a](https://github.com/substrate-labs/substrate2/commit/ff8404abf75e6d6a4c82109adde0bcac48b6f33f))
+* **gds-import:** implement GDS to RawCell importer ([#196](https://github.com/substrate-labs/substrate2/issues/196)) ([fc37eeb](https://github.com/substrate-labs/substrate2/commit/fc37eeb6bac10779491b98bcadcc0eeaeb7d8ec5))
+* **gds:** gds reexport test ([#199](https://github.com/substrate-labs/substrate2/issues/199)) ([93d3cd5](https://github.com/substrate-labs/substrate2/commit/93d3cd555c1cb4a76a8845f4401e98d327b5d674))
+* **pdks:** PDKs store the names of schematic primitives ([#185](https://github.com/substrate-labs/substrate2/issues/185)) ([3446ba8](https://github.com/substrate-labs/substrate2/commit/3446ba869f564f844b39ee524b52106954a293c5))
+* **proc-macros:** codegen for schematic hard macros ([#191](https://github.com/substrate-labs/substrate2/issues/191)) ([50240b1](https://github.com/substrate-labs/substrate2/commit/50240b167876873c4133315d35298b44e8eeac51))
+* **remote-cache:** add initial implementation of remote-cache ([#166](https://github.com/substrate-labs/substrate2/issues/166)) ([7d90aab](https://github.com/substrate-labs/substrate2/commit/7d90aab47c282cf90e814ffce357a1e694c0c357))
+* **scir-instances:** allow Substrate users to instantiate raw SCIR instances ([#184](https://github.com/substrate-labs/substrate2/issues/184)) ([8fd5192](https://github.com/substrate-labs/substrate2/commit/8fd5192fd2017ab04e9e3220612d0a132702bb2e))
+* **simulation:** proc macros for implementing Supports on tuples ([#163](https://github.com/substrate-labs/substrate2/issues/163)) ([bf77832](https://github.com/substrate-labs/substrate2/commit/bf778329d6e9fd317bea789d093c4c7d8790f5ac))
+* **tiling:** array and grid tiling API ([#201](https://github.com/substrate-labs/substrate2/issues/201)) ([b3b7c2b](https://github.com/substrate-labs/substrate2/commit/b3b7c2bfb7ba72198872d0f08ded3e0bc757479d))
+
+
+### Bug Fixes
+
+* **ci:** fix doc tests for substrate crate ([#158](https://github.com/substrate-labs/substrate2/issues/158)) ([d7e9437](https://github.com/substrate-labs/substrate2/commit/d7e943734b1eadfe64deabb7602f5bbf41cd8806))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * config bumped from 0.1.0 to 0.2.0
+    * cache bumped from 0.1.0 to 0.2.0
+    * codegen bumped from 0.2.0 to 0.3.0
+    * geometry bumped from 0.2.0 to 0.3.0
+    * gds bumped from 0.1.0 to 0.2.0
+    * scir bumped from 0.1.0 to 0.2.0
+    * uniquify bumped from 0.1.0 to 0.2.0
+    * spice bumped from 0.0.0 to 0.1.0
+  * dev-dependencies
+    * sky130pdk bumped from <=0.2.0 to <=0.3.0
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/substrate-v0.1.1...substrate-v0.2.0) (2023-07-07)
 
 

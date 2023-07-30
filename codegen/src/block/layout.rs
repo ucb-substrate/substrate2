@@ -1,5 +1,5 @@
 use darling::ast::{Fields, Style};
-use darling::{ast, FromDeriveInput, FromField, FromVariant};
+use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
@@ -233,6 +233,92 @@ impl ToTokens for DataInputReceiver {
                     }
                 }
             }
+        };
+
+        tokens.extend(quote! {
+            #expanded
+        });
+    }
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(substrate), supports(any))]
+pub struct HasLayoutImplInputReceiver {
+    ident: syn::Ident,
+    generics: syn::Generics,
+    #[allow(unused)]
+    io: darling::util::Ignored,
+    #[darling(multiple)]
+    #[allow(unused)]
+    schematic: Vec<darling::util::Ignored>,
+    #[darling(multiple)]
+    layout: Vec<LayoutHardMacro>,
+}
+
+#[derive(Debug, FromMeta)]
+pub struct LayoutHardMacro {
+    source: syn::Expr,
+    fmt: darling::util::SpannedValue<String>,
+    pdk: syn::Type,
+    name: String,
+}
+
+impl ToTokens for HasLayoutImplInputReceiver {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let substrate = substrate_ident();
+        let HasLayoutImplInputReceiver {
+            ref ident,
+            ref generics,
+            ref layout,
+            ..
+        } = *self;
+
+        let (imp, ty, wher) = generics.split_for_impl();
+
+        let has_layout = quote! {
+            impl #imp #substrate::layout::HasLayout for #ident #ty #wher {
+                type Data = ();
+            }
+        };
+
+        let has_layout_impls = layout.iter().map(|layout| {
+            let LayoutHardMacro { source, fmt, pdk, name } = layout;
+
+            // The raw_cell token stream must create an Arc<RawCell>.
+            // The token stream has access to source.
+            let raw_cell = match fmt.as_str() {
+                "gds" => quote! {
+                    cell.ctx.read_gds_cell(source, #name)?
+                },
+                fmtstr => proc_macro_error::abort!(fmt.span(), "unsupported layout hard macro format: `{}`", fmtstr),
+            };
+
+            quote! {
+                impl #imp #substrate::layout::HasLayoutImpl<#pdk> for #ident #ty #wher {
+                    fn layout(
+                        &self,
+                        io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,
+                        cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
+                    ) -> #substrate::error::Result<Self::Data> {
+
+                        let source = { #source };
+
+                        let raw_cell = { #raw_cell };
+
+                        #substrate::io::HierarchicalBuildFrom::<#substrate::layout::element::NamedPorts>::build_from_top(io, raw_cell.port_map());
+                        let inst = #substrate::layout::element::RawInstance::new(raw_cell, #substrate::geometry::transform::Transformation::default());
+                        cell.draw(inst)?;
+
+                        Ok(())
+                    }
+                }
+            }
+        });
+
+        let expanded = quote! {
+            #has_layout
+
+            #(#has_layout_impls)*
         };
 
         tokens.extend(quote! {

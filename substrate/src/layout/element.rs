@@ -6,9 +6,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use geometry::{
-    prelude::{Bbox, Orientation, Point},
+    prelude::{Bbox, Point},
     rect::Rect,
-    transform::{HasTransformedView, Transform, Transformation},
+    transform::{
+        HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
+    },
     union::BoundingUnion,
 };
 use serde::{Deserialize, Serialize};
@@ -16,10 +18,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{Error, Result},
     io::{NameBuf, PortGeometry},
-    pdk::layers::LayerId,
+    pdk::{layers::LayerId, Pdk},
 };
 
-use super::{HasLayout, Instance};
+use super::{Draw, DrawReceiver, HasLayout, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -33,37 +35,93 @@ impl CellId {
     }
 }
 
+/// A mapping from names to ports.
+pub type NamedPorts = HashMap<NameBuf, PortGeometry>;
+
 /// A raw layout cell.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct RawCell {
     pub(crate) id: CellId,
     pub(crate) name: ArcStr,
     pub(crate) elements: Vec<Element>,
     pub(crate) blockages: Vec<Shape>,
-    pub(crate) ports: HashMap<NameBuf, PortGeometry>,
+    ports: NamedPorts,
+    port_names: HashMap<String, NameBuf>,
 }
 
 impl RawCell {
-    pub(crate) fn new(id: CellId, name: ArcStr) -> Self {
+    pub(crate) fn new(id: CellId, name: impl Into<ArcStr>) -> Self {
         Self {
             id,
-            name,
+            name: name.into(),
             elements: Vec::new(),
             blockages: Vec::new(),
             ports: HashMap::new(),
+            port_names: HashMap::new(),
         }
     }
 
     pub(crate) fn with_ports(self, ports: HashMap<NameBuf, PortGeometry>) -> Self {
-        Self { ports, ..self }
+        let port_names = ports.keys().map(|k| (k.to_string(), k.clone())).collect();
+        Self {
+            ports,
+            port_names,
+            ..self
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn port_map(&self) -> &NamedPorts {
+        &self.ports
     }
 
     pub(crate) fn add_element(&mut self, elem: impl Into<Element>) {
         self.elements.push(elem.into());
     }
 
+    #[allow(dead_code)]
     pub(crate) fn add_blockage(&mut self, shape: impl Into<Shape>) {
         self.blockages.push(shape.into());
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn add_elements(&mut self, elems: impl IntoIterator<Item = impl Into<Element>>) {
+        self.elements.extend(elems.into_iter().map(|x| x.into()));
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn add_blockages(&mut self, shapes: impl IntoIterator<Item = impl Into<Shape>>) {
+        self.blockages.extend(shapes.into_iter().map(|x| x.into()));
+    }
+
+    /// Adds a port to this cell.
+    ///
+    /// Primarily for use in GDS import.
+    pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
+        let name = name.into();
+        self.ports.insert(name.clone(), port.into());
+        self.port_names.insert(name.to_string(), name);
+    }
+
+    /// The ID of this cell.
+    pub fn id(&self) -> CellId {
+        self.id
+    }
+
+    /// Returns an iterator over the elements of this cell.
+    pub fn elements(&self) -> impl Iterator<Item = &Element> {
+        self.elements.iter()
+    }
+
+    /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
+    pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, &PortGeometry)> {
+        self.ports.iter()
+    }
+
+    /// Returns a reference to the port with the given name, if it exists.
+    pub fn port_named(&self, name: &str) -> Option<&PortGeometry> {
+        let name_buf = self.port_names.get(name)?;
+        self.ports.get(name_buf)
     }
 }
 
@@ -73,29 +131,77 @@ impl Bbox for RawCell {
     }
 }
 
+/// A transformed view of a raw cell, usually created by accessing the cell of an instance.
+pub struct TransformedRawCell<'a> {
+    id: CellId,
+    #[allow(dead_code)]
+    name: ArcStr,
+    elements: Transformed<'a, Vec<Element>>,
+    #[allow(dead_code)]
+    blockages: Transformed<'a, Vec<Shape>>,
+    ports: Transformed<'a, HashMap<NameBuf, PortGeometry>>,
+}
+
+impl HasTransformedView for RawCell {
+    type TransformedView<'a> = TransformedRawCell<'a>;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        TransformedRawCell {
+            id: self.id,
+            name: self.name.clone(),
+            elements: self.elements.transformed_view(trans),
+            blockages: self.blockages.transformed_view(trans),
+            ports: self.ports.transformed_view(trans),
+        }
+    }
+}
+
+impl<'a> TransformedRawCell<'a> {
+    /// The ID of this cell.
+    pub fn id(&self) -> CellId {
+        self.id
+    }
+
+    /// Returns an iterator over the elements of this cell.
+    pub fn elements(&self) -> impl Iterator<Item = Transformed<Element>> {
+        self.elements.iter()
+    }
+
+    /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
+    pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, Transformed<PortGeometry>)> {
+        self.ports.iter()
+    }
+}
+
 /// A raw layout instance.
 ///
-/// Consists of a pointer to an underlying cell and its instantiated location and orientation.
-#[derive(Default, Debug, Clone)]
+/// Consists of a pointer to an underlying cell and its instantiated transformation.
+#[derive(Default, Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub struct RawInstance {
     pub(crate) cell: Arc<RawCell>,
-    pub(crate) loc: Point,
-    pub(crate) orientation: Orientation,
+    pub(crate) trans: Transformation,
 }
 
 impl RawInstance {
-    /// Returns the current transformation of `self`.
-    pub fn transformation(&self) -> Transformation {
-        Transformation::from_offset_and_orientation(self.loc, self.orientation)
+    /// Create a new raw instance of the given cell.
+    pub fn new(cell: impl Into<Arc<RawCell>>, trans: Transformation) -> Self {
+        Self {
+            cell: cell.into(),
+            trans,
+        }
+    }
+
+    /// Returns a reference to the child cell.
+    #[inline]
+    pub fn cell(&self) -> Transformed<'_, RawCell> {
+        self.cell.transformed_view(self.trans)
     }
 }
 
 impl Bbox for RawInstance {
     fn bbox(&self) -> Option<Rect> {
-        self.cell
-            .bbox()
-            .map(|rect| rect.transform(self.transformation()))
+        self.cell.bbox().map(|rect| rect.transform(self.trans))
     }
 }
 
@@ -105,14 +211,40 @@ impl<T: HasLayout> TryFrom<Instance<T>> for RawInstance {
     fn try_from(value: Instance<T>) -> Result<Self> {
         Ok(Self {
             cell: value.try_cell()?.raw,
-            loc: value.loc,
-            orientation: value.orientation,
+            trans: value.trans,
         })
     }
 }
 
+impl<PDK: Pdk> Draw<PDK> for RawInstance {
+    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+        recv.draw_element(self);
+        Ok(())
+    }
+}
+
+impl TranslateMut for RawInstance {
+    fn translate_mut(&mut self, p: Point) {
+        self.transform_mut(Transformation::from_offset(p));
+    }
+}
+
+impl TransformMut for RawInstance {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.trans = Transformation::cascade(trans, self.trans);
+    }
+}
+
+impl HasTransformedView for RawInstance {
+    type TransformedView<'a> = RawInstance;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        self.clone().transform(trans)
+    }
+}
+
 /// A primitive layout shape consisting of a layer and a geometric shape.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct Shape {
     layer: LayerId,
@@ -164,29 +296,41 @@ impl HasTransformedView for Shape {
     }
 }
 
+impl TranslateMut for Shape {
+    fn translate_mut(&mut self, p: Point) {
+        self.shape.translate_mut(p)
+    }
+}
+
+impl TransformMut for Shape {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.shape.transform_mut(trans)
+    }
+}
+
+impl<PDK: Pdk> Draw<PDK> for Shape {
+    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+        recv.draw_element(self);
+        Ok(())
+    }
+}
+
 /// A primitive text annotation consisting of a layer, string, and location.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub struct Text {
     layer: LayerId,
     text: ArcStr,
-    loc: Point,
-    orientation: Orientation,
+    pub(crate) trans: Transformation,
 }
 
 impl Text {
     /// Creates a new layout text annotation.
-    pub fn new(
-        layer: impl AsRef<LayerId>,
-        text: impl Into<ArcStr>,
-        loc: Point,
-        orientation: Orientation,
-    ) -> Self {
+    pub fn new(layer: impl AsRef<LayerId>, text: impl Into<ArcStr>, trans: Transformation) -> Self {
         Self {
             layer: *layer.as_ref(),
             text: text.into(),
-            loc,
-            orientation,
+            trans,
         }
     }
 
@@ -199,26 +343,37 @@ impl Text {
     pub fn text(&self) -> &ArcStr {
         &self.text
     }
+}
 
-    /// Gets the location of this annotation.
-    pub fn loc(&self) -> Point {
-        self.loc
-    }
+impl HasTransformedView for Text {
+    type TransformedView<'a> = Text;
 
-    /// Gets the orientation of this annotation.
-    pub fn orientation(&self) -> Orientation {
-        self.orientation
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        self.clone().transform(trans)
     }
 }
 
-impl Bbox for Text {
-    fn bbox(&self) -> Option<geometry::rect::Rect> {
-        Some(Rect::from_point(self.loc))
+impl TranslateMut for Text {
+    fn translate_mut(&mut self, p: Point) {
+        self.transform_mut(Transformation::from_offset(p))
+    }
+}
+
+impl TransformMut for Text {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.trans = Transformation::cascade(trans, self.trans);
+    }
+}
+
+impl<PDK: Pdk> Draw<PDK> for Text {
+    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+        recv.draw_element(self);
+        Ok(())
     }
 }
 
 /// A primitive layout element.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Element {
     /// A raw layout instance.
     Instance(RawInstance),
@@ -228,12 +383,93 @@ pub enum Element {
     Text(Text),
 }
 
+/// A pointer to a primitive layout element.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ElementRef<'a> {
+    /// A raw layout instance.
+    Instance(&'a RawInstance),
+    /// A primitive layout shape.
+    Shape(&'a Shape),
+    /// A primitive text annotation.
+    Text(&'a Text),
+}
+
+impl Element {
+    /// Converts from `&Element` to `ElementRef`.
+    ///
+    /// Produces a new `ElementRef` containing a reference into
+    /// the original element, but leaves the original in place.
+    pub fn as_ref(&self) -> ElementRef<'_> {
+        match self {
+            Self::Instance(x) => ElementRef::Instance(x),
+            Self::Shape(x) => ElementRef::Shape(x),
+            Self::Text(x) => ElementRef::Text(x),
+        }
+    }
+
+    /// If this is an `Instance` variant, returns the contained instance.
+    /// Otherwise, returns [`None`].
+    pub fn instance(self) -> Option<RawInstance> {
+        match self {
+            Self::Instance(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Shape` variant, returns the contained shape.
+    /// Otherwise, returns [`None`].
+    pub fn shape(self) -> Option<Shape> {
+        match self {
+            Self::Shape(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Text` variant, returns the contained text.
+    /// Otherwise, returns [`None`].
+    pub fn text(self) -> Option<Text> {
+        match self {
+            Self::Text(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> ElementRef<'a> {
+    /// If this is an `Instance` variant, returns the contained instance.
+    /// Otherwise, returns [`None`].
+    pub fn instance(self) -> Option<&'a RawInstance> {
+        match self {
+            Self::Instance(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Shape` variant, returns the contained shape.
+    /// Otherwise, returns [`None`].
+    pub fn shape(self) -> Option<&'a Shape> {
+        match self {
+            Self::Shape(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// If this is a `Text` variant, returns the contained text.
+    /// Otherwise, returns [`None`].
+    pub fn text(self) -> Option<&'a Text> {
+        match self {
+            Self::Text(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+
 impl Bbox for Element {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         match self {
             Element::Instance(inst) => inst.bbox(),
             Element::Shape(shape) => shape.bbox(),
-            Element::Text(text) => text.bbox(),
+            Element::Text(_) => None,
         }
     }
 }
@@ -252,6 +488,69 @@ impl From<Shape> for Element {
 
 impl From<Text> for Element {
     fn from(value: Text) -> Self {
+        Self::Text(value)
+    }
+}
+
+impl HasTransformedView for Element {
+    type TransformedView<'a> = Element;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        self.clone().transform(trans)
+    }
+}
+
+impl TranslateMut for Element {
+    fn translate_mut(&mut self, p: Point) {
+        match self {
+            Element::Instance(inst) => inst.translate_mut(p),
+            Element::Shape(shape) => shape.translate_mut(p),
+            Element::Text(text) => text.translate_mut(p),
+        }
+    }
+}
+
+impl TransformMut for Element {
+    fn transform_mut(&mut self, trans: Transformation) {
+        match self {
+            Element::Instance(inst) => inst.transform_mut(trans),
+            Element::Shape(shape) => shape.transform_mut(trans),
+            Element::Text(text) => text.transform_mut(trans),
+        }
+    }
+}
+
+impl<PDK: Pdk> Draw<PDK> for Element {
+    fn draw(self, cell: &mut DrawReceiver<PDK>) -> Result<()> {
+        cell.draw_element(self);
+        Ok(())
+    }
+}
+
+impl Bbox for ElementRef<'_> {
+    fn bbox(&self) -> Option<geometry::rect::Rect> {
+        match self {
+            ElementRef::Instance(inst) => inst.bbox(),
+            ElementRef::Shape(shape) => shape.bbox(),
+            ElementRef::Text(_) => None,
+        }
+    }
+}
+
+impl<'a> From<&'a RawInstance> for ElementRef<'a> {
+    fn from(value: &'a RawInstance) -> Self {
+        Self::Instance(value)
+    }
+}
+
+impl<'a> From<&'a Shape> for ElementRef<'a> {
+    fn from(value: &'a Shape) -> Self {
+        Self::Shape(value)
+    }
+}
+
+impl<'a> From<&'a Text> for ElementRef<'a> {
+    fn from(value: &'a Text) -> Self {
         Self::Text(value)
     }
 }

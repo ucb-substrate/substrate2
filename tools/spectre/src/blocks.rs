@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::VsourceIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::HasSchematic;
+use substrate::schematic::{BlackboxContents, HasSchematic};
 use substrate::simulation::HasTestbenchSchematicImpl;
 
 use crate::Spectre;
@@ -74,36 +74,40 @@ impl HasSchematic for Vsource {
 impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
     fn schematic(
         &self,
-        _io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        use std::fmt::Write;
-        let contents = match self {
-            Self::Dc(dc) => format!("V0 ( io_p io_n ) vsource type=dc dc={}", dc),
+        let mut contents = BlackboxContents::new();
+        match self {
+            Self::Dc(dc) => {
+                contents.push("V0 (");
+                contents.push(*io.p);
+                contents.push(*io.n);
+                contents.push(format!(") vsource type=dc dc={}", dc));
+            }
             Self::Pulse(pulse) => {
-                let mut s = String::new();
-                write!(
-                    &mut s,
-                    "V0 ( io_p io_n ) vsource type=pulse val0={} val1={}",
+                contents.push("V0 (");
+                contents.push(*io.p);
+                contents.push(*io.n);
+                contents.push(format!(
+                    ") vsource type=pulse val0={} val1={}",
                     pulse.val0, pulse.val1
-                )
-                .unwrap();
+                ));
                 if let Some(period) = pulse.period {
-                    write!(&mut s, " period={period}").unwrap();
+                    contents.push(format!("period={period}"));
                 }
                 if let Some(rise) = pulse.rise {
-                    write!(&mut s, " rise={rise}").unwrap();
+                    contents.push(format!("rise={rise}"));
                 }
                 if let Some(fall) = pulse.fall {
-                    write!(&mut s, " fall={fall}").unwrap();
+                    contents.push(format!("fall={fall}"));
                 }
                 if let Some(width) = pulse.width {
-                    write!(&mut s, " width={width}").unwrap();
+                    contents.push(format!("width={width}"));
                 }
                 if let Some(delay) = pulse.delay {
-                    write!(&mut s, " delay={delay}").unwrap();
+                    contents.push(format!("delay={delay}"));
                 }
-                s
             }
         };
         cell.set_blackbox(contents);

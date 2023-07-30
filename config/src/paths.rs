@@ -14,12 +14,12 @@ use std::path::{Path, PathBuf};
 /// Each item is a [`Path`]. It will start with the given path, finishing at
 /// the root. If the `stop_root_at` parameter is given, it will stop at the
 /// given path (which will be the last item).
-pub fn ancestors<'a>(path: &'a Path, stop_root_at: Option<&Path>) -> PathAncestors<'a> {
+pub(crate) fn ancestors<'a>(path: &'a Path, stop_root_at: Option<&Path>) -> PathAncestors<'a> {
     PathAncestors::new(path, stop_root_at)
 }
 
 /// An iterator over parent paths from the current directory to a certain stopping directory.
-pub struct PathAncestors<'a> {
+pub(crate) struct PathAncestors<'a> {
     current: Option<&'a Path>,
     stop_at: Option<PathBuf>,
 }
@@ -55,7 +55,8 @@ impl<'a> Iterator for PathAncestors<'a> {
 }
 
 /// Equivalent to [`std::fs::create_dir_all`] with better error messages.
-pub fn create_dir_all(p: impl AsRef<Path>) -> Result<()> {
+#[allow(dead_code)]
+pub(crate) fn create_dir_all(p: impl AsRef<Path>) -> Result<()> {
     _create_dir_all(p.as_ref())
 }
 
@@ -68,7 +69,8 @@ fn _create_dir_all(p: &Path) -> Result<()> {
 /// Equivalent to [`std::fs::remove_dir_all`] with better error messages.
 ///
 /// This does *not* follow symlinks.
-pub fn remove_dir_all<P: AsRef<Path>>(p: P) -> Result<()> {
+#[allow(dead_code)]
+pub(crate) fn remove_dir_all<P: AsRef<Path>>(p: P) -> Result<()> {
     _remove_dir_all(p.as_ref()).or_else(|prev_err| {
         // `std::fs::remove_dir_all` is highly specialized for different platforms
         // and may be more reliable than a simple walk. We try the walk first in
@@ -106,7 +108,8 @@ fn _remove_dir_all(p: &Path) -> Result<()> {
 }
 
 /// Equivalent to [`std::fs::remove_dir`] with better error messages.
-pub fn remove_dir<P: AsRef<Path>>(p: P) -> Result<()> {
+#[allow(dead_code)]
+pub(crate) fn remove_dir<P: AsRef<Path>>(p: P) -> Result<()> {
     _remove_dir(p.as_ref())
 }
 
@@ -119,7 +122,7 @@ fn _remove_dir(p: &Path) -> Result<()> {
 ///
 /// If the file is readonly, this will attempt to change the permissions to
 /// force the file to be deleted.
-pub fn remove_file<P: AsRef<Path>>(p: P) -> Result<()> {
+pub(crate) fn remove_file<P: AsRef<Path>>(p: P) -> Result<()> {
     _remove_file(p.as_ref())
 }
 

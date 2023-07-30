@@ -4,21 +4,20 @@ use std::{
     any::Any,
     fs::{self, OpenOptions},
     io::{Read, Write},
-    path::PathBuf,
+    net::TcpListener,
+    path::{Path, PathBuf},
     sync::{
         mpsc::{channel, Receiver, RecvTimeoutError, Sender},
-        Arc,
+        Arc, Mutex,
     },
     thread,
     time::Duration,
 };
 
 use backoff::ExponentialBackoff;
-use once_cell::sync::OnceCell;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::runtime::{Handle, Runtime};
 use tonic::transport::{Channel, Endpoint};
-use tracing::Level;
 
 use crate::{
     error::{ArcResult, Error, Result},
@@ -26,8 +25,11 @@ use crate::{
         local::{self, local_cache_client},
         remote::{self, remote_cache_client},
     },
-    CacheHandle, Cacheable, CacheableWithState,
+    run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn, GenerateResultFn,
+    GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
+
+use super::server::Server;
 
 /// The timeout for connecting to the cache server.
 pub const CONNECTION_TIMEOUT_MS_DEFAULT: u64 = 1000;
@@ -38,7 +40,7 @@ pub const REQUEST_TIMEOUT_MS_DEFAULT: u64 = 1000;
 /// An enumeration of client kinds.
 ///
 /// Each interacts with a different cache server API, depending on the desired functionality.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ClientKind {
     /// A client that shares a filesystem with the server.
     ///
@@ -83,21 +85,50 @@ pub struct ClientBuilder {
     handle: Option<Handle>,
 }
 
+struct GenerateState<K, V> {
+    handle: CacheHandle<V>,
+    namespace: Namespace,
+    hash: Vec<u8>,
+    key: K,
+}
+
+/// Sends a heartbeat RPC to the server.
+trait HeartbeatFn: Fn(&Client) -> Result<()> + Send + Any {}
+impl<T: Fn(&Client) -> Result<()> + Send + Any> HeartbeatFn for T {}
+
+/// Writes a generated value to the given `String` path, using the provided assignment ID `u64` to
+/// notify the cache server once completed.
+trait LocalWriteValueFn<V>:
+    FnOnce(&Client, u64, String, &ArcResult<V>) -> Result<()> + Send + Any
+{
+}
+impl<V, T: FnOnce(&Client, u64, String, &ArcResult<V>) -> Result<()> + Send + Any>
+    LocalWriteValueFn<V> for T
+{
+}
+
+/// Writes a generated value to the cache server, using the provided assignment ID `u64` to
+/// tell the cache server which task completed.
+trait RemoteWriteValueFn<V>: FnOnce(&Client, u64, &ArcResult<V>) -> Result<()> + Send + Any {}
+impl<V, T: FnOnce(&Client, u64, &ArcResult<V>) -> Result<()> + Send + Any> RemoteWriteValueFn<V>
+    for T
+{
+}
+
+/// Deserializes desired value from bytes stored in the cache. If `V` is a result, would need to
+/// wrap the bytes from the cache with an `Ok` since `Err` results are not stored in the cache.
+trait DeserializeValueFn<V>: FnOnce(&[u8]) -> Result<V> + Send + Any {}
+impl<V, T: FnOnce(&[u8]) -> Result<V> + Send + Any> DeserializeValueFn<V> for T {}
+
 impl ClientBuilder {
     /// Creates a new [`ClientBuilder`].
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Sets the configured client type to [`ClientKind::Local`].
-    pub fn local(&mut self) -> &mut Self {
-        self.kind = Some(ClientKind::Local);
-        self
-    }
-
-    /// Sets the configured client type to [`ClientKind::Remote`].
-    pub fn remote(&mut self) -> &mut Self {
-        self.kind = Some(ClientKind::Remote);
+    /// Sets the configured server URL.
+    pub fn url(&mut self, url: impl Into<String>) -> &mut Self {
+        self.url = Some(url.into());
         self
     }
 
@@ -106,11 +137,20 @@ impl ClientBuilder {
         self.kind = Some(kind);
         self
     }
+    /// Creates a new [`ClientBuilder`] with configured client type [`ClientKind::Local`] and a
+    /// server URL `url`.
+    pub fn local(url: impl Into<String>) -> Self {
+        let mut builder = Self::new();
+        builder.kind(ClientKind::Local).url(url);
+        builder
+    }
 
-    /// Sets the configured server URL.
-    pub fn url(&mut self, url: impl Into<String>) -> &mut Self {
-        self.url = Some(url.into());
-        self
+    /// Creates a new [`ClientBuilder`] with configured client type [`ClientKind::Remote`] and a
+    /// server URL `url`.
+    pub fn remote(url: impl Into<String>) -> Self {
+        let mut builder = Self::new();
+        builder.kind(ClientKind::Remote).url(url);
+        builder
     }
 
     /// Configures the exponential backoff used when polling the server for cache entry
@@ -192,19 +232,15 @@ impl Client {
     /// Creates a new local gRPC cache client.
     ///
     /// See [`ClientKind`] for an explanation of the different kinds of clients.
-    pub fn local() -> ClientBuilder {
-        let mut builder = ClientBuilder::new();
-        builder.local();
-        builder
+    pub fn local(url: impl Into<String>) -> ClientBuilder {
+        ClientBuilder::local(url)
     }
 
     /// Creates a new remote gRPC cache client.
     ///
     /// See [`ClientKind`] for an explanation of the different kinds of clients.
-    pub fn remote() -> ClientBuilder {
-        let mut builder = ClientBuilder::new();
-        builder.remote();
-        builder
+    pub fn remote(url: impl Into<String>) -> ClientBuilder {
+        ClientBuilder::remote(url)
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -221,28 +257,10 @@ impl Client {
     /// ```
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> u64 {
     ///     tuple.0 + tuple.1
@@ -256,24 +274,17 @@ impl Client {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        let (namespace, hash, handle) = Client::setup_generate(namespace, &key);
+        let namespace = namespace.into();
+        let state = Client::setup_generate(namespace, key);
+        let handle = state.handle.clone();
 
         match self.inner.kind {
-            ClientKind::Local => {
-                self.clone()
-                    .generate_inner_local(handle.clone(), namespace, hash, key, generate_fn)
-            }
-            ClientKind::Remote => self.clone().generate_inner_remote(
-                handle.clone(),
-                namespace,
-                hash,
-                key,
-                generate_fn,
-            ),
+            ClientKind::Local => self.clone().generate_inner_local(state, generate_fn),
+            ClientKind::Remote => self.clone().generate_inner_remote(state, generate_fn),
         }
 
         handle
@@ -297,29 +308,11 @@ impl Client {
     /// #[derive(Clone)]
     /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate_with_state");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_with_state").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
     ///     println!("Logging parameters...");
@@ -339,11 +332,12 @@ impl Client {
         S: Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> V + Send + Any,
+        generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         self.generate(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -365,28 +359,10 @@ impl Client {
     /// ```
     /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate_result");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64)) -> anyhow::Result<u64> {
     ///     if *tuple == (5, 5) {
@@ -405,30 +381,21 @@ impl Client {
         E: Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
-        let (namespace, hash, handle) = Client::setup_generate(namespace, &key);
+        let namespace = namespace.into();
+        let state = Client::setup_generate(namespace, key);
+        let handle = state.handle.clone();
 
         match self.inner.kind {
             ClientKind::Local => {
-                self.clone().generate_result_inner_local(
-                    handle.clone(),
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                );
+                self.clone().generate_result_inner_local(state, generate_fn);
             }
             ClientKind::Remote => {
-                self.clone().generate_result_inner_remote(
-                    handle.clone(),
-                    namespace,
-                    hash,
-                    key,
-                    generate_fn,
-                );
+                self.clone()
+                    .generate_result_inner_remote(state, generate_fn);
             }
         }
 
@@ -457,30 +424,11 @@ impl Client {
     /// #[derive(Clone)]
     /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root =
-    /// # PathBuf::from(BUILD_DIR).join("persistent_client_Client_generate_result_with_state");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result_with_state").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// fn generate_fn(tuple: &(u64, u64), state: Log) -> anyhow::Result<u64> {
     ///     println!("Logging parameters...");
@@ -506,11 +454,12 @@ impl Client {
         S: Send + Sync + Any,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> std::result::Result<V, E> + Send + Any,
+        generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -545,28 +494,10 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_get");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// let handle = client.get(
     ///     "example.namespace", Params { param1: 50, param2: "cache".to_string() }
@@ -575,9 +506,10 @@ impl Client {
     /// ```
     pub fn get<K: Cacheable>(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, |key| key.generate())
     }
 
@@ -613,28 +545,10 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_get_with_err");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_err").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// let handle = client.get_with_err(
     ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
@@ -646,9 +560,10 @@ impl Client {
         K: Cacheable<Error = E>,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate(namespace, key, |key| key.generate())
     }
 
@@ -686,29 +601,11 @@ impl Client {
     ///     }
     /// }
     ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://0.0.0.0:28055");
+    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use std::path::PathBuf;
-    /// # use std::time::Duration;
-    /// # use cache::persistent::server::Server;
-    /// # const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    /// # let port = portpicker::pick_unused_port().expect("no open ports");
-    /// # let runtime = tokio::runtime::Builder::new_multi_thread()
-    /// #     .enable_all()
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let root = PathBuf::from(BUILD_DIR).join("persistent_client_Client_get_with_state");
-    /// # if root.exists() {
-    /// #     std::fs::remove_dir_all(&root).unwrap();
-    /// # }
-    /// # std::fs::create_dir_all(&root).unwrap();
-    /// # let server = Server::builder()
-    /// #     .root(root)
-    /// #     .local(format!("0.0.0.0:{port}").parse().unwrap())
-    /// #     .build();
-    /// # drop(runtime.spawn(async move { server.start().await }));
-    /// # std::thread::sleep(Duration::from_millis(500)); // Wait until server starts.
-    /// # let client = Client::with_default_config(ClientKind::Local, format!("http://0.0.0.0:{port}"));
+    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
+    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_state").unwrap();
+    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
     ///
     /// let handle = client.get_with_state(
     ///     "example.namespace",
@@ -720,10 +617,11 @@ impl Client {
     /// ```
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
@@ -740,28 +638,29 @@ impl Client {
         K: CacheableWithState<S, Error = E>,
     >(
         &self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
     }
 
     /// Sets up the necessary objects to be passed in to [`Client::spawn_handler`].
-    fn setup_generate<K: Serialize, V>(
-        namespace: impl Into<String>,
-        key: &K,
-    ) -> (String, Vec<u8>, CacheHandle<V>) {
-        (
-            namespace.into(),
-            crate::hash(&flexbuffers::to_vec(key).unwrap()),
-            CacheHandle(Arc::new(OnceCell::new())),
-        )
+    fn setup_generate<K: Serialize, V>(namespace: Namespace, key: K) -> GenerateState<K, V> {
+        GenerateState {
+            handle: CacheHandle::empty(),
+            namespace,
+            hash: crate::hash(&flexbuffers::to_vec(&key).unwrap()),
+            key,
+        }
     }
 
     /// Spawns a new thread to generate the desired value asynchronously.
+    ///
+    /// If the provided handler returns a error, stores an [`Arc`]ed error in the handle.
     fn spawn_handler<V: Send + Sync + Any>(
         self,
         handle: CacheHandle<V>,
@@ -769,12 +668,8 @@ impl Client {
     ) {
         thread::spawn(move || {
             if let Err(e) = handler() {
-                tracing::event!(
-                    Level::ERROR,
-                    "encountered error while executing cached generation: {}",
-                    e,
-                );
-                Client::set_handle(&handle, Err(Arc::new(e)));
+                tracing::error!("encountered error while executing handler: {}", e,);
+                handle.set(Err(Arc::new(e)));
             }
         });
     }
@@ -793,15 +688,6 @@ impl Client {
         Ok(Ok(data))
     }
 
-    /// Runs the provided generation function in a new thread, returning the result.
-    fn run_generation<K: Any + Send + Sync, V: Any + Send + Sync>(
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-    ) -> ArcResult<V> {
-        let join_handle = thread::spawn(move || generate_fn(&key));
-        join_handle.join().map_err(|_| Arc::new(Error::Panic))
-    }
-
     /// Starts sending heartbeats to the server in a new thread .
     ///
     /// Returns a sender for telling the spawned thread to stop sending heartbeats and
@@ -809,10 +695,12 @@ impl Client {
     fn start_heartbeats(
         &self,
         heartbeat_interval: Duration,
-        send_heartbeat: impl Fn() -> Result<()> + Send + Any,
+        send_heartbeat: impl HeartbeatFn,
     ) -> (Sender<()>, Receiver<()>) {
+        tracing::debug!("starting heartbeats");
         let (s_heartbeat_stop, r_heartbeat_stop) = channel();
         let (s_heartbeat_stopped, r_heartbeat_stopped) = channel();
+        let self_clone = self.clone();
         thread::spawn(move || {
             loop {
                 match r_heartbeat_stop.recv_timeout(heartbeat_interval) {
@@ -820,7 +708,7 @@ impl Client {
                         break;
                     }
                     Err(RecvTimeoutError::Timeout) => {
-                        if send_heartbeat().is_err() {
+                        if send_heartbeat(&self_clone).is_err() {
                             break;
                         }
                     }
@@ -831,11 +719,57 @@ impl Client {
         (s_heartbeat_stop, r_heartbeat_stopped)
     }
 
-    /// Sets the provided handle to deserialized data, panicking if unable to.
-    fn set_handle<V>(handle: &CacheHandle<V>, data: ArcResult<V>) {
-        if handle.0.set(data).is_err() {
-            panic!("failed to set cell value");
-        }
+    /// Converts a [`Result<(S, bool)>`] to a [`std::result::Result<S, backoff::Error<Error>>`].
+    ///
+    /// If the `retry` boolean is `true`, returns a [`backoff::Error::Transient`]. If the provided
+    /// result is [`Err`], returns a [`backoff::Error::Permanent`]. Otherwise, returns the entry
+    /// status of type `S`.
+    fn run_backoff_loop<S>(&self, get_status_fn: impl Fn() -> Result<(S, bool)>) -> Result<S> {
+        Ok(backoff::retry(self.inner.poll_backoff.clone(), move || {
+            tracing::debug!("attempting get request to retrieve entry status");
+            get_status_fn()
+                .map_err(backoff::Error::Permanent)
+                .and_then(|(status, retry)| {
+                    if retry {
+                        tracing::debug!("entry is loading, retrying later");
+                        Err(backoff::Error::transient(Error::EntryLoading))
+                    } else {
+                        tracing::debug!("entry status retrieved");
+                        Ok(status)
+                    }
+                })
+        })
+        .map_err(Box::new)?)
+    }
+
+    /// Handles an unassigned entry by generating it locally.
+    fn handle_unassigned<K: Send + Sync + Any, V: Send + Sync + Any>(
+        handle: CacheHandle<V>,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) {
+        tracing::debug!("entry is unassigned, generating locally");
+        let v = run_generator(move || generate_fn(&key));
+        handle.set(v);
+    }
+
+    /// Handles an assigned entry by generating it locally and sending heartbeats periodically
+    /// while the generator is running.
+    fn handle_assigned<K: Send + Sync + Any, V: Send + Sync + Any>(
+        &self,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+        heartbeat_interval_ms: u64,
+        send_heartbeat: impl HeartbeatFn,
+    ) -> ArcResult<V> {
+        tracing::debug!("entry has been assigned to the client, generating locally");
+        let (s_heartbeat_stop, r_heartbeat_stopped) =
+            self.start_heartbeats(Duration::from_millis(heartbeat_interval_ms), send_heartbeat);
+        let v = run_generator(move || generate_fn(&key));
+        let _ = s_heartbeat_stop.send(());
+        let _ = r_heartbeat_stopped.recv();
+        tracing::debug!("finished generating, writing value to cache");
+        v
     }
 
     /// Connects to a local cache gRPC server.
@@ -947,76 +881,54 @@ impl Client {
 
     /// Runs the generate loop for the local cache protocol, checking whether the desired entry is
     /// loaded and generating it if needed.
-    #[allow(clippy::too_many_arguments)]
     fn generate_loop_local<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-        write_generated_value: impl FnOnce(&Self, u64, String, &ArcResult<V>) -> Result<()> + Send + Any,
-        deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
-        handle: CacheHandle<V>,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
+        write_generated_value: impl LocalWriteValueFn<V>,
+        deserialize_cache_data: impl DeserializeValueFn<V>,
     ) -> Result<()> {
-        let status = backoff::retry(self.inner.poll_backoff.clone(), move || {
-            let inner = || -> Result<(local::get_reply::EntryStatus, bool)> {
-                tracing::event!(
-                    Level::DEBUG,
-                    "attempting local get request to retrieve entry status"
-                );
-                let status = self.get_rpc_local(namespace.clone(), hash.clone(), true)?;
-                let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
+        let GenerateState {
+            handle,
+            namespace,
+            hash,
+            key,
+        } = state;
 
-                Ok((status, retry))
-            };
-            inner()
-                .map_err(backoff::Error::Permanent)
-                .and_then(|(status, retry)| {
-                    if retry {
-                        tracing::event!(Level::DEBUG, "entry is currently loading, retrying later");
-                        Err(backoff::Error::transient(Error::EntryLoading))
-                    } else {
-                        Ok(status)
-                    }
-                })
-        })
-        .map_err(Box::new)?;
+        let status = self.run_backoff_loop(|| {
+            let status = self.get_rpc_local(namespace.clone().into_inner(), hash.clone(), true)?;
+            let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
+
+            Ok((status, retry))
+        })?;
+
         match status {
             local::get_reply::EntryStatus::Unassigned(_) => {
-                tracing::event!(Level::DEBUG, "entry is unassigned, generating locally");
-                let v = Client::run_generation(key, generate_fn);
-                Client::set_handle(&handle, v);
+                Client::handle_unassigned(handle, key, generate_fn);
             }
             local::get_reply::EntryStatus::Assign(local::AssignReply {
                 id,
                 path,
                 heartbeat_interval_ms,
             }) => {
-                tracing::event!(
-                    Level::DEBUG,
-                    "entry has been assigned to the client, generating locally"
+                let v = self.handle_assigned(
+                    key,
+                    generate_fn,
+                    heartbeat_interval_ms,
+                    move |client| -> Result<()> { client.heartbeat_rpc_local(id) },
                 );
-                let self_clone = self.clone();
-                let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
-                    Duration::from_millis(heartbeat_interval_ms),
-                    move || -> Result<()> { self_clone.heartbeat_rpc_local(id) },
-                );
-                let v = Client::run_generation(key, generate_fn);
-                let _ = s_heartbeat_stop.send(());
-                let _ = r_heartbeat_stopped.recv();
-                tracing::event!(Level::DEBUG, "finished generating, writing value to cache");
                 write_generated_value(self, id, path, &v)?;
-                Client::set_handle(&handle, v);
+                handle.set(v);
             }
             local::get_reply::EntryStatus::Loading(_) => unreachable!(),
             local::get_reply::EntryStatus::Ready(local::ReadyReply { id, path }) => {
-                tracing::event!(Level::DEBUG, "entry is ready, reading from cache");
+                tracing::debug!("entry is ready, reading from cache");
                 let mut file = std::fs::File::open(path)?;
                 let mut buf = Vec::new();
                 file.read_to_end(&mut buf)?;
                 self.drop_rpc_local(id)?;
-                tracing::event!(Level::DEBUG, "finished reading entry from disk");
-                Client::set_handle(&handle, Ok(deserialize_cache_data(&buf)?));
+                tracing::debug!("finished reading entry from disk");
+                handle.set(Ok(deserialize_cache_data(&buf)?));
             }
         }
         Ok(())
@@ -1027,22 +939,16 @@ impl Client {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<V>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
     ) {
-        tracing::event!(Level::DEBUG, "generating using local cache API");
-        self.clone().spawn_handler(handle.clone(), move || {
+        tracing::debug!("generating using local cache API");
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_local(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_value_local,
                 Client::deserialize_cache_value,
-                handle,
             )
         });
     }
@@ -1053,21 +959,15 @@ impl Client {
         E: Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<std::result::Result<V, E>>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        state: GenerateState<K, std::result::Result<V, E>>,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) {
-        self.clone().spawn_handler(handle.clone(), move || {
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_local(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_result_local,
                 Client::deserialize_cache_result,
-                handle,
             )
         });
     }
@@ -1147,58 +1047,48 @@ impl Client {
 
     /// Runs the generate loop for the remote cache protocol, checking whether the desired entry is
     /// loaded and generating it if needed.
-    #[allow(clippy::too_many_arguments)]
     fn generate_loop_remote<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-        write_generated_value: impl FnOnce(&Self, u64, &ArcResult<V>) -> Result<()> + Send + Any,
-        deserialize_cache_data: impl FnOnce(&[u8]) -> Result<V> + Send + Any,
-        handle: CacheHandle<V>,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
+        write_generated_value: impl RemoteWriteValueFn<V>,
+        deserialize_cache_data: impl DeserializeValueFn<V>,
     ) -> Result<()> {
-        let status = backoff::retry(self.inner.poll_backoff.clone(), move || {
-            let inner = || -> Result<(remote::get_reply::EntryStatus, bool)> {
-                let status = self.get_rpc_remote(namespace.clone(), hash.clone(), true)?;
-                let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
+        let GenerateState {
+            handle,
+            namespace,
+            hash,
+            key,
+        } = state;
 
-                Ok((status, retry))
-            };
-            inner()
-                .map_err(backoff::Error::Permanent)
-                .and_then(|(status, retry)| {
-                    if retry {
-                        Err(backoff::Error::transient(Error::EntryLoading))
-                    } else {
-                        Ok(status)
-                    }
-                })
-        })
-        .map_err(Box::new)?;
+        let status = self.run_backoff_loop(|| {
+            let status = self.get_rpc_remote(namespace.clone().into_inner(), hash.clone(), true)?;
+            let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
+
+            Ok((status, retry))
+        })?;
+
         match status {
             remote::get_reply::EntryStatus::Unassigned(_) => {
-                let v = Client::run_generation(key, generate_fn);
-                Client::set_handle(&handle, v);
+                Client::handle_unassigned(handle, key, generate_fn);
             }
             remote::get_reply::EntryStatus::Assign(remote::AssignReply {
                 id,
                 heartbeat_interval_ms,
             }) => {
-                let self_clone = self.clone();
-                let (s_heartbeat_stop, r_heartbeat_stopped) = self.start_heartbeats(
-                    Duration::from_millis(heartbeat_interval_ms),
-                    move || -> Result<()> { self_clone.heartbeat_rpc_remote(id) },
+                let v = self.handle_assigned(
+                    key,
+                    generate_fn,
+                    heartbeat_interval_ms,
+                    move |client| -> Result<()> { client.heartbeat_rpc_remote(id) },
                 );
-                let v = Client::run_generation(key, generate_fn);
-                let _ = s_heartbeat_stop.send(());
-                let _ = r_heartbeat_stopped.recv();
                 write_generated_value(self, id, &v)?;
-                Client::set_handle(&handle, v);
+                handle.set(v);
             }
             remote::get_reply::EntryStatus::Loading(_) => unreachable!(),
             remote::get_reply::EntryStatus::Ready(data) => {
-                Client::set_handle(&handle, Ok(deserialize_cache_data(&data)?));
+                tracing::debug!("entry is ready");
+                handle.set(Ok(deserialize_cache_data(&data)?));
             }
         }
         Ok(())
@@ -1209,22 +1099,16 @@ impl Client {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<V>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        state: GenerateState<K, V>,
+        generate_fn: impl GenerateFn<K, V>,
     ) {
-        tracing::event!(Level::DEBUG, "generating using remote cache API");
-        self.clone().spawn_handler(handle.clone(), move || {
+        tracing::debug!("generating using remote cache API");
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_remote(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_value_remote,
                 Client::deserialize_cache_value,
-                handle,
             )
         });
     }
@@ -1235,22 +1119,144 @@ impl Client {
         E: Send + Sync + Any,
     >(
         self,
-        handle: CacheHandle<std::result::Result<V, E>>,
-        namespace: String,
-        hash: Vec<u8>,
-        key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        state: GenerateState<K, std::result::Result<V, E>>,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) {
-        self.clone().spawn_handler(handle.clone(), move || {
+        self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_remote(
-                namespace,
-                hash,
-                key,
+                state,
                 generate_fn,
                 Client::write_generated_result_remote,
                 Client::deserialize_cache_result,
-                handle,
             )
         });
     }
+}
+
+pub(crate) const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
+pub(crate) const TEST_SERVER_HEARTBEAT_INTERVAL: Duration = Duration::from_millis(200);
+pub(crate) const TEST_SERVER_HEARTBEAT_TIMEOUT: Duration = Duration::from_millis(500);
+
+pub(crate) fn get_listeners(n: usize) -> Vec<(TcpListener, u16)> {
+    let mut listeners = Vec::new();
+
+    for _ in 0..n {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        listeners.push((listener, port));
+    }
+
+    listeners
+}
+
+#[doc(hidden)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ServerKind {
+    Local,
+    Remote,
+    Both,
+}
+
+impl From<ClientKind> for ServerKind {
+    fn from(value: ClientKind) -> Self {
+        match value {
+            ClientKind::Local => ServerKind::Local,
+            ClientKind::Remote => ServerKind::Remote,
+        }
+    }
+}
+
+pub(crate) fn client_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}")
+}
+
+#[doc(hidden)]
+pub fn create_server_and_clients(
+    root: PathBuf,
+    kind: ServerKind,
+    handle: &Handle,
+) -> (CacheHandle<Result<()>>, Client, Client) {
+    let mut listeners = handle.block_on(async {
+        get_listeners(2)
+            .into_iter()
+            .map(|(listener, port)| {
+                listener.set_nonblocking(true).unwrap();
+                (tokio::net::TcpListener::from_std(listener).unwrap(), port)
+            })
+            .collect::<Vec<_>>()
+    });
+    let (local_listener, local_port) = listeners.pop().unwrap();
+    let (remote_listener, remote_port) = listeners.pop().unwrap();
+
+    (
+        {
+            let mut builder = Server::builder();
+
+            builder = builder
+                .heartbeat_interval(TEST_SERVER_HEARTBEAT_INTERVAL)
+                .heartbeat_timeout(TEST_SERVER_HEARTBEAT_TIMEOUT)
+                .root(root);
+
+            let server = match kind {
+                ServerKind::Local => builder.local_with_incoming(local_listener),
+                ServerKind::Remote => builder.remote_with_incoming(remote_listener),
+                ServerKind::Both => builder
+                    .local_with_incoming(local_listener)
+                    .remote_with_incoming(remote_listener),
+            }
+            .build();
+
+            let join_handle = handle.spawn(async move { server.start().await });
+            let handle_clone = handle.clone();
+            CacheHandle::new(move || {
+                let res = handle_clone.block_on(join_handle).unwrap_or_else(|res| {
+                    if res.is_cancelled() {
+                        Ok(())
+                    } else {
+                        Err(Error::Panic)
+                    }
+                });
+                if let Err(e) = res.as_ref() {
+                    tracing::error!("server failed to start: {:?}", e);
+                }
+                res
+            })
+        },
+        Client::builder()
+            .kind(ClientKind::Local)
+            .url(client_url(local_port))
+            .connection_timeout(Duration::from_secs(3))
+            .request_timeout(Duration::from_secs(3))
+            .build(),
+        Client::builder()
+            .kind(ClientKind::Remote)
+            .url(client_url(remote_port))
+            .connection_timeout(Duration::from_secs(3))
+            .request_timeout(Duration::from_secs(3))
+            .build(),
+    )
+}
+
+pub(crate) fn reset_directory(path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
+    if path.exists() {
+        fs::remove_dir_all(path)?;
+    }
+    fs::create_dir_all(path)?;
+    Ok(())
+}
+
+pub(crate) fn create_runtime() -> Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap()
+}
+
+#[doc(hidden)]
+pub fn setup_test(test_name: &str) -> Result<(PathBuf, Arc<Mutex<u64>>, Runtime)> {
+    let path = PathBuf::from(BUILD_DIR).join(test_name);
+    reset_directory(&path)?;
+    Ok((path, Arc::new(Mutex::new(0)), create_runtime()))
 }

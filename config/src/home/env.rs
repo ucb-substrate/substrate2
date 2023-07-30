@@ -12,7 +12,7 @@ use std::{
 };
 
 /// Permits parameterizing the home functions via the _from variants.
-pub trait Env {
+pub(crate) trait Env {
     /// Return the path to the users home dir, or None if any error occurs:
     /// see home_inner.
     fn home_dir(&self) -> Option<PathBuf>;
@@ -28,10 +28,8 @@ pub trait Env {
 /// allow in-process divergence on what is normally process wide state.
 ///
 /// Implementations should be provided by whatever testing framework the caller
-/// is using. Code that is not performing in-process threaded testing requiring
-/// isolated Substrate directories does not need this trait or the _from
-/// functions.
-pub struct OsEnv;
+/// is using.
+pub(crate) struct OsEnv;
 impl Env for OsEnv {
     fn home_dir(&self) -> Option<PathBuf> {
         crate::home::home_dir_inner()
@@ -45,10 +43,10 @@ impl Env for OsEnv {
 }
 
 /// The current OS context.
-pub const OS_ENV: OsEnv = OsEnv;
+pub(crate) const OS_ENV: OsEnv = OsEnv;
 
 /// Returns the path of the current user's home directory from [`Env::home_dir`].
-pub fn home_dir_with_env(env: &dyn Env) -> Option<PathBuf> {
+pub(crate) fn home_dir_with_env(env: &dyn Env) -> Option<PathBuf> {
     env.home_dir()
 }
 
@@ -56,7 +54,7 @@ pub fn home_dir_with_env(env: &dyn Env) -> Option<PathBuf> {
 /// specifically to support in-process testing scenarios as environment
 /// variables and user home metadata are normally process global state. See the
 /// [`Env`] trait.
-pub fn substrate_home_with_env(env: &dyn Env) -> io::Result<PathBuf> {
+pub(crate) fn substrate_home_with_env(env: &dyn Env) -> io::Result<PathBuf> {
     let cwd = env.current_dir()?;
     substrate_home_with_cwd_env(env, &cwd)
 }
@@ -65,7 +63,7 @@ pub fn substrate_home_with_env(env: &dyn Env) -> io::Result<PathBuf> {
 /// parameterized. This is specifically to support in-process testing scenarios
 /// as environment variables and user home metadata are normally process global
 /// state. See the [`OsEnv`] trait.
-pub fn substrate_home_with_cwd_env(env: &dyn Env, cwd: &Path) -> io::Result<PathBuf> {
+pub(crate) fn substrate_home_with_cwd_env(env: &dyn Env, cwd: &Path) -> io::Result<PathBuf> {
     match env.var_os("SUBSTRATE_HOME").filter(|h| !h.is_empty()) {
         Some(home) => {
             let home = PathBuf::from(home);

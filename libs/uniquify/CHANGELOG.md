@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/uniquify-v0.1.0...uniquify-v0.2.0) (2023-07-23)
+
+
+### Features
+
+* **merging:** add API for merging two SCIR libraries ([#183](https://github.com/substrate-labs/substrate2/issues/183)) ([a0006aa](https://github.com/substrate-labs/substrate2/commit/a0006aa4dbe62c2dda66eea306987e56eaabe181))
+
 ## 0.1.0 (2023-07-07)
 
 

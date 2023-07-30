@@ -258,6 +258,12 @@ impl Flatten<PortGeometry> for IoShape {
 
 impl Undirected for IoShape {}
 
+impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
+    fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
+        self.set(source.get(path).unwrap().primary.clone());
+    }
+}
+
 impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
         self.build()
@@ -338,6 +344,15 @@ impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
 }
 
 impl Undirected for PortGeometryBuilder {}
+
+impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
+    fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
+        let source = source.get(path).unwrap();
+        self.primary = Some(source.primary.clone());
+        self.unnamed_shapes.clone_from(&source.unnamed_shapes);
+        self.named_shapes.clone_from(&source.named_shapes);
+    }
+}
 
 impl<T: Undirected> AsRef<T> for Input<T> {
     fn as_ref(&self) -> &T {
@@ -715,11 +730,24 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
         Some(
             (0..self.len)
                 .map(|i| NameTree {
-                    fragment: NameFragment::Idx(i),
+                    fragment: Some(NameFragment::Idx(i)),
                     children: inner.clone(),
                 })
                 .collect(),
         )
+    }
+}
+
+impl<T, S> HierarchicalBuildFrom<S> for ArrayData<T>
+where
+    T: HierarchicalBuildFrom<S>,
+{
+    fn build_from(&mut self, path: &mut NameBuf, source: &S) {
+        for (i, elem) in self.elems.iter_mut().enumerate() {
+            path.push(i);
+            HierarchicalBuildFrom::<S>::build_from(elem, path, source);
+            path.pop();
+        }
     }
 }
 
@@ -867,6 +895,12 @@ impl From<ArcStr> for NameFragment {
     }
 }
 
+impl From<&ArcStr> for NameFragment {
+    fn from(value: &ArcStr) -> Self {
+        Self::Str(value.clone())
+    }
+}
+
 impl From<&str> for NameFragment {
     fn from(value: &str) -> Self {
         Self::Str(ArcStr::from(value))
@@ -876,6 +910,38 @@ impl From<&str> for NameFragment {
 impl From<usize> for NameFragment {
     fn from(value: usize) -> Self {
         Self::Idx(value)
+    }
+}
+
+impl From<ArcStr> for NameBuf {
+    fn from(value: ArcStr) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
+    }
+}
+
+impl From<&ArcStr> for NameBuf {
+    fn from(value: &ArcStr) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
+    }
+}
+
+impl From<&str> for NameBuf {
+    fn from(value: &str) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
+    }
+}
+
+impl From<usize> for NameBuf {
+    fn from(value: usize) -> Self {
+        Self {
+            fragments: vec![NameFragment::from(value)],
+        }
     }
 }
 
@@ -904,7 +970,26 @@ impl NameTree {
     /// Create a new name tree rooted at the given name fragment.
     pub fn new(fragment: impl Into<NameFragment>, children: Vec<NameTree>) -> Self {
         Self {
-            fragment: fragment.into(),
+            fragment: Some(fragment.into()),
+            children,
+        }
+    }
+
+    /// Create a new name tree rooted at the given **optional** name fragment.
+    pub fn with_optional_fragment(
+        fragment: Option<impl Into<NameFragment>>,
+        children: Vec<NameTree>,
+    ) -> Self {
+        Self {
+            fragment: fragment.map(|f| f.into()),
+            children,
+        }
+    }
+
+    /// Create a new name tree rooted at the given **empty** name fragment.
+    pub fn with_empty_fragment(children: Vec<NameTree>) -> Self {
+        Self {
+            fragment: None,
             children,
         }
     }
@@ -915,7 +1000,9 @@ impl NameTree {
     }
 
     fn flatten_inner(&self, mut parent: NameBuf) -> Vec<NameBuf> {
-        parent.fragments.push(self.fragment.clone());
+        if let Some(fragment) = self.fragment.clone() {
+            parent.fragments.push(fragment);
+        }
         if self.children.is_empty() {
             return vec![parent];
         }
@@ -954,6 +1041,20 @@ impl NameBuf {
     #[inline]
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Adds a new fragment to the end of this name buffer.
+    #[inline]
+    pub fn push(&mut self, fragment: impl Into<NameFragment>) {
+        self.fragments.push(fragment.into());
+    }
+
+    /// Pops and returns the last fragment off of the end of this name buffer.
+    ///
+    /// If the name buffer is empty, returns [`None`].
+    #[inline]
+    pub fn pop(&mut self) -> Option<NameFragment> {
+        self.fragments.pop()
     }
 }
 
@@ -1011,6 +1112,33 @@ mod tests {
                 },
                 NameBuf {
                     fragments: vec![NameFragment::from("io"), NameFragment::from("out")]
+                },
+            ]
+        );
+        assert_eq!(tree.len(), 3);
+    }
+
+    #[test]
+    fn flatten_name_tree_with_empty_root() {
+        let tree = NameTree::with_empty_fragment(vec![
+            NameTree::new(
+                "pwr",
+                vec![NameTree::new("vdd", vec![]), NameTree::new("vss", vec![])],
+            ),
+            NameTree::new("out", vec![]),
+        ]);
+
+        assert_eq!(
+            tree.flatten(),
+            vec![
+                NameBuf {
+                    fragments: vec![NameFragment::from("pwr"), NameFragment::from("vdd")]
+                },
+                NameBuf {
+                    fragments: vec![NameFragment::from("pwr"), NameFragment::from("vss")]
+                },
+                NameBuf {
+                    fragments: vec![NameFragment::from("out")]
                 },
             ]
         );

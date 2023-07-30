@@ -22,8 +22,8 @@ use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 fn can_generate_vdivider_schematic() {
     let ctx = Context::new(ExamplePdkA);
     let vdivider = Vdivider {
-        r1: Resistor { r: 300 },
-        r2: Resistor { r: 100 },
+        r1: Resistor::new(300),
+        r2: Resistor::new(100),
     };
     let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
     assert_eq!(scir.cells().count(), 3);
@@ -39,9 +39,9 @@ fn can_generate_vdivider_schematic() {
         .map(|p| vdiv.signal(p.signal()).name.clone())
         .collect();
     assert_eq!(port_names.len(), 3);
-    assert!(port_names.contains("io_pwr_vdd"));
-    assert!(port_names.contains("io_pwr_vss"));
-    assert!(port_names.contains("io_out"));
+    assert!(port_names.contains("pwr_vdd"));
+    assert!(port_names.contains("pwr_vss"));
+    assert!(port_names.contains("out"));
     assert_eq!(vdiv.ports().count(), 3);
     let contents = vdiv.contents().as_ref().unwrap_clear();
     assert_eq!(contents.primitives().count(), 0);
@@ -98,10 +98,10 @@ fn internal_signal_names_preserved() {
     let vdiv = scir.cell_named("buffer_5");
     let sigs: HashSet<ArcStr> = vdiv.signals().map(|p| p.1.name.clone()).collect();
     assert_eq!(sigs.len(), 5);
-    assert!(sigs.contains("io_vdd"));
-    assert!(sigs.contains("io_vss"));
-    assert!(sigs.contains("io_din"));
-    assert!(sigs.contains("io_dout"));
+    assert!(sigs.contains("vdd"));
+    assert!(sigs.contains("vss"));
+    assert!(sigs.contains("din"));
+    assert!(sigs.contains("dout"));
     assert!(sigs.contains("x"));
 }
 

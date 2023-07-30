@@ -1,12 +1,5 @@
-gen-examples: 
-  find code -type f -name *.rs -exec bash -c "awk '{print \"# \" \$0}' {} > {}.hidden" \;
-  for f in codegen substrate; do \
-    mkdir -p ../../$f/build/docs && \
-    cp -r code/* ../../$f/build/docs/ \
-  ; done
-
-build: gen-examples
-  cargo d --no-deps --workspace --all-features --target-dir ./target
+build:
+  cargo d --no-deps --workspace --all-features --target-dir ./target --exclude tests --exclude examples
   echo "<meta http-equiv=\"refresh\" content=\"0; url=substrate\">" > ./target/doc/index.html
 
 open: build

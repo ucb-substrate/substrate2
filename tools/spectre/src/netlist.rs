@@ -10,19 +10,48 @@ use std::path::PathBuf;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
+/// A Spectre file include.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct Include {
+    path: PathBuf,
+    section: Option<ArcStr>,
+}
+
+impl<T: Into<PathBuf>> From<T> for Include {
+    fn from(value: T) -> Self {
+        Self {
+            path: value.into(),
+            section: None,
+        }
+    }
+}
+
+impl Include {
+    /// Creates a new [`Include`].
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self::from(path)
+    }
+
+    /// Returns a new [`Include`] with the given section.
+    pub fn section(mut self, section: impl Into<ArcStr>) -> Self {
+        self.section = Some(section.into());
+        self
+    }
+}
+
 /// A Spectre netlister.
 ///
 /// The netlister can write to any type that implements [`Write`].
 /// Since the netlister may issue many small write calls,
 pub struct Netlister<'a, W: Write> {
     lib: &'a Library,
-    includes: &'a [PathBuf],
+    includes: &'a [Include],
     out: &'a mut W,
 }
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new Spectre netlister writing to the given output stream.
-    pub fn new(lib: &'a Library, includes: &'a [PathBuf], out: &'a mut W) -> Self {
+    pub fn new(lib: &'a Library, includes: &'a [Include], out: &'a mut W) -> Self {
         Self { lib, includes, out }
     }
 
@@ -44,7 +73,11 @@ impl<'a, W: Write> Netlister<'a, W> {
         )?;
 
         for include in self.includes {
-            writeln!(self.out, "include {:?}", include)?;
+            if let Some(section) = &include.section {
+                writeln!(self.out, "include {:?} section={}", include.path, section)?;
+            } else {
+                writeln!(self.out, "include {:?}", include.path)?;
+            }
         }
         writeln!(self.out)?;
 
@@ -85,8 +118,20 @@ impl<'a, W: Write> Netlister<'a, W> {
         }
 
         match cell.contents() {
-            Opacity::Opaque(s) => {
-                writeln!(self.out, "{}", s)?;
+            Opacity::Opaque(contents) => {
+                for (i, elem) in contents.elems.iter().enumerate() {
+                    match elem {
+                        scir::BlackboxElement::RawString(s) => {
+                            if i > 0 {
+                                write!(self.out, " {}", s)?
+                            } else {
+                                write!(self.out, "{}", s)?
+                            }
+                        }
+                        scir::BlackboxElement::Slice(s) => self.write_slice(cell, *s, ground)?,
+                    }
+                }
+                writeln!(self.out)?;
             }
             Opacity::Clear(contents) => {
                 for (_id, inst) in contents.instances() {

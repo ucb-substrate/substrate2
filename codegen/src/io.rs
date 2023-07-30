@@ -74,6 +74,8 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     let mut instantiate_fields = Vec::new();
     let mut flatten_dir_fields = Vec::new();
     let mut flatten_node_fields = Vec::new();
+    let mut field_list_elems = Vec::new();
+    let mut field_match_arms = Vec::new();
 
     let data_ident = format_ident!("{}Schematic", ident);
     let nested_view_ident = format_ident!("{}NestedSchematicView", ident);
@@ -89,7 +91,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             refer,
             assign,
             temp,
-            ..
+            pretty_ident,
         } = crate::derive::field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         data_len.push(quote! {
@@ -115,6 +117,12 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         });
         flatten_node_fields.push(quote! {
                 <<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten(&#refer, __substrate_output_sink);
+        });
+
+        field_list_elems
+            .push(quote! { #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)) });
+        field_match_arms.push(quote! {
+            ::std::stringify!(#pretty_ident) => ::std::option::Option::Some(<<#field_ty as #substrate::io::SchematicType>::Data as #substrate::io::Flatten<#substrate::io::Node>>::flatten_vec(&#refer)),
         });
     }
 
@@ -166,6 +174,19 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
             fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
                 #nested_view_ident #construct_nested_view_body
+            }
+        }
+
+        impl #imp #substrate::io::StructData for #data_ident #ty #wher {
+            fn fields(&self) -> ::std::vec::Vec<#substrate::arcstr::ArcStr> {
+                std::vec![#(#field_list_elems),*]
+            }
+
+            fn field_nodes(&self, name: &str) -> ::std::option::Option<::std::vec::Vec<#substrate::io::Node>> {
+                match name {
+                    #(#field_match_arms)*
+                    _ => None,
+                }
             }
         }
 
@@ -234,6 +255,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let mut create_builder_fields = Vec::new();
     let mut transformed_view_fields = Vec::new();
     let mut build_data_fields = Vec::new();
+    let mut hierarchical_build_from_fields = Vec::new();
 
     let layout_data_ident = format_ident!("{}Layout", ident);
     let layout_builder_ident = format_ident!("{}LayoutBuilder", ident);
@@ -250,6 +272,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             declare,
             refer,
             assign,
+            pretty_ident,
             ..
         } = crate::derive::field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
 
@@ -282,10 +305,15 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         }
         transformed_view_fields.push(quote! {
                 #assign #substrate::geometry::transform::HasTransformedView::transformed_view(&#refer, trans),
-            });
+        });
         build_data_fields.push(quote! {
                 #assign #substrate::io::LayoutDataBuilder::<<#field_ty as #substrate::io::LayoutType>::Data>::build(#refer)?,
-            });
+        });
+        hierarchical_build_from_fields.push(quote! {
+            #substrate::io::NameBuf::push(path, #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)));
+            #substrate::io::HierarchicalBuildFrom::<#substrate::layout::element::NamedPorts>::build_from(&mut #refer, path, source);
+            #substrate::io::NameBuf::pop(path);
+        });
     }
 
     // Return 0 from `FlatLen::len` if struct has no fields.
@@ -362,6 +390,12 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         impl #imp #substrate::io::LayoutDataBuilder<#layout_data_ident #ty> for #layout_builder_ident #ty #wher {
             fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {
                 #substrate::error::Result::Ok(#layout_data_ident #build_layout_data_body)
+            }
+        }
+
+        impl #imp #substrate::io::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts> for #layout_builder_ident #ty #wher {
+            fn build_from(&mut self, path: &mut #substrate::io::NameBuf, source: &#substrate::layout::element::NamedPorts) {
+                #(#hierarchical_build_from_fields)*
             }
         }
     }

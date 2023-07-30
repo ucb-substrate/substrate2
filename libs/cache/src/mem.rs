@@ -9,77 +9,54 @@ use std::{
     thread,
 };
 
-use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    error::{ArcResult, Error},
-    CacheHandle, Cacheable, CacheableWithState,
+    error::ArcResult, run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn,
+    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
 
 #[derive(Debug, Clone)]
-struct Cells<T> {
-    cells: HashMap<T, Arc<Mutex<dyn Any + Send + Sync>>>,
+struct TypeCacheMap<T> {
+    /// Effectively a map from `T -> HashMap<Arc<K>, CacheHandle<V>>`.
+    entries: HashMap<T, Arc<Mutex<dyn Any + Send + Sync>>>,
 }
 
-impl<T> Default for Cells<T> {
+impl<T> Default for TypeCacheMap<T> {
     fn default() -> Self {
         Self {
-            cells: HashMap::new(),
+            entries: HashMap::new(),
         }
     }
 }
 
-impl<T: Hash + PartialEq + Eq> Cells<T> {
-    fn generate_arc<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
-        &mut self,
-        namespace: T,
-        key: Arc<K>,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-    ) -> CacheHandle<V> {
-        let entry = self.cells.entry(namespace).or_insert(Arc::new(Mutex::<
-            HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>,
-        >::default()));
-
-        let mut entry_locked = entry.lock().unwrap();
-
-        let entry = entry_locked
-            .downcast_mut::<HashMap<Arc<K>, Arc<OnceCell<ArcResult<V>>>>>()
-            .unwrap()
-            .entry(key.clone());
-
-        CacheHandle(match entry {
-            Entry::Occupied(o) => o.get().clone(),
-            Entry::Vacant(v) => {
-                let cell = v.insert(Arc::new(OnceCell::new()));
-
-                let cell2 = cell.clone();
-
-                thread::spawn(move || {
-                    let cell3 = cell2.clone();
-                    let handle = thread::spawn(move || {
-                        let value = generate_fn(key.as_ref());
-                        if cell3.set(Ok(value)).is_err() {
-                            panic!("failed to set cell value");
-                        }
-                    });
-                    if handle.join().is_err() && cell2.set(Err(Arc::new(Error::Panic))).is_err() {
-                        panic!("failed to set cell value on panic");
-                    }
-                });
-
-                cell.clone()
-            }
-        })
-    }
-
+impl<T: Hash + PartialEq + Eq> TypeCacheMap<T> {
     fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         namespace: T,
         key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        self.generate_arc(namespace, Arc::new(key), generate_fn)
+        let key = Arc::new(key);
+
+        let entry = self
+            .entries
+            .entry(namespace)
+            .or_insert(Arc::new(Mutex::<HashMap<Arc<K>, CacheHandle<V>>>::default()));
+
+        let mut entry_locked = entry.lock().unwrap();
+
+        let entry = entry_locked
+            .downcast_mut::<HashMap<Arc<K>, CacheHandle<V>>>()
+            .unwrap()
+            .entry(key.clone());
+
+        match entry {
+            Entry::Occupied(o) => o.get().clone(),
+            Entry::Vacant(v) => v
+                .insert(CacheHandle::new(move || generate_fn(key.as_ref())))
+                .clone(),
+        }
     }
 }
 
@@ -89,12 +66,12 @@ pub struct TypeCache {
     /// A map from key type to another map from key to value handle.
     ///
     /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells: Cells<TypeId>,
+    cells: TypeCacheMap<TypeId>,
     /// A map from key and state types to another map from key to value handle.
     ///
     /// Effectively, the type of this map is
     /// `(TypeId::of::<K>(), TypeId::of::<S>()) -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells_with_state: Cells<(TypeId, TypeId)>,
+    cells_with_state: TypeCacheMap<(TypeId, TypeId)>,
 }
 
 impl TypeCache {
@@ -137,7 +114,7 @@ impl TypeCache {
     pub fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
         self.cells.generate(TypeId::of::<K>(), key, generate_fn)
     }
@@ -189,7 +166,7 @@ impl TypeCache {
         &mut self,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> V + Send + Any,
+        generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
         self.cells_with_state
             .generate((TypeId::of::<K>(), TypeId::of::<S>()), key, |key| {
@@ -308,7 +285,18 @@ impl TypeCache {
     }
 }
 
-type ByteCacheMap = HashMap<Vec<u8>, CacheHandle<Option<Vec<u8>>>>;
+/// Maps from a key to a handle on a value that may be set to [`None`] if the generator returns an
+/// uncacheable result. In this case, the result must be regenerated each time.
+type NamespaceEntryMap = HashMap<Vec<u8>, CacheHandle<Option<Vec<u8>>>>;
+
+/// Serializes the provided value to bytes, returning [`None`] if the value should not be cached.
+trait SerializeValueFn<V>: FnOnce(&V) -> Option<Vec<u8>> + Send + Any {}
+impl<V, T: FnOnce(&V) -> Option<Vec<u8>> + Send + Any> SerializeValueFn<V> for T {}
+
+/// Deserializes desired value from bytes stored in the cache. If `V` is a result, would need to
+/// wrap the bytes from the cache with an `Ok` since `Err` results are not stored in the cache.
+trait DeserializeValueFn<V>: FnOnce(&[u8]) -> ArcResult<V> + Send + Any {}
+impl<V, T: FnOnce(&[u8]) -> ArcResult<V> + Send + Any> DeserializeValueFn<V> for T {}
 
 /// An in-memory cache based on namespace strings and types that implement [`Serialize`] and
 /// [`Deserialize`](serde::Deserialize).
@@ -319,7 +307,7 @@ type ByteCacheMap = HashMap<Vec<u8>, CacheHandle<Option<Vec<u8>>>>;
 #[derive(Default, Debug, Clone)]
 pub struct NamespaceCache {
     /// A map from namespace to another map from key to value handle.
-    cells: HashMap<String, ByteCacheMap>,
+    entries: HashMap<Namespace, NamespaceEntryMap>,
 }
 
 impl NamespaceCache {
@@ -372,10 +360,11 @@ impl NamespaceCache {
         V: Serialize + DeserializeOwned + Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
+        generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
+        let namespace = namespace.into();
         self.generate_inner(
             namespace,
             key,
@@ -430,12 +419,13 @@ impl NamespaceCache {
         S: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> V + Send + Any,
+        generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
-        self.generate(namespace.into(), key, |key| generate_fn(key, state))
+        let namespace = namespace.into();
+        self.generate(namespace, key, |key| generate_fn(key, state))
     }
 
     /// Ensures that a result corresponding to `key` is generated, using `generate_fn`
@@ -475,10 +465,11 @@ impl NamespaceCache {
         E: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl FnOnce(&K) -> std::result::Result<V, E> + Send + Any,
+        generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_inner(
             namespace,
             key,
@@ -550,11 +541,12 @@ impl NamespaceCache {
         S: Send + Sync + Any,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
-        generate_fn: impl FnOnce(&K, S) -> std::result::Result<V, E> + Send + Any,
+        generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, move |k| generate_fn(k, state))
     }
 
@@ -606,9 +598,10 @@ impl NamespaceCache {
     /// ```
     pub fn get<K: Cacheable>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_result(namespace, key, |key| key.generate())
     }
 
@@ -663,9 +656,10 @@ impl NamespaceCache {
         K: Cacheable<Error = E>,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate(namespace, key, |key| key.generate())
     }
 
@@ -742,7 +736,7 @@ impl NamespaceCache {
     /// ```
     pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
@@ -762,74 +756,58 @@ impl NamespaceCache {
         K: CacheableWithState<S, Error = E>,
     >(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: impl Into<Namespace>,
         key: K,
         state: S,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        let namespace = namespace.into();
         self.generate_with_state(namespace, key, state, |key, state| {
             key.generate_with_state(state)
         })
     }
 
-    fn set_handle<V>(handle: &CacheHandle<V>, data: ArcResult<V>) {
-        if handle.0.set(data).is_err() {
-            panic!("failed to set cell value");
-        }
-    }
-
     fn generate_inner<K: Serialize + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
-        namespace: impl Into<String>,
+        namespace: Namespace,
         key: K,
-        generate_fn: impl FnOnce(&K) -> V + Send + Any,
-        serialize_value: impl FnOnce(&V) -> Option<Vec<u8>> + Send + Any,
-        deserialize_value: impl FnOnce(&[u8]) -> ArcResult<V> + Send + Any,
+        generate_fn: impl GenerateFn<K, V>,
+        serialize_value: impl SerializeValueFn<V>,
+        deserialize_value: impl DeserializeValueFn<V>,
     ) -> CacheHandle<V> {
         let handle = CacheHandle::empty();
         let hash = crate::hash(&flexbuffers::to_vec(&key).unwrap());
 
-        let (vacant, cell) = match self
-            .cells
-            .entry(namespace.into())
+        let (in_progress, entry) = match self
+            .entries
+            .entry(namespace)
             .or_insert(HashMap::new())
             .entry(hash)
         {
-            Entry::Vacant(v) => (true, v.insert(CacheHandle::empty()).clone()),
-            Entry::Occupied(o) => (false, o.get().clone()),
+            Entry::Vacant(v) => (false, v.insert(CacheHandle::empty()).clone()),
+            Entry::Occupied(o) => (true, o.get().clone()),
         }
         .clone();
 
-        let cell2 = cell.clone();
-        let handle2 = handle.clone();
+        let entry2 = entry.clone();
+        let handle_clone = handle.clone();
         thread::spawn(move || {
-            let value = if vacant {
-                None
-            } else {
-                match cell.try_get() {
+            let value = if in_progress {
+                match entry.try_get() {
                     Ok(Some(value)) => Some(Ok(value)),
                     Ok(None) => None,
                     Err(e) => Some(Err(e)),
                 }
+            } else {
+                None
             };
             if let Some(value) = value {
-                NamespaceCache::set_handle(
-                    &handle2,
-                    value.and_then(|value| deserialize_value(value)),
-                );
+                handle_clone.set(value.and_then(|value| deserialize_value(value)));
             } else {
-                let cell3 = cell2.clone();
-                let handle3 = handle2.clone();
-                let join_handle = thread::spawn(move || {
-                    let value = generate_fn(&key);
-                    if vacant {
-                        NamespaceCache::set_handle(&cell3, Ok(serialize_value(&value)));
-                    }
-                    NamespaceCache::set_handle(&handle3, Ok(value));
-                });
-                if join_handle.join().is_err() {
-                    NamespaceCache::set_handle(&cell2, Err(Arc::new(Error::Panic)));
-                    NamespaceCache::set_handle(&handle2, Err(Arc::new(Error::Panic)));
+                let v = run_generator(move || generate_fn(&key));
+                if !in_progress {
+                    entry2.set(v.as_ref().map(serialize_value).map_err(|e| e.clone()));
                 }
+                handle_clone.set(v);
             }
         });
 

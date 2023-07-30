@@ -4,7 +4,7 @@ _default:
     @just --list
 
 # Runs clippy on the source code
-check:
+check: 
   cargo clippy --locked --all-features --all-targets -- -D warnings
 
 # Runs clippy on the source code, attempting to fix any errors
@@ -21,19 +21,16 @@ check-fmt:
   cargo fmt --check
 
 # Runs tests
-test: gen-examples test-examples
+test: test-examples
   cargo test --locked
 
-check-all:
+check-all: 
     cargo hack --feature-powerset clippy --locked -- -D warnings
 
-check-docs:
+check-docs: 
     RUSTDOCFLAGS='-D warnings' RUSTFLAGS='-D warnings' cargo hack --all rustdoc --all-features --all-targets
 
-gen-examples:
-  just -f docs/api/Justfile gen-examples
-
 # Test Substrate examples in the examples/ folder
-test-examples: gen-examples
+test-examples: 
   @just examples/test
 

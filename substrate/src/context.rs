@@ -6,6 +6,9 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use arcstr::ArcStr;
+use config::Config;
+use examples::get_snippets;
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -16,8 +19,9 @@ use crate::io::{
     FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
     SchematicType,
 };
+use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
-use crate::layout::gds::GdsExporter;
+use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::HasLayoutImpl;
 use crate::layout::LayoutContext;
@@ -45,19 +49,12 @@ use crate::simulation::{
 ///
 /// # Examples
 ///
-/// ```
-#[doc = include_str!("../build/docs/prelude.rs.hidden")]
-#[doc = include_str!("../build/docs/pdk/layers.rs.hidden")]
-#[doc = include_str!("../build/docs/pdk/pdk.rs.hidden")]
-#[doc = include_str!("../build/docs/block/inverter.rs.hidden")]
-#[doc = include_str!("../build/docs/layout/inverter.rs.hidden")]
-#[doc = include_str!("../build/docs/block/buffer.rs.hidden")]
-#[doc = include_str!("../build/docs/layout/buffer.rs.hidden")]
-#[doc = include_str!("../build/docs/layout/generate.rs")]
-/// ```
+#[doc = get_snippets!("core", "generate")]
 pub struct Context<PDK: Pdk> {
-    /// PDK-specific data.
-    pub pdk: PdkData<PDK>,
+    /// PDK configuration and general data.
+    pub pdk: Arc<PDK>,
+    /// The PDK layer set.
+    pub layers: Arc<PDK::Layers>,
     inner: Arc<RwLock<ContextInner>>,
     simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     executor: Arc<dyn Executor>,
@@ -128,15 +125,21 @@ impl<PDK: Pdk> ContextBuilder<PDK> {
         let mut layer_ctx = LayerContext::new();
         let layers = layer_ctx.install_layers::<PDK::Layers>();
 
+        let cfg = Config::default().expect("requires valid Substrate configuration");
+
         Context {
-            pdk: PdkData {
-                pdk: Arc::new(self.pdk.unwrap()),
-                layers,
-            },
+            pdk: Arc::new(self.pdk.unwrap()),
+            layers,
             inner: Arc::new(RwLock::new(ContextInner::new(layer_ctx))),
             simulators: Arc::new(self.simulators),
             executor: self.executor,
-            cache: self.cache.unwrap_or_default(),
+            cache: self.cache.unwrap_or_else(|| {
+                Cache::new(
+                    cfg.cache
+                        .into_cache()
+                        .expect("requires valid Substrate cache configuration"),
+                )
+            }),
         }
     }
 }
@@ -145,27 +148,11 @@ impl<PDK: Pdk> Clone for Context<PDK> {
     fn clone(&self) -> Self {
         Self {
             pdk: self.pdk.clone(),
+            layers: self.layers.clone(),
             inner: self.inner.clone(),
             simulators: self.simulators.clone(),
             executor: self.executor.clone(),
             cache: self.cache.clone(),
-        }
-    }
-}
-
-/// PDK data stored in the global context.
-pub struct PdkData<PDK: Pdk> {
-    /// PDK configuration and general data.
-    pub pdk: Arc<PDK>,
-    /// The PDK layer set.
-    pub layers: Arc<PDK::Layers>,
-}
-
-impl<PDK: Pdk> Clone for PdkData<PDK> {
-    fn clone(&self) -> Self {
-        Self {
-            pdk: self.pdk.clone(),
-            layers: self.layers.clone(),
         }
     }
 }
@@ -208,7 +195,7 @@ impl<PDK: Pdk> Context<PDK> {
         LayoutCellHandle {
             cell: inner_mut.layout.cell_cache.generate(block, move |block| {
                 let mut io_builder = block.io().builder();
-                let mut cell_builder = LayoutCellBuilder::new(id, block.name(), context_clone);
+                let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
                 let data = block.layout(&mut io_builder, &mut cell_builder);
 
@@ -216,7 +203,7 @@ impl<PDK: Pdk> Context<PDK> {
                 let ports = HashMap::from_iter(
                     block
                         .io()
-                        .flat_names(arcstr::literal!("io"))
+                        .flat_names(None)
                         .into_iter()
                         .zip(io.flatten_vec().into_iter()),
                 );
@@ -225,14 +212,14 @@ impl<PDK: Pdk> Context<PDK> {
                         block.clone(),
                         data,
                         Arc::new(io),
-                        Arc::new(cell_builder.finish().with_ports(ports)),
+                        Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
                     )
                 })
             }),
         }
     }
 
-    /// Writes a layout to a GDS files.
+    /// Writes a layout to a GDS file.
     pub fn write_layout<T: HasLayoutImpl<PDK>>(
         &self,
         block: T,
@@ -249,6 +236,37 @@ impl<PDK: Pdk> Context<PDK> {
             .map_err(GdsExportError::from)
             .map_err(LayoutError::from)?;
         Ok(())
+    }
+
+    /// Reads a layout from a GDS file.
+    pub fn read_gds(&self, path: impl AsRef<Path>) -> Result<ImportedGds> {
+        let lib = gds::GdsLibrary::load(path)?;
+        let mut inner = self.inner.write().unwrap();
+        let ContextInner {
+            ref mut layers,
+            ref mut layout,
+            ..
+        } = *inner;
+        let imported = GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import()?;
+        Ok(imported)
+    }
+
+    /// Reads the layout of a single cell from a GDS file.
+    pub fn read_gds_cell(
+        &self,
+        path: impl AsRef<Path>,
+        cell: impl Into<ArcStr>,
+    ) -> Result<Arc<RawCell>> {
+        let lib = gds::GdsLibrary::load(path)?;
+        let mut inner = self.inner.write().unwrap();
+        let ContextInner {
+            ref mut layers,
+            ref mut layout,
+            ..
+        } = *inner;
+        let imported =
+            GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import_cell(cell)?;
+        Ok(imported)
     }
 
     /// Generates a schematic for `block` in the background.
@@ -420,7 +438,7 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     assert!(nodes_rest.is_empty());
     let cell_name = block.name();
 
-    let names = io.flat_names(arcstr::literal!("io"));
+    let names = io.flat_names(None);
     let dirs = io.flatten_vec();
     assert_eq!(nodes.len(), names.len());
     assert_eq!(nodes.len(), dirs.len());

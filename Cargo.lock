@@ -402,7 +402,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cache"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "backoff",
@@ -413,11 +413,12 @@ dependencies = [
  "futures-core",
  "futures-util",
  "hex",
+ "lazy_static",
  "once_cell",
  "path-absolutize",
- "portpicker",
  "prost",
  "prost-types",
+ "regex",
  "rusqlite",
  "serde",
  "sha2",
@@ -526,20 +527,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 
 [[package]]
-name = "cli"
-version = "0.0.0"
-
-[[package]]
 name = "codegen"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
  "darling 0.20.1",
+ "examples",
  "proc-macro-crate 1.3.1",
+ "proc-macro-error",
  "proc-macro2",
  "quote",
  "serde",
+ "sky130pdk",
  "substrate",
  "syn 2.0.23",
 ]
@@ -552,14 +552,16 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
+ "cache",
  "lazycell",
  "log",
  "serde",
  "toml 0.7.6",
  "toml_edit",
+ "windows-sys",
 ]
 
 [[package]]
@@ -742,10 +744,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "850878694b7933ca4c9569d30a34b55031b9b139ee1fc7b94a527c4ef960d690"
 
 [[package]]
-name = "dex"
-version = "0.0.0"
-
-[[package]]
 name = "diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -764,12 +762,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "digital"
-version = "0.0.0"
-
-[[package]]
-name = "drc"
-version = "0.0.0"
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "duplicate"
@@ -821,6 +817,22 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "examples"
+version = "0.0.0"
+dependencies = [
+ "arcstr",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "sky130pdk",
+ "substrate",
+ "syn 2.0.23",
+ "textwrap",
 ]
 
 [[package]]
@@ -947,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "gds"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -977,8 +989,9 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "approx",
  "array_map",
  "impl-trait-for-tuples",
  "serde",
@@ -1320,10 +1333,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
-name = "lef"
-version = "0.0.0"
-
-[[package]]
 name = "libc"
 version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1356,10 +1365,6 @@ name = "log"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
-
-[[package]]
-name = "lvs"
-version = "0.0.0"
 
 [[package]]
 name = "matchers"
@@ -1520,10 +1525,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
-name = "par"
-version = "0.0.0"
-
-[[package]]
 name = "parse-zoneinfo"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1615,10 +1616,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pex"
-version = "0.0.0"
-
-[[package]]
 name = "phf"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1694,15 +1691,6 @@ name = "pkg-config"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
-
-[[package]]
-name = "portpicker"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
-dependencies = [
- "rand",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -2099,16 +2087,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "sbm"
-version = "0.0.0"
-
-[[package]]
-name = "scg"
-version = "0.0.0"
-
-[[package]]
 name = "scir"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -2121,10 +2101,6 @@ dependencies = [
  "tracing-subscriber",
  "uniquify",
 ]
-
-[[package]]
-name = "sde"
-version = "0.0.0"
 
 [[package]]
 name = "seahash"
@@ -2221,10 +2197,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sim"
-version = "0.0.0"
-
-[[package]]
 name = "simdutf8"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2238,7 +2210,7 @@ checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
 name = "sky130pdk"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arcstr",
  "rust_decimal",
@@ -2255,6 +2227,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6528351c9bc8ab22353f9d776db39a20288e8d6c37ef8cfe3317cf875eecfc2d"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "slotmap"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1e08e261d0e8f5c43123b7adf3e4ca1690d655377ac93a03b2c9d3e98de1342"
+dependencies = [
+ "version_check",
 ]
 
 [[package]]
@@ -2290,7 +2271,7 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arcstr",
  "cache",
@@ -2309,13 +2290,14 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "nom",
  "opacity",
  "scir",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -2325,12 +2307,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
-name = "subfile"
-version = "0.0.0"
-
-[[package]]
 name = "substrate"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -2339,8 +2317,10 @@ dependencies = [
  "codegen",
  "config",
  "derive_builder",
+ "downcast-rs",
  "duplicate",
  "ena",
+ "examples",
  "gds",
  "geometry",
  "impl-trait-for-tuples",
@@ -2351,6 +2331,9 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
+ "sky130pdk",
+ "slotmap",
+ "spice",
  "thiserror",
  "toml 0.7.6",
  "tracing",
@@ -2512,10 +2495,6 @@ dependencies = [
  "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi",
 ]
-
-[[package]]
-name = "timing"
-version = "0.0.0"
 
 [[package]]
 name = "tinyvec"
@@ -2893,7 +2872,7 @@ checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "uniquify"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arcstr",
  "serde",
