@@ -172,12 +172,14 @@ pub struct Inverter {
     strength: usize,
 }
 
+// begin-hidden-code
 impl Inverter {
     pub fn new(strength: usize) -> Self {
         Self { strength }
     }
 }
 
+// end-hidden-code
 impl Block for Inverter {
     type Io = InverterIo;
 
@@ -233,6 +235,7 @@ impl HasLayoutImpl<ExamplePdk> for Inverter {
 
 // begin-code-snippet inverter_multiprocess
 impl HasLayoutImpl<ExamplePdkA> for Inverter {
+    // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -260,9 +263,11 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
         ))?;
         Ok(())
     }
+    // end-ellipses inverter_multiprocess
 }
 
 impl HasLayoutImpl<ExamplePdkB> for Inverter {
+    // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -290,6 +295,7 @@ impl HasLayoutImpl<ExamplePdkB> for Inverter {
         ))?;
         Ok(())
     }
+    // end-ellipses inverter_multiprocess
 }
 // end-code-snippet inverter_multiprocess
 

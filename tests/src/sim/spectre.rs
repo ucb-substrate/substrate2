@@ -21,6 +21,7 @@ use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Testbench}
 use substrate::{Block, Io};
 use test_log::test;
 
+use crate::paths::test_data;
 use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
@@ -177,9 +178,11 @@ fn spectre_can_include_sections() {
             cell: &Cell<Self>,
             sim: SimController<Sky130CommercialPdk, Spectre>,
         ) -> Self::Output {
+            let mut opts = Options::default();
+            opts.include_section(test_data("spectre/example_lib.scs"), &self.0);
             let output = sim
                 .simulate(
-                    Options::default(),
+                    opts,
                     Sky130Corner::Tt,
                     Tran {
                         stop: dec!(2e-9),
