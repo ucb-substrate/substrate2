@@ -6,6 +6,7 @@ use crate::{
     bbox::Bbox,
     point::Point,
     rect::Rect,
+    polygon::Polygon,
     transform::{Translate, TranslateMut},
 };
 

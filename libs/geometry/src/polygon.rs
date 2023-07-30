@@ -2,10 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::align::AlignRectMut;
 use crate::bbox::Bbox;
 use crate::point::Point;
 use crate::rect::Rect;
-
+use crate::transform::{TransformMut, Transformation, TranslateMut};
 
 /// A polygon, with vertex coordinates given
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -58,5 +59,17 @@ impl Bbox for Polygon {
                 Rect::from_sides_option(polygon.left(), polygon.bot(), polygon.right(), polygon.top())
             }
         }
+    }
+}
+
+impl TranslateMut for Polygon {
+    fn translate_mut(&mut self, p: Point) {
+        self.vertices.translate_mut(p);
+    }
+}
+
+impl TransformMut for Polygon {
+    fn transform_mut(&mut self,trans:Transformation) {
+        self.vertices.transform_mut(trans);
     }
 }
