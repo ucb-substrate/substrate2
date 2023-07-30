@@ -71,7 +71,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
         sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
         let output = sim
-            .simulate(
+            .simulate_without_corner(
                 Options::default(),
                 Tran {
                     stop: dec!(1e-9),
@@ -150,7 +150,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
         sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
         let output = sim
-            .simulate(
+            .simulate_without_corner(
                 Options::default(),
                 Tran {
                     stop: dec!(1e-9),

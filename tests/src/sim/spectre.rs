@@ -2,12 +2,11 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
-use arcstr::ArcStr;
 use cache::multi::MultiCache;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::{Sky130CommercialPdk, Sky130Layers};
+use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::Vsource;
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
@@ -15,11 +14,10 @@ use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
-use substrate::pdk::corner::{InstallCorner, Pvt};
-use substrate::pdk::Pdk;
+use substrate::pdk::corner::Pvt;
 use substrate::schematic::{Cell, HasSchematic, Instance, TestbenchCellBuilder};
 use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Simulator, Testbench};
+use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Testbench};
 use substrate::{Block, Io};
 use test_log::test;
 
@@ -116,35 +114,6 @@ fn spectre_caches_simulations() {
 
 #[test]
 fn spectre_can_include_sections() {
-    struct LibIncludePdk(Sky130CommercialPdk);
-
-    impl Pdk for LibIncludePdk {
-        type Layers = Sky130Layers;
-        type Corner = Sky130Corner;
-
-        fn schematic_primitives(&self) -> Vec<ArcStr> {
-            self.0.schematic_primitives()
-        }
-    }
-
-    impl InstallCorner<Spectre> for LibIncludePdk {
-        fn install_corner(
-            &self,
-            corner: impl AsRef<<Self as Pdk>::Corner>,
-            opts: &mut <Spectre as Simulator>::Options,
-        ) {
-            let corner = corner.as_ref();
-            opts.include_section(
-                test_data("spectre/example_lib.scs"),
-                match corner {
-                    Sky130Corner::Tt => "section_a",
-                    _ => "section_b",
-                },
-            );
-            self.0.install_corner(corner, opts);
-        }
-    }
-
     #[derive(Default, Clone, Io)]
     struct LibIncludeResistorIo {
         p: InOut<Signal>,
@@ -159,11 +128,11 @@ fn spectre_can_include_sections() {
         type Data = ();
     }
 
-    impl HasTestbenchSchematicImpl<LibIncludePdk, Spectre> for LibIncludeResistor {
+    impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
             _io: &<<Self as Block>::Io as SchematicType>::Data,
-            cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>,
+            cell: &mut TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             cell.set_blackbox("res0 (p n) example_resistor");
 
@@ -179,11 +148,11 @@ fn spectre_can_include_sections() {
         type Data = Instance<LibIncludeResistor>;
     }
 
-    impl HasTestbenchSchematicImpl<LibIncludePdk, Spectre> for LibIncludeTb {
+    impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Data,
-            cell: &mut TestbenchCellBuilder<LibIncludePdk, Spectre, Self>,
+            cell: &mut TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate_tb(LibIncludeResistor);
@@ -201,25 +170,20 @@ fn spectre_can_include_sections() {
         }
     }
 
-    impl Testbench<LibIncludePdk, Spectre> for LibIncludeTb {
+    impl Testbench<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         type Output = f64;
 
         fn run(
             &self,
             cell: &Cell<Self>,
-            sim: SimController<LibIncludePdk, Spectre>,
+            sim: SimController<Sky130CommercialPdk, Spectre>,
         ) -> Self::Output {
             let mut opts = Options::default();
-            sim.pdk.install_corner(
-                match self.0.as_str() {
-                    "tt" => Sky130Corner::Tt,
-                    _ => Sky130Corner::Ss,
-                },
-                &mut opts,
-            );
+            opts.include_section(test_data("spectre/example_lib.scs"), &self.0);
             let output = sim
                 .simulate(
                     opts,
+                    Sky130Corner::Tt,
                     Tran {
                         stop: dec!(2e-9),
                         errpreset: Some(spectre::ErrPreset::Conservative),
@@ -241,11 +205,11 @@ fn spectre_can_include_sections() {
     let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
         .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     let ctx = Context::builder()
-        .pdk(LibIncludePdk(Sky130CommercialPdk::new(pdk_root)))
+        .pdk(Sky130CommercialPdk::new(pdk_root))
         .with_simulator(Spectre::default())
         .build();
-    let output_tt = ctx.simulate(LibIncludeTb("tt".to_string()), &sim_dir);
-    let output_ss = ctx.simulate(LibIncludeTb("ss".to_string()), sim_dir);
+    let output_tt = ctx.simulate(LibIncludeTb("section_a".to_string()), &sim_dir);
+    let output_ss = ctx.simulate(LibIncludeTb("section_b".to_string()), sim_dir);
 
     assert_relative_eq!(output_tt, 0.9);
     assert_relative_eq!(output_ss, 1.2);

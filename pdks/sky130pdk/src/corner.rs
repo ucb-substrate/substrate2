@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 use spectre::Spectre;
-use substrate::pdk::corner::{Corner, InstallCorner};
+use substrate::pdk::corner::InstallCorner;
+use substrate::Corner;
 
 use crate::Sky130CommercialPdk;
 
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Corner)]
 pub enum Sky130Corner {
     #[default]
     Tt,
@@ -12,13 +13,6 @@ pub enum Sky130Corner {
     Fs,
     Ff,
     Ss,
-}
-
-impl AsRef<Sky130Corner> for Sky130Corner {
-    #[inline]
-    fn as_ref(&self) -> &Sky130Corner {
-        self
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -64,7 +58,7 @@ impl Sky130Corners {
     }
 }
 
-impl Corner for Sky130Corner {
+impl Sky130Corner {
     fn name(&self) -> arcstr::ArcStr {
         match *self {
             Self::Tt => arcstr::literal!("tt"),

@@ -49,10 +49,7 @@ pub struct PvtRef {
 ///
 /// Corners are expected to be cheaply cloneable, and ideally copy.
 /// For example, a corner may simply be an enum variant with no inner fields.
-pub trait Corner: Clone {
-    /// The name of the corner.
-    fn name(&self) -> ArcStr;
-}
+pub trait Corner: Clone + Serialize + Deserialize<'static> {}
 
 /// A PDK with process corners compatible with simulator `S`.
 pub trait InstallCorner<S: Simulator>: Pdk {

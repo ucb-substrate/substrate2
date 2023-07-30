@@ -8,11 +8,10 @@ use substrate::io::{
     Signal,
 };
 use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutImpl, Instance};
-use substrate::pdk::corner::Corner;
 use substrate::pdk::{Pdk, PdkLayers};
 use substrate::supported_pdks;
 use substrate::{
-    Block, DerivedLayerFamily, DerivedLayers, HasSchematicImpl, Io, LayerFamily, Layers,
+    Block, Corner, DerivedLayerFamily, DerivedLayers, HasSchematicImpl, Io, LayerFamily, Layers,
     LayoutData, LayoutType,
 };
 
@@ -47,22 +46,14 @@ pub struct Met1 {
 }
 // end-code-snippet layers
 
-#[derive(Debug, Clone, Copy)]
+// begin-code-snippet derive_corner
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
 pub enum ExamplePdkCorner {
     Tt,
     Ss,
     Ff,
 }
-
-impl Corner for ExamplePdkCorner {
-    fn name(&self) -> arcstr::ArcStr {
-        match *self {
-            Self::Tt => arcstr::literal!("tt"),
-            Self::Ff => arcstr::literal!("ff"),
-            Self::Ss => arcstr::literal!("ss"),
-        }
-    }
-}
+// end-code-snippet derive_corner
 
 pub struct ExamplePdkA;
 
@@ -78,14 +69,8 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
 pub struct ExampleCorner;
-
-impl Corner for ExampleCorner {
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("example_corner")
-    }
-}
 
 #[derive(Layers)]
 pub struct ExamplePdkALayers {
@@ -438,16 +423,17 @@ impl HasLayout for Buffer {
 // begin-code-snippet cell_builder_generate
 impl HasLayoutImpl<ExamplePdk> for Buffer {
     fn layout(
+        // begin-ellipses cell_builder_generate
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdk, Self>,
+        // end-ellipses cell_builder_generate
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
         cell.draw(inv1.clone())?;
         cell.draw(inv2.clone())?;
-        // begin-ellipses cell_builder_generate
 
         io.vdd.merge(inv1.io().vdd);
         io.vdd.merge(inv2.io().vdd);
@@ -456,7 +442,6 @@ impl HasLayoutImpl<ExamplePdk> for Buffer {
         io.din.merge(inv1.io().din);
         io.dout.merge(inv2.io().dout);
 
-        // end-ellipses cell_builder_generate
         Ok(BufferData { inv1, inv2 })
     }
 }

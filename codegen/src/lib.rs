@@ -7,6 +7,7 @@ mod io;
 mod pdk;
 mod sim;
 
+use crate::pdk::corner::CornerReceiver;
 use darling::FromDeriveInput;
 use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
 use examples::get_snippets;
@@ -47,6 +48,22 @@ macro_rules! handle_error {
 #[proc_macro_attribute]
 pub fn supported_pdks(args: TokenStream, input: TokenStream) -> TokenStream {
     supported_pdks_impl(args, input)
+}
+
+/// Derives a corner implementation on a struct.
+///
+/// # Examples
+///
+#[doc = get_snippets!("core", "derive_corner")]
+#[proc_macro_derive(Corner, attributes(layer))]
+pub fn derive_corner(input: TokenStream) -> TokenStream {
+    let receiver = handle_error!(CornerReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    )));
+    quote!(
+        #receiver
+    )
+    .into()
 }
 
 /// Derives a layer implementation on a tuple struct containing only an ID.
