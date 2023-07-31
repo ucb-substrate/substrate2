@@ -128,9 +128,9 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for FlattenedVdividerArra
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {
             vdividers: vec![
-                super::flattened::Vdivider::new(300, 300),
-                super::flattened::Vdivider::new(600, 800),
-                super::flattened::Vdivider::new(3600, 1600),
+                super::flattened::Vdivider::new(32000, 12000),
+                super::flattened::Vdivider::new(10, 10),
+                super::flattened::Vdivider::new(680, 970),
             ],
         });
 

@@ -61,7 +61,7 @@ fn spectre_vdivider_array_tran() {
 
 #[test]
 fn spectre_flattened_vdivider_array_tran() {
-    let test_name = "spectre_vdivider_array_tran";
+    let test_name = "flattened_spectre_vdivider_array_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(
