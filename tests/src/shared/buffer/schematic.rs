@@ -40,7 +40,7 @@ impl HasSchematic<ExamplePdkA> for Inverter {
 
         cell.connect(io.vdd, pmos_io.s);
         cell.connect(io.vss, nmos.s);
-        Ok(InverterData { din: *io.din, pmos })
+        Ok(InverterData { din: io.din, pmos })
     }
 }
 

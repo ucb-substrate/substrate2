@@ -369,10 +369,10 @@ impl<T> SchematicType for Input<T>
 where
     T: SchematicType,
 {
-    type Data = Input<T::Data>;
+    type Data = T::Data;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
-        (Input(data), ids)
+        (data, ids)
     }
 }
 
@@ -439,10 +439,10 @@ impl<T> SchematicType for Output<T>
 where
     T: SchematicType,
 {
-    type Data = Output<T::Data>;
+    type Data = T::Data;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
-        (Output(data), ids)
+        (data, ids)
     }
 }
 
@@ -541,10 +541,10 @@ impl<T> SchematicType for InOut<T>
 where
     T: SchematicType,
 {
-    type Data = InOut<T::Data>;
+    type Data = T::Data;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
-        (InOut(data), ids)
+        (data, ids)
     }
 }
 
@@ -823,32 +823,6 @@ where
 impl<T> Connect<T> for T {}
 impl<T> Connect<&T> for T {}
 impl<T> Connect<T> for &T {}
-impl<T> Connect<T> for Input<T> {}
-impl<T> Connect<T> for Output<T> {}
-impl<T> Connect<T> for InOut<T> {}
-impl<T> Connect<Input<T>> for T {}
-impl<T> Connect<Output<T>> for T {}
-impl<T> Connect<InOut<T>> for T {}
-impl<T> Connect<&T> for &Input<T> {}
-impl<T> Connect<&T> for &Output<T> {}
-impl<T> Connect<&T> for &InOut<T> {}
-impl<T> Connect<&Input<T>> for &T {}
-impl<T> Connect<&Output<T>> for &T {}
-impl<T> Connect<&InOut<T>> for &T {}
-
-// For analog circuits, we don't check directionality of connections.
-impl<T> Connect<Input<T>> for Output<T> {}
-impl<T> Connect<Input<T>> for InOut<T> {}
-impl<T> Connect<Output<T>> for Input<T> {}
-impl<T> Connect<Output<T>> for InOut<T> {}
-impl<T> Connect<InOut<T>> for Input<T> {}
-impl<T> Connect<InOut<T>> for Output<T> {}
-impl<T> Connect<&Input<T>> for &Output<T> {}
-impl<T> Connect<&Input<T>> for &InOut<T> {}
-impl<T> Connect<&Output<T>> for &Input<T> {}
-impl<T> Connect<&Output<T>> for &InOut<T> {}
-impl<T> Connect<&InOut<T>> for &Input<T> {}
-impl<T> Connect<&InOut<T>> for &Output<T> {}
 
 impl From<ArcStr> for NameFragment {
     fn from(value: ArcStr) -> Self {

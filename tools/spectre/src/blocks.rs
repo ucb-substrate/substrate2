@@ -110,7 +110,7 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
                 cell: arcstr::literal!("vsource"),
-                ports: vec![*io.p, *io.n],
+                ports: vec![io.p, io.n],
             },
             params,
         ));
@@ -150,7 +150,7 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
             cell: arcstr::literal!("iprobe"),
-            ports: vec![*io.p, *io.n],
+            ports: vec![io.p, io.n],
         }));
         Ok(())
     }

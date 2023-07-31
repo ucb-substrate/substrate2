@@ -157,8 +157,8 @@ impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(
             PrimitiveDeviceKind::Res2 {
-                pos: *io.p,
-                neg: *io.n,
+                pos: io.p,
+                neg: io.n,
                 value: self.value,
             }
             .into(),
