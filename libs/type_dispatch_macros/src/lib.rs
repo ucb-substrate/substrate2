@@ -63,11 +63,11 @@ pub fn impl_dispatch(args: TokenStream, input: TokenStream) -> TokenStream {
     impl_dispatch_impl(args, input)
 }
 
-/// A function-like variant of [`impl_dispatch`].
+/// A function-like variant of [`macro@impl_dispatch`].
 ///
 /// # Syntax
 ///
-/// The syntax is the same as [`impl_dispatch`], but the contents of the attribute must now
+/// The syntax is the same as [`macro@impl_dispatch`], but the contents of the attribute must now
 /// be contained by brackets (`[]`) or braces (`{}`).
 ///
 /// # Examples
@@ -121,7 +121,7 @@ pub fn dispatch_impl(input: TokenStream) -> TokenStream {
 /// corresponding to the unique matching arm will be dispatched.
 ///
 /// [`dispatch_const!`] internally uses the `DispatchConst` trait to dispatch constant values,
-/// meaning that types do not have to match exactly (i.e. [`impl_dispatch`] might have
+/// meaning that types do not have to match exactly (i.e. [`macro@impl_dispatch`] might have
 /// `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
 ///
 /// # Examples
@@ -172,7 +172,7 @@ pub fn dispatch_const(input: TokenStream) -> TokenStream {
 /// corresponding to the unique matching arm will be dispatched.
 ///
 /// [`dispatch_fn!`] internally uses the `DispatchFn` trait to dispatch functions,
-/// meaning that types do not have to match exactly (i.e. [`impl_dispatch`] might have
+/// meaning that types do not have to match exactly (i.e. [`macro@impl_dispatch`] might have
 /// `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
 ///
 /// # Examples
@@ -223,7 +223,7 @@ pub fn dispatch_fn(input: TokenStream) -> TokenStream {
 /// corresponding to the unique matching arm will be dispatched.
 ///
 /// [`dispatch_type!`] matches based on the raw parsed type, meaning that types must match exactly
-/// (i.e. [`impl_dispatch`] cannot have `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
+/// (i.e. [`macro@impl_dispatch`] cannot have `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
 ///
 /// # Examples
 ///
