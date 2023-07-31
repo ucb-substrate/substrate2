@@ -25,18 +25,45 @@ pub struct RawLib {
 /// Metadata associated with a conversion from a Substrate schematic to a SCIR library.
 ///
 /// Provides helpers for retrieving SCIR objects from their Substrate IDs.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ScirLibConversion {
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
     pub(crate) top: scir::CellId,
 }
 
-impl ScirLibConversion {
-    pub(crate) fn new() -> Self {
-        Self::default()
+#[derive(Debug, Clone, Default)]
+struct ScirLibConversionBuilder {
+    /// Map from Substrate cell IDs to cell conversion metadata.
+    pub(crate) cells: HashMap<CellId, ScirCellConversion>,
+    pub(crate) top: Option<scir::CellId>,
+}
+
+impl ScirLibConversionBuilder {
+    fn new() -> Self {
+        Default::default()
     }
 
+    fn build(self) -> ScirLibConversion {
+        ScirLibConversion {
+            cells: self.cells,
+            top: self.top.unwrap(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn set_top(&mut self, id: CellId, scir_id: scir::CellId) {
+        self.cells.get_mut(&id).unwrap().top = true;
+        self.top = Some(scir_id);
+    }
+
+    #[inline]
+    pub(crate) fn add_cell(&mut self, id: CellId, conv: ScirCellConversion) {
+        self.cells.insert(id, conv);
+    }
+}
+
+impl ScirLibConversion {
     /// Converts a Substrate [`NodePath`] to a SCIR [`scir::NodePath`].
     pub fn convert_path(&self, path: &NodePath) -> Option<scir::NodePath> {
         let mut cell = self.cells.get(&path.top)?;
@@ -64,16 +91,6 @@ impl ScirLibConversion {
             instances,
             top: self.top,
         })
-    }
-
-    #[inline]
-    pub(crate) fn add_cell(&mut self, id: CellId, conv: ScirCellConversion) {
-        self.cells.insert(id, conv);
-    }
-
-    #[inline]
-    pub(crate) fn set_top(&mut self, id: CellId) {
-        self.cells.get_mut(&id).unwrap().top = true;
     }
 }
 
@@ -145,7 +162,7 @@ impl From<bool> for ExportAsTestbench {
 struct ScirExportData {
     lib: Library,
     id_mapping: HashMap<CellId, ScirCellId>,
-    conv: ScirLibConversion,
+    conv: ScirLibConversionBuilder,
     cell_names: Names<CellId>,
 }
 
@@ -154,7 +171,7 @@ impl ScirExportData {
         Self {
             lib: Library::new(name),
             id_mapping: HashMap::new(),
-            conv: ScirLibConversion::new(),
+            conv: ScirLibConversionBuilder::new(),
             cell_names: Names::new(),
         }
     }
@@ -200,13 +217,13 @@ impl RawCell {
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
     pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> RawLib {
         let mut data = ScirExportData::new(self.name.clone());
-        let id = self.to_scir_cell(&mut data);
-        data.lib.set_top(id, testbench.as_bool());
-        data.conv.set_top(self.id);
+        let scir_id = self.to_scir_cell(&mut data);
+        data.lib.set_top(scir_id, testbench.as_bool());
+        data.conv.set_top(self.id, scir_id);
 
         RawLib {
             scir: data.lib,
-            conv: data.conv,
+            conv: data.conv.build(),
         }
     }
 

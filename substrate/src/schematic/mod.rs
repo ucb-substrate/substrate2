@@ -712,7 +712,7 @@ pub(crate) struct RawInstance {
 }
 
 /// A context-wide unique identifier for a cell.
-#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(u64);
 
 impl CellId {
@@ -868,10 +868,19 @@ pub enum PrimitiveDevice {
 }
 
 /// A wrapper around schematic-specific context data.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
     pub(crate) cell_cache: TypeCache,
+}
+
+impl Default for SchematicContext {
+    fn default() -> Self {
+        Self {
+            next_id: CellId(0),
+            cell_cache: Default::default(),
+        }
+    }
 }
 
 impl SchematicContext {

@@ -143,7 +143,7 @@ pub struct NodePath {
 /// A cell ID created in the context of one library must
 /// *not* be used in the context of another library.
 /// You should instead create a new cell ID in the second library.
-#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CellId(u64);
 
 /// An opaque instance identifier.
