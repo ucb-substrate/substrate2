@@ -211,7 +211,6 @@ impl RawCell {
     }
 
     fn to_scir_cell(&self, data: &mut ScirExportData) -> ScirCellId {
-        assert!(!self.flatten);
         // Create the SCIR cell as a whitebox for now.
         // If this Substrate cell is actually a blackbox,
         // the contents of this SCIR cell will be made into a blackbox
@@ -224,8 +223,8 @@ impl RawCell {
 
         let ScirExportContext { cell } = ctx;
         let id = data.lib.add_cell(cell);
-        data.id_mapping.insert(self.id, id);
         data.conv.add_cell(self.id, conv);
+        data.id_mapping.insert(self.id, id);
 
         id
     }
