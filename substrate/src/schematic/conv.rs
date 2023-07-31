@@ -98,6 +98,13 @@ pub(crate) struct ScirCellConversion {
     pub(crate) instances: HashMap<InstanceId, ScirInstanceConversion>,
 }
 
+impl ScirCellConversion {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ScirInstanceConversion {
     /// The Substrate cell ID of the child cell.
@@ -173,19 +180,13 @@ impl<'a> FlatExport<'a> {
 }
 
 struct ScirExportContext {
-    signals: HashMap<Node, SliceOne>,
-    instances: HashMap<InstanceId, ScirInstanceConversion>,
     cell: scir::Cell,
 }
 
 impl ScirExportContext {
     #[inline]
     pub fn new(cell: scir::Cell) -> Self {
-        Self {
-            signals: Default::default(),
-            instances: Default::default(),
-            cell,
-        }
+        Self { cell }
     }
 
     fn whitebox_contents_mut(&mut self) -> &mut CellInner {
@@ -219,25 +220,12 @@ impl RawCell {
         let cell = Cell::new_whitebox(name);
         let mut ctx = ScirExportContext::new(cell);
 
-        self.to_scir_cell_inner(data, &mut ctx, FlatExport::No);
+        let conv = self.to_scir_cell_inner(data, &mut ctx, FlatExport::No);
 
-        let ScirExportContext {
-            signals,
-            instances,
-            cell,
-            ..
-        } = ctx;
-
+        let ScirExportContext { cell } = ctx;
         let id = data.lib.add_cell(cell);
         data.id_mapping.insert(self.id, id);
-        data.conv.add_cell(
-            self.id,
-            ScirCellConversion {
-                top: false,
-                signals,
-                instances,
-            },
-        );
+        data.conv.add_cell(self.id, conv);
 
         id
     }
@@ -253,8 +241,8 @@ impl RawCell {
         if flatten.is_yes() {
             assert!(self.contents.is_clear());
         }
-        let mut conv = ScirCellConversion::default();
 
+        let mut conv = ScirCellConversion::new();
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
 
@@ -304,6 +292,7 @@ impl RawCell {
                         instance
                             .child
                             .to_scir_cell_inner(data, ctx, FlatExport::Yes(instance));
+                        // TODO populate instance metadata (conv.instances)
                     } else {
                         if !data.id_mapping.contains_key(&instance.child.id) {
                             instance.child.to_scir_cell(data);
@@ -318,7 +307,7 @@ impl RawCell {
                             sinst.connect(scir_port_name, nodes[&conn]);
                         }
                         let id = ctx.whitebox_contents_mut().add_instance(sinst);
-                        ctx.instances.insert(
+                        conv.instances.insert(
                             instance.id,
                             ScirInstanceConversion {
                                 child: instance.child.id,
