@@ -8,7 +8,7 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};
+use substrate::schematic::{HasSchematic, HasSchematicData, PrimitiveDevice};
 use substrate::Corner;
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
@@ -52,11 +52,11 @@ impl Block for NmosA {
     }
 }
 
-impl HasSchematic for NmosA {
+impl HasSchematicData for NmosA {
     type Data = ();
 }
 
-impl HasSchematicImpl<ExamplePdkA> for NmosA {
+impl HasSchematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
@@ -94,11 +94,11 @@ impl Block for PmosA {
     }
 }
 
-impl HasSchematic for PmosA {
+impl HasSchematicData for PmosA {
     type Data = ();
 }
 
-impl HasSchematicImpl<ExamplePdkA> for PmosA {
+impl HasSchematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,

@@ -11,7 +11,7 @@ use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutImpl, Instance
 use substrate::pdk::{Pdk, PdkLayers};
 use substrate::supported_pdks;
 use substrate::{
-    Block, Corner, DerivedLayerFamily, DerivedLayers, HasSchematicImpl, Io, LayerFamily, Layers,
+    Block, Corner, DerivedLayerFamily, DerivedLayers, HasSchematic, Io, LayerFamily, Layers,
     LayoutData, LayoutType,
 };
 
@@ -475,7 +475,7 @@ impl HasLayoutImpl<T> for Buffer {
 // end-code-snippet buffer_multiprocess
 
 // begin-code-snippet buffer_hard_macro
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "r###\"

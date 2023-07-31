@@ -1,7 +1,7 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
 use substrate::{
     io::{NestedNode, Node, Signal},
-    schematic::{HasSchematic, HasSchematicImpl, Instance, NestedInstance},
+    schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance},
     SchematicData,
 };
 
@@ -17,11 +17,11 @@ pub struct InverterData {
     pub pmos: Instance<PmosA>,
 }
 
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = InverterData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for Inverter {
+impl HasSchematic<ExamplePdkA> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
@@ -52,11 +52,11 @@ pub struct BufferData {
     pub inv2: Instance<Inverter>,
 }
 
-impl HasSchematic for Buffer {
+impl HasSchematicData for Buffer {
     type Data = BufferData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for Buffer {
+impl HasSchematic<ExamplePdkA> for Buffer {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
@@ -95,11 +95,11 @@ pub struct BufferNData {
     pub buffers: Vec<Instance<Buffer>>,
 }
 
-impl HasSchematic for BufferN {
+impl HasSchematicData for BufferN {
     type Data = BufferNData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for BufferN {
+impl HasSchematic<ExamplePdkA> for BufferN {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
@@ -138,11 +138,11 @@ pub struct BufferNxMData {
     pub buffer_chains: Vec<Instance<BufferN>>,
 }
 
-impl HasSchematic for BufferNxM {
+impl HasSchematicData for BufferNxM {
     type Data = BufferNxMData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for BufferNxM {
+impl HasSchematic<ExamplePdkA> for BufferNxM {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,

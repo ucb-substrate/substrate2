@@ -12,10 +12,10 @@ use substrate::context::Context;
 use substrate::io::TestbenchIo;
 use substrate::io::{Node, Signal};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematic};
+use substrate::schematic::{Cell, HasSchematicData};
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
+use substrate::simulation::{HasSimSchematic, Testbench};
 use substrate::Block;
 
 use super::Inverter;
@@ -34,15 +34,15 @@ impl InverterTb {
     }
 }
 
-impl HasSchematic for InverterTb {
+impl HasSchematicData for InverterTb {
     type Data = Node;
 }
 
-impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
+impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv = cell.instantiate(self.dut);
 

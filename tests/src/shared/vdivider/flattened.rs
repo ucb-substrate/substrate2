@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::pdk::Pdk;
 use substrate::schematic::{
-    CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice,
+    CellBuilder, HasSchematic, HasSchematicData, Instance, PrimitiveDevice,
 };
 use substrate::Block;
 use substrate::SchematicData;
@@ -64,15 +64,15 @@ impl Block for VdividerArray {
     }
 }
 
-impl HasSchematic for Resistor {
+impl HasSchematicData for Resistor {
     type Data = ();
 }
 
-impl HasSchematic for Vdivider {
+impl HasSchematicData for Vdivider {
     type Data = VdividerData;
 }
 
-impl HasSchematic for VdividerArray {
+impl HasSchematicData for VdividerArray {
     type Data = Vec<Instance<Vdivider>>;
 }
 
@@ -84,7 +84,7 @@ pub struct VdividerData {
     pub r2: Instance<Resistor>,
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
+impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
     fn schematic(
         &self,
         io: &ResistorIoSchematic,
@@ -99,7 +99,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
     }
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
+impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
     fn schematic(
         &self,
         io: &VdividerIoSchematic,
@@ -116,7 +116,7 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
     }
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
+impl<PDK: Pdk> HasSchematic<PDK> for VdividerArray {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,

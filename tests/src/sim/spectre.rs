@@ -15,9 +15,9 @@ use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematic, Instance, TestbenchCellBuilder};
+use substrate::schematic::{Cell, HasSchematicData, Instance, SimCellBuilder};
 use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Testbench};
+use substrate::simulation::{HasSimSchematic, SimController, Testbench};
 use substrate::{Block, Io};
 use test_log::test;
 
@@ -146,15 +146,15 @@ fn spectre_can_include_sections() {
     #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl HasSchematic for LibIncludeResistor {
+    impl HasSchematicData for LibIncludeResistor {
         type Data = ();
     }
 
-    impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
+    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
             _io: &<<Self as Block>::Io as SchematicType>::Data,
-            cell: &mut TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             cell.set_blackbox("res0 (p n) example_resistor");
 
@@ -166,15 +166,15 @@ fn spectre_can_include_sections() {
     #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
-    impl HasSchematic for LibIncludeTb {
+    impl HasSchematicData for LibIncludeTb {
         type Data = Instance<LibIncludeResistor>;
     }
 
-    impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for LibIncludeTb {
+    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Data,
-            cell: &mut TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate_tb(LibIncludeResistor);

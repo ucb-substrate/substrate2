@@ -7,7 +7,7 @@ use substrate::{
     block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::{conv::RawLib, HasSchematic, HasSchematicImpl},
+    schematic::{conv::RawLib, HasSchematic, HasSchematicData},
     supported_pdks,
 };
 
@@ -239,12 +239,12 @@ impl Block for Block1 {
     }
 }
 
-impl HasSchematic for Block1 {
+impl HasSchematicData for Block1 {
     type Data = ();
 }
 
 #[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasSchematicImpl<ExamplePdkA> for Block1 {
+impl HasSchematic<ExamplePdkA> for Block1 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
@@ -275,11 +275,11 @@ impl Block for Block2 {
     }
 }
 
-impl HasSchematic for Block2 {
+impl HasSchematicData for Block2 {
     type Data = ();
 }
 
-impl HasSchematicImpl<ExamplePdkA> for Block2 {
+impl HasSchematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
@@ -292,7 +292,7 @@ impl HasSchematicImpl<ExamplePdkA> for Block2 {
     }
 }
 
-impl HasSchematicImpl<ExamplePdkB> for Block2 {
+impl HasSchematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
