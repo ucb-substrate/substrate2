@@ -120,9 +120,9 @@ pub fn dispatch_impl(input: TokenStream) -> TokenStream {
 /// Unlike normal match statements, duplicate arms are not allowed. Only the constant
 /// corresponding to the unique matching arm will be dispatched.
 ///
-/// [`dispatch_const`] internally uses the `DispatchConst` trait to dispatch constant values,
+/// [`dispatch_const!`] internally uses the `DispatchConst` trait to dispatch constant values,
 /// meaning that types do not have to match exactly (i.e. [`impl_dispatch`] might have
-/// `std::vec::Vec` while the [`dispatch_const`] arm has `Vec`).
+/// `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
 ///
 /// # Examples
 ///
@@ -171,9 +171,9 @@ pub fn dispatch_const(input: TokenStream) -> TokenStream {
 /// Unlike normal match statements, duplicate arms are not allowed. Only the constant
 /// corresponding to the unique matching arm will be dispatched.
 ///
-/// [`dispatch_fn`] internally uses the `DispatchFn` trait to dispatch functions,
+/// [`dispatch_fn!`] internally uses the `DispatchFn` trait to dispatch functions,
 /// meaning that types do not have to match exactly (i.e. [`impl_dispatch`] might have
-/// `std::vec::Vec` while the [`dispatch_const`] arm has `Vec`).
+/// `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
 ///
 /// # Examples
 ///
@@ -222,8 +222,8 @@ pub fn dispatch_fn(input: TokenStream) -> TokenStream {
 /// Unlike normal match statements, duplicate arms are not allowed. Only the constant
 /// corresponding to the unique matching arm will be dispatched.
 ///
-/// [`dispatch_type`] matches based on the raw parsed type, meaning that types must match exactly
-/// (i.e. [`impl_dispatch`] cannot have `std::vec::Vec` while the [`dispatch_const`] arm has `Vec`).
+/// [`dispatch_type!`] matches based on the raw parsed type, meaning that types must match exactly
+/// (i.e. [`impl_dispatch`] cannot have `std::vec::Vec` while the [`dispatch_const!`] arm has `Vec`).
 ///
 /// # Examples
 ///
