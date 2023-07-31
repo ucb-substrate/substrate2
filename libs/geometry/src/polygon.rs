@@ -53,6 +53,12 @@ impl Polygon {
     pub fn points(&self) -> &Vec<Point> {
         &self.points
     }
+
+    pub fn center(&self) -> Point {
+        let mut x = self.points.iter().map(|point|point.x).sum::<i64>()/self.points.len() as i64;
+        let mut y = self.points.iter().map(|point|point.x).sum::<i64>()/self.points.len() as i64;
+        Point::new(x, y)
+    }
 }
 
 impl Bbox for Polygon {

@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, LitStr, Token};
 
-const EXAMPLES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+const EXAMPLES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "\\examples");
 const RESERVED_COMMENTS: &[&str] = &[
     "begin-code-snippet",
     "end-code-snippet",
@@ -48,9 +48,10 @@ pub fn get_snippets(item: TokenStream) -> TokenStream {
     let mut full = "```\n".to_string();
     let mut selected = String::new();
     let mut current_snippet = 0;
-
+    
     for line in contents.split('\n') {
-        let trimmed = line.trim_start();
+        let trimmed = line.trim();
+        let trimmed_len = line.trim_start().len();
         if current_snippet < args.snippets.len() {
             if trimmed == format!("// begin-code-snippet {}", &args.snippets[current_snippet]) {
                 in_snippet = true;
@@ -78,7 +79,7 @@ pub fn get_snippets(item: TokenStream) -> TokenStream {
             {
                 hidden = true;
                 selected.push('\n');
-                selected.push_str(&line[..line.len() - trimmed.len()]);
+                selected.push_str(&line[..line.len() - trimmed_len]);
                 selected.push_str("// ...\n\n");
                 continue;
             } else if trimmed == format!("// end-ellipses {}", &args.snippets[current_snippet]) {

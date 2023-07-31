@@ -69,18 +69,6 @@ impl Bbox for Shape {
         }
     }
 }
-/*
-impl<T> Contains<T> for Shape
-where
-    Rect: Contains<T>,
-{
-    fn contains(&self, other: &T) -> crate::contains::Containment {
-        match self {
-            Self::Rect(r) => r.contains(other),
-            Self::Polygon(r) => r.contains(other),
-        }
-    }
-}*/
 
 impl From<Rect> for Shape {
     #[inline]

@@ -19,6 +19,7 @@ use slotmap::{new_key_type, SlotMap};
 use tracing::{span, Level};
 use uniquify::Names;
 
+use crate::layout::error::GdsExportError;
 use crate::io::{LayoutDataBuilder, LayoutType};
 use crate::pdk::layers::LayerInfo;
 use crate::{
@@ -173,6 +174,12 @@ impl PlaceLabels for Rect {
     }
 }
 
+impl PlaceLabels for Polygon {
+    fn label_loc(&self) -> Point {
+        self.center()
+    }
+}
+
 impl ExportGds for (&NameBuf, &IoShape) {
     type Output = Vec<gds::GdsElement>;
 
@@ -248,15 +255,16 @@ impl ExportGds for Shape {
                     datatype: layer.xtype,
                     xy: r.export(exporter)?,
                     ..Default::default()
-                },
+                }
+                .into(),
                 geometry::shape::Shape::Polygon(p) => gds::GdsBoundary {
                     layer: layer.layer,
                     datatype: layer.xtype,
                     xy: p.export(exporter)?,
                     ..Default::default()
                 }
-
                 .into(),
+                
             })
         } else {
             None
@@ -308,8 +316,10 @@ impl ExportGds for Polygon {
         let span = span!(Level::INFO, "polygon", polygon = ?self);
         let _guard = span.enter();
 
-        let mut points = self.points().iter().map(|p| p.export(exporter)).collect();
-        points.push(self.points()[0].export(exporter));
+        let mut points: Vec<gds::GdsPoint> = self.points().iter().map(|p| p.export(exporter)).collect::<Result<Vec<gds::GdsPoint>, GdsExportError>>()?;
+        let point0 = self.points()[0].export(exporter)?;
+        
+        points.push(point0);
         Ok(points)
     }
 }
@@ -585,6 +595,8 @@ impl<'a> GdsImporter<'a> {
                         if elem.is_none() {
                             continue;
                         }
+                        
+                        /*
                         let elem = elem.unwrap();
 
                         use crate::geometry::contains::Contains;
@@ -600,7 +612,7 @@ impl<'a> GdsImporter<'a> {
                             // This pin shape is stored in a port.
                             // No need to also include it as a regular element.
                             elems.remove(*ekey);
-                        }
+                        }*/
                     }
                 }
                 if !has_geometry {
@@ -648,7 +660,7 @@ impl<'a> GdsImporter<'a> {
             geometry::shape::Shape::Rect(Rect::new(pts[0], pts[2]))
         } else {
             // Otherwise, it's a polygon
-            geometry::shape::Shape::Polygon(Polygon { points: pts })
+            geometry::shape::Shape::Polygon(Polygon::from_verts(pts))
         };
 
         // Grab (or create) its [Layer]
