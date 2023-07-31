@@ -269,6 +269,14 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// the name of the struct/enum converted to snake case. For example, the name
 /// of a block called `MyBlock` will be `my_block`.
 /// If you wish to customize this behavior, consider implementing `Block` manually.
+///
+/// ## Flattening
+///
+/// Some blocks may simply be wrappers around inner blocks.
+/// If you wish to flatten a block, add the `#[substrate(flatten)]` attribute to it.
+/// The block will be inlined during netlisting.
+///
+/// The `flatten` attribute is ignored when netlisting top-level blocks such as testbenches.
 #[proc_macro_derive(Block, attributes(substrate))]
 pub fn derive_block(input: TokenStream) -> TokenStream {
     let receiver =

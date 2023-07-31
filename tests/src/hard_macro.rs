@@ -19,7 +19,7 @@ use test_log::test;
     HasSchematicImpl,
     HasLayoutImpl,
 )]
-#[substrate(io = "BufferIo")]
+#[substrate(io = "BufferIo", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",
     name = "buffer",

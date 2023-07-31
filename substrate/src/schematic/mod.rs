@@ -186,6 +186,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             uf,
             roots,
             contents,
+            flatten: T::FLATTEN,
         }
     }
 
@@ -210,7 +211,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
     /// Starts generating a block in a new thread and returns a handle to its cell.
     ///
-    /// Can be used to check data stored in the cell or other generation results before adding the
+    /// Can be used to check data stored in the cell or other generated results before adding the
     /// cell to the current schematic with [`CellBuilder::add`].
     ///
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
@@ -262,8 +263,8 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
     /// [`CellBuilder::add`].
     ///
-    /// Spawns a thread that generates the underlying cell and panics if generation fails. If error
-    /// recovery is desired, use generate and add workflow mentioned above.
+    /// Spawns a thread that generates the underlying cell and panics if the generator fails. If error
+    /// recovery is desired, use the generate and add workflow mentioned above.
     ///
     /// # Panics
     ///
@@ -711,7 +712,7 @@ pub(crate) struct RawInstance {
 }
 
 /// A context-wide unique identifier for a cell.
-#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(u64);
 
 impl CellId {
@@ -731,6 +732,8 @@ pub(crate) struct RawCell {
     node_names: HashMap<Node, NameBuf>,
     roots: HashMap<Node, Node>,
     contents: RawCellContents,
+    /// Whether this cell should be flattened when being exported.
+    flatten: bool,
 }
 
 /// The (possibly blackboxed) contents of a raw cell.
@@ -865,10 +868,19 @@ pub enum PrimitiveDevice {
 }
 
 /// A wrapper around schematic-specific context data.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
     pub(crate) cell_cache: TypeCache,
+}
+
+impl Default for SchematicContext {
+    fn default() -> Self {
+        Self {
+            next_id: CellId(0),
+            cell_cache: Default::default(),
+        }
+    }
 }
 
 impl SchematicContext {

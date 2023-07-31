@@ -61,6 +61,67 @@ fn can_generate_vdivider_schematic() {
 }
 
 #[test]
+fn can_generate_flattened_vdivider_schematic() {
+    let ctx = Context::new(ExamplePdkA);
+    let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
+    assert_eq!(scir.cells().count(), 1);
+    let issues = scir.validate();
+    println!("Library:\n{:#?}", scir);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = scir.cell_named("vdivider");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 3);
+    assert!(port_names.contains("pwr_vdd"));
+    assert!(port_names.contains("pwr_vss"));
+    assert!(port_names.contains("out"));
+    assert_eq!(vdiv.ports().count(), 3);
+    let contents = vdiv.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 2);
+    assert_eq!(contents.instances().count(), 0);
+}
+
+#[test]
+fn can_generate_flattened_vdivider_array_schematic() {
+    let ctx = Context::new(ExamplePdkA);
+    let vdiv1 = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
+    let vdiv2 = crate::shared::vdivider::flattened::Vdivider::new(600, 800);
+    let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);
+    let vdivs = vec![vdiv1, vdiv2, vdiv3];
+    let vdivider = crate::shared::vdivider::flattened::VdividerArray { vdividers: vdivs };
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
+    assert_eq!(scir.cells().count(), 1);
+    let issues = scir.validate();
+    println!("Library:\n{:#?}", scir);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = scir.cell_named("flattened_vdivider_array_3");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 6);
+    assert!(port_names.contains("elements_0_vdd"));
+    assert!(port_names.contains("elements_0_vss"));
+    assert!(port_names.contains("elements_1_vdd"));
+    assert!(port_names.contains("elements_1_vss"));
+    assert!(port_names.contains("elements_2_vdd"));
+    assert!(port_names.contains("elements_2_vss"));
+    assert_eq!(vdiv.ports().count(), 6);
+    let contents = vdiv.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 6);
+    assert_eq!(contents.instances().count(), 0);
+}
+
+#[test]
 fn nested_io_naming() {
     let io = VdividerIo {
         pwr: PowerIo {
