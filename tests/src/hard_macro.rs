@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130OpenPdk;
 
 use substrate::Block;
-use substrate::{HasLayoutImpl, HasSchematic};
+use substrate::{HasLayout, HasSchematic};
 use test_log::test;
 
 #[derive(
-    Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic, HasLayoutImpl,
+    Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic, HasLayout,
 )]
 #[substrate(io = "BufferIo", flatten)]
 #[substrate(schematic(
