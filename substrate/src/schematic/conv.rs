@@ -107,8 +107,6 @@ type ConvertedScirInstance = Opacity<scir::InstanceId, ScirCellConversion>;
 pub(crate) struct ScirCellConversion {
     /// Whether or not this cell is the top cell.
     pub(crate) top: bool,
-    // /// SCIR cell name.
-    // pub(crate) id: scir::CellId,
     /// Map Substrate nodes to SCIR signal IDs and indices.
     pub(crate) signals: HashMap<Node, SliceOne>,
     /// Map Substrate instance IDs to SCIR instances and their underlying Substrate cell.
@@ -228,17 +226,18 @@ impl RawCell {
     }
 
     fn to_scir_cell(&self, data: &mut ScirExportData) -> ScirCellId {
+        let name = data.cell_names.assign_name(self.id, &self.name);
+
         // Create the SCIR cell as a whitebox for now.
         // If this Substrate cell is actually a blackbox,
         // the contents of this SCIR cell will be made into a blackbox
         // by calling `cell.set_contents`.
-        let name = data.cell_names.assign_name(self.id, &self.name);
         let cell = Cell::new_whitebox(name);
+
         let mut ctx = ScirExportContext::new(cell);
-
         let conv = self.to_scir_cell_inner(data, &mut ctx, FlatExport::No);
-
         let ScirExportContext { cell } = ctx;
+
         let id = data.lib.add_cell(cell);
         data.conv.add_cell(self.id, conv);
         data.id_mapping.insert(self.id, id);
