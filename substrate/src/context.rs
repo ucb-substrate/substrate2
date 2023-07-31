@@ -23,7 +23,7 @@ use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
-use crate::layout::HasLayoutImpl;
+use crate::layout::HasLayout;
 use crate::layout::LayoutContext;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::pdk::layers::GdsLayerSpec;
@@ -176,7 +176,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: HasLayoutImpl<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: HasLayout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
@@ -217,11 +217,7 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Writes a layout to a GDS file.
-    pub fn write_layout<T: HasLayoutImpl<PDK>>(
-        &self,
-        block: T,
-        path: impl AsRef<Path>,
-    ) -> Result<()> {
+    pub fn write_layout<T: HasLayout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
         let handle = self.generate_layout(block);
         let cell = handle.try_cell()?;
 
