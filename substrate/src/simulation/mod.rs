@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::cache::Cache;
-use crate::context::PdkData;
 use crate::execute::Executor;
 use crate::io::{SchematicType, TestbenchIo};
+use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
@@ -111,13 +111,32 @@ where
 pub struct SimController<PDK: Pdk, S> {
     pub(crate) simulator: Arc<S>,
     /// The current PDK.
-    pub pdk: PdkData<PDK>,
+    pub pdk: Arc<PDK>,
     pub(crate) ctx: SimulationContext,
 }
 
-impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
+impl<PDK: Pdk + InstallCorner<S>, S: Simulator> SimController<PDK, S> {
     /// Run the given analysis.
     pub fn simulate<A: Analysis + SupportedBy<S>>(
+        &self,
+        mut options: S::Options,
+        corner: impl AsRef<PDK::Corner>,
+        input: A,
+    ) -> Result<A::Output, S::Error> {
+        self.pdk.install_corner(corner, &mut options);
+        self.simulator.simulate(&self.ctx, options, input)
+    }
+}
+
+impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
+    /// Run the given analysis without a corner.
+    ///
+    /// Note that this will usually result in model files not being included, potentially
+    /// causing simulator errors due to missing models.
+    ///
+    /// If any PDK primitives are being used by the device under test,
+    /// [`SimController::simulate`] should be used instead.
+    pub fn simulate_without_corner<A: Analysis + SupportedBy<S>>(
         &self,
         options: S::Options,
         input: A,

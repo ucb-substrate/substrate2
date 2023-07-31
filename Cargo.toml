@@ -5,6 +5,7 @@ resolver = "2"
 members = [
     "codegen",
     "config",
+    "docs/examples",
     "libs/cache",
     "libs/diagnostics",
     "libs/gds",

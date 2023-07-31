@@ -11,7 +11,7 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::TestbenchIo;
 use substrate::io::{Node, Signal};
-use substrate::pdk::corner::{InstallCorner, Pvt};
+use substrate::pdk::corner::Pvt;
 use substrate::schematic::{Cell, HasSchematic};
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
@@ -86,11 +86,10 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
         cell: &Cell<Self>,
         sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
     ) -> Self::Output {
-        let mut opts = Options::default();
-        sim.pdk.pdk.install_corner(self.pvt.corner, &mut opts);
         let output = sim
             .simulate(
-                opts,
+                Options::default(),
+                self.pvt.corner,
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),
