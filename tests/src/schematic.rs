@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block::Block,
     context::Context,
@@ -243,12 +244,12 @@ impl HasSchematicData for Block1 {
     type Data = ();
 }
 
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasSchematic<ExamplePdkA> for Block1 {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasSchematic<PDK> for Block1 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
-        _cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
+        _cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         Err(substrate::error::Error::Anyhow(
             anyhow!("failed to generate block 1").into(),

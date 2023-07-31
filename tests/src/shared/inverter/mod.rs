@@ -4,8 +4,9 @@ use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use substrate::block::Block;
 use substrate::io::{InOut, Input, Output, Signal};
 use substrate::schematic::{HasSchematic, HasSchematicData};
+use substrate::type_dispatch::impl_dispatch;
 use substrate::Block;
-use substrate::{supported_pdks, Io};
+use substrate::Io;
 
 pub mod tb;
 
@@ -32,12 +33,12 @@ impl HasSchematicData for Inverter {
     type Data = ();
 }
 
-#[supported_pdks(Sky130CommercialPdk, Sky130OpenPdk)]
-impl HasSchematic<Pdk> for Inverter {
+#[impl_dispatch({Sky130CommercialPdk; Sky130OpenPdk})]
+impl<PDK> HasSchematic<PDK> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::CellBuilder<Pdk, Self>,
+        cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));
         cell.connect(io.dout, nmos.io().d);

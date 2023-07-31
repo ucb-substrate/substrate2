@@ -10,6 +10,8 @@ pub use geometry;
 pub use scir;
 #[doc(inline)]
 pub use spice;
+#[doc(inline)]
+pub use type_dispatch;
 
 pub mod block;
 pub mod cache;

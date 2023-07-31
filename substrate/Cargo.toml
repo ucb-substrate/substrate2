@@ -29,8 +29,9 @@ gds = { version = "0.2.0", registry = "substrate", path = "../libs/gds" }
 opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" }
 scir = { version = "0.2.0", registry = "substrate", path = "../libs/scir" }
 pathtree = { version = "0.1.0", registry = "substrate", path = "../libs/pathtree" }
-uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
 spice = { version = "0.1.0", registry = "substrate", path = "../libs/spice" }
+type_dispatch = { version = "0.0.0", registry = "substrate", path = "../libs/type_dispatch" }
+uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
 
 [dev-dependencies]
 toml = "0.7"
