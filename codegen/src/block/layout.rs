@@ -253,6 +253,9 @@ pub struct HasLayoutImplInputReceiver {
     schematic: Vec<darling::util::Ignored>,
     #[darling(multiple)]
     layout: Vec<LayoutHardMacro>,
+    #[darling(default)]
+    #[allow(unused)]
+    flatten: darling::util::Ignored,
 }
 
 #[derive(Debug, FromMeta)]

@@ -9,7 +9,7 @@ use uniquify::Names;
 
 use crate::io::{Node, NodePath};
 
-use super::{BlackboxElement, CellId, InstanceId, RawCell, RawInstance};
+use super::{BlackboxElement, CellId, InstanceId, RawCell};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -178,13 +178,13 @@ impl ScirExportData {
 }
 
 #[derive(Debug, Default, Clone)]
-enum FlatExport<'a> {
-    Yes(&'a RawInstance),
+enum FlatExport {
+    Yes(Vec<scir::Slice>),
     #[default]
     No,
 }
 
-impl<'a> FlatExport<'a> {
+impl FlatExport {
     #[inline]
     pub fn is_yes(&self) -> bool {
         matches!(self, FlatExport::Yes(_))
@@ -262,12 +262,13 @@ impl RawCell {
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
 
-        if flatten.is_yes() {
+        if let FlatExport::Yes(ref ports) = flatten {
             // Flattened cells need to add all non-IO nodes to the enclosing cell.
-            for port in self.ports.iter() {
+            assert_eq!(ports.len(), self.ports.len());
+            for (port, s) in self.ports.iter().zip(ports) {
                 let root = self.roots[&port.node()];
                 roots_added.insert(root);
-                // TODO: nodes.insert(root, slice in enclosing cell)
+                nodes.insert(root, *s);
             }
         }
 
@@ -305,9 +306,10 @@ impl RawCell {
                 assert!(clear, "cannot flatten a cell into a blackbox parent cell");
                 for (i, instance) in contents.instances.iter().enumerate() {
                     if instance.child.flatten {
+                        let ports = instance.connections.iter().map(|c| nodes[c]).collect();
                         instance
                             .child
-                            .to_scir_cell_inner(data, ctx, FlatExport::Yes(instance));
+                            .to_scir_cell_inner(data, ctx, FlatExport::Yes(ports));
                         // TODO populate instance metadata (conv.instances)
                     } else {
                         if !data.id_mapping.contains_key(&instance.child.id) {

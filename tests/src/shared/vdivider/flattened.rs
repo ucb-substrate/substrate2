@@ -1,36 +1,16 @@
-use arcstr::ArcStr;
+use super::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{Array, InOut, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{
     CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice,
 };
-use substrate::{Io, SchematicData};
+use substrate::Block;
+use substrate::SchematicData;
 
-pub mod flattened;
-pub mod tb;
-
-#[derive(Debug, Default, Clone, Io)]
-pub struct ResistorIo {
-    pub p: InOut<Signal>,
-    pub n: InOut<Signal>,
-}
-
-#[derive(Debug, Default, Clone, Io)]
-pub struct PowerIo {
-    pub vdd: InOut<Signal>,
-    pub vss: InOut<Signal>,
-}
-
-#[derive(Debug, Default, Clone, Io)]
-pub struct VdividerIo {
-    pub pwr: PowerIo,
-    pub out: Output<Signal>,
-}
-
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
+#[substrate(io = "ResistorIo", flatten)]
 pub struct Resistor {
     pub value: Decimal,
 }
@@ -44,7 +24,8 @@ impl Resistor {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
+#[substrate(io = "VdividerIo", flatten)]
 pub struct Vdivider {
     pub r1: Resistor,
     pub r2: Resistor,
@@ -52,7 +33,7 @@ pub struct Vdivider {
 
 impl Vdivider {
     #[inline]
-    fn new(r1: impl Into<Decimal>, r2: impl Into<Decimal>) -> Self {
+    pub fn new(r1: impl Into<Decimal>, r2: impl Into<Decimal>) -> Self {
         Self {
             r1: Resistor::new(r1),
             r2: Resistor::new(r2),
@@ -65,54 +46,15 @@ pub struct VdividerArray {
     pub vdividers: Vec<Vdivider>,
 }
 
-impl Block for Resistor {
-    type Io = ResistorIo;
-    const FLATTEN: bool = false;
-
-    fn id() -> ArcStr {
-        arcstr::literal!("resistor")
-    }
-
-    fn name(&self) -> ArcStr {
-        arcstr::format!("resistor_{}", self.value)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
-impl Block for Vdivider {
-    type Io = VdividerIo;
-    const FLATTEN: bool = false;
-
-    fn id() -> ArcStr {
-        arcstr::literal!("vdivider")
-    }
-
-    fn name(&self) -> ArcStr {
-        arcstr::format!("vdivider_{}_{}", self.r1.value, self.r2.value)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
-#[derive(Debug, Clone, Io)]
-pub struct VdividerArrayIo {
-    pub elements: Array<PowerIo>,
-}
-
 impl Block for VdividerArray {
     type Io = VdividerArrayIo;
 
     fn id() -> ArcStr {
-        arcstr::literal!("vdivider_array")
+        arcstr::literal!("flattened_vdivider_array")
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::format!("vdivider_array_{}", self.vdividers.len())
+        arcstr::format!("flattened_vdivider_array_{}", self.vdividers.len())
     }
 
     fn io(&self) -> Self::Io {
@@ -126,20 +68,20 @@ impl HasSchematic for Resistor {
     type Data = ();
 }
 
-#[derive(SchematicData)]
-pub struct VdividerData {
-    #[substrate(nested)]
-    r1: Instance<Resistor>,
-    #[substrate(nested)]
-    r2: Instance<Resistor>,
-}
-
 impl HasSchematic for Vdivider {
     type Data = VdividerData;
 }
 
 impl HasSchematic for VdividerArray {
     type Data = Vec<Instance<Vdivider>>;
+}
+
+#[derive(SchematicData)]
+pub struct VdividerData {
+    #[substrate(nested)]
+    r1: Instance<Resistor>,
+    #[substrate(nested)]
+    r2: Instance<Resistor>,
 }
 
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
