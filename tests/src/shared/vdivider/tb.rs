@@ -7,9 +7,9 @@ use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{Cell, HasSchematic, Instance};
+use substrate::schematic::{Cell, HasSchematicData, Instance};
 use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
+use substrate::simulation::{HasSimSchematic, Testbench};
 use substrate::Block;
 
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
@@ -18,15 +18,15 @@ use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 #[substrate(io = "TestbenchIo")]
 pub struct VdividerTb;
 
-impl HasSchematic for VdividerTb {
+impl HasSchematicData for VdividerTb {
     type Data = Instance<Vdivider>;
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
@@ -80,15 +80,15 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
 #[substrate(io = "TestbenchIo")]
 pub struct VdividerArrayTb;
 
-impl HasSchematic for VdividerArrayTb {
+impl HasSchematicData for VdividerArrayTb {
     type Data = Instance<VdividerArray>;
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
@@ -115,15 +115,15 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
 #[substrate(io = "TestbenchIo")]
 pub struct FlattenedVdividerArrayTb;
 
-impl HasSchematic for FlattenedVdividerArrayTb {
+impl HasSchematicData for FlattenedVdividerArrayTb {
     type Data = Instance<super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {

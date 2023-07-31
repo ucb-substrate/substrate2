@@ -5,7 +5,6 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::MosIo;
-use substrate::schematic::{HasSchematic, HasSchematicImpl};
 
 use super::{Sky130CommercialPdk, Sky130OpenPdk};
 
@@ -79,11 +78,11 @@ macro_rules! define_mos {
             }
         }
 
-        impl HasSchematic for $typ {
+        impl substrate::schematic::HasSchematicData for $typ {
             type Data = ();
         }
 
-        impl HasSchematicImpl<Sky130OpenPdk> for $typ {
+        impl substrate::schematic::HasSchematic<Sky130OpenPdk> for $typ {
             fn schematic(
                 &self,
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
@@ -114,7 +113,7 @@ macro_rules! define_mos {
             }
         }
 
-        impl HasSchematicImpl<Sky130CommercialPdk> for $typ {
+        impl substrate::schematic::HasSchematic<Sky130CommercialPdk> for $typ {
             fn schematic(
                 &self,
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,

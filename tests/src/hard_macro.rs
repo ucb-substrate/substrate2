@@ -4,20 +4,11 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130OpenPdk;
 
 use substrate::Block;
-use substrate::{HasLayoutImpl, HasSchematicImpl};
+use substrate::{HasLayoutImpl, HasSchematic};
 use test_log::test;
 
 #[derive(
-    Clone,
-    Debug,
-    Hash,
-    Eq,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    Block,
-    HasSchematicImpl,
-    HasLayoutImpl,
+    Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic, HasLayoutImpl,
 )]
 #[substrate(io = "BufferIo", flatten)]
 #[substrate(schematic(
@@ -43,7 +34,7 @@ use test_log::test;
 ))]
 pub struct BufferHardMacro;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "r#\"

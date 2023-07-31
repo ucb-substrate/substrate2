@@ -3,7 +3,7 @@ use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use substrate::block::Block;
 use substrate::io::{InOut, Input, Output, Signal};
-use substrate::schematic::{HasSchematic, HasSchematicImpl};
+use substrate::schematic::{HasSchematic, HasSchematicData};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::Block;
 use substrate::Io;
@@ -29,12 +29,12 @@ pub struct Inverter {
     pub lch: i64,
 }
 
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = ();
 }
 
 #[impl_dispatch({Sky130CommercialPdk; Sky130OpenPdk})]
-impl<PDK> HasSchematicImpl<PDK> for Inverter {
+impl<PDK> HasSchematic<PDK> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
