@@ -252,10 +252,11 @@ impl RawCell {
         ctx: &mut ScirExportContext,
         flatten: FlatExport,
     ) -> ScirCellConversion {
-        // FIXME this function is wrong for nested flattened instances.
-
         if flatten.is_yes() {
-            assert!(self.contents.is_clear());
+            assert!(
+                self.contents.is_clear(),
+                "cannot flat-export a blackbox cell"
+            );
         }
 
         let mut conv = ScirCellConversion::new();
@@ -307,10 +308,17 @@ impl RawCell {
                 for (i, instance) in contents.instances.iter().enumerate() {
                     if instance.child.flatten {
                         let ports = instance.connections.iter().map(|c| nodes[c]).collect();
-                        instance
-                            .child
-                            .to_scir_cell_inner(data, ctx, FlatExport::Yes(ports));
-                        // TODO populate instance metadata (conv.instances)
+                        let inst_conv =
+                            instance
+                                .child
+                                .to_scir_cell_inner(data, ctx, FlatExport::Yes(ports));
+                        conv.instances.insert(
+                            instance.id,
+                            ScirInstanceConversion {
+                                child: instance.child.id,
+                                instance: Opacity::Clear(inst_conv),
+                            },
+                        );
                     } else {
                         if !data.id_mapping.contains_key(&instance.child.id) {
                             instance.child.to_scir_cell(data);
