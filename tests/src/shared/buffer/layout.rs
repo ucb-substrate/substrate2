@@ -5,6 +5,7 @@ use geometry::{
     union::BoundingUnion,
 };
 
+use substrate::pdk::Pdk;
 use substrate::{
     io::IoShape,
     layout::{
@@ -164,11 +165,11 @@ impl HasLayout for Buffer {
 }
 
 #[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasLayoutImpl<T> for Buffer {
+impl HasLayoutImpl<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<T, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let derived_layers = DerivedLayers::from(cell.ctx.layers.as_ref());
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
