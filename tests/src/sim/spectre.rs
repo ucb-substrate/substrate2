@@ -60,6 +60,28 @@ fn spectre_vdivider_array_tran() {
 }
 
 #[test]
+fn spectre_flattened_vdivider_array_tran() {
+    let test_name = "flattened_spectre_vdivider_array_tran";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+    let output = ctx.simulate(
+        crate::shared::vdivider::tb::FlattenedVdividerArrayTb,
+        sim_dir,
+    );
+
+    for (expected, (out, out_nested)) in output
+        .expected
+        .iter()
+        .zip(output.out.iter().zip(output.out_nested.iter()))
+    {
+        assert!(out.iter().all(|val| relative_eq!(val, expected)));
+        assert_eq!(out, out_nested);
+    }
+
+    assert!(output.vdd.iter().all(|val| relative_eq!(*val, 1.8)));
+}
+
+#[test]
 fn inv_tb() {
     let test_name = "inv_tb";
     let sim_dir = get_path(test_name, "sim/");
