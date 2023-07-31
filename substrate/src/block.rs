@@ -18,6 +18,8 @@ use crate::io::Io;
 pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;
+    /// Whether or not this block should be flattened.
+    const FLATTEN: bool = false;
 
     /// A crate-wide unique identifier for this block.
     fn id() -> ArcStr;

@@ -39,6 +39,8 @@ impl ToTokens for BlockInputReceiver {
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
+                const FLATTEN: bool = false;
+
                 fn id() -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))
                 }

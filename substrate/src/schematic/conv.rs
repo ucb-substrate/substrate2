@@ -9,7 +9,7 @@ use uniquify::Names;
 
 use crate::io::{Node, NodePath};
 
-use super::{BlackboxElement, CellId, InstanceId, RawCell};
+use super::{BlackboxElement, CellId, InstanceId, RawCell, RawInstance};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -29,6 +29,7 @@ pub struct RawLib {
 pub struct ScirLibConversion {
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
+    pub(crate) top: scir::CellId,
 }
 
 impl ScirLibConversion {
@@ -41,13 +42,18 @@ impl ScirLibConversion {
         let mut cell = self.cells.get(&path.top)?;
         assert!(cell.top);
 
-        let top = cell.id;
-
         let mut instances = Vec::new();
         for inst in &path.path {
-            let (id, next_cell) = cell.instances.get(inst).unwrap();
-            instances.push(*id);
-            cell = self.cells.get(next_cell)?;
+            let conv = cell.instances.get(inst).unwrap();
+            match conv.instance.as_ref() {
+                Opacity::Opaque(id) => {
+                    instances.push(*id);
+                    cell = self.cells.get(&conv.child)?;
+                }
+                Opacity::Clear(conv) => {
+                    cell = conv;
+                }
+            }
         }
 
         let (signal, index) = *cell.signals.get(&path.node)?;
@@ -56,28 +62,51 @@ impl ScirLibConversion {
             signal,
             index,
             instances,
-            top,
+            top: self.top,
         })
     }
 
+    #[inline]
     pub(crate) fn add_cell(&mut self, id: CellId, conv: ScirCellConversion) {
         self.cells.insert(id, conv);
     }
 
+    #[inline]
     pub(crate) fn set_top(&mut self, id: CellId) {
         self.cells.get_mut(&id).unwrap().top = true;
     }
 }
 
-#[derive(Debug, Clone)]
+/// A single-node slice.
+type SliceOne = (scir::SignalId, Option<usize>);
+
+/// A converted SCIR instance.
+type ConvertedScirInstance = Opacity<scir::InstanceId, ScirCellConversion>;
+
+/// Data used to map between a Substrate cell and a SCIR cell.
+///
+/// Flattened cells do not have a conversion.
+#[derive(Default, Debug, Clone)]
 pub(crate) struct ScirCellConversion {
+    /// Whether or not this cell is the top cell.
     pub(crate) top: bool,
-    /// SCIR cell name.
-    pub(crate) id: scir::CellId,
+    // /// SCIR cell name.
+    // pub(crate) id: scir::CellId,
     /// Map Substrate nodes to SCIR signal IDs and indices.
-    pub(crate) signals: HashMap<Node, (scir::SignalId, Option<usize>)>,
+    pub(crate) signals: HashMap<Node, SliceOne>,
     /// Map Substrate instance IDs to SCIR instances and their underlying Substrate cell.
-    pub(crate) instances: HashMap<InstanceId, (scir::InstanceId, CellId)>,
+    pub(crate) instances: HashMap<InstanceId, ScirInstanceConversion>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ScirInstanceConversion {
+    /// The Substrate cell ID of the child cell.
+    child: CellId,
+    /// The SCIR instance.
+    ///
+    /// If the instance is not inlined/flattened, this will be an opaque instance ID.
+    /// If the instance is inlined, this will be a [`ScirCellConversion`].
+    instance: ConvertedScirInstance,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -124,6 +153,46 @@ impl ScirExportData {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+enum FlatExport<'a> {
+    Yes(&'a RawInstance),
+    #[default]
+    No,
+}
+
+impl<'a> FlatExport<'a> {
+    #[inline]
+    pub fn is_yes(&self) -> bool {
+        matches!(self, FlatExport::Yes(_))
+    }
+
+    #[inline]
+    pub fn is_no(&self) -> bool {
+        !self.is_yes()
+    }
+}
+
+struct ScirExportContext {
+    signals: HashMap<Node, SliceOne>,
+    instances: HashMap<InstanceId, ScirInstanceConversion>,
+    cell: scir::Cell,
+}
+
+impl ScirExportContext {
+    #[inline]
+    pub fn new(cell: scir::Cell) -> Self {
+        Self {
+            signals: Default::default(),
+            instances: Default::default(),
+            cell,
+        }
+    }
+
+    fn whitebox_contents_mut(&mut self) -> &mut CellInner {
+        self.cell.contents_mut().as_mut().unwrap_clear()
+    }
+}
+
 impl RawCell {
     /// Export this cell and all subcells as a SCIR library.
     ///
@@ -141,21 +210,66 @@ impl RawCell {
     }
 
     fn to_scir_cell(&self, data: &mut ScirExportData) -> ScirCellId {
+        assert!(!self.flatten);
         // Create the SCIR cell as a whitebox for now.
         // If this Substrate cell is actually a blackbox,
         // the contents of this SCIR cell will be made into a blackbox
         // by calling `cell.set_contents`.
         let name = data.cell_names.assign_name(self.id, &self.name);
-        let mut cell = Cell::new_whitebox(name);
-        let mut signals = HashMap::new();
-        let mut instances = HashMap::new();
+        let cell = Cell::new_whitebox(name);
+        let mut ctx = ScirExportContext::new(cell);
+
+        self.to_scir_cell_inner(data, &mut ctx, FlatExport::No);
+
+        let ScirExportContext {
+            signals,
+            instances,
+            cell,
+            ..
+        } = ctx;
+
+        let id = data.lib.add_cell(cell);
+        data.id_mapping.insert(self.id, id);
+        data.conv.add_cell(
+            self.id,
+            ScirCellConversion {
+                top: false,
+                signals,
+                instances,
+            },
+        );
+
+        id
+    }
+
+    fn to_scir_cell_inner(
+        &self,
+        data: &mut ScirExportData,
+        ctx: &mut ScirExportContext,
+        flatten: FlatExport,
+    ) -> ScirCellConversion {
+        // FIXME this function is wrong for nested flattened instances.
+
+        if flatten.is_yes() {
+            assert!(self.contents.is_clear());
+        }
+        let mut conv = ScirCellConversion::default();
 
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
 
+        if flatten.is_yes() {
+            // Flattened cells need to add all non-IO nodes to the enclosing cell.
+            for port in self.ports.iter() {
+                let root = self.roots[&port.node()];
+                roots_added.insert(root);
+                // TODO: nodes.insert(root, slice in enclosing cell)
+            }
+        }
+
         for (&src, &root) in self.roots.iter() {
             let s = if !roots_added.contains(&root) {
-                let s = cell.add_node(self.node_name(root));
+                let s = ctx.cell.add_node(self.node_name(root));
                 roots_added.insert(root);
                 nodes.insert(root, s);
                 s
@@ -163,15 +277,12 @@ impl RawCell {
                 nodes[&root]
             };
             nodes.insert(src, s);
-            signals.insert(src, (s.signal(), None));
+            conv.signals.insert(src, (s.signal(), None));
         }
 
-        for port in self.ports.iter() {
-            cell.expose_port(nodes[&port.node()]);
-        }
-
-        let contents = match self.contents.as_ref() {
+        match self.contents.as_ref() {
             Opacity::Opaque(contents) => {
+                assert!(flatten.is_no(), "cannot flat-export a blackbox cell");
                 let transformed = contents
                     .elems
                     .iter()
@@ -182,45 +293,63 @@ impl RawCell {
                         BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n]),
                     })
                     .collect();
-                Opacity::Opaque(transformed)
+                ctx.cell.set_contents(Opacity::Opaque(transformed));
             }
             Opacity::Clear(contents) => {
-                let mut inner = CellInner::new();
+                let contents_mut = ctx.cell.contents_mut().as_mut();
+                let clear = contents_mut.is_clear();
+                assert!(clear, "cannot flatten a cell into a blackbox parent cell");
                 for (i, instance) in contents.instances.iter().enumerate() {
-                    if !data.id_mapping.contains_key(&instance.child.id) {
-                        instance.child.to_scir_cell(data);
-                    }
-                    let child: ScirCellId = *data.id_mapping.get(&instance.child.id).unwrap();
+                    if instance.child.flatten {
+                        instance
+                            .child
+                            .to_scir_cell_inner(data, ctx, FlatExport::Yes(instance));
+                    } else {
+                        if !data.id_mapping.contains_key(&instance.child.id) {
+                            instance.child.to_scir_cell(data);
+                        }
+                        let child: ScirCellId = *data.id_mapping.get(&instance.child.id).unwrap();
 
-                    let mut sinst = Instance::new(arcstr::format!("xinst{i}"), child);
-                    assert_eq!(instance.child.ports.len(), instance.connections.len());
-                    for (port, &conn) in instance.child.ports.iter().zip(&instance.connections) {
-                        let scir_port_name = instance.child.node_name(port.node());
-                        sinst.connect(scir_port_name, nodes[&conn]);
+                        let mut sinst = Instance::new(arcstr::format!("xinst{i}"), child);
+                        assert_eq!(instance.child.ports.len(), instance.connections.len());
+                        for (port, &conn) in instance.child.ports.iter().zip(&instance.connections)
+                        {
+                            let scir_port_name = instance.child.node_name(port.node());
+                            sinst.connect(scir_port_name, nodes[&conn]);
+                        }
+                        let id = ctx.whitebox_contents_mut().add_instance(sinst);
+                        ctx.instances.insert(
+                            instance.id,
+                            ScirInstanceConversion {
+                                child: instance.child.id,
+                                instance: Opacity::Opaque(id),
+                            },
+                        );
                     }
-                    let id = inner.add_instance(sinst);
-                    instances.insert(instance.id, (id, instance.child.id));
                 }
-
                 for p in contents.primitives.iter() {
                     match p {
                         super::PrimitiveDevice::Res2 { pos, neg, value } => {
-                            inner.add_primitive(scir::PrimitiveDevice::Res2 {
-                                pos: nodes[pos],
-                                neg: nodes[neg],
-                                value: scir::Expr::NumericLiteral(*value),
-                            });
+                            ctx.whitebox_contents_mut().add_primitive(
+                                scir::PrimitiveDevice::Res2 {
+                                    pos: nodes[pos],
+                                    neg: nodes[neg],
+                                    value: scir::Expr::NumericLiteral(*value),
+                                },
+                            );
                         }
                         super::PrimitiveDevice::RawInstance {
                             ports,
                             cell,
                             params,
                         } => {
-                            inner.add_primitive(scir::PrimitiveDevice::RawInstance {
-                                ports: ports.iter().map(|p| nodes[p]).collect(),
-                                cell: cell.clone(),
-                                params: params.clone(),
-                            });
+                            ctx.whitebox_contents_mut().add_primitive(
+                                scir::PrimitiveDevice::RawInstance {
+                                    ports: ports.iter().map(|p| nodes[p]).collect(),
+                                    cell: cell.clone(),
+                                    params: params.clone(),
+                                },
+                            );
                         }
                         super::PrimitiveDevice::ScirInstance {
                             lib,
@@ -236,29 +365,20 @@ impl RawCell {
                                 let concat: scir::Concat = elems.iter().map(|n| nodes[n]).collect();
                                 inst.connect(port, concat);
                             }
-                            inner.add_instance(inst);
+                            ctx.whitebox_contents_mut().add_instance(inst);
                         }
                     };
                 }
-                Opacity::Clear(inner)
             }
-        };
+        }
 
-        cell.set_contents(contents);
+        if flatten.is_no() {
+            for port in self.ports.iter() {
+                ctx.cell.expose_port(nodes[&port.node()]);
+            }
+        }
 
-        let id = data.lib.add_cell(cell);
-        data.id_mapping.insert(self.id, id);
-        data.conv.add_cell(
-            self.id,
-            ScirCellConversion {
-                top: false,
-                id,
-                signals,
-                instances,
-            },
-        );
-
-        id
+        conv
     }
 
     /// The name associated with the given node.
