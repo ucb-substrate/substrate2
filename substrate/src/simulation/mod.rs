@@ -157,7 +157,7 @@ pub trait Testbench<PDK: Pdk, S: Simulator>:
 
 /// A block that has a schematic compatible with the given PDK and simulator.
 ///
-/// Unlike [`HasSchematic`], this trait indicates that the schematic of this block
+/// Unlike [`HasSchematic`](crate::schematic::HasSchematic), this trait indicates that the schematic of this block
 /// is simulator-specific.
 pub trait HasSimSchematic<PDK: Pdk, S: Simulator>: Block + HasSchematicData {
     /// Generates the block's schematic.
