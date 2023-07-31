@@ -94,13 +94,13 @@ impl ApplyFilter<Illustrator> for StarryNight {
 struct RetroStarryNight;
 
 // Use `impl_dispatch` to reuse similar code between two "media".
-#[impl_dispatch({[Painting, Illustrator]})]
+#[impl_dispatch({Painting; Illustrator})]
 impl<M> ApplyFilter<M> for RetroStarryNight {
     fn apply(medium: &mut M) {
         StarryNight::apply(medium);
         Fisheye::apply(medium);
         for _ in 0..dispatch_const!(
-            M {
+            match M {
                 Painting => 2: u64,
                 Illustrator => 3: usize,
             }

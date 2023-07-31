@@ -2346,6 +2346,7 @@ dependencies = [
  "thiserror",
  "toml 0.7.6",
  "tracing",
+ "type_dispatch",
  "uniquify",
 ]
 
@@ -2799,6 +2800,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.23",
+ "type_dispatch",
 ]
 
 [[package]]

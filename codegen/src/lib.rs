@@ -16,7 +16,6 @@ use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,
 };
-use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
@@ -35,19 +34,6 @@ macro_rules! handle_error {
             }
         }
     };
-}
-
-/// Enumerates PDKs supported by a certain layout implementation of a block.
-///
-/// Automatically implements the appropriate trait for all specified PDKs given a process-portable
-/// implementation in a single PDK.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "inverter_multiprocess", "buffer_multiprocess")]
-#[proc_macro_attribute]
-pub fn supported_pdks(args: TokenStream, input: TokenStream) -> TokenStream {
-    supported_pdks_impl(args, input)
 }
 
 /// Derives a corner implementation on a struct.

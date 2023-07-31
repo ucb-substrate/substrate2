@@ -1,110 +1,122 @@
 use itertools::Itertools;
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
+use proc_macro2::Ident;
 use quote::quote;
 use syn::{
-    braced, bracketed,
+    braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    token, Error, GenericParam, ItemImpl, Result, Token, Type,
+    token, GenericParam, ItemImpl, Result, Token, Type,
 };
 
 use crate::type_dispatch_ident;
 
-struct ListElement {
-    types: Vec<Type>,
+#[derive(Debug, Clone)]
+struct Product {
+    elements: Vec<ProductElement>,
 }
 
-impl Parse for ListElement {
+impl Parse for Product {
     fn parse(input: ParseStream) -> Result<Self> {
-        let content;
-        bracketed!(content in input);
         Ok(Self {
-            types: Punctuated::<Type, token::Comma>::parse_terminated(&content)?
+            elements: Punctuated::<ProductElement, token::Comma>::parse_separated_nonempty(input)?
                 .into_iter()
                 .collect(),
         })
     }
 }
 
-enum ImplDispatchElement {
-    Type(Type),
-    List(ListElement),
+impl Product {
+    fn into_dispatches(self) -> Vec<Vec<Type>> {
+        let mut product: Vec<Vec<Vec<Type>>> = Vec::new();
+        for element in self.elements {
+            match element {
+                ProductElement::Set(s) => {
+                    product.push(s.into_dispatches());
+                }
+                ProductElement::Type(t) => {
+                    product.push(vec![vec![t]]);
+                }
+            }
+        }
+        product
+            .into_iter()
+            .multi_cartesian_product()
+            .map(|vecvec| vecvec.into_iter().flatten().collect::<Vec<_>>())
+            .collect()
+    }
 }
 
-impl Parse for ImplDispatchElement {
+#[derive(Debug, Clone)]
+enum ProductElement {
+    Type(Type),
+    Set(Set),
+}
+
+impl Parse for ProductElement {
     fn parse(input: ParseStream) -> Result<Self> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(token::Bracket) {
-            input.parse().map(Self::List)
+        if lookahead.peek(token::Brace) {
+            input.parse().map(Self::Set)
         } else {
             input.parse().map(Self::Type)
         }
     }
 }
 
-struct ImplDispatches {
-    dispatches: Vec<Vec<Type>>,
+#[derive(Debug, Clone)]
+struct Set {
+    elements: Vec<SetElement>,
 }
 
-impl Parse for ImplDispatches {
+impl Parse for Set {
     fn parse(input: ParseStream) -> Result<Self> {
         let content;
         braced!(content in input);
-        let elements = Punctuated::<ImplDispatchElement, token::Comma>::parse_terminated(&content)?;
-
-        let mut dispatches: Vec<Vec<Type>> = Vec::new();
-        for element in elements {
-            match element {
-                ImplDispatchElement::Type(t) => {
-                    dispatches.push(vec![t]);
-                }
-                ImplDispatchElement::List(l) => {
-                    dispatches.push(l.types);
-                }
-            }
-        }
-
         Ok(Self {
-            dispatches: dispatches.into_iter().multi_cartesian_product().collect(),
-        })
-    }
-}
-
-struct ImplDispatchesSet {
-    dispatches: Vec<Vec<Type>>,
-}
-
-impl Parse for ImplDispatchesSet {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let elements = Punctuated::<ImplDispatches, Token![;]>::parse_terminated(input)?;
-
-        Ok(Self {
-            dispatches: elements
+            elements: Punctuated::<SetElement, Token![;]>::parse_separated_nonempty(&content)?
                 .into_iter()
-                .map(|dispatches| dispatches.dispatches)
-                .flatten()
                 .collect(),
         })
     }
 }
 
-pub(crate) struct ImplDispatchesSetBracketed {
-    dispatches: Vec<Vec<Type>>,
-}
-
-impl Parse for ImplDispatchesSetBracketed {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let content;
-        bracketed!(content in input);
-        let dispatches: ImplDispatchesSet = content.parse()?;
-        Ok(Self {
-            dispatches: dispatches.dispatches,
-        })
+impl Set {
+    fn into_dispatches(self) -> Vec<Vec<Type>> {
+        let mut dispatches: Vec<Vec<Type>> = Vec::new();
+        for element in self.elements {
+            match element {
+                SetElement::Set(s) => {
+                    dispatches.extend(s.into_dispatches());
+                }
+                SetElement::Product(p) => {
+                    dispatches.extend(p.into_dispatches());
+                }
+            }
+        }
+        dispatches
     }
 }
 
+#[derive(Debug, Clone)]
+enum SetElement {
+    Product(Product),
+    Set(Set),
+}
+
+impl Parse for SetElement {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(token::Brace) {
+            input.parse().map(Self::Set)
+        } else {
+            input.parse().map(Self::Product)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ImplGenericIdents {
     generics: Vec<Ident>,
 }
@@ -130,7 +142,8 @@ impl Parse for ImplGenericIdents {
 
 pub(crate) fn impl_dispatch_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     let type_dispatch = type_dispatch_ident();
-    let dispatches = parse_macro_input!(args as ImplDispatchesSet).dispatches;
+    let set = parse_macro_input!(args as Product);
+    let dispatches = set.into_dispatches();
     let input2 = input.clone();
     let mut idents = parse_macro_input!(input as ImplGenericIdents).generics;
 
