@@ -79,9 +79,9 @@ impl HasSchematic for VdividerArray {
 #[derive(SchematicData)]
 pub struct VdividerData {
     #[substrate(nested)]
-    r1: Instance<Resistor>,
+    pub r1: Instance<Resistor>,
     #[substrate(nested)]
-    r2: Instance<Resistor>,
+    pub r2: Instance<Resistor>,
 }
 
 impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
