@@ -9,7 +9,7 @@ use substrate::io::{
 };
 use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutImpl, Instance};
 use substrate::pdk::{Pdk, PdkLayers};
-use substrate::supported_pdks;
+use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     Block, Corner, DerivedLayerFamily, DerivedLayers, HasSchematicImpl, Io, LayerFamily, Layers,
     LayoutData, LayoutType,
@@ -449,12 +449,12 @@ impl HasLayoutImpl<ExamplePdk> for Buffer {
 // end-code-snippet buffer_layout
 
 // begin-code-snippet buffer_multiprocess
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasLayoutImpl<T> for Buffer {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasLayoutImpl<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<T, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);

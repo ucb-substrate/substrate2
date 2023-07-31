@@ -62,4 +62,3 @@ impl HasSchematicImpl<Pdk> for Inverter {
     }
 }
 // end-code-snippet inverter-schematic
-
