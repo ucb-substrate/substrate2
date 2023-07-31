@@ -9,7 +9,6 @@ use substrate::{
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
     schematic::{conv::RawLib, HasSchematic, HasSchematicData},
-    supported_pdks,
 };
 
 use crate::shared::{
