@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::align::AlignRectMut;
 use crate::bbox::Bbox;
 use crate::point::Point;
 use crate::rect::Rect;
@@ -14,7 +13,7 @@ use crate::transform::{TransformMut, Transformation, TranslateMut};
 
 pub struct Polygon {
     ///vector of points
-    vertices: Vec<Point>,
+    points: Vec<Point>,
 }
 impl Polygon {
     /// Creates a polygon with given vertices.
@@ -32,23 +31,27 @@ impl Polygon {
     /// assert_eq!(polygon.stuff, stuff);
     /// ```
     pub fn from_verts(vec: Vec<Point>) -> Self {
-        Self{vertices: vec}
+        Self{points: vec}
     }
 
     pub fn bot(&self) -> i64 {
-        self.vertices.iter().map(|point|point.y).min().unwrap() 
+        self.points.iter().map(|point|point.y).min().unwrap() 
     }
 
     pub fn top(&self) -> i64 {
-        self.vertices.iter().map(|point|point.y).max().unwrap() 
+        self.points.iter().map(|point|point.y).max().unwrap() 
     }
 
     pub fn left(&self) -> i64 {
-        self.vertices.iter().map(|point|point.x).min().unwrap() 
+        self.points.iter().map(|point|point.x).min().unwrap() 
     }
 
     pub fn right(&self) -> i64 {
-        self.vertices.iter().map(|point|point.x).max().unwrap() 
+        self.points.iter().map(|point|point.x).max().unwrap() 
+    }
+
+    pub fn points(&self) -> &Vec<Point> {
+        &self.points
     }
 }
 
@@ -64,12 +67,12 @@ impl Bbox for Polygon {
 
 impl TranslateMut for Polygon {
     fn translate_mut(&mut self, p: Point) {
-        self.vertices.translate_mut(p);
+        self.points.translate_mut(p);
     }
 }
 
 impl TransformMut for Polygon {
     fn transform_mut(&mut self,trans:Transformation) {
-        self.vertices.transform_mut(trans);
+        self.points.transform_mut(trans);
     }
 }

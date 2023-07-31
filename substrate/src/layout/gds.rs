@@ -7,6 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use gds::HasLayer;
+use geometry::prelude::Polygon;
 use geometry::transform::Transformation;
 use geometry::{
     prelude::{Corner, Orientation, Point},
@@ -161,6 +162,7 @@ impl PlaceLabels for geometry::shape::Shape {
     fn label_loc(&self) -> Point {
         match self {
             geometry::shape::Shape::Rect(ref r) => r.label_loc(),
+            geometry::shape::Shape::Polygon(ref p) => p.label_loc(),
         }
     }
 }
@@ -246,7 +248,14 @@ impl ExportGds for Shape {
                     datatype: layer.xtype,
                     xy: r.export(exporter)?,
                     ..Default::default()
+                },
+                geometry::shape::Shape::Polygon(p) => gds::GdsBoundary {
+                    layer: layer.layer,
+                    datatype: layer.xtype,
+                    xy: p.export(exporter)?,
+                    ..Default::default()
                 }
+
                 .into(),
             })
         } else {
@@ -291,6 +300,20 @@ impl ExportGds for Rect {
         Ok(vec![bl.clone(), br, ur, ul, bl])
     }
 }
+
+impl ExportGds for Polygon {
+    type Output = Vec<gds::GdsPoint>;
+
+    fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
+        let span = span!(Level::INFO, "polygon", polygon = ?self);
+        let _guard = span.enter();
+
+        let mut points = self.points().iter().map(|p| p.export(exporter)).collect();
+        points.push(self.points()[0].export(exporter));
+        Ok(points)
+    }
+}
+
 
 impl ExportGds for Orientation {
     type Output = gds::GdsStrans;
@@ -625,9 +648,7 @@ impl<'a> GdsImporter<'a> {
             geometry::shape::Shape::Rect(Rect::new(pts[0], pts[2]))
         } else {
             // Otherwise, it's a polygon
-            return Err(GdsImportError::Unsupported(arcstr::literal!(
-                "polygons not yet supported"
-            )));
+            geometry::shape::Shape::Polygon(Polygon { points: pts })
         };
 
         // Grab (or create) its [Layer]
