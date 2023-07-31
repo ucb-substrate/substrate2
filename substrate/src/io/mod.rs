@@ -232,7 +232,7 @@ pub struct NestedNode {
 }
 
 /// A path from a top level cell to a nested node.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodePath {
     pub(crate) node: Node,
     pub(crate) path: Vec<InstanceId>,
