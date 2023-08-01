@@ -52,7 +52,6 @@ impl Vsource {
 
 impl Block for Vsource {
     type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
@@ -121,7 +120,6 @@ pub struct Iprobe;
 
 impl Block for Iprobe {
     type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("iprobe")

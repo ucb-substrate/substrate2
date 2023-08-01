@@ -117,7 +117,7 @@ impl HasSaveKey for TranVoltage {
     type SaveKey = TranVoltageSaveKey;
 }
 
-#[impl_dispatch({&str; ArcStr; String; netlist::Save})]
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         _ctx: &SimulationContext,
@@ -198,7 +198,7 @@ impl HasSaveKey for TranCurrent {
     type SaveKey = TranCurrentSaveKey;
 }
 
-#[impl_dispatch({&str; ArcStr; String; netlist::Save})]
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
         _ctx: &SimulationContext,
@@ -215,7 +215,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        Self::save(ctx, &*node_current_path(&ctx.lib, to_save), opts)
+        Self::save(ctx, &node_current_path(&ctx.lib, to_save), opts)
     }
 }
 
@@ -279,7 +279,7 @@ impl HasSaveKey for TranIprobe {
     type SaveKey = TranIprobeSaveKey;
 }
 
-#[impl_dispatch({&str; ArcStr; String; netlist::Save})]
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
 impl<T> Save<Spectre, Tran, T> for TranIprobe {
     fn save(
         _ctx: &SimulationContext,
@@ -296,7 +296,11 @@ impl Save<Spectre, Tran, &scir::InstancePath> for TranIprobe {
         to_save: &scir::InstancePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        Self::save(ctx, &*instance_path(&ctx.lib, to_save), opts)
+        Self::save(
+            ctx,
+            &format!("{}.I0", instance_path(&ctx.lib, to_save)),
+            opts,
+        )
     }
 }
 
