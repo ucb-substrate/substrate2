@@ -57,7 +57,7 @@ pub struct BufferHardMacro;
 pub struct BufferInlineHardMacro;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
-#[substrate(io = "crate::shared::vdivider::VdividerIo", flatten)]
+#[substrate(io = "crate::shared::vdivider::VdividerFlatIo", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
     name = "vdivider",

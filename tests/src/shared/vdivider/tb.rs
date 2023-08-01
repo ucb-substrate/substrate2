@@ -66,8 +66,8 @@ impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VdividerDuplicateSubcktTb
         let out = cell.signal("out", Signal);
         let dut = cell.instantiate(VdividerDuplicateSubckt);
 
-        cell.connect(dut.io().pwr.vdd, vdd);
-        cell.connect(dut.io().pwr.vss, io.vss);
+        cell.connect(dut.io().vdd, vdd);
+        cell.connect(dut.io().vss, io.vss);
         cell.connect(dut.io().out, out);
 
         let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
@@ -95,7 +95,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for VdividerDuplicateSubcktTb {
             .expect("failed to run simulation");
 
         VdividerTbData {
-            vdd: output.get_data(&cell.data().io().pwr.vdd).unwrap().clone(),
+            vdd: output.get_data(&cell.data().io().vdd).unwrap().clone(),
             out: output.get_data(&cell.data().io().out).unwrap().clone(),
         }
     }
