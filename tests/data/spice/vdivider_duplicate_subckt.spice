@@ -3,7 +3,7 @@
 .include res_100.spice
 .include res_200.spice
 
-.subckt vdivider pwr_vdd pwr_vss out
-Rtop pwr_vdd out 600
-Xbot out pwr_vss resistor
+.subckt vdivider vdd vss out
+Rtop vdd out 600
+Xbot out vss resistor
 .ends
