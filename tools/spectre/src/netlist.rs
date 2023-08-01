@@ -39,6 +39,19 @@ impl Include {
     }
 }
 
+/// A Spectre save statement.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct Save {
+    path: ArcStr,
+}
+
+impl Save {
+    /// Creates a new [`Save`].
+    pub fn new(path: impl Into<ArcStr>) -> Self {
+        Self { path: path.into() }
+    }
+}
+
 /// A Spectre netlister.
 ///
 /// The netlister can write to any type that implements [`Write`].
@@ -46,13 +59,24 @@ impl Include {
 pub struct Netlister<'a, W: Write> {
     lib: &'a Library,
     includes: &'a [Include],
+    saves: &'a [Save],
     out: &'a mut W,
 }
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new Spectre netlister writing to the given output stream.
-    pub fn new(lib: &'a Library, includes: &'a [Include], out: &'a mut W) -> Self {
-        Self { lib, includes, out }
+    pub fn new(
+        lib: &'a Library,
+        includes: &'a [Include],
+        saves: &'a [Save],
+        out: &'a mut W,
+    ) -> Self {
+        Self {
+            lib,
+            includes,
+            saves,
+            out,
+        }
     }
 
     /// Exports this netlister's library to its output stream.
@@ -78,6 +102,11 @@ impl<'a, W: Write> Netlister<'a, W> {
             } else {
                 writeln!(self.out, "include {:?}", include.path)?;
             }
+        }
+        writeln!(self.out)?;
+
+        for save in self.saves {
+            writeln!(self.out, "save {}", save.path)?;
         }
         writeln!(self.out)?;
 

@@ -2,14 +2,16 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::Vsource;
-use spectre::{Options, Spectre, Tran};
+use spectre::{Options, SaveKey, Spectre, Tran, TranOutput, TranVoltage};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, Instance};
-use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
+use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
+use substrate::simulation::{
+    Analysis, HasTestbenchSchematicImpl, SimulationContext, Simulator, Testbench,
+};
 use substrate::Block;
 
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
@@ -52,6 +54,44 @@ pub struct VdividerTbData {
     pub out: Vec<f64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VdividerTbTranOutput {
+    pub vdd: TranVoltage,
+    pub out: TranVoltage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VdividerTbTranOutputSaveKey {
+    pub vdd: SaveKey,
+    pub out: SaveKey,
+}
+
+impl HasSaveKey for VdividerTbTranOutput {
+    type SaveKey = VdividerTbTranOutputSaveKey;
+}
+
+impl FromSaved<Spectre, Tran> for VdividerTbTranOutput {
+    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        Self {
+            vdd: TranVoltage::from_saved(output, key.vdd),
+            out: TranVoltage::from_saved(output, key.out),
+        }
+    }
+}
+
+impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
+    fn save(
+        ctx: &SimulationContext,
+        cell: &Cell<VdividerTb>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::SaveKey {
+            vdd: TranVoltage::save(ctx, cell.data().io().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.data().io().out, opts),
+        }
+    }
+}
+
 impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
     type Output = VdividerTbData;
     fn run(
@@ -59,8 +99,9 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
         cell: &Cell<VdividerTb>,
         sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
-        let output = sim
+        let VdividerTbTranOutput { vdd, out } = sim
             .simulate_without_corner(
+                cell,
                 Options::default(),
                 Tran {
                     stop: dec!(1e-9),
@@ -70,8 +111,8 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
             .expect("failed to run simulation");
 
         VdividerTbData {
-            vdd: output.get_data(&cell.data().io().pwr.vdd).unwrap().clone(),
-            out: output.get_data(&cell.data().io().out).unwrap().clone(),
+            vdd: vdd.into_inner(),
+            out: out.into_inner(),
         }
     }
 }
@@ -161,8 +202,9 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
         cell: &Cell<VdividerArrayTb>,
         sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
-        let output = sim
+        let output: TranOutput = sim
             .simulate_without_corner(
+                cell,
                 Options::default(),
                 Tran {
                     stop: dec!(1e-9),
@@ -218,8 +260,9 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
         cell: &Cell<FlattenedVdividerArrayTb>,
         sim: substrate::simulation::SimController<PDK, Spectre>,
     ) -> Self::Output {
-        let output = sim
+        let output: TranOutput = sim
             .simulate_without_corner(
+                cell,
                 Options::default(),
                 Tran {
                     stop: dec!(1e-9),

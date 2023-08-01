@@ -15,6 +15,7 @@ use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
+use crate::simulation::data::Save;
 use crate::simulator_tuples;
 
 pub mod data;
@@ -136,12 +137,19 @@ impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
     ///
     /// If any PDK primitives are being used by the device under test,
     /// [`SimController::simulate`] should be used instead.
-    pub fn simulate_without_corner<A: Analysis + SupportedBy<S>>(
+    pub fn simulate_without_corner<
+        T: Testbench<PDK, S>,
+        A: Analysis + SupportedBy<S>,
+        O: for<'a> Save<S, A, &'a Cell<T>>,
+    >(
         &self,
-        options: S::Options,
+        cell: &Cell<T>,
+        mut options: S::Options,
         input: A,
-    ) -> Result<A::Output, S::Error> {
-        self.simulator.simulate(&self.ctx, options, input)
+    ) -> Result<O, S::Error> {
+        let key = O::save(&self.ctx, cell, &mut options);
+        let mut output = self.simulator.simulate(&self.ctx, options, input)?;
+        Ok(O::from_saved(&mut output, key))
     }
 }
 

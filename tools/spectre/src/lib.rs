@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::io::Write;
+use std::ops::Deref;
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
@@ -18,9 +19,9 @@ use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::io::NodePath;
+use substrate::io::{NestedNode, NodePath};
 use substrate::schematic::conv::RawLib;
-use substrate::simulation::data::HasNodeData;
+use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use templates::{write_run_script, RunScriptContext};
 
@@ -72,12 +73,126 @@ impl Display for ErrPreset {
 pub struct TranOutput {
     lib: Arc<RawLib>,
     /// A map from signal name to values.
-    pub values: HashMap<String, Vec<f64>>,
+    pub raw_values: HashMap<String, Vec<f64>>,
+    /// A map from save key to voltage values.
+    saved_voltages: HashMap<SaveKey, Vec<f64>>,
+}
+
+impl HasSaveKey for TranOutput {
+    type SaveKey = ();
+}
+
+impl<T> Save<Spectre, Tran, T> for TranOutput {
+    fn save(
+        _ctx: &SimulationContext,
+        _to_save: T,
+        _opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+    }
+}
+
+impl FromSaved<Spectre, Tran> for TranOutput {
+    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        Self {
+            lib: output.lib.clone(),
+            raw_values: output.raw_values.drain().collect(),
+            saved_voltages: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SaveKey(pub u64);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranVoltage(Vec<f64>);
+
+impl TranVoltage {
+    pub fn into_inner(self) -> Vec<f64> {
+        self.0
+    }
+}
+
+impl HasSaveKey for TranVoltage {
+    type SaveKey = SaveKey;
+}
+
+impl Save<Spectre, Tran, &str> for TranVoltage {
+    fn save(
+        _ctx: &SimulationContext,
+        to_save: &str,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        let save_key = SaveKey(opts.next_save_key);
+        opts.next_save_key += 1;
+        opts.saves.insert(netlist::Save::new(to_save), save_key);
+        save_key
+    }
+}
+
+impl Save<Spectre, Tran, scir::NodePath> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: scir::NodePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(
+            ctx,
+            &*node_path(&ctx.lib, &ctx.lib.scir.simplify_path(to_save)),
+            opts,
+        )
+    }
+}
+
+impl Save<Spectre, Tran, &NodePath> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &NodePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, ctx.lib.conv.convert_path(to_save).unwrap(), opts)
+    }
+}
+
+impl Save<Spectre, Tran, NodePath> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: NodePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &to_save, opts)
+    }
+}
+
+impl Save<Spectre, Tran, &NestedNode> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &NestedNode,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, to_save.path(), opts)
+    }
+}
+
+impl Save<Spectre, Tran, NestedNode> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: NestedNode,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &to_save, opts)
+    }
+}
+
+impl FromSaved<Spectre, Tran> for TranVoltage {
+    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        TranVoltage(output.saved_voltages.remove(&key).unwrap())
+    }
 }
 
 impl HasNodeData<str, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
-        self.values.get(k)
+        self.raw_values.get(k)
     }
 }
 
@@ -155,6 +270,8 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: HashSet<Include>,
+    saves: HashMap<netlist::Save, SaveKey>,
+    next_save_key: u64,
 }
 
 impl Options {
@@ -279,12 +396,14 @@ impl Spectre {
         let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
         // the order of includes may change even if the contents of the set did not change.
         includes.sort();
+        saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
         netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
@@ -326,10 +445,20 @@ impl Spectre {
 
         let outputs = raw_outputs
             .into_iter()
-            .map(|values| {
+            .map(|raw_values| {
+                let saved_voltages = raw_values
+                    .iter()
+                    .filter_map(|(name, voltage)| {
+                        options
+                            .saves
+                            .get(&netlist::Save::new(name))
+                            .map(|key| (*key, voltage.clone()))
+                    })
+                    .collect::<HashMap<_, _>>();
                 TranOutput {
                     lib: ctx.lib.clone(),
-                    values,
+                    raw_values,
+                    saved_voltages,
                 }
                 .into()
             })
