@@ -63,18 +63,14 @@ impl<'a> ScirConverter<'a> {
     /// Consumes the converter, yielding a SCIR [library](scir::Library)].
     pub fn convert(mut self) -> ConvResult<scir::Library> {
         self.map_subckts();
-        for elem in self.ast.elems.iter() {
-            match elem {
-                Elem::Subckt(subckt) => {
-                    match self.convert_subckt(subckt) {
-                        // Export blackbox errors can be ignored; we just skip
-                        // exporting a SCIR cell for blackboxed subcircuits.
-                        Ok(_) | Err(ConvError::ExportBlackbox) => (),
-                        Err(e) => return Err(e),
-                    };
-                }
-                _ => continue,
-            }
+        let subckts = self.subckts.values().copied().collect::<Vec<_>>();
+        for subckt in subckts {
+            match self.convert_subckt(subckt) {
+                // Export blackbox errors can be ignored; we just skip
+                // exporting a SCIR cell for blackboxed subcircuits.
+                Ok(_) | Err(ConvError::ExportBlackbox) => (),
+                Err(e) => return Err(e),
+            };
         }
         Ok(self.lib)
     }
@@ -83,7 +79,9 @@ impl<'a> ScirConverter<'a> {
         for elem in self.ast.elems.iter() {
             match elem {
                 Elem::Subckt(s) => {
-                    self.subckts.insert(s.name.clone(), s);
+                    if self.subckts.insert(s.name.clone(), s).is_some() {
+                        tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
+                    }
                 }
                 _ => continue,
             }

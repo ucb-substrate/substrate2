@@ -1,6 +1,7 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::Vsource;
 use spectre::{Options, Spectre, Tran};
 use substrate::block::Block;
@@ -12,6 +13,7 @@ use substrate::simulation::data::HasNodeData;
 use substrate::simulation::{HasSimSchematic, Testbench};
 use substrate::Block;
 
+use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
@@ -43,6 +45,59 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerTb {
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
         Ok(dut)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+#[substrate(io = "TestbenchIo")]
+pub struct VdividerDuplicateSubcktTb;
+
+impl HasSchematicData for VdividerDuplicateSubcktTb {
+    type Data = Instance<VdividerDuplicateSubckt>;
+}
+
+impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VdividerDuplicateSubcktTb {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let vdd = cell.signal("vdd", Signal);
+        let out = cell.signal("out", Signal);
+        let dut = cell.instantiate(VdividerDuplicateSubckt);
+
+        cell.connect(dut.io().vdd, vdd);
+        cell.connect(dut.io().vss, io.vss);
+        cell.connect(dut.io().out, out);
+
+        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        cell.connect(vsource.io().p, vdd);
+        cell.connect(vsource.io().n, io.vss);
+        Ok(dut)
+    }
+}
+
+impl Testbench<Sky130CommercialPdk, Spectre> for VdividerDuplicateSubcktTb {
+    type Output = VdividerTbData;
+    fn run(
+        &self,
+        cell: &Cell<VdividerDuplicateSubcktTb>,
+        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
+    ) -> Self::Output {
+        let output = sim
+            .simulate_without_corner(
+                Options::default(),
+                Tran {
+                    stop: dec!(1e-9),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation");
+
+        VdividerTbData {
+            vdd: output.get_data(&cell.data().io().vdd).unwrap().clone(),
+            out: output.get_data(&cell.data().io().out).unwrap().clone(),
+        }
     }
 }
 

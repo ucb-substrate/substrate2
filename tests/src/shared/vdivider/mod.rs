@@ -30,6 +30,13 @@ pub struct VdividerIo {
     pub out: Output<Signal>,
 }
 
+#[derive(Debug, Default, Clone, Io)]
+pub struct VdividerFlatIo {
+    pub vdd: InOut<Signal>,
+    pub vss: InOut<Signal>,
+    pub out: Output<Signal>,
+}
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Resistor {
     pub value: Decimal,

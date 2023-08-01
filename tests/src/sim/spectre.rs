@@ -25,7 +25,7 @@ use crate::paths::test_data;
 use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
-use crate::shared::vdivider::tb::VdividerArrayTb;
+use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
 use crate::shared::vdivider::Resistor;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 
@@ -38,6 +38,20 @@ fn spectre_vdivider_tran() {
 
     println!("{:?}", output.vdd);
     println!("{:?}", output.out);
+}
+
+#[test]
+fn spectre_vdivider_duplicate_subckt() {
+    let test_name = "spectre_vdivider_duplicate_subckt";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+    let output = ctx.simulate(VdividerDuplicateSubcktTb, sim_dir);
+
+    // There are 2 subcircuits with the name `resistor`.
+    // The first has a value of 100; the second has a value of 200.
+    // We expect the second one to be used.
+    let expected = 1.8 * 200.0 / (200.0 + 600.0);
+    assert!(output.out.iter().all(|&val| relative_eq!(val, expected)));
 }
 
 #[test]

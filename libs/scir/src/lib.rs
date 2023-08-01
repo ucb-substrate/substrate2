@@ -444,10 +444,28 @@ impl Library {
     pub(crate) fn add_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
         let id = id.into();
         assert!(!self.cells.contains_key(&id));
-        self.cell_id = id.0;
+        self.cell_id = std::cmp::max(id.0, self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         self.order.push(id);
+    }
+
+    /// Adds the given cell to the library with the given cell ID,
+    /// overwriting an existing cell with the same ID.
+    ///
+    /// This can lead to unintended effects.
+    /// This method is intended for use only by Substrate libraries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is **not** already in use.
+    #[doc(hidden)]
+    pub fn overwrite_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
+        let id = id.into();
+        assert!(self.cells.contains_key(&id));
+        self.cell_id = std::cmp::max(id.0, self.cell_id);
+        self.name_map.insert(cell.name.clone(), id);
+        self.cells.insert(id, cell);
     }
 
     /// Sets the top cell to the given cell ID.
@@ -491,8 +509,15 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given ID.
+    /// For a non-panicking alternative, see [`try_cell`](Library::try_cell).
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
+    }
+
+    /// Gets the cell with the given ID.
+    #[inline]
+    pub fn try_cell(&self, id: CellId) -> Option<&Cell> {
+        self.cells.get(&id)
     }
 
     /// Gets the cell with the given name.
@@ -509,6 +534,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
+    /// For a non-panicking alternative, see [`try_cell_id_named`](Library::try_cell_id_named).
     pub fn cell_id_named(&self, name: &str) -> CellId {
         match self.name_map.get(name) {
             Some(&cell) => cell,
@@ -517,6 +543,11 @@ impl Library {
                 panic!("no cell named `{}` in SCIR library `{}`", name, self.name);
             }
         }
+    }
+
+    /// Gets the cell ID corresponding to the given name.
+    pub fn try_cell_id_named(&self, name: &str) -> Option<CellId> {
+        self.name_map.get(name).copied()
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.

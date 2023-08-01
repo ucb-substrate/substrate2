@@ -1,7 +1,7 @@
 use crate::shared::buffer::BufferIo;
 
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130OpenPdk;
+use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 
 use substrate::Block;
 use substrate::{HasLayout, HasSchematic};
@@ -56,15 +56,29 @@ pub struct BufferHardMacro;
 ))]
 pub struct BufferInlineHardMacro;
 
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+#[substrate(io = "crate::shared::vdivider::VdividerFlatIo", flatten)]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
+    name = "vdivider",
+    fmt = "spice",
+    pdk = "Sky130OpenPdk"
+))]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
+    name = "vdivider",
+    fmt = "spice",
+    pdk = "Sky130CommercialPdk"
+))]
+pub struct VdividerDuplicateSubckt;
+
 #[test]
 fn export_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
     let lib = ctx.export_scir(BufferHardMacro);
-    assert_eq!(lib.scir.cells().count(), 3);
-
-    println!("SCIR Library:\n{:?}", lib.scir);
+    println!("SCIR Library:\n{:#?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
     let includes = Vec::new();
@@ -72,6 +86,8 @@ fn export_hard_macro() {
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
+
+    assert_eq!(lib.scir.cells().count(), 4);
 }
 
 #[test]
