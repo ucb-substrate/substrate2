@@ -1,10 +1,10 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spectre::blocks::Vsource;
+use spectre::blocks::{Iprobe, Vsource};
 use spectre::{
-    Options, Spectre, Tran, TranCurrent, TranCurrentSaveKey, TranOutput, TranVoltage,
-    TranVoltageSaveKey,
+    Options, Spectre, Tran, TranCurrent, TranCurrentSaveKey, TranIprobe, TranIprobeSaveKey,
+    TranOutput, TranVoltage, TranVoltageSaveKey,
 };
 use substrate::block::Block;
 use substrate::io::Signal;
@@ -15,7 +15,7 @@ use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
 use substrate::simulation::{
     Analysis, HasTestbenchSchematicImpl, SimulationContext, Simulator, Testbench,
 };
-use substrate::Block;
+use substrate::{Block, SchematicData};
 
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
@@ -23,8 +23,16 @@ use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 #[substrate(io = "TestbenchIo")]
 pub struct VdividerTb;
 
+#[derive(SchematicData)]
+pub struct VdividerTbData {
+    #[substrate(nested)]
+    iprobe: Instance<Iprobe>,
+    #[substrate(nested)]
+    dut: Instance<Vdivider>,
+}
+
 impl HasSchematic for VdividerTb {
-    type Data = Instance<Vdivider>;
+    type Data = VdividerTbData;
 }
 
 impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
@@ -33,6 +41,7 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
+        let vdd_a = cell.signal("vdd_a", Signal);
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
         let dut = cell.instantiate(Vdivider {
@@ -44,21 +53,27 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
         cell.connect(dut.io().pwr.vss, io.vss);
         cell.connect(dut.io().out, out);
 
+        let iprobe = cell.instantiate_tb(Iprobe);
+        cell.connect(iprobe.io().p, vdd_a);
+        cell.connect(iprobe.io().n, vdd);
+
         let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
-        cell.connect(vsource.io().p, vdd);
+        cell.connect(vsource.io().p, vdd_a);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut)
+
+        Ok(VdividerTbData { iprobe, dut })
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VdividerTbData {
+pub struct VdividerTbOutput {
     pub tran: VdividerTbTranOutput,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VdividerTbTranOutput {
     pub current: TranCurrent,
+    pub iprobe: TranIprobe,
     pub vdd: TranVoltage,
     pub out: TranVoltage,
 }
@@ -66,6 +81,7 @@ pub struct VdividerTbTranOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VdividerTbTranOutputSaveKey {
     pub current: TranCurrentSaveKey,
+    pub iprobe: TranIprobeSaveKey,
     pub vdd: TranVoltageSaveKey,
     pub out: TranVoltageSaveKey,
 }
@@ -78,6 +94,7 @@ impl FromSaved<Spectre, Tran> for VdividerTbTranOutput {
     fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
         Self {
             current: TranCurrent::from_saved(output, key.current),
+            iprobe: TranIprobe::from_saved(output, key.iprobe),
             vdd: TranVoltage::from_saved(output, key.vdd),
             out: TranVoltage::from_saved(output, key.out),
         }
@@ -91,15 +108,16 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
         Self::SaveKey {
-            current: TranCurrent::save(ctx, cell.data().terminals().pwr.vdd, opts),
-            vdd: TranVoltage::save(ctx, cell.data().io().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.data().io().out, opts),
+            current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
+            iprobe: TranIprobe::save(ctx, cell.data().iprobe, opts),
+            vdd: TranVoltage::save(ctx, cell.data().dut.io().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.data().dut.io().out, opts),
         }
     }
 }
 
 impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
-    type Output = VdividerTbData;
+    type Output = VdividerTbOutput;
     fn run(
         &self,
         cell: &Cell<VdividerTb>,
@@ -116,7 +134,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
             )
             .expect("failed to run simulation");
 
-        VdividerTbData { tran }
+        VdividerTbOutput { tran }
     }
 }
 

@@ -1171,6 +1171,10 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
             cell: self.cell.clone(),
         }
     }
+
+    pub fn path(&self) -> &InstancePath {
+        &self.path
+    }
 }
 
 impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
@@ -1257,5 +1261,9 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
         self.cell().block
+    }
+
+    pub fn path(&self) -> &InstancePath {
+        &self.path
     }
 }

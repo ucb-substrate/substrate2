@@ -10,6 +10,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::blocks::Iprobe;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -21,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath};
 use substrate::schematic::conv::RawLib;
+use substrate::schematic::{InstancePath, NestedInstance, NestedInstanceView};
 use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -142,7 +144,7 @@ impl Save<Spectre, Tran, &NodePath> for TranVoltage {
         to_save: &NodePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        Self::save(ctx, ctx.lib.conv.convert_path(to_save).unwrap(), opts)
+        Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
     }
 }
 
@@ -223,7 +225,7 @@ impl Save<Spectre, Tran, &NodePath> for TranCurrent {
         to_save: &NodePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        Self::save(ctx, ctx.lib.conv.convert_path(to_save).unwrap(), opts)
+        Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
     }
 }
 
@@ -260,6 +262,106 @@ impl FromSaved<Spectre, Tran> for TranCurrent {
     }
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TranIprobeSaveKey(u64);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranIprobe(Arc<Vec<f64>>);
+
+impl Deref for TranIprobe {
+    type Target = Vec<f64>;
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl HasSaveKey for TranIprobe {
+    type SaveKey = TranIprobeSaveKey;
+}
+
+#[impl_dispatch({&str; ArcStr; String; netlist::Save})]
+impl<T> Save<Spectre, Tran, T> for TranIprobe {
+    fn save(
+        _ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        TranIprobeSaveKey(opts.save_tran_current(to_save).0)
+    }
+}
+
+impl Save<Spectre, Tran, &scir::InstancePath> for TranIprobe {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &scir::InstancePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &*instance_path(&ctx.lib, to_save), opts)
+    }
+}
+
+impl Save<Spectre, Tran, &InstancePath> for TranIprobe {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &InstancePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(
+            ctx,
+            &ctx.lib.conv.convert_instance_path(to_save).unwrap(),
+            opts,
+        )
+    }
+}
+
+#[impl_dispatch({&'a NestedInstance<Iprobe>; &'a NestedInstanceView<'a, Iprobe>})]
+impl<'a, T> Save<Spectre, Tran, T> for TranIprobe {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, to_save.path(), opts)
+    }
+}
+
+#[impl_dispatch({
+    scir::InstancePath;
+    InstancePath;
+    NestedInstance<Iprobe>
+})]
+impl<T> Save<Spectre, Tran, T> for TranIprobe {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &to_save, opts)
+    }
+}
+
+impl<'a> Save<Spectre, Tran, NestedInstanceView<'a, Iprobe>> for TranIprobe {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: NestedInstanceView<'a, Iprobe>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &to_save, opts)
+    }
+}
+
+impl FromSaved<Spectre, Tran> for TranIprobe {
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        TranIprobe(
+            output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        )
+    }
+}
+
 impl HasNodeData<str, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
         self.raw_values.get(k).map(|x| x.as_ref())
@@ -277,7 +379,7 @@ impl HasNodeData<scir::SignalPath, Vec<f64>> for TranOutput {
 
 impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&self.lib.conv.convert_path(k)?)
+        self.get_data(&self.lib.conv.convert_node_path(k)?)
     }
 }
 
@@ -573,9 +675,14 @@ impl Simulator for Spectre {
     }
 }
 
+pub(crate) fn instance_path(lib: &RawLib, path: &scir::InstancePath) -> String {
+    let named_path = lib.scir.convert_instance_path(path);
+    named_path.join(".")
+}
+
 pub(crate) fn node_voltage_path(lib: &RawLib, path: &scir::SignalPath) -> String {
-    let named_path = lib.scir.convert_path(path);
-    let mut path = named_path.instances;
+    let named_path = lib.scir.convert_signal_path(path);
+    let mut path = (*named_path.instances).clone();
     path.push(named_path.signal);
     let mut str_path = path.join(".");
     if let Some(index) = named_path.index {
@@ -585,7 +692,7 @@ pub(crate) fn node_voltage_path(lib: &RawLib, path: &scir::SignalPath) -> String
 }
 
 pub(crate) fn node_current_path(lib: &RawLib, path: &scir::SignalPath) -> String {
-    let named_path = &lib.scir.convert_path(path);
+    let named_path = &lib.scir.convert_signal_path(path);
     let mut str_path = named_path.instances.join(".");
     str_path.push(':');
     str_path.push_str(&named_path.signal);

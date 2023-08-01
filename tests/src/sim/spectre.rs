@@ -36,9 +36,18 @@ fn spectre_vdivider_tran() {
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerTb, sim_dir);
 
-    println!("{:?}", output.tran.current);
-    println!("{:?}", output.tran.vdd);
-    println!("{:?}", output.tran.out);
+    assert!(output
+        .tran
+        .current
+        .iter()
+        .all(|val| relative_eq!(val, 1.8 / 40.)));
+    assert!(output
+        .tran
+        .iprobe
+        .iter()
+        .all(|val| relative_eq!(val, 1.8 / 40.)));
+    assert!(output.tran.vdd.iter().all(|val| relative_eq!(val, 1.8)));
+    assert!(output.tran.out.iter().all(|val| relative_eq!(val, 0.9)));
 }
 
 #[test]

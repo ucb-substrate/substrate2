@@ -3,7 +3,7 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::VsourceIo;
+use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{BlackboxContents, HasSchematic};
 use substrate::simulation::HasTestbenchSchematicImpl;
@@ -30,8 +30,6 @@ pub struct Pulse {
 }
 
 /// A voltage source.
-///
-/// Currently only spuports DC values.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum Vsource {
     /// A dc voltage source.
@@ -53,7 +51,9 @@ impl Vsource {
 }
 
 impl Block for Vsource {
-    type Io = VsourceIo;
+    type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
     }
@@ -110,6 +110,47 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
                 }
             }
         };
+        cell.set_blackbox(contents);
+        Ok(())
+    }
+}
+
+/// A current probe.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct Iprobe;
+
+impl Block for Iprobe {
+    type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("iprobe")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        // `iprobe` is a reserved Spectre keyword,
+        // so we call this block `useriprobe`.
+        arcstr::format!("useriprobe")
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasSchematic for Iprobe {
+    type Data = ();
+}
+
+impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Iprobe {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let mut contents = BlackboxContents::new();
+        contents.push("I0 (");
+        contents.push(*io.p);
+        contents.push(*io.n);
+        contents.push(") iprobe");
         cell.set_blackbox(contents);
         Ok(())
     }
