@@ -168,7 +168,13 @@ impl<'a> ScirConverter<'a> {
             cell.expose_port(port);
         }
 
-        let id = self.lib.add_cell(cell);
+        let id = if let Some(id) = self.lib.try_cell_id_named(&subckt.name) {
+            tracing::warn!(name=%subckt.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
+            self.lib.overwrite_cell_with_id(id, cell);
+            id
+        } else {
+            self.lib.add_cell(cell)
+        };
         self.ids.insert(subckt.name.clone(), id);
         Ok(id)
     }

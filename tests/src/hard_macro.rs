@@ -1,7 +1,7 @@
 use crate::shared::buffer::BufferIo;
 
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130OpenPdk;
+use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 
 use substrate::Block;
 use substrate::{HasLayout, HasSchematic};
@@ -55,6 +55,22 @@ pub struct BufferHardMacro;
     pdk = "Sky130OpenPdk"
 ))]
 pub struct BufferInlineHardMacro;
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+#[substrate(io = "crate::shared::vdivider::VdividerIo", flatten)]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
+    name = "vdivider",
+    fmt = "spice",
+    pdk = "Sky130OpenPdk"
+))]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
+    name = "vdivider",
+    fmt = "spice",
+    pdk = "Sky130CommercialPdk"
+))]
+pub struct VdividerDuplicateSubckt;
 
 #[test]
 fn export_hard_macro() {

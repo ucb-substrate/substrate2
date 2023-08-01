@@ -1,0 +1,5 @@
+* inverter
+
+.subckt resistor pos neg
+R0 pos neg 100
+.ends
