@@ -239,12 +239,6 @@ pub struct NodePath {
     pub(crate) top: CellId,
 }
 
-impl AsRef<NodePath> for NodePath {
-    fn as_ref(&self) -> &NodePath {
-        self
-    }
-}
-
 impl NestedNode {
     /// Returns the path to this node.
     pub fn path(&self) -> NodePath {

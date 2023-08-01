@@ -45,10 +45,16 @@ pub struct Save {
     path: ArcStr,
 }
 
+impl<T: Into<ArcStr>> From<T> for Save {
+    fn from(value: T) -> Self {
+        Self { path: value.into() }
+    }
+}
+
 impl Save {
     /// Creates a new [`Save`].
     pub fn new(path: impl Into<ArcStr>) -> Self {
-        Self { path: path.into() }
+        Self::from(path)
     }
 }
 

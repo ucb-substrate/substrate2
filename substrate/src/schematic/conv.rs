@@ -64,8 +64,8 @@ impl ScirLibConversionBuilder {
 }
 
 impl ScirLibConversion {
-    /// Converts a Substrate [`NodePath`] to a SCIR [`scir::NodePath`].
-    pub fn convert_path(&self, path: &NodePath) -> Option<scir::NodePath> {
+    /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SignalPath`].
+    pub fn convert_path(&self, path: &NodePath) -> Option<scir::SignalPath> {
         let mut cell = self.cells.get(&path.top)?;
         assert!(cell.top);
 
@@ -85,7 +85,7 @@ impl ScirLibConversion {
 
         let (signal, index) = *cell.signals.get(&path.node)?;
 
-        Some(scir::NodePath {
+        Some(scir::SignalPath {
             signal,
             index,
             instances,

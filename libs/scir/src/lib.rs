@@ -125,7 +125,7 @@ impl From<Slice> for SignalId {
 
 /// A path to a node in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NodePath {
+pub struct SignalPath {
     /// The signal name.
     pub signal: SignalId,
     /// The signal index.
@@ -136,6 +136,17 @@ pub struct NodePath {
     pub instances: Vec<InstanceId>,
     /// Name of the top cell.
     pub top: CellId,
+}
+
+/// A path of strings to a node in a SCIR library.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NamedSignalPath {
+    pub signal: ArcStr,
+    /// The signal index.
+    ///
+    /// [`None`] for single-wire signals.
+    pub index: Option<usize>,
+    pub instances: Vec<ArcStr>,
 }
 
 /// An opaque cell identifier.
@@ -524,12 +535,27 @@ impl Library {
         self.order.iter().map(|&id| (id, self.cell(id)))
     }
 
+    pub fn convert_path(&self, path: &SignalPath) -> NamedSignalPath {
+        let mut instances = Vec::new();
+        let mut cell = self.cell(path.top);
+        for instance in &path.instances {
+            let inst = cell.instance(*instance);
+            instances.push(inst.name().clone());
+            cell = self.cell(inst.cell());
+        }
+        NamedSignalPath {
+            signal: cell.signal(path.signal).name.clone(),
+            index: path.index,
+            instances,
+        }
+    }
+
     /// Returns a simplified path to the provided node, bubbling up through IOs.
     ///
     /// # Panics
     ///
     /// Panics if the provided path does not exist.
-    pub fn simplify_path(&self, mut path: NodePath) -> NodePath {
+    pub fn simplify_path(&self, mut path: SignalPath) -> SignalPath {
         if path.instances.is_empty() {
             return path;
         }
@@ -565,7 +591,7 @@ impl Library {
             }
         }
 
-        NodePath {
+        SignalPath {
             instances: Vec::new(),
             ..path
         }

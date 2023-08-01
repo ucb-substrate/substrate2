@@ -23,6 +23,7 @@ use substrate::io::{NestedNode, NodePath};
 use substrate::schematic::conv::RawLib;
 use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
+use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -74,8 +75,8 @@ pub struct TranOutput {
     lib: Arc<RawLib>,
     /// A map from signal name to values.
     pub raw_values: HashMap<String, Vec<f64>>,
-    /// A map from save key to voltage values.
-    saved_voltages: HashMap<SaveKey, Vec<f64>>,
+    /// A map from save key to values.
+    saved_values: HashMap<SaveKey, Vec<f64>>,
 }
 
 impl HasSaveKey for TranOutput {
@@ -96,7 +97,7 @@ impl FromSaved<Spectre, Tran> for TranOutput {
         Self {
             lib: output.lib.clone(),
             raw_values: output.raw_values.drain().collect(),
-            saved_voltages: HashMap::new(),
+            saved_values: HashMap::new(),
         }
     }
 }
@@ -117,30 +118,24 @@ impl HasSaveKey for TranVoltage {
     type SaveKey = SaveKey;
 }
 
-impl Save<Spectre, Tran, &str> for TranVoltage {
+#[impl_dispatch({&str; ArcStr; String; netlist::Save})]
+impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         _ctx: &SimulationContext,
-        to_save: &str,
+        to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        let save_key = SaveKey(opts.next_save_key);
-        opts.next_save_key += 1;
-        opts.saves.insert(netlist::Save::new(to_save), save_key);
-        save_key
+        opts.save(to_save)
     }
 }
 
-impl Save<Spectre, Tran, scir::NodePath> for TranVoltage {
+impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
     fn save(
         ctx: &SimulationContext,
-        to_save: scir::NodePath,
+        to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        Self::save(
-            ctx,
-            &*node_path(&ctx.lib, &ctx.lib.scir.simplify_path(to_save)),
-            opts,
-        )
+        Self::save(ctx, &*node_voltage_path(&ctx.lib, to_save), opts)
     }
 }
 
@@ -154,16 +149,6 @@ impl Save<Spectre, Tran, &NodePath> for TranVoltage {
     }
 }
 
-impl Save<Spectre, Tran, NodePath> for TranVoltage {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: NodePath,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        Self::save(ctx, &to_save, opts)
-    }
-}
-
 impl Save<Spectre, Tran, &NestedNode> for TranVoltage {
     fn save(
         ctx: &SimulationContext,
@@ -174,10 +159,11 @@ impl Save<Spectre, Tran, &NestedNode> for TranVoltage {
     }
 }
 
-impl Save<Spectre, Tran, NestedNode> for TranVoltage {
+#[impl_dispatch({scir::SignalPath; NodePath; NestedNode})]
+impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         ctx: &SimulationContext,
-        to_save: NestedNode,
+        to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
         Self::save(ctx, &to_save, opts)
@@ -186,7 +172,78 @@ impl Save<Spectre, Tran, NestedNode> for TranVoltage {
 
 impl FromSaved<Spectre, Tran> for TranVoltage {
     fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
-        TranVoltage(output.saved_voltages.remove(&key).unwrap())
+        TranVoltage(output.saved_values.remove(&key).unwrap())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranCurrent(Vec<f64>);
+
+impl TranCurrent {
+    pub fn into_inner(self) -> Vec<f64> {
+        self.0
+    }
+}
+
+impl HasSaveKey for TranCurrent {
+    type SaveKey = SaveKey;
+}
+
+#[impl_dispatch({&str; ArcStr; String; netlist::Save})]
+impl<T> Save<Spectre, Tran, T> for TranCurrent {
+    fn save(
+        _ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        opts.save(to_save)
+    }
+}
+
+impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &scir::SignalPath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &*node_current_path(&ctx.lib, to_save), opts)
+    }
+}
+
+impl Save<Spectre, Tran, &NodePath> for TranCurrent {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &NodePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, ctx.lib.conv.convert_path(to_save).unwrap(), opts)
+    }
+}
+
+impl Save<Spectre, Tran, &NestedNode> for TranCurrent {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &NestedNode,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, to_save.path(), opts)
+    }
+}
+
+#[impl_dispatch({scir::SignalPath; NodePath; NestedNode})]
+impl<T> Save<Spectre, Tran, T> for TranCurrent {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SaveKey {
+        Self::save(ctx, &to_save, opts)
+    }
+}
+
+impl FromSaved<Spectre, Tran> for TranCurrent {
+    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        TranCurrent(output.saved_values.remove(&key).unwrap())
     }
 }
 
@@ -196,9 +253,9 @@ impl HasNodeData<str, Vec<f64>> for TranOutput {
     }
 }
 
-impl HasNodeData<scir::NodePath, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &scir::NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&*node_path(
+impl HasNodeData<scir::SignalPath, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &scir::SignalPath) -> Option<&Vec<f64>> {
+        self.get_data(&*node_voltage_path(
             &self.lib,
             &self.lib.scir.simplify_path(k.clone()),
         ))
@@ -282,6 +339,13 @@ impl Options {
     /// Include the given section of a file.
     pub fn include_section(&mut self, path: impl Into<PathBuf>, section: impl Into<ArcStr>) {
         self.includes.insert(Include::new(path).section(section));
+    }
+
+    pub fn save(&mut self, save: impl Into<netlist::Save>) -> SaveKey {
+        let save_key = SaveKey(self.next_save_key);
+        self.next_save_key += 1;
+        self.saves.insert(save.into(), save_key);
+        save_key
     }
 }
 
@@ -446,7 +510,7 @@ impl Spectre {
         let outputs = raw_outputs
             .into_iter()
             .map(|raw_values| {
-                let saved_voltages = raw_values
+                let saved_values = raw_values
                     .iter()
                     .filter_map(|(name, voltage)| {
                         options
@@ -458,7 +522,7 @@ impl Spectre {
                 TranOutput {
                     lib: ctx.lib.clone(),
                     raw_values,
-                    saved_voltages,
+                    saved_values,
                 }
                 .into()
             })
@@ -484,18 +548,23 @@ impl Simulator for Spectre {
     }
 }
 
-pub(crate) fn node_path(lib: &RawLib, path: &scir::NodePath) -> String {
-    let mut str_path = String::new();
-    let scir = &lib.scir;
-    let mut cell = scir.cell(path.top);
-    for instance in &path.instances {
-        let inst = cell.instance(*instance);
-        str_path.push_str(inst.name());
-        str_path.push('.');
-        cell = scir.cell(inst.cell());
+pub(crate) fn node_voltage_path(lib: &RawLib, path: &scir::SignalPath) -> String {
+    let named_path = &lib.scir.convert_path(path);
+    let mut str_path = named_path.instances.join(".");
+    str_path.push('.');
+    str_path.push_str(&named_path.signal);
+    if let Some(index) = named_path.index {
+        str_path.push_str(&format!("[{}]", index));
     }
-    str_path.push_str(&cell.signal(path.signal).name);
-    if let Some(index) = path.index {
+    str_path
+}
+
+pub(crate) fn node_current_path(lib: &RawLib, path: &scir::SignalPath) -> String {
+    let named_path = &lib.scir.convert_path(path);
+    let mut str_path = named_path.instances.join(".");
+    str_path.push(':');
+    str_path.push_str(&named_path.signal);
+    if let Some(index) = named_path.index {
         str_path.push_str(&format!("[{}]", index));
     }
     str_path
