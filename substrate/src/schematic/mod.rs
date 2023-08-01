@@ -1037,11 +1037,6 @@ impl<'a, T: HasSchematic> NestedCellView<'a, T> {
     pub fn data(&'a self) -> &'a NestedView<'a, T::Data> {
         &self.data
     }
-
-    /// Returns this cell's IO.
-    pub fn io(&'a self) -> &'a NestedView<<T::Io as SchematicType>::Data> {
-        &self.io
-    }
 }
 
 /// A view of a nested instance.
@@ -1095,7 +1090,7 @@ impl<T: HasSchematic> HasNestedView for Instance<T> {
 }
 
 impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
-    /// The ports of this instance.
+    /// The nodes connected to this instance.
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
         self.io.nested_view(&self.parent)
     }
@@ -1132,6 +1127,22 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     /// Panics if an error was thrown during generation.
     pub fn data(&self) -> NestedView<'_, T::Data> {
         self.cell().data
+    }
+
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        self.cell().io
     }
 
     /// Tries to access the underlying block used to create this instance's cell.
@@ -1214,6 +1225,22 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// Panics if an error was thrown during generation.
     pub fn data(&self) -> NestedView<'_, T::Data> {
         self.cell().data
+    }
+
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        self.cell().io
     }
 
     /// Tries to access the underlying block used to create this instance's cell.

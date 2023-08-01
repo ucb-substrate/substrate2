@@ -91,7 +91,7 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
         Self::SaveKey {
-            current: TranCurrent::save(ctx, cell.data().io().pwr.vdd, opts),
+            current: TranCurrent::save(ctx, cell.data().terminals().pwr.vdd, opts),
             vdd: TranVoltage::save(ctx, cell.data().io().pwr.vdd, opts),
             out: TranVoltage::save(ctx, cell.data().io().out, opts),
         }
@@ -243,7 +243,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .collect();
 
         let vdd = output
-            .get_data(&cell.data().cell().io().elements[0].vdd)
+            .get_data(&cell.data().io().elements[0].vdd)
             .unwrap()
             .clone();
 
@@ -301,7 +301,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
             .collect();
 
         let vdd = output
-            .get_data(&cell.data().cell().io().elements[0].vdd)
+            .get_data(&cell.data().io().elements[0].vdd)
             .unwrap()
             .clone();
 

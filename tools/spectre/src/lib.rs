@@ -574,10 +574,10 @@ impl Simulator for Spectre {
 }
 
 pub(crate) fn node_voltage_path(lib: &RawLib, path: &scir::SignalPath) -> String {
-    let named_path = &lib.scir.convert_path(path);
-    let mut str_path = named_path.instances.join(".");
-    str_path.push('.');
-    str_path.push_str(&named_path.signal);
+    let named_path = lib.scir.convert_path(path);
+    let mut path = named_path.instances;
+    path.push(named_path.signal);
+    let mut str_path = path.join(".");
     if let Some(index) = named_path.index {
         str_path.push_str(&format!("[{}]", index));
     }
