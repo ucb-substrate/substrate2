@@ -125,7 +125,7 @@ impl Parser {
                             .include_stack
                             .last()
                             .ok_or(ParserError::UnexpectedRelativePath(path.clone()))?;
-                        root.join(resolved_path)
+                        root.parent().unwrap().join(resolved_path)
                     } else {
                         resolved_path.into()
                     };
@@ -171,7 +171,14 @@ impl Parser {
                 } else if d.eq_ignore_ascii_case(".ends") {
                     Line::EndSubckt
                 } else if d.eq_ignore_ascii_case(".include") {
-                    let path = self.buffer[1].try_ident()?.clone();
+                    let mut path = self.buffer[1].try_ident()?.clone();
+                    // remove enclosing quotation marks, if any.
+                    if path.starts_with('"') {
+                        let mut chars = path.chars();
+                        chars.next().unwrap();
+                        chars.next_back().unwrap();
+                        path = Substr(path.substr_from(chars.as_str()));
+                    }
                     Line::Include { path }
                 } else {
                     return Err(ParserError::UnexpectedDirective(d.clone()));
@@ -451,7 +458,9 @@ pub enum ParserError {
     /// Error trying to read the given file.
     #[error("failed to read file at path `{path:?}`: {err:?}")]
     FailedToRead {
+        /// The path we attempted to read.
         path: PathBuf,
+        /// The underlying error.
         #[source]
         err: std::io::Error,
     },
