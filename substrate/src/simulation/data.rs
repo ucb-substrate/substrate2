@@ -21,7 +21,7 @@ pub trait HasSaveKey {
 }
 
 pub trait FromSaved<S: Simulator, A: Analysis>: HasSaveKey {
-    fn from_saved(output: &mut A::Output, key: Self::SaveKey) -> Self;
+    fn from_saved(output: &A::Output, key: Self::SaveKey) -> Self;
 }
 
 pub trait Save<S: Simulator, A: Analysis, T>: FromSaved<S, A> {

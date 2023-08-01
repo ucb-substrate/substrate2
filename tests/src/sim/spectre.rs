@@ -36,8 +36,9 @@ fn spectre_vdivider_tran() {
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerTb, sim_dir);
 
-    println!("{:?}", output.vdd);
-    println!("{:?}", output.out);
+    println!("{:?}", output.tran.current);
+    println!("{:?}", output.tran.vdd);
+    println!("{:?}", output.tran.out);
 }
 
 #[test]

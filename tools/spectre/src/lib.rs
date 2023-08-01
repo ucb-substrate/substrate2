@@ -74,9 +74,9 @@ impl Display for ErrPreset {
 pub struct TranOutput {
     lib: Arc<RawLib>,
     /// A map from signal name to values.
-    pub raw_values: HashMap<String, Vec<f64>>,
-    /// A map from save key to values.
-    saved_values: HashMap<SaveKey, Vec<f64>>,
+    pub raw_values: HashMap<ArcStr, Arc<Vec<f64>>>,
+    /// A map from a save ID to a raw value identifier.
+    saved_values: HashMap<u64, ArcStr>,
 }
 
 impl HasSaveKey for TranOutput {
@@ -93,29 +93,26 @@ impl<T> Save<Spectre, Tran, T> for TranOutput {
 }
 
 impl FromSaved<Spectre, Tran> for TranOutput {
-    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
-        Self {
-            lib: output.lib.clone(),
-            raw_values: output.raw_values.drain().collect(),
-            saved_values: HashMap::new(),
-        }
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SaveKey) -> Self {
+        output.clone()
     }
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SaveKey(pub u64);
+pub struct TranVoltageSaveKey(u64);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TranVoltage(Vec<f64>);
+pub struct TranVoltage(Arc<Vec<f64>>);
 
-impl TranVoltage {
-    pub fn into_inner(self) -> Vec<f64> {
-        self.0
+impl Deref for TranVoltage {
+    type Target = Vec<f64>;
+    fn deref(&self) -> &Self::Target {
+        &*self.0
     }
 }
 
 impl HasSaveKey for TranVoltage {
-    type SaveKey = SaveKey;
+    type SaveKey = TranVoltageSaveKey;
 }
 
 #[impl_dispatch({&str; ArcStr; String; netlist::Save})]
@@ -125,7 +122,7 @@ impl<T> Save<Spectre, Tran, T> for TranVoltage {
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        opts.save(to_save)
+        opts.save_tran_voltage(to_save)
     }
 }
 
@@ -171,22 +168,32 @@ impl<T> Save<Spectre, Tran, T> for TranVoltage {
 }
 
 impl FromSaved<Spectre, Tran> for TranVoltage {
-    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
-        TranVoltage(output.saved_values.remove(&key).unwrap())
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        TranVoltage(
+            output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        )
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TranCurrent(Vec<f64>);
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TranCurrentSaveKey(u64);
 
-impl TranCurrent {
-    pub fn into_inner(self) -> Vec<f64> {
-        self.0
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranCurrent(Arc<Vec<f64>>);
+
+impl Deref for TranCurrent {
+    type Target = Vec<f64>;
+    fn deref(&self) -> &Self::Target {
+        &*self.0
     }
 }
 
 impl HasSaveKey for TranCurrent {
-    type SaveKey = SaveKey;
+    type SaveKey = TranCurrentSaveKey;
 }
 
 #[impl_dispatch({&str; ArcStr; String; netlist::Save})]
@@ -196,7 +203,7 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
-        opts.save(to_save)
+        opts.save_tran_current(to_save)
     }
 }
 
@@ -242,14 +249,20 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
 }
 
 impl FromSaved<Spectre, Tran> for TranCurrent {
-    fn from_saved(output: &mut <Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
-        TranCurrent(output.saved_values.remove(&key).unwrap())
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+        TranCurrent(
+            output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        )
     }
 }
 
 impl HasNodeData<str, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
-        self.raw_values.get(k)
+        self.raw_values.get(k).map(|x| x.as_ref())
     }
 }
 
@@ -327,7 +340,7 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: HashSet<Include>,
-    saves: HashMap<netlist::Save, SaveKey>,
+    saves: HashMap<netlist::Save, u64>,
     next_save_key: u64,
 }
 
@@ -341,11 +354,25 @@ impl Options {
         self.includes.insert(Include::new(path).section(section));
     }
 
-    pub fn save(&mut self, save: impl Into<netlist::Save>) -> SaveKey {
-        let save_key = SaveKey(self.next_save_key);
-        self.next_save_key += 1;
-        self.saves.insert(save.into(), save_key);
-        save_key
+    fn save_inner(&mut self, save: impl Into<netlist::Save>) -> u64 {
+        let save = save.into();
+
+        if let Some(key) = self.saves.get(&save) {
+            *key
+        } else {
+            let save_key = self.next_save_key;
+            self.next_save_key += 1;
+            self.saves.insert(save.into(), save_key);
+            save_key
+        }
+    }
+
+    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageSaveKey {
+        TranVoltageSaveKey(self.save_inner(save))
+    }
+
+    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentSaveKey {
+        TranCurrentSaveKey(self.save_inner(save))
     }
 }
 
@@ -510,19 +537,17 @@ impl Spectre {
         let outputs = raw_outputs
             .into_iter()
             .map(|raw_values| {
-                let saved_values = raw_values
-                    .iter()
-                    .filter_map(|(name, voltage)| {
-                        options
-                            .saves
-                            .get(&netlist::Save::new(name))
-                            .map(|key| (*key, voltage.clone()))
-                    })
-                    .collect::<HashMap<_, _>>();
                 TranOutput {
                     lib: ctx.lib.clone(),
-                    raw_values,
-                    saved_values,
+                    raw_values: raw_values
+                        .into_iter()
+                        .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                        .collect(),
+                    saved_values: options
+                        .saves
+                        .iter()
+                        .map(|(k, v)| (*v, k.path.clone()))
+                        .collect(),
                 }
                 .into()
             })

@@ -42,7 +42,7 @@ impl Include {
 /// A Spectre save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Save {
-    path: ArcStr,
+    pub(crate) path: ArcStr,
 }
 
 impl<T: Into<ArcStr>> From<T> for Save {
