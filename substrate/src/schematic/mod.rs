@@ -1172,6 +1172,7 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
     ///
     /// Returns an error if one was thrown during generation.
     pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
+        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
         self.try_cell().map(|cell| cell.io)
     }
 
@@ -1181,6 +1182,7 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
         self.cell().io
     }
 

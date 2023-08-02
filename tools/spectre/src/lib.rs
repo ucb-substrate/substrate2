@@ -589,6 +589,10 @@ pub(crate) fn node_voltage_path(lib: &RawLib, path: &scir::SignalPath) -> String
 
 pub(crate) fn node_current_path(lib: &RawLib, path: &scir::SignalPath) -> String {
     let named_path = &lib.scir.convert_signal_path(path);
+    assert!(
+        !named_path.instances.is_empty(),
+        "no instance associated with this terminal"
+    );
     let mut str_path = named_path.instances.join(".");
     str_path.push(':');
     str_path.push_str(&named_path.signal);
