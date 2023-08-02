@@ -58,5 +58,5 @@ pub trait InstallCorner<S: Simulator>: Pdk {
     /// A typical corner installation involves telling the simulator to include
     /// process-specific model files. However, corners are free to configure
     /// other simulation options as well.
-    fn install_corner(&self, corner: impl AsRef<<Self as Pdk>::Corner>, opts: &mut S::Options);
+    fn install_corner(&self, corner: &<Self as Pdk>::Corner, opts: &mut S::Options);
 }

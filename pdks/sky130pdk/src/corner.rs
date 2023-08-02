@@ -73,12 +73,12 @@ impl Sky130Corner {
 impl InstallCorner<Spectre> for Sky130CommercialPdk {
     fn install_corner(
         &self,
-        corner: impl AsRef<<Self as substrate::pdk::Pdk>::Corner>,
+        corner: &<Self as substrate::pdk::Pdk>::Corner,
         opts: &mut <Spectre as substrate::simulation::Simulator>::Options,
     ) {
         opts.include(self.root_dir.join(format!(
             "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
-            corner.as_ref().name()
+            corner.name()
         )));
     }
 }

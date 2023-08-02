@@ -2,12 +2,11 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
-use spectre::{
-    Options, Spectre, Tran, TranCurrent, TranCurrentKey, TranOutput, TranVoltage, TranVoltageKey,
-};
+use spectre::{Options, Spectre, Tran, TranCurrent, TranCurrentKey, TranVoltage, TranVoltageKey};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
+use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, HasSchematicData, Instance};
 use substrate::simulation::data::{FromSaved, HasNodeData, Save};
@@ -33,7 +32,7 @@ impl HasSchematicData for VdividerTb {
     type Data = VdividerTbData;
 }
 
-impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
@@ -104,19 +103,15 @@ pub struct VdividerDuplicateSubcktTbOutput {
 
 impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
-    PDK: Pdk,
+    PDK: Pdk + InstallCorner<Spectre>,
     VdividerDuplicateSubckt: HasSchematic<PDK>,
 {
     type Output = VdividerDuplicateSubcktTbOutput;
-    fn run(
-        &self,
-        cell: &Cell<VdividerDuplicateSubcktTb>,
-        sim: substrate::simulation::SimController<PDK, Spectre>,
-    ) -> Self::Output {
-        let output: TranOutput = sim
-            .simulate_without_corner(
-                cell,
+    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
+        let output = sim
+            .simulate_default(
                 Options::default(),
+                None,
                 Tran {
                     stop: dec!(1e-9),
                     ..Default::default()
@@ -125,8 +120,8 @@ where
             .expect("failed to run simulation");
 
         VdividerDuplicateSubcktTbOutput {
-            vdd: output.get_data(&cell.data().io().vdd).unwrap().clone(),
-            out: output.get_data(&cell.data().io().out).unwrap().clone(),
+            vdd: output.get_data(&sim.tb.data().io().vdd).unwrap().clone(),
+            out: output.get_data(&sim.tb.data().io().out).unwrap().clone(),
         }
     }
 }
@@ -179,17 +174,13 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
     }
 }
 
-impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
     type Output = VdividerTbOutput;
-    fn run(
-        &self,
-        cell: &Cell<VdividerTb>,
-        sim: substrate::simulation::SimController<PDK, Spectre>,
-    ) -> Self::Output {
+    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let tran: VdividerTbTranOutput = sim
-            .simulate_without_corner(
-                cell,
+            .simulate(
                 Options::default(),
+                None,
                 Tran {
                     stop: dec!(1e-9),
                     ..Default::default()
@@ -209,7 +200,7 @@ impl HasSchematicData for VdividerArrayTb {
     type Data = Instance<VdividerArray>;
 }
 
-impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
@@ -244,7 +235,7 @@ impl HasSchematicData for FlattenedVdividerArrayTb {
     type Data = Instance<super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
@@ -279,17 +270,13 @@ pub struct VdividerArrayTbData {
     pub vdd: Vec<f64>,
 }
 
-impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArrayTb {
     type Output = VdividerArrayTbData;
-    fn run(
-        &self,
-        cell: &Cell<VdividerArrayTb>,
-        sim: substrate::simulation::SimController<PDK, Spectre>,
-    ) -> Self::Output {
-        let output: TranOutput = sim
-            .simulate_without_corner(
-                cell,
+    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
+        let output = sim
+            .simulate_default(
                 Options::default(),
+                None,
                 Tran {
                     stop: dec!(1e-9),
                     ..Default::default()
@@ -297,7 +284,8 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             )
             .expect("failed to run simulation");
 
-        let expected: Vec<_> = cell
+        let expected: Vec<_> = sim
+            .tb
             .data()
             .data()
             .into_iter()
@@ -309,14 +297,16 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             })
             .collect();
 
-        let out = cell
+        let out = sim
+            .tb
             .data()
             .data()
             .iter()
             .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
             .collect();
 
-        let out_nested = cell
+        let out_nested = sim
+            .tb
             .data()
             .data()
             .iter()
@@ -324,7 +314,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
             .collect();
 
         let vdd = output
-            .get_data(&cell.data().io().elements[0].vdd)
+            .get_data(&sim.tb.data().io().elements[0].vdd)
             .unwrap()
             .clone();
 
@@ -337,17 +327,13 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerArrayTb {
     }
 }
 
-impl<PDK: Pdk> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
     type Output = VdividerArrayTbData;
-    fn run(
-        &self,
-        cell: &Cell<FlattenedVdividerArrayTb>,
-        sim: substrate::simulation::SimController<PDK, Spectre>,
-    ) -> Self::Output {
-        let output: TranOutput = sim
-            .simulate_without_corner(
-                cell,
+    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
+        let output = sim
+            .simulate_default(
                 Options::default(),
+                None,
                 Tran {
                     stop: dec!(1e-9),
                     ..Default::default()
@@ -355,7 +341,8 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
             )
             .expect("failed to run simulation");
 
-        let expected: Vec<_> = cell
+        let expected: Vec<_> = sim
+            .tb
             .data()
             .data()
             .into_iter()
@@ -367,14 +354,16 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
             })
             .collect();
 
-        let out = cell
+        let out = sim
+            .tb
             .data()
             .data()
             .iter()
             .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
             .collect();
 
-        let out_nested = cell
+        let out_nested = sim
+            .tb
             .data()
             .data()
             .iter()
@@ -382,7 +371,7 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
             .collect();
 
         let vdd = output
-            .get_data(&cell.data().io().elements[0].vdd)
+            .get_data(&sim.tb.data().io().elements[0].vdd)
             .unwrap()
             .clone();
 

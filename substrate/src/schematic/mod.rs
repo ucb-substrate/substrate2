@@ -566,17 +566,28 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
 }
 
 /// A schematic cell.
-#[derive(Clone)]
 pub struct Cell<T: HasSchematicData> {
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
-    pub(crate) data: T::Data,
+    pub(crate) data: Arc<T::Data>,
     pub(crate) raw: Arc<RawCell>,
     /// The cell's input/output interface.
-    io: <T::Io as SchematicType>::Data,
+    io: Arc<<T::Io as SchematicType>::Data>,
     /// The path corresponding to this cell.
     path: InstancePath,
+}
+
+impl<T: HasSchematicData> Clone for Cell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            data: self.data.clone(),
+            raw: self.raw.clone(),
+            io: self.io.clone(),
+            path: self.path.clone(),
+        }
+    }
 }
 
 impl<T: HasSchematicData> Cell<T> {
@@ -588,9 +599,9 @@ impl<T: HasSchematicData> Cell<T> {
     ) -> Self {
         let id = raw.id;
         Self {
-            io,
+            io: Arc::new(io),
             block,
-            data,
+            data: Arc::new(data),
             raw,
             path: InstancePath::new(id),
         }
