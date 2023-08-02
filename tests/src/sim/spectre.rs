@@ -15,9 +15,9 @@ use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematic, Instance, TestbenchCellBuilder};
+use substrate::schematic::{Cell, HasSchematicData, Instance, SimCellBuilder};
 use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{HasTestbenchSchematicImpl, SimController, Testbench};
+use substrate::simulation::{HasSimSchematic, SimController, Testbench};
 use substrate::{Block, Io};
 use test_log::test;
 
@@ -25,7 +25,7 @@ use crate::paths::test_data;
 use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
-use crate::shared::vdivider::tb::VdividerArrayTb;
+use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
 use crate::shared::vdivider::Resistor;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 
@@ -47,6 +47,20 @@ fn spectre_vdivider_tran() {
             .cloned()
             .all(|val| relative_eq!(val, expected)));
     }
+}
+
+#[test]
+fn spectre_vdivider_duplicate_subckt() {
+    let test_name = "spectre_vdivider_duplicate_subckt";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+    let output = ctx.simulate(VdividerDuplicateSubcktTb, sim_dir);
+
+    // There are 2 subcircuits with the name `resistor`.
+    // The first has a value of 100; the second has a value of 200.
+    // We expect the second one to be used.
+    let expected = 1.8 * 200.0 / (200.0 + 600.0);
+    assert!(output.out.iter().all(|&val| relative_eq!(val, expected)));
 }
 
 #[test]
@@ -155,15 +169,15 @@ fn spectre_can_include_sections() {
     #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl HasSchematic for LibIncludeResistor {
+    impl HasSchematicData for LibIncludeResistor {
         type Data = ();
     }
 
-    impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
+    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
             _io: &<<Self as Block>::Io as SchematicType>::Data,
-            cell: &mut TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             cell.set_blackbox("res0 (p n) example_resistor");
 
@@ -175,15 +189,15 @@ fn spectre_can_include_sections() {
     #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
-    impl HasSchematic for LibIncludeTb {
+    impl HasSchematicData for LibIncludeTb {
         type Data = Instance<LibIncludeResistor>;
     }
 
-    impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for LibIncludeTb {
+    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Data,
-            cell: &mut TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate_tb(LibIncludeResistor);

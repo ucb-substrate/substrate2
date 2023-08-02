@@ -14,7 +14,7 @@ use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
-use crate::schematic::{Cell, HasSchematic, TestbenchCellBuilder};
+use crate::schematic::{Cell, HasSchematicData, SimCellBuilder};
 use crate::simulation::data::Save;
 use crate::simulator_tuples;
 
@@ -155,7 +155,7 @@ impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
 
 /// A testbench that can be simulated.
 pub trait Testbench<PDK: Pdk, S: Simulator>:
-    HasTestbenchSchematicImpl<PDK, S> + Block<Io = TestbenchIo>
+    HasSimSchematic<PDK, S> + Block<Io = TestbenchIo>
 {
     /// The output produced by this testbench.
     type Output: Any + Serialize + Deserialize<'static>;
@@ -163,13 +163,16 @@ pub trait Testbench<PDK: Pdk, S: Simulator>:
     fn run(&self, cell: &Cell<Self>, sim: SimController<PDK, S>) -> Self::Output;
 }
 
-/// A testbench block that has a schematic compatible with the given PDK and simulator.
-pub trait HasTestbenchSchematicImpl<PDK: Pdk, S: Simulator>: Block + HasSchematic {
+/// A block that has a schematic compatible with the given PDK and simulator.
+///
+/// Unlike [`HasSchematic`](crate::schematic::HasSchematic), this trait indicates that the schematic of this block
+/// is simulator-specific.
+pub trait HasSimSchematic<PDK: Pdk, S: Simulator>: Block + HasSchematicData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Data,
-        cell: &mut TestbenchCellBuilder<PDK, S, Self>,
+        cell: &mut SimCellBuilder<PDK, S, Self>,
     ) -> crate::error::Result<Self::Data>;
 }
 

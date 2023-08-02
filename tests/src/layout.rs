@@ -6,7 +6,7 @@ use substrate::context::Context;
 use substrate::geometry::transform::{Transform, Translate};
 use substrate::layout::element::Shape;
 use substrate::layout::tiling::{GridTile, GridTiler, Tile};
-use substrate::layout::{HasLayout, HasLayoutImpl, Instance};
+use substrate::layout::{HasLayout, HasLayoutData, Instance};
 use substrate::Block;
 use substrate::{LayoutData, TransformMut, TranslateMut};
 
@@ -36,11 +36,11 @@ pub enum PointEnum {
 #[substrate(io = "()")]
 pub struct GridTilerExample;
 
-impl HasLayout for GridTilerExample {
+impl HasLayoutData for GridTilerExample {
     type Data = ();
 }
 
-impl HasLayoutImpl<ExamplePdkA> for GridTilerExample {
+impl HasLayout<ExamplePdkA> for GridTilerExample {
     fn layout(
         &self,
         _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,

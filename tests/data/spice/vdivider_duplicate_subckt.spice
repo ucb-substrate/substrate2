@@ -1,0 +1,9 @@
+* voltage divider with duplicate subcircuits
+
+.include res_100.spice
+.include res_200.spice
+
+.subckt vdivider vdd vss out
+Rtop vdd out 600
+Xbot out vss resistor
+.ends

@@ -21,7 +21,7 @@ use crate::{
     pdk::{layers::LayerId, Pdk},
 };
 
-use super::{Draw, DrawReceiver, HasLayout, Instance};
+use super::{Draw, DrawReceiver, HasLayoutData, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -205,7 +205,7 @@ impl Bbox for RawInstance {
     }
 }
 
-impl<T: HasLayout> TryFrom<Instance<T>> for RawInstance {
+impl<T: HasLayoutData> TryFrom<Instance<T>> for RawInstance {
     type Error = Error;
 
     fn try_from(value: Instance<T>) -> Result<Self> {

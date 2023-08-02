@@ -242,7 +242,7 @@ impl ToTokens for DataInputReceiver {
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(substrate), supports(any))]
-pub struct HasSchematicImplInputReceiver {
+pub struct HasSchematicInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     #[allow(unused)]
@@ -265,10 +265,10 @@ pub struct SchematicHardMacro {
     name: String,
 }
 
-impl ToTokens for HasSchematicImplInputReceiver {
+impl ToTokens for HasSchematicInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let substrate = substrate_ident();
-        let HasSchematicImplInputReceiver {
+        let HasSchematicInputReceiver {
             ref ident,
             ref generics,
             ref schematic,
@@ -278,7 +278,7 @@ impl ToTokens for HasSchematicImplInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_schematic = quote! {
-            impl #imp #substrate::schematic::HasSchematic for #ident #ty #wher {
+            impl #imp #substrate::schematic::HasSchematicData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -316,7 +316,7 @@ impl ToTokens for HasSchematicImplInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::schematic::HasSchematicImpl<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::schematic::HasSchematic<#pdk> for #ident #ty #wher {
                     fn schematic(
                         &self,
                         io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Data,

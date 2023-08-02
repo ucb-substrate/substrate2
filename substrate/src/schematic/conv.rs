@@ -372,11 +372,12 @@ impl RawCell {
                     match p {
                         super::PrimitiveDevice::Res2 { pos, neg, value } => {
                             ctx.whitebox_contents_mut().add_primitive(
-                                scir::PrimitiveDevice::Res2 {
+                                scir::PrimitiveDeviceKind::Res2 {
                                     pos: nodes[pos],
                                     neg: nodes[neg],
                                     value: scir::Expr::NumericLiteral(*value),
-                                },
+                                }
+                                .into(),
                             );
                         }
                         super::PrimitiveDevice::RawInstance {
@@ -385,11 +386,13 @@ impl RawCell {
                             params,
                         } => {
                             ctx.whitebox_contents_mut().add_primitive(
-                                scir::PrimitiveDevice::RawInstance {
-                                    ports: ports.iter().map(|p| nodes[p]).collect(),
-                                    cell: cell.clone(),
-                                    params: params.clone(),
-                                },
+                                scir::PrimitiveDevice::from_params(
+                                    scir::PrimitiveDeviceKind::RawInstance {
+                                        ports: ports.iter().map(|p| nodes[p]).collect(),
+                                        cell: cell.clone(),
+                                    },
+                                    params.clone(),
+                                ),
                             );
                         }
                         super::PrimitiveDevice::ScirInstance {

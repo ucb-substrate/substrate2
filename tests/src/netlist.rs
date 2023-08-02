@@ -9,11 +9,14 @@ pub(crate) fn vdivider() -> Library {
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
     let contents = wrapper.contents_mut().as_mut().unwrap_clear();
-    contents.add_primitive(PrimitiveDevice::Res2 {
-        pos,
-        neg,
-        value: dec!(3300).into(),
-    });
+    contents.add_primitive(
+        PrimitiveDeviceKind::Res2 {
+            pos,
+            neg,
+            value: dec!(3300).into(),
+        }
+        .into(),
+    );
     wrapper.expose_port(pos);
     wrapper.expose_port(neg);
     let wrapper = lib.add_cell(wrapper);

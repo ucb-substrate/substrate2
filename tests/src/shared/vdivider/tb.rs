@@ -9,13 +9,12 @@ use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{Cell, HasSchematic, Instance};
+use substrate::schematic::{Cell, HasSchematic, HasSchematicData, Instance};
 use substrate::simulation::data::{FromSaved, HasNodeData, Save};
-use substrate::simulation::{
-    Analysis, HasTestbenchSchematicImpl, SimulationContext, Simulator, Testbench,
-};
+use substrate::simulation::{Analysis, HasSimSchematic, SimulationContext, Simulator, Testbench};
 use substrate::{Block, SchematicData};
 
+use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
@@ -30,15 +29,15 @@ pub struct VdividerTbData {
     dut: Instance<Vdivider>,
 }
 
-impl HasSchematic for VdividerTb {
+impl HasSchematicData for VdividerTb {
     type Data = VdividerTbData;
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd_a = cell.signal("vdd_a", Signal);
         let vdd = cell.signal("vdd", Signal);
@@ -61,6 +60,74 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
         cell.connect(vsource.io().n, io.vss);
 
         Ok(VdividerTbData { iprobe, dut })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+#[substrate(io = "TestbenchIo")]
+pub struct VdividerDuplicateSubcktTb;
+
+impl HasSchematicData for VdividerDuplicateSubcktTb {
+    type Data = Instance<VdividerDuplicateSubckt>;
+}
+
+impl<PDK> HasSimSchematic<PDK, Spectre> for VdividerDuplicateSubcktTb
+where
+    PDK: Pdk,
+    VdividerDuplicateSubckt: HasSchematic<PDK>,
+{
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        let vdd = cell.signal("vdd", Signal);
+        let out = cell.signal("out", Signal);
+        let dut = cell.instantiate(VdividerDuplicateSubckt);
+
+        cell.connect(dut.io().vdd, vdd);
+        cell.connect(dut.io().vss, io.vss);
+        cell.connect(dut.io().out, out);
+
+        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        cell.connect(vsource.io().p, vdd);
+        cell.connect(vsource.io().n, io.vss);
+        Ok(dut)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VdividerDuplicateSubcktTbOutput {
+    pub vdd: Vec<f64>,
+    pub out: Vec<f64>,
+}
+
+impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
+where
+    PDK: Pdk,
+    VdividerDuplicateSubckt: HasSchematic<PDK>,
+{
+    type Output = VdividerDuplicateSubcktTbOutput;
+    fn run(
+        &self,
+        cell: &Cell<VdividerDuplicateSubcktTb>,
+        sim: substrate::simulation::SimController<PDK, Spectre>,
+    ) -> Self::Output {
+        let output: TranOutput = sim
+            .simulate_without_corner(
+                cell,
+                Options::default(),
+                Tran {
+                    stop: dec!(1e-9),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation");
+
+        VdividerDuplicateSubcktTbOutput {
+            vdd: output.get_data(&cell.data().io().vdd).unwrap().clone(),
+            out: output.get_data(&cell.data().io().out).unwrap().clone(),
+        }
     }
 }
 
@@ -138,15 +205,15 @@ impl<PDK: Pdk> Testbench<PDK, Spectre> for VdividerTb {
 #[substrate(io = "TestbenchIo")]
 pub struct VdividerArrayTb;
 
-impl HasSchematic for VdividerArrayTb {
+impl HasSchematicData for VdividerArrayTb {
     type Data = Instance<VdividerArray>;
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
@@ -173,15 +240,15 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerArrayTb {
 #[substrate(io = "TestbenchIo")]
 pub struct FlattenedVdividerArrayTb;
 
-impl HasSchematic for FlattenedVdividerArrayTb {
+impl HasSchematicData for FlattenedVdividerArrayTb {
     type Data = Instance<super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {

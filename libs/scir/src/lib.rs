@@ -205,9 +205,54 @@ impl Display for InstanceId {
     }
 }
 
-/// An enumeration of supported primitive devices.
+/// A primitive device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PrimitiveDevice {
+pub struct PrimitiveDevice {
+    /// The kind (resistor, capacitor, etc.) of this primitive device.
+    pub kind: PrimitiveDeviceKind,
+    /// An unordered set of parameters, represented as key-value pairs.
+    pub params: HashMap<ArcStr, Expr>,
+}
+
+impl PrimitiveDevice {
+    /// Create a new primitive device with the given parameters.
+    #[inline]
+    pub fn from_params(
+        kind: PrimitiveDeviceKind,
+        params: impl Into<HashMap<ArcStr, Expr>>,
+    ) -> Self {
+        Self {
+            kind,
+            params: params.into(),
+        }
+    }
+
+    /// Create a new primitive device with no parameters.
+    #[inline]
+    pub fn new(kind: PrimitiveDeviceKind) -> Self {
+        Self {
+            kind,
+            params: Default::default(),
+        }
+    }
+}
+
+impl From<PrimitiveDeviceKind> for PrimitiveDevice {
+    #[inline]
+    fn from(value: PrimitiveDeviceKind) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<PrimitiveDevice> for PrimitiveDeviceKind {
+    fn from(value: PrimitiveDevice) -> Self {
+        value.kind
+    }
+}
+
+/// An enumeration of supported primitive kinds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive terminal.
@@ -240,18 +285,16 @@ pub enum PrimitiveDevice {
         ports: Vec<Slice>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
-        /// Parameters to the cell being instantiated.
-        params: HashMap<ArcStr, Expr>,
     },
 }
 
 impl PrimitiveDevice {
     /// An iterator over the nodes referenced in the device.
     pub(crate) fn nodes(&self) -> impl IntoIterator<Item = Slice> {
-        match self {
-            Self::Res2 { pos, neg, .. } => vec![*pos, *neg],
-            Self::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
-            Self::RawInstance { ports, .. } => ports.clone(),
+        match &self.kind {
+            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
+            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
+            PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
         }
     }
 }
@@ -477,10 +520,28 @@ impl Library {
     pub(crate) fn add_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
         let id = id.into();
         assert!(!self.cells.contains_key(&id));
-        self.cell_id = id.0;
+        self.cell_id = std::cmp::max(id.0, self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         self.order.push(id);
+    }
+
+    /// Adds the given cell to the library with the given cell ID,
+    /// overwriting an existing cell with the same ID.
+    ///
+    /// This can lead to unintended effects.
+    /// This method is intended for use only by Substrate libraries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is **not** already in use.
+    #[doc(hidden)]
+    pub fn overwrite_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
+        let id = id.into();
+        assert!(self.cells.contains_key(&id));
+        self.cell_id = std::cmp::max(id.0, self.cell_id);
+        self.name_map.insert(cell.name.clone(), id);
+        self.cells.insert(id, cell);
     }
 
     /// Sets the top cell to the given cell ID.
@@ -524,8 +585,15 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given ID.
+    /// For a non-panicking alternative, see [`try_cell`](Library::try_cell).
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
+    }
+
+    /// Gets the cell with the given ID.
+    #[inline]
+    pub fn try_cell(&self, id: CellId) -> Option<&Cell> {
+        self.cells.get(&id)
     }
 
     /// Gets the cell with the given name.
@@ -542,6 +610,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
+    /// For a non-panicking alternative, see [`try_cell_id_named`](Library::try_cell_id_named).
     pub fn cell_id_named(&self, name: &str) -> CellId {
         match self.name_map.get(name) {
             Some(&cell) => cell,
@@ -550,6 +619,11 @@ impl Library {
                 panic!("no cell named `{}` in SCIR library `{}`", name, self.name);
             }
         }
+    }
+
+    /// Gets the cell ID corresponding to the given name.
+    pub fn try_cell_id_named(&self, name: &str) -> Option<CellId> {
+        self.name_map.get(name).copied()
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.

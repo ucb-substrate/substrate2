@@ -36,11 +36,11 @@ impl Block for ArrayShort {
     }
 }
 
-impl HasSchematic for ArrayShort {
+impl HasSchematicData for ArrayShort {
     type Data = ();
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for ArrayShort {
+impl<PDK: Pdk> HasSchematic<PDK> for ArrayShort {
     fn schematic(
         &self,
         io: &ArrayIoSchematic,

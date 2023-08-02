@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{BlackboxContents, HasSchematic};
-use substrate::simulation::HasTestbenchSchematicImpl;
+use substrate::schematic::{BlackboxContents, HasSchematicData};
+use substrate::simulation::HasSimSchematic;
 
 use crate::Spectre;
 
@@ -66,15 +66,15 @@ impl Block for Vsource {
     }
 }
 
-impl HasSchematic for Vsource {
+impl HasSchematicData for Vsource {
     type Data = ();
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut contents = BlackboxContents::new();
         match self {
@@ -134,15 +134,15 @@ impl Block for Iprobe {
     }
 }
 
-impl HasSchematic for Iprobe {
+impl HasSchematicData for Iprobe {
     type Data = ();
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Iprobe {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut contents = BlackboxContents::new();
         contents.push("I0 (");

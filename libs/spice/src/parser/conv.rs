@@ -63,18 +63,14 @@ impl<'a> ScirConverter<'a> {
     /// Consumes the converter, yielding a SCIR [library](scir::Library)].
     pub fn convert(mut self) -> ConvResult<scir::Library> {
         self.map_subckts();
-        for elem in self.ast.elems.iter() {
-            match elem {
-                Elem::Subckt(subckt) => {
-                    match self.convert_subckt(subckt) {
-                        // Export blackbox errors can be ignored; we just skip
-                        // exporting a SCIR cell for blackboxed subcircuits.
-                        Ok(_) | Err(ConvError::ExportBlackbox) => (),
-                        Err(e) => return Err(e),
-                    };
-                }
-                _ => continue,
-            }
+        let subckts = self.subckts.values().copied().collect::<Vec<_>>();
+        for subckt in subckts {
+            match self.convert_subckt(subckt) {
+                // Export blackbox errors can be ignored; we just skip
+                // exporting a SCIR cell for blackboxed subcircuits.
+                Ok(_) | Err(ConvError::ExportBlackbox) => (),
+                Err(e) => return Err(e),
+            };
         }
         Ok(self.lib)
     }
@@ -83,7 +79,9 @@ impl<'a> ScirConverter<'a> {
         for elem in self.ast.elems.iter() {
             match elem {
                 Elem::Subckt(s) => {
-                    self.subckts.insert(s.name.clone(), s);
+                    if self.subckts.insert(s.name.clone(), s).is_some() {
+                        tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
+                    }
                 }
                 _ => continue,
             }
@@ -114,12 +112,12 @@ impl<'a> ScirConverter<'a> {
             match component {
                 Component::Mos(_mos) => todo!(),
                 Component::Res(res) => {
-                    let prim = scir::PrimitiveDevice::Res2 {
+                    let prim = scir::PrimitiveDeviceKind::Res2 {
                         pos: node(&res.pos, &mut cell),
                         neg: node(&res.neg, &mut cell),
                         value: str_as_numeric_lit(&res.value)?,
                     };
-                    cell.add_primitive(prim);
+                    cell.add_primitive(prim.into());
                 }
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
@@ -130,13 +128,9 @@ impl<'a> ScirConverter<'a> {
                             .params
                             .iter()
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
-                            .collect::<ConvResult<_>>()?;
-                        let prim = scir::PrimitiveDevice::RawInstance {
-                            ports,
-                            cell: child,
-                            params,
-                        };
-                        cell.add_primitive(prim);
+                            .collect::<ConvResult<HashMap<_, _>>>()?;
+                        let kind = scir::PrimitiveDeviceKind::RawInstance { ports, cell: child };
+                        cell.add_primitive(scir::PrimitiveDevice::from_params(kind, params));
                     } else {
                         let subckt = self
                             .subckts
