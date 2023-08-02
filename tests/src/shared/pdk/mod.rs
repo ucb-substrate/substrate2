@@ -8,7 +8,7 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{HasSchematic, HasSchematicData, PrimitiveDevice};
+use substrate::schematic::{HasSchematic, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind};
 use substrate::Corner;
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
@@ -62,14 +62,16 @@ impl HasSchematic<ExamplePdkA> for NmosA {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::RawInstance {
-            ports: vec![*io.d, *io.g, *io.s, *io.b],
-            cell: arcstr::literal!("example_pdk_nmos_a"),
-            params: HashMap::from_iter([
+        cell.add_primitive(PrimitiveDevice::from_params(
+            PrimitiveDeviceKind::RawInstance {
+                ports: vec![*io.d, *io.g, *io.s, *io.b],
+                cell: arcstr::literal!("example_pdk_nmos_a"),
+            },
+            HashMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
-        });
+        ));
         Ok(())
     }
 }
@@ -104,14 +106,16 @@ impl HasSchematic<ExamplePdkA> for PmosA {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::RawInstance {
-            ports: vec![*io.d, *io.g, *io.s, *io.b],
-            cell: arcstr::literal!("example_pdk_pmos_a"),
-            params: HashMap::from_iter([
+        cell.add_primitive(PrimitiveDevice::from_params(
+            PrimitiveDeviceKind::RawInstance {
+                ports: vec![*io.d, *io.g, *io.s, *io.b],
+                cell: arcstr::literal!("example_pdk_pmos_a"),
+            },
+            HashMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
-        });
+        ));
         Ok(())
     }
 }

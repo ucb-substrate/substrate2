@@ -342,33 +342,31 @@ impl RawCell {
                     }
                 }
                 for p in contents.primitives.iter() {
-                    match p {
-                        super::PrimitiveDevice::Res2 { pos, neg, value } => {
+                    match &p.kind {
+                        super::PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             ctx.whitebox_contents_mut().add_primitive(
-                                scir::PrimitiveDeviceKind::Res2 {
-                                    pos: nodes[pos],
-                                    neg: nodes[neg],
-                                    value: scir::Expr::NumericLiteral(*value),
-                                }
-                                .into(),
+                                scir::PrimitiveDevice::from_params(
+                                    scir::PrimitiveDeviceKind::Res2 {
+                                        pos: nodes[pos],
+                                        neg: nodes[neg],
+                                        value: scir::Expr::NumericLiteral(*value),
+                                    },
+                                    p.params.clone(),
+                                ),
                             );
                         }
-                        super::PrimitiveDevice::RawInstance {
-                            ports,
-                            cell,
-                            params,
-                        } => {
+                        super::PrimitiveDeviceKind::RawInstance { ports, cell } => {
                             ctx.whitebox_contents_mut().add_primitive(
                                 scir::PrimitiveDevice::from_params(
                                     scir::PrimitiveDeviceKind::RawInstance {
                                         ports: ports.iter().map(|p| nodes[p]).collect(),
                                         cell: cell.clone(),
                                     },
-                                    params.clone(),
+                                    p.params.clone(),
                                 ),
                             );
                         }
-                        super::PrimitiveDevice::ScirInstance {
+                        super::PrimitiveDeviceKind::ScirInstance {
                             lib,
                             cell,
                             name,
@@ -381,6 +379,10 @@ impl RawCell {
                             for (port, elems) in connections {
                                 let concat: scir::Concat = elems.iter().map(|n| nodes[n]).collect();
                                 inst.connect(port, concat);
+                            }
+
+                            for (key, value) in p.params.iter() {
+                                inst.set_param(key, value.clone());
                             }
                             ctx.whitebox_contents_mut().add_instance(inst);
                         }
