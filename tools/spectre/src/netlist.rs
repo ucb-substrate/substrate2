@@ -3,8 +3,8 @@
 
 use arcstr::ArcStr;
 use opacity::Opacity;
-use scir::Slice;
-use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
+use scir::{BinOp, Cell, Expr, Library};
+use scir::{PrimitiveDeviceKind, Slice};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -148,30 +148,26 @@ impl<'a, W: Write> Netlister<'a, W> {
                 }
 
                 for (i, device) in contents.primitives().enumerate() {
-                    match device {
-                        PrimitiveDevice::Res2 { pos, neg, value } => {
+                    match &device.kind {
+                        PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             write!(self.out, "{}res{} (", indent, i)?;
                             self.write_slice(cell, *pos, ground)?;
                             self.write_slice(cell, *neg, ground)?;
                             write!(self.out, " ) resistor r=")?;
                             self.write_expr(value)?;
                         }
-                        PrimitiveDevice::RawInstance {
-                            ports,
-                            cell: child,
-                            params,
-                        } => {
+                        PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
                             write!(self.out, "{}rawinst{} (", indent, i)?;
                             for port in ports.iter() {
                                 self.write_slice(cell, *port, ground)?;
                             }
                             write!(self.out, " ) {}", child)?;
-                            for (key, value) in params.iter() {
-                                write!(self.out, " {key}=")?;
-                                self.write_expr(value)?;
-                            }
                         }
                         _ => todo!(),
+                    }
+                    for (key, value) in device.params.iter() {
+                        write!(self.out, " {key}=")?;
+                        self.write_expr(value)?;
                     }
                     writeln!(self.out)?;
                 }

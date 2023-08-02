@@ -2,8 +2,8 @@
 #![warn(missing_docs)]
 
 use opacity::Opacity;
-use scir::Slice;
-use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
+use scir::{BinOp, Cell, Expr, Library};
+use scir::{PrimitiveDeviceKind, Slice};
 use std::io::{prelude::*, BufWriter};
 
 pub mod parser;
@@ -87,15 +87,20 @@ impl<'a, W: Write> Netlister<'a, W> {
                 }
 
                 for (i, device) in contents.primitives().enumerate() {
-                    match device {
-                        PrimitiveDevice::Res2 { pos, neg, value } => {
+                    match &device.kind {
+                        PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             write!(self.out, "R{}", i)?;
                             self.write_slice(cell, *pos)?;
                             self.write_slice(cell, *neg)?;
                             write!(self.out, " ")?;
                             self.write_expr(value)?;
+                            // todo!("parameters");
                         }
                         _ => todo!(),
+                    }
+                    for (key, value) in device.params.iter() {
+                        write!(self.out, " {key}=")?;
+                        self.write_expr(value)?;
                     }
                     writeln!(self.out)?;
                 }
