@@ -148,12 +148,10 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut contents = BlackboxContents::new();
-        contents.push("I0 (");
-        contents.push(*io.p);
-        contents.push(*io.n);
-        contents.push(") iprobe");
-        cell.set_blackbox(contents);
+        cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
+            cell: arcstr::literal!("iprobe"),
+            ports: vec![*io.p, *io.n],
+        }));
         Ok(())
     }
 }
