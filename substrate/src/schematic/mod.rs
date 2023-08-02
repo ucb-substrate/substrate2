@@ -813,7 +813,16 @@ impl<T: HasSchematicData> Instance<T> {
 
 /// A primitive device.
 #[derive(Debug, Clone)]
-pub enum PrimitiveDevice {
+pub struct PrimitiveDevice {
+    /// The kind (resistor, capacitor, etc.) of this primitive device.
+    kind: PrimitiveDeviceKind,
+    /// An unordered set of parameters, represented as key-value pairs.
+    params: HashMap<ArcStr, scir::Expr>,
+}
+
+/// An enumeration of the possible kinds of primitive devices.
+#[derive(Debug, Clone)]
+pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive node.
@@ -831,8 +840,6 @@ pub enum PrimitiveDevice {
         ports: Vec<Node>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
-        /// Parameters to the cell being instantiated.
-        params: HashMap<ArcStr, scir::Expr>,
     },
     /// An instance of a SCIR cell.
     ///
@@ -850,6 +857,42 @@ pub enum PrimitiveDevice {
         /// The connections to the ports of the child cell.
         connections: HashMap<ArcStr, Vec<Node>>,
     },
+}
+
+impl PrimitiveDevice {
+    /// Create a new primitive device with the given parameters.
+    #[inline]
+    pub fn from_params(
+        kind: PrimitiveDeviceKind,
+        params: impl Into<HashMap<ArcStr, scir::Expr>>,
+    ) -> Self {
+        Self {
+            kind,
+            params: params.into(),
+        }
+    }
+
+    /// Create a new primitive device with no parameters.
+    #[inline]
+    pub fn new(kind: PrimitiveDeviceKind) -> Self {
+        Self {
+            kind,
+            params: Default::default(),
+        }
+    }
+}
+
+impl From<PrimitiveDeviceKind> for PrimitiveDevice {
+    #[inline]
+    fn from(value: PrimitiveDeviceKind) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<PrimitiveDevice> for PrimitiveDeviceKind {
+    fn from(value: PrimitiveDevice) -> Self {
+        value.kind
+    }
 }
 
 /// A wrapper around schematic-specific context data.

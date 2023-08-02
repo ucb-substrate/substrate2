@@ -1,11 +1,13 @@
 //! Spectre-specific blocks for use in testbenches.
 
 use rust_decimal::Decimal;
+use scir::Expr;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use substrate::block::Block;
 use substrate::io::VsourceIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{BlackboxContents, HasSchematicData};
+use substrate::schematic::{HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind};
 use substrate::simulation::HasSimSchematic;
 
 use crate::Spectre;
@@ -77,40 +79,42 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut contents = BlackboxContents::new();
+        use arcstr::literal;
+        let mut params = HashMap::new();
         match self {
             Self::Dc(dc) => {
-                contents.push("V0 (");
-                contents.push(*io.p);
-                contents.push(*io.n);
-                contents.push(format!(") vsource type=dc dc={}", dc));
+                params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));
+                params.insert(literal!("dc"), Expr::NumericLiteral(*dc));
             }
             Self::Pulse(pulse) => {
-                contents.push("V0 (");
-                contents.push(*io.p);
-                contents.push(*io.n);
-                contents.push(format!(
-                    ") vsource type=pulse val0={} val1={}",
-                    pulse.val0, pulse.val1
-                ));
+                params.insert(literal!("type"), Expr::StringLiteral(literal!("pulse")));
+                params.insert(literal!("val0"), Expr::NumericLiteral(pulse.val0));
+                params.insert(literal!("val1"), Expr::NumericLiteral(pulse.val1));
                 if let Some(period) = pulse.period {
-                    contents.push(format!("period={period}"));
+                    params.insert(literal!("period"), Expr::NumericLiteral(period));
                 }
                 if let Some(rise) = pulse.rise {
-                    contents.push(format!("rise={rise}"));
+                    params.insert(literal!("rise"), Expr::NumericLiteral(rise));
                 }
                 if let Some(fall) = pulse.fall {
-                    contents.push(format!("fall={fall}"));
+                    params.insert(literal!("fall"), Expr::NumericLiteral(fall));
                 }
                 if let Some(width) = pulse.width {
-                    contents.push(format!("width={width}"));
+                    params.insert(literal!("width"), Expr::NumericLiteral(width));
                 }
                 if let Some(delay) = pulse.delay {
-                    contents.push(format!("delay={delay}"));
+                    params.insert(literal!("delay"), Expr::NumericLiteral(delay));
                 }
             }
         };
-        cell.set_blackbox(contents);
+
+        cell.add_primitive(PrimitiveDevice::from_params(
+            PrimitiveDeviceKind::RawInstance {
+                cell: arcstr::literal!("vsource"),
+                ports: vec![*io.p, *io.n],
+            },
+            params,
+        ));
         Ok(())
     }
 }

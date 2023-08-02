@@ -337,12 +337,14 @@ impl ToTokens for HasSchematicInputReceiver {
                                 (f, nodes)
                             }));
 
-                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::ScirInstance {
-                            lib,
-                            cell: cell_id,
-                            name: #substrate::arcstr::literal!(#name),
-                            connections,
-                        });
+                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::new(
+                            #substrate::schematic::PrimitiveDeviceKind::ScirInstance {
+                                lib,
+                                cell: cell_id,
+                                name: #substrate::arcstr::literal!(#name),
+                                connections,
+                            }
+                        ));
                         Ok(())
                     }
                 }
