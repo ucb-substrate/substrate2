@@ -91,10 +91,12 @@ macro_rules! define_mos {
                 // Convert from DB units to microns.
                 let w = Decimal::new(self.params.w, 3);
                 let l = Decimal::new(self.params.l, 3);
-                cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
-                    ports: vec![*io.d, *io.g, *io.s, *io.b],
-                    cell: arcstr::literal!(stringify!($opensubckt)),
-                    params: HashMap::from_iter([
+                cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
+                    substrate::schematic::PrimitiveDeviceKind::RawInstance {
+                        ports: vec![*io.d, *io.g, *io.s, *io.b],
+                        cell: arcstr::literal!(stringify!($opensubckt)),
+                    },
+                    HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
                             substrate::scir::Expr::NumericLiteral(w),
@@ -108,7 +110,7 @@ macro_rules! define_mos {
                             substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
                         ),
                     ]),
-                });
+                ));
                 Ok(())
             }
         }
@@ -122,10 +124,12 @@ macro_rules! define_mos {
                 // Convert from DB units to microns.
                 let w = Decimal::new(self.params.w, 3);
                 let l = Decimal::new(self.params.l, 3);
-                cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
-                    ports: vec![*io.d, *io.g, *io.s, *io.b],
-                    cell: arcstr::literal!(stringify!($comsubckt)),
-                    params: HashMap::from_iter([
+                cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
+                    substrate::schematic::PrimitiveDeviceKind::RawInstance {
+                        ports: vec![*io.d, *io.g, *io.s, *io.b],
+                        cell: arcstr::literal!(stringify!($comsubckt)),
+                    },
+                    HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
                             substrate::scir::Expr::NumericLiteral(w),
@@ -139,7 +143,7 @@ macro_rules! define_mos {
                             substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
                         ),
                     ]),
-                });
+                ));
                 Ok(())
             }
         }
