@@ -3,8 +3,8 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::{
-    Options, Spectre, Tran, TranCurrent, TranCurrentSaveKey, TranIprobe, TranIprobeSaveKey,
-    TranOutput, TranVoltage, TranVoltageSaveKey,
+    Options, Spectre, Tran, TranCurrent, TranCurrentSaveKey, TranOutput, TranVoltage,
+    TranVoltageSaveKey,
 };
 use substrate::block::Block;
 use substrate::io::Signal;
@@ -73,7 +73,7 @@ pub struct VdividerTbOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VdividerTbTranOutput {
     pub current: TranCurrent,
-    pub iprobe: TranIprobe,
+    pub iprobe: TranCurrent,
     pub vdd: TranVoltage,
     pub out: TranVoltage,
 }
@@ -81,7 +81,7 @@ pub struct VdividerTbTranOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VdividerTbTranOutputSaveKey {
     pub current: TranCurrentSaveKey,
-    pub iprobe: TranIprobeSaveKey,
+    pub iprobe: TranCurrentSaveKey,
     pub vdd: TranVoltageSaveKey,
     pub out: TranVoltageSaveKey,
 }
@@ -94,7 +94,7 @@ impl FromSaved<Spectre, Tran> for VdividerTbTranOutput {
     fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
         Self {
             current: TranCurrent::from_saved(output, key.current),
-            iprobe: TranIprobe::from_saved(output, key.iprobe),
+            iprobe: TranCurrent::from_saved(output, key.iprobe),
             vdd: TranVoltage::from_saved(output, key.vdd),
             out: TranVoltage::from_saved(output, key.out),
         }
@@ -109,7 +109,7 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
     ) -> Self::SaveKey {
         Self::SaveKey {
             current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
-            iprobe: TranIprobe::save(ctx, cell.data().iprobe, opts),
+            iprobe: TranCurrent::save(ctx, cell.data().iprobe.io().p, opts),
             vdd: TranVoltage::save(ctx, cell.data().dut.io().pwr.vdd, opts),
             out: TranVoltage::save(ctx, cell.data().dut.io().out, opts),
         }
