@@ -127,23 +127,26 @@ impl From<Slice> for SignalId {
 /// A path to a node in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SignalPath {
-    /// The signal name.
+    /// The signal ID.
     pub signal: SignalId,
     /// The signal index.
     ///
     /// [`None`] for single-wire signals.
     pub index: Option<usize>,
+    /// The path to the containing instance.
     pub path: InstancePath,
 }
 
 /// A path of strings to a node in a SCIR library.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedSignalPath {
+    /// The signal name.
     pub signal: ArcStr,
     /// The signal index.
     ///
     /// [`None`] for single-wire signals.
     pub index: Option<usize>,
+    /// The path to the containing instance.
     pub instances: NamedInstancePath,
 }
 

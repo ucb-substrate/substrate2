@@ -3,15 +3,14 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::{
-    Options, Spectre, Tran, TranCurrent, TranCurrentSaveKey, TranOutput, TranVoltage,
-    TranVoltageSaveKey,
+    Options, Spectre, Tran, TranCurrent, TranCurrentKey, TranOutput, TranVoltage, TranVoltageKey,
 };
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, Instance};
-use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
+use substrate::simulation::data::{FromSaved, HasNodeData, Save};
 use substrate::simulation::{
     Analysis, HasTestbenchSchematicImpl, SimulationContext, Simulator, Testbench,
 };
@@ -79,19 +78,16 @@ pub struct VdividerTbTranOutput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VdividerTbTranOutputSaveKey {
-    pub current: TranCurrentSaveKey,
-    pub iprobe: TranCurrentSaveKey,
-    pub vdd: TranVoltageSaveKey,
-    pub out: TranVoltageSaveKey,
-}
-
-impl HasSaveKey for VdividerTbTranOutput {
-    type SaveKey = VdividerTbTranOutputSaveKey;
+pub struct VdividerTbTranOutputKey {
+    pub current: TranCurrentKey,
+    pub iprobe: TranCurrentKey,
+    pub vdd: TranVoltageKey,
+    pub out: TranVoltageKey,
 }
 
 impl FromSaved<Spectre, Tran> for VdividerTbTranOutput {
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+    type Key = VdividerTbTranOutputKey;
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
         Self {
             current: TranCurrent::from_saved(output, key.current),
             iprobe: TranCurrent::from_saved(output, key.iprobe),
@@ -106,8 +102,8 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         ctx: &SimulationContext,
         cell: &Cell<VdividerTb>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        Self::SaveKey {
+    ) -> Self::Key {
+        Self::Key {
             current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
             iprobe: TranCurrent::save(ctx, cell.data().iprobe.terminals().p, opts),
             vdd: TranVoltage::save(ctx, cell.data().dut.io().pwr.vdd, opts),

@@ -10,7 +10,6 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::blocks::Iprobe;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -22,8 +21,7 @@ use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath};
 use substrate::schematic::conv::RawLib;
-use substrate::schematic::{InstancePath, NestedInstance, NestedInstanceView};
-use substrate::simulation::data::{FromSaved, HasNodeData, HasSaveKey, Save};
+use substrate::simulation::data::{FromSaved, HasNodeData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -81,8 +79,11 @@ pub struct TranOutput {
     saved_values: HashMap<u64, ArcStr>,
 }
 
-impl HasSaveKey for TranOutput {
-    type SaveKey = ();
+impl FromSaved<Spectre, Tran> for TranOutput {
+    type Key = ();
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::Key) -> Self {
+        output.clone()
+    }
 }
 
 impl<T> Save<Spectre, Tran, T> for TranOutput {
@@ -90,87 +91,28 @@ impl<T> Save<Spectre, Tran, T> for TranOutput {
         _ctx: &SimulationContext,
         _to_save: T,
         _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
+    ) -> Self::Key {
     }
 }
 
-impl FromSaved<Spectre, Tran> for TranOutput {
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SaveKey) -> Self {
-        output.clone()
-    }
-}
-
+/// An identifier for a saved transient voltage.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TranVoltageSaveKey(u64);
+pub struct TranVoltageKey(u64);
 
+/// A saved transient voltage.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranVoltage(Arc<Vec<f64>>);
 
 impl Deref for TranVoltage {
     type Target = Vec<f64>;
     fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl HasSaveKey for TranVoltage {
-    type SaveKey = TranVoltageSaveKey;
-}
-
-#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
-impl<T> Save<Spectre, Tran, T> for TranVoltage {
-    fn save(
-        _ctx: &SimulationContext,
-        to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        opts.save_tran_voltage(to_save)
-    }
-}
-
-impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: &scir::SignalPath,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        Self::save(ctx, &*node_voltage_path(&ctx.lib, to_save), opts)
-    }
-}
-
-impl Save<Spectre, Tran, &NodePath> for TranVoltage {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: &NodePath,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
-    }
-}
-
-impl Save<Spectre, Tran, &NestedNode> for TranVoltage {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: &NestedNode,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        Self::save(ctx, to_save.path(), opts)
-    }
-}
-
-#[impl_dispatch({scir::SignalPath; NodePath; NestedNode})]
-impl<T> Save<Spectre, Tran, T> for TranVoltage {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
-        Self::save(ctx, &to_save, opts)
+        &self.0
     }
 }
 
 impl FromSaved<Spectre, Tran> for TranVoltage {
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
+    type Key = TranVoltageKey;
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
         TranVoltage(
             output
                 .raw_values
@@ -181,21 +123,84 @@ impl FromSaved<Spectre, Tran> for TranVoltage {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TranCurrentSaveKey(u64);
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
+impl<T> Save<Spectre, Tran, T> for TranVoltage {
+    fn save(
+        _ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        opts.save_tran_voltage(to_save)
+    }
+}
 
+impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &scir::SignalPath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::save(ctx, &*node_voltage_path(&ctx.lib, to_save), opts)
+    }
+}
+
+impl Save<Spectre, Tran, &NodePath> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &NodePath,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
+    }
+}
+
+impl Save<Spectre, Tran, &NestedNode> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: &NestedNode,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::save(ctx, to_save.path(), opts)
+    }
+}
+
+#[impl_dispatch({scir::SignalPath; NodePath; NestedNode})]
+impl<T> Save<Spectre, Tran, T> for TranVoltage {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::save(ctx, &to_save, opts)
+    }
+}
+
+/// An identifier for a saved transient current.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TranCurrentKey(u64);
+
+/// A saved transient current.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranCurrent(Arc<Vec<f64>>);
 
 impl Deref for TranCurrent {
     type Target = Vec<f64>;
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &self.0
     }
 }
 
-impl HasSaveKey for TranCurrent {
-    type SaveKey = TranCurrentSaveKey;
+impl FromSaved<Spectre, Tran> for TranCurrent {
+    type Key = TranCurrentKey;
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
+        TranCurrent(
+            output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        )
+    }
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
@@ -204,7 +209,7 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
         _ctx: &SimulationContext,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
+    ) -> Self::Key {
         opts.save_tran_current(to_save)
     }
 }
@@ -214,7 +219,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
         ctx: &SimulationContext,
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
+    ) -> Self::Key {
         Self::save(ctx, &node_current_path(&ctx.lib, to_save), opts)
     }
 }
@@ -224,7 +229,7 @@ impl Save<Spectre, Tran, &NodePath> for TranCurrent {
         ctx: &SimulationContext,
         to_save: &NodePath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
+    ) -> Self::Key {
         Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
     }
 }
@@ -234,7 +239,7 @@ impl Save<Spectre, Tran, &NestedNode> for TranCurrent {
         ctx: &SimulationContext,
         to_save: &NestedNode,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
+    ) -> Self::Key {
         Self::save(ctx, to_save.path(), opts)
     }
 }
@@ -245,20 +250,8 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
         ctx: &SimulationContext,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SaveKey {
+    ) -> Self::Key {
         Self::save(ctx, &to_save, opts)
-    }
-}
-
-impl FromSaved<Spectre, Tran> for TranCurrent {
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SaveKey) -> Self {
-        TranCurrent(
-            output
-                .raw_values
-                .get(output.saved_values.get(&key.0).unwrap())
-                .unwrap()
-                .clone(),
-        )
     }
 }
 
@@ -364,17 +357,19 @@ impl Options {
         } else {
             let save_key = self.next_save_key;
             self.next_save_key += 1;
-            self.saves.insert(save.into(), save_key);
+            self.saves.insert(save, save_key);
             save_key
         }
     }
 
-    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageSaveKey {
-        TranVoltageSaveKey(self.save_inner(save))
+    /// Marks a transient voltage to be saved in all transient analyses.
+    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageKey {
+        TranVoltageKey(self.save_inner(save))
     }
 
-    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentSaveKey {
-        TranCurrentSaveKey(self.save_inner(save))
+    /// Marks a transient current to be saved in all transient analyses.
+    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
+        TranCurrentKey(self.save_inner(save))
     }
 }
 
@@ -575,6 +570,7 @@ impl Simulator for Spectre {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn instance_path(lib: &RawLib, path: &scir::InstancePath) -> String {
     let named_path = lib.scir.convert_instance_path(path);
     named_path.join(".")

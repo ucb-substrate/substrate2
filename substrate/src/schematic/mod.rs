@@ -1172,6 +1172,7 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
         }
     }
 
+    /// Returns the path of this instance relative to the top cell.
     pub fn path(&self) -> &InstancePath {
         &self.path
     }
@@ -1263,6 +1264,7 @@ impl<T: HasSchematic> NestedInstance<T> {
         self.cell().block
     }
 
+    /// Returns the path of this instance relative to the top cell.
     pub fn path(&self) -> &InstancePath {
         &self.path
     }

@@ -148,8 +148,8 @@ impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
         input: A,
     ) -> Result<O, S::Error> {
         let key = O::save(&self.ctx, cell, &mut options);
-        let mut output = self.simulator.simulate(&self.ctx, options, input)?;
-        Ok(O::from_saved(&mut output, key))
+        let output = self.simulator.simulate(&self.ctx, options, input)?;
+        Ok(O::from_saved(&output, key))
     }
 }
 
