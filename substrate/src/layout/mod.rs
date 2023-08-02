@@ -192,11 +192,6 @@ impl<'a, T: HasLayoutData> TransformedCell<'a, T> {
     pub fn data(&'a self) -> &Transformed<'a, T::Data> {
         &self.data
     }
-
-    /// Returns the geometry of the cell's IO.
-    pub fn io(&'a self) -> &Transformed<'a, <T::Io as LayoutType>::Data> {
-        &self.io
-    }
 }
 
 impl<T: HasLayoutData> HasTransformedView for Cell<T> {

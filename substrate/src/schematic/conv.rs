@@ -8,6 +8,7 @@ use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath};
+use crate::schematic::InstancePath;
 
 use super::{BlackboxElement, CellId, InstanceId, RawCell};
 
@@ -64,8 +65,8 @@ impl ScirLibConversionBuilder {
 }
 
 impl ScirLibConversion {
-    /// Converts a Substrate [`NodePath`] to a SCIR [`scir::NodePath`].
-    pub fn convert_path(&self, path: &NodePath) -> Option<scir::NodePath> {
+    /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SignalPath`].
+    pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SignalPath> {
         let mut cell = self.cells.get(&path.top)?;
         assert!(cell.top);
 
@@ -85,9 +86,35 @@ impl ScirLibConversion {
 
         let (signal, index) = *cell.signals.get(&path.node)?;
 
-        Some(scir::NodePath {
+        Some(scir::SignalPath {
             signal,
             index,
+            path: scir::InstancePath {
+                instances,
+                top: self.top,
+            },
+        })
+    }
+
+    /// Converts a Substrate [`InstancePath`] to a SCIR [`scir::InstancePath`].
+    pub fn convert_instance_path(&self, path: &InstancePath) -> Option<scir::InstancePath> {
+        let mut cell = self.cells.get(&path.top)?;
+        assert!(cell.top);
+
+        let mut instances = Vec::new();
+        for inst in &path.path {
+            let conv = cell.instances.get(inst).unwrap();
+            match conv.instance.as_ref() {
+                Opacity::Opaque(id) => {
+                    instances.push(*id);
+                    cell = self.cells.get(&conv.child)?;
+                }
+                Opacity::Clear(conv) => {
+                    cell = conv;
+                }
+            }
+        }
+        Some(scir::InstancePath {
             instances,
             top: self.top,
         })

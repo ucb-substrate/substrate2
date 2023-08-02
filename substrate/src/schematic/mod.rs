@@ -566,17 +566,28 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
 }
 
 /// A schematic cell.
-#[derive(Clone)]
 pub struct Cell<T: HasSchematicData> {
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
-    pub(crate) data: T::Data,
+    pub(crate) data: Arc<T::Data>,
     pub(crate) raw: Arc<RawCell>,
     /// The cell's input/output interface.
-    io: <T::Io as SchematicType>::Data,
+    io: Arc<<T::Io as SchematicType>::Data>,
     /// The path corresponding to this cell.
     path: InstancePath,
+}
+
+impl<T: HasSchematicData> Clone for Cell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            data: self.data.clone(),
+            raw: self.raw.clone(),
+            io: self.io.clone(),
+            path: self.path.clone(),
+        }
+    }
 }
 
 impl<T: HasSchematicData> Cell<T> {
@@ -588,9 +599,9 @@ impl<T: HasSchematicData> Cell<T> {
     ) -> Self {
         let id = raw.id;
         Self {
-            io,
+            io: Arc::new(io),
             block,
-            data,
+            data: Arc::new(data),
             raw,
             path: InstancePath::new(id),
         }
@@ -1065,11 +1076,6 @@ impl<'a, T: HasSchematicData> NestedCellView<'a, T> {
     pub fn data(&'a self) -> &'a NestedView<'a, T::Data> {
         &self.data
     }
-
-    /// Returns this cell's IO.
-    pub fn io(&'a self) -> &'a NestedView<<T::Io as SchematicType>::Data> {
-        &self.io
-    }
 }
 
 /// A view of a nested instance.
@@ -1123,7 +1129,7 @@ impl<T: HasSchematicData> HasNestedView for Instance<T> {
 }
 
 impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
-    /// The ports of this instance.
+    /// The nodes connected to this instance.
     pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
         self.io.nested_view(&self.parent)
     }
@@ -1162,6 +1168,24 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
         self.cell().data
     }
 
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
+        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
+        self.cell().io
+    }
+
     /// Tries to access the underlying block used to create this instance's cell.
     ///
     /// Returns an error if one was thrown during generation.
@@ -1187,6 +1211,11 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
             io: (*self.io).clone(),
             cell: self.cell.clone(),
         }
+    }
+
+    /// Returns the path of this instance relative to the top cell.
+    pub fn path(&self) -> &InstancePath {
+        &self.path
     }
 }
 
@@ -1244,6 +1273,24 @@ impl<T: HasSchematicData> NestedInstance<T> {
         self.cell().data
     }
 
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
+        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
+        self.cell().io
+    }
+
     /// Tries to access the underlying block used to create this instance's cell.
     ///
     /// Returns an error if one was thrown during generation.
@@ -1258,5 +1305,10 @@ impl<T: HasSchematicData> NestedInstance<T> {
     /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
         self.cell().block
+    }
+
+    /// Returns the path of this instance relative to the top cell.
+    pub fn path(&self) -> &InstancePath {
+        &self.path
     }
 }

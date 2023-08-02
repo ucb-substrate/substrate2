@@ -649,9 +649,9 @@ pub struct TestbenchIo {
     pub vss: InOut<Signal>,
 }
 
-/// The interface for 2-terminal voltage sources.
+/// The interface for 2-terminal blocks.
 #[derive(Debug, Default, Clone, Io)]
-pub struct VsourceIo {
+pub struct TwoTerminalIo {
     /// The positive terminal.
     pub p: InOut<Signal>,
     /// The negative terminal.

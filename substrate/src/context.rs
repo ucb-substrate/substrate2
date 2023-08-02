@@ -381,6 +381,7 @@ impl<PDK: Pdk> Context<PDK> {
         let simulator = self.get_simulator::<S>();
         let block = Arc::new(block);
         let cell = self.generate_testbench_schematic(block.clone());
+        // TODO: Handle errors.
         let cell = cell.cell();
         let lib = self.export_testbench_scir_for_cell(cell);
         let ctx = SimulationContext {
@@ -391,12 +392,13 @@ impl<PDK: Pdk> Context<PDK> {
         };
         let controller = SimController {
             pdk: self.pdk.clone(),
+            tb: (*cell).clone(),
             simulator,
             ctx,
         };
 
         // TODO caching
-        block.run(cell, controller)
+        block.run(controller)
     }
 
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {

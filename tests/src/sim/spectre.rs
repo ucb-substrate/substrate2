@@ -15,7 +15,7 @@ use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematicData, Instance, SimCellBuilder};
+use substrate::schematic::{HasSchematicData, Instance, SimCellBuilder};
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::{HasSimSchematic, SimController, Testbench};
 use substrate::{Block, Io};
@@ -36,8 +36,17 @@ fn spectre_vdivider_tran() {
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerTb, sim_dir);
 
-    println!("{:?}", output.vdd);
-    println!("{:?}", output.out);
+    for (actual, expected) in [
+        (&*output.tran.current, 1.8 / 40.),
+        (&*output.tran.iprobe, 1.8 / 40.),
+        (&*output.tran.vdd, 1.8),
+        (&*output.tran.out, 0.9),
+    ] {
+        assert!(actual
+            .iter()
+            .cloned()
+            .all(|val| relative_eq!(val, expected)));
+    }
 }
 
 #[test]
@@ -209,17 +218,13 @@ fn spectre_can_include_sections() {
     impl Testbench<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         type Output = f64;
 
-        fn run(
-            &self,
-            cell: &Cell<Self>,
-            sim: SimController<Sky130CommercialPdk, Spectre>,
-        ) -> Self::Output {
+        fn run(&self, sim: SimController<Sky130CommercialPdk, Spectre, Self>) -> Self::Output {
             let mut opts = Options::default();
             opts.include_section(test_data("spectre/example_lib.scs"), &self.0);
             let output = sim
-                .simulate(
+                .simulate_default(
                     opts,
-                    Sky130Corner::Tt,
+                    Some(&Sky130Corner::Tt),
                     Tran {
                         stop: dec!(2e-9),
                         errpreset: Some(spectre::ErrPreset::Conservative),
@@ -228,7 +233,7 @@ fn spectre_can_include_sections() {
                 )
                 .expect("failed to run simulation");
             *output
-                .get_data(&cell.data().io().n)
+                .get_data(&sim.tb.data().io().n)
                 .unwrap()
                 .first()
                 .unwrap()
