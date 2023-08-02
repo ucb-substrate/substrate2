@@ -172,9 +172,54 @@ impl Display for InstanceId {
     }
 }
 
-/// An enumeration of supported primitive devices.
+/// A primitive device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PrimitiveDevice {
+pub struct PrimitiveDevice {
+    /// The kind (resistor, capacitor, etc.) of this primitive device.
+    pub kind: PrimitiveDeviceKind,
+    /// An unordered set of parameters, represented as key-value pairs.
+    pub params: HashMap<ArcStr, Expr>,
+}
+
+impl PrimitiveDevice {
+    /// Create a new primitive device with the given parameters.
+    #[inline]
+    pub fn from_params(
+        kind: PrimitiveDeviceKind,
+        params: impl Into<HashMap<ArcStr, Expr>>,
+    ) -> Self {
+        Self {
+            kind,
+            params: params.into(),
+        }
+    }
+
+    /// Create a new primitive device with no parameters.
+    #[inline]
+    pub fn new(kind: PrimitiveDeviceKind) -> Self {
+        Self {
+            kind,
+            params: Default::default(),
+        }
+    }
+}
+
+impl From<PrimitiveDeviceKind> for PrimitiveDevice {
+    #[inline]
+    fn from(value: PrimitiveDeviceKind) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<PrimitiveDevice> for PrimitiveDeviceKind {
+    fn from(value: PrimitiveDevice) -> Self {
+        value.kind
+    }
+}
+
+/// An enumeration of supported primitive kinds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive terminal.
@@ -207,18 +252,16 @@ pub enum PrimitiveDevice {
         ports: Vec<Slice>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
-        /// Parameters to the cell being instantiated.
-        params: HashMap<ArcStr, Expr>,
     },
 }
 
 impl PrimitiveDevice {
     /// An iterator over the nodes referenced in the device.
     pub(crate) fn nodes(&self) -> impl IntoIterator<Item = Slice> {
-        match self {
-            Self::Res2 { pos, neg, .. } => vec![*pos, *neg],
-            Self::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
-            Self::RawInstance { ports, .. } => ports.clone(),
+        match &self.kind {
+            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
+            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
+            PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
         }
     }
 }
