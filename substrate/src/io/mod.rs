@@ -300,7 +300,10 @@ impl ena::unify::UnifyValue for NodeUfValue {
     type Error = ena::unify::NoError;
 
     fn unify_values(value1: &Self, value2: &Self) -> std::result::Result<Self, Self::Error> {
-        if value1.priority == NodePriority::Io && value2.priority == NodePriority::Io && value1.source != value2.source {
+        if value1.priority == NodePriority::Io
+            && value2.priority == NodePriority::Io
+            && value1.source != value2.source
+        {
             panic!("shorted IOs are not supported")
         }
         Ok(if value1.priority >= value2.priority {

@@ -2,12 +2,10 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
-use test_log::test;
 
 use substrate::pdk::Pdk;
 use substrate::Io;
 use substrate::{block::Block, schematic::HasSchematic};
-use crate::shared::pdk::sky130_open_ctx;
 
 #[derive(Debug, Clone, Io)]
 pub struct ArrayIo {
@@ -55,11 +53,16 @@ impl<PDK: Pdk> HasSchematic<PDK> for ArrayShort {
     }
 }
 
-#[test]
-#[should_panic]
-fn panics_when_shorting_ios() {
-    let ctx = sky130_open_ctx();
-    let _ = ctx.export_scir(ArrayShort {
-        width: 5,
-    });
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shared::pdk::sky130_open_ctx;
+    use test_log::test;
+
+    #[test]
+    #[should_panic]
+    fn panics_when_shorting_ios() {
+        let ctx = sky130_open_ctx();
+        let _ = ctx.export_scir(ArrayShort { width: 5 });
+    }
 }
