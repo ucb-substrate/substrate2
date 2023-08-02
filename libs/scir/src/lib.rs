@@ -554,18 +554,7 @@ impl Library {
         self.order.iter().map(|&id| (id, self.cell(id)))
     }
 
-    /// Converts a [`SignalPath`] to a [`NamedSignalPath`].
-    pub fn convert_signal_path(&self, path: &SignalPath) -> NamedSignalPath {
-        let mut cell = self.cell(path.path.top);
-        NamedSignalPath {
-            signal: cell.signal(path.signal).name.clone(),
-            index: path.index,
-            instances: self.convert_instance_path(&path.path),
-        }
-    }
-
-    /// Converts an [`InstancePath`] to a [`NamedInstancePath`].
-    pub fn convert_instance_path(&self, path: &InstancePath) -> NamedInstancePath {
+    fn convert_instance_path_inner(&self, path: &InstancePath) -> (NamedInstancePath, &Cell) {
         let mut instances = Vec::new();
         let mut cell = self.cell(path.top);
         for instance in &path.instances {
@@ -573,7 +562,22 @@ impl Library {
             instances.push(inst.name().clone());
             cell = self.cell(inst.cell());
         }
-        NamedInstancePath(instances)
+        (NamedInstancePath(instances), cell)
+    }
+
+    /// Converts a [`SignalPath`] to a [`NamedSignalPath`].
+    pub fn convert_signal_path(&self, path: &SignalPath) -> NamedSignalPath {
+        let (instances, cell) = self.convert_instance_path_inner(&path.path);
+        NamedSignalPath {
+            signal: cell.signal(path.signal).name.clone(),
+            index: path.index,
+            instances,
+        }
+    }
+
+    /// Converts an [`InstancePath`] to a [`NamedInstancePath`].
+    pub fn convert_instance_path(&self, path: &InstancePath) -> NamedInstancePath {
+        self.convert_instance_path_inner(path).0
     }
 
     /// Returns a simplified path to the provided node, bubbling up through IOs.

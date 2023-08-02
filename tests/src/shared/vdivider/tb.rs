@@ -32,7 +32,7 @@ pub struct VdividerTbData {
 }
 
 impl HasSchematic for VdividerTb {
-    type Data = Instance<Vdivider>;
+    type Data = VdividerTbData;
 }
 
 impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
@@ -53,15 +53,15 @@ impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for VdividerTb {
         cell.connect(dut.io().pwr.vss, io.vss);
         cell.connect(dut.io().out, out);
 
-        // let iprobe = cell.instantiate_tb(Iprobe);
-        // cell.connect(iprobe.io().p, vdd_a);
-        // cell.connect(iprobe.io().n, vdd);
+        let iprobe = cell.instantiate_tb(Iprobe);
+        cell.connect(iprobe.io().p, vdd_a);
+        cell.connect(iprobe.io().n, vdd);
 
         let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
-        cell.connect(vsource.io().p, vdd);
+        cell.connect(vsource.io().p, vdd_a);
         cell.connect(vsource.io().n, io.vss);
 
-        Ok(dut)
+        Ok(VdividerTbData { iprobe, dut })
     }
 }
 
@@ -108,10 +108,10 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SaveKey {
         Self::SaveKey {
-            current: TranCurrent::save(ctx, cell.data().terminals().pwr.vdd, opts),
-            iprobe: TranCurrent::save(ctx, cell.data().terminals().pwr.vdd, opts),
-            vdd: TranVoltage::save(ctx, cell.data().io().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.data().io().out, opts),
+            current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
+            iprobe: TranCurrent::save(ctx, cell.data().iprobe.terminals().p, opts),
+            vdd: TranVoltage::save(ctx, cell.data().dut.io().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.data().dut.io().out, opts),
         }
     }
 }
