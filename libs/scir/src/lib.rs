@@ -554,6 +554,7 @@ impl Library {
         self.order.iter().map(|&id| (id, self.cell(id)))
     }
 
+    /// Converts a [`SignalPath`] to a [`NamedSignalPath`].
     pub fn convert_signal_path(&self, path: &SignalPath) -> NamedSignalPath {
         let mut cell = self.cell(path.path.top);
         NamedSignalPath {
@@ -563,6 +564,7 @@ impl Library {
         }
     }
 
+    /// Converts an [`InstancePath`] to a [`NamedInstancePath`].
     pub fn convert_instance_path(&self, path: &InstancePath) -> NamedInstancePath {
         let mut instances = Vec::new();
         let mut cell = self.cell(path.top);
