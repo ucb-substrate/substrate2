@@ -26,6 +26,7 @@
 
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::ops::Deref;
 
 use arcstr::ArcStr;
 use opacity::Opacity;
@@ -125,17 +126,49 @@ impl From<Slice> for SignalId {
 
 /// A path to a node in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NodePath {
-    /// The signal name.
+pub struct SignalPath {
+    /// The signal ID.
     pub signal: SignalId,
     /// The signal index.
     ///
     /// [`None`] for single-wire signals.
     pub index: Option<usize>,
+    /// The path to the containing instance.
+    pub path: InstancePath,
+}
+
+/// A path of strings to a node in a SCIR library.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NamedSignalPath {
+    /// The signal name.
+    pub signal: ArcStr,
+    /// The signal index.
+    ///
+    /// [`None`] for single-wire signals.
+    pub index: Option<usize>,
+    /// The path to the containing instance.
+    pub instances: NamedInstancePath,
+}
+
+/// A path to an instance in a SCIR library.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct InstancePath {
     /// Path of instance names.
     pub instances: Vec<InstanceId>,
     /// Name of the top cell.
     pub top: CellId,
+}
+
+/// A path of strings to an instance in a SCIR library.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NamedInstancePath(pub Vec<ArcStr>);
+
+impl Deref for NamedInstancePath {
+    type Target = Vec<ArcStr>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// An opaque cell identifier.
@@ -598,40 +631,67 @@ impl Library {
         self.order.iter().map(|&id| (id, self.cell(id)))
     }
 
+    fn convert_instance_path_inner(&self, path: &InstancePath) -> (NamedInstancePath, &Cell) {
+        let mut instances = Vec::new();
+        let mut cell = self.cell(path.top);
+        for instance in &path.instances {
+            let inst = cell.instance(*instance);
+            instances.push(inst.name().clone());
+            cell = self.cell(inst.cell());
+        }
+        (NamedInstancePath(instances), cell)
+    }
+
+    /// Converts a [`SignalPath`] to a [`NamedSignalPath`].
+    pub fn convert_signal_path(&self, path: &SignalPath) -> NamedSignalPath {
+        let (instances, cell) = self.convert_instance_path_inner(&path.path);
+        NamedSignalPath {
+            signal: cell.signal(path.signal).name.clone(),
+            index: path.index,
+            instances,
+        }
+    }
+
+    /// Converts an [`InstancePath`] to a [`NamedInstancePath`].
+    pub fn convert_instance_path(&self, path: &InstancePath) -> NamedInstancePath {
+        self.convert_instance_path_inner(path).0
+    }
+
     /// Returns a simplified path to the provided node, bubbling up through IOs.
     ///
     /// # Panics
     ///
     /// Panics if the provided path does not exist.
-    pub fn simplify_path(&self, mut path: NodePath) -> NodePath {
-        if path.instances.is_empty() {
+    pub fn simplify_path(&self, mut path: SignalPath) -> SignalPath {
+        if path.path.instances.is_empty() {
             return path;
         }
 
-        let mut cells = Vec::with_capacity(path.instances.len());
-        let mut cell = self.cell(path.top);
+        let mut cells = Vec::with_capacity(path.path.instances.len());
+        let mut cell = self.cell(path.path.top);
 
-        for inst in path.instances.iter() {
+        for inst in path.path.instances.iter() {
             let inst = &cell.contents().as_ref().unwrap_clear().instances[inst];
             cells.push(inst.cell);
             cell = self.cell(inst.cell);
         }
 
-        assert_eq!(cells.len(), path.instances.len());
+        assert_eq!(cells.len(), path.path.instances.len());
 
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
             let info = cell.signal(path.signal);
             if !info.port {
-                path.instances.truncate(i + 1);
+                path.path.instances.truncate(i + 1);
                 return path;
             } else {
                 let parent = if i == 0 {
-                    self.cell(path.top)
+                    self.cell(path.path.top)
                 } else {
                     self.cell(cells[i - 1])
                 };
-                let inst = &parent.contents().as_ref().unwrap_clear().instances[&path.instances[i]];
+                let inst =
+                    &parent.contents().as_ref().unwrap_clear().instances[&path.path.instances[i]];
                 let idx = if let Some(idx) = path.index { idx } else { 0 };
                 let slice = inst.connection(info.name.as_ref()).index(idx);
                 path.signal = slice.signal();
@@ -639,10 +699,8 @@ impl Library {
             }
         }
 
-        NodePath {
-            instances: Vec::new(),
-            ..path
-        }
+        path.path.instances = Vec::new();
+        path
     }
 }
 

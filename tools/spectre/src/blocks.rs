@@ -5,7 +5,7 @@ use scir::Expr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use substrate::block::Block;
-use substrate::io::VsourceIo;
+use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind};
 use substrate::simulation::HasSimSchematic;
@@ -32,8 +32,6 @@ pub struct Pulse {
 }
 
 /// A voltage source.
-///
-/// Currently only spuports DC values.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum Vsource {
     /// A dc voltage source.
@@ -55,7 +53,8 @@ impl Vsource {
 }
 
 impl Block for Vsource {
-    type Io = VsourceIo;
+    type Io = TwoTerminalIo;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
     }
@@ -115,6 +114,44 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
             },
             params,
         ));
+        Ok(())
+    }
+}
+
+/// A current probe.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct Iprobe;
+
+impl Block for Iprobe {
+    type Io = TwoTerminalIo;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("iprobe")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        // `iprobe` is a reserved Spectre keyword,
+        // so we call this block `useriprobe`.
+        arcstr::format!("useriprobe")
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasSchematicData for Iprobe {
+    type Data = ();
+}
+
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
+            cell: arcstr::literal!("iprobe"),
+            ports: vec![*io.p, *io.n],
+        }));
         Ok(())
     }
 }

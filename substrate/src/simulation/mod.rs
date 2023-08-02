@@ -15,6 +15,7 @@ use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematicData, SimCellBuilder};
+use crate::simulation::data::Save;
 use crate::simulator_tuples;
 
 pub mod data;
@@ -108,40 +109,49 @@ where
 }
 
 /// Controls simulation options.
-pub struct SimController<PDK: Pdk, S> {
+pub struct SimController<PDK: Pdk, S: Simulator, T: Testbench<PDK, S>> {
     pub(crate) simulator: Arc<S>,
     /// The current PDK.
     pub pdk: Arc<PDK>,
+    /// The current testbench cell.
+    pub tb: Cell<T>,
     pub(crate) ctx: SimulationContext,
 }
 
-impl<PDK: Pdk + InstallCorner<S>, S: Simulator> SimController<PDK, S> {
-    /// Run the given analysis.
-    pub fn simulate<A: Analysis + SupportedBy<S>>(
-        &self,
+impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
+    /// Run the given analysis, returning the default output.
+    ///
+    /// Note that providing [`None`] for `corner` will result in model files not being included,
+    /// potentially causing simulator errors due to missing models.
+    ///
+    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
+    pub fn simulate_default<'a, A: Analysis + SupportedBy<S>>(
+        &'a self,
         mut options: S::Options,
-        corner: impl AsRef<PDK::Corner>,
+        corner: Option<&'a PDK::Corner>,
         input: A,
     ) -> Result<A::Output, S::Error> {
-        self.pdk.install_corner(corner, &mut options);
+        if let Some(corner) = corner {
+            self.pdk.install_corner(corner, &mut options);
+        }
         self.simulator.simulate(&self.ctx, options, input)
     }
-}
 
-impl<PDK: Pdk, S: Simulator> SimController<PDK, S> {
-    /// Run the given analysis without a corner.
+    /// Run the given analysis, returning the desired output type.
     ///
-    /// Note that this will usually result in model files not being included, potentially
-    /// causing simulator errors due to missing models.
+    /// Note that providing [`None`] for `corner` will result in model files not being included,
+    /// potentially causing simulator errors due to missing models.
     ///
-    /// If any PDK primitives are being used by the device under test,
-    /// [`SimController::simulate`] should be used instead.
-    pub fn simulate_without_corner<A: Analysis + SupportedBy<S>>(
-        &self,
-        options: S::Options,
+    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
+    pub fn simulate<'a, A: Analysis + SupportedBy<S>, O: for<'b> Save<S, A, &'b Cell<T>>>(
+        &'a self,
+        mut options: S::Options,
+        corner: Option<&'a PDK::Corner>,
         input: A,
-    ) -> Result<A::Output, S::Error> {
-        self.simulator.simulate(&self.ctx, options, input)
+    ) -> Result<O, S::Error> {
+        let key = O::save(&self.ctx, &self.tb, &mut options);
+        let output = self.simulate_default(options, corner, input)?;
+        Ok(O::from_saved(&output, key))
     }
 }
 
@@ -152,7 +162,7 @@ pub trait Testbench<PDK: Pdk, S: Simulator>:
     /// The output produced by this testbench.
     type Output: Any + Serialize + Deserialize<'static>;
     /// Run the testbench using the given simulation controller.
-    fn run(&self, cell: &Cell<Self>, sim: SimController<PDK, S>) -> Self::Output;
+    fn run(&self, sim: SimController<PDK, S, Self>) -> Self::Output;
 }
 
 /// A block that has a schematic compatible with the given PDK and simulator.

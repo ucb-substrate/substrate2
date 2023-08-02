@@ -12,7 +12,7 @@ use substrate::context::Context;
 use substrate::io::TestbenchIo;
 use substrate::io::{Node, Signal};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematicData};
+use substrate::schematic::HasSchematicData;
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{HasSimSchematic, Testbench};
@@ -83,13 +83,12 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(
         &self,
-        cell: &Cell<Self>,
-        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
+        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre, Self>,
     ) -> Self::Output {
         let output = sim
-            .simulate(
+            .simulate_default(
                 Options::default(),
-                self.pvt.corner,
+                Some(&self.pvt.corner),
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),
@@ -98,7 +97,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        let vout = output.get_data(&cell.data()).unwrap();
+        let vout = output.get_data(&sim.tb.data()).unwrap();
         let time = output.get_data("time").unwrap();
         let vout = WaveformRef::new(time, vout);
         let mut trans = vout.transitions(
