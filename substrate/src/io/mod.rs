@@ -93,6 +93,18 @@ pub trait SchematicType: FlatLen + HasNameTree + Clone {
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
+
+    /// Instantiate a top-level schematic data struct from a node list
+    ///
+    /// This method wraps [`instantiate`](Self::instantiate) with sanity checks
+    /// to ensure that the instantiation process consumed all the nodes
+    /// provided.
+    fn instantiate_top(&self, ids: &[Node]) -> Self::Data {
+        let (data, ids_rest) = self.instantiate(ids);
+        assert!(ids_rest.is_empty());
+        debug_assert_eq!(ids, data.flatten_vec());
+        data
+    }
 }
 
 /// A trait indicating that this type can be connected to T.
@@ -428,7 +440,7 @@ impl NodeContext {
         &mut self.connections_data[usize::try_from(ena::unify::UnifyKey::index(&node)).unwrap()]
     }
 
-    pub(crate) fn node(
+    fn node(
         &mut self,
         direction: Option<Direction>,
         priority: NodePriority,
@@ -464,7 +476,7 @@ impl NodeContext {
         self.uf
     }
 
-    pub fn nodes_directed(
+    fn nodes_directed(
         &mut self,
         directions: &[Direction],
         priority: NodePriority,
@@ -476,7 +488,7 @@ impl NodeContext {
             .collect()
     }
 
-    pub fn nodes_undirected(
+    fn nodes_undirected(
         &mut self,
         n: usize,
         priority: NodePriority,
@@ -485,6 +497,28 @@ impl NodeContext {
         (0..n)
             .map(|_| self.node(None, priority, source_info.clone()))
             .collect()
+    }
+
+    pub fn instantiate_directed<TY: SchematicType + Directed>(
+        &mut self,
+        ty: &TY,
+        priority: NodePriority,
+        source_info: SourceInfo,
+    ) -> (Vec<Node>, <TY as SchematicType>::Data) {
+        let nodes = self.nodes_directed(&ty.flatten_vec(), priority, source_info);
+        let data = ty.instantiate_top(&nodes);
+        (nodes, data)
+    }
+
+    pub fn instantiate_undirected<TY: SchematicType>(
+        &mut self,
+        ty: &TY,
+        priority: NodePriority,
+        source_info: SourceInfo,
+    ) -> (Vec<Node>, <TY as SchematicType>::Data) {
+        let nodes = self.nodes_undirected(ty.len(), priority, source_info);
+        let data = ty.instantiate_top(&nodes);
+        (nodes, data)
     }
 
     pub(crate) fn connect(&mut self, n1: Node, n2: Node) -> Result<(), NodeConnectDirectionError> {
@@ -812,3 +846,41 @@ pub struct TwoTerminalIo {
 }
 
 // END COMMON IO TYPES
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conflicting_directions_error() {
+        let mut ctx = NodeContext::new();
+        let source_a = SourceInfo::from_caller();
+        let source_b = SourceInfo::from_caller();
+        let n_a = ctx.node(
+            Some(Direction::Output),
+            NodePriority::Named,
+            source_a.clone(),
+        );
+        let n_b = ctx.node(
+            Some(Direction::Output),
+            NodePriority::Named,
+            source_b.clone(),
+        );
+        let n_c = ctx.node(
+            Some(Direction::Input),
+            NodePriority::Named,
+            SourceInfo::from_caller(),
+        );
+
+        ctx.connect(n_a, n_c).expect("connect should succeed");
+
+        let res = ctx.connect(n_c, n_b);
+        let err = res.expect_err("connection should have failed");
+        let [c_a, c_b] = &err.data[0];
+        assert_eq!(c_a.0, Direction::Output);
+        assert_eq!(c_b.0, Direction::Output);
+
+        assert_eq!(c_a.1.sources, [source_a]);
+        assert_eq!(c_b.1.sources, [source_b]);
+    }
+}

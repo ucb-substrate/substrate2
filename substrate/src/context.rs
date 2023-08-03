@@ -434,13 +434,8 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     // block)
     let io_internal = Flipped(io_outward.clone());
     // FIXME: the cell's IO should not be attributed to this call site
-    let nodes = node_ctx.nodes_directed(
-        &io_internal.flatten_vec(),
-        NodePriority::Io,
-        SourceInfo::from_caller(),
-    );
-    let (io_data, nodes_rest) = io_internal.instantiate(&nodes);
-    assert!(nodes_rest.is_empty());
+    let (nodes, io_data) =
+        node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
     let cell_name = block.name();
 
     let names = io_outward.flat_names(None);

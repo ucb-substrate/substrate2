@@ -22,8 +22,8 @@ use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
-    SchematicData, SchematicType,
+    Connect, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port, SchematicData,
+    SchematicType,
 };
 use crate::pdk::Pdk;
 use crate::simulation::{HasSimSchematic, Simulator};
@@ -202,15 +202,12 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         name: impl Into<ArcStr>,
         ty: TY,
     ) -> <TY as SchematicType>::Data {
-        let ids = self.node_ctx.nodes_undirected(
-            ty.len(),
+        let (nodes, data) = self.node_ctx.instantiate_undirected(
+            &ty,
             NodePriority::Named,
             SourceInfo::from_caller(),
         );
-        let (data, ids_rest) = ty.instantiate(&ids);
-        assert!(ids_rest.is_empty());
 
-        let nodes = data.flatten_vec();
         let names = ty.flat_names(Some(name.into().into()));
         assert_eq!(nodes.len(), names.len());
 
@@ -299,20 +296,16 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     ) -> Instance<I> {
         let io = cell.block.io();
 
-        let ids = self
-            .node_ctx
-            .nodes_directed(&io.flatten_vec(), NodePriority::Auto, source_info);
-        let (io_data, ids_rest) = io.instantiate(&ids);
-        assert!(ids_rest.is_empty());
+        let (nodes, io_data) =
+            self.node_ctx
+                .instantiate_directed(&io, NodePriority::Auto, source_info);
 
-        let connections = io_data.flatten_vec();
         let names = io.flat_names(Some(
             arcstr::format!("xinst{}", self.instances.len()).into(),
         ));
-        assert_eq!(connections.len(), names.len());
+        assert_eq!(nodes.len(), names.len());
 
-        self.node_names
-            .extend(connections.iter().copied().zip(names));
+        self.node_names.extend(nodes.iter().copied().zip(names));
 
         self.next_instance_id.increment();
 
@@ -334,7 +327,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
                     id: inst.id,
                     name: arcstr::literal!("unnamed"),
                     child: cell.raw.clone(),
-                    connections,
+                    connections: nodes,
                 };
                 send.send(Some(raw)).unwrap();
             } else {
