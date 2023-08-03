@@ -120,8 +120,14 @@ where
             .expect("failed to run simulation");
 
         VdividerDuplicateSubcktTbOutput {
-            vdd: output.get_data(&sim.tb.data().io().vdd).unwrap().clone(),
-            out: output.get_data(&sim.tb.data().io().out).unwrap().clone(),
+            vdd: output
+                .get_data(&sim.tb.data().terminals().vdd)
+                .unwrap()
+                .clone(),
+            out: output
+                .get_data(&sim.tb.data().terminals().out)
+                .unwrap()
+                .clone(),
         }
     }
 }
@@ -168,8 +174,8 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         Self::Key {
             current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
             iprobe: TranCurrent::save(ctx, cell.data().iprobe.terminals().p, opts),
-            vdd: TranVoltage::save(ctx, cell.data().dut.io().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.data().dut.io().out, opts),
+            vdd: TranVoltage::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.data().dut.terminals().out, opts),
         }
     }
 }
@@ -302,7 +308,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
             .data()
             .data()
             .iter()
-            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
+            .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
             .collect();
 
         let out_nested = sim
@@ -310,11 +316,16 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
             .data()
             .data()
             .iter()
-            .map(|inst| output.get_data(&inst.data().r1.io().n).unwrap().clone())
+            .map(|inst| {
+                output
+                    .get_data(&inst.data().r1.terminals().n)
+                    .unwrap()
+                    .clone()
+            })
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.data().io().elements[0].vdd)
+            .get_data(&sim.tb.data().terminals().elements[0].vdd)
             .unwrap()
             .clone();
 
@@ -359,7 +370,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
             .data()
             .data()
             .iter()
-            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
+            .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
             .collect();
 
         let out_nested = sim
@@ -367,11 +378,16 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
             .data()
             .data()
             .iter()
-            .map(|inst| output.get_data(&inst.data().r1.io().n).unwrap().clone())
+            .map(|inst| {
+                output
+                    .get_data(&inst.data().r1.terminals().n)
+                    .unwrap()
+                    .clone()
+            })
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.data().io().elements[0].vdd)
+            .get_data(&sim.tb.data().terminals().elements[0].vdd)
             .unwrap()
             .clone();
 

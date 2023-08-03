@@ -19,8 +19,9 @@ use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::io::{NestedNode, NodePath};
+use substrate::io::{NestedNode, NodePath, TerminalPath};
 use substrate::schematic::conv::RawLib;
+use substrate::schematic::{Cell, HasSchematicData};
 use substrate::simulation::data::{FromSaved, HasNodeData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -86,10 +87,10 @@ impl FromSaved<Spectre, Tran> for TranOutput {
     }
 }
 
-impl<T> Save<Spectre, Tran, T> for TranOutput {
+impl<T: HasSchematicData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext,
-        _to_save: T,
+        _to_save: &Cell<T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -154,17 +155,7 @@ impl Save<Spectre, Tran, &NodePath> for TranVoltage {
     }
 }
 
-impl Save<Spectre, Tran, &NestedNode> for TranVoltage {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: &NestedNode,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::save(ctx, to_save.path(), opts)
-    }
-}
-
-#[impl_dispatch({scir::SignalPath; NodePath; NestedNode})]
+#[impl_dispatch({scir::SignalPath; NodePath})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         ctx: &SimulationContext,
@@ -224,27 +215,21 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
     }
 }
 
-impl Save<Spectre, Tran, &NodePath> for TranCurrent {
+impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
     fn save(
         ctx: &SimulationContext,
-        to_save: &NodePath,
+        to_save: &TerminalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
+        Self::save(
+            ctx,
+            ctx.lib.conv.convert_terminal_path(to_save).unwrap(),
+            opts,
+        )
     }
 }
 
-impl Save<Spectre, Tran, &NestedNode> for TranCurrent {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: &NestedNode,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::save(ctx, to_save.path(), opts)
-    }
-}
-
-#[impl_dispatch({scir::SignalPath; NodePath; NestedNode})]
+#[impl_dispatch({scir::SignalPath; TerminalPath})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
         ctx: &SimulationContext,

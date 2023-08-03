@@ -1,6 +1,6 @@
 //! Substrate to SCIR conversion.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use arcstr::ArcStr;
 use opacity::Opacity;
@@ -80,6 +80,80 @@ impl ScirLibConversion {
                 }
                 Opacity::Clear(conv) => {
                     cell = conv;
+                }
+            }
+        }
+
+        let (signal, index) = *cell.signals.get(&path.node)?;
+
+        Some(scir::SignalPath {
+            signal,
+            index,
+            path: scir::InstancePath {
+                instances,
+                top: self.top,
+            },
+        })
+    }
+
+    /// Converts a Substrate [`TerminalPath`] to a list SCIR [`scir::SignalPath`]s that are
+    /// associated with the terminal at that path.
+    ///
+    /// Returns [`None`] if the path is invalid. Only flattened instances will
+    /// return more than one [`scir::SignalPath`], and unconnected terminals will return
+    /// `Some(vec![])`.
+    pub fn convert_terminal_path(&self, path: &NodePath) -> Option<Vec<scir::SignalPath>> {
+        let mut cell = self.cells.get(&path.top)?;
+        assert!(cell.top);
+
+        let mut instances = Vec::new();
+        let mut last_clear = false;
+        for inst in &path.path {
+            let conv = cell.instances.get(inst).unwrap();
+            match conv.instance.as_ref() {
+                Opacity::Opaque(id) => {
+                    instances.push(*id);
+                    cell = self.cells.get(&conv.child)?;
+                    last_clear = false;
+                }
+                Opacity::Clear(conv) => {
+                    cell = conv;
+                    last_clear = true;
+                }
+            }
+        }
+
+        assert!(!instances.is_empty());
+
+        // If the last cell in the conversion was `Opacity::Clear`, the provided terminal
+        // virtual and thus may correspond to more than one `scir::SignalPath`.
+        //
+        // Run DFS to find all signal paths that are directly connected to this virtual
+        // terminal.
+        let mut queue = VecDeque::new();
+        // Queue contains all virtual `ScirCellConversions` that need to be traversed.
+        queue.push_back(cell);
+
+        let mut signals = Vec::new();
+        while let Some(cell) = queue.pop_back() {
+            for (_, conv) in cell.instances.iter() {
+                match conv.instance.as_ref() {
+                    Opacity::Opaque(id) => {
+                        let mut instances = instances.clone();
+                        instances.push(*id);
+                        let inst = cell.instances.get(id)?;
+                        let cell = self.cells.get(&conv.child)?;
+                        let (signal, index) = *cell.signals.get(&path.node)?;
+                        signals.push(scir::SignalPath {
+                            _,
+                            _,
+                            path: scir::InstancePath {
+                                instances,
+                                top: self.top,
+                            }
+                        })
+                    }
+
                 }
             }
         }
