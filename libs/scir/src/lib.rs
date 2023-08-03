@@ -38,6 +38,7 @@ pub mod merge;
 mod slice;
 
 pub use slice::{IndexOwned, Slice, SliceRange};
+pub(crate) mod drivers;
 pub(crate) mod validation;
 
 #[cfg(test)]
@@ -383,10 +384,26 @@ pub struct Library {
     order: Vec<CellId>,
 }
 
+/// Port directions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+pub enum Direction {
+    /// Input.
+    Input,
+    /// Output.
+    Output,
+    /// Input or output.
+    ///
+    /// Represents ports whose direction is not known
+    /// at generator elaboration time.
+    #[default]
+    InOut,
+}
+
 /// A signal exposed by a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Port {
     signal: SignalId,
+    direction: Direction,
 }
 
 /// Information about a signal in a cell.
@@ -772,10 +789,10 @@ impl Cell {
     /// # Panics
     ///
     /// Panics if the provided signal does not exist.
-    pub fn expose_port(&mut self, signal: impl Into<SignalId>) {
+    pub fn expose_port(&mut self, signal: impl Into<SignalId>, direction: Direction) {
         let signal = signal.into();
         self.signals.get_mut(&signal).unwrap().port = true;
-        self.ports.push(Port { signal });
+        self.ports.push(Port { signal, direction });
     }
 
     /// Returns a reference to the contents of this cell.
