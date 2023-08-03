@@ -383,12 +383,6 @@ pub struct Library {
     order: Vec<CellId>,
 }
 
-/// A signal exposed by a cell.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Port {
-    signal: SignalId,
-}
-
 /// Information about a signal in a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
@@ -456,10 +450,25 @@ pub struct Cell {
     /// Initialized to 0 upon cell creation.
     signal_id: u64,
     pub(crate) name: ArcStr,
-    pub(crate) ports: Vec<Port>,
+    pub(crate) ports: Ports,
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
     pub(crate) params: HashMap<ArcStr, Param>,
     pub(crate) contents: CellContents,
+}
+
+/// A set of signals exposed by a cell.
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct Ports {
+    /// Signals exposed by a cell.
+    ports: Vec<Port>,
+    /// Mapping from a port name to its index in `ports`.
+    name_map: HashMap<ArcStr, usize>,
+}
+
+/// A signal exposed by a cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Port {
+    signal: SignalId,
 }
 
 /// The inner contents of a non-blackbox cell.
@@ -710,7 +719,7 @@ impl Cell {
         Self {
             signal_id: 0,
             name: name.into(),
-            ports: Vec::new(),
+            ports: Ports::new(),
             signals: HashMap::new(),
             params: HashMap::new(),
             contents: CellContents::Clear(Default::default()),
@@ -725,7 +734,7 @@ impl Cell {
         Self {
             signal_id: 0,
             name: name.into(),
-            ports: Vec::new(),
+            ports: Ports::new(),
             signals: HashMap::new(),
             params: HashMap::new(),
             contents: CellContents::Opaque(Default::default()),
@@ -774,8 +783,9 @@ impl Cell {
     /// Panics if the provided signal does not exist.
     pub fn expose_port(&mut self, signal: impl Into<SignalId>) {
         let signal = signal.into();
-        self.signals.get_mut(&signal).unwrap().port = true;
-        self.ports.push(Port { signal });
+        let info = self.signals.get_mut(&signal).unwrap();
+        info.port = true;
+        self.ports.push(info.name.clone(), signal);
     }
 
     /// Returns a reference to the contents of this cell.
@@ -806,6 +816,12 @@ impl Cell {
     #[inline]
     pub fn ports(&self) -> impl Iterator<Item = &Port> {
         self.ports.iter()
+    }
+
+    /// Get a port of this cell by name.
+    #[inline]
+    pub fn port(&self, name: &str) -> &Port {
+        self.ports.get_named(name)
     }
 
     /// Iterate over the signals of this cell.
@@ -937,6 +953,30 @@ impl Instance {
     #[inline]
     pub fn connection<'a>(&'a self, port: &str) -> &'a Concat {
         &self.connections[port]
+    }
+}
+
+impl Ports {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+    /// Pushes a port to the set of ports.
+    pub(crate) fn push(&mut self, name: impl Into<ArcStr>, signal: SignalId) {
+        self.ports.push(Port { signal });
+        self.name_map.insert(name.into(), self.ports.len() - 1);
+    }
+
+    pub(crate) fn get_named(&self, name: &str) -> &Port {
+        let idx = self.name_map.get(name).unwrap();
+        &self.ports[*idx]
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &Port> {
+        self.ports.iter()
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.ports.len()
     }
 }
 
