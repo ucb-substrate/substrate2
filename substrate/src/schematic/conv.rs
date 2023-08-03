@@ -420,7 +420,7 @@ impl RawCell {
 
         if flatten.is_no() {
             for port in self.ports.iter() {
-                ctx.cell.expose_port(nodes[&port.node()]);
+                ctx.cell.expose_port(nodes[&port.node()], port.direction());
             }
         }
 

@@ -17,8 +17,8 @@ pub(crate) fn vdivider() -> Library {
         }
         .into(),
     );
-    wrapper.expose_port(pos);
-    wrapper.expose_port(neg);
+    wrapper.expose_port(pos, Direction::InOut);
+    wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
     let mut vdivider = Cell::new_whitebox("vdivider");
@@ -43,9 +43,9 @@ pub(crate) fn vdivider() -> Library {
     r3.connect("neg", vss);
     contents.add_instance(r3);
 
-    vdivider.expose_port(vdd);
-    vdivider.expose_port(vss);
-    vdivider.expose_port(out);
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
     lib.add_cell(vdivider);
 
     lib
@@ -61,8 +61,8 @@ pub(crate) fn vdivider_blackbox() -> Library {
     wrapper.add_blackbox_elem(pos);
     wrapper.add_blackbox_elem(neg);
     wrapper.add_blackbox_elem("3300");
-    wrapper.expose_port(pos);
-    wrapper.expose_port(neg);
+    wrapper.expose_port(pos, Direction::InOut);
+    wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
     let mut vdivider = Cell::new_whitebox("vdivider");
@@ -87,9 +87,9 @@ pub(crate) fn vdivider_blackbox() -> Library {
     r3.connect("neg", vss);
     contents.add_instance(r3);
 
-    vdivider.expose_port(vdd);
-    vdivider.expose_port(vss);
-    vdivider.expose_port(out);
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
     lib.add_cell(vdivider);
 
     lib

@@ -2,7 +2,7 @@
 //!
 //! Looks for issues such as multiply-driven nets and floating nets.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
 use diagnostics::{Diagnostic, IssueSet, Severity};
@@ -184,7 +184,7 @@ impl Display for Cause {
 }
 
 impl Library {
-    /// Check whether or not this library is valid.
+    /// Perform driver analysis on this library.
     pub fn validate_drivers(&self) -> IssueSet<DriverIssue> {
         let _guard = span!(Level::INFO, "performing driver analysis on SCIR Library").entered();
         let mut issues = IssueSet::new();
@@ -193,14 +193,8 @@ impl Library {
     }
 
     fn validate_drivers_inner(&self, issues: &mut IssueSet<DriverIssue>) {
-        let _guard = span!(
-            Level::INFO,
-            "validation pass 1 (checking signal and port identifier validity)"
-        )
-        .entered();
-
-        for (id, cell) in self.cells.iter() {
-            self.validate_cell_drivers(*id, issues);
+        for &id in self.cells.keys() {
+            self.validate_cell_drivers(id, issues);
         }
     }
 
@@ -223,7 +217,7 @@ impl Library {
             }));
 
         for port in cell.ports() {
-            for state in net_states[&port.signal()].iter_mut() {
+            for state in net_states.get_mut(&port.signal()).unwrap() {
                 match port.direction {
                     Direction::Input => state.drivers += 1,
                     Direction::Output => state.taps += 1,
@@ -237,7 +231,30 @@ impl Library {
         }
 
         for device in contents.primitives.iter() {
-            for slice in device.nodes() {}
+            for slice in device.nodes() {
+                let states = net_states.get_mut(&slice.signal()).unwrap();
+                if let Some(range) = slice.range() {
+                    for idx in range {
+                        update_net_state(&mut states[idx], Direction::InOut);
+                    }
+                } else {
+                    update_net_state(&mut states[0], Direction::InOut);
+                }
+            }
+        }
+
+        for (sig, list) in net_states.iter() {
+            for (i, state) in list.iter().enumerate() {
+                let info = cell.signal(*sig);
+                state.validate(
+                    Net {
+                        cell_name: cell.name().clone(),
+                        signal_name: info.name.clone(),
+                        idx: info.width.map(|_| i),
+                    },
+                    issues,
+                );
+            }
         }
     }
 }
@@ -247,7 +264,28 @@ fn analyze_instance(
     net_states: &mut HashMap<SignalId, Vec<NetState>>,
     inst: &Instance,
 ) {
-    todo!()
+    let cell = lib.cell(inst.cell());
+    for (port, conn) in inst.connections() {
+        let dir = cell.port(port).direction;
+        for part in conn.parts() {
+            let states = net_states.get_mut(&part.signal()).unwrap();
+            if let Some(range) = part.range() {
+                for idx in range {
+                    update_net_state(&mut states[idx], dir);
+                }
+            } else {
+                update_net_state(&mut states[0], dir);
+            }
+        }
+    }
+}
+
+fn update_net_state(state: &mut NetState, dir: Direction) {
+    match dir {
+        Direction::Output => state.drivers += 1,
+        Direction::Input => state.taps += 1,
+        Direction::InOut => state.inouts += 1,
+    }
 }
 
 #[cfg(test)]
