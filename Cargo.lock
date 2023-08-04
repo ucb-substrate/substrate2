@@ -2799,7 +2799,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.23",
- "type_dispatch",
 ]
 
 [[package]]

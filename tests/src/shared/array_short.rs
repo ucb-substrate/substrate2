@@ -52,3 +52,17 @@ impl<PDK: Pdk> HasSchematic<PDK> for ArrayShort {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shared::pdk::sky130_open_ctx;
+    use test_log::test;
+
+    #[test]
+    #[should_panic]
+    fn panics_when_shorting_ios() {
+        let ctx = sky130_open_ctx();
+        let _ = ctx.export_scir(ArrayShort { width: 5 });
+    }
+}

@@ -54,6 +54,7 @@ impl Vsource {
 
 impl Block for Vsource {
     type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
@@ -110,10 +111,7 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
                 cell: arcstr::literal!("vsource"),
-                ports: vec![
-                    PrimitiveNode::new("p", *io.p),
-                    PrimitiveNode::new("n", *io.n),
-                ],
+                ports: vec![PrimitiveNode::new("p", io.p), PrimitiveNode::new("n", io.n)],
             },
             params,
         ));
@@ -127,6 +125,7 @@ pub struct Iprobe;
 
 impl Block for Iprobe {
     type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("iprobe")
@@ -154,8 +153,15 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
         cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec![
-                PrimitiveNode::new("in", *io.p),
-                PrimitiveNode::new("out", *io.n),
+                PrimitiveNode::new("in", io.p),
+                PrimitiveNode::new("out", io.n),
+            ],
+        }));
+        cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
+            cell: arcstr::literal!("iprobe"),
+            ports: vec![
+                PrimitiveNode::new("in", io.p),
+                PrimitiveNode::new("out", io.n),
             ],
         }));
         Ok(())

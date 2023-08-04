@@ -233,7 +233,7 @@ fn spectre_can_include_sections() {
                 )
                 .expect("failed to run simulation");
             *output
-                .get_data(&sim.tb.data().io().n)
+                .get_data(&sim.tb.data().terminals().n)
                 .unwrap()
                 .first()
                 .unwrap()

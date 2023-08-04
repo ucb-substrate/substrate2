@@ -159,7 +159,9 @@ impl<'a> ScirConverter<'a> {
 
         for port in subckt.ports.iter() {
             let port = node(port, &mut cell);
-            cell.expose_port(port);
+            // In the future, we may support parsing port directions from comments in the SPICE file.
+            // For now, we simply expose all ports using the default direction.
+            cell.expose_port(port, Default::default());
         }
 
         let id = self.lib.add_cell(cell);

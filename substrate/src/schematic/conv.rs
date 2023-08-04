@@ -4,13 +4,15 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use arcstr::ArcStr;
 use opacity::Opacity;
-use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library};
+use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library, SignalTermination};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath};
-use crate::schematic::{InstancePath, RawCellContents};
+use crate::schematic::{InstancePath, PrimitiveDevice, PrimitiveDeviceKind, RawCellContents};
 
 use super::{BlackboxElement, CellId, InstanceId, RawCell};
+
+type SliceOne = (scir::SignalId, Option<usize>);
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -90,8 +92,7 @@ impl RawLib {
         let (signal, index) = *cell.signals.get(&path.node)?;
 
         Some(scir::SignalPath {
-            signal,
-            index,
+            termination: SignalTermination::Signal { signal, index },
             path: scir::InstancePath {
                 instances,
                 top: self.conv.top,
@@ -150,22 +151,28 @@ impl RawLib {
             }
         }
 
-        assert!(!instances.is_empty());
-
         // If the last cell in the conversion was `Opacity::Clear`, the provided terminal
         // virtual and thus may correspond to more than one `scir::SignalPath`.
         //
         // Run DFS to find all signal paths that are directly connected to this virtual
         // terminal.
-        let mut queue = VecDeque::new();
-        // Queue contains all virtual `ScirCellConversions` that need to be traversed.
-        queue.push_back(cell);
-
-        let (signal, index) = *cell.signals.get(&path.node)?;
-
-        let mut signals = Vec::new();
-
-        Some(signals)
+        let slice = *cell.signals.get(&path.node)?;
+        Some(if last_clear {
+            let mut signals = Vec::new();
+            self.find_connected_terminals(cell, slice, &mut instances, &mut signals);
+            signals
+        } else {
+            vec![scir::SignalPath {
+                termination: SignalTermination::Signal {
+                    signal: slice.0,
+                    index: slice.1,
+                },
+                path: scir::InstancePath {
+                    instances,
+                    top: self.conv.top,
+                },
+            }]
+        })
     }
 
     /// Must ensure that `instances` is returned to its original value by the end of the
@@ -179,6 +186,26 @@ impl RawLib {
     ) {
         let (signal, index) = slice;
         let parent_cell = self.scir.cell(self.conv.id_mapping[&conv.id]);
+        for (id, primitive) in &conv.primitives {
+            for node in match &primitive.kind {
+                PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![pos.clone(), neg.clone()],
+                PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
+                _ => vec![],
+            } {
+                if &slice == conv.signals.get(&node.node).unwrap() {
+                    signals.push(scir::SignalPath {
+                        termination: SignalTermination::Primitive {
+                            id: *id,
+                            buf: vec![node.port.clone()],
+                        },
+                        path: scir::InstancePath {
+                            instances: instances.clone(),
+                            top: self.conv.top,
+                        },
+                    })
+                }
+            }
+        }
         for (_, conv) in conv.instances.iter() {
             match conv.instance.as_ref() {
                 Opacity::Opaque(id) => {
@@ -211,8 +238,10 @@ impl RawLib {
                                         None
                                     };
                                     signals.push(scir::SignalPath {
-                                        signal: port.signal(),
-                                        index,
+                                        termination: SignalTermination::Signal {
+                                            signal: port.signal(),
+                                            index,
+                                        },
                                         path: scir::InstancePath {
                                             instances: instances.clone(),
                                             top: self.conv.top,
@@ -223,6 +252,7 @@ impl RawLib {
                             port_index += part.width();
                         }
                     }
+                    instances.pop();
                 }
                 Opacity::Clear(conv) => {
                     self.find_connected_terminals(conv, slice, instances, signals);
@@ -231,9 +261,6 @@ impl RawLib {
         }
     }
 }
-
-/// A single-node slice.
-type SliceOne = (scir::SignalId, Option<usize>);
 
 /// A converted SCIR instance.
 type ConvertedScirInstance = Opacity<scir::InstanceId, ScirCellConversion>;
@@ -251,6 +278,7 @@ pub(crate) struct ScirCellConversion {
     pub(crate) signals: HashMap<Node, SliceOne>,
     /// Map Substrate instance IDs to SCIR instances and their underlying Substrate cell.
     pub(crate) instances: HashMap<InstanceId, ScirInstanceConversion>,
+    pub(crate) primitives: Vec<(scir::PrimitiveDeviceId, PrimitiveDevice)>,
 }
 
 impl ScirCellConversion {
@@ -261,6 +289,7 @@ impl ScirCellConversion {
             top: false,
             signals: HashMap::new(),
             instances: HashMap::new(),
+            primitives: Vec::new(),
         }
     }
 }
@@ -487,9 +516,9 @@ impl RawCell {
                     }
                 }
                 for p in contents.primitives.iter() {
-                    match &p.kind {
+                    let id = match &p.kind {
                         super::PrimitiveDeviceKind::Res2 { pos, neg, value } => {
-                            ctx.whitebox_contents_mut().add_primitive(
+                            Some(ctx.whitebox_contents_mut().add_primitive(
                                 scir::PrimitiveDevice::from_params(
                                     scir::PrimitiveDeviceKind::Res2 {
                                         pos: nodes[&pos.node],
@@ -498,10 +527,10 @@ impl RawCell {
                                     },
                                     p.params.clone(),
                                 ),
-                            );
+                            ))
                         }
                         super::PrimitiveDeviceKind::RawInstance { ports, cell } => {
-                            ctx.whitebox_contents_mut().add_primitive(
+                            Some(ctx.whitebox_contents_mut().add_primitive(
                                 scir::PrimitiveDevice::from_params(
                                     scir::PrimitiveDeviceKind::RawInstance {
                                         ports: ports.iter().map(|p| nodes[&p.node]).collect(),
@@ -509,7 +538,7 @@ impl RawCell {
                                     },
                                     p.params.clone(),
                                 ),
-                            );
+                            ))
                         }
                         super::PrimitiveDeviceKind::ScirInstance {
                             lib,
@@ -522,8 +551,7 @@ impl RawCell {
                             let mut inst = scir::Instance::new(name, cell);
 
                             for (port, elems) in connections {
-                                let concat: scir::Concat =
-                                    elems.iter().map(|n| nodes[&n.node]).collect();
+                                let concat: scir::Concat = elems.iter().map(|n| nodes[n]).collect();
                                 inst.connect(port, concat);
                             }
 
@@ -531,15 +559,19 @@ impl RawCell {
                                 inst.set_param(key, value.clone());
                             }
                             ctx.whitebox_contents_mut().add_instance(inst);
+                            None
                         }
                     };
+                    if let Some(id) = id {
+                        conv.primitives.push((id, p.clone()))
+                    }
                 }
             }
         }
 
         if flatten.is_no() {
             for port in self.ports.iter() {
-                ctx.cell.expose_port(nodes[&port.node()]);
+                ctx.cell.expose_port(nodes[&port.node()], port.direction());
             }
         }
 

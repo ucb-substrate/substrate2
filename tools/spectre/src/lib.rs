@@ -10,6 +10,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::netlist::SpectreLibConversion;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -17,10 +18,11 @@ use error::*;
 use netlist::{Include, Netlister};
 use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
+use scir::{Library, SignalTermination};
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, TerminalPath};
-use substrate::schematic::conv::RawLib;
+use substrate::schematic::conv::{RawLib, ScirLibConversion};
 use substrate::schematic::{Cell, HasSchematicData};
 use substrate::simulation::data::{FromSaved, HasNodeData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
@@ -74,6 +76,7 @@ impl Display for ErrPreset {
 #[derive(Debug, Clone)]
 pub struct TranOutput {
     lib: Arc<RawLib>,
+    conv: Arc<SpectreLibConversion>,
     pub time: Arc<Vec<f64>>,
     /// A map from signal name to values.
     pub raw_values: HashMap<ArcStr, Arc<Vec<f64>>>,
@@ -142,7 +145,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        Self::save(ctx, &*node_voltage_path(&ctx.lib, to_save), opts)
+        opts.save_tran_voltage(netlist::Save::ScirVoltage(to_save.clone()))
     }
 }
 
@@ -224,7 +227,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        Self::save(ctx, &node_current_path(&ctx.lib, to_save), opts)
+        opts.save_tran_current(netlist::Save::ScirCurrent(to_save.clone()))
     }
 }
 
@@ -265,7 +268,8 @@ impl HasNodeData<str, Vec<f64>> for TranOutput {
 impl HasNodeData<scir::SignalPath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &scir::SignalPath) -> Option<&Vec<f64>> {
         self.get_data(&*node_voltage_path(
-            &self.lib,
+            &self.lib.scir,
+            &self.conv,
             &self.lib.scir.simplify_path(k.clone()),
         ))
     }
@@ -338,6 +342,7 @@ pub struct Options {
     includes: HashSet<Include>,
     saves: HashMap<netlist::Save, u64>,
     next_save_key: u64,
+    conv: Arc<SpectreLibConversion>,
 }
 
 impl Options {
@@ -493,7 +498,7 @@ impl Spectre {
         saves.sort();
 
         let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
-        netlister.export()?;
+        let conv = netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
             write!(w, "analysis{i} ")?;
@@ -532,11 +537,13 @@ impl Spectre {
             })?
             .clone();
 
+        let conv = Arc::new(conv);
         let outputs = raw_outputs
             .into_iter()
             .map(|mut raw_values| {
                 TranOutput {
                     lib: ctx.lib.clone(),
+                    conv: conv.clone(),
                     time: Arc::new(raw_values.remove("time").unwrap()),
                     raw_values: raw_values
                         .into_iter()
@@ -545,7 +552,7 @@ impl Spectre {
                     saved_values: options
                         .saves
                         .iter()
-                        .map(|(k, v)| (*v, k.path.clone()))
+                        .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, &conv)))
                         .collect(),
                 }
                 .into()
@@ -573,35 +580,67 @@ impl Simulator for Spectre {
 }
 
 #[allow(dead_code)]
-pub(crate) fn instance_path(lib: &RawLib, path: &scir::InstancePath) -> String {
-    let named_path = lib.scir.convert_instance_path(path);
+pub(crate) fn instance_path(lib: &Library, path: &scir::InstancePath) -> String {
+    let named_path = lib.convert_instance_path(path).0;
     named_path.join(".")
 }
 
-pub(crate) fn node_voltage_path(lib: &RawLib, path: &scir::SignalPath) -> String {
-    let named_path = lib.scir.convert_signal_path(path);
-    let mut path = (*named_path.instances).clone();
-    path.push(named_path.signal);
-    let mut str_path = path.join(".");
-    if let Some(index) = named_path.index {
-        str_path.push_str(&format!("[{}]", index));
+pub(crate) fn node_voltage_path(
+    lib: &Library,
+    conv: &SpectreLibConversion,
+    path: &scir::SignalPath,
+) -> String {
+    let (named_path, id) = lib.convert_instance_path(&path.path);
+    let mut named_path = (*named_path).clone();
+    let cell = lib.cell(id);
+
+    match &path.termination {
+        SignalTermination::Signal { signal, index } => {
+            named_path.push(cell.signal(*signal).name.clone());
+            let mut str_path = named_path.join(".");
+            if let Some(index) = index {
+                str_path.push_str(&format!("[{}]", index));
+            }
+            str_path
+        }
+        SignalTermination::Primitive { id: prim_id, buf } => {
+            named_path.push(conv.cells[&id].primitives[prim_id].clone());
+            let mut buf = buf.clone();
+            named_path.extend(buf);
+            named_path.join(".")
+        }
     }
-    str_path
 }
 
-pub(crate) fn node_current_path(lib: &RawLib, path: &scir::SignalPath) -> String {
-    let named_path = &lib.scir.convert_signal_path(path);
-    assert!(
-        !named_path.instances.is_empty(),
-        "no instance associated with this terminal"
-    );
-    let mut str_path = named_path.instances.join(".");
-    str_path.push(':');
-    str_path.push_str(&named_path.signal);
-    if let Some(index) = named_path.index {
-        str_path.push_str(&format!("[{}]", index));
+pub(crate) fn node_current_path(
+    lib: &Library,
+    conv: &SpectreLibConversion,
+    path: &scir::SignalPath,
+) -> String {
+    let (named_path, id) = lib.convert_instance_path(&path.path);
+    let mut named_path = (*named_path).clone();
+    let cell = lib.cell(id);
+
+    match &path.termination {
+        SignalTermination::Signal { signal, index } => {
+            let mut str_path = named_path.join(".");
+            str_path.push(':');
+            str_path.push_str(&cell.signal(*signal).name);
+            if let Some(index) = index {
+                str_path.push_str(&format!("[{}]", index));
+            }
+            str_path
+        }
+        SignalTermination::Primitive { id: prim_id, buf } => {
+            named_path.push(conv.cells[&id].primitives[prim_id].clone());
+            let mut buf = buf.clone();
+            named_path.extend(buf.drain(..buf.len() - 1));
+            let mut str_path = named_path.join(".");
+            str_path.push(':');
+            str_path.push_str(&buf.pop().unwrap());
+            str_path
+        }
     }
-    str_path
 }
 
 impl Input {

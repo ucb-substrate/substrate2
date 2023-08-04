@@ -441,7 +441,7 @@ impl Library {
             }
         }
 
-        for device in contents.primitives.iter() {
+        for (_, device) in contents.primitives.iter() {
             for slice in device.nodes() {
                 if !cell.signals.contains_key(&slice.signal()) {
                     issues.add(invalid_signal(slice.signal()));
@@ -601,7 +601,7 @@ impl Library {
             }
         }
 
-        for device in contents.primitives.iter() {
+        for (_, device) in contents.primitives.iter() {
             for slice in device.nodes() {
                 if slice.width() != 1 {
                     let issue = ValidatorIssue::new_and_log(

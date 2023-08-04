@@ -8,7 +8,7 @@ use gds::GdsError;
 use crate::layout::error::{GdsImportError, LayoutError};
 
 /// A result type returning Substrate errors.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// The error type for Substrate functions.
 #[derive(thiserror::Error, Debug, Clone)]
