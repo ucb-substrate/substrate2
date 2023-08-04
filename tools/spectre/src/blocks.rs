@@ -157,13 +157,6 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
                 PrimitiveNode::new("out", io.n),
             ],
         }));
-        cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
-            cell: arcstr::literal!("iprobe"),
-            ports: vec![
-                PrimitiveNode::new("in", io.p),
-                PrimitiveNode::new("out", io.n),
-            ],
-        }));
         Ok(())
     }
 }
