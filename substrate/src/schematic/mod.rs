@@ -362,7 +362,10 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         s1f.into_iter().zip(s2f).for_each(|(a, b)| {
             // FIXME: proper error handling mechanism (collect all errors into
             // context and emit later)
-            self.node_ctx.connect(a, b).unwrap();
+            let res = self.node_ctx.connect(a, b);
+            if let Err(err) = res {
+                tracing::warn!(?err, "connection failed");
+            }
         });
     }
 

@@ -548,8 +548,13 @@ impl NodeContext {
             .flat_map(|e1| n2_connections_data.drivers.iter().map(move |e2| [e1, e2]))
             .filter(|[(&k1, _), (&k2, _)]| !k1.is_compatible_with(k2))
             .collect();
+        let mut result = Ok(());
         if !incompatible_drivers.is_empty() {
-            return Err(NodeConnectDirectionError {
+            // If drivers are not compatible, return an error but connect them
+            // anyways, because (1) we would like to detect further errors
+            // that may be caused by the connection being made and (2) the
+            // error might be spurious and waived by the user.
+            result = Err(NodeConnectDirectionError {
                 data: incompatible_drivers
                     .iter()
                     .map(|&[(&k1, v1), (&k2, v2)]| [(k1, v1.clone()), (k2, v2.clone())])
@@ -578,7 +583,7 @@ impl NodeContext {
             .expect("new root should be populated")
             .merge_from(old_connections_data);
 
-        Ok(())
+        result
     }
 }
 
