@@ -64,7 +64,7 @@ impl HasSchematic<ExamplePdkA> for NmosA {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
-                ports: vec![*io.d, *io.g, *io.s, *io.b],
+                ports: vec![io.d, io.g, io.s, io.b],
                 cell: arcstr::literal!("example_pdk_nmos_a"),
             },
             HashMap::from_iter([
@@ -108,7 +108,7 @@ impl HasSchematic<ExamplePdkA> for PmosA {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
-                ports: vec![*io.d, *io.g, *io.s, *io.b],
+                ports: vec![io.d, io.g, io.s, io.b],
                 cell: arcstr::literal!("example_pdk_pmos_a"),
             },
             HashMap::from_iter([

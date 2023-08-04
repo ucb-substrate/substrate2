@@ -25,7 +25,7 @@
 #![warn(missing_docs)]
 
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 use arcstr::ArcStr;
@@ -418,6 +418,37 @@ impl Direction {
             Self::Input => Self::Output,
             Self::Output => Self::Input,
             Self::InOut => Self::InOut,
+        }
+    }
+
+    /// Test if two nodes of the respective directions are allowed be connected
+    /// to each other.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use scir::Direction;
+    /// assert_eq!(Direction::Input.is_compatible_with(Direction::Output), true);
+    /// assert_eq!(Direction::Output.is_compatible_with(Direction::Output), false);
+    /// assert_eq!(Direction::Output.is_compatible_with(Direction::InOut), true);
+    /// ```
+    pub fn is_compatible_with(&self, other: Direction) -> bool {
+        use Direction::*;
+
+        #[allow(clippy::match_like_matches_macro)]
+        match (*self, other) {
+            (Output, Output) => false,
+            _ => true,
+        }
+    }
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Output => write!(f, "output"),
+            Self::Input => write!(f, "input"),
+            Self::InOut => write!(f, "inout"),
         }
     }
 }
