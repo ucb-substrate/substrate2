@@ -25,7 +25,7 @@
 #![warn(missing_docs)]
 
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 use arcstr::ArcStr;
@@ -439,6 +439,16 @@ impl Direction {
         match (*self, other) {
             (Output, Output) => false,
             _ => true,
+        }
+    }
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Output => write!(f, "output"),
+            Self::Input => write!(f, "input"),
+            Self::InOut => write!(f, "inout"),
         }
     }
 }
