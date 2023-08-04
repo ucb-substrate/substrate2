@@ -849,15 +849,21 @@ pub struct PrimitiveDevice {
     params: HashMap<ArcStr, scir::Expr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct PrimitiveNode {
+    pub(crate) port: ArcStr,
+    pub(crate) node: Node,
+}
+
 /// An enumeration of the possible kinds of primitive devices.
 #[derive(Debug, Clone)]
 pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive node.
-        pos: Node,
+        pos: PrimitiveNode,
         /// The negative node.
-        neg: Node,
+        neg: PrimitiveNode,
         /// The value of the resistor, in Ohms.
         value: Decimal,
     },
@@ -866,7 +872,7 @@ pub enum PrimitiveDeviceKind {
     /// This can be an instance of a subcircuit defined outside of Substrate.
     RawInstance {
         /// The ports of the instance, as an ordered list.
-        ports: Vec<Node>,
+        ports: Vec<PrimitiveNode>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
     },
@@ -884,7 +890,7 @@ pub enum PrimitiveDeviceKind {
         /// This need not be related to the name of the child cell.
         name: ArcStr,
         /// The connections to the ports of the child cell.
-        connections: HashMap<ArcStr, Vec<Node>>,
+        connections: HashMap<ArcStr, Vec<PrimitiveNode>>,
     },
 }
 
@@ -907,6 +913,17 @@ impl PrimitiveDevice {
         Self {
             kind,
             params: Default::default(),
+        }
+    }
+}
+
+impl PrimitiveNode {
+    /// Creates a [`PrimitiveNode`] from a node and the name of the port that it is
+    /// connected to.
+    pub fn new(port: impl Into<ArcStr>, node: Node) -> Self {
+        Self {
+            port: port.into(),
+            node,
         }
     }
 }

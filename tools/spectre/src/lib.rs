@@ -74,6 +74,7 @@ impl Display for ErrPreset {
 #[derive(Debug, Clone)]
 pub struct TranOutput {
     lib: Arc<RawLib>,
+    pub time: Arc<Vec<f64>>,
     /// A map from signal name to values.
     pub raw_values: HashMap<ArcStr, Arc<Vec<f64>>>,
     /// A map from a save ID to a raw value identifier.
@@ -151,7 +152,7 @@ impl Save<Spectre, Tran, &NodePath> for TranVoltage {
         to_save: &NodePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        Self::save(ctx, ctx.lib.conv.convert_node_path(to_save).unwrap(), opts)
+        Self::save(ctx, ctx.lib.convert_node_path(to_save).unwrap(), opts)
     }
 }
 
@@ -167,8 +168,8 @@ impl<T> Save<Spectre, Tran, T> for TranVoltage {
 }
 
 /// An identifier for a saved transient current.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TranCurrentKey(u64);
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TranCurrentKey(Vec<u64>);
 
 /// A saved transient current.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -184,13 +185,25 @@ impl Deref for TranCurrent {
 impl FromSaved<Spectre, Tran> for TranCurrent {
     type Key = TranCurrentKey;
     fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
-        TranCurrent(
-            output
-                .raw_values
-                .get(output.saved_values.get(&key.0).unwrap())
-                .unwrap()
-                .clone(),
-        )
+        let currents: Vec<Arc<Vec<f64>>> = key
+            .0
+            .iter()
+            .map(|key| {
+                output
+                    .raw_values
+                    .get(output.saved_values.get(key).unwrap())
+                    .unwrap()
+                    .clone()
+            })
+            .collect();
+
+        let mut total_current = vec![0.; output.time.len()];
+        for tran_current in currents {
+            for (i, current) in tran_current.iter().enumerate() {
+                total_current[i] += *current;
+            }
+        }
+        TranCurrent(Arc::new(total_current))
     }
 }
 
@@ -221,10 +234,13 @@ impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
         to_save: &TerminalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        Self::save(
-            ctx,
-            ctx.lib.conv.convert_terminal_path(to_save).unwrap(),
-            opts,
+        TranCurrentKey(
+            ctx.lib
+                .convert_terminal_path(to_save)
+                .unwrap()
+                .into_iter()
+                .flat_map(|path| Self::save(ctx, path, opts).0)
+                .collect(),
         )
     }
 }
@@ -257,7 +273,7 @@ impl HasNodeData<scir::SignalPath, Vec<f64>> for TranOutput {
 
 impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&self.lib.conv.convert_node_path(k)?)
+        self.get_data(&self.lib.convert_node_path(k)?)
     }
 }
 
@@ -354,7 +370,7 @@ impl Options {
 
     /// Marks a transient current to be saved in all transient analyses.
     pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
-        TranCurrentKey(self.save_inner(save))
+        TranCurrentKey(vec![self.save_inner(save)])
     }
 }
 
@@ -518,9 +534,10 @@ impl Spectre {
 
         let outputs = raw_outputs
             .into_iter()
-            .map(|raw_values| {
+            .map(|mut raw_values| {
                 TranOutput {
                     lib: ctx.lib.clone(),
+                    time: Arc::new(raw_values.remove("time").unwrap()),
                     raw_values: raw_values
                         .into_iter()
                         .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
