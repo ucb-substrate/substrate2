@@ -18,8 +18,8 @@ fn duplicate_instance_names() {
             neg,
             value: dec!(3300).into(),
         }));
-    wrapper.expose_port(pos);
-    wrapper.expose_port(neg);
+    wrapper.expose_port(pos, Direction::InOut);
+    wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
     let mut vdivider = Cell::new_whitebox("vdivider");
@@ -39,9 +39,9 @@ fn duplicate_instance_names() {
     r2.connect("neg", out);
     vdivider.add_instance(r2);
 
-    vdivider.expose_port(vdd);
-    vdivider.expose_port(vss);
-    vdivider.expose_port(out);
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
 
     lib.add_cell(vdivider);
 

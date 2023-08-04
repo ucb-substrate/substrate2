@@ -26,6 +26,8 @@ use crate::{
     Io,
 };
 
+pub use crate::scir::Direction;
+
 mod impls;
 
 // BEGIN TRAITS
@@ -554,44 +556,6 @@ impl<T> OptionBuilder<T> {
     /// Returns the data contained by the builder.
     pub fn build(self) -> Result<T> {
         Ok(self.0.ok_or(LayoutError::IoDefinition)?)
-    }
-}
-
-/// Port directions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
-pub enum Direction {
-    /// Input.
-    Input,
-    /// Output.
-    Output,
-    /// Input or output.
-    ///
-    /// Represents ports whose direction is not known
-    /// at generator elaboration time.
-    #[default]
-    InOut,
-}
-
-impl Direction {
-    /// Returns the flipped direction.
-    ///
-    /// [`Direction::InOut`] is unchanged by flipping.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use substrate::io::Direction;
-    /// assert_eq!(Direction::Input.flip(), Direction::Output);
-    /// assert_eq!(Direction::Output.flip(), Direction::Input);
-    /// assert_eq!(Direction::InOut.flip(), Direction::InOut);
-    /// ```
-    #[inline]
-    pub fn flip(&self) -> Self {
-        match *self {
-            Self::Input => Self::Output,
-            Self::Output => Self::Input,
-            Self::InOut => Self::InOut,
-        }
     }
 }
 

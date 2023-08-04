@@ -38,6 +38,7 @@ pub mod merge;
 mod slice;
 
 pub use slice::{IndexOwned, Slice, SliceRange};
+pub(crate) mod drivers;
 pub(crate) mod validation;
 
 #[cfg(test)]
@@ -383,6 +384,51 @@ pub struct Library {
     order: Vec<CellId>,
 }
 
+/// Port directions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+pub enum Direction {
+    /// Input.
+    Input,
+    /// Output.
+    Output,
+    /// Input or output.
+    ///
+    /// Represents ports whose direction is not known
+    /// at generator elaboration time.
+    #[default]
+    InOut,
+}
+
+impl Direction {
+    /// Returns the flipped direction.
+    ///
+    /// [`Direction::InOut`] is unchanged by flipping.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use scir::Direction;
+    /// assert_eq!(Direction::Input.flip(), Direction::Output);
+    /// assert_eq!(Direction::Output.flip(), Direction::Input);
+    /// assert_eq!(Direction::InOut.flip(), Direction::InOut);
+    /// ```
+    #[inline]
+    pub fn flip(&self) -> Self {
+        match *self {
+            Self::Input => Self::Output,
+            Self::Output => Self::Input,
+            Self::InOut => Self::InOut,
+        }
+    }
+}
+
+/// A signal exposed by a cell.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Port {
+    signal: SignalId,
+    direction: Direction,
+}
+
 /// Information about a signal in a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
@@ -463,12 +509,6 @@ pub(crate) struct Ports {
     ports: Vec<Port>,
     /// Mapping from a port name to its index in `ports`.
     name_map: HashMap<ArcStr, usize>,
-}
-
-/// A signal exposed by a cell.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Port {
-    signal: SignalId,
 }
 
 /// The inner contents of a non-blackbox cell.
@@ -781,11 +821,11 @@ impl Cell {
     /// # Panics
     ///
     /// Panics if the provided signal does not exist.
-    pub fn expose_port(&mut self, signal: impl Into<SignalId>) {
+    pub fn expose_port(&mut self, signal: impl Into<SignalId>, direction: Direction) {
         let signal = signal.into();
         let info = self.signals.get_mut(&signal).unwrap();
         info.port = true;
-        self.ports.push(info.name.clone(), signal);
+        self.ports.push(info.name.clone(), signal, direction);
     }
 
     /// Returns a reference to the contents of this cell.
@@ -961,8 +1001,8 @@ impl Ports {
         Self::default()
     }
     /// Pushes a port to the set of ports.
-    pub(crate) fn push(&mut self, name: impl Into<ArcStr>, signal: SignalId) {
-        self.ports.push(Port { signal });
+    pub(crate) fn push(&mut self, name: impl Into<ArcStr>, signal: SignalId, direction: Direction) {
+        self.ports.push(Port { signal, direction });
         self.name_map.insert(name.into(), self.ports.len() - 1);
     }
 
