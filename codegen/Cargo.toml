@@ -1,6 +1,6 @@
 [package]
 name = "codegen"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -12,13 +12,13 @@ proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
 
-examples = { version = "<=0.0.0", registry = "substrate", path = "../docs/examples" }
+examples = { version = "0.1.0", registry = "substrate", path = "../docs/examples" }
 
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
-substrate = { version = "<=0.3.0", registry = "substrate", path = "../substrate" }
-sky130pdk = { version = "<=0.3.0", registry = "substrate", path = "../pdks/sky130pdk" }
+substrate = { version = "<=0.4.0", registry = "substrate", path = "../substrate" }
+sky130pdk = { version = "<=0.4.0", registry = "substrate", path = "../pdks/sky130pdk" }
 
 [lib]
 proc-macro = true

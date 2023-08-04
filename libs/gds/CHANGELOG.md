@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/gds-v0.2.0...gds-v0.3.0) (2023-08-04)
+
+
+### Features
+
+* **repo:** reorganize repo ([#207](https://github.com/substrate-labs/substrate2/issues/207)) ([54a6b43](https://github.com/substrate-labs/substrate2/commit/54a6b43079d283a29bc0aa9e18dc6230b56fa385))
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/gds-v0.1.0...gds-v0.2.0) (2023-07-23)
 
 
