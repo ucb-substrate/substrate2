@@ -10,6 +10,8 @@
   "libs/pathtree": "0.1.0",
   "libs/scir": "0.2.0",
   "libs/spice": "0.1.0",
+  "libs/type_dispatch": "0.0.0",
+  "libs/type_dispatch_macros": "0.0.0",
   "libs/uniquify": "0.2.0",
   "pdks/sky130pdk": "0.3.0",
   "substrate": "0.3.0",
