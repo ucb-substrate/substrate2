@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/substrate-labs/substrate2/compare/cache-v0.2.0...cache-v0.2.1) (2023-08-04)
+
+
+### Bug Fixes
+
+* **build:** fix build script for publishing ([#202](https://github.com/substrate-labs/substrate2/issues/202)) ([de11a28](https://github.com/substrate-labs/substrate2/commit/de11a28e79fea1b7a611f5f7a7815ff5433adaf9))
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/cache-v0.1.0...cache-v0.2.0) (2023-07-23)
 
 
