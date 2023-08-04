@@ -13,10 +13,11 @@ use tracing::{span, Level};
 
 use crate::block::Block;
 use crate::cache::Cache;
+use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
-    FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
+    Flatten, Flipped, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
     SchematicType,
 };
 use crate::layout::element::RawCell;
@@ -427,21 +428,30 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     <<T as Block>::Io as SchematicType>::Data,
 ) {
     let mut node_ctx = NodeContext::new();
-    let io = block.io();
-    let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
-    let (io_data, nodes_rest) = io.instantiate(&nodes);
+    // outward-facing IO (to other enclosing blocks)
+    let io_outward = block.io();
+    // inward-facing IO (this block's IO ports as viewed by the interior of the
+    // block)
+    let io_internal = Flipped(io_outward.clone());
+    // FIXME: the cell's IO should not be attributed to this call site
+    let nodes = node_ctx.nodes_directed(
+        &io_internal.flatten_vec(),
+        NodePriority::Io,
+        SourceInfo::from_caller(),
+    );
+    let (io_data, nodes_rest) = io_internal.instantiate(&nodes);
     assert!(nodes_rest.is_empty());
     let cell_name = block.name();
 
-    let names = io.flat_names(None);
-    let dirs = io.flatten_vec();
+    let names = io_outward.flat_names(None);
+    let outward_dirs = io_outward.flatten_vec();
     assert_eq!(nodes.len(), names.len());
-    assert_eq!(nodes.len(), dirs.len());
+    assert_eq!(nodes.len(), outward_dirs.len());
 
     let ports = nodes
         .iter()
         .copied()
-        .zip(dirs)
+        .zip(outward_dirs)
         .map(|(node, direction)| Port::new(node, direction))
         .collect();
 

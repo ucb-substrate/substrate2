@@ -420,6 +420,27 @@ impl Direction {
             Self::InOut => Self::InOut,
         }
     }
+
+    /// Test if two nodes of the respective directions are allowed be connected
+    /// to each other.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use scir::Direction;
+    /// assert_eq!(Direction::Input.is_compatible_with(Direction::Output), true);
+    /// assert_eq!(Direction::Output.is_compatible_with(Direction::Output), false);
+    /// assert_eq!(Direction::Output.is_compatible_with(Direction::InOut), true);
+    /// ```
+    pub fn is_compatible_with(&self, other: Direction) -> bool {
+        use Direction::*;
+
+        #[allow(clippy::match_like_matches_macro)]
+        match (*self, other) {
+            (Output, Output) => false,
+            _ => true,
+        }
+    }
 }
 
 /// A signal exposed by a cell.

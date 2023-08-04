@@ -24,6 +24,8 @@ pub mod pdk;
 pub mod schematic;
 pub mod simulation;
 
+mod diagnostics;
+
 // Re-exported for procedural macros.
 #[doc(hidden)]
 pub use arcstr;

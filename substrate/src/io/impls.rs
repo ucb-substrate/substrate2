@@ -334,6 +334,8 @@ impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
     }
 }
 
+// FIXME: macro-ify START
+
 impl<T> AsRef<T> for Input<T> {
     fn as_ref(&self) -> &T {
         &self.0
@@ -586,7 +588,7 @@ impl<T: FlatLen> Flatten<Direction> for InOut<T> {
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
+        output.extend(std::iter::repeat(Direction::InOut).take(self.0.len()))
     }
 }
 impl<T: Flatten<Node>> Flatten<Node> for InOut<T> {
@@ -635,6 +637,108 @@ impl<T> Borrow<T> for InOut<T> {
         &self.0
     }
 }
+
+impl<T> SchematicType for Flipped<T>
+where
+    T: SchematicType,
+{
+    type Data = T::Data;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+        let (data, ids) = self.0.instantiate(ids);
+        (data, ids)
+    }
+}
+
+impl<T> LayoutType for Flipped<T>
+where
+    T: LayoutType,
+{
+    type Data = T::Data;
+    type Builder = T::Builder;
+
+    fn builder(&self) -> Self::Builder {
+        self.0.builder()
+    }
+}
+
+impl<T, U: CustomLayoutType<T>> CustomLayoutType<Flipped<T>> for U
+where
+    T: LayoutType,
+{
+    fn from_layout_type(other: &Flipped<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
+    }
+}
+
+impl<T: HasNameTree> HasNameTree for Flipped<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
+    }
+}
+
+impl<T: FlatLen> FlatLen for Flipped<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<T: Flatten<Direction>> Flatten<Direction> for Flipped<T> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        let inner = self.0.flatten_vec();
+        output.extend(inner.into_iter().map(|d| d.flip()))
+    }
+}
+impl<T: Flatten<Node>> Flatten<Node> for Flipped<T> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for Flipped<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
+    }
+}
+
+impl<T> AsRef<T> for Flipped<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T> Deref for Flipped<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for Flipped<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> From<T> for Flipped<T> {
+    fn from(value: T) -> Self {
+        Flipped(value)
+    }
+}
+
+impl<T> Borrow<T> for Flipped<T> {
+    fn borrow(&self) -> &T {
+        &self.0
+    }
+}
+
+// FIXME: macro-ify END
 
 impl<T: FlatLen> FlatLen for Array<T> {
     fn len(&self) -> usize {

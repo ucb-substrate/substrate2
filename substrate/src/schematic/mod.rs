@@ -19,9 +19,10 @@ use rust_decimal::Decimal;
 
 use crate::block::Block;
 use crate::context::Context;
+use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
+    Connect, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicData, SchematicType,
 };
 use crate::pdk::Pdk;
@@ -47,7 +48,6 @@ pub trait HasSchematic<PDK: Pdk>: HasSchematicData {
 }
 
 /// A builder for creating a schematic cell.
-#[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     /// The current global context.
     pub ctx: Context<PDK>,
@@ -61,6 +61,11 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) node_names: HashMap<Node, NameBuf>,
     pub(crate) cell_name: ArcStr,
     pub(crate) phantom: PhantomData<T>,
+    /// Outward-facing ports of this cell
+    ///
+    /// Directions are as viewed by a parent cell instantiating this cell; these
+    /// are the wrong directions to use when looking at connections to this
+    /// cell's IO from *within* the cell.
     pub(crate) ports: Vec<Port>,
     pub(crate) blackbox: Option<BlackboxContents>,
 }
@@ -160,7 +165,7 @@ pub struct SimCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
 impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     pub(crate) fn finish(self) -> RawCell {
         let mut roots = HashMap::with_capacity(self.node_names.len());
-        let mut uf = self.node_ctx.into_inner();
+        let mut uf = self.node_ctx.into_uf();
         for &node in self.node_names.keys() {
             let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
@@ -191,12 +196,17 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     }
 
     /// Create a new signal with the given name and hardware type.
+    #[track_caller]
     pub fn signal<TY: SchematicType>(
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
     ) -> <TY as SchematicType>::Data {
-        let ids = self.node_ctx.nodes(ty.len(), NodePriority::Named);
+        let ids = self.node_ctx.nodes_undirected(
+            ty.len(),
+            NodePriority::Named,
+            SourceInfo::from_caller(),
+        );
         let (data, ids_rest) = ty.instantiate(&ids);
         assert!(ids_rest.is_empty());
 
@@ -245,13 +255,14 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
+    #[track_caller]
     pub fn add<I: HasSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
 
-        self.post_instantiate(cell)
+        self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Instantiate a schematic view of the given block.
@@ -269,6 +280,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
+    #[track_caller]
     pub fn instantiate<I: HasSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
@@ -276,14 +288,20 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         );
 
         let cell = self.ctx.generate_schematic(block);
-        self.post_instantiate(cell)
+        self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Creates nodes for the newly-instantiated block's IOs.
-    fn post_instantiate<I: HasSchematicData>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+    fn post_instantiate<I: HasSchematicData>(
+        &mut self,
+        cell: CellHandle<I>,
+        source_info: SourceInfo,
+    ) -> Instance<I> {
         let io = cell.block.io();
 
-        let ids = self.node_ctx.nodes(io.len(), NodePriority::Auto);
+        let ids = self
+            .node_ctx
+            .nodes_directed(&io.flatten_vec(), NodePriority::Auto, source_info);
         let (io_data, ids_rest) = io.instantiate(&ids);
         assert!(ids_rest.is_empty());
 
@@ -345,11 +363,13 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
         D2: SchematicData,
         D1: Connect<D2>,
     {
-        let s1f = s1.flatten_vec();
-        let s2f = s2.flatten_vec();
+        let s1f: Vec<Node> = s1.flatten_vec();
+        let s2f: Vec<Node> = s2.flatten_vec();
         assert_eq!(s1f.len(), s2f.len());
         s1f.into_iter().zip(s2f).for_each(|(a, b)| {
-            self.node_ctx.connect(a, b);
+            // FIXME: proper error handling mechanism (collect all errors into
+            // context and emit later)
+            self.node_ctx.connect(a, b).unwrap();
         });
     }
 
@@ -437,12 +457,13 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
+    #[track_caller]
     pub fn add<I: HasSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
-        self.inner.post_instantiate(cell)
+        self.inner.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Instantiate a schematic view of the given block.
@@ -535,12 +556,14 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
+    #[track_caller]
     pub fn add_tb<I: HasSimSchematic<PDK, S>>(&mut self, cell: SimCellHandle<I>) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
-        self.inner.post_instantiate(cell.0)
+        self.inner
+            .post_instantiate(cell.0, SourceInfo::from_caller())
     }
 
     /// Instantiate a testbench schematic view of the given block.
@@ -549,6 +572,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     ///
     /// Panics if this cell has been marked as a blackbox.
     /// A blackbox cell cannot contain instances or primitive devices.
+    #[track_caller]
     pub fn instantiate_tb<I: HasSimSchematic<PDK, S>>(&mut self, block: I) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
@@ -556,7 +580,8 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
         );
 
         let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
-        self.inner.post_instantiate(cell.0)
+        self.inner
+            .post_instantiate(cell.0, SourceInfo::from_caller())
     }
 
     /// Gets the global context.

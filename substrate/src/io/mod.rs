@@ -2,7 +2,7 @@
 
 use std::{
     borrow::Borrow,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     ops::{Deref, Index},
 };
 
@@ -16,7 +16,6 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
-use crate::layout::element::NamedPorts;
 use crate::{
     block::Block,
     error::Result,
@@ -25,6 +24,7 @@ use crate::{
     schematic::{CellId, HasNestedView, InstanceId, InstancePath},
     Io,
 };
+use crate::{diagnostics::SourceInfo, layout::element::NamedPorts};
 
 pub use crate::scir::Direction;
 
@@ -210,6 +210,12 @@ pub struct Output<T>(pub T);
 /// Recursively overrides the direction of all components of `T` to be [`InOut`](Direction::InOut)
 pub struct InOut<T>(pub T);
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+/// Flip the direction of all ports in `T`
+///
+/// See [`Direction::flip`]
+pub struct Flipped<T>(pub T);
+
 /// A type representing a single hardware wire.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Signal;
@@ -291,6 +297,7 @@ pub struct NodeUfValue {
     /// Taken to be the highest among priorities of all nodes
     /// in the merged set.
     priority: NodePriority,
+
     /// The node that provides `priority`.
     ///
     /// For example, if priority is NodePriority::Io, `node`
@@ -336,6 +343,72 @@ impl ena::unify::UnifyKey for Node {
 
 pub(crate) struct NodeContext {
     uf: NodeUf,
+    connections_data: Vec<Option<NodeConnectionsData>>,
+}
+
+#[derive(Clone, Debug)]
+struct NodeConnectionsData {
+    /// Info about all attached nodes on the net, grouped by direction
+    drivers: BTreeMap<Direction, NodeDriverData>,
+}
+
+impl NodeConnectionsData {
+    fn merge_from(&mut self, other: Self) {
+        for (direction, data) in other.drivers {
+            use std::collections::btree_map::Entry;
+            match self.drivers.entry(direction) {
+                Entry::Vacant(entry) => {
+                    entry.insert(data);
+                }
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().merge_from(data);
+                }
+            }
+        }
+    }
+
+    fn from_single(direction: Direction, source_info: SourceInfo) -> Self {
+        Self {
+            drivers: [(direction, NodeDriverData::from_single(source_info))].into(),
+        }
+    }
+
+    fn empty() -> Self {
+        Self { drivers: [].into() }
+    }
+}
+
+impl Default for NodeConnectionsData {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+/// Information about all nodes on a net of a particular [`Direction`]
+#[derive(Clone, Debug)]
+struct NodeDriverData {
+    // FIXME: come up with some mechanism for representing root cell IO
+    // locations (there's no call-site source info that would make sense)
+    /// Locations at which nodes on this net were instantiated
+    sources: Vec<SourceInfo>,
+}
+
+impl NodeDriverData {
+    fn merge_from(&mut self, other: Self) {
+        self.sources.extend(other.sources);
+    }
+
+    fn from_single(source_info: SourceInfo) -> Self {
+        Self {
+            sources: vec![source_info],
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct NodeConnectDirectionError {
+    #[allow(dead_code)]
+    data: Vec<[(Direction, NodeDriverData); 2]>,
 }
 
 impl NodeContext {
@@ -343,10 +416,38 @@ impl NodeContext {
     pub(crate) fn new() -> Self {
         Self {
             uf: Default::default(),
+            connections_data: vec![],
         }
     }
-    pub(crate) fn node(&mut self, priority: NodePriority) -> Node {
+
+    fn connections_data(&self, node: Node) -> &Option<NodeConnectionsData> {
+        &self.connections_data[usize::try_from(ena::unify::UnifyKey::index(&node)).unwrap()]
+    }
+
+    fn connections_data_mut(&mut self, node: Node) -> &mut Option<NodeConnectionsData> {
+        &mut self.connections_data[usize::try_from(ena::unify::UnifyKey::index(&node)).unwrap()]
+    }
+
+    pub(crate) fn node(
+        &mut self,
+        direction: Option<Direction>,
+        priority: NodePriority,
+        source_info: SourceInfo,
+    ) -> Node {
         let id = self.uf.new_key(Default::default());
+
+        assert_eq!(
+            usize::try_from(ena::unify::UnifyKey::index(&id)).unwrap(),
+            self.connections_data.len()
+        );
+        self.connections_data.push(Some(
+            direction
+                .map(|direction| NodeConnectionsData::from_single(direction, source_info))
+                .unwrap_or_default(),
+        ));
+        // scuffed self-consistency check - false negatives possible
+        debug_assert!(self.connections_data_mut(id).is_some());
+
         self.uf.union_value(
             id,
             Some(NodeUfValue {
@@ -354,17 +455,96 @@ impl NodeContext {
                 source: id,
             }),
         );
+
         id
     }
+
     #[inline]
-    pub fn into_inner(self) -> NodeUf {
+    pub fn into_uf(self) -> NodeUf {
         self.uf
     }
-    pub fn nodes(&mut self, n: usize, priority: NodePriority) -> Vec<Node> {
-        (0..n).map(|_| self.node(priority)).collect()
+
+    pub fn nodes_directed(
+        &mut self,
+        directions: &[Direction],
+        priority: NodePriority,
+        source_info: SourceInfo,
+    ) -> Vec<Node> {
+        directions
+            .iter()
+            .map(|dir| self.node(Some(*dir), priority, source_info.clone()))
+            .collect()
     }
-    pub(crate) fn connect(&mut self, n1: Node, n2: Node) {
+
+    pub fn nodes_undirected(
+        &mut self,
+        n: usize,
+        priority: NodePriority,
+        source_info: SourceInfo,
+    ) -> Vec<Node> {
+        (0..n)
+            .map(|_| self.node(None, priority, source_info.clone()))
+            .collect()
+    }
+
+    pub(crate) fn connect(&mut self, n1: Node, n2: Node) -> Result<(), NodeConnectDirectionError> {
+        fn get_root(this: &mut NodeContext, n: Node) -> Node {
+            this.uf
+                .probe_value(n)
+                .expect("node should be populated")
+                .source
+        }
+
+        let n1_root = get_root(self, n1);
+        let n2_root = get_root(self, n2);
+
+        let n1_connections_data = self
+            .connections_data(n1_root)
+            .as_ref()
+            .expect("n1 should be populated");
+        let n2_connections_data = self
+            .connections_data(n2_root)
+            .as_ref()
+            .expect("n1 should be populated");
+
+        // TODO: potentially use an algorithm better than n^2?
+        let incompatible_drivers: Vec<_> = n1_connections_data
+            .drivers
+            .iter()
+            .flat_map(|e1| n2_connections_data.drivers.iter().map(move |e2| [e1, e2]))
+            .filter(|[(&k1, _), (&k2, _)]| !k1.is_compatible_with(k2))
+            .collect();
+        if !incompatible_drivers.is_empty() {
+            return Err(NodeConnectDirectionError {
+                data: incompatible_drivers
+                    .iter()
+                    .map(|&[(&k1, v1), (&k2, v2)]| [(k1, v1.clone()), (k2, v2.clone())])
+                    .collect(),
+            });
+        }
+
         self.uf.union(n1, n2);
+
+        let new_root = get_root(self, n1);
+        let old_root = match new_root {
+            x if x == n1_root => n2_root,
+            x if x == n2_root => n1_root,
+            _ => panic!(
+                "connect: new root isn't any of the old roots? (got {:?}, had {:?} {:?})",
+                new_root, n1_root, n2_root
+            ),
+        };
+
+        let old_connections_data = self
+            .connections_data_mut(old_root)
+            .take()
+            .expect("old root should be populated");
+        self.connections_data_mut(new_root)
+            .as_mut()
+            .expect("new root should be populated")
+            .merge_from(old_connections_data);
+
+        Ok(())
     }
 }
 
