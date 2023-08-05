@@ -299,6 +299,7 @@ pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -
 fn servers_cannot_be_started_with_same_root() -> Result<()> {
     let (root, _, runtime) = setup_test("servers_cannot_be_started_with_same_root")?;
     let (_, _, _) = create_server_and_clients(root.clone(), ServerKind::Local, runtime.handle());
+    std::thread::sleep(Duration::from_millis(100));
     let (server2, _, _) = create_server_and_clients(root, ServerKind::Remote, runtime.handle());
     assert!(server2.get().is_err());
     Ok(())
