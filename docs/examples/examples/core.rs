@@ -537,7 +537,7 @@ fn main() {
 
 /// Demonstrates how to save simulator output.
 mod sim {
-    use spectre::{TranCurrent, TranVoltage};
+    use spectre::tran::{TranCurrent, TranVoltage};
     use substrate::FromSaved;
 
     // begin-code-snippet sim_from_saved

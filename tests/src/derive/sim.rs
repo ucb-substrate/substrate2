@@ -1,4 +1,4 @@
-use spectre::{TranCurrent, TranVoltage};
+use spectre::tran::{TranCurrent, TranVoltage};
 use substrate::FromSaved;
 
 #[derive(Debug, Clone, FromSaved)]
