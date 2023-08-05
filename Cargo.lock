@@ -830,6 +830,7 @@ dependencies = [
  "quote",
  "serde",
  "sky130pdk",
+ "spectre",
  "substrate",
  "syn 2.0.23",
  "textwrap",

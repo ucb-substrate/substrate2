@@ -429,6 +429,14 @@ pub fn derive_has_layout_impl(input: TokenStream) -> TokenStream {
 }
 
 /// Generates an implementation of `FromSaved<Sim, Analysis>` for a type.
+///
+/// All fields of the type must implement `FromSaved`.
+/// Unit structs are not supported. Enums that do not embed a field in at least
+/// one variant are also not supported.
+///
+/// # Examples
+///
+#[doc = get_snippets!("core", "sim_from_saved")]
 #[proc_macro_error]
 #[proc_macro_derive(FromSaved, attributes(substrate))]
 pub fn derive_from_saved(input: TokenStream) -> TokenStream {
