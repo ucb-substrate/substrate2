@@ -132,7 +132,7 @@ impl From<Slice> for SignalId {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SignalPath {
     /// The end of the signal path.
-    pub termination: SignalPathTail,
+    pub tail: SignalPathTail,
     /// The path to the containing instance.
     pub instances: InstancePath,
 }
@@ -202,9 +202,9 @@ pub struct CellId(u64);
 
 /// An opaque instance identifier.
 ///
-/// An instance ID created in the context of one library must
-/// *not* be used in the context of another library.
-/// You should instead create a new instance ID in the second library.
+/// An instance ID created in the context of one cell must
+/// *not* be used in the context of another cell.
+/// You should instead create a new instance ID in the second cell.
 #[derive(
     Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
 )]
@@ -212,9 +212,9 @@ pub struct InstanceId(u64);
 
 /// An opaque primitive device identifier.
 ///
-/// A primitive device ID created in the context of one library must
-/// *not* be used in the context of another library.
-/// You should instead create a new primitive device ID in the second library.
+/// A primitive device ID created in the context of one cell must
+/// *not* be used in the context of another cell.
+/// You should instead create a new primitive device ID in the second cell.
 #[derive(
     Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
 )]
@@ -587,7 +587,7 @@ pub struct CellInner {
     ///
     /// Initialized to 0 upon cell creation.
     instance_id: u64,
-    /// The last instance ID assigned.
+    /// The last primitive ID assigned.
     ///
     /// Initialized to 0 upon cell creation.
     primitive_id: u64,
@@ -780,8 +780,7 @@ impl Library {
             return path;
         }
 
-        let (signal, index) = if let SignalPathTail::Slice { signal, index } = &mut path.termination
-        {
+        let (signal, index) = if let SignalPathTail::Slice { signal, index } = &mut path.tail {
             (signal, index)
         } else {
             panic!("path is terminated with `SignalTermination::NameBuf` and cannot be simplified")

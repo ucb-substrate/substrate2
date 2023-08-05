@@ -316,7 +316,7 @@ pub(crate) fn node_voltage_path(
     let mut named_path = (*named_path).clone();
     let cell = lib.cell(id);
 
-    match &path.termination {
+    match &path.tail {
         SignalPathTail::Slice { signal, index } => {
             named_path.push(cell.signal(*signal).name.clone());
             let mut str_path = named_path.join(".");
@@ -346,7 +346,7 @@ pub(crate) fn node_current_path(
     let mut named_path = (*named_path).clone();
     let cell = lib.cell(id);
 
-    match &path.termination {
+    match &path.tail {
         SignalPathTail::Slice { signal, index } => {
             let mut str_path = named_path.join(".");
             str_path.push(':');
