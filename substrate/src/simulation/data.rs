@@ -31,7 +31,7 @@ pub trait FromSaved<S: Simulator, A: Analysis> {
     type Key;
 
     /// Recovers the desired simulation output from the analysis's output.
-    fn from_saved(output: &A::Output, key: Self::Key) -> Self;
+    fn from_saved(output: &<A as Analysis>::Output, key: Self::Key) -> Self;
 }
 
 /// A simulation output that can be saved in an analysis within a given simulator.
@@ -41,12 +41,17 @@ pub trait FromSaved<S: Simulator, A: Analysis> {
 pub trait Save<S: Simulator, A: Analysis + SupportedBy<S>, T>: FromSaved<S, A> {
     /// Marks the given output for saving, returning a key that can be used to recover
     /// the output once the simulation is complete.
-    fn save(ctx: &SimulationContext, to_save: T, opts: &mut S::Options) -> Self::Key;
+    fn save(ctx: &SimulationContext, to_save: T, opts: &mut <S as Simulator>::Options)
+        -> Self::Key;
 }
 
 #[impl_dispatch({NestedNode; &NestedNode})]
 impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, NodePath>> Save<S, A, N> for T {
-    fn save(ctx: &SimulationContext, to_save: N, opts: &mut S::Options) -> Self::Key {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: N,
+        opts: &mut <S as Simulator>::Options,
+    ) -> Self::Key {
         T::save(ctx, to_save.path(), opts)
     }
 }
@@ -55,7 +60,11 @@ impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, NodePath>> Sav
 impl<N1, N2, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, N1>> Save<S, A, N2>
     for T
 {
-    fn save(ctx: &SimulationContext, to_save: N2, opts: &mut S::Options) -> Self::Key {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: N2,
+        opts: &mut <S as Simulator>::Options,
+    ) -> Self::Key {
         T::save(ctx, to_save.as_ref(), opts)
     }
 }
@@ -64,7 +73,11 @@ impl<N1, N2, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, N
 impl<N1, N2, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, N1>> Save<S, A, N2>
     for T
 {
-    fn save(ctx: &SimulationContext, to_save: N2, opts: &mut S::Options) -> Self::Key {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: N2,
+        opts: &mut <S as Simulator>::Options,
+    ) -> Self::Key {
         T::save(ctx, &to_save.path(), opts)
     }
 }

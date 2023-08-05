@@ -20,11 +20,14 @@ use substrate::io::TwoTerminalIo;
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode, SimCellBuilder,
+    Cell, HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+    SimCellBuilder,
 };
-use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{HasSimSchematic, SimController, Testbench};
-use substrate::{Block, HasSchematic, Io};
+use substrate::simulation::data::{HasNodeData, Save};
+use substrate::simulation::{
+    HasSimSchematic, SimController, SimulationContext, Simulator, Testbench,
+};
+use substrate::{Block, FromSaved, HasSchematic, Io};
 use test_log::test;
 
 use crate::paths::test_data;
@@ -248,13 +251,8 @@ fn spectre_can_include_sections() {
 
     let test_name = "spectre_can_include_sections";
     let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
 
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
-    let ctx = Context::builder()
-        .pdk(Sky130CommercialPdk::new(pdk_root))
-        .with_simulator(Spectre::default())
-        .build();
     let output_tt = ctx.simulate(LibIncludeTb("section_a".to_string()), &sim_dir);
     let output_ss = ctx.simulate(LibIncludeTb("section_b".to_string()), sim_dir);
 
@@ -342,15 +340,28 @@ fn spectre_can_save_paths_with_flattened_instances() {
         }
     }
 
+    #[derive(FromSaved, Serialize, Deserialize)]
     struct VirtualResistorOutput {
         current_draw: TranCurrent,
+    }
+
+    impl Save<Spectre, Tran, &Cell<VirtualResistorTb>> for VirtualResistorOutput {
+        fn save(
+            ctx: &SimulationContext,
+            to_save: &Cell<VirtualResistorTb>,
+            opts: &mut <Spectre as Simulator>::Options,
+        ) -> Self::Key {
+            Self::Key {
+                current_draw: TranCurrent::save(ctx, to_save.data().terminals().p, opts),
+            }
+        }
     }
 
     impl Testbench<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
         type Output = VirtualResistorOutput;
 
         fn run(&self, sim: SimController<Sky130CommercialPdk, Spectre, Self>) -> Self::Output {
-            sim.simulate_default(
+            sim.simulate(
                 Options::default(),
                 Some(&Sky130Corner::Tt),
                 Tran {
@@ -362,4 +373,14 @@ fn spectre_can_save_paths_with_flattened_instances() {
             .expect("failed to run simulation")
         }
     }
+
+    let test_name = "spectre_can_save_paths_with_flattened_instances";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, &sim_dir);
+
+    assert!(current_draw
+        .iter()
+        .cloned()
+        .all(|val| relative_eq!(val, 1.8 / 300.)));
 }
