@@ -9,8 +9,8 @@ use substrate::io::TestbenchIo;
 use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, HasSchematic, HasSchematicData, Instance};
-use substrate::simulation::data::{FromSaved, HasNodeData, Save};
-use substrate::simulation::{Analysis, HasSimSchematic, SimulationContext, Simulator, Testbench};
+use substrate::simulation::data::{HasNodeData, Save};
+use substrate::simulation::{HasSimSchematic, SimulationContext, Simulator, Testbench};
 use substrate::{Block, SchematicData};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
@@ -137,30 +137,6 @@ pub struct VdividerTbTranOutput {
     pub iprobe: TranCurrent,
     pub vdd: TranVoltage,
     pub out: TranVoltage,
-}
-
-pub struct VdividerTbTranOutputKey<S: Simulator, A: Analysis>
-where
-    TranCurrent: FromSaved<S, A>,
-    TranCurrent: FromSaved<S, A>,
-    TranVoltage: FromSaved<S, A>,
-    TranVoltage: FromSaved<S, A>,
-{
-    pub current: <TranCurrent as FromSaved<S, A>>::Key,
-    pub iprobe: <TranCurrent as FromSaved<S, A>>::Key,
-    pub vdd: <TranVoltage as FromSaved<S, A>>::Key,
-    pub out: <TranVoltage as FromSaved<S, A>>::Key,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, substrate::FromSaved)]
-pub enum TestOutput {
-    Voltage {
-        vout: TranVoltage,
-    },
-    VoltageAndCurrent {
-        vout: TranVoltage,
-        iout: TranCurrent,
-    },
 }
 
 impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
