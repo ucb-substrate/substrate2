@@ -1,6 +1,6 @@
 [package]
 name = "substrate"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 include = ["src", "build/docs"]
 
@@ -20,22 +20,22 @@ derive_builder = "0.12"
 slotmap = "1"
 downcast-rs = "1"
 
-config = { version = "0.2.1", registry = "substrate", path = "../config" }
-examples = { version = "0.1.0", registry = "substrate", path = "../docs/examples" }
-cache = { version = "0.2.1", registry = "substrate", path = "../libs/cache" }
-codegen = { version = "0.4.0", registry = "substrate", path = "../codegen" }
+config = { version = "0.2.2", registry = "substrate", path = "../config" }
+examples = { version = "0.2.0", registry = "substrate", path = "../docs/examples" }
+cache = { version = "0.3.0", registry = "substrate", path = "../libs/cache" }
+codegen = { version = "0.5.0", registry = "substrate", path = "../codegen" }
 geometry = { version = "0.3.0", registry = "substrate", path = "../libs/geometry" }
 gds = { version = "0.3.0", registry = "substrate", path = "../libs/gds" }
 opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" }
-scir = { version = "0.3.0", registry = "substrate", path = "../libs/scir" }
-pathtree = { version = "0.1.0", registry = "substrate", path = "../libs/pathtree" }
-spice = { version = "0.2.0", registry = "substrate", path = "../libs/spice" }
-type_dispatch = { version = "0.1.0", registry = "substrate", path = "../libs/type_dispatch" }
+scir = { version = "0.4.0", registry = "substrate", path = "../libs/scir" }
+pathtree = { version = "0.2.0", registry = "substrate", path = "../libs/pathtree" }
+spice = { version = "0.3.0", registry = "substrate", path = "../libs/spice" }
+type_dispatch = { version = "0.2.0", registry = "substrate", path = "../libs/type_dispatch" }
 uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
 
 [dev-dependencies]
 toml = "0.7"
 approx = "0.5"
-sky130pdk = { version = "<=0.4.0", registry = "substrate", path = "../pdks/sky130pdk" }
-spectre = { version = "<=0.4.0", registry = "substrate", path = "../tools/spectre" }
+sky130pdk = { version = "<=0.5.0", registry = "substrate", path = "../pdks/sky130pdk" }
+spectre = { version = "<=0.5.0", registry = "substrate", path = "../tools/spectre" }
 
