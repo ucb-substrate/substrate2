@@ -37,3 +37,5 @@ uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify
 toml = "0.7"
 approx = "0.5"
 sky130pdk = { version = "<=0.4.0", registry = "substrate", path = "../pdks/sky130pdk" }
+spectre = { version = "<=0.4.0", registry = "substrate", path = "../tools/spectre" }
+

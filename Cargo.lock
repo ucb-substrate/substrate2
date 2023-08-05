@@ -540,6 +540,7 @@ dependencies = [
  "quote",
  "serde",
  "sky130pdk",
+ "spectre",
  "substrate",
  "syn 2.0.23",
 ]
@@ -2342,6 +2343,7 @@ dependencies = [
  "serde",
  "sky130pdk",
  "slotmap",
+ "spectre",
  "spice",
  "thiserror",
  "toml 0.7.6",
