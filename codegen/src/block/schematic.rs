@@ -8,11 +8,7 @@ use crate::derive::{add_trait_bounds, struct_body};
 use crate::substrate_ident;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(
-    attributes(substrate),
-    supports(struct_any, enum_any),
-    forward_attrs(allow, doc, cfg)
-)]
+#[darling(attributes(substrate), supports(any), forward_attrs(allow, doc, cfg))]
 pub struct DataInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,

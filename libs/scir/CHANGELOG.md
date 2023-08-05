@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/substrate-labs/substrate2/compare/scir-v0.3.0...scir-v0.4.0) (2023-08-05)
+
+
+### Features
+
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/scir-v0.2.0...scir-v0.3.0) (2023-08-04)
 
 

@@ -4,6 +4,22 @@
   * dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.5.0](https://github.com/substrate-labs/substrate2/compare/spectre-v0.4.0...spectre-v0.5.0) (2023-08-05)
+
+
+### Features
+
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.2.1 to 0.3.0
+    * scir bumped from 0.3.0 to 0.4.0
+    * substrate bumped from 0.4.0 to 0.5.0
+
 ## [0.4.0](https://github.com/substrate-labs/substrate2/compare/spectre-v0.3.0...spectre-v0.4.0) (2023-08-04)
 
 

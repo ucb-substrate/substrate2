@@ -534,3 +534,37 @@ fn generate_layout() {
 fn main() {
     generate_layout();
 }
+
+/// Demonstrates how to save simulator output.
+mod sim {
+    use spectre::tran::{TranCurrent, TranVoltage};
+    use substrate::FromSaved;
+
+    // begin-code-snippet sim_from_saved
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub enum SavedEnum {
+        Fields {
+            vout: TranVoltage,
+            iout: TranCurrent,
+        },
+        Tuple(TranVoltage, TranCurrent),
+        Unit,
+    }
+
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub struct NamedFields {
+        vout: TranVoltage,
+        iout: TranCurrent,
+    }
+
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub struct NewType(NamedFields);
+
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub struct Tuple(NamedFields, SavedEnum);
+    // end-code-snippet sim_from_saved
+}

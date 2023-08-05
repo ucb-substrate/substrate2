@@ -6,6 +6,25 @@
   * dev-dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.5.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.4.0...codegen-v0.5.0) (2023-08-05)
+
+
+### Features
+
+* **codegen:** derive macro for implementing FromSaved ([#243](https://github.com/substrate-labs/substrate2/issues/243)) ([48acae0](https://github.com/substrate-labs/substrate2/commit/48acae0fb8915c4f968223268c92077f2deda979))
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.1.0 to 0.2.0
+  * dev-dependencies
+    * substrate bumped from <=0.4.0 to <=0.5.0
+    * sky130pdk bumped from <=0.4.0 to <=0.5.0
+    * spectre bumped from <=0.4.0 to <=0.5.0
+
 ## [0.4.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.3.0...codegen-v0.4.0) (2023-08-04)
 
 
