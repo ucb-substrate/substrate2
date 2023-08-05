@@ -870,6 +870,7 @@ pub struct PrimitiveDevice {
     params: HashMap<ArcStr, scir::Expr>,
 }
 
+/// A node connected to a terminal of a [`PrimitiveDevice`].
 #[derive(Debug, Clone)]
 pub struct PrimitiveNode {
     pub(crate) port: ArcStr,

@@ -108,7 +108,7 @@ fn convert_dff_to_scir() {
         cell.contents().as_ref().unwrap_clear().primitives().count(),
         22
     );
-    let inst = cell
+    let (_, inst) = cell
         .contents()
         .as_ref()
         .unwrap_clear()
@@ -141,7 +141,7 @@ fn convert_blackbox_to_scir() {
         cell.contents().as_ref().unwrap_clear().primitives().count(),
         4
     );
-    let inst = cell
+    let (_, inst) = cell
         .contents()
         .as_ref()
         .unwrap_clear()

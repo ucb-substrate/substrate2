@@ -1,14 +1,14 @@
 //! Substrate to SCIR conversion.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
 use opacity::Opacity;
-use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library, SignalTermination};
+use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library, SignalPathTail};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath};
-use crate::schematic::{InstancePath, PrimitiveDevice, PrimitiveDeviceKind, RawCellContents};
+use crate::schematic::{InstancePath, PrimitiveDevice, PrimitiveDeviceKind};
 
 use super::{BlackboxElement, CellId, InstanceId, RawCell};
 
@@ -92,8 +92,8 @@ impl RawLib {
         let (signal, index) = *cell.signals.get(&path.node)?;
 
         Some(scir::SignalPath {
-            termination: SignalTermination::Signal { signal, index },
-            path: scir::InstancePath {
+            termination: SignalPathTail::Slice { signal, index },
+            instances: scir::InstancePath {
                 instances,
                 top: self.conv.top,
             },
@@ -163,11 +163,11 @@ impl RawLib {
             signals
         } else {
             vec![scir::SignalPath {
-                termination: SignalTermination::Signal {
+                termination: SignalPathTail::Slice {
                     signal: slice.0,
                     index: slice.1,
                 },
-                path: scir::InstancePath {
+                instances: scir::InstancePath {
                     instances,
                     top: self.conv.top,
                 },
@@ -194,11 +194,11 @@ impl RawLib {
             } {
                 if &slice == conv.signals.get(&node.node).unwrap() {
                     signals.push(scir::SignalPath {
-                        termination: SignalTermination::Primitive {
+                        termination: SignalPathTail::Primitive {
                             id: *id,
-                            buf: vec![node.port.clone()],
+                            name_path: vec![node.port.clone()],
                         },
-                        path: scir::InstancePath {
+                        instances: scir::InstancePath {
                             instances: instances.clone(),
                             top: self.conv.top,
                         },
@@ -238,11 +238,11 @@ impl RawLib {
                                         None
                                     };
                                     signals.push(scir::SignalPath {
-                                        termination: SignalTermination::Signal {
+                                        termination: SignalPathTail::Slice {
                                             signal: port.signal(),
                                             index,
                                         },
-                                        path: scir::InstancePath {
+                                        instances: scir::InstancePath {
                                             instances: instances.clone(),
                                             top: self.conv.top,
                                         },

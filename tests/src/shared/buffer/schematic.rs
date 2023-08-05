@@ -1,7 +1,7 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
 use substrate::io::Terminal;
 use substrate::{
-    io::{NestedNode, Node, Signal},
+    io::Signal,
     schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance},
     SchematicData,
 };

@@ -132,20 +132,29 @@ impl From<Slice> for SignalId {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SignalPath {
     /// The end of the signal path.
-    pub termination: SignalTermination,
+    pub termination: SignalPathTail,
     /// The path to the containing instance.
-    pub path: InstancePath,
+    pub instances: InstancePath,
 }
 
+/// The end of a signal path.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub enum SignalTermination {
-    Signal {
+pub enum SignalPathTail {
+    /// A signal slice within a SCIR cell.
+    Slice {
+        /// The signal ID.
         signal: SignalId,
+        /// The index of the signal that this slice represents.
+        ///
+        /// [`None`] if this slice indexes a single bit wire.
         index: Option<usize>,
     },
+    /// A signal within a primitive device.
     Primitive {
+        /// The ID of the primitive device instance.
         id: PrimitiveDeviceId,
-        buf: Vec<ArcStr>,
+        /// A path of strings to the desired signal within the primitive.
+        name_path: Vec<ArcStr>,
     },
 }
 
@@ -760,72 +769,48 @@ impl Library {
         (NamedInstancePath(instances), id)
     }
 
-    /// Converts a [`SignalPath`] to a [`NamedSignalPath`].
-    pub fn convert_signal_path(&self, path: &SignalPath) -> NamedSignalPath {
-        let (mut instances, cell) = self.convert_instance_path(&path.path);
-        let cell = self.cell(cell);
-
-        match &path.termination {
-            SignalTermination::Signal { signal, index } => NamedSignalPath {
-                signal: cell.signal(*signal).name.clone(),
-                index: *index,
-                instances,
-            },
-            SignalTermination::Primitive { id, buf } => {
-                let mut buf = buf.clone();
-                instances.0.extend(buf.drain(..buf.len() - 1));
-                NamedSignalPath {
-                    signal: buf.pop().unwrap(),
-                    index: None,
-                    instances,
-                }
-            }
-        }
-    }
-
     /// Returns a simplified path to the provided node, bubbling up through IOs.
     ///
     /// # Panics
     ///
     /// Panics if the provided path does not exist or the path is terminated with
-    /// [`SignalTermination::NameBuf`].
+    /// [`SignalPathTail::NameBuf`].
     pub fn simplify_path(&self, mut path: SignalPath) -> SignalPath {
-        if path.path.instances.is_empty() {
+        if path.instances.instances.is_empty() {
             return path;
         }
 
-        let (signal, index) = if let SignalTermination::Signal { signal, index } =
-            &mut path.termination
+        let (signal, index) = if let SignalPathTail::Slice { signal, index } = &mut path.termination
         {
             (signal, index)
         } else {
             panic!("path is terminated with `SignalTermination::NameBuf` and cannot be simplified")
         };
-        let mut cells = Vec::with_capacity(path.path.instances.len());
-        let mut cell = self.cell(path.path.top);
+        let mut cells = Vec::with_capacity(path.instances.instances.len());
+        let mut cell = self.cell(path.instances.top);
 
-        for inst in path.path.instances.iter() {
+        for inst in path.instances.instances.iter() {
             let inst = &cell.contents().as_ref().unwrap_clear().instances[inst];
             cells.push(inst.cell);
             cell = self.cell(inst.cell);
         }
 
-        assert_eq!(cells.len(), path.path.instances.len());
+        assert_eq!(cells.len(), path.instances.instances.len());
 
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
             let info = cell.signal(*signal);
             if !info.port {
-                path.path.instances.truncate(i + 1);
+                path.instances.instances.truncate(i + 1);
                 return path;
             } else {
                 let parent = if i == 0 {
-                    self.cell(path.path.top)
+                    self.cell(path.instances.top)
                 } else {
                     self.cell(cells[i - 1])
                 };
-                let inst =
-                    &parent.contents().as_ref().unwrap_clear().instances[&path.path.instances[i]];
+                let inst = &parent.contents().as_ref().unwrap_clear().instances
+                    [&path.instances.instances[i]];
                 let idx = if let Some(idx) = index { *idx } else { 0 };
                 let slice = inst.connection(info.name.as_ref()).index(idx);
                 *signal = slice.signal();
@@ -833,7 +818,7 @@ impl Library {
             }
         }
 
-        path.path.instances = Vec::new();
+        path.instances.instances = Vec::new();
         path
     }
 }

@@ -1,13 +1,12 @@
 //! Spectre netlist exporter.
 #![warn(missing_docs)]
 
-use crate::{node_current_path, node_voltage_path, Spectre};
+use crate::{node_current_path, node_voltage_path};
 use arcstr::ArcStr;
 use opacity::Opacity;
 use scir::{BinOp, Cell, CellId, Expr, Library, PrimitiveDeviceId};
 use scir::{PrimitiveDeviceKind, Slice};
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -45,8 +44,11 @@ impl Include {
 /// A Spectre save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum Save {
+    /// A raw string.
     Raw(ArcStr),
+    /// A SCIR signal path representing a node whose voltage should be saved.
     ScirVoltage(scir::SignalPath),
+    /// A SCIR signal path representing a terminal whose current should be saved.
     ScirCurrent(scir::SignalPath),
 }
 
@@ -62,15 +64,16 @@ impl Save {
         Self::from(path)
     }
 
-    pub fn to_string(&self, lib: &Library, conv: &SpectreLibConversion) -> ArcStr {
+    pub(crate) fn to_string(&self, lib: &Library, conv: &SpectreLibConversion) -> ArcStr {
         match self {
             Save::Raw(raw) => raw.clone(),
-            Save::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, &conv, scir)),
-            Save::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, &conv, scir)),
+            Save::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
+            Save::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
         }
     }
 }
 
+/// Metadata associated with the conversion from a SCIR library to a Spectre netlist.
 #[derive(Debug, Clone, Default)]
 pub struct SpectreLibConversion {
     pub(crate) cells: HashMap<CellId, SpectreCellConversion>,
@@ -82,6 +85,7 @@ impl SpectreLibConversion {
     }
 }
 
+/// Metadata associated with the conversion from a SCIR cell to a netlisted Spectre subcircuit.
 #[derive(Debug, Clone, Default)]
 pub struct SpectreCellConversion {
     pub(crate) primitives: HashMap<PrimitiveDeviceId, ArcStr>,

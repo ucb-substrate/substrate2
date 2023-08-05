@@ -16,7 +16,6 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
-use crate::schematic::PrimitiveNode;
 use crate::{
     block::Block,
     error::Result,
@@ -286,6 +285,7 @@ impl From<&NestedNode> for NodePath {
     }
 }
 
+/// A terminal of an instance.
 #[derive(Clone, Debug)]
 pub struct Terminal(NestedNode);
 
@@ -299,10 +299,11 @@ impl Deref for Terminal {
 
 impl AsRef<NestedNode> for Terminal {
     fn as_ref(&self) -> &NestedNode {
-        &*self
+        self
     }
 }
 
+/// A path to an instance's terminal.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TerminalPath(NodePath);
 
@@ -316,7 +317,7 @@ impl Deref for TerminalPath {
 
 impl AsRef<NodePath> for TerminalPath {
     fn as_ref(&self) -> &NodePath {
-        &*self
+        self
     }
 }
 
