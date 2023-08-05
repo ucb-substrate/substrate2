@@ -1,25 +1,30 @@
+use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
 use cache::multi::MultiCache;
 use rust_decimal_macros::dec;
+use scir::Expr::NumericLiteral;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::Vsource;
-use spectre::tran::Tran;
+use spectre::tran::{Tran, TranCurrent};
 use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
+use substrate::io::TwoTerminalIo;
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{HasSchematicData, Instance, SimCellBuilder};
+use substrate::schematic::{
+    HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode, SimCellBuilder,
+};
 use substrate::simulation::data::HasNodeData;
 use substrate::simulation::{HasSimSchematic, SimController, Testbench};
-use substrate::{Block, Io};
+use substrate::{Block, HasSchematic, Io};
 use test_log::test;
 
 use crate::paths::test_data;
@@ -31,7 +36,7 @@ use crate::shared::vdivider::Resistor;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 
 #[test]
-fn spectre_vdivider_tran() {
+fn vdivider_tran() {
     let test_name = "spectre_vdivider_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
@@ -51,7 +56,7 @@ fn spectre_vdivider_tran() {
 }
 
 #[test]
-fn spectre_vdivider_duplicate_subckt() {
+fn vdivider_duplicate_subckt() {
     let test_name = "spectre_vdivider_duplicate_subckt";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
@@ -65,7 +70,7 @@ fn spectre_vdivider_duplicate_subckt() {
 }
 
 #[test]
-fn spectre_vdivider_array_tran() {
+fn vdivider_array_tran() {
     let test_name = "spectre_vdivider_array_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
@@ -84,7 +89,7 @@ fn spectre_vdivider_array_tran() {
 }
 
 #[test]
-fn spectre_flattened_vdivider_array_tran() {
+fn flattened_vdivider_array_tran() {
     let test_name = "flattened_spectre_vdivider_array_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
@@ -255,4 +260,106 @@ fn spectre_can_include_sections() {
 
     assert_relative_eq!(output_tt, 0.9);
     assert_relative_eq!(output_ss, 1.2);
+}
+
+#[test]
+fn spectre_can_save_paths_with_flattened_instances() {
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+    #[substrate(io = "TwoTerminalIo", flatten)]
+    #[substrate(schematic(
+        source = "r#\"\
+            .subckt res p n
+            R0 p n 100
+            .ends
+        \"#",
+        name = "res",
+        fmt = "inline-spice",
+        pdk = "Sky130CommercialPdk"
+    ))]
+    pub struct ScirResistor;
+
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+    #[substrate(io = "TwoTerminalIo", flatten)]
+    pub struct VirtualResistor;
+
+    impl HasSchematicData for VirtualResistor {
+        type Data = ();
+    }
+
+    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Data,
+            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+        ) -> substrate::error::Result<Self::Data> {
+            let res1 = cell.instantiate(ScirResistor);
+            cell.connect(res1.io().p, io.p);
+            cell.connect(res1.io().n, io.n);
+            cell.add_primitive(
+                PrimitiveDeviceKind::Res2 {
+                    pos: PrimitiveNode::new("p", io.p),
+                    neg: PrimitiveNode::new("n", io.n),
+                    value: dec!(100),
+                }
+                .into(),
+            );
+            cell.add_primitive(PrimitiveDevice::from_params(
+                PrimitiveDeviceKind::RawInstance {
+                    ports: vec![PrimitiveNode::new("p", io.p), PrimitiveNode::new("n", io.n)],
+                    cell: arcstr::literal!("resistor"),
+                },
+                HashMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(100)))]),
+            ));
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+    #[substrate(io = "TestbenchIo")]
+    struct VirtualResistorTb;
+
+    impl HasSchematicData for VirtualResistorTb {
+        type Data = Instance<VirtualResistor>;
+    }
+
+    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Data,
+            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+        ) -> substrate::error::Result<Self::Data> {
+            let vdd = cell.signal("vdd", Signal);
+            let dut = cell.instantiate_tb(VirtualResistor);
+
+            cell.connect(dut.io().p, vdd);
+            cell.connect(dut.io().n, io.vss);
+
+            let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+            cell.connect(vsource.io().p, vdd);
+            cell.connect(vsource.io().n, io.vss);
+
+            Ok(dut)
+        }
+    }
+
+    struct VirtualResistorOutput {
+        current_draw: TranCurrent,
+    }
+
+    impl Testbench<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
+        type Output = VirtualResistorOutput;
+
+        fn run(&self, sim: SimController<Sky130CommercialPdk, Spectre, Self>) -> Self::Output {
+            sim.simulate_default(
+                Options::default(),
+                Some(&Sky130Corner::Tt),
+                Tran {
+                    stop: dec!(2e-9),
+                    errpreset: Some(spectre::ErrPreset::Conservative),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation")
+        }
+    }
 }
