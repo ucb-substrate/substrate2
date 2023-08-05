@@ -31,3 +31,5 @@ mod diagnostics;
 pub use arcstr;
 #[doc(hidden)]
 pub use duplicate;
+#[doc(hidden)]
+pub use serde;
