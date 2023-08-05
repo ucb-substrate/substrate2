@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::{Pulse, Vsource};
-use spectre::{Options, Spectre, Tran};
+use spectre::tran::Tran;
+use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::TestbenchIo;
@@ -98,7 +99,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
             .expect("failed to run simulation");
 
         let vout = output.get_data(&sim.tb.data()).unwrap();
-        let time = output.get_data("time").unwrap();
+        let time = &output.time;
         let vout = WaveformRef::new(time, vout);
         let mut trans = vout.transitions(
             0.2 * self.pvt.voltage.to_f64().unwrap(),

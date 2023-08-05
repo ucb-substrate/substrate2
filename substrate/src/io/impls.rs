@@ -201,6 +201,14 @@ impl HasNestedView for Node {
     }
 }
 
+impl HasTerminalView for Node {
+    type TerminalView<'a> = Terminal;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        Terminal(self.nested_view(parent))
+    }
+}
+
 impl HasNestedView for NestedNode {
     type NestedView<'a> = NestedNode;
 
@@ -212,18 +220,11 @@ impl HasNestedView for NestedNode {
     }
 }
 
-impl FlatLen for NestedNode {
-    fn len(&self) -> usize {
-        1
-    }
-}
+impl HasNestedView for Terminal {
+    type NestedView<'a> = Terminal;
 
-impl Flatten<Node> for NestedNode {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        output.extend(std::iter::once(self.node));
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        Terminal(self.0.nested_view(parent))
     }
 }
 
@@ -437,6 +438,14 @@ impl<T: HasNestedView> HasNestedView for Input<T> {
     }
 }
 
+impl<T: HasTerminalView> HasTerminalView for Input<T> {
+    type TerminalView<'a> = T::TerminalView<'a> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.0.terminal_view(parent)
+    }
+}
+
 impl<T> SchematicType for Output<T>
 where
     T: SchematicType,
@@ -505,6 +514,14 @@ impl<T: HasNestedView> HasNestedView for Output<T> {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         self.0.nested_view(parent)
+    }
+}
+
+impl<T: HasTerminalView> HasTerminalView for Output<T> {
+    type TerminalView<'a> = T::TerminalView<'a> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.0.terminal_view(parent)
     }
 }
 
@@ -600,11 +617,19 @@ impl<T: Flatten<Node>> Flatten<Node> for InOut<T> {
     }
 }
 
-impl<T: SchematicData + HasNestedView> HasNestedView for InOut<T> {
+impl<T: HasNestedView> HasNestedView for InOut<T> {
     type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         self.0.nested_view(parent)
+    }
+}
+
+impl<T: HasTerminalView> HasTerminalView for InOut<T> {
+    type TerminalView<'a> = T::TerminalView<'a> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.0.terminal_view(parent)
     }
 }
 
@@ -888,6 +913,21 @@ impl<T: HasNestedView> HasNestedView for ArrayData<T> {
                 .elems
                 .iter()
                 .map(|elem| elem.nested_view(parent))
+                .collect(),
+            ty_len: self.ty_len,
+        }
+    }
+}
+
+impl<T: HasTerminalView> HasTerminalView for ArrayData<T> {
+    type TerminalView<'a> = ArrayData<T::TerminalView<'a>> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        ArrayData {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem| elem.terminal_view(parent))
                 .collect(),
             ty_len: self.ty_len,
         }

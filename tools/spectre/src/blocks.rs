@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use substrate::block::Block;
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind};
+use substrate::schematic::{HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode};
 use substrate::simulation::HasSimSchematic;
 
 use crate::Spectre;
@@ -54,6 +54,7 @@ impl Vsource {
 
 impl Block for Vsource {
     type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
@@ -110,7 +111,7 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
                 cell: arcstr::literal!("vsource"),
-                ports: vec![io.p, io.n],
+                ports: vec![PrimitiveNode::new("p", io.p), PrimitiveNode::new("n", io.n)],
             },
             params,
         ));
@@ -124,6 +125,7 @@ pub struct Iprobe;
 
 impl Block for Iprobe {
     type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("iprobe")
@@ -150,7 +152,10 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
             cell: arcstr::literal!("iprobe"),
-            ports: vec![io.p, io.n],
+            ports: vec![
+                PrimitiveNode::new("in", io.p),
+                PrimitiveNode::new("out", io.n),
+            ],
         }));
         Ok(())
     }

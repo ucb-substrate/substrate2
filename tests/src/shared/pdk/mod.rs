@@ -8,7 +8,9 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{HasSchematic, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind};
+use substrate::schematic::{
+    HasSchematic, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+};
 use substrate::Corner;
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
@@ -64,7 +66,12 @@ impl HasSchematic<ExamplePdkA> for NmosA {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
-                ports: vec![io.d, io.g, io.s, io.b],
+                ports: vec![
+                    PrimitiveNode::new("d", io.d),
+                    PrimitiveNode::new("g", io.g),
+                    PrimitiveNode::new("s", io.s),
+                    PrimitiveNode::new("b", io.b),
+                ],
                 cell: arcstr::literal!("example_pdk_nmos_a"),
             },
             HashMap::from_iter([
@@ -108,7 +115,12 @@ impl HasSchematic<ExamplePdkA> for PmosA {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::from_params(
             PrimitiveDeviceKind::RawInstance {
-                ports: vec![io.d, io.g, io.s, io.b],
+                ports: vec![
+                    PrimitiveNode::new("d", io.d),
+                    PrimitiveNode::new("g", io.g),
+                    PrimitiveNode::new("s", io.s),
+                    PrimitiveNode::new("b", io.b),
+                ],
                 cell: arcstr::literal!("example_pdk_pmos_a"),
             },
             HashMap::from_iter([

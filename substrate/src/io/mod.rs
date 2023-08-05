@@ -87,7 +87,7 @@ pub trait HasNameTree {
 /// A schematic hardware type.
 pub trait SchematicType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Data: SchematicData + HasNestedView + Clone + Send + Sync;
+    type Data: SchematicData + HasTerminalView + HasNestedView + Clone + Send + Sync;
 
     /// Instantiates a schematic data struct with populated nodes.
     ///
@@ -283,6 +283,104 @@ impl From<&NestedNode> for NodePath {
     fn from(value: &NestedNode) -> Self {
         value.path()
     }
+}
+
+/// A terminal of an instance.
+#[derive(Clone, Debug)]
+pub struct Terminal(NestedNode);
+
+impl Deref for Terminal {
+    type Target = NestedNode;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<NestedNode> for Terminal {
+    fn as_ref(&self) -> &NestedNode {
+        self
+    }
+}
+
+/// A path to an instance's terminal.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalPath(NodePath);
+
+impl Deref for TerminalPath {
+    type Target = NodePath;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<NodePath> for TerminalPath {
+    fn as_ref(&self) -> &NodePath {
+        self
+    }
+}
+
+impl Terminal {
+    /// Returns the path to this terminal.
+    pub fn path(&self) -> TerminalPath {
+        TerminalPath(self.0.path())
+    }
+}
+
+impl From<Terminal> for TerminalPath {
+    fn from(value: Terminal) -> Self {
+        value.path()
+    }
+}
+
+impl From<&Terminal> for TerminalPath {
+    fn from(value: &Terminal) -> Self {
+        value.path()
+    }
+}
+
+/// A view of the nested terminals in an interface.
+///
+/// Stores a path of instances up to each terminal using an [`InstancePath`].
+pub trait HasTerminalView {
+    /// A view of the nested terminals.
+    type TerminalView<'a>
+    where
+        Self: 'a;
+
+    /// Creates a terminal view of the object given a parent node.
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_>;
+}
+
+impl<T> HasTerminalView for &T
+where
+    T: HasTerminalView,
+{
+    type TerminalView<'a>
+    = T::TerminalView<'a> where Self: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        (*self).terminal_view(parent)
+    }
+}
+
+// TODO: Potentially use lazy evaluation instead of cloning.
+impl<T: HasTerminalView> HasTerminalView for Vec<T> {
+    type TerminalView<'a> = Vec<TerminalView<'a, T>> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.iter().map(|elem| elem.terminal_view(parent)).collect()
+    }
+}
+
+/// The associated terminal view of an object.
+pub type TerminalView<'a, T> = <T as HasTerminalView>::TerminalView<'a>;
+
+impl HasTerminalView for () {
+    type TerminalView<'a> = ();
+
+    fn terminal_view(&self, _parent: &InstancePath) -> Self::TerminalView<'_> {}
 }
 
 /// The priority a node has in determining the name of a merged node.

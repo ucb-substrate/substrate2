@@ -67,7 +67,7 @@ impl Parse for ProductElement {
 
 #[derive(Debug, Clone)]
 struct Set {
-    elements: Vec<SetElement>,
+    elements: Vec<Product>,
 }
 
 impl Parse for Set {
@@ -75,7 +75,7 @@ impl Parse for Set {
         let content;
         braced!(content in input);
         Ok(Self {
-            elements: Punctuated::<SetElement, Token![;]>::parse_separated_nonempty(&content)?
+            elements: Punctuated::<Product, Token![;]>::parse_separated_nonempty(&content)?
                 .into_iter()
                 .collect(),
         })
@@ -86,33 +86,9 @@ impl Set {
     fn into_dispatches(self) -> Vec<Vec<Type>> {
         let mut dispatches: Vec<Vec<Type>> = Vec::new();
         for element in self.elements {
-            match element {
-                SetElement::Set(s) => {
-                    dispatches.extend(s.into_dispatches());
-                }
-                SetElement::Product(p) => {
-                    dispatches.extend(p.into_dispatches());
-                }
-            }
+            dispatches.extend(element.into_dispatches());
         }
         dispatches
-    }
-}
-
-#[derive(Debug, Clone)]
-enum SetElement {
-    Product(Product),
-    Set(Set),
-}
-
-impl Parse for SetElement {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let lookahead = input.lookahead1();
-        if lookahead.peek(token::Brace) {
-            input.parse().map(Self::Set)
-        } else {
-            input.parse().map(Self::Product)
-        }
     }
 }
 

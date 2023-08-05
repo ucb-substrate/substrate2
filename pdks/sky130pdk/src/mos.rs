@@ -93,7 +93,12 @@ macro_rules! define_mos {
                 let l = Decimal::new(self.params.l, 3);
                 cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
                     substrate::schematic::PrimitiveDeviceKind::RawInstance {
-                        ports: vec![io.d, io.g, io.s, io.b],
+                        ports: vec![
+                            substrate::schematic::PrimitiveNode::new("d", io.d),
+                            substrate::schematic::PrimitiveNode::new("g", io.g),
+                            substrate::schematic::PrimitiveNode::new("s", io.s),
+                            substrate::schematic::PrimitiveNode::new("b", io.b),
+                        ],
                         cell: arcstr::literal!(stringify!($opensubckt)),
                     },
                     HashMap::from_iter([
@@ -126,7 +131,12 @@ macro_rules! define_mos {
                 let l = Decimal::new(self.params.l, 3);
                 cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
                     substrate::schematic::PrimitiveDeviceKind::RawInstance {
-                        ports: vec![io.d, io.g, io.s, io.b],
+                        ports: vec![
+                            substrate::schematic::PrimitiveNode::new("d", io.d),
+                            substrate::schematic::PrimitiveNode::new("g", io.g),
+                            substrate::schematic::PrimitiveNode::new("s", io.s),
+                            substrate::schematic::PrimitiveNode::new("b", io.b),
+                        ],
                         cell: arcstr::literal!(stringify!($comsubckt)),
                     },
                     HashMap::from_iter([
