@@ -7,7 +7,7 @@ use opacity::Opacity;
 use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library, SignalPathTail};
 use uniquify::Names;
 
-use crate::io::{Node, NodePath};
+use crate::io::{Node, NodePath, TerminalPath};
 use crate::schematic::{InstancePath, PrimitiveNode};
 
 use super::{BlackboxElement, CellId, InstanceId, RawCell};
@@ -130,7 +130,7 @@ impl RawLib {
     /// Returns [`None`] if the path is invalid. Only flattened instances will
     /// return more than one [`scir::SignalPath`], and unconnected terminals will return
     /// `Some(vec![])`.
-    pub fn convert_terminal_path(&self, path: &NodePath) -> Option<Vec<scir::SignalPath>> {
+    pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<scir::SignalPath>> {
         let mut cell = self.conv.cells.get(&path.top)?;
         assert!(cell.top);
 

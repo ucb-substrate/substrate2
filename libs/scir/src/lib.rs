@@ -774,7 +774,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if the provided path does not exist or the path is terminated with
-    /// [`SignalPathTail::NameBuf`].
+    /// [`SignalPathTail::Primitive`].
     pub fn simplify_path(&self, mut path: SignalPath) -> SignalPath {
         if path.instances.instances.is_empty() {
             return path;
@@ -783,7 +783,7 @@ impl Library {
         let (signal, index) = if let SignalPathTail::Slice { signal, index } = &mut path.tail {
             (signal, index)
         } else {
-            panic!("path is terminated with `SignalTermination::NameBuf` and cannot be simplified")
+            panic!("path is terminated with a primitive instance and cannot be simplified")
         };
         let mut cells = Vec::with_capacity(path.instances.instances.len());
         let mut cell = self.cell(path.instances.top);
