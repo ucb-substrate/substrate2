@@ -2,6 +2,8 @@
 name = "cache"
 version = "0.2.0"
 edition = "2021"
+description = "A general purpose cache with possibly multiple remote servers for storing and retrieving data."
+license = "BSD-3-Clause"
 
 [dependencies]
 serde = { version = "1", features = ["derive", "rc"] }
