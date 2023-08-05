@@ -230,7 +230,7 @@ impl Library {
             analyze_instance(self, &mut net_states, instance);
         }
 
-        for device in contents.primitives.iter() {
+        for (_, device) in contents.primitives.iter() {
             for slice in device.nodes() {
                 let states = net_states.get_mut(&slice.signal()).unwrap();
                 if let Some(range) = slice.range() {

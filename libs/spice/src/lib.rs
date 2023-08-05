@@ -86,7 +86,7 @@ impl<'a, W: Write> Netlister<'a, W> {
                     writeln!(self.out, " {}", child.name())?;
                 }
 
-                for (i, device) in contents.primitives().enumerate() {
+                for (i, (_, device)) in contents.primitives().enumerate() {
                     match &device.kind {
                         PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             write!(self.out, "R{}", i)?;

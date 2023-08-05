@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::Vsource;
-use spectre::{Options, Spectre, Tran};
+use spectre::tran::Tran;
+use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
@@ -233,7 +234,7 @@ fn spectre_can_include_sections() {
                 )
                 .expect("failed to run simulation");
             *output
-                .get_data(&sim.tb.data().io().n)
+                .get_data(&sim.tb.data().terminals().n)
                 .unwrap()
                 .first()
                 .unwrap()

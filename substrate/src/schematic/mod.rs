@@ -22,8 +22,8 @@ use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port, SchematicData,
-    SchematicType,
+    Connect, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
+    SchematicData, SchematicType, TerminalView,
 };
 use crate::pdk::Pdk;
 use crate::simulation::{HasSimSchematic, Simulator};
@@ -648,7 +648,7 @@ impl<T: HasSchematicData> Cell<T> {
             block: &self.block,
             data: self.data.nested_view(parent),
             raw: self.raw.clone(),
-            io: self.io.nested_view(parent),
+            io: self.io.terminal_view(parent),
         }
     }
 }
@@ -788,8 +788,26 @@ pub struct Instance<T: HasSchematicData> {
 
 impl<T: HasSchematicData> Instance<T> {
     /// The ports of this instance.
+    ///
+    /// Used for node connection purposes.
     pub fn io(&self) -> &<T::Io as SchematicType>::Data {
         &self.io
+    }
+
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Data>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Data> {
+        self.cell().io
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -852,15 +870,22 @@ pub struct PrimitiveDevice {
     params: HashMap<ArcStr, scir::Expr>,
 }
 
+/// A node connected to a terminal of a [`PrimitiveDevice`].
+#[derive(Debug, Clone)]
+pub struct PrimitiveNode {
+    pub(crate) port: ArcStr,
+    pub(crate) node: Node,
+}
+
 /// An enumeration of the possible kinds of primitive devices.
 #[derive(Debug, Clone)]
 pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive node.
-        pos: Node,
+        pos: PrimitiveNode,
         /// The negative node.
-        neg: Node,
+        neg: PrimitiveNode,
         /// The value of the resistor, in Ohms.
         value: Decimal,
     },
@@ -869,7 +894,7 @@ pub enum PrimitiveDeviceKind {
     /// This can be an instance of a subcircuit defined outside of Substrate.
     RawInstance {
         /// The ports of the instance, as an ordered list.
-        ports: Vec<Node>,
+        ports: Vec<PrimitiveNode>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
     },
@@ -910,6 +935,17 @@ impl PrimitiveDevice {
         Self {
             kind,
             params: Default::default(),
+        }
+    }
+}
+
+impl PrimitiveNode {
+    /// Creates a [`PrimitiveNode`] from a node and the name of the port that it is
+    /// connected to.
+    pub fn new(port: impl Into<ArcStr>, node: Node) -> Self {
+        Self {
+            port: port.into(),
+            node,
         }
     }
 }
@@ -1038,7 +1074,7 @@ impl<T: HasNestedView + Send + Sync> Data for T {}
 
 /// An object that can be nested in the data of a cell.
 ///
-/// Stores a path of instances up to the current cell using a linked list.
+/// Stores a path of instances up to the current cell using an [`InstancePath`].
 pub trait HasNestedView {
     /// A view of the nested object.
     type NestedView<'a>
@@ -1073,6 +1109,12 @@ impl<T: HasNestedView> HasNestedView for Vec<T> {
 /// The associated nested view of an object.
 pub type NestedView<'a, T> = <T as HasNestedView>::NestedView<'a>;
 
+impl HasNestedView for () {
+    type NestedView<'a> = ();
+
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {}
+}
+
 /// A view of a nested cell.
 ///
 /// Created when accessing a cell from one of its instantiations in another cell.
@@ -1084,7 +1126,7 @@ pub struct NestedCellView<'a, T: HasSchematicData> {
     #[allow(dead_code)]
     pub(crate) raw: Arc<RawCell>,
     /// The cell's input/output interface.
-    io: NestedView<'a, <T::Io as SchematicType>::Data>,
+    io: TerminalView<'a, <T::Io as SchematicType>::Data>,
 }
 
 impl<'a, T: HasSchematicData> NestedCellView<'a, T> {
@@ -1104,9 +1146,7 @@ impl<'a, T: HasSchematicData> NestedCellView<'a, T> {
 /// Created when accessing an instance stored in the data of a nested cell.
 pub struct NestedInstanceView<'a, T: HasSchematicData> {
     id: InstanceId,
-    /// Path to the parent cell of this instance.
-    parent: InstancePath,
-    /// Head of linked list path to this instance relative to the current cell.
+    /// The path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
     io: &'a <T::Io as SchematicType>::Data,
@@ -1120,19 +1160,11 @@ pub struct NestedInstanceView<'a, T: HasSchematicData> {
 /// easier access.
 pub struct NestedInstance<T: HasSchematicData> {
     id: InstanceId,
-    /// Path to the parent cell of this instance.
-    parent: InstancePath,
     /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Data,
     cell: CellHandle<T>,
-}
-
-impl HasNestedView for () {
-    type NestedView<'a> = ();
-
-    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {}
 }
 
 impl<T: HasSchematicData> HasNestedView for Instance<T> {
@@ -1141,7 +1173,6 @@ impl<T: HasSchematicData> HasNestedView for Instance<T> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
-            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -1150,9 +1181,20 @@ impl<T: HasSchematicData> HasNestedView for Instance<T> {
 }
 
 impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
-    /// The nodes connected to this instance.
-    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.parent)
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Data>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Data> {
+        self.cell().io
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -1189,24 +1231,6 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
         self.cell().data
     }
 
-    /// Tries to access this instance's terminals.
-    ///
-    /// Returns an error if one was thrown during generation.
-    pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
-        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
-        self.try_cell().map(|cell| cell.io)
-    }
-
-    /// Tries to access this instance's terminals
-    ///
-    /// # Panics
-    ///
-    /// Panics if an error was thrown during generation.
-    pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
-        self.cell().io
-    }
-
     /// Tries to access the underlying block used to create this instance's cell.
     ///
     /// Returns an error if one was thrown during generation.
@@ -1227,7 +1251,6 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
     pub fn to_owned(&self) -> NestedInstance<T> {
         NestedInstance {
             id: self.id,
-            parent: self.parent.clone(),
             path: self.path.clone(),
             io: (*self.io).clone(),
             cell: self.cell.clone(),
@@ -1246,7 +1269,6 @@ impl<T: HasSchematicData> HasNestedView for NestedInstance<T> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
-            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -1255,9 +1277,20 @@ impl<T: HasSchematicData> HasNestedView for NestedInstance<T> {
 }
 
 impl<T: HasSchematicData> NestedInstance<T> {
-    /// The ports of this instance.
-    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.parent)
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Data>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Data> {
+        self.cell().io
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -1292,24 +1325,6 @@ impl<T: HasSchematicData> NestedInstance<T> {
     /// Panics if an error was thrown during generation.
     pub fn data(&self) -> NestedView<'_, T::Data> {
         self.cell().data
-    }
-
-    /// Tries to access this instance's terminals.
-    ///
-    /// Returns an error if one was thrown during generation.
-    pub fn try_terminals(&self) -> Result<NestedView<<T::Io as SchematicType>::Data>> {
-        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
-        self.try_cell().map(|cell| cell.io)
-    }
-
-    /// Tries to access this instance's terminals
-    ///
-    /// # Panics
-    ///
-    /// Panics if an error was thrown during generation.
-    pub fn terminals(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        assert!(!T::FLATTEN, "cannot retrieve terminals of flattened cell");
-        self.cell().io
     }
 
     /// Tries to access the underlying block used to create this instance's cell.

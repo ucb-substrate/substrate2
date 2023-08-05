@@ -5,7 +5,7 @@ use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{
-    CellBuilder, HasSchematic, HasSchematicData, Instance, PrimitiveDeviceKind,
+    CellBuilder, HasSchematic, HasSchematicData, Instance, PrimitiveDeviceKind, PrimitiveNode,
 };
 use substrate::{Io, SchematicData};
 
@@ -157,8 +157,8 @@ impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(
             PrimitiveDeviceKind::Res2 {
-                pos: io.p,
-                neg: io.n,
+                pos: PrimitiveNode::new("p", io.p),
+                neg: PrimitiveNode::new("n", io.n),
                 value: self.value,
             }
             .into(),

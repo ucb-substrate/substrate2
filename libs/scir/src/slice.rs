@@ -54,6 +54,12 @@ impl SliceRange {
     pub fn indices(&self) -> impl Iterator<Item = usize> {
         self.start..self.end
     }
+
+    /// Returns if the this slice contains the given index.
+    #[inline]
+    pub fn contains(&self, idx: usize) -> bool {
+        idx >= self.start && idx < self.end
+    }
 }
 impl IntoIterator for SliceRange {
     type Item = usize;

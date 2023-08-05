@@ -172,50 +172,50 @@ fn nested_node_naming() {
     let handle = ctx.generate_schematic(BufferNxM::new(5, 5, 5));
     let cell = handle.cell();
 
-    assert_ne!(
-        cell.data().bubbled_inv1.io().din.path(),
-        cell.data().bubbled_din.path()
+    assert_eq!(
+        cell.data().bubbled_inv1.data().pmos.terminals().g.path(),
+        cell.data().bubbled_pmos_g.path()
     );
 
     assert_eq!(
-        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().bubbled_inv1.terminals().din.path(),
         cell.data().buffer_chains[0]
             .data()
             .bubbled_inv1
-            .io()
+            .terminals()
             .din
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().bubbled_inv1.terminals().din.path(),
         cell.data().buffer_chains[0].data().buffers[0]
             .data()
             .inv1
-            .io()
+            .terminals()
             .din
             .path()
     );
 
     assert_eq!(
-        cell.data().bubbled_din.path(),
-        cell.data().buffer_chains[0].data().bubbled_din.path()
+        cell.data().bubbled_pmos_g.path(),
+        cell.data().buffer_chains[0].data().bubbled_pmos_g.path()
     );
     assert_eq!(
-        cell.data().bubbled_din.path(),
+        cell.data().bubbled_pmos_g.path(),
         cell.data().buffer_chains[0]
             .data()
             .bubbled_inv1
             .data()
-            .din
+            .pmos_g
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_din.path(),
+        cell.data().bubbled_pmos_g.path(),
         cell.data().buffer_chains[0].data().buffers[0]
             .data()
             .inv1
             .data()
-            .din
+            .pmos_g
             .path()
     );
 }

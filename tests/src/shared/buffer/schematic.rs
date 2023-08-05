@@ -1,6 +1,7 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
+use substrate::io::Terminal;
 use substrate::{
-    io::{NestedNode, Node, Signal},
+    io::Signal,
     schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance},
     SchematicData,
 };
@@ -12,7 +13,7 @@ use super::{BufferN, Inverter};
 #[derive(SchematicData)]
 pub struct InverterData {
     #[substrate(nested)]
-    pub din: Node,
+    pub pmos_g: Terminal,
     #[substrate(nested)]
     pub pmos: Instance<PmosA>,
 }
@@ -40,7 +41,10 @@ impl HasSchematic<ExamplePdkA> for Inverter {
 
         cell.connect(io.vdd, pmos_io.s);
         cell.connect(io.vss, nmos.s);
-        Ok(InverterData { din: io.din, pmos })
+        Ok(InverterData {
+            pmos_g: pmos.terminals().g,
+            pmos,
+        })
     }
 }
 
@@ -88,7 +92,7 @@ impl HasSchematic<ExamplePdkA> for Buffer {
 #[derive(SchematicData)]
 pub struct BufferNData {
     #[substrate(nested)]
-    pub bubbled_din: NestedNode,
+    pub bubbled_pmos_g: Terminal,
     #[substrate(nested)]
     pub bubbled_inv1: NestedInstance<Inverter>,
     #[substrate(nested)]
@@ -117,11 +121,11 @@ impl HasSchematic<ExamplePdkA> for BufferN {
             cell.connect(buffers[i].io().din, buffers[i - 1].io().dout);
         }
 
-        let bubbled_din = buffers[0].data().inv1.data().din;
+        let bubbled_pmos_g = buffers[0].data().inv1.data().pmos_g;
         let bubbled_inv1 = buffers[0].data().inv1.to_owned();
 
         Ok(BufferNData {
-            bubbled_din,
+            bubbled_pmos_g,
             bubbled_inv1,
             buffers,
         })
@@ -131,7 +135,7 @@ impl HasSchematic<ExamplePdkA> for BufferN {
 #[derive(SchematicData)]
 pub struct BufferNxMData {
     #[substrate(nested)]
-    pub bubbled_din: NestedNode,
+    pub bubbled_pmos_g: Terminal,
     #[substrate(nested)]
     pub bubbled_inv1: NestedInstance<Inverter>,
     #[substrate(nested)]
@@ -158,11 +162,11 @@ impl HasSchematic<ExamplePdkA> for BufferNxM {
             buffer_chains.push(buffer);
         }
 
-        let bubbled_din = buffer_chains[0].data().bubbled_din;
+        let bubbled_pmos_g = buffer_chains[0].data().bubbled_pmos_g;
         let bubbled_inv1 = buffer_chains[0].data().bubbled_inv1.to_owned();
 
         Ok(BufferNxMData {
-            bubbled_din,
+            bubbled_pmos_g,
             bubbled_inv1,
             buffer_chains,
         })

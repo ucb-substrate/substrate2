@@ -1,4 +1,8 @@
-//! Caching utilities.
+//! A general purpose cache with possibly multiple remote servers for storing and retrieving data.
+//!
+//! The cache includes both type-mapped and namespaced APIs. Caching can be done in-memory or persistently
+//! via a cache server that manages a filesystem cache. The cache also supports caching across
+//! several cache servers.
 #![warn(missing_docs)]
 
 use std::ops::Deref;
