@@ -428,6 +428,20 @@ pub fn derive_has_layout_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Generates an implementation of `FromSaved<Sim, Analysis>` for a type.
+#[proc_macro_error]
+#[proc_macro_derive(FromSaved, attributes(substrate))]
+pub fn derive_from_saved(input: TokenStream) -> TokenStream {
+    let receiver = sim::save::FromSavedInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    ));
+    let receiver = handle_error!(receiver);
+    quote!(
+        #receiver
+    )
+    .into()
+}
+
 pub(crate) fn substrate_ident() -> TokenStream2 {
     match crate_name("substrate").expect("substrate is present in `Cargo.toml`") {
         FoundCrate::Itself => quote!(::substrate),

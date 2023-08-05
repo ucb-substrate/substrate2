@@ -2,7 +2,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
-use spectre::{Options, Spectre, Tran, TranCurrent, TranCurrentKey, TranVoltage, TranVoltageKey};
+use spectre::{Options, Spectre, Tran, TranCurrent, TranVoltage};
 use substrate::block::Block;
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
@@ -131,7 +131,7 @@ pub struct VdividerTbOutput {
     pub tran: VdividerTbTranOutput,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, substrate::FromSaved)]
 pub struct VdividerTbTranOutput {
     pub current: TranCurrent,
     pub iprobe: TranCurrent,
@@ -139,24 +139,28 @@ pub struct VdividerTbTranOutput {
     pub out: TranVoltage,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VdividerTbTranOutputKey {
-    pub current: TranCurrentKey,
-    pub iprobe: TranCurrentKey,
-    pub vdd: TranVoltageKey,
-    pub out: TranVoltageKey,
+pub struct VdividerTbTranOutputKey<S: Simulator, A: Analysis>
+where
+    TranCurrent: FromSaved<S, A>,
+    TranCurrent: FromSaved<S, A>,
+    TranVoltage: FromSaved<S, A>,
+    TranVoltage: FromSaved<S, A>,
+{
+    pub current: <TranCurrent as FromSaved<S, A>>::Key,
+    pub iprobe: <TranCurrent as FromSaved<S, A>>::Key,
+    pub vdd: <TranVoltage as FromSaved<S, A>>::Key,
+    pub out: <TranVoltage as FromSaved<S, A>>::Key,
 }
 
-impl FromSaved<Spectre, Tran> for VdividerTbTranOutput {
-    type Key = VdividerTbTranOutputKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
-        Self {
-            current: TranCurrent::from_saved(output, key.current),
-            iprobe: TranCurrent::from_saved(output, key.iprobe),
-            vdd: TranVoltage::from_saved(output, key.vdd),
-            out: TranVoltage::from_saved(output, key.out),
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, substrate::FromSaved)]
+pub enum TestOutput {
+    Voltage {
+        vout: TranVoltage,
+    },
+    VoltageAndCurrent {
+        vout: TranVoltage,
+        iout: TranCurrent,
+    },
 }
 
 impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
