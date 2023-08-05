@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/examples-v0.1.0...examples-v0.2.0) (2023-08-05)
+
+
+### Features
+
+* **codegen:** derive macro for implementing FromSaved ([#243](https://github.com/substrate-labs/substrate2/issues/243)) ([48acae0](https://github.com/substrate-labs/substrate2/commit/48acae0fb8915c4f968223268c92077f2deda979))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.4.0 to <=0.5.0
+    * sky130pdk bumped from <=0.4.0 to <=0.5.0
+    * spectre bumped from <=0.4.0 to <=0.5.0
+
 ## 0.1.0 (2023-08-04)
 
 
