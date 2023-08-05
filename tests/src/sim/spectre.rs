@@ -295,18 +295,18 @@ fn spectre_can_save_paths_with_flattened_instances() {
             cell.connect(res1.io().n, io.n);
             cell.add_primitive(
                 PrimitiveDeviceKind::Res2 {
-                    pos: PrimitiveNode::new("p", io.p),
-                    neg: PrimitiveNode::new("n", io.n),
-                    value: dec!(100),
+                    pos: PrimitiveNode::new("1", io.p),
+                    neg: PrimitiveNode::new("2", io.n),
+                    value: dec!(200),
                 }
                 .into(),
             );
             cell.add_primitive(PrimitiveDevice::from_params(
                 PrimitiveDeviceKind::RawInstance {
-                    ports: vec![PrimitiveNode::new("p", io.p), PrimitiveNode::new("n", io.n)],
+                    ports: vec![PrimitiveNode::new("1", io.p), PrimitiveNode::new("2", io.n)],
                     cell: arcstr::literal!("resistor"),
                 },
-                HashMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(100)))]),
+                HashMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
             ));
             Ok(())
         }
@@ -382,5 +382,5 @@ fn spectre_can_save_paths_with_flattened_instances() {
     assert!(current_draw
         .iter()
         .cloned()
-        .all(|val| relative_eq!(val, 1.8 / 300.)));
+        .all(|val| relative_eq!(val, 1.8 * (1. / 100. + 1. / 200. + 1. / 300.))));
 }
