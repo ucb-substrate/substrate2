@@ -3,6 +3,7 @@ use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
+use crate::derive::add_trait_bounds;
 use crate::substrate_ident;
 
 pub mod layout;
@@ -35,6 +36,13 @@ impl ToTokens for BlockInputReceiver {
             ..
         } = *self;
 
+        let generics = add_trait_bounds(quote!(#substrate::serde::Serialize), generics.clone());
+        let generics = add_trait_bounds(quote!(#substrate::serde::Deserialize<'static>), generics);
+        let generics = add_trait_bounds(quote!(::std::hash::Hash), generics);
+        let generics = add_trait_bounds(quote!(::std::cmp::Eq), generics);
+        let generics = add_trait_bounds(quote!(::std::marker::Send), generics);
+        let generics = add_trait_bounds(quote!(::std::marker::Sync), generics);
+        let generics = add_trait_bounds(quote!(::std::any::Any), generics);
         let (imp, ty, wher) = generics.split_for_impl();
 
         let name = ident.to_string().to_case(Case::Snake);
