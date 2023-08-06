@@ -1,4 +1,4 @@
-use substrate::{LayerFamily, Layers};
+use substrate::pdk::layers::{LayerFamily, Layers};
 
 #[derive(Layers)]
 pub struct ExamplePdkALayers {

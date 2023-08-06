@@ -543,6 +543,7 @@ dependencies = [
  "spectre",
  "substrate",
  "syn 2.0.23",
+ "type_dispatch",
 ]
 
 [[package]]
@@ -995,8 +996,22 @@ version = "0.3.0"
 dependencies = [
  "approx",
  "array_map",
+ "geometry_macros",
  "impl-trait-for-tuples",
  "serde",
+]
+
+[[package]]
+name = "geometry_macros"
+version = "0.0.0"
+dependencies = [
+ "darling 0.20.1",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+ "type_dispatch",
 ]
 
 [[package]]
@@ -2787,7 +2802,11 @@ checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 name = "type_dispatch"
 version = "0.2.0"
 dependencies = [
+ "darling 0.20.1",
  "duplicate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
  "type_dispatch_macros",
 ]
 

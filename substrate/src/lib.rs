@@ -3,7 +3,6 @@
 
 extern crate self as substrate;
 
-pub use codegen::*;
 #[doc(inline)]
 pub use geometry;
 #[doc(inline)]

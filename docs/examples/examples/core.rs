@@ -4,16 +4,14 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::geometry::prelude::*;
 use substrate::io::{
-    CustomLayoutType, InOut, Input, IoShape, LayoutPort, Node, Output, PortGeometry, ShapePort,
-    Signal,
+    CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
+    PortGeometry, ShapePort, Signal,
 };
-use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutData, Instance};
+use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutData, Instance, LayoutData};
+use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{Pdk, PdkLayers};
+use substrate::schematic::HasSchematic;
 use substrate::type_dispatch::impl_dispatch;
-use substrate::{
-    Block, Corner, DerivedLayerFamily, DerivedLayers, HasSchematic, Io, LayerFamily, Layers,
-    LayoutData, LayoutType,
-};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -47,7 +45,7 @@ pub struct Met1 {
 // end-code-snippet layers
 
 // begin-code-snippet derive_corner
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ExamplePdkCorner {
     Tt,
     Ss,
@@ -69,7 +67,7 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ExampleCorner;
 
 #[derive(Layers)]
@@ -538,7 +536,7 @@ fn main() {
 /// Demonstrates how to save simulator output.
 mod sim {
     use spectre::tran::{TranCurrent, TranVoltage};
-    use substrate::FromSaved;
+    use substrate::simulation::data::FromSaved;
 
     // begin-code-snippet sim_from_saved
     #[derive(Debug, Clone, FromSaved)]

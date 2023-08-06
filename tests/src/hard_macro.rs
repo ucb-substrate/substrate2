@@ -3,8 +3,8 @@ use crate::shared::buffer::BufferIo;
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 
-use substrate::Block;
-use substrate::{HasLayout, HasSchematic};
+use substrate::block::Block;
+use substrate::{layout::HasLayout, schematic::HasSchematic};
 use test_log::test;
 
 #[derive(

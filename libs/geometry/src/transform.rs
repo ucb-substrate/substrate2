@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::slice::SliceIndex;
 
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
+pub use geometry_macros::{TransformMut, TranslateMut};
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 

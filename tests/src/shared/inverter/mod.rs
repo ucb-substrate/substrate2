@@ -2,11 +2,9 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use substrate::block::Block;
-use substrate::io::{InOut, Input, Output, Signal};
+use substrate::io::{InOut, Input, Io, Output, Signal};
 use substrate::schematic::{HasSchematic, HasSchematicData};
 use substrate::type_dispatch::impl_dispatch;
-use substrate::Block;
-use substrate::Io;
 
 pub mod tb;
 
@@ -37,7 +35,7 @@ impl HasSchematicData for Inverter {
 impl<PDK> HasSchematic<PDK> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));

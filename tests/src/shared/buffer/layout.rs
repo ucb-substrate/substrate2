@@ -11,10 +11,10 @@ use substrate::{
     layout::{
         element::Shape,
         tiling::{ArrayTiler, Tile, TileAlignMode},
-        HasLayout, HasLayoutData, Instance,
+        HasLayout, HasLayoutData, Instance, LayoutData,
     },
-    pdk::{layers::HasPin, PdkLayers},
-    DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
+    pdk::layers::{DerivedLayerFamily, DerivedLayers, HasPin, Layers},
+    pdk::PdkLayers,
 };
 
 use crate::shared::pdk::{ExamplePdkA, ExamplePdkB};

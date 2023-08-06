@@ -1,5 +1,4 @@
-use substrate::layout::{HasLayoutData, Instance};
-use substrate::LayoutData;
+use substrate::layout::{HasLayoutData, Instance, LayoutData};
 
 #[derive(Default, LayoutData)]
 pub struct LayoutInstances<T: HasLayoutData> {

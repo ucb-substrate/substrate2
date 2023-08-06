@@ -2,8 +2,7 @@ use crate::shared::buffer::{Buffer, BufferNxM};
 use substrate::io::Terminal;
 use substrate::{
     io::Signal,
-    schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance},
-    SchematicData,
+    schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance, SchematicData},
 };
 
 use crate::shared::pdk::{ExamplePdkA, NmosA, PmosA};
@@ -25,7 +24,7 @@ impl HasSchematicData for Inverter {
 impl HasSchematic<ExamplePdkA> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(NmosA { w: 500, l: 150 });
@@ -63,7 +62,7 @@ impl HasSchematicData for Buffer {
 impl HasSchematic<ExamplePdkA> for Buffer {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.instantiate(Inverter::new(self.strength));
@@ -106,7 +105,7 @@ impl HasSchematicData for BufferN {
 impl HasSchematic<ExamplePdkA> for BufferN {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut buffers = Vec::new();
@@ -149,7 +148,7 @@ impl HasSchematicData for BufferNxM {
 impl HasSchematic<ExamplePdkA> for BufferNxM {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut buffer_chains = Vec::new();

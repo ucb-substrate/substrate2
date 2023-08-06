@@ -149,7 +149,7 @@ fn derive_layer_with_attrs(
     }
 
     quote! {
-        #[derive(#substrate::Layer, ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug, ::std::cmp::Eq, ::std::cmp::PartialEq)]
+        #[derive(#substrate::pdk::layers::Layer, ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug, ::std::cmp::Eq, ::std::cmp::PartialEq)]
         #[layer(#( #attrs ),*)]
         pub struct #field_ty(#substrate::pdk::layers::LayerId);
     }

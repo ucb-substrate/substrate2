@@ -11,7 +11,6 @@ use substrate::pdk::Pdk;
 use substrate::schematic::{
     HasSchematic, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
 };
-use substrate::Corner;
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
@@ -31,7 +30,7 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ExampleCorner;
 
 /// An NMOS in PDK A.
@@ -61,7 +60,7 @@ impl HasSchematicData for NmosA {
 impl HasSchematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::from_params(
@@ -110,7 +109,7 @@ impl HasSchematicData for PmosA {
 impl HasSchematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::from_params(

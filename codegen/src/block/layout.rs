@@ -4,8 +4,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
 
-use crate::derive::{add_trait_bounds, struct_body};
 use crate::substrate_ident;
+use type_dispatch::derive::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(

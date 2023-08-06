@@ -1,5 +1,5 @@
 use spectre::tran::{TranCurrent, TranVoltage};
-use substrate::FromSaved;
+use substrate::simulation::data::FromSaved;
 
 #[derive(Debug, Clone, FromSaved)]
 #[allow(unused)]

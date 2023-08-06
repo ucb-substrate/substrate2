@@ -11,7 +11,7 @@ use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::{Cell, HasSchematicData};
-use substrate::simulation::data::{FromSaved, HasNodeData, Save};
+use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
 
@@ -262,13 +262,13 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
     }
 }
 
-impl HasNodeData<str, Vec<f64>> for TranOutput {
+impl HasSimData<str, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
         self.raw_values.get(k).map(|x| x.as_ref())
     }
 }
 
-impl HasNodeData<scir::SignalPath, Vec<f64>> for TranOutput {
+impl HasSimData<scir::SignalPath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &scir::SignalPath) -> Option<&Vec<f64>> {
         self.get_data(&*node_voltage_path(
             &self.lib.scir,
@@ -278,7 +278,7 @@ impl HasNodeData<scir::SignalPath, Vec<f64>> for TranOutput {
     }
 }
 
-impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
+impl HasSimData<NodePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
         self.get_data(&self.lib.convert_node_path(k)?)
     }
