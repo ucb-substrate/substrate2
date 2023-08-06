@@ -16,7 +16,7 @@ use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{Cell, HasSchematicData, SimCellBuilder};
 use crate::simulation::data::Save;
-use crate::simulator_tuples;
+use codegen::simulator_tuples;
 
 pub mod data;
 pub mod waveform;
@@ -173,7 +173,7 @@ pub trait HasSimSchematic<PDK: Pdk, S: Simulator>: Block + HasSchematicData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Data,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut SimCellBuilder<PDK, S, Self>,
     ) -> crate::error::Result<Self::Data>;
 }

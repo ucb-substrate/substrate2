@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
 use spectre::Spectre;
 use substrate::pdk::corner::InstallCorner;
-use substrate::Corner;
 
 use crate::Sky130CommercialPdk;
 
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Corner)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Sky130Corner {
     #[default]
     Tt,

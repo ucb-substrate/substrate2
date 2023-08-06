@@ -4,7 +4,6 @@ use substrate::io::*;
 use substrate::schematic::*;
 
 use substrate::pdk::Pdk;
-use substrate::Io;
 use substrate::{block::Block, schematic::HasSchematic};
 
 #[derive(Debug, Clone, Io)]

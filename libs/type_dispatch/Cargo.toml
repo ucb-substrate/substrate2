@@ -9,6 +9,10 @@ license = "BSD-3-Clause"
 
 [dependencies]
 duplicate = "1"
+darling = "0.20"
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
 type_dispatch_macros = { version = "0.2.0", registry = "substrate", path = "../type_dispatch_macros" }
 
 

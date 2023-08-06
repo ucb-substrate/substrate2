@@ -12,6 +12,7 @@ use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
+pub use codegen::{HasLayout, LayoutData};
 use examples::get_snippets;
 use geometry::{
     prelude::{Bbox, Point},
@@ -35,8 +36,8 @@ pub mod gds;
 pub mod tiling;
 
 /// An object used to store data created during layout generation.
-pub trait Data: HasTransformedView + Send + Sync {}
-impl<T: HasTransformedView + Send + Sync> Data for T {}
+pub trait LayoutData: HasTransformedView + Send + Sync {}
+impl<T: HasTransformedView + Send + Sync> LayoutData for T {}
 
 /// A block that has a layout.
 pub trait HasLayoutData: Block {
@@ -44,7 +45,7 @@ pub trait HasLayoutData: Block {
     ///
     /// Common uses include storing important instances for access during simulation and any
     /// important computations that may impact blocks that instantiate this block.
-    type Data: Data;
+    type Data: LayoutData;
 }
 
 /// A block that has a layout for process design kit `PDK`.
@@ -93,7 +94,7 @@ pub struct Cell<T: HasLayoutData> {
     block: Arc<T>,
     /// Extra data created during layout generation.
     data: T::Data,
-    pub(crate) io: Arc<<T::Io as LayoutType>::Data>,
+    pub(crate) io: Arc<<T::Io as LayoutType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
 }
 
@@ -101,7 +102,7 @@ impl<T: HasLayoutData> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
         data: T::Data,
-        io: Arc<<T::Io as LayoutType>::Data>,
+        io: Arc<<T::Io as LayoutType>::Bundle>,
         raw: Arc<RawCell>,
     ) -> Self {
         Self {
@@ -123,7 +124,7 @@ impl<T: HasLayoutData> Cell<T> {
     }
 
     /// Returns the geometry of the cell's IO.
-    pub fn io(&self) -> &<T::Io as LayoutType>::Data {
+    pub fn io(&self) -> &<T::Io as LayoutType>::Bundle {
         self.io.as_ref()
     }
 }
@@ -177,7 +178,7 @@ pub struct TransformedCell<'a, T: HasLayoutData> {
     /// Extra data created during layout generation.
     data: Transformed<'a, T::Data>,
     /// The geometry of the cell's IO.
-    io: Transformed<'a, <T::Io as LayoutType>::Data>,
+    io: Transformed<'a, <T::Io as LayoutType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
     pub(crate) trans: Transformation,
 }
@@ -307,7 +308,7 @@ impl<T: HasLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as LayoutType>::Data>> {
+    pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as LayoutType>::Bundle>> {
         Ok(self.try_cell()?.io)
     }
 
@@ -318,7 +319,7 @@ impl<T: HasLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> Transformed<'_, <T::Io as LayoutType>::Data> {
+    pub fn io(&self) -> Transformed<'_, <T::Io as LayoutType>::Bundle> {
         self.cell().io
     }
 }

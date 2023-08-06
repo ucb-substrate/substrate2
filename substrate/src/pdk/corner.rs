@@ -1,6 +1,5 @@
 //! PDK corner interface.
 
-use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -33,23 +32,12 @@ impl<C> Pvt<C> {
     }
 }
 
-/// A process-voltage-temperature corner reference.
-///
-/// Contains a process corner, a voltage, and a temperature (in Celsius).
-pub struct PvtRef {
-    /// The name of the process corner.
-    pub corner: ArcStr,
-    /// The voltage.
-    pub voltage: Decimal,
-    /// The temperature, in degrees celsius.
-    pub temp: Decimal,
-}
-
 /// A corner in a given PDK.
 ///
 /// Corners are expected to be cheaply cloneable, and ideally copy.
 /// For example, a corner may simply be an enum variant with no inner fields.
 pub trait Corner: Clone + Serialize + Deserialize<'static> {}
+impl<T: Clone + Serialize + Deserialize<'static>> Corner for T {}
 
 /// A PDK with process corners compatible with simulator `S`.
 pub trait InstallCorner<S: Simulator>: Pdk {

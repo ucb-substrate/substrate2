@@ -3,8 +3,8 @@ use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
+use type_dispatch::derive::{field_tokens_with_referent, tuple_ident, FieldTokens};
 
-use crate::derive::{field_tokens_with_referent, tuple_ident, FieldTokens};
 use crate::substrate_ident;
 
 #[derive(Debug, FromDeriveInput)]

@@ -2,16 +2,16 @@
 
 #![warn(missing_docs)]
 
-use crate::type_dispatch::{dispatch_const_impl, dispatch_fn_impl, dispatch_type_impl};
+use crate::types::{dispatch_const_impl, dispatch_fn_impl, dispatch_type_impl};
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 
-use crate::impl_dispatch::impl_dispatch_impl;
+use crate::impls::impl_dispatch_impl;
 
-mod impl_dispatch;
-mod type_dispatch;
+mod impls;
+mod types;
 
 /// Dispatches a trait implementation to a specified set of generic types.
 ///

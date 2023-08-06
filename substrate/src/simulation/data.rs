@@ -1,23 +1,25 @@
 //! Interfaces for interacting with simulation data.
 
-use crate::io::{NestedNode, NodePath, Terminal, TerminalPath};
-use crate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
+pub use codegen::FromSaved;
 use type_dispatch::impl_dispatch;
 
+use crate::io::{NestedNode, NodePath, Terminal, TerminalPath};
+use crate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
+
 /// A simulation artifact with node data `V` that can be indexed by key `K`.
-pub trait HasNodeData<K: ?Sized, V> {
+pub trait HasSimData<K: ?Sized, V> {
     /// Gets data for key `k`.
     fn get_data(&self, k: &K) -> Option<&V>;
 }
 
-impl<D, T: HasNodeData<NodePath, D>> HasNodeData<NestedNode, D> for T {
+impl<D, T: HasSimData<NodePath, D>> HasSimData<NestedNode, D> for T {
     fn get_data(&self, k: &NestedNode) -> Option<&D> {
         self.get_data(&k.path())
     }
 }
 
 #[impl_dispatch({NodePath, TerminalPath; NestedNode, Terminal})]
-impl<N1, N2, D, T: HasNodeData<N1, D>> HasNodeData<N2, D> for T {
+impl<N1, N2, D, T: HasSimData<N1, D>> HasSimData<N2, D> for T {
     fn get_data(&self, k: &N2) -> Option<&D> {
         self.get_data(k.as_ref())
     }

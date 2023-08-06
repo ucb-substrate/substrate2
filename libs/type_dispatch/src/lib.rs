@@ -8,6 +8,7 @@ extern crate self as type_dispatch;
 pub use duplicate;
 pub use type_dispatch_macros::*;
 
+pub mod derive;
 mod tests;
 
 /// A dispatch of an object.

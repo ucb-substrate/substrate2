@@ -76,7 +76,7 @@ impl HasSchematicData for Vsource {
 impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         use arcstr::literal;
@@ -147,7 +147,7 @@ impl HasSchematicData for Iprobe {
 impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {

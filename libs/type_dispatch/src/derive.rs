@@ -1,3 +1,5 @@
+//! Utilities for writing derive macros that dispatch a method call to fields in the struct.
+
 use darling::ast::{Data, Style};
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
@@ -5,16 +7,17 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{GenericParam, Generics, Index, Visibility};
 
+/// A receiver for parsing derive macro inputs.
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any, enum_any))]
-pub(crate) struct DeriveInputReceiver {
-    pub ident: syn::Ident,
-    pub generics: syn::Generics,
-    pub data: darling::ast::Data<syn::Variant, syn::Field>,
+pub struct DeriveInputReceiver {
+    ident: syn::Ident,
+    generics: syn::Generics,
+    data: darling::ast::Data<syn::Variant, syn::Field>,
 }
 
-// Add a bound `T: trait_` to every type parameter T.
-pub(crate) fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
+/// Adds a bound `T: trait_` to every type parameter `T`.
+pub fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(syn::parse_quote!(#trait_));
@@ -23,29 +26,33 @@ pub(crate) fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> G
     generics
 }
 
-pub(crate) struct FieldTokens {
+/// Tokens used for generating struct fields in derived implementations.
+pub struct FieldTokens {
     /// For named structs: "pub field:"
     /// For tuple structs: "pub"
-    pub(crate) declare: TokenStream,
+    pub declare: TokenStream,
     /// For named structs: "self.field"
     /// For tuple structs: "self.2"
-    pub(crate) refer: TokenStream,
+    pub refer: TokenStream,
     /// For named structs: "field:"
     /// For tuple structs: ""
-    pub(crate) assign: TokenStream,
+    pub assign: TokenStream,
     /// For named structs: "field"
     /// For tuple structs: "__substrate_derive_field2"
-    pub(crate) temp: TokenStream,
+    pub temp: TokenStream,
     /// For named structs: "field"
     /// For tuple structs: "elem2"
-    pub(crate) pretty_ident: TokenStream,
+    pub pretty_ident: TokenStream,
 }
 
-pub(crate) fn tuple_ident(idx: usize) -> syn::Ident {
-    format_ident!("__substrate_derive_field{idx}")
+/// Generates a [`struct@syn::Ident`] for a destructuring an element of a tuple.
+pub fn tuple_ident(idx: usize) -> syn::Ident {
+    format_ident!("__type_dispatch_derive_field{idx}")
 }
 
-pub(crate) fn field_tokens_with_referent(
+/// Returns a [`FieldTokens`] object for a struct that can be referenced using
+/// the tokens in `referent`.
+pub fn field_tokens_with_referent(
     style: Style,
     vis: &Visibility,
     attrs: &Vec<syn::Attribute>,
@@ -84,7 +91,8 @@ pub(crate) fn field_tokens_with_referent(
     }
 }
 
-pub(crate) fn field_tokens(
+/// Returns a [`FieldTokens`] object for a struct that can be referenced with `self`.
+pub fn field_tokens(
     style: Style,
     vis: &Visibility,
     attrs: &Vec<syn::Attribute>,
@@ -94,14 +102,20 @@ pub(crate) fn field_tokens(
     field_tokens_with_referent(style, vis, attrs, idx, ident, syn::parse_quote!(self))
 }
 
-pub(crate) struct DeriveTrait {
+/// Configuration for deriving a trait.
+pub struct DeriveTrait {
+    /// The trait to be implemented.
     pub trait_: TokenStream,
+    /// The trait's associated method.
     pub method: TokenStream,
+    /// Identifiers for extra arguments to the trait's associated methods.
     pub extra_arg_idents: Vec<TokenStream>,
+    /// Types for extra arguments to the trait's associated methods.
     pub extra_arg_tys: Vec<TokenStream>,
 }
 
-pub(crate) fn derive_trait(
+/// Derives a trait using the given configuration and input.
+pub fn derive_trait(
     config: &DeriveTrait,
     receiver: DeriveInputReceiver,
 ) -> proc_macro2::TokenStream {
@@ -210,7 +224,8 @@ pub(crate) fn derive_trait(
     }
 }
 
-pub(crate) fn struct_body(style: Style, decl: bool, contents: TokenStream) -> TokenStream {
+/// Formats the contents of a struct body in the appropriate style.
+pub fn struct_body(style: Style, decl: bool, contents: TokenStream) -> TokenStream {
     if decl {
         match style {
             Style::Unit => quote!(;),

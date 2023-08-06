@@ -247,7 +247,7 @@ impl HasSchematicData for Block1 {
 impl<PDK> HasSchematic<PDK> for Block1 {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         _cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         Err(substrate::error::Error::Anyhow(
@@ -282,7 +282,7 @@ impl HasSchematicData for Block2 {
 impl HasSchematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let handle = cell.generate(Block1);
@@ -295,7 +295,7 @@ impl HasSchematic<ExamplePdkA> for Block2 {
 impl HasSchematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let handle = cell.generate_blocking(Block1)?;

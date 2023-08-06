@@ -85,7 +85,7 @@ macro_rules! define_mos {
         impl substrate::schematic::HasSchematic<Sky130OpenPdk> for $typ {
             fn schematic(
                 &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
                 cell: &mut substrate::schematic::CellBuilder<Sky130OpenPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
                 // Convert from DB units to microns.
@@ -123,7 +123,7 @@ macro_rules! define_mos {
         impl substrate::schematic::HasSchematic<Sky130CommercialPdk> for $typ {
             fn schematic(
                 &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
                 cell: &mut substrate::schematic::CellBuilder<Sky130CommercialPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
                 // Convert from DB units to microns.

@@ -9,10 +9,9 @@ use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
-use substrate::schematic::{Cell, HasSchematic, HasSchematicData, Instance};
-use substrate::simulation::data::{HasNodeData, Save};
+use substrate::schematic::{Cell, HasSchematic, HasSchematicData, Instance, SchematicData};
+use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{HasSimSchematic, SimulationContext, Simulator, Testbench};
-use substrate::{Block, SchematicData};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
@@ -36,7 +35,7 @@ impl HasSchematicData for VdividerTb {
 impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd_a = cell.signal("vdd_a", Signal);
@@ -78,7 +77,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
@@ -138,7 +137,7 @@ pub struct VdividerTbOutput {
     pub tran: VdividerTbTranOutput,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, substrate::FromSaved)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromSaved)]
 pub struct VdividerTbTranOutput {
     pub current: TranCurrent,
     pub iprobe: TranCurrent,
@@ -190,7 +189,7 @@ impl HasSchematicData for VdividerArrayTb {
 impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
@@ -225,7 +224,7 @@ impl HasSchematicData for FlattenedVdividerArrayTb {
 impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);

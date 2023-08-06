@@ -1,8 +1,7 @@
 //! Tests for ensuring that `#[derive(Io)]` works.
 
-use substrate::io::{HierarchicalBuildFrom, Input, LayoutType, Output, SchematicType, Signal};
+use substrate::io::{HierarchicalBuildFrom, Input, Io, LayoutType, Output, SchematicType, Signal};
 use substrate::layout::element::NamedPorts;
-use substrate::Io;
 
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
