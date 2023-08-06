@@ -1,7 +1,5 @@
 //! Tests for ensuring that `#[derive(Io)]` works.
 
-use std::any::Any;
-
 use substrate::io::{Input, Output, Signal};
 use substrate::Io;
 

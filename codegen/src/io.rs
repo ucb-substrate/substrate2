@@ -82,7 +82,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             .push(syn::parse_quote!(<#ident as substrate::io::SchematicType>::Data: #lifetime));
     }
 
-    let (imp, ty, wher) = generics.split_for_impl();
+    let (_imp, ty, _wher) = generics.split_for_impl();
     let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
@@ -290,8 +290,8 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
 
     let (hbf_imp, hbf_ty, hbf_where) = hbf_generics.split_for_impl();
 
-    let (imp, ty, wher) = generics.split_for_impl();
-    let (_ref_imp, ref_ty, ref_wher) = ref_generics.split_for_impl();
+    let (_imp, ty, _wher) = generics.split_for_impl();
+    let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
     if let Some(layout_type) = layout_type {
