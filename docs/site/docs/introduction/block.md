@@ -45,7 +45,6 @@ use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
 use sky130pdk::Sky130OpenPdk;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 use substrate::context::Context;
@@ -96,7 +95,6 @@ empty unit type.
 use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::MosParams;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 
@@ -143,7 +141,6 @@ use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
 use sky130pdk::Sky130OpenPdk;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 
@@ -212,7 +209,6 @@ use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
 use sky130pdk::Sky130OpenPdk;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 use substrate::context::Context;
