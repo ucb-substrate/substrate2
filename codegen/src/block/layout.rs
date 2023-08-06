@@ -162,9 +162,10 @@ impl ToTokens for DataInputReceiver {
             ref vis,
             ref attrs,
         } = *self;
-        let generics = add_trait_bounds(
+        let mut generics = generics.clone();
+        add_trait_bounds(
+            &mut generics,
             quote!(#substrate::geometry::transform::HasTransformedView),
-            generics.clone(),
         );
 
         let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);

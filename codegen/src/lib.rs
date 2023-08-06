@@ -8,7 +8,7 @@ mod sim;
 
 use darling::FromDeriveInput;
 use examples::get_snippets;
-use io::{io_impl, layout_io, schematic_io, IoInputReceiver};
+use io::{io_core_impl, io_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,
@@ -152,13 +152,11 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let schematic = schematic_io(&input);
     let layout = layout_io(&input);
+    let io_core_impl = io_core_impl(&input);
     let io_impl = io_impl(&input);
-    let ident = parsed.ident;
-    let (imp, ty, wher) = parsed.generics.split_for_impl();
-    let substrate = substrate_ident();
     quote!(
-        impl #imp #substrate::io::Io for #ident #ty #wher {}
         #io_impl
+        #io_core_impl
         #schematic
         #layout
     )
@@ -179,9 +177,9 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let layout = layout_io(&input);
-    let io_impl = io_impl(&input);
+    let io_core_impl = io_core_impl(&input);
     quote!(
-        #io_impl
+        #io_core_impl
         #layout
     )
     .into()

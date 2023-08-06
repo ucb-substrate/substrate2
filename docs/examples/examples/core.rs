@@ -348,6 +348,7 @@ mod __buffer_io_signal_override {
 
 mod __buffer_io_custom_layout {
     use super::*;
+    use substrate::io::Io;
 
     // begin-code-snippet buffer_io_custom_layout
     #[derive(Io, Clone, Default)]
