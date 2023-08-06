@@ -45,12 +45,12 @@ pub struct FieldTokens {
     pub pretty_ident: TokenStream,
 }
 
-/// Generates a [`syn::Ident`] for a destructuring an element of a tuple.
+/// Generates a [`struct@syn::Ident`] for a destructuring an element of a tuple.
 pub fn tuple_ident(idx: usize) -> syn::Ident {
     format_ident!("__type_dispatch_derive_field{idx}")
 }
 
-/// Returns a [`FieldsToken`] object for a struct that can be referenced using
+/// Returns a [`FieldTokens`] object for a struct that can be referenced using
 /// the tokens in `referent`.
 pub fn field_tokens_with_referent(
     style: Style,
@@ -91,7 +91,7 @@ pub fn field_tokens_with_referent(
     }
 }
 
-/// Returns a [`FieldsToken`] object for a struct that can be referenced with `self`.
+/// Returns a [`FieldTokens`] object for a struct that can be referenced with `self`.
 pub fn field_tokens(
     style: Style,
     vis: &Visibility,
