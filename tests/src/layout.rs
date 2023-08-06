@@ -2,13 +2,12 @@ use geometry::prelude::{NamedOrientation, Point};
 use geometry::side::Sides;
 use geometry::{prelude::Bbox, rect::Rect};
 use serde::{Deserialize, Serialize};
+use substrate::block::Block;
 use substrate::context::Context;
-use substrate::geometry::transform::{Transform, Translate};
+use substrate::geometry::transform::{Transform, TransformMut, Translate, TranslateMut};
 use substrate::layout::element::Shape;
 use substrate::layout::tiling::{GridTile, GridTiler, Tile};
-use substrate::layout::{HasLayout, HasLayoutData, Instance};
-use substrate::Block;
-use substrate::{LayoutData, TransformMut, TranslateMut};
+use substrate::layout::{HasLayout, HasLayoutData, Instance, LayoutData};
 
 use crate::shared::buffer::{BufferNxM, Inverter};
 

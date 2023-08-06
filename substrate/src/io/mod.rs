@@ -7,6 +7,7 @@ use std::{
 };
 
 use arcstr::ArcStr;
+pub use codegen::{Io, LayoutType};
 use geometry::{
     prelude::Bbox,
     rect::Rect,
@@ -22,7 +23,6 @@ use crate::{
     layout::error::LayoutError,
     pdk::layers::{HasPin, LayerId},
     schematic::{CellId, HasNestedView, InstanceId, InstancePath},
-    Io,
 };
 use crate::{diagnostics::SourceInfo, layout::element::NamedPorts};
 
@@ -87,19 +87,19 @@ pub trait HasNameTree {
 /// A schematic hardware type.
 pub trait SchematicType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Data: SchematicData + HasTerminalView + HasNestedView + Clone + Send + Sync;
+    type Bundle: SchematicBundle;
 
     /// Instantiates a schematic data struct with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]);
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]);
 
     /// Instantiate a top-level schematic data struct from a node list
     ///
     /// This method wraps [`instantiate`](Self::instantiate) with sanity checks
     /// to ensure that the instantiation process consumed all the nodes
     /// provided.
-    fn instantiate_top(&self, ids: &[Node]) -> Self::Data {
+    fn instantiate_top(&self, ids: &[Node]) -> Self::Bundle {
         let (data, ids_rest) = self.instantiate(ids);
         assert!(ids_rest.is_empty());
         debug_assert_eq!(ids, data.flatten_vec());
@@ -113,9 +113,9 @@ pub trait Connect<T> {}
 /// A layout hardware type.
 pub trait LayoutType: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
-    type Data: LayoutData;
-    /// The **Rust** type representing layout instances of this **hardware** type.
-    type Builder: LayoutDataBuilder<Self::Data>;
+    type Bundle: LayoutBundle;
+    /// A builder for creating [`LayoutType::Bundle`].
+    type Builder: LayoutBundleBuilder<Self::Bundle>;
 
     /// Instantiates a schematic data struct with populated nodes.
     fn builder(&self) -> Self::Builder;
@@ -132,23 +132,32 @@ pub trait StructData {
     fn field_nodes(&self, name: &str) -> Option<Vec<Node>>;
 }
 
-/// Schematic hardware data.
+/// A bundle of schematic nodes.
 ///
 /// An instance of a [`SchematicType`].
-pub trait SchematicData: FlatLen + Flatten<Node> {}
-impl<T> SchematicData for T where T: FlatLen + Flatten<Node> {}
+pub trait SchematicBundle:
+    FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
+{
+}
+impl<T> SchematicBundle for T where
+    T: FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
+{
+}
 
-/// Layout hardware data.
+/// A bundle of layout ports.
 ///
 /// An instance of a [`LayoutType`].
-pub trait LayoutData: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
-impl<T> LayoutData for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+pub trait LayoutBundle: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+impl<T> LayoutBundle for T where
+    T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync
+{
+}
 
 /// Layout hardware data builder.
 ///
-/// A builder for an instance of a [`LayoutData`].
-pub trait LayoutDataBuilder<T: LayoutData> {
-    /// Builds an instance of [`LayoutData`].
+/// A builder for an instance of a [`LayoutBundle`].
+pub trait LayoutBundleBuilder<T: LayoutBundle> {
+    /// Builds an instance of [`LayoutBundle`].
     fn build(self) -> Result<T>;
 }
 
@@ -602,7 +611,7 @@ impl NodeContext {
         ty: &TY,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as SchematicType>::Data) {
+    ) -> (Vec<Node>, <TY as SchematicType>::Bundle) {
         let nodes = self.nodes_directed(&ty.flatten_vec(), priority, source_info);
         let data = ty.instantiate_top(&nodes);
         (nodes, data)
@@ -613,7 +622,7 @@ impl NodeContext {
         ty: &TY,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as SchematicType>::Data) {
+    ) -> (Vec<Node>, <TY as SchematicType>::Bundle) {
         let nodes = self.nodes_undirected(ty.len(), priority, source_info);
         let data = ty.instantiate_top(&nodes);
         (nodes, data)

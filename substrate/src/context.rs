@@ -17,8 +17,8 @@ use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
-    Flatten, Flipped, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
-    SchematicType,
+    Flatten, Flipped, HasNameTree, LayoutBundleBuilder, LayoutType, NodeContext, NodePriority,
+    Port, SchematicType,
 };
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
@@ -425,7 +425,7 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     block: &T,
 ) -> (
     SchematicCellBuilder<PDK, T>,
-    <<T as Block>::Io as SchematicType>::Data,
+    <<T as Block>::Io as SchematicType>::Bundle,
 ) {
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)

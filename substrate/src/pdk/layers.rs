@@ -7,6 +7,7 @@ use std::{
 };
 
 use arcstr::ArcStr;
+pub use codegen::{DerivedLayerFamily, DerivedLayers, Layer, LayerFamily, Layers};
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 use tracing::Level;

@@ -1,5 +1,4 @@
-use substrate::schematic::{HasSchematicData, Instance};
-use substrate::SchematicData;
+use substrate::schematic::{HasSchematicData, Instance, SchematicData};
 
 #[derive(Default, SchematicData)]
 pub struct SchematicInstances<T: HasSchematicData> {

@@ -4,8 +4,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
 
-use crate::derive::{add_trait_bounds, struct_body};
 use crate::substrate_ident;
+use type_dispatch::derive::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(substrate), supports(any), forward_attrs(allow, doc, cfg))]
@@ -313,7 +313,7 @@ impl ToTokens for HasSchematicInputReceiver {
                 impl #imp #substrate::schematic::HasSchematic<#pdk> for #ident #ty #wher {
                     fn schematic(
                         &self,
-                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Data,
+                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,
                         cell: &mut #substrate::schematic::CellBuilder<#pdk, Self>,
                     ) -> #substrate::error::Result<Self::Data> {
                         use #substrate::pdk::Pdk;

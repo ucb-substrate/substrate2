@@ -3,9 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::pdk::Pdk;
-use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicData, Instance};
-use substrate::Block;
-use substrate::SchematicData;
+use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicData, Instance, SchematicData};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
 #[substrate(io = "ResistorIo", flatten)]
@@ -120,7 +118,7 @@ impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
 impl<PDK: Pdk> HasSchematic<PDK> for VdividerArray {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut vdividers = Vec::new();

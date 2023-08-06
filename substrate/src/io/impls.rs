@@ -48,8 +48,8 @@ impl Flatten<Direction> for () {
 }
 
 impl SchematicType for () {
-    type Data = ();
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = ();
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         ((), ids)
     }
 }
@@ -69,13 +69,13 @@ impl Flatten<Node> for () {
 }
 
 impl LayoutType for () {
-    type Data = ();
+    type Bundle = ();
     type Builder = ();
 
     fn builder(&self) {}
 }
 
-impl LayoutDataBuilder<()> for () {
+impl LayoutBundleBuilder<()> for () {
     fn build(self) -> Result<()> {
         Ok(())
     }
@@ -95,9 +95,18 @@ impl FlatLen for Signal {
     }
 }
 
+impl Flatten<Direction> for Signal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::once(Direction::InOut));
+    }
+}
+
 impl SchematicType for Signal {
-    type Data = Node;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = Node;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -107,7 +116,7 @@ impl SchematicType for Signal {
 }
 
 impl LayoutType for Signal {
-    type Data = PortGeometry;
+    type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
 
     fn builder(&self) -> Self::Builder {
@@ -128,7 +137,7 @@ impl FlatLen for ShapePort {
 }
 
 impl LayoutType for ShapePort {
-    type Data = IoShape;
+    type Bundle = IoShape;
     type Builder = OptionBuilder<IoShape>;
 
     fn builder(&self) -> Self::Builder {
@@ -155,7 +164,7 @@ impl FlatLen for LayoutPort {
 }
 
 impl LayoutType for LayoutPort {
-    type Data = PortGeometry;
+    type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
 
     fn builder(&self) -> Self::Builder {
@@ -253,7 +262,7 @@ impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
     }
 }
 
-impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
+impl<T: LayoutBundle> LayoutBundleBuilder<T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
         self.build()
     }
@@ -310,7 +319,7 @@ impl FlatLen for PortGeometryBuilder {
     }
 }
 
-impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
+impl LayoutBundleBuilder<PortGeometry> for PortGeometryBuilder {
     fn build(self) -> Result<PortGeometry> {
         Ok(PortGeometry {
             primary: self.primary.ok_or_else(|| {
@@ -372,8 +381,8 @@ impl<T> SchematicType for Input<T>
 where
     T: SchematicType,
 {
-    type Data = T::Data;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (data, ids)
     }
@@ -383,7 +392,7 @@ impl<T> LayoutType for Input<T>
 where
     T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -450,8 +459,8 @@ impl<T> SchematicType for Output<T>
 where
     T: SchematicType,
 {
-    type Data = T::Data;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (data, ids)
     }
@@ -461,7 +470,7 @@ impl<T> LayoutType for Output<T>
 where
     T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -560,8 +569,8 @@ impl<T> SchematicType for InOut<T>
 where
     T: SchematicType,
 {
-    type Data = T::Data;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (data, ids)
     }
@@ -571,7 +580,7 @@ impl<T> LayoutType for InOut<T>
 where
     T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -667,8 +676,8 @@ impl<T> SchematicType for Flipped<T>
 where
     T: SchematicType,
 {
-    type Data = T::Data;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
         (data, ids)
     }
@@ -678,7 +687,7 @@ impl<T> LayoutType for Flipped<T>
 where
     T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -772,9 +781,9 @@ impl<T: FlatLen> FlatLen for Array<T> {
 }
 
 impl<T: SchematicType> SchematicType for Array<T> {
-    type Data = ArrayData<T::Data>;
+    type Bundle = ArrayData<T::Bundle>;
 
-    fn instantiate<'n>(&self, mut ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    fn instantiate<'n>(&self, mut ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
                 let (elem, new_ids) = self.ty.instantiate(ids);
@@ -793,7 +802,7 @@ impl<T: SchematicType> SchematicType for Array<T> {
 }
 
 impl<T: LayoutType> LayoutType for Array<T> {
-    type Data = ArrayData<T::Data>;
+    type Bundle = ArrayData<T::Bundle>;
     type Builder = ArrayData<T::Builder>;
 
     fn builder(&self) -> Self::Builder {
@@ -865,7 +874,9 @@ impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
     }
 }
 
-impl<T: LayoutData, B: LayoutDataBuilder<T>> LayoutDataBuilder<ArrayData<T>> for ArrayData<B> {
+impl<T: LayoutBundle, B: LayoutBundleBuilder<T>> LayoutBundleBuilder<ArrayData<T>>
+    for ArrayData<B>
+{
     fn build(self) -> Result<ArrayData<T>> {
         let mut elems = Vec::new();
         for e in self.elems {

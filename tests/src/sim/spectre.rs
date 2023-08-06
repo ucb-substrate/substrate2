@@ -16,18 +16,17 @@ use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::io::TwoTerminalIo;
 use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
+use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
-    SimCellBuilder,
+    Cell, HasSchematic, HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind,
+    PrimitiveNode, SimCellBuilder,
 };
-use substrate::simulation::data::{HasNodeData, Save};
+use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{
     HasSimSchematic, SimController, SimulationContext, Simulator, Testbench,
 };
-use substrate::{Block, FromSaved, HasSchematic, Io};
 use test_log::test;
 
 use crate::paths::test_data;
@@ -185,7 +184,7 @@ fn spectre_can_include_sections() {
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
-            _io: &<<Self as Block>::Io as SchematicType>::Data,
+            _io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             cell.set_blackbox("res0 (p n) example_resistor");
@@ -205,7 +204,7 @@ fn spectre_can_include_sections() {
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Data,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
@@ -287,7 +286,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Data,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             let res1 = cell.instantiate(ScirResistor);
@@ -323,7 +322,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Data,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);

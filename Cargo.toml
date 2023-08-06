@@ -10,6 +10,7 @@ members = [
     "libs/diagnostics",
     "libs/gds",
     "libs/geometry",
+    "libs/geometry_macros",
     "libs/opacity",
     "libs/pathtree",
     "libs/scir",

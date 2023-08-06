@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 darling = "0.20"
-syn = { version = "2", features = ["full"] }
+syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"
 proc-macro-crate = "1"
@@ -13,6 +13,7 @@ proc-macro-error = "1"
 convert_case = "0.6"
 
 examples = { version = "0.2.0", registry = "substrate", path = "../docs/examples" }
+type_dispatch = { version = "0.2.0", registry = "substrate", path = "../libs/type_dispatch" }
 
 [dev-dependencies]
 arcstr = "1"

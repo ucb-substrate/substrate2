@@ -2,14 +2,11 @@
 #![warn(missing_docs)]
 
 mod block;
-mod derive;
 mod io;
 mod pdk;
 mod sim;
 
-use crate::pdk::corner::CornerReceiver;
 use darling::FromDeriveInput;
-use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
 use examples::get_snippets;
 use io::{io_core_impl, io_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
@@ -21,9 +18,10 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
+
+use crate::sim::simulator_tuples_impl;
 
 macro_rules! handle_error {
     ($expression:expr) => {
@@ -36,29 +34,12 @@ macro_rules! handle_error {
     };
 }
 
-/// Derives a corner implementation on a struct.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "derive_corner")]
-#[proc_macro_derive(Corner, attributes(layer))]
-pub fn derive_corner(input: TokenStream) -> TokenStream {
-    let receiver = handle_error!(CornerReceiver::from_derive_input(&parse_macro_input!(
-        input as DeriveInput
-    )));
-    quote!(
-        #receiver
-    )
-    .into()
-}
-
 /// Derives a layer implementation on a tuple struct containing only an ID.
 ///
 /// # Examples
 ///
 /// ```
-/// # use substrate::Layer;
-/// # use substrate::pdk::layers::LayerId;
+/// # use substrate::pdk::layers::{Layer, LayerId};
 /// #[derive(Layer, Clone, Copy)]
 /// #[layer(name = "poly", gds = "66/20")]
 /// pub struct Poly(LayerId);
@@ -249,7 +230,7 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
 /// ```
 /// use serde::{Serialize, Deserialize};
-/// use substrate::Block;
+/// use substrate::block::Block;
 ///
 /// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
 /// #[substrate(io = "substrate::io::TestbenchIo")]
@@ -275,6 +256,16 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// The block will be inlined during netlisting.
 ///
 /// The `flatten` attribute is ignored when netlisting top-level blocks such as testbenches.
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use substrate::block::Block;
+///
+/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+/// #[substrate(io = "substrate::io::TestbenchIo", flatten)]
+/// pub struct MyFlattenedBlock {
+///   // ...
+/// }
+/// ```
 #[proc_macro_derive(Block, attributes(substrate))]
 pub fn derive_block(input: TokenStream) -> TokenStream {
     let receiver =
@@ -288,44 +279,9 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
 
 /// Implements `substrate::simulation::Supports<Tuple> for Simulator`
 /// for all tuples up to a specified max size.
-#[doc(hidden)]
 #[proc_macro]
 pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
-}
-
-/// Derives `substrate::geometry::transform::TranslateMut`.
-#[proc_macro_derive(TranslateMut)]
-pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
-    let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
-    let substrate = substrate_ident();
-    let config = DeriveTrait {
-        trait_: quote!(#substrate::geometry::transform::TranslateMut),
-        method: quote!(translate_mut),
-        extra_arg_idents: vec![quote!(__substrate_derive_point)],
-        extra_arg_tys: vec![quote!(#substrate::geometry::point::Point)],
-    };
-
-    let expanded = derive_trait(&config, receiver);
-    proc_macro::TokenStream::from(expanded)
-}
-
-/// Derives `substrate::geometry::transform::TransformMut`.
-#[proc_macro_derive(TransformMut)]
-pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
-    let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
-    let substrate = substrate_ident();
-    let config = DeriveTrait {
-        trait_: quote!(#substrate::geometry::transform::TransformMut),
-        method: quote!(transform_mut),
-        extra_arg_idents: vec![quote!(__substrate_derive_transformation)],
-        extra_arg_tys: vec![quote!(#substrate::geometry::transform::Transformation)],
-    };
-
-    let expanded = derive_trait(&config, receiver);
-    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derives `substrate::schematic::HasSchematic` for any Substrate block.

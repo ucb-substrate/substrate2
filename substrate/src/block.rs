@@ -3,6 +3,7 @@
 use std::{any::Any, hash::Hash};
 
 use arcstr::ArcStr;
+pub use codegen::Block;
 use serde::{Deserialize, Serialize};
 
 use crate::io::Io;
