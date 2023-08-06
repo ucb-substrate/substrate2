@@ -377,7 +377,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     let test_name = "spectre_can_save_paths_with_flattened_instances";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, &sim_dir);
+    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, sim_dir);
 
     assert!(current_draw
         .iter()

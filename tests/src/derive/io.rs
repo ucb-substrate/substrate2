@@ -1,16 +1,13 @@
 //! Tests for ensuring that `#[derive(Io)]` works.
 
-use substrate::io::{HierarchicalBuildFrom, Input, LayoutType, Output, SchematicType, Signal};
-use substrate::layout::element::NamedPorts;
+use std::any::Any;
+
+use substrate::io::{Input, Output, Signal};
 use substrate::Io;
 
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
-pub struct GenericIo<T>
-where
-    T: Clone + SchematicType + LayoutType + 'static,
-    <T as LayoutType>::Builder: HierarchicalBuildFrom<NamedPorts>,
-{
+pub struct GenericIo<T> {
     /// A single input field.
     pub signal: Input<T>,
 }
