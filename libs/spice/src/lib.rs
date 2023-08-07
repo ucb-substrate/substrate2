@@ -90,8 +90,8 @@ impl<'a, W: Write> Netlister<'a, W> {
                     match &device.kind {
                         PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             write!(self.out, "R{}", i)?;
-                            self.write_slice(cell, *pos)?;
-                            self.write_slice(cell, *neg)?;
+                            self.write_slice(cell, pos.into())?;
+                            self.write_slice(cell, neg.into())?;
                             write!(self.out, " ")?;
                             self.write_expr(value)?;
                             // todo!("parameters");

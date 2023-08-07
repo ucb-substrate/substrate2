@@ -4,15 +4,15 @@ use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
 use opacity::Opacity;
-use scir::{Cell, CellId as ScirCellId, CellInner, Instance, LibraryBuilder, SignalPathTail};
+use scir::{
+    Cell, CellId as ScirCellId, CellInner, IndexOwned, Instance, LibraryBuilder, SignalPathTail,
+};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
 use crate::schematic::{InstancePath, PrimitiveNode};
 
 use super::{BlackboxElement, CellId, InstanceId, RawCell};
-
-type SliceOne = (scir::SignalId, Option<usize>);
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -89,10 +89,10 @@ impl RawLib {
             }
         }
 
-        let (signal, index) = *cell.signals.get(&path.node)?;
+        let slice = *cell.signals.get(&path.node)?;
 
         Some(scir::SignalPath {
-            tail: SignalPathTail::Slice { signal, index },
+            tail: SignalPathTail::Slice(slice),
             instances: scir::InstancePath {
                 instances,
                 top: self.conv.top,
@@ -163,10 +163,7 @@ impl RawLib {
             signals
         } else {
             vec![scir::SignalPath {
-                tail: SignalPathTail::Slice {
-                    signal: slice.0,
-                    index: slice.1,
-                },
+                tail: SignalPathTail::Slice(slice),
                 instances: scir::InstancePath {
                     instances,
                     top: self.conv.top,
@@ -181,18 +178,18 @@ impl RawLib {
         &self,
         parent_cell: &scir::Cell,
         id: scir::InstanceId,
-        slice: SliceOne,
+        slice: scir::SliceOne,
         instances: &mut Vec<scir::InstanceId>,
         signals: &mut Vec<scir::SignalPath>,
     ) {
-        let (signal, index) = slice;
+        // let (signal, index) = slice;
         instances.push(id);
         let inst = parent_cell.instance(id);
         for (name, conn) in inst.connections() {
             let mut port_index = 0;
             for part in conn.parts() {
-                if signal == part.signal() {
-                    let concat_index = match (index, part.range()) {
+                if slice.signal() == part.signal() {
+                    let concat_index = match (slice.index(), part.range()) {
                         (None, None) => Some(port_index),
                         (Some(index), Some(range)) => {
                             if range.contains(index) {
@@ -207,17 +204,12 @@ impl RawLib {
                     if let Some(concat_index) = concat_index {
                         let child_cell = self.scir.cell(inst.cell());
                         let port = child_cell.port(name);
-                        let signal = child_cell.signal(port.signal());
-                        let index = if signal.width.is_some() {
-                            Some(concat_index)
-                        } else {
-                            None
-                        };
+                        let port_slice = child_cell.signal(port.signal()).slice();
+                        let tail = port_slice
+                            .slice_one()
+                            .unwrap_or_else(|| port_slice.index(concat_index));
                         signals.push(scir::SignalPath {
-                            tail: SignalPathTail::Slice {
-                                signal: port.signal(),
-                                index,
-                            },
+                            tail: SignalPathTail::Slice(tail),
                             instances: scir::InstancePath {
                                 instances: instances.clone(),
                                 top: self.conv.top,
@@ -228,7 +220,7 @@ impl RawLib {
                 port_index += part.width();
             }
         }
-        instances.pop();
+        instances.pop().unwrap();
     }
 
     /// Must ensure that `instances` is returned to its original value by the end of the
@@ -236,7 +228,7 @@ impl RawLib {
     fn find_connected_terminals(
         &self,
         conv: &ScirCellConversion,
-        slice: SliceOne,
+        slice: scir::SliceOne,
         instances: &mut Vec<scir::InstanceId>,
         signals: &mut Vec<scir::SignalPath>,
     ) {
@@ -302,7 +294,7 @@ pub(crate) struct ScirCellConversion {
     /// Whether or not this cell is the top cell.
     pub(crate) top: bool,
     /// Map Substrate nodes to SCIR signal IDs and indices.
-    pub(crate) signals: HashMap<Node, SliceOne>,
+    pub(crate) signals: HashMap<Node, scir::SliceOne>,
     /// Map Substrate instance IDs to SCIR instances and their underlying Substrate cell.
     pub(crate) instances: HashMap<InstanceId, ScirInstanceConversion>,
     pub(crate) primitives: Vec<ScirPrimitiveDeviceConversion>,
@@ -389,7 +381,7 @@ impl ScirExportData {
 
 #[derive(Debug, Default, Clone)]
 enum FlatExport {
-    Yes(Vec<scir::Slice>),
+    Yes(Vec<scir::SliceOne>),
     #[default]
     No,
 }
@@ -495,7 +487,7 @@ impl RawCell {
                 nodes[&root]
             };
             nodes.insert(src, s);
-            conv.signals.insert(src, (s.signal(), None));
+            conv.signals.insert(src, s);
         }
 
         match self.contents.as_ref() {
@@ -508,7 +500,7 @@ impl RawCell {
                         BlackboxElement::RawString(s) => {
                             scir::BlackboxElement::RawString(s.clone())
                         }
-                        BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n]),
+                        BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n].into()),
                     })
                     .collect();
                 ctx.cell.set_contents(Opacity::Opaque(transformed));
@@ -578,7 +570,10 @@ impl RawCell {
                             let id = ctx.whitebox_contents_mut().add_primitive(
                                 scir::PrimitiveDevice::from_params(
                                     scir::PrimitiveDeviceKind::RawInstance {
-                                        ports: ports.iter().map(|p| nodes[&p.node]).collect(),
+                                        ports: ports
+                                            .iter()
+                                            .map(|p| nodes[&p.node].into())
+                                            .collect(),
                                         cell: cell.clone(),
                                     },
                                     p.params.clone(),

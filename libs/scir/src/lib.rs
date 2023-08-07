@@ -39,7 +39,7 @@ use tracing::{span, Level};
 pub mod merge;
 mod slice;
 
-pub use slice::{IndexOwned, Slice, SliceRange};
+pub use slice::{IndexOwned, Slice, SliceOne, SliceRange, SliceWidthNotOne};
 use validation::ValidatorIssue;
 
 pub(crate) mod drivers;
@@ -131,6 +131,13 @@ impl From<Slice> for SignalId {
     }
 }
 
+impl From<SliceOne> for SignalId {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        value.signal()
+    }
+}
+
 /// A path to a node in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SignalPath {
@@ -144,14 +151,7 @@ pub struct SignalPath {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum SignalPathTail {
     /// A signal slice within a SCIR cell.
-    Slice {
-        /// The signal ID.
-        signal: SignalId,
-        /// The index of the signal that this slice represents.
-        ///
-        /// [`None`] if this slice indexes a single bit wire.
-        index: Option<usize>,
-    },
+    Slice(SliceOne),
     /// A signal within a primitive device.
     Primitive {
         /// The ID of the primitive device instance.
@@ -298,20 +298,20 @@ pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive terminal.
-        pos: Slice,
+        pos: SliceOne,
         /// The negative terminal.
-        neg: Slice,
+        neg: SliceOne,
         /// The value of the resistance, in Ohms.
         value: Expr,
     },
     /// A 3-terminal resistor.
     Res3 {
         /// The positive terminal.
-        pos: Slice,
+        pos: SliceOne,
         /// The negative terminal.
-        neg: Slice,
+        neg: SliceOne,
         /// The substrate/body terminal.
-        sub: Slice,
+        sub: SliceOne,
         /// The value of the resistance, in Ohms.
         value: Expr,
         /// The name of the resistor model to use.
@@ -334,8 +334,10 @@ impl PrimitiveDevice {
     /// An iterator over the nodes referenced in the device.
     pub(crate) fn nodes(&self) -> impl IntoIterator<Item = Slice> {
         match &self.kind {
-            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
-            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
+            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![pos.into(), neg.into()],
+            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => {
+                vec![pos.into(), neg.into(), sub.into()]
+            }
             PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
         }
     }
@@ -375,6 +377,13 @@ impl FromIterator<Slice> for Concat {
     }
 }
 
+impl FromIterator<SliceOne> for Concat {
+    fn from_iter<T: IntoIterator<Item = SliceOne>>(iter: T) -> Self {
+        let parts = iter.into_iter().map(|s| s.into()).collect();
+        Self { parts }
+    }
+}
+
 impl From<Vec<Slice>> for Concat {
     #[inline]
     fn from(value: Vec<Slice>) -> Self {
@@ -386,6 +395,15 @@ impl From<Slice> for Concat {
     #[inline]
     fn from(value: Slice) -> Self {
         Self { parts: vec![value] }
+    }
+}
+
+impl From<SliceOne> for Concat {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self {
+            parts: vec![value.into()],
+        }
     }
 }
 
@@ -553,6 +571,9 @@ pub struct Port {
 /// Information about a signal in a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
+    /// The ID representing this signal.
+    pub id: SignalId,
+
     /// The name of this signal.
     pub name: ArcStr,
 
@@ -832,8 +853,8 @@ impl LibraryBuilder {
             return path;
         }
 
-        let (signal, index) = if let SignalPathTail::Slice { signal, index } = &mut path.tail {
-            (signal, index)
+        let slice = if let SignalPathTail::Slice(slice) = &mut path.tail {
+            slice
         } else {
             panic!("path is terminated with a primitive instance and cannot be simplified")
         };
@@ -850,7 +871,7 @@ impl LibraryBuilder {
 
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
-            let info = cell.signal(*signal);
+            let info = cell.signal(slice.signal());
             if !info.port {
                 path.instances.instances.truncate(i + 1);
                 return path;
@@ -862,10 +883,8 @@ impl LibraryBuilder {
                 };
                 let inst = &parent.contents().as_ref().unwrap_clear().instances
                     [&path.instances.instances[i]];
-                let idx = if let Some(idx) = index { *idx } else { 0 };
-                let slice = inst.connection(info.name.as_ref()).index(idx);
-                *signal = slice.signal();
-                *index = slice.range().map(|range| range.start);
+                let idx = slice.index().unwrap_or_default();
+                *slice = inst.connection(info.name.as_ref()).index(idx);
             }
         }
 
@@ -941,18 +960,19 @@ impl Cell {
     }
 
     /// Creates a new 1-bit signal in this cell.
-    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> Slice {
+    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> SliceOne {
         self.signal_id += 1;
         let id = SignalId(self.signal_id);
         self.signals.insert(
             id,
             SignalInfo {
+                id,
                 port: false,
                 name: name.into(),
                 width: None,
             },
         );
-        Slice::new(id, None)
+        SliceOne::new(id, None)
     }
 
     /// Creates a new 1-dimensional bus in this cell.
@@ -963,6 +983,7 @@ impl Cell {
         self.signals.insert(
             id,
             SignalInfo {
+                id,
                 port: false,
                 name: name.into(),
                 width: Some(width),
@@ -1278,10 +1299,25 @@ impl From<Slice> for BlackboxElement {
     }
 }
 
+impl From<SliceOne> for BlackboxElement {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self::Slice(value.into())
+    }
+}
+
 impl From<String> for BlackboxContents {
     fn from(value: String) -> Self {
         Self {
             elems: vec![BlackboxElement::RawString(value)],
         }
+    }
+}
+
+impl SignalInfo {
+    /// The [`Slice`] representing this entire signal.
+    #[inline]
+    pub fn slice(&self) -> Slice {
+        Slice::new(self.id, self.width.map(SliceRange::with_width))
     }
 }

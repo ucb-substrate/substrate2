@@ -230,8 +230,8 @@ impl<'a, W: Write> Netlister<'a, W> {
                         PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             conv.primitives.insert(id, arcstr::format!("res{}", i));
                             write!(self.out, "{}res{} (", indent, i)?;
-                            self.write_slice(cell, *pos, ground)?;
-                            self.write_slice(cell, *neg, ground)?;
+                            self.write_slice(cell, pos.into(), ground)?;
+                            self.write_slice(cell, neg.into(), ground)?;
                             write!(self.out, " ) resistor r=")?;
                             self.write_expr(value)?;
                         }
