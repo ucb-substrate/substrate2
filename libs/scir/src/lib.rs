@@ -429,8 +429,6 @@ pub struct LibraryBuilder {
 ///
 /// The contents of the library cannot be mutated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[repr(transparent)]
-#[serde(transparent)]
 pub struct Library(LibraryBuilder);
 
 impl Deref for Library {
