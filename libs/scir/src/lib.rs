@@ -761,7 +761,7 @@ impl LibraryBuilder {
     /// # Panics
     ///
     /// Panics if no cell has the given ID.
-    /// For a non-panicking alternative, see [`try_cell`](Library::try_cell).
+    /// For a non-panicking alternative, see [`try_cell`](LibraryBuilder::try_cell).
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
     }
@@ -786,7 +786,7 @@ impl LibraryBuilder {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
-    /// For a non-panicking alternative, see [`try_cell_id_named`](Library::try_cell_id_named).
+    /// For a non-panicking alternative, see [`try_cell_id_named`](LibraryBuilder::try_cell_id_named).
     pub fn cell_id_named(&self, name: &str) -> CellId {
         match self.name_map.get(name) {
             Some(&cell) => cell,
@@ -881,7 +881,7 @@ impl LibraryBuilder {
     /// the SCIR library. Warnings and infos are discarded.
     ///
     /// If you want to inspect warnings/infos, consider using
-    /// [`LibraryBuilder::try_build`] instead.
+    /// [`try_build`](LibraryBuilder::try_build) instead.
     #[inline]
     pub fn build(self) -> Result<Library, Issues> {
         self.try_build().map(|ok| ok.0)
@@ -896,7 +896,7 @@ impl LibraryBuilder {
     /// warnings or infos.
     ///
     /// If you do not want to inspect warnings/infos, consider using
-    /// [`LibraryBuilder::build`] instead.
+    /// [`build`](LibraryBuilder::build) instead.
     pub fn try_build(self) -> Result<(Library, Issues), Issues> {
         let correctness = self.validate();
         let drivers = self.validate_drivers();
