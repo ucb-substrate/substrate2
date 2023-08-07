@@ -25,7 +25,7 @@ fn can_generate_vdivider_schematic() {
         r1: Resistor::new(300),
         r2: Resistor::new(100),
     };
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 3);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -64,7 +64,7 @@ fn can_generate_vdivider_schematic() {
 fn can_generate_flattened_vdivider_schematic() {
     let ctx = Context::new(ExamplePdkA);
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -95,7 +95,7 @@ fn can_generate_flattened_vdivider_array_schematic() {
     let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);
     let vdivs = vec![vdiv1, vdiv2, vdiv3];
     let vdivider = crate::shared::vdivider::flattened::VdividerArray { vdividers: vdivs };
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -148,7 +148,7 @@ fn nested_io_naming() {
 #[test]
 fn internal_signal_names_preserved() {
     let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_scir(Buffer::new(5));
+    let RawLib { scir, conv: _ } = ctx.export_scir(Buffer::new(5)).unwrap();
     assert_eq!(scir.cells().count(), 4);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);

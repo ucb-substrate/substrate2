@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
 use opacity::Opacity;
-use scir::{Cell, CellId as ScirCellId, CellInner, Instance, Library, SignalPathTail};
+use scir::{Cell, CellId as ScirCellId, CellInner, Instance, LibraryBuilder, SignalPathTail};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
@@ -372,7 +372,7 @@ impl From<bool> for ExportAsTestbench {
 
 #[derive(Debug, Clone)]
 struct ScirExportData {
-    lib: Library,
+    lib: LibraryBuilder,
     conv: ScirLibConversionBuilder,
     cell_names: Names<CellId>,
 }
@@ -380,7 +380,7 @@ struct ScirExportData {
 impl ScirExportData {
     fn new(name: impl Into<ArcStr>) -> Self {
         Self {
-            lib: Library::new(name),
+            lib: LibraryBuilder::new(name),
             conv: ScirLibConversionBuilder::new(),
             cell_names: Names::new(),
         }
@@ -426,16 +426,16 @@ impl RawCell {
     /// Export this cell and all subcells as a SCIR library.
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> RawLib {
+    pub(crate) fn to_scir_lib(&self, testbench: ExportAsTestbench) -> Result<RawLib, scir::Issues> {
         let mut data = ScirExportData::new(self.name.clone());
         let scir_id = self.to_scir_cell(&mut data);
         data.lib.set_top(scir_id, testbench.as_bool());
         data.conv.set_top(self.id, scir_id);
 
-        RawLib {
-            scir: data.lib,
+        Ok(RawLib {
+            scir: data.lib.build()?,
             conv: data.conv.build(),
-        }
+        })
     }
 
     fn to_scir_cell(&self, data: &mut ScirExportData) -> ScirCellId {

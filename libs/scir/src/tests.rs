@@ -5,7 +5,7 @@ use crate::*;
 
 #[test]
 fn duplicate_instance_names() {
-    let mut lib = Library::new("duplicate_instance_names");
+    let mut lib = LibraryBuilder::new("duplicate_instance_names");
     let mut wrapper = Cell::new_whitebox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
@@ -52,7 +52,7 @@ fn duplicate_instance_names() {
 
 #[test]
 fn instantiate_blackbox() {
-    let mut lib = Library::new("library");
+    let mut lib = LibraryBuilder::new("library");
     let mut cell1 = Cell::new_blackbox("cell1");
     cell1.add_blackbox_elem("* content");
     let cell1 = lib.add_cell(cell1);
@@ -69,7 +69,7 @@ fn instantiate_blackbox() {
 #[test]
 #[should_panic]
 fn cannot_add_instance_to_blackbox() {
-    let mut lib = Library::new("library");
+    let mut lib = LibraryBuilder::new("library");
     let mut cell1 = Cell::new_blackbox("cell1");
     cell1.add_blackbox_elem("* content");
     let cell1 = lib.add_cell(cell1);
