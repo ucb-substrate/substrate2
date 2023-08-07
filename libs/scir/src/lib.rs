@@ -29,6 +29,8 @@ use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 use arcstr::ArcStr;
+use diagnostics::IssueSet;
+use drivers::DriverIssue;
 use opacity::Opacity;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -38,6 +40,7 @@ pub mod merge;
 mod slice;
 
 pub use slice::{IndexOwned, Slice, SliceRange};
+use validation::ValidatorIssue;
 
 pub(crate) mod drivers;
 pub(crate) mod validation;
@@ -397,7 +400,7 @@ pub struct Top {
 
 /// A library of SCIR cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Library {
+pub struct LibraryBuilder {
     /// The current ID counter.
     ///
     /// Initialized to 0 when the library is created.
@@ -420,6 +423,55 @@ pub struct Library {
 
     /// The order in which cells were added to this library.
     order: Vec<CellId>,
+}
+
+/// A SCIR library that is guaranteed to be valid.
+///
+/// The contents of the library cannot be mutated.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Library(LibraryBuilder);
+
+impl Deref for Library {
+    type Target = LibraryBuilder;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Issues encountered when validating a SCIR library.
+#[derive(Debug, Clone)]
+pub struct Issues {
+    /// Correctness issues.
+    pub correctness: IssueSet<ValidatorIssue>,
+    /// Driver connectivity issues.
+    pub drivers: IssueSet<DriverIssue>,
+}
+
+impl Display for Issues {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.correctness.is_empty() && self.drivers.is_empty() {
+            write!(f, "no issues")?;
+        }
+        if !self.correctness.is_empty() {
+            writeln!(f, "correctness issues:\n{}", self.correctness)?;
+        }
+        if !self.drivers.is_empty() {
+            writeln!(f, "driver issues:\n{}", self.drivers)?;
+        }
+        Ok(())
+    }
+}
+
+impl Issues {
+    /// Returns `true` if there are warnings.
+    pub fn has_warning(&self) -> bool {
+        self.correctness.has_warning() || self.drivers.has_warning()
+    }
+
+    /// Returns `true` if there are errors.
+    pub fn has_error(&self) -> bool {
+        self.correctness.has_error() || self.drivers.has_error()
+    }
 }
 
 /// Port directions.
@@ -599,7 +651,7 @@ pub struct CellInner {
     pub(crate) primitive_order: Vec<PrimitiveDeviceId>,
 }
 
-impl Library {
+impl LibraryBuilder {
     /// Creates a new, empty library.
     pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
@@ -709,7 +761,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given ID.
-    /// For a non-panicking alternative, see [`try_cell`](Library::try_cell).
+    /// For a non-panicking alternative, see [`try_cell`](LibraryBuilder::try_cell).
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
     }
@@ -734,7 +786,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
-    /// For a non-panicking alternative, see [`try_cell_id_named`](Library::try_cell_id_named).
+    /// For a non-panicking alternative, see [`try_cell_id_named`](LibraryBuilder::try_cell_id_named).
     pub fn cell_id_named(&self, name: &str) -> CellId {
         match self.name_map.get(name) {
             Some(&cell) => cell,
@@ -819,6 +871,44 @@ impl Library {
 
         path.instances.instances = Vec::new();
         path
+    }
+
+    /// Validate and construct a SCIR [`Library`].
+    ///
+    /// If errors are encountered during validation,
+    /// returns an `Err(_)` containing the set of issues found.
+    /// If no errors are encountered, returns an `Ok(_)` containing
+    /// the SCIR library. Warnings and infos are discarded.
+    ///
+    /// If you want to inspect warnings/infos, consider using
+    /// [`try_build`](LibraryBuilder::try_build) instead.
+    #[inline]
+    pub fn build(self) -> Result<Library, Issues> {
+        self.try_build().map(|ok| ok.0)
+    }
+
+    /// Validate and construct a SCIR [`Library`].
+    ///
+    /// If errors are encountered during validation,
+    /// returns an `Err(_)` containing the set of issues found.
+    /// If no errors are encountered, returns `Ok((library, issues))`.
+    /// The issues returned will not have any errors, but may have
+    /// warnings or infos.
+    ///
+    /// If you do not want to inspect warnings/infos, consider using
+    /// [`build`](LibraryBuilder::build) instead.
+    pub fn try_build(self) -> Result<(Library, Issues), Issues> {
+        let correctness = self.validate();
+        let drivers = self.validate_drivers();
+        let issues = Issues {
+            correctness,
+            drivers,
+        };
+        if issues.has_error() {
+            Err(issues)
+        } else {
+            Ok((Library(self), issues))
+        }
     }
 }
 

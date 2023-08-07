@@ -24,7 +24,7 @@ fn test_pdk_layers() {
 #[test]
 fn export_nmos_a() {
     let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_scir(NmosA { w: 1_200, l: 150 });
+    let RawLib { scir, conv: _ } = ctx.export_scir(NmosA { w: 1_200, l: 150 }).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);

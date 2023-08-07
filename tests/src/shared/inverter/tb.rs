@@ -148,7 +148,7 @@ impl InverterDesign {
                 lch: self.lch,
             };
             let tb = InverterTb::new(pvt, dut);
-            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
+            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}"))).unwrap();
             println!("Simulating with pw = {pw} gave:\n{:#?}", data);
             let diff = (data.tr - data.tf).abs();
             if let Some((pdiff, _)) = opt {

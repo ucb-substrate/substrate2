@@ -323,7 +323,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<T: HasSchematic<PDK>>(&self, block: T) -> RawLib {
+    pub fn export_scir<T: HasSchematic<PDK>>(&self, block: T) -> Result<RawLib, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
         cell.raw
@@ -333,7 +333,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_testbench_scir<T, S>(&self, block: T) -> RawLib
+    pub fn export_testbench_scir<T, S>(&self, block: T) -> Result<RawLib, scir::Issues>
     where
         T: HasSimSchematic<PDK, S>,
         S: Simulator,
@@ -347,7 +347,10 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given cell and all sub-cells as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn export_testbench_scir_for_cell<T, S>(&self, cell: &SchematicCell<T>) -> RawLib
+    pub(crate) fn export_testbench_scir_for_cell<T, S>(
+        &self,
+        cell: &SchematicCell<T>,
+    ) -> Result<RawLib, scir::Issues>
     where
         T: HasSimSchematic<PDK, S>,
         S: Simulator,
@@ -374,7 +377,7 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Simulate the given testbench.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> T::Output
+    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
     where
         S: Simulator,
         T: Testbench<PDK, S>,
@@ -384,7 +387,7 @@ impl<PDK: Pdk> Context<PDK> {
         let cell = self.generate_testbench_schematic(block.clone());
         // TODO: Handle errors.
         let cell = cell.cell();
-        let lib = self.export_testbench_scir_for_cell(cell);
+        let lib = self.export_testbench_scir_for_cell(cell)?;
         let ctx = SimulationContext {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),
@@ -399,7 +402,7 @@ impl<PDK: Pdk> Context<PDK> {
         };
 
         // TODO caching
-        block.run(controller)
+        Ok(block.run(controller))
     }
 
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {

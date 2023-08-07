@@ -4,7 +4,7 @@ use spice::Netlister;
 
 /// Creates a 1:3 resistive voltage divider.
 pub(crate) fn vdivider() -> Library {
-    let mut lib = Library::new("vdivider");
+    let mut lib = LibraryBuilder::new("vdivider");
     let mut wrapper = Cell::new_whitebox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
@@ -48,12 +48,12 @@ pub(crate) fn vdivider() -> Library {
     vdivider.expose_port(out, Direction::Output);
     lib.add_cell(vdivider);
 
-    lib
+    lib.build().unwrap()
 }
 
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library {
-    let mut lib = Library::new("vdivider");
+    let mut lib = LibraryBuilder::new("vdivider");
     let mut wrapper = Cell::new_blackbox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
@@ -92,7 +92,7 @@ pub(crate) fn vdivider_blackbox() -> Library {
     vdivider.expose_port(out, Direction::Output);
     lib.add_cell(vdivider);
 
-    lib
+    lib.build().unwrap()
 }
 
 #[test]

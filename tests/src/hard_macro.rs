@@ -77,7 +77,7 @@ fn export_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
-    let lib = ctx.export_scir(BufferHardMacro);
+    let lib = ctx.export_scir(BufferHardMacro).unwrap();
     println!("SCIR Library:\n{:#?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
@@ -108,7 +108,7 @@ fn export_hard_macro_in_another_pdk() {
     use crate::shared::pdk::sky130_commercial_ctx;
 
     let ctx = sky130_commercial_ctx();
-    let lib = ctx.export_scir(BufferHardMacro);
+    let lib = ctx.export_scir(BufferHardMacro).unwrap();
     assert_eq!(lib.scir.cells().count(), 3);
 
     println!("SCIR Library:\n{:?}", lib.scir);
@@ -126,7 +126,7 @@ fn export_inline_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
-    let lib = ctx.export_scir(BufferInlineHardMacro);
+    let lib = ctx.export_scir(BufferInlineHardMacro).unwrap();
     assert_eq!(lib.scir.cells().count(), 3);
 
     println!("SCIR Library:\n{:?}", lib.scir);
