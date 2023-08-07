@@ -105,7 +105,7 @@ impl<'a> ScirConverter<'a> {
         }
 
         let mut cell = scir::Cell::new_whitebox(ArcStr::from(subckt.name.as_str()));
-        let mut nodes: HashMap<Substr, scir::Slice> = HashMap::new();
+        let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
             if let Some(&node) = nodes.get(name) {
                 return node;
@@ -129,7 +129,11 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if blackbox {
-                        let ports = inst.ports.iter().map(|s| node(s, &mut cell)).collect();
+                        let ports = inst
+                            .ports
+                            .iter()
+                            .map(|s| node(s, &mut cell).into())
+                            .collect();
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params
