@@ -5,6 +5,21 @@
     * substrate bumped from 0.1.0 to 0.1.1
     * spectre bumped from 0.1.0 to 0.1.1
 
+## [0.6.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.5.0...sky130pdk-v0.6.0) (2023-08-08)
+
+
+### Features
+
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.5.0 to 0.6.0
+    * spectre bumped from 0.5.0 to 0.6.0
+
 ## [0.5.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.4.0...sky130pdk-v0.5.0) (2023-08-05)
 
 

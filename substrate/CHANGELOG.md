@@ -5,6 +5,35 @@
     * codegen bumped from 0.1.0 to 0.1.1
     * substrate_api bumped from 0.1.0 to 0.1.1
 
+## [0.6.0](https://github.com/substrate-labs/substrate2/compare/substrate-v0.5.0...substrate-v0.6.0) (2023-08-08)
+
+
+### Features
+
+* **codegen:** derive Block macro adds required trait bounds by default ([#249](https://github.com/substrate-labs/substrate2/issues/249)) ([892bef5](https://github.com/substrate-labs/substrate2/commit/892bef585548264e3fcdcc2e6523a2321c6c6897))
+* **codegen:** insert appropriate bounds in Io, SchematicType, LayoutType proc macros ([#251](https://github.com/substrate-labs/substrate2/issues/251)) ([33dcc79](https://github.com/substrate-labs/substrate2/commit/33dcc797fdbeb21ad046093e655acf965fd99321))
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+* **slices:** use `SliceOne` instead of `Slice` where possible ([#253](https://github.com/substrate-labs/substrate2/issues/253)) ([8eba8ed](https://github.com/substrate-labs/substrate2/commit/8eba8ed5aad0aa4911ae31f4521d297487256087))
+* **testing:** add test for terminal path API ([#245](https://github.com/substrate-labs/substrate2/issues/245)) ([de55691](https://github.com/substrate-labs/substrate2/commit/de556912ba4460a26d2b89510070976b8d8afcfe))
+* **validation:** create type for unvalidated SCIR library ([#252](https://github.com/substrate-labs/substrate2/issues/252)) ([1550a22](https://github.com/substrate-labs/substrate2/commit/1550a22b9a1c9f7cd9717feaa45d00487cc8848e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * config bumped from 0.2.2 to 0.2.3
+    * examples bumped from 0.2.0 to 0.3.0
+    * cache bumped from 0.3.0 to 0.3.1
+    * codegen bumped from 0.5.0 to 0.6.0
+    * geometry bumped from 0.3.0 to 0.4.0
+    * scir bumped from 0.4.0 to 0.5.0
+    * spice bumped from 0.3.0 to 0.4.0
+    * type_dispatch bumped from 0.2.0 to 0.3.0
+  * dev-dependencies
+    * sky130pdk bumped from <=0.5.0 to <=0.6.0
+    * spectre bumped from <=0.5.0 to <=0.6.0
+
 ## [0.5.0](https://github.com/substrate-labs/substrate2/compare/substrate-v0.4.0...substrate-v0.5.0) (2023-08-05)
 
 

@@ -1,6 +1,6 @@
 [package]
 name = "geometry"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -9,4 +9,4 @@ array_map = { version = "0.4", features = ["derive", "serde", "std"] }
 impl-trait-for-tuples = "0.2"
 approx = "0.5"
 
-geometry_macros = { version = "0.0.0", registry = "substrate", path = "../geometry_macros" }
+geometry_macros = { version = "0.0.1", registry = "substrate", path = "../geometry_macros" }
