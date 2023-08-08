@@ -4,6 +4,10 @@
   * dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.6.0 to 0.6.1
+
 ## [0.6.0](https://github.com/substrate-labs/substrate2/compare/spectre-v0.5.0...spectre-v0.6.0) (2023-08-08)
 
 

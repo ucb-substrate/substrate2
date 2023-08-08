@@ -1,7 +1,7 @@
 {
-  "codegen": "0.6.0",
+  "codegen": "0.6.1",
   "config": "0.2.3",
-  "docs/examples": "0.3.0",
+  "docs/examples": "0.3.1",
   "libs/cache": "0.3.1",
   "libs/diagnostics": "0.3.0",
   "libs/gds": "0.3.0",
@@ -14,9 +14,9 @@
   "libs/type_dispatch": "0.3.0",
   "libs/type_dispatch_macros": "0.3.0",
   "libs/uniquify": "0.2.0",
-  "pdks/sky130pdk": "0.6.0",
-  "substrate": "0.6.0",
+  "pdks/sky130pdk": "0.6.1",
+  "substrate": "0.6.1",
   "tests": "0.0.0",
-  "tools/spectre": "0.6.0",
+  "tools/spectre": "0.6.1",
   "libs/geometry_macros": "0.0.1"
 }
