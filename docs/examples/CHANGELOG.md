@@ -1,5 +1,11 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.6.0 to <=0.6.1
+    * sky130pdk bumped from <=0.6.0 to <=0.6.1
+    * spectre bumped from <=0.6.0 to <=0.6.1
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/examples-v0.2.0...examples-v0.3.0) (2023-08-08)
 
 

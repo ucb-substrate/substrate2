@@ -6,6 +6,24 @@
   * dev-dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.6.1](https://github.com/substrate-labs/substrate2/compare/codegen-v0.6.0...codegen-v0.6.1) (2023-08-08)
+
+
+### Bug Fixes
+
+* **generics:** change `Deserialize&lt;'static&gt;` bounds to `DeserializeOwned` ([#259](https://github.com/substrate-labs/substrate2/issues/259)) ([8015063](https://github.com/substrate-labs/substrate2/commit/80150630b094a04a75cfc5b681255b80caf4f895))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.3.0 to 0.3.1
+  * dev-dependencies
+    * substrate bumped from <=0.6.0 to <=0.6.1
+    * sky130pdk bumped from <=0.6.0 to <=0.6.1
+    * spectre bumped from <=0.6.0 to <=0.6.1
+
 ## [0.6.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.5.0...codegen-v0.6.0) (2023-08-08)
 
 
