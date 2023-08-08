@@ -196,7 +196,7 @@ impl HasNestedView for Node {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         NestedNode {
             node: *self,
-            path: parent.clone(),
+            instances: parent.clone(),
         }
     }
 }
@@ -215,7 +215,7 @@ impl HasNestedView for NestedNode {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         NestedNode {
             node: self.node,
-            path: self.path.prepend(parent),
+            instances: self.instances.prepend(parent),
         }
     }
 }

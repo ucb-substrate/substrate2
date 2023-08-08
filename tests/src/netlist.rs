@@ -9,14 +9,14 @@ pub(crate) fn vdivider() -> Library {
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
     let contents = wrapper.contents_mut().as_mut().unwrap_clear();
-    contents.add_primitive(
+    contents.add_primitive(PrimitiveDevice::new(
+        "res0",
         PrimitiveDeviceKind::Res2 {
             pos,
             neg,
             value: dec!(3300).into(),
-        }
-        .into(),
-    );
+        },
+    ));
     wrapper.expose_port(pos, Direction::InOut);
     wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
@@ -115,7 +115,7 @@ fn vdivider_blackbox_is_valid() {
 fn netlist_spice_vdivider() {
     let lib = vdivider();
     let mut buf: Vec<u8> = Vec::new();
-    let netlister = Netlister::new(&lib, &mut buf);
+    let netlister = Netlister::new(&lib, &[], &mut buf);
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);
@@ -132,14 +132,14 @@ fn netlist_spice_vdivider() {
     assert_eq!(string.matches("resistor_wrapper").count(), 5);
     assert_eq!(string.matches("vdivider").count(), 3);
     assert_eq!(string.matches("* vdivider").count(), 1);
-    assert_eq!(string.matches("R0 pos neg 3300").count(), 1);
+    assert_eq!(string.matches("Rres0 pos neg 3300").count(), 1);
 }
 
 #[test]
 fn netlist_spice_vdivider_blackbox() {
     let lib = vdivider_blackbox();
     let mut buf: Vec<u8> = Vec::new();
-    let netlister = Netlister::new(&lib, &mut buf);
+    let netlister = Netlister::new(&lib, &[], &mut buf);
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);

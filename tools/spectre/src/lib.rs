@@ -9,15 +9,15 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::netlist::SpectreLibConversion;
 use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
-use netlist::{Include, Netlister};
+use netlist::Netlister;
 use psfparser::binary::ast::Trace;
-use scir::{Library, SignalPathTail};
+use scir::netlist::{Include, NetlistLibConversion};
+use scir::Library;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
 use substrate::simulation::{SimulationContext, Simulator};
@@ -222,6 +222,7 @@ impl Spectre {
         let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
         let conv = netlister.export()?;
 
+        writeln!(w)?;
         for (i, an) in input.iter().enumerate() {
             write!(w, "analysis{i} ")?;
             an.netlist(&mut w)?;
@@ -287,8 +288,8 @@ impl Spectre {
 
 impl Simulator for Spectre {
     type Input = Input;
-    type Output = Output;
     type Options = Options;
+    type Output = Output;
     type Error = Error;
 
     fn simulate_inputs(
@@ -302,73 +303,49 @@ impl Simulator for Spectre {
 }
 
 #[allow(dead_code)]
-pub(crate) fn instance_path(lib: &Library, path: &scir::InstancePath) -> String {
-    let named_path = lib.convert_instance_path(path).0;
-    named_path.join(".")
+pub(crate) fn instance_path(
+    lib: &Library,
+    conv: &NetlistLibConversion,
+    path: &scir::InstancePath,
+) -> String {
+    lib.convert_instance_path(conv, path).0.join(".")
 }
 
 pub(crate) fn node_voltage_path(
     lib: &Library,
-    conv: &SpectreLibConversion,
+    conv: &NetlistLibConversion,
     path: &scir::SignalPath,
 ) -> String {
-    let (named_path, id) = lib.convert_instance_path(&path.instances);
-    let mut named_path = (*named_path).clone();
-    let cell = lib.cell(id);
-
-    match &path.tail {
-        SignalPathTail::Slice { signal, index } => {
-            named_path.push(cell.signal(*signal).name.clone());
-            let mut str_path = named_path.join(".");
-            if let Some(index) = index {
-                str_path.push_str(&format!("[{}]", index));
-            }
-            str_path
-        }
-        SignalPathTail::Primitive {
-            id: prim_id,
-            name_path: buf,
-        } => {
-            named_path.push(conv.cells[&id].primitives[prim_id].clone());
-            let buf = buf.clone();
-            named_path.extend(buf);
-            named_path.join(".")
-        }
+    let scir::NamedSignalPath {
+        mut instances,
+        signal,
+        index,
+    } = lib.convert_signal_path(conv, path);
+    instances.push(signal);
+    let mut str_path = instances.join(".");
+    if let Some(index) = index {
+        str_path.push_str(&format!("[{}]", index));
     }
+    str_path
 }
 
 pub(crate) fn node_current_path(
     lib: &Library,
-    conv: &SpectreLibConversion,
+    conv: &NetlistLibConversion,
     path: &scir::SignalPath,
 ) -> String {
-    let (named_path, id) = lib.convert_instance_path(&path.instances);
-    let mut named_path = (*named_path).clone();
-    let cell = lib.cell(id);
-
-    match &path.tail {
-        SignalPathTail::Slice { signal, index } => {
-            let mut str_path = named_path.join(".");
-            str_path.push(':');
-            str_path.push_str(&cell.signal(*signal).name);
-            if let Some(index) = index {
-                str_path.push_str(&format!("[{}]", index));
-            }
-            str_path
-        }
-        SignalPathTail::Primitive {
-            id: prim_id,
-            name_path: buf,
-        } => {
-            named_path.push(conv.cells[&id].primitives[prim_id].clone());
-            let mut buf = buf.clone();
-            named_path.extend(buf.drain(..buf.len() - 1));
-            let mut str_path = named_path.join(".");
-            str_path.push(':');
-            str_path.push_str(&buf.pop().unwrap());
-            str_path
-        }
+    let scir::NamedSignalPath {
+        instances,
+        signal,
+        index,
+    } = lib.convert_signal_path(conv, path);
+    let mut str_path = instances.join(".");
+    str_path.push(':');
+    str_path.push_str(&signal);
+    if let Some(index) = index {
+        str_path.push_str(&format!("[{}]", index));
     }
+    str_path
 }
 
 /// Inputs directly supported by Spectre.
