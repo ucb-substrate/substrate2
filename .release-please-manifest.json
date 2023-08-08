@@ -10,6 +10,7 @@
   "libs/pathtree": "0.2.0",
   "libs/scir": "0.4.0",
   "libs/spice": "0.3.0",
+  "libs/spice_rawfile": "0.0.0",
   "libs/type_dispatch": "0.2.0",
   "libs/type_dispatch_macros": "0.2.0",
   "libs/uniquify": "0.2.0",
