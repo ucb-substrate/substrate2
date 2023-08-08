@@ -159,10 +159,8 @@ impl ToTokens for DataInputReceiver {
             ref attrs,
         } = *self;
 
-        let generics = add_trait_bounds(
-            quote!(#substrate::schematic::HasNestedView),
-            generics.clone(),
-        );
+        let mut generics = generics.clone();
+        add_trait_bounds(&mut generics, quote!(#substrate::schematic::HasNestedView));
         let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
         let mut ref_generics = generics.clone();
         ref_generics.params.push(lifetime.clone());

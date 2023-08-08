@@ -95,6 +95,15 @@ impl FlatLen for Signal {
     }
 }
 
+impl Flatten<Direction> for Signal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::once(Direction::InOut));
+    }
+}
+
 impl SchematicType for Signal {
     type Bundle = Node;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {

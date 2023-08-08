@@ -29,6 +29,8 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use arcstr::ArcStr;
+use diagnostics::IssueSet;
+use drivers::DriverIssue;
 use opacity::Opacity;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -39,7 +41,8 @@ pub mod netlist;
 mod slice;
 
 use crate::netlist::NetlistLibConversion;
-pub use slice::{IndexOwned, Slice, SliceRange};
+use crate::validation::ValidatorIssue;
+pub use slice::{IndexOwned, Slice, SliceOne, SliceRange};
 
 pub(crate) mod drivers;
 pub(crate) mod validation;
@@ -130,6 +133,13 @@ impl From<Slice> for SignalId {
     }
 }
 
+impl From<SliceOne> for SignalId {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        value.signal()
+    }
+}
+
 /// A path to a node in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SignalPath {
@@ -145,14 +155,7 @@ pub struct SignalPath {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum SignalPathTail {
     /// A signal slice within a SCIR cell.
-    Slice {
-        /// The signal ID.
-        signal: SignalId,
-        /// The index of the signal that this slice represents.
-        ///
-        /// [`None`] if this slice indexes a single bit wire.
-        index: Option<usize>,
-    },
+    Slice(SliceOne),
     /// A signal within a primitive device.
     Primitive {
         /// The ID of the primitive device instance.
@@ -325,20 +328,20 @@ pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive terminal.
-        pos: Slice,
+        pos: SliceOne,
         /// The negative terminal.
-        neg: Slice,
+        neg: SliceOne,
         /// The value of the resistance, in Ohms.
         value: Expr,
     },
     /// A 3-terminal resistor.
     Res3 {
         /// The positive terminal.
-        pos: Slice,
+        pos: SliceOne,
         /// The negative terminal.
-        neg: Slice,
+        neg: SliceOne,
         /// The substrate/body terminal.
-        sub: Slice,
+        sub: SliceOne,
         /// The value of the resistance, in Ohms.
         value: Expr,
         /// The name of the resistor model to use.
@@ -351,7 +354,7 @@ pub enum PrimitiveDeviceKind {
     /// This can be an instance of a subcircuit defined outside a SCIR library.
     RawInstance {
         /// The ports of the instance, as an ordered list.
-        ports: Vec<Slice>,
+        ports: Vec<SliceOne>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
     },
@@ -359,10 +362,12 @@ pub enum PrimitiveDeviceKind {
 
 impl PrimitiveDevice {
     /// An iterator over the nodes referenced in the device.
-    pub(crate) fn nodes(&self) -> impl IntoIterator<Item = Slice> {
+    pub(crate) fn nodes(&self) -> impl IntoIterator<Item = SliceOne> {
         match &self.kind {
             PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
-            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
+            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => {
+                vec![*pos, *neg, *sub]
+            }
             PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
         }
     }
@@ -402,6 +407,13 @@ impl FromIterator<Slice> for Concat {
     }
 }
 
+impl FromIterator<SliceOne> for Concat {
+    fn from_iter<T: IntoIterator<Item = SliceOne>>(iter: T) -> Self {
+        let parts = iter.into_iter().map(|s| s.into()).collect();
+        Self { parts }
+    }
+}
+
 impl From<Vec<Slice>> for Concat {
     #[inline]
     fn from(value: Vec<Slice>) -> Self {
@@ -428,6 +440,15 @@ pub enum TopKind {
     Cell,
 }
 
+impl From<SliceOne> for Concat {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self {
+            parts: vec![value.into()],
+        }
+    }
+}
+
 /// Information about the top-level cell in a SCIR library.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Top {
@@ -439,7 +460,7 @@ pub struct Top {
 
 /// A library of SCIR cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Library {
+pub struct LibraryBuilder {
     /// The current ID counter.
     ///
     /// Initialized to 0 when the library is created.
@@ -462,6 +483,55 @@ pub struct Library {
 
     /// The order in which cells were added to this library.
     order: Vec<CellId>,
+}
+
+/// A SCIR library that is guaranteed to be valid.
+///
+/// The contents of the library cannot be mutated.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Library(LibraryBuilder);
+
+impl Deref for Library {
+    type Target = LibraryBuilder;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Issues encountered when validating a SCIR library.
+#[derive(Debug, Clone)]
+pub struct Issues {
+    /// Correctness issues.
+    pub correctness: IssueSet<ValidatorIssue>,
+    /// Driver connectivity issues.
+    pub drivers: IssueSet<DriverIssue>,
+}
+
+impl Display for Issues {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.correctness.is_empty() && self.drivers.is_empty() {
+            write!(f, "no issues")?;
+        }
+        if !self.correctness.is_empty() {
+            writeln!(f, "correctness issues:\n{}", self.correctness)?;
+        }
+        if !self.drivers.is_empty() {
+            writeln!(f, "driver issues:\n{}", self.drivers)?;
+        }
+        Ok(())
+    }
+}
+
+impl Issues {
+    /// Returns `true` if there are warnings.
+    pub fn has_warning(&self) -> bool {
+        self.correctness.has_warning() || self.drivers.has_warning()
+    }
+
+    /// Returns `true` if there are errors.
+    pub fn has_error(&self) -> bool {
+        self.correctness.has_error() || self.drivers.has_error()
+    }
 }
 
 /// Port directions.
@@ -543,6 +613,9 @@ pub struct Port {
 /// Information about a signal in a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
+    /// The ID representing this signal.
+    pub id: SignalId,
+
     /// The name of this signal.
     pub name: ArcStr,
 
@@ -641,7 +714,7 @@ pub struct CellInner {
     pub(crate) primitive_order: Vec<PrimitiveDeviceId>,
 }
 
-impl Library {
+impl LibraryBuilder {
     /// Creates a new, empty library.
     pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
@@ -753,7 +826,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given ID.
-    /// For a non-panicking alternative, see [`try_cell`](Library::try_cell).
+    /// For a non-panicking alternative, see [`try_cell`](LibraryBuilder::try_cell).
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
     }
@@ -778,7 +851,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
-    /// For a non-panicking alternative, see [`try_cell_id_named`](Library::try_cell_id_named).
+    /// For a non-panicking alternative, see [`try_cell_id_named`](LibraryBuilder::try_cell_id_named).
     pub fn cell_id_named(&self, name: &str) -> CellId {
         match self.name_map.get(name) {
             Some(&cell) => cell,
@@ -884,12 +957,12 @@ impl Library {
                     index: None,
                 }
             }
-            SignalPathTail::Slice { signal, index } => {
+            SignalPathTail::Slice(slice) => {
                 let cell = self.cell(cell);
                 NamedSignalPath {
                     instances: NamedInstancePath(instances),
-                    signal: cell.signal(*signal).name.clone(),
-                    index: *index,
+                    signal: cell.signal(slice.signal()).name.clone(),
+                    index: slice.index(),
                 }
             }
         }
@@ -906,8 +979,8 @@ impl Library {
             return path;
         }
 
-        let (signal, index) = if let SignalPathTail::Slice { signal, index } = &mut path.tail {
-            (signal, index)
+        let slice = if let SignalPathTail::Slice(slice) = &mut path.tail {
+            slice
         } else {
             panic!("path is terminated with a primitive instance and cannot be simplified")
         };
@@ -924,7 +997,7 @@ impl Library {
 
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
-            let info = cell.signal(*signal);
+            let info = cell.signal(slice.signal());
             if !info.port {
                 path.instances.truncate(i + 1);
                 return path;
@@ -935,15 +1008,51 @@ impl Library {
                     self.cell(cells[i - 1])
                 };
                 let inst = &parent.contents().as_ref().unwrap_clear().instances[&path.instances[i]];
-                let idx = if let Some(idx) = index { *idx } else { 0 };
-                let slice = inst.connection(info.name.as_ref()).index(idx);
-                *signal = slice.signal();
-                *index = slice.range().map(|range| range.start);
+                let idx = slice.index().unwrap_or_default();
+                *slice = inst.connection(info.name.as_ref()).index(idx);
             }
         }
 
         path.instances = Vec::new();
         path
+    }
+
+    /// Validate and construct a SCIR [`Library`].
+    ///
+    /// If errors are encountered during validation,
+    /// returns an `Err(_)` containing the set of issues found.
+    /// If no errors are encountered, returns an `Ok(_)` containing
+    /// the SCIR library. Warnings and infos are discarded.
+    ///
+    /// If you want to inspect warnings/infos, consider using
+    /// [`try_build`](LibraryBuilder::try_build) instead.
+    #[inline]
+    pub fn build(self) -> Result<Library, Issues> {
+        self.try_build().map(|ok| ok.0)
+    }
+
+    /// Validate and construct a SCIR [`Library`].
+    ///
+    /// If errors are encountered during validation,
+    /// returns an `Err(_)` containing the set of issues found.
+    /// If no errors are encountered, returns `Ok((library, issues))`.
+    /// The issues returned will not have any errors, but may have
+    /// warnings or infos.
+    ///
+    /// If you do not want to inspect warnings/infos, consider using
+    /// [`build`](LibraryBuilder::build) instead.
+    pub fn try_build(self) -> Result<(Library, Issues), Issues> {
+        let correctness = self.validate();
+        let drivers = self.validate_drivers();
+        let issues = Issues {
+            correctness,
+            drivers,
+        };
+        if issues.has_error() {
+            Err(issues)
+        } else {
+            Ok((Library(self), issues))
+        }
     }
 }
 
@@ -976,18 +1085,19 @@ impl Cell {
     }
 
     /// Creates a new 1-bit signal in this cell.
-    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> Slice {
+    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> SliceOne {
         self.signal_id += 1;
         let id = SignalId(self.signal_id);
         self.signals.insert(
             id,
             SignalInfo {
+                id,
                 port: false,
                 name: name.into(),
                 width: None,
             },
         );
-        Slice::new(id, None)
+        SliceOne::new(id, None)
     }
 
     /// Creates a new 1-dimensional bus in this cell.
@@ -998,6 +1108,7 @@ impl Cell {
         self.signals.insert(
             id,
             SignalInfo {
+                id,
                 port: false,
                 name: name.into(),
                 width: Some(width),
@@ -1328,10 +1439,25 @@ impl From<Slice> for BlackboxElement {
     }
 }
 
+impl From<SliceOne> for BlackboxElement {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self::Slice(value.into())
+    }
+}
+
 impl From<String> for BlackboxContents {
     fn from(value: String) -> Self {
         Self {
             elems: vec![BlackboxElement::RawString(value)],
         }
+    }
+}
+
+impl SignalInfo {
+    /// The [`Slice`] representing this entire signal.
+    #[inline]
+    pub fn slice(&self) -> Slice {
+        Slice::new(self.id, self.width.map(SliceRange::with_width))
     }
 }

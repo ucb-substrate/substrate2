@@ -36,13 +36,17 @@ impl ToTokens for BlockInputReceiver {
             ..
         } = *self;
 
-        let generics = add_trait_bounds(quote!(#substrate::serde::Serialize), generics.clone());
-        let generics = add_trait_bounds(quote!(#substrate::serde::Deserialize<'static>), generics);
-        let generics = add_trait_bounds(quote!(::std::hash::Hash), generics);
-        let generics = add_trait_bounds(quote!(::std::cmp::Eq), generics);
-        let generics = add_trait_bounds(quote!(::std::marker::Send), generics);
-        let generics = add_trait_bounds(quote!(::std::marker::Sync), generics);
-        let generics = add_trait_bounds(quote!(::std::any::Any), generics);
+        let mut generics = generics.clone();
+        add_trait_bounds(&mut generics, quote!(#substrate::serde::Serialize));
+        add_trait_bounds(
+            &mut generics,
+            quote!(#substrate::serde::de::DeserializeOwned),
+        );
+        add_trait_bounds(&mut generics, quote!(::std::hash::Hash));
+        add_trait_bounds(&mut generics, quote!(::std::cmp::Eq));
+        add_trait_bounds(&mut generics, quote!(::std::marker::Send));
+        add_trait_bounds(&mut generics, quote!(::std::marker::Sync));
+        add_trait_bounds(&mut generics, quote!(::std::any::Any));
         let (imp, ty, wher) = generics.split_for_impl();
 
         let name = ident.to_string().to_case(Case::Snake);

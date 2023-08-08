@@ -303,8 +303,8 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                         PrimitiveDeviceKind::Res2 { pos, neg, value } => {
                             let name = self.netlister.write_start_res2(self.out, &device.name)?;
                             conv.primitives.insert(id, name);
-                            self.write_slice(cell, *pos, &ground)?;
-                            self.write_slice(cell, *neg, &ground)?;
+                            self.write_slice(cell, pos.into(), &ground)?;
+                            self.write_slice(cell, neg.into(), &ground)?;
                             self.netlister.write_end_res2(self.out, value)?;
                         }
                         PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
@@ -313,7 +313,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                                 .write_start_raw_instance(self.out, &device.name)?;
                             conv.primitives.insert(id, name);
                             for port in ports.iter() {
-                                self.write_slice(cell, *port, &ground)?;
+                                self.write_slice(cell, port.into(), &ground)?;
                             }
                             self.netlister.write_end_raw_instance(self.out, child)?;
                         }

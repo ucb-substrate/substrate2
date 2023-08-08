@@ -1,0 +1,10 @@
+[package]
+name = "spice_rawfile"
+version = "0.1.0"
+edition = "2021"
+description = "Parse SPICE rawfiles"
+
+[dependencies]
+nom = "7.1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"

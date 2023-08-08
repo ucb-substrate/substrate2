@@ -183,7 +183,7 @@ impl Display for Cause {
     }
 }
 
-impl Library {
+impl LibraryBuilder {
     /// Perform driver analysis on this library.
     pub fn validate_drivers(&self) -> IssueSet<DriverIssue> {
         let _guard = span!(Level::INFO, "performing driver analysis on SCIR Library").entered();
@@ -260,7 +260,7 @@ impl Library {
 }
 
 fn analyze_instance(
-    lib: &Library,
+    lib: &LibraryBuilder,
     net_states: &mut HashMap<SignalId, Vec<NetState>>,
     inst: &Instance,
 ) {
@@ -298,7 +298,7 @@ mod tests {
         let c1 = Cell::new_whitebox("duplicate_cell_name");
         let mut c2 = Cell::new_blackbox("duplicate_cell_name");
         c2.add_blackbox_elem("* contents of cell");
-        let mut lib = Library::new("duplicate_cell_names");
+        let mut lib = LibraryBuilder::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);
         let issues = lib.validate();

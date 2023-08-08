@@ -6,6 +6,45 @@
   * dev-dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.6.1](https://github.com/substrate-labs/substrate2/compare/codegen-v0.6.0...codegen-v0.6.1) (2023-08-08)
+
+
+### Bug Fixes
+
+* **generics:** change `Deserialize&lt;'static&gt;` bounds to `DeserializeOwned` ([#259](https://github.com/substrate-labs/substrate2/issues/259)) ([8015063](https://github.com/substrate-labs/substrate2/commit/80150630b094a04a75cfc5b681255b80caf4f895))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.3.0 to 0.3.1
+  * dev-dependencies
+    * substrate bumped from <=0.6.0 to <=0.6.1
+    * sky130pdk bumped from <=0.6.0 to <=0.6.1
+    * spectre bumped from <=0.6.0 to <=0.6.1
+
+## [0.6.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.5.0...codegen-v0.6.0) (2023-08-08)
+
+
+### Features
+
+* **codegen:** derive Block macro adds required trait bounds by default ([#249](https://github.com/substrate-labs/substrate2/issues/249)) ([892bef5](https://github.com/substrate-labs/substrate2/commit/892bef585548264e3fcdcc2e6523a2321c6c6897))
+* **codegen:** insert appropriate bounds in Io, SchematicType, LayoutType proc macros ([#251](https://github.com/substrate-labs/substrate2/issues/251)) ([33dcc79](https://github.com/substrate-labs/substrate2/commit/33dcc797fdbeb21ad046093e655acf965fd99321))
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.2.0 to 0.3.0
+    * type_dispatch bumped from 0.2.0 to 0.3.0
+  * dev-dependencies
+    * substrate bumped from <=0.5.0 to <=0.6.0
+    * sky130pdk bumped from <=0.5.0 to <=0.6.0
+    * spectre bumped from <=0.5.0 to <=0.6.0
+
 ## [0.5.0](https://github.com/substrate-labs/substrate2/compare/codegen-v0.4.0...codegen-v0.5.0) (2023-08-05)
 
 

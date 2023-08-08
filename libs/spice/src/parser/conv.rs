@@ -29,6 +29,9 @@ pub enum ConvError {
     /// Attempted to export a blackboxed subcircuit.
     #[error("cannot export a blackboxed subcircuit")]
     ExportBlackbox,
+    /// Netlist conversion produced invalid SCIR.
+    #[error("netlist conversion produced SCIR containing errors: {0}")]
+    InvalidScir(Box<scir::Issues>),
 }
 
 /// Converts a parsed SPICE netlist to [`scir`].
@@ -37,7 +40,7 @@ pub enum ConvError {
 /// Top-level component instantiations are ignored.
 pub struct ScirConverter<'a> {
     ast: &'a Ast,
-    lib: scir::Library,
+    lib: scir::LibraryBuilder,
     blackbox_cells: HashSet<Substr>,
     subckts: HashMap<SubcktName, &'a Subckt>,
     ids: HashMap<SubcktName, scir::CellId>,
@@ -48,7 +51,7 @@ impl<'a> ScirConverter<'a> {
     pub fn new(name: impl Into<ArcStr>, ast: &'a Ast) -> Self {
         Self {
             ast,
-            lib: scir::Library::new(name),
+            lib: scir::LibraryBuilder::new(name),
             blackbox_cells: Default::default(),
             subckts: Default::default(),
             ids: Default::default(),
@@ -72,7 +75,11 @@ impl<'a> ScirConverter<'a> {
                 Err(e) => return Err(e),
             };
         }
-        Ok(self.lib)
+        let lib = self
+            .lib
+            .build()
+            .map_err(|issues| ConvError::InvalidScir(Box::new(issues)))?;
+        Ok(lib)
     }
 
     fn map_subckts(&mut self) {
@@ -98,7 +105,7 @@ impl<'a> ScirConverter<'a> {
         }
 
         let mut cell = scir::Cell::new_whitebox(ArcStr::from(subckt.name.as_str()));
-        let mut nodes: HashMap<Substr, scir::Slice> = HashMap::new();
+        let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
             if let Some(&node) = nodes.get(name) {
                 return node;
@@ -122,7 +129,11 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if blackbox {
-                        let ports = inst.ports.iter().map(|s| node(s, &mut cell)).collect();
+                        let ports = inst
+                            .ports
+                            .iter()
+                            .map(|s| node(s, &mut cell).into())
+                            .collect();
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params

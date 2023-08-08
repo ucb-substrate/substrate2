@@ -16,14 +16,13 @@ pub struct DeriveInputReceiver {
     data: darling::ast::Data<syn::Variant, syn::Field>,
 }
 
-/// Adds a bound `T: trait_` to every type parameter `T`.
-pub fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
+/// Add a bound `T: trait_` to every type parameter T.
+pub fn add_trait_bounds(generics: &mut Generics, trait_: TokenStream) {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(syn::parse_quote!(#trait_));
         }
     }
-    generics
 }
 
 /// Tokens used for generating struct fields in derived implementations.
@@ -126,7 +125,8 @@ pub fn derive_trait(
         ref extra_arg_tys,
     } = *config;
 
-    let generics = add_trait_bounds(quote!(#trait_), receiver.generics);
+    let mut generics = receiver.generics;
+    add_trait_bounds(&mut generics, quote!(#trait_));
     let (imp, ty, wher) = generics.split_for_impl();
 
     let match_clause: TokenStream = match receiver.data {

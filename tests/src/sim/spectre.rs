@@ -42,7 +42,7 @@ fn vdivider_tran() {
     let test_name = "spectre_vdivider_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let output = ctx.simulate(VdividerTb, sim_dir);
+    let output = ctx.simulate(VdividerTb, sim_dir).unwrap();
 
     for (actual, expected) in [
         (&*output.tran.current, 1.8 / 40.),
@@ -62,7 +62,7 @@ fn vdivider_duplicate_subckt() {
     let test_name = "spectre_vdivider_duplicate_subckt";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let output = ctx.simulate(VdividerDuplicateSubcktTb, sim_dir);
+    let output = ctx.simulate(VdividerDuplicateSubcktTb, sim_dir).unwrap();
 
     // There are 2 subcircuits with the name `resistor`.
     // The first has a value of 100; the second has a value of 200.
@@ -76,7 +76,7 @@ fn vdivider_array_tran() {
     let test_name = "spectre_vdivider_array_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let output = ctx.simulate(VdividerArrayTb, sim_dir);
+    let output = ctx.simulate(VdividerArrayTb, sim_dir).unwrap();
 
     for (expected, (out, out_nested)) in output
         .expected
@@ -95,10 +95,12 @@ fn flattened_vdivider_array_tran() {
     let test_name = "flattened_spectre_vdivider_array_tran";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let output = ctx.simulate(
-        crate::shared::vdivider::tb::FlattenedVdividerArrayTb,
-        sim_dir,
-    );
+    let output = ctx
+        .simulate(
+            crate::shared::vdivider::tb::FlattenedVdividerArrayTb,
+            sim_dir,
+        )
+        .unwrap();
 
     for (expected, (out, out_nested)) in output
         .expected
@@ -127,7 +129,8 @@ fn inv_tb() {
             },
         ),
         sim_dir,
-    );
+    )
+    .unwrap();
 }
 
 #[test]
@@ -159,8 +162,8 @@ fn spectre_caches_simulations() {
         .executor(executor)
         .build();
 
-    ctx.simulate(VdividerTb, &sim_dir);
-    ctx.simulate(VdividerTb, &sim_dir);
+    ctx.simulate(VdividerTb, &sim_dir).unwrap();
+    ctx.simulate(VdividerTb, &sim_dir).unwrap();
 
     assert_eq!(*count.lock().unwrap(), 1);
 }
@@ -252,8 +255,12 @@ fn spectre_can_include_sections() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
 
-    let output_tt = ctx.simulate(LibIncludeTb("section_a".to_string()), &sim_dir);
-    let output_ss = ctx.simulate(LibIncludeTb("section_b".to_string()), sim_dir);
+    let output_tt = ctx
+        .simulate(LibIncludeTb("section_a".to_string()), &sim_dir)
+        .unwrap();
+    let output_ss = ctx
+        .simulate(LibIncludeTb("section_b".to_string()), sim_dir)
+        .unwrap();
 
     assert_relative_eq!(output_tt, 0.9);
     assert_relative_eq!(output_ss, 1.2);
@@ -376,7 +383,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     let test_name = "spectre_can_save_paths_with_flattened_instances";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, sim_dir);
+    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, sim_dir).unwrap();
 
     assert!(current_draw
         .iter()

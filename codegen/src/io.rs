@@ -2,7 +2,7 @@ use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse_quote;
-use type_dispatch::derive::{field_tokens, struct_body, FieldTokens};
+use type_dispatch::derive::{add_trait_bounds, field_tokens, struct_body, FieldTokens};
 
 use crate::substrate_ident;
 
@@ -45,8 +45,27 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
     let substrate = substrate_ident();
 
+    let mut hnt_generics = generics.clone();
+    add_trait_bounds(&mut hnt_generics, quote!(#substrate::io::HasNameTree));
+
+    let mut st_generics = generics.clone();
+    add_trait_bounds(&mut st_generics, quote!(#substrate::io::SchematicType));
+    let (st_imp, st_ty, st_where) = st_generics.split_for_impl();
+
+    let mut st_any_generics = st_generics.clone();
+    add_trait_bounds(&mut st_any_generics, quote!(::std::any::Any));
+    let (st_any_imp, st_any_ty, st_any_where) = st_any_generics.split_for_impl();
+
+    let mut fd_generics = generics.clone();
+    add_trait_bounds(
+        &mut fd_generics,
+        quote!(#substrate::io::Flatten<#substrate::io::Direction>),
+    );
+    let (fd_imp, fd_ty, fd_where) = fd_generics.split_for_impl();
+
     let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
-    let mut ref_generics = generics.clone();
+    let mut ref_generics = st_generics.clone();
+    add_trait_bounds(&mut ref_generics, quote!(::std::any::Any));
     ref_generics.params.push(lifetime.clone());
 
     let mut idents = Vec::new();
@@ -62,8 +81,8 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             .push(syn::parse_quote!(<#ident as substrate::io::SchematicType>::Bundle: #lifetime));
     }
 
-    let (imp, ty, wher) = generics.split_for_impl();
-    let (_ref_imp, ref_ty, ref_wher) = ref_generics.split_for_impl();
+    let (_imp, ty, _wher) = generics.split_for_impl();
+    let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
     let mut data_len = Vec::new();
@@ -159,19 +178,19 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     quote! {
         #[derive(Clone)]
         #(#attrs)*
-        #vis struct #data_ident #ty #wher #data_body
+        #vis struct #data_ident #st_generics #data_body
         #(#attrs)*
-        #vis struct #nested_view_ident #ref_ty #ref_wher #nested_view_body
+        #vis struct #nested_view_ident #ref_generics #nested_view_body
         #(#attrs)*
-        #vis struct #terminal_view_ident #ref_ty #ref_wher #terminal_view_body
+        #vis struct #terminal_view_ident #ref_generics #terminal_view_body
 
-        impl #imp #substrate::io::FlatLen for #data_ident #ty #wher {
+        impl #st_imp #substrate::io::FlatLen for #data_ident #st_ty #st_where {
             fn len(&self) -> usize {
                 #( #data_len )+*
             }
         }
 
-        impl #imp #substrate::io::Flatten<#substrate::io::Direction> for #ident #ty #wher {
+        impl #fd_imp #substrate::io::Flatten<#substrate::io::Direction> for #ident #fd_ty #fd_where {
             fn flatten<E>(&self, __substrate_output_sink: &mut E)
             where
                 E: ::std::iter::Extend<#substrate::io::Direction> {
@@ -179,7 +198,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #imp #substrate::io::Flatten<#substrate::io::Node> for #data_ident #ty #wher {
+        impl #st_imp #substrate::io::Flatten<#substrate::io::Node> for #data_ident #st_ty #st_where {
             fn flatten<E>(&self, __substrate_output_sink: &mut E)
             where
                 E: ::std::iter::Extend<#substrate::io::Node> {
@@ -187,7 +206,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #imp #substrate::schematic::HasNestedView for #data_ident #ty #wher {
+        impl #st_any_imp #substrate::schematic::HasNestedView for #data_ident #st_any_ty #st_any_where {
             type NestedView<#lifetime> = #nested_view_ident #ref_ty;
 
             fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
@@ -195,7 +214,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #imp #substrate::io::HasTerminalView for #data_ident #ty #wher {
+        impl #st_any_imp #substrate::io::HasTerminalView for #data_ident #st_any_ty #st_any_where {
             type TerminalView<#lifetime> = #terminal_view_ident #ref_ty;
 
             fn terminal_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::TerminalView<#lifetime> {
@@ -203,7 +222,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #imp #substrate::io::StructData for #data_ident #ty #wher {
+        impl #st_imp #substrate::io::StructData for #data_ident #st_ty #st_where {
             fn fields(&self) -> ::std::vec::Vec<#substrate::arcstr::ArcStr> {
                 std::vec![#(#field_list_elems),*]
             }
@@ -216,7 +235,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #imp #substrate::io::SchematicType for #ident #ty #wher {
+        impl #st_any_imp #substrate::io::SchematicType for #ident #st_any_ty #st_any_where {
             type Bundle = #data_ident #ty;
             fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Bundle, &'n [#substrate::io::Node]) {
                 #( #instantiate_fields )*
@@ -241,6 +260,18 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
     let mut ref_generics = generics.clone();
     ref_generics.params.push(lifetime.clone());
+    add_trait_bounds(&mut ref_generics, quote!(#substrate::io::LayoutType));
+    add_trait_bounds(&mut ref_generics, quote!(::std::any::Any));
+
+    let mut lt_generics = generics.clone();
+    add_trait_bounds(&mut lt_generics, quote!(#substrate::io::LayoutType));
+    let (lt_imp, lt_ty, lt_where) = lt_generics.split_for_impl();
+
+    let mut lt_any_generics = lt_generics.clone();
+    add_trait_bounds(&mut lt_any_generics, quote!(::std::any::Any));
+    let (lt_any_imp, lt_any_ty, lt_any_where) = lt_any_generics.split_for_impl();
+
+    let mut hbf_generics = lt_generics.clone();
 
     let mut idents = Vec::new();
     for param in &ref_generics.params {
@@ -252,16 +283,19 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     for ident in idents {
         ref_wher
             .predicates
-            .push(syn::parse_quote!(<#ident as substrate::io::SchematicType>::Bundle: #lifetime));
+            .push(syn::parse_quote!(<#ident as substrate::io::LayoutType>::Nundle: #lifetime));
+        hbf_generics.make_where_clause().predicates.push(syn::parse_quote!(<#ident as #substrate::io::LayoutType>::Builder: #substrate::io::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts>));
     }
 
-    let (imp, ty, wher) = generics.split_for_impl();
-    let (_ref_imp, ref_ty, ref_wher) = ref_generics.split_for_impl();
+    let (hbf_imp, hbf_ty, hbf_where) = hbf_generics.split_for_impl();
+
+    let (_imp, ty, _wher) = generics.split_for_impl();
+    let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
     if let Some(layout_type) = layout_type {
         return quote! {
-            impl #imp #substrate::io::LayoutType for #ident #ty #wher {
+            impl #lt_any_imp #substrate::io::LayoutType for #ident #lt_any_ty #lt_any_where {
                 type Bundle = <#layout_type as #substrate::io::LayoutType>::Bundle;
                 type Builder = <#layout_type as #substrate::io::LayoutType>::Builder;
 
@@ -370,7 +404,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         struct_body(fields.style, false, quote! { #( #build_data_fields )* });
 
     quote! {
-        impl #imp #substrate::io::LayoutType for #ident #ty #wher {
+        impl #lt_any_imp #substrate::io::LayoutType for #ident #lt_any_ty #lt_any_where {
             type Bundle = #layout_data_ident #ty;
             type Builder = #layout_builder_ident #ty;
 
@@ -380,18 +414,18 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         }
 
         #(#attrs)*
-        #vis struct #layout_data_ident #ty #wher #layout_data_body
+        #vis struct #layout_data_ident #lt_generics #layout_data_body
 
         #(#attrs)*
-        #vis struct #layout_builder_ident #ty #wher #layout_builder_body
+        #vis struct #layout_builder_ident #lt_generics #layout_builder_body
 
-        impl #imp #substrate::io::FlatLen for #layout_data_ident #ty #wher {
+        impl #lt_imp #substrate::io::FlatLen for #layout_data_ident #lt_ty #lt_where {
             fn len(&self) -> usize {
                 #( #layout_data_len )+*
             }
         }
 
-        impl #imp #substrate::io::Flatten<#substrate::io::PortGeometry> for #layout_data_ident #ty #wher {
+        impl #lt_imp #substrate::io::Flatten<#substrate::io::PortGeometry> for #layout_data_ident #lt_ty #lt_where {
             fn flatten<E>(&self, __substrate_output_sink: &mut E)
             where
                 E: ::std::iter::Extend<#substrate::io::PortGeometry> {
@@ -400,9 +434,9 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         }
 
         #(#attrs)*
-        #vis struct #transformed_layout_data_ident #ref_ty #ref_wher #transformed_layout_data_body
+        #vis struct #transformed_layout_data_ident #ref_generics #transformed_layout_data_body
 
-        impl #imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #ty #wher {
+        impl #lt_any_imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #lt_any_ty #lt_any_where {
             type TransformedView<#lifetime> = #transformed_layout_data_ident #ref_ty;
 
             fn transformed_view(
@@ -413,13 +447,13 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #imp #substrate::io::LayoutBundleBuilder<#layout_data_ident #ty> for #layout_builder_ident #ty #wher {
+        impl #lt_any_imp #substrate::io::LayoutBundleBuilder<#layout_data_ident #ty> for #layout_builder_ident #lt_any_ty #lt_any_where {
             fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {
                 #substrate::error::Result::Ok(#layout_data_ident #build_layout_data_body)
             }
         }
 
-        impl #imp #substrate::io::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts> for #layout_builder_ident #ty #wher {
+        impl #hbf_imp #substrate::io::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts> for #layout_builder_ident #hbf_ty #hbf_where {
             fn build_from(&mut self, path: &mut #substrate::io::NameBuf, source: &#substrate::layout::element::NamedPorts) {
                 #(#hierarchical_build_from_fields)*
             }
@@ -428,6 +462,30 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
 }
 
 pub(crate) fn io_impl(input: &IoInputReceiver) -> TokenStream {
+    let substrate = substrate_ident();
+    let IoInputReceiver {
+        ref ident,
+        ref generics,
+        ..
+    } = *input;
+
+    let mut io_generics = generics.clone();
+    add_trait_bounds(&mut io_generics, quote!(#substrate::io::SchematicType));
+    add_trait_bounds(&mut io_generics, quote!(#substrate::io::LayoutType));
+    add_trait_bounds(&mut io_generics, quote!(#substrate::io::Directed));
+    add_trait_bounds(&mut io_generics, quote!(::std::any::Any));
+
+    let mut flatlen_generics = generics.clone();
+    add_trait_bounds(&mut flatlen_generics, quote!(#substrate::io::FlatLen));
+
+    let (io_imp, io_ty, io_wher) = io_generics.split_for_impl();
+    quote! {
+        impl #io_imp #substrate::io::Io for #ident #io_ty #io_wher {}
+    }
+}
+
+pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
+    let substrate = substrate_ident();
     let IoInputReceiver {
         ref ident,
         ref generics,
@@ -435,13 +493,24 @@ pub(crate) fn io_impl(input: &IoInputReceiver) -> TokenStream {
         ..
     } = *input;
 
-    let (imp, ty, wher) = generics.split_for_impl();
+    let mut hnt_generics = generics.clone();
+    add_trait_bounds(&mut hnt_generics, quote!(#substrate::io::HasNameTree));
+    add_trait_bounds(&mut hnt_generics, quote!(#substrate::io::FlatLen));
+
+    let mut io_generics = generics.clone();
+    add_trait_bounds(&mut io_generics, quote!(#substrate::io::SchematicType));
+    add_trait_bounds(&mut io_generics, quote!(#substrate::io::LayoutType));
+    add_trait_bounds(&mut io_generics, quote!(#substrate::io::Directed));
+
+    let mut flatlen_generics = generics.clone();
+    add_trait_bounds(&mut flatlen_generics, quote!(#substrate::io::FlatLen));
+
+    let (hnt_imp, hnt_ty, hnt_wher) = hnt_generics.split_for_impl();
+    let (flatlen_imp, flatlen_ty, flatlen_wher) = flatlen_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
     let mut ty_len = Vec::new();
     let mut name_fields = Vec::new();
-
-    let substrate = substrate_ident();
 
     for (i, &f) in fields.iter().enumerate() {
         let FieldTokens {
@@ -466,13 +535,13 @@ pub(crate) fn io_impl(input: &IoInputReceiver) -> TokenStream {
     }
 
     quote! {
-        impl #imp #substrate::io::FlatLen for #ident #ty #wher {
+        impl #flatlen_imp #substrate::io::FlatLen for #ident #flatlen_ty #flatlen_wher {
             fn len(&self) -> usize {
                 #( #ty_len )+*
             }
         }
 
-        impl #imp #substrate::io::HasNameTree for #ident #ty #wher {
+        impl #hnt_imp #substrate::io::HasNameTree for #ident #hnt_ty #hnt_wher {
             fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::io::NameTree>> {
                 if <Self as #substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
                 ::std::option::Option::Some([ #( #name_fields ),* ]

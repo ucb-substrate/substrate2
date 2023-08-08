@@ -43,10 +43,19 @@ pub enum Error {
     /// An [`anyhow::Error`] for external use.
     #[error(transparent)]
     Anyhow(#[from] Arc<anyhow::Error>),
+    /// Schematic to SCIR conversion produced errors.
+    #[error("error converting to SCIR: {0}")]
+    ScirConversion(Box<scir::Issues>),
 }
 
 impl From<LayoutError> for Error {
     fn from(value: LayoutError) -> Self {
         Error::Layout(value)
+    }
+}
+
+impl From<scir::Issues> for Error {
+    fn from(value: scir::Issues) -> Self {
+        Self::ScirConversion(Box::new(value))
     }
 }
