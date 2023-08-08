@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/substrate-labs/substrate2/compare/spice-v0.3.0...spice-v0.4.0) (2023-08-08)
+
+
+### Features
+
+* **slices:** use `SliceOne` instead of `Slice` where possible ([#253](https://github.com/substrate-labs/substrate2/issues/253)) ([8eba8ed](https://github.com/substrate-labs/substrate2/commit/8eba8ed5aad0aa4911ae31f4521d297487256087))
+* **validation:** create type for unvalidated SCIR library ([#252](https://github.com/substrate-labs/substrate2/issues/252)) ([1550a22](https://github.com/substrate-labs/substrate2/commit/1550a22b9a1c9f7cd9717feaa45d00487cc8848e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.4.0 to 0.5.0
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/spice-v0.2.0...spice-v0.3.0) (2023-08-05)
 
 

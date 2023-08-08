@@ -1,6 +1,6 @@
 [package]
 name = "type_dispatch"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Utilities for dispatching functions, constants, and trait implementations based on types."
 license = "BSD-3-Clause"
@@ -13,6 +13,6 @@ darling = "0.20"
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
-type_dispatch_macros = { version = "0.2.0", registry = "substrate", path = "../type_dispatch_macros" }
+type_dispatch_macros = { version = "0.3.0", registry = "substrate", path = "../type_dispatch_macros" }
 
 

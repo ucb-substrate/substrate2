@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/substrate-labs/substrate2/compare/cache-v0.3.0...cache-v0.3.1) (2023-08-08)
+
+
+### Bug Fixes
+
+* **tests:** fix hanging test ([#246](https://github.com/substrate-labs/substrate2/issues/246)) ([b60c7f2](https://github.com/substrate-labs/substrate2/commit/b60c7f26db1993069d542d8333e173293f4c217b))
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/cache-v0.2.1...cache-v0.3.0) (2023-08-05)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/substrate-labs/substrate2/compare/geometry-v0.3.0...geometry-v0.4.0) (2023-08-08)
+
+
+### Features
+
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * geometry_macros bumped from 0.0.0 to 0.0.1
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/geometry-v0.2.0...geometry-v0.3.0) (2023-07-23)
 
 

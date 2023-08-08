@@ -4,6 +4,23 @@
   * dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.6.0](https://github.com/substrate-labs/substrate2/compare/spectre-v0.5.0...spectre-v0.6.0) (2023-08-08)
+
+
+### Features
+
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+* **slices:** use `SliceOne` instead of `Slice` where possible ([#253](https://github.com/substrate-labs/substrate2/issues/253)) ([8eba8ed](https://github.com/substrate-labs/substrate2/commit/8eba8ed5aad0aa4911ae31f4521d297487256087))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.3.0 to 0.3.1
+    * scir bumped from 0.4.0 to 0.5.0
+    * substrate bumped from 0.5.0 to 0.6.0
+
 ## [0.5.0](https://github.com/substrate-labs/substrate2/compare/spectre-v0.4.0...spectre-v0.5.0) (2023-08-05)
 
 

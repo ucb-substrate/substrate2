@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/examples-v0.2.0...examples-v0.3.0) (2023-08-08)
+
+
+### Features
+
+* **codegen:** insert appropriate bounds in Io, SchematicType, LayoutType proc macros ([#251](https://github.com/substrate-labs/substrate2/issues/251)) ([33dcc79](https://github.com/substrate-labs/substrate2/commit/33dcc797fdbeb21ad046093e655acf965fd99321))
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.5.0 to <=0.6.0
+    * sky130pdk bumped from <=0.5.0 to <=0.6.0
+    * spectre bumped from <=0.5.0 to <=0.6.0
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/examples-v0.1.0...examples-v0.2.0) (2023-08-05)
 
 
