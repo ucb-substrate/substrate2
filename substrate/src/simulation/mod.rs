@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use impl_trait_for_tuples::impl_for_tuples;
-use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::block::Block;
 use crate::cache::Cache;
@@ -160,7 +161,7 @@ pub trait Testbench<PDK: Pdk, S: Simulator>:
     HasSimSchematic<PDK, S> + Block<Io = TestbenchIo>
 {
     /// The output produced by this testbench.
-    type Output: Any + Serialize + Deserialize<'static>;
+    type Output: Any + Serialize + DeserializeOwned;
     /// Run the testbench using the given simulation controller.
     fn run(&self, sim: SimController<PDK, S, Self>) -> Self::Output;
 }

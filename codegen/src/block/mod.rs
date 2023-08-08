@@ -40,7 +40,7 @@ impl ToTokens for BlockInputReceiver {
         add_trait_bounds(&mut generics, quote!(#substrate::serde::Serialize));
         add_trait_bounds(
             &mut generics,
-            quote!(#substrate::serde::Deserialize<'static>),
+            quote!(#substrate::serde::de::DeserializeOwned),
         );
         add_trait_bounds(&mut generics, quote!(::std::hash::Hash));
         add_trait_bounds(&mut generics, quote!(::std::cmp::Eq));
