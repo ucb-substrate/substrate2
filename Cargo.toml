@@ -22,7 +22,6 @@ members = [
     "pdks/sky130pdk",
     "substrate",
     "tests",
-    # "tools/ngspice",
     "tools/spectre",
 ]
 
