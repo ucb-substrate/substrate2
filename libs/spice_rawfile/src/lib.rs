@@ -1,3 +1,6 @@
+//! A SPICE rawfile parser.
+#![warn(missing_docs)]
+
 use error::{Error, Result};
 use parser::Analysis;
 use serde::Serialize;
@@ -5,8 +8,10 @@ use serde::Serialize;
 pub mod error;
 pub mod parser;
 
+/// A parsed SPICE rawfile.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Rawfile<'a> {
+    /// The analyses contained in this file.
     pub analyses: Vec<Analysis<'a>>,
 }
 

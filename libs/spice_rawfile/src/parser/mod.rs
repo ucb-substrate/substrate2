@@ -1,3 +1,4 @@
+//! The rawfile parser and AST data structures.
 use std::str;
 
 use nom::branch::alt;
@@ -15,28 +16,44 @@ use serde::{Deserialize, Serialize};
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data stored by a single analysis.
 pub struct Analysis<'a> {
+    /// The title of the analysis.
     pub title: &'a str,
+    /// The date on which the analysis was performed.
     pub date: &'a str,
+    /// Plot name.
     pub plotname: &'a str,
+    /// Flags.
     pub flags: &'a str,
+    /// The number of saved variables.
     pub num_variables: usize,
+    /// The number of points saved.
     pub num_points: usize,
+    /// The saved variable names.
     pub variables: Vec<Variable<'a>>,
+    /// The saved variable values.
     pub data: Data,
 }
 
+/// Data saved by an [`Analysis`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Data {
+    /// A set of real signals.
     Real(Vec<RealSignal>),
+    /// A set of complex signals.
     Complex(Vec<ComplexSignal>),
 }
 
+/// A real data vector.
 pub type RealSignal = Vec<f64>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// A complex data vector.
 pub struct ComplexSignal {
+    /// The real part.
     pub real: Vec<f64>,
+    /// The imaginary part.
     pub imag: Vec<f64>,
 }
 
@@ -50,6 +67,7 @@ impl ComplexSignal {
 }
 
 impl Data {
+    /// Assert that this data contains real signal vectors and return those vectors.
     #[inline]
     pub fn unwrap_real(self) -> Vec<RealSignal> {
         match self {
@@ -58,6 +76,7 @@ impl Data {
         }
     }
 
+    /// Assert that this data contains complex signal vectors and return those vectors.
     #[inline]
     pub fn unwrap_complex(self) -> Vec<ComplexSignal> {
         match self {
@@ -67,10 +86,14 @@ impl Data {
     }
 }
 
+/// A variable saved in an [`Analysis`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Variable<'a> {
+    /// The index of this variable in the list of saved data vectors.
     pub idx: usize,
+    /// The name of the signal.
     pub name: &'a str,
+    /// The signal units.
     pub unit: &'a str,
 }
 
