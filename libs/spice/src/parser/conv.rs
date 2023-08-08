@@ -129,11 +129,7 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if blackbox {
-                        let ports = inst
-                            .ports
-                            .iter()
-                            .map(|s| node(s, &mut cell).into())
-                            .collect();
+                        let ports = inst.ports.iter().map(|s| node(s, &mut cell)).collect();
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params

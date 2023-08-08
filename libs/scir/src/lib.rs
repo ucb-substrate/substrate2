@@ -454,7 +454,7 @@ impl From<SliceOne> for Concat {
 pub struct Top {
     /// The ID of the top-level cell.
     pub cell: CellId,
-    /// Whether or not to inline the top-level cell during netlisting.
+    /// The type of the top-level cell.
     pub kind: TopKind,
 }
 
@@ -797,7 +797,7 @@ impl LibraryBuilder {
         self.top.map(|t| t.cell)
     }
 
-    /// Whether or not the top-level cell is a testbench.
+    /// Returns `true` if the top-level cell is a testbench.
     ///
     /// If no top cell has been set, returns `false`.
     #[inline]

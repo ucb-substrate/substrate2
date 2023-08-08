@@ -5,8 +5,8 @@ use std::collections::{HashMap, HashSet};
 use arcstr::ArcStr;
 use opacity::Opacity;
 use scir::{
-    Cell, CellId as ScirCellId, CellInner, IndexOwned, Instance, InstancePathTail, Library,
-    LibraryBuilder, SignalPathTail, TopKind,
+    Cell, CellId as ScirCellId, CellInner, IndexOwned, Instance, InstancePathTail, LibraryBuilder,
+    SignalPathTail, TopKind,
 };
 use uniquify::Names;
 
@@ -547,10 +547,7 @@ impl RawCell {
                                 scir::PrimitiveDevice::from_params(
                                     arcstr::format!("rawinst{i}"),
                                     scir::PrimitiveDeviceKind::RawInstance {
-                                        ports: ports
-                                            .iter()
-                                            .map(|p| nodes[&p.node].into())
-                                            .collect(),
+                                        ports: ports.iter().map(|p| nodes[&p.node]).collect(),
                                         cell: cell.clone(),
                                     },
                                     p.params.clone(),
