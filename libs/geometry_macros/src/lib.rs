@@ -1,3 +1,6 @@
+//! Macros for the `geometry` crate.
+#![warn(missing_docs)]
+
 use darling::FromDeriveInput;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
