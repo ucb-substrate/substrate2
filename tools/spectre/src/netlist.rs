@@ -135,10 +135,34 @@ impl SpiceLikeNetlister for NetlisterImpl {
         match kind {
             NetlistPrimitiveDeviceKind::Res2 { pos, neg, value } => {
                 for port in [pos, neg] {
-                    write!(out, " {}", port)?;
+                    write!(out, " {port}")?;
                 }
                 write!(out, " ) resistor r=")?;
                 self.write_expr(out, value)?;
+            }
+            NetlistPrimitiveDeviceKind::Cap2 { pos, neg, value } => {
+                for port in [pos, neg] {
+                    write!(out, " {port}")?;
+                }
+                write!(out, " ) capacitor c=")?;
+                self.write_expr(out, value)?;
+            }
+            NetlistPrimitiveDeviceKind::Res3 {
+                pos,
+                neg,
+                sub,
+                value,
+                model,
+            } => {
+                for port in [pos, neg, sub] {
+                    write!(out, " {port}")?;
+                }
+                let model = model.as_ref().map(|s| s.as_str()).unwrap_or("resistor");
+                write!(out, " ) {model}")?;
+                if let Some(value) = value {
+                    write!(out, " r=")?;
+                    self.write_expr(out, value)?;
+                }
             }
             NetlistPrimitiveDeviceKind::RawInstance { ports, cell } => {
                 for port in ports {
@@ -146,7 +170,6 @@ impl SpiceLikeNetlister for NetlisterImpl {
                 }
                 write!(out, " ) {}", cell)?;
             }
-            _ => todo!(),
         }
         Ok(name.clone())
     }

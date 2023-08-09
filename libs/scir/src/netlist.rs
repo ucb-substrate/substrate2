@@ -81,10 +81,24 @@ pub enum NetlistPrimitiveDeviceKind<'a> {
         pos: ArcStr,
         /// The negative terminal.
         neg: ArcStr,
-        /// The value of the resistance, in Ohms.
+        /// The value of the resistance, in ohms.
+        value: &'a Expr,
+    },
+    /// An ideal 2-terminal capacitor.
+    Cap2 {
+        /// The positive terminal.
+        pos: ArcStr,
+        /// The negative terminal.
+        neg: ArcStr,
+        /// The value of the capacitance, in farads.
         value: &'a Expr,
     },
     /// A 3-terminal resistor.
+    ///
+    /// Typically, at least one of `value` or `model`
+    /// should be specified. However, this is not a strict
+    /// requirement, as some PDKs may elect to convey value and/or
+    /// model information in the parameters.
     Res3 {
         /// The positive terminal.
         pos: ArcStr,
@@ -92,8 +106,8 @@ pub enum NetlistPrimitiveDeviceKind<'a> {
         neg: ArcStr,
         /// The substrate/body terminal.
         sub: ArcStr,
-        /// The value of the resistance, in Ohms.
-        value: &'a Expr,
+        /// The resistor value, in ohms.
+        value: Option<&'a Expr>,
         /// The name of the resistor model to use.
         ///
         /// The available resistor models are usually specified by a PDK.
@@ -357,6 +371,26 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                                 value,
                             }
                         }
+                        PrimitiveDeviceKind::Cap2 { pos, neg, value } => {
+                            NetlistPrimitiveDeviceKind::Cap2 {
+                                pos: self.make_slice(cell, pos.into(), &ground)?,
+                                neg: self.make_slice(cell, neg.into(), &ground)?,
+                                value,
+                            }
+                        }
+                        PrimitiveDeviceKind::Res3 {
+                            pos,
+                            neg,
+                            sub,
+                            value,
+                            model,
+                        } => NetlistPrimitiveDeviceKind::Res3 {
+                            pos: self.make_slice(cell, pos.into(), &ground)?,
+                            neg: self.make_slice(cell, neg.into(), &ground)?,
+                            sub: self.make_slice(cell, sub.into(), &ground)?,
+                            value: value.as_ref(),
+                            model: model.clone(),
+                        },
                         PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
                             NetlistPrimitiveDeviceKind::RawInstance {
                                 ports: ports
@@ -367,7 +401,6 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                                 cell: child.clone(),
                             }
                         }
-                        _ => todo!(),
                     };
                     let name =
                         self.netlister
