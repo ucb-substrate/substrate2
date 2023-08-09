@@ -15,7 +15,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 approx = "0.5"
 lazy_static = "1"
-indexmap = { version = "1", features = ["serde"] }
+indexmap = { version = "2", features = ["serde"] }
 
 geometry = { version = "0.4.0", registry = "substrate", path = "../libs/geometry" }
 substrate = { version = "0.6.1", registry = "substrate", path = "../substrate" }
