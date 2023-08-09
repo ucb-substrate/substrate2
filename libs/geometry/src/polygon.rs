@@ -124,14 +124,13 @@ impl Polygon {
 
 impl Bbox for Polygon {
     fn bbox(&self) -> Option<Rect> {
-        match self {
-            polygon => Rect::from_sides_option(
-                polygon.left(),
-                polygon.bot(),
-                polygon.right(),
-                polygon.top(),
-            ),
-        }
+        let polygon = self;
+        Rect::from_sides_option(
+            polygon.left(),
+            polygon.bot(),
+            polygon.right(),
+            polygon.top(),
+        )
     }
 }
 
