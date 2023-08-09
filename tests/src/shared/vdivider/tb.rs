@@ -276,7 +276,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
             .data()
             .into_iter()
             .map(|inst| {
-                (inst.block().r2.value / (inst.block().r1.value + inst.block().r2.value))
+                (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
                     .to_f64()
                     .unwrap()
                     * 1.8f64
@@ -338,7 +338,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
             .data()
             .into_iter()
             .map(|inst| {
-                (inst.block().r2.value / (inst.block().r1.value + inst.block().r2.value))
+                (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
                     .to_f64()
                     .unwrap()
                     * 1.8f64

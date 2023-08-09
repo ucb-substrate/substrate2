@@ -1,6 +1,7 @@
 //! Substrate's schematic generator framework.
 
 pub mod conv;
+pub mod primitives;
 
 use cache::error::TryInnerError;
 use cache::mem::TypeCache;
@@ -887,7 +888,16 @@ pub enum PrimitiveDeviceKind {
         pos: PrimitiveNode,
         /// The negative node.
         neg: PrimitiveNode,
-        /// The value of the resistor, in Ohms.
+        /// The value of the resistor, in ohms.
+        value: Decimal,
+    },
+    /// An ideal 2-terminal capacitor.
+    Cap2 {
+        /// The positive node.
+        pos: PrimitiveNode,
+        /// The negative node.
+        neg: PrimitiveNode,
+        /// The value of the capacitor, in farads.
         value: Decimal,
     },
     /// A raw instance.

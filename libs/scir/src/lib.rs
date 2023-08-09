@@ -331,7 +331,16 @@ pub enum PrimitiveDeviceKind {
         pos: SliceOne,
         /// The negative terminal.
         neg: SliceOne,
-        /// The value of the resistance, in Ohms.
+        /// The value of the resistance, in ohms.
+        value: Expr,
+    },
+    /// An ideal 2-terminal capacitor.
+    Cap2 {
+        /// The positive terminal.
+        pos: SliceOne,
+        /// The negative terminal.
+        neg: SliceOne,
+        /// The value of the capacitor, in farads.
         value: Expr,
     },
     /// A 3-terminal resistor.
@@ -365,6 +374,7 @@ impl PrimitiveDevice {
     pub(crate) fn nodes(&self) -> impl IntoIterator<Item = SliceOne> {
         match &self.kind {
             PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
+            PrimitiveDeviceKind::Cap2 { pos, neg, .. } => vec![*pos, *neg],
             PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => {
                 vec![*pos, *neg, *sub]
             }
