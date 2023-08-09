@@ -3,43 +3,15 @@
 
 use crate::{node_current_path, node_voltage_path};
 use arcstr::ArcStr;
-use opacity::Opacity;
-use scir::{BinOp, Cell, CellId, Expr, Library, PrimitiveDeviceId};
-use scir::{PrimitiveDeviceKind, Slice};
-use std::collections::HashMap;
+use scir::netlist::{
+    Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
+    RenameGround, SpiceLikeNetlister,
+};
+use scir::Slice;
+use scir::{Library, SignalInfo};
 use std::io::prelude::*;
-use std::path::PathBuf;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
-
-/// A Spectre file include.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct Include {
-    path: PathBuf,
-    section: Option<ArcStr>,
-}
-
-impl<T: Into<PathBuf>> From<T> for Include {
-    fn from(value: T) -> Self {
-        Self {
-            path: value.into(),
-            section: None,
-        }
-    }
-}
-
-impl Include {
-    /// Creates a new [`Include`].
-    pub fn new(path: impl Into<PathBuf>) -> Self {
-        Self::from(path)
-    }
-
-    /// Returns a new [`Include`] with the given section.
-    pub fn section(mut self, section: impl Into<ArcStr>) -> Self {
-        self.section = Some(section.into());
-        self
-    }
-}
 
 /// A Spectre save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -64,7 +36,7 @@ impl Save {
         Self::from(path)
     }
 
-    pub(crate) fn to_string(&self, lib: &Library, conv: &SpectreLibConversion) -> ArcStr {
+    pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
         match self {
             Save::Raw(raw) => raw.clone(),
             Save::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
@@ -73,39 +45,127 @@ impl Save {
     }
 }
 
-/// Metadata associated with the conversion from a SCIR library to a Spectre netlist.
-#[derive(Debug, Clone, Default)]
-pub struct SpectreLibConversion {
-    pub(crate) cells: HashMap<CellId, SpectreCellConversion>,
-}
-
-impl SpectreLibConversion {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-}
-
-/// Metadata associated with the conversion from a SCIR cell to a netlisted Spectre subcircuit.
-#[derive(Debug, Clone, Default)]
-pub struct SpectreCellConversion {
-    pub(crate) primitives: HashMap<PrimitiveDeviceId, ArcStr>,
-}
-
-impl SpectreCellConversion {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-}
-
 /// A Spectre netlister.
 ///
 /// The netlister can write to any type that implements [`Write`].
 /// Since the netlister may issue many small write calls,
-pub struct Netlister<'a, W: Write> {
+pub struct Netlister<'a, W> {
     lib: &'a Library,
     includes: &'a [Include],
     saves: &'a [Save],
     out: &'a mut W,
+}
+
+struct NetlisterImpl;
+
+impl SpiceLikeNetlister for NetlisterImpl {
+    fn write_prelude<W: Write>(&mut self, out: &mut W, lib: &Library) -> std::io::Result<()> {
+        writeln!(out, "// {}\n", lib.name())?;
+        writeln!(out, "simulator lang=spectre\n")?;
+        writeln!(out, "// This is a generated file.")?;
+        writeln!(
+            out,
+            "// Be careful when editing manually: this file may be overwritten.\n"
+        )?;
+        Ok(())
+    }
+
+    fn write_include<W: Write>(
+        &mut self,
+        out: &mut W,
+        include: &scir::netlist::Include,
+    ) -> std::io::Result<()> {
+        if let Some(section) = &include.section {
+            write!(out, "include {:?} section={}", include.path, section)?;
+        } else {
+            write!(out, "include {:?}", include.path)?;
+        }
+        Ok(())
+    }
+
+    fn write_start_subckt<W: Write>(
+        &mut self,
+        out: &mut W,
+        name: &ArcStr,
+        ports: &[&SignalInfo],
+    ) -> std::io::Result<()> {
+        write!(out, "subckt {} (", name)?;
+        for sig in ports {
+            if let Some(width) = sig.width {
+                for i in 0..width {
+                    write!(out, " {}\\[{}\\]", sig.name, i)?;
+                }
+            } else {
+                write!(out, " {}", sig.name)?;
+            }
+        }
+        write!(out, " )")?;
+        Ok(())
+    }
+
+    fn write_end_subckt<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
+        write!(out, "ends {}", name)
+    }
+
+    fn write_instance<W: Write>(
+        &mut self,
+        out: &mut W,
+        name: &ArcStr,
+        connections: impl Iterator<Item = ArcStr>,
+        child: &ArcStr,
+    ) -> std::io::Result<ArcStr> {
+        write!(out, "{} (", name)?;
+
+        for connection in connections {
+            write!(out, " {}", connection)?;
+        }
+
+        write!(out, " ) {}", child)?;
+
+        Ok(name.clone())
+    }
+
+    fn write_primitive<W: Write>(
+        &mut self,
+        out: &mut W,
+        name: &ArcStr,
+        kind: NetlistPrimitiveDeviceKind,
+    ) -> std::io::Result<ArcStr> {
+        write!(out, "{} (", name)?;
+        match kind {
+            NetlistPrimitiveDeviceKind::Res2 { pos, neg, value } => {
+                for port in [pos, neg] {
+                    write!(out, " {}", port)?;
+                }
+                write!(out, " ) resistor r=")?;
+                self.write_expr(out, value)?;
+            }
+            NetlistPrimitiveDeviceKind::RawInstance { ports, cell } => {
+                for port in ports {
+                    write!(out, " {}", port)?;
+                }
+                write!(out, " ) {}", cell)?;
+            }
+            _ => todo!(),
+        }
+        Ok(name.clone())
+    }
+
+    fn write_slice<W: Write>(
+        &mut self,
+        out: &mut W,
+        slice: Slice,
+        info: &SignalInfo,
+    ) -> Result<()> {
+        if let Some(range) = slice.range() {
+            for i in range.indices() {
+                write!(out, "{}\\[{}\\]", &info.name, i)?;
+            }
+        } else {
+            write!(out, "{}", &info.name)?;
+        }
+        Ok(())
+    }
 }
 
 impl<'a, W: Write> Netlister<'a, W> {
@@ -124,189 +184,25 @@ impl<'a, W: Write> Netlister<'a, W> {
         }
     }
 
-    /// Exports this netlister's library to its output stream.
-    #[inline]
-    pub fn export(mut self) -> Result<SpectreLibConversion> {
-        let lib = self.export_library()?;
-        self.out.flush()?;
-        Ok(lib)
-    }
-
-    fn export_library(&mut self) -> Result<SpectreLibConversion> {
-        writeln!(self.out, "// {}\n", self.lib.name())?;
-        writeln!(self.out, "simulator lang=spectre\n")?;
-        writeln!(self.out, "// This is a generated file.")?;
-        writeln!(
-            self.out,
-            "// Be careful when editing manually: this file may be overwritten.\n"
-        )?;
-
-        for include in self.includes {
-            if let Some(section) = &include.section {
-                writeln!(self.out, "include {:?} section={}", include.path, section)?;
+    /// Exports the netlister's library to its output stream.
+    pub fn export(self) -> std::io::Result<NetlistLibConversion> {
+        let conv = NetlisterInstance::new(
+            NetlisterImpl,
+            if self.lib.is_testbench() {
+                NetlistKind::Testbench(RenameGround::Yes(ArcStr::from("0")))
             } else {
-                writeln!(self.out, "include {:?}", include.path)?;
-            }
-        }
+                NetlistKind::Cells
+            },
+            self.lib,
+            self.includes,
+            self.out,
+        )
+        .export()?;
+
         writeln!(self.out)?;
-
-        let mut conv = SpectreLibConversion::new();
-
-        for (id, cell) in self.lib.cells() {
-            conv.cells
-                .insert(id, self.export_cell(cell, self.lib.should_inline(id))?);
-        }
-
         for save in self.saves {
             writeln!(self.out, "save {}", save.to_string(self.lib, &conv))?;
         }
-        writeln!(self.out)?;
         Ok(conv)
-    }
-
-    fn export_cell(&mut self, cell: &Cell, inline: bool) -> Result<SpectreCellConversion> {
-        let indent = if inline { "" } else { "  " };
-
-        let ground = if inline {
-            let ground = cell
-                .ports()
-                .next()
-                .expect("testbench should have one port: ground");
-            let ground = cell.signal(ground.signal()).name.clone();
-            Some(ground)
-        } else {
-            None
-        };
-        let ground = ground.as_ref();
-
-        if !inline {
-            write!(self.out, "subckt {} (", cell.name())?;
-            for port in cell.ports() {
-                let sig = cell.signal(port.signal());
-                if let Some(width) = sig.width {
-                    for i in 0..width {
-                        write!(self.out, " {}\\[{}\\]", sig.name, i)?;
-                    }
-                } else {
-                    write!(self.out, " {}", sig.name)?;
-                }
-            }
-            writeln!(self.out, " )\n")?;
-        }
-
-        let mut conv = SpectreCellConversion::new();
-        match cell.contents() {
-            Opacity::Opaque(contents) => {
-                for (i, elem) in contents.elems.iter().enumerate() {
-                    match elem {
-                        scir::BlackboxElement::RawString(s) => {
-                            if i > 0 {
-                                write!(self.out, " {}", s)?
-                            } else {
-                                write!(self.out, "{}", s)?
-                            }
-                        }
-                        scir::BlackboxElement::Slice(s) => self.write_slice(cell, *s, ground)?,
-                    }
-                }
-                writeln!(self.out)?;
-            }
-            Opacity::Clear(contents) => {
-                for (_id, inst) in contents.instances() {
-                    write!(self.out, "{}{} (", indent, inst.name())?;
-                    let child = self.lib.cell(inst.cell());
-                    for port in child.ports() {
-                        let port_name = &child.signal(port.signal()).name;
-                        let conn = inst.connection(port_name);
-                        for part in conn.parts() {
-                            self.write_slice(cell, *part, ground)?;
-                        }
-                    }
-                    writeln!(self.out, " ) {}", child.name())?;
-                }
-
-                for (i, (id, device)) in contents.primitives().enumerate() {
-                    match &device.kind {
-                        PrimitiveDeviceKind::Res2 { pos, neg, value } => {
-                            conv.primitives.insert(id, arcstr::format!("res{}", i));
-                            write!(self.out, "{}res{} (", indent, i)?;
-                            self.write_slice(cell, pos.into(), ground)?;
-                            self.write_slice(cell, neg.into(), ground)?;
-                            write!(self.out, " ) resistor r=")?;
-                            self.write_expr(value)?;
-                        }
-                        PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
-                            conv.primitives.insert(id, arcstr::format!("rawinst{}", i));
-                            write!(self.out, "{}rawinst{} (", indent, i)?;
-                            for port in ports.iter() {
-                                self.write_slice(cell, *port, ground)?;
-                            }
-                            write!(self.out, " ) {}", child)?;
-                        }
-                        _ => todo!(),
-                    }
-                    for (key, value) in device.params.iter() {
-                        write!(self.out, " {key}=")?;
-                        self.write_expr(value)?;
-                    }
-                    writeln!(self.out)?;
-                }
-            }
-        };
-
-        if !inline {
-            writeln!(self.out, "\nends {}", cell.name())?;
-        }
-        writeln!(self.out)?;
-        Ok(conv)
-    }
-
-    fn write_slice(
-        &mut self,
-        cell: &Cell,
-        slice: Slice,
-        rename_ground: Option<&ArcStr>,
-    ) -> Result<()> {
-        let sig_name = &cell.signal(slice.signal()).name;
-        if let Some(range) = slice.range() {
-            for i in range.indices() {
-                // Ground renaming cannot apply to buses.
-                // TODO assert that the ground port has width 1.
-                write!(self.out, " {}\\[{}\\]", sig_name, i)?;
-            }
-        } else {
-            let rename = rename_ground.map(|g| sig_name == g).unwrap_or_default();
-            if rename {
-                write!(self.out, " 0")?;
-            } else {
-                write!(self.out, " {}", sig_name)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn write_expr(&mut self, expr: &Expr) -> Result<()> {
-        match expr {
-            Expr::NumericLiteral(dec) => write!(self.out, "{}", dec)?,
-            // boolean literals have no spectre value
-            Expr::BoolLiteral(_) => (),
-            Expr::StringLiteral(s) | Expr::Var(s) => write!(self.out, "{}", s)?,
-            Expr::BinOp { op, left, right } => {
-                write!(self.out, "(")?;
-                self.write_expr(left)?;
-                write!(self.out, ")")?;
-                match op {
-                    BinOp::Add => write!(self.out, "+")?,
-                    BinOp::Sub => write!(self.out, "-")?,
-                    BinOp::Mul => write!(self.out, "*")?,
-                    BinOp::Div => write!(self.out, "/")?,
-                };
-                write!(self.out, "(")?;
-                self.write_expr(right)?;
-                write!(self.out, ")")?;
-                todo!();
-            }
-        }
-        Ok(())
     }
 }
