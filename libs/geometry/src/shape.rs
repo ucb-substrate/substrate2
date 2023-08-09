@@ -14,6 +14,7 @@ use crate::{
 pub enum Shape {
     /// A rectangle.
     Rect(Rect),
+    /// A polygon.
     Polygon(Polygon),
 }
 
@@ -27,9 +28,12 @@ impl Shape {
         }
     }
 
+
+    /// If this shape is a rectangle, returns the contained polygon.
+    /// Otherwise, returns [`None`].
     pub fn polygon(&self) -> Option<Polygon> {
         match self {
-            Self::Polygon(r) => Some(r.clone()),
+            Self::Polygon(p) => Some(p.clone()),
             _ => None,
         }
     }
