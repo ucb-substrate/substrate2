@@ -7,6 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
 use gds::HasLayer;
+use geometry::prelude::Polygon;
 use geometry::transform::Transformation;
 use geometry::{
     prelude::{Corner, Orientation, Point},
@@ -19,6 +20,7 @@ use tracing::{span, Level};
 use uniquify::Names;
 
 use crate::io::{LayoutBundleBuilder, LayoutType};
+use crate::layout::error::GdsExportError;
 use crate::pdk::layers::LayerInfo;
 use crate::{
     io::{IoShape, NameBuf, PortGeometry},
@@ -161,11 +163,18 @@ impl PlaceLabels for geometry::shape::Shape {
     fn label_loc(&self) -> Point {
         match self {
             geometry::shape::Shape::Rect(ref r) => r.label_loc(),
+            geometry::shape::Shape::Polygon(ref p) => p.label_loc(),
         }
     }
 }
 
 impl PlaceLabels for Rect {
+    fn label_loc(&self) -> Point {
+        self.center()
+    }
+}
+
+impl PlaceLabels for Polygon {
     fn label_loc(&self) -> Point {
         self.center()
     }
@@ -248,6 +257,13 @@ impl ExportGds for Shape {
                     ..Default::default()
                 }
                 .into(),
+                geometry::shape::Shape::Polygon(p) => gds::GdsBoundary {
+                    layer: layer.layer,
+                    datatype: layer.xtype,
+                    xy: p.export(exporter)?,
+                    ..Default::default()
+                }
+                .into(),
             })
         } else {
             None
@@ -289,6 +305,25 @@ impl ExportGds for Rect {
         let ur = self.corner(Corner::UpperRight).export(exporter)?;
         let ul = self.corner(Corner::UpperLeft).export(exporter)?;
         Ok(vec![bl.clone(), br, ur, ul, bl])
+    }
+}
+
+impl ExportGds for Polygon {
+    type Output = Vec<gds::GdsPoint>;
+
+    fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
+        let span = span!(Level::INFO, "polygon", polygon = ?self);
+        let _guard = span.enter();
+
+        let mut points: Vec<gds::GdsPoint> =
+            self.points()
+                .iter()
+                .map(|p| p.export(exporter))
+                .collect::<Result<Vec<gds::GdsPoint>, GdsExportError>>()?;
+        let point0 = self.points()[0].export(exporter)?;
+
+        points.push(point0);
+        Ok(points)
     }
 }
 
@@ -562,21 +597,24 @@ impl<'a> GdsImporter<'a> {
                         if elem.is_none() {
                             continue;
                         }
+
                         let elem = elem.unwrap();
 
                         use crate::geometry::contains::Contains;
-                        if elem.shape().contains(&loc).is_full() {
-                            port.push(IoShape::new(
-                                family.primary,
-                                pin_layer,
-                                text_layer,
-                                elem.shape().clone(),
-                            ));
-                            has_geometry = true;
+                        if let geometry::shape::Shape::Rect(rect) = elem.shape() {
+                            if rect.contains(&loc).is_full() {
+                                port.push(IoShape::new(
+                                    family.primary,
+                                    pin_layer,
+                                    text_layer,
+                                    *rect,
+                                ));
+                                has_geometry = true;
 
-                            // This pin shape is stored in a port.
-                            // No need to also include it as a regular element.
-                            elems.remove(*ekey);
+                                // This pin shape is stored in a port.
+                                // No need to also include it as a regular element.
+                                elems.remove(*ekey);
+                            }
                         }
                     }
                 }
@@ -625,9 +663,7 @@ impl<'a> GdsImporter<'a> {
             geometry::shape::Shape::Rect(Rect::new(pts[0], pts[2]))
         } else {
             // Otherwise, it's a polygon
-            return Err(GdsImportError::Unsupported(arcstr::literal!(
-                "polygons not yet supported"
-            )));
+            geometry::shape::Shape::Polygon(Polygon::from_verts(pts))
         };
 
         // Grab (or create) its [Layer]
