@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, LitStr, Token};
 
-const EXAMPLES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "\\examples");
+const EXAMPLES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
 const RESERVED_COMMENTS: &[&str] = &[
     "begin-code-snippet",
     "end-code-snippet",
