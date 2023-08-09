@@ -1,12 +1,11 @@
 // begin-code-snippet imports
 use serde::{Deserialize, Serialize};
+use sky130pdk::Sky130CommercialPdk;
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
-use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use substrate::block::Block;
 use substrate::io::{InOut, Input, Output, Signal};
-use substrate::schematic::{HasSchematic, HasSchematicImpl};
-use substrate::Block;
-use substrate::{supported_pdks, Io};
+use substrate::schematic::{HasSchematic, HasSchematicData};
+use substrate::io::Io;
 // end-code-snippet imports
 
 pub mod tb;
@@ -35,16 +34,15 @@ pub struct Inverter {
 // end-code-snippet inverter-struct
 
 // begin-code-snippet inverter-schematic
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = ();
 }
 
-#[supported_pdks(Sky130CommercialPdk, Sky130OpenPdk)]
-impl HasSchematicImpl<Pdk> for Inverter {
+impl HasSchematic<Sky130CommercialPdk> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::CellBuilder<Pdk, Self>,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
+        cell: &mut substrate::schematic::CellBuilder<Sky130CommercialPdk, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));
         cell.connect(io.dout, nmos.io().d);
