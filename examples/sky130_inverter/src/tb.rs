@@ -13,8 +13,8 @@ use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::{Node, Signal, TestbenchIo};
-use substrate::pdk::corner::{InstallCorner, Pvt};
-use substrate::schematic::{Cell, HasSchematic, HasSchematicData};
+use substrate::pdk::corner::Pvt;
+use substrate::schematic::{Cell, HasSchematicData};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{Testbench, HasSimSchematic};
 
