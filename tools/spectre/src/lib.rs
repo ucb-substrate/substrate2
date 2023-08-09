@@ -17,11 +17,14 @@ use error::*;
 use indexmap::{IndexMap, IndexSet};
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
+use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
 use scir::Library;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::simulation::{SimulationContext, Simulator};
+use substrate::io::NodePath;
+use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
+use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -65,6 +68,7 @@ pub struct Spectre {}
 pub struct Options {
     includes: IndexSet<Include>,
     saves: IndexMap<netlist::Save, u64>,
+    ics: IndexMap<netlist::Save, Decimal>,
     next_save_key: u64,
 }
 
@@ -91,6 +95,10 @@ impl Options {
         }
     }
 
+    fn set_ic_inner(&mut self, key: impl Into<netlist::Save>, value: Decimal) {
+        self.ics.insert(key.into(), value);
+    }
+
     /// Marks a transient voltage to be saved in all transient analyses.
     pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageKey {
         TranVoltageKey(self.save_inner(save))
@@ -99,6 +107,37 @@ impl Options {
     /// Marks a transient current to be saved in all transient analyses.
     pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
         TranCurrentKey(vec![self.save_inner(save)])
+    }
+}
+
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
+impl<K> SetInitialCondition<K, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext) {
+        self.set_ic_inner(key, value);
+    }
+}
+
+impl SetInitialCondition<&scir::SignalPath, Decimal> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: &scir::SignalPath,
+        value: Decimal,
+        _ctx: &SimulationContext,
+    ) {
+        self.set_ic_inner(netlist::Save::ScirVoltage(key.clone()), value);
+    }
+}
+
+impl SetInitialCondition<&NodePath, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: &NodePath, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
+    }
+}
+
+#[impl_dispatch({scir::SignalPath; NodePath})]
+impl<T> SetInitialCondition<T, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(&key, value, ctx);
     }
 }
 
@@ -214,13 +253,18 @@ impl Spectre {
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
+        let ics = options
+            .ics
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
         // the order of includes may change even if the contents of the set did not change.
         includes.sort();
         saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &ics, &mut w);
         let conv = netlister.export()?;
 
         writeln!(w)?;

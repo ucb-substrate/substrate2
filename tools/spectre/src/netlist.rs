@@ -3,6 +3,7 @@
 
 use crate::{node_current_path, node_voltage_path};
 use arcstr::ArcStr;
+use rust_decimal::Decimal;
 use scir::netlist::{
     Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
     RenameGround, SpiceLikeNetlister,
@@ -53,6 +54,7 @@ pub struct Netlister<'a, W> {
     lib: &'a Library,
     includes: &'a [Include],
     saves: &'a [Save],
+    ics: &'a [(Save, Decimal)],
     out: &'a mut W,
 }
 
@@ -197,12 +199,14 @@ impl<'a, W: Write> Netlister<'a, W> {
         lib: &'a Library,
         includes: &'a [Include],
         saves: &'a [Save],
+        ics: &'a [(Save, Decimal)],
         out: &'a mut W,
     ) -> Self {
         Self {
             lib,
             includes,
             saves,
+            ics,
             out,
         }
     }
@@ -225,6 +229,9 @@ impl<'a, W: Write> Netlister<'a, W> {
         writeln!(self.out)?;
         for save in self.saves {
             writeln!(self.out, "save {}", save.to_string(self.lib, &conv))?;
+        }
+        for (key, value) in self.ics {
+            writeln!(self.out, "ic {}={}", key.to_string(self.lib, &conv), value)?;
         }
         Ok(conv)
     }
