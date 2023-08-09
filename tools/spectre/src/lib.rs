@@ -53,6 +53,38 @@ impl Display for ErrPreset {
     }
 }
 
+/// Contents of a Spectre save statement.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum SaveStmt {
+    /// A raw string to follow "save".
+    Raw(ArcStr),
+    /// A SCIR signal path representing a node whose voltage should be saved.
+    ScirVoltage(scir::SignalPath),
+    /// A SCIR signal path representing a terminal whose current should be saved.
+    ScirCurrent(scir::SignalPath),
+}
+
+impl<T: Into<ArcStr>> From<T> for SaveStmt {
+    fn from(value: T) -> Self {
+        Self::Raw(value.into())
+    }
+}
+
+impl SaveStmt {
+    /// Creates a new [`SaveStmt`].
+    pub fn new(path: impl Into<ArcStr>) -> Self {
+        Self::from(path)
+    }
+
+    pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+        match self {
+            SaveStmt::Raw(raw) => raw.clone(),
+            SaveStmt::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
+            SaveStmt::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+        }
+    }
+}
+
 /// Spectre simulator global configuration.
 #[derive(Debug, Clone, Default)]
 pub struct Spectre {}
@@ -63,7 +95,7 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: HashSet<Include>,
-    saves: HashMap<netlist::Save, u64>,
+    saves: HashMap<SaveStmt, u64>,
     next_save_key: u64,
 }
 
@@ -77,7 +109,7 @@ impl Options {
         self.includes.insert(Include::new(path).section(section));
     }
 
-    fn save_inner(&mut self, save: impl Into<netlist::Save>) -> u64 {
+    fn save_inner(&mut self, save: impl Into<SaveStmt>) -> u64 {
         let save = save.into();
 
         if let Some(key) = self.saves.get(&save) {
@@ -91,12 +123,12 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageKey {
+    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> TranVoltageKey {
         TranVoltageKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
+    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> TranCurrentKey {
         TranCurrentKey(vec![self.save_inner(save)])
     }
 }
@@ -219,8 +251,13 @@ impl Spectre {
         includes.sort();
         saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
         let conv = netlister.export()?;
+
+        writeln!(w)?;
+        for save in saves {
+            writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+        }
 
         writeln!(w)?;
         for (i, an) in input.iter().enumerate() {
