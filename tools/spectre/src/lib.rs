@@ -67,8 +67,8 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: IndexSet<Include>,
-    saves: IndexMap<netlist::Save, u64>,
-    ics: IndexMap<netlist::Save, Decimal>,
+    saves: IndexMap<netlist::SimSignal, u64>,
+    ics: IndexMap<netlist::SimSignal, Decimal>,
     next_save_key: u64,
 }
 
@@ -82,7 +82,7 @@ impl Options {
         self.includes.insert(Include::new(path).section(section));
     }
 
-    fn save_inner(&mut self, save: impl Into<netlist::Save>) -> u64 {
+    fn save_inner(&mut self, save: impl Into<netlist::SimSignal>) -> u64 {
         let save = save.into();
 
         if let Some(key) = self.saves.get(&save) {
@@ -95,22 +95,22 @@ impl Options {
         }
     }
 
-    fn set_ic_inner(&mut self, key: impl Into<netlist::Save>, value: Decimal) {
+    fn set_ic_inner(&mut self, key: impl Into<netlist::SimSignal>, value: Decimal) {
         self.ics.insert(key.into(), value);
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageKey {
+    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::SimSignal>) -> TranVoltageKey {
         TranVoltageKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
+    pub fn save_tran_current(&mut self, save: impl Into<netlist::SimSignal>) -> TranCurrentKey {
         TranCurrentKey(vec![self.save_inner(save)])
     }
 }
 
-#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::SimSignal})]
 impl<K> SetInitialCondition<K, Decimal> for Options {
     fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext) {
         self.set_ic_inner(key, value);
@@ -124,7 +124,7 @@ impl SetInitialCondition<&scir::SignalPath, Decimal> for Options {
         value: Decimal,
         _ctx: &SimulationContext,
     ) {
-        self.set_ic_inner(netlist::Save::ScirVoltage(key.clone()), value);
+        self.set_ic_inner(netlist::SimSignal::ScirVoltage(key.clone()), value);
     }
 }
 

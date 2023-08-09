@@ -14,9 +14,9 @@ use std::io::prelude::*;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
-/// A Spectre save statement.
+/// A Spectre simulator signal.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub enum Save {
+pub enum SimSignal {
     /// A raw string.
     Raw(ArcStr),
     /// A SCIR signal path representing a node whose voltage should be saved.
@@ -25,23 +25,23 @@ pub enum Save {
     ScirCurrent(scir::SignalPath),
 }
 
-impl<T: Into<ArcStr>> From<T> for Save {
+impl<T: Into<ArcStr>> From<T> for SimSignal {
     fn from(value: T) -> Self {
         Self::Raw(value.into())
     }
 }
 
-impl Save {
-    /// Creates a new [`Save`].
+impl SimSignal {
+    /// Creates a new [`SimSignal`].
     pub fn new(path: impl Into<ArcStr>) -> Self {
         Self::from(path)
     }
 
     pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
         match self {
-            Save::Raw(raw) => raw.clone(),
-            Save::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            Save::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+            SimSignal::Raw(raw) => raw.clone(),
+            SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
+            SimSignal::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
         }
     }
 }
@@ -53,8 +53,8 @@ impl Save {
 pub struct Netlister<'a, W> {
     lib: &'a Library,
     includes: &'a [Include],
-    saves: &'a [Save],
-    ics: &'a [(Save, Decimal)],
+    saves: &'a [SimSignal],
+    ics: &'a [(SimSignal, Decimal)],
     out: &'a mut W,
 }
 
@@ -198,8 +198,8 @@ impl<'a, W: Write> Netlister<'a, W> {
     pub fn new(
         lib: &'a Library,
         includes: &'a [Include],
-        saves: &'a [Save],
-        ics: &'a [(Save, Decimal)],
+        saves: &'a [SimSignal],
+        ics: &'a [(SimSignal, Decimal)],
         out: &'a mut W,
     ) -> Self {
         Self {

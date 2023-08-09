@@ -132,7 +132,7 @@ impl FromSaved<Spectre, Tran> for TranVoltage {
     }
 }
 
-#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::SimSignal})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         _ctx: &SimulationContext,
@@ -149,7 +149,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        opts.save_tran_voltage(netlist::Save::ScirVoltage(to_save.clone()))
+        opts.save_tran_voltage(netlist::SimSignal::ScirVoltage(to_save.clone()))
     }
 }
 
@@ -214,7 +214,7 @@ impl FromSaved<Spectre, Tran> for TranCurrent {
     }
 }
 
-#[impl_dispatch({&str; &String; ArcStr; String; netlist::Save})]
+#[impl_dispatch({&str; &String; ArcStr; String; netlist::SimSignal})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
         _ctx: &SimulationContext,
@@ -231,7 +231,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        opts.save_tran_current(netlist::Save::ScirCurrent(to_save.clone()))
+        opts.save_tran_current(netlist::SimSignal::ScirCurrent(to_save.clone()))
     }
 }
 
