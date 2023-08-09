@@ -66,6 +66,7 @@ macro_rules! define_mos {
 
         impl Block for $typ {
             type Io = MosIo;
+            const FLATTEN: bool = true;
             fn id() -> substrate::arcstr::ArcStr {
                 arcstr::literal!(stringify!($name))
             }
