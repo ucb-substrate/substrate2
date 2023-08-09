@@ -5,6 +5,7 @@ use crate::{
     PrimitiveDeviceKind, SignalInfo, Slice,
 };
 use arcstr::ArcStr;
+use indexmap::IndexMap;
 use opacity::Opacity;
 use std::collections::HashMap;
 use std::io::{Result, Write};
@@ -149,7 +150,7 @@ pub trait SpiceLikeNetlister {
     fn write_params<W: Write>(
         &mut self,
         out: &mut W,
-        params: &HashMap<ArcStr, Expr>,
+        params: &IndexMap<ArcStr, Expr>,
     ) -> Result<()> {
         for (key, value) in params.iter() {
             write!(out, " {key}=")?;

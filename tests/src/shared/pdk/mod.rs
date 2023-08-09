@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
@@ -73,7 +72,7 @@ impl HasSchematic<ExamplePdkA> for NmosA {
                 ],
                 cell: arcstr::literal!("example_pdk_nmos_a"),
             },
-            HashMap::from_iter([
+            IndexMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
@@ -122,7 +121,7 @@ impl HasSchematic<ExamplePdkA> for PmosA {
                 ],
                 cell: arcstr::literal!("example_pdk_pmos_a"),
             },
-            HashMap::from_iter([
+            IndexMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),

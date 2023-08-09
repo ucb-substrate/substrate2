@@ -989,6 +989,7 @@ dependencies = [
  "array_map",
  "geometry_macros",
  "impl-trait-for-tuples",
+ "indexmap 1.9.3",
  "serde",
 ]
 
@@ -1261,6 +1262,7 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
+ "serde",
 ]
 
 [[package]]
@@ -2077,6 +2079,7 @@ version = "0.5.0"
 dependencies = [
  "arcstr",
  "diagnostics",
+ "indexmap 1.9.3",
  "opacity",
  "rust_decimal",
  "rust_decimal_macros",
@@ -2198,6 +2201,7 @@ name = "sky130pdk"
 version = "0.6.1"
 dependencies = [
  "arcstr",
+ "indexmap 1.9.3",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -2260,6 +2264,7 @@ version = "0.6.1"
 dependencies = [
  "arcstr",
  "cache",
+ "indexmap 1.9.3",
  "lazy_static",
  "opacity",
  "psfparser",
@@ -2278,6 +2283,7 @@ name = "spice"
 version = "0.4.0"
 dependencies = [
  "arcstr",
+ "indexmap 1.9.3",
  "nom",
  "opacity",
  "scir",
@@ -2318,6 +2324,7 @@ dependencies = [
  "gds",
  "geometry",
  "impl-trait-for-tuples",
+ "indexmap 1.9.3",
  "once_cell",
  "opacity",
  "pathtree",
@@ -2425,6 +2432,7 @@ dependencies = [
  "arcstr",
  "cache",
  "geometry",
+ "indexmap 1.9.3",
  "lazy_static",
  "rust_decimal",
  "rust_decimal_macros",

@@ -7,6 +7,7 @@
 use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
+use indexmap::IndexMap;
 use thiserror::Error;
 
 use super::{Ast, Component, Elem, Subckt, Substr};
@@ -135,7 +136,7 @@ impl<'a> ScirConverter<'a> {
                             .params
                             .iter()
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
-                            .collect::<ConvResult<HashMap<_, _>>>()?;
+                            .collect::<ConvResult<IndexMap<_, _>>>()?;
                         let kind = scir::PrimitiveDeviceKind::RawInstance { ports, cell: child };
                         cell.add_primitive(scir::PrimitiveDevice::from_params(
                             &**inst.name,

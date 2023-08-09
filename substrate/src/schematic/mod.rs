@@ -7,6 +7,7 @@ use cache::error::TryInnerError;
 use cache::mem::TypeCache;
 use cache::CacheHandle;
 pub use codegen::{HasSchematic, SchematicData};
+use indexmap::IndexMap;
 use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -868,8 +869,8 @@ impl<T: HasSchematicData> Instance<T> {
 pub struct PrimitiveDevice {
     /// The kind (resistor, capacitor, etc.) of this primitive device.
     kind: PrimitiveDeviceKind,
-    /// An unordered set of parameters, represented as key-value pairs.
-    params: HashMap<ArcStr, scir::Expr>,
+    /// An set of parameters, represented as key-value pairs.
+    params: IndexMap<ArcStr, scir::Expr>,
 }
 
 /// A node connected to a terminal of a [`PrimitiveDevice`].
@@ -928,7 +929,7 @@ impl PrimitiveDevice {
     #[inline]
     pub fn from_params(
         kind: PrimitiveDeviceKind,
-        params: impl Into<HashMap<ArcStr, scir::Expr>>,
+        params: impl Into<IndexMap<ArcStr, scir::Expr>>,
     ) -> Self {
         Self {
             kind,
