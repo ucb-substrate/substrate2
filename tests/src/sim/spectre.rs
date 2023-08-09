@@ -34,8 +34,8 @@ use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
-use crate::shared::vdivider::Resistor;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
+use substrate::schematic::primitives::Resistor;
 
 #[test]
 fn vdivider_tran() {
