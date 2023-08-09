@@ -20,7 +20,6 @@ use tracing::{span, Level};
 use uniquify::Names;
 
 use crate::io::{LayoutBundleBuilder, LayoutType};
-use crate::io::{LayoutDataBuilder, LayoutType};
 use crate::layout::error::GdsExportError;
 use crate::pdk::layers::LayerInfo;
 use crate::{
