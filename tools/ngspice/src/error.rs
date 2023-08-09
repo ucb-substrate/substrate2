@@ -1,13 +1,13 @@
-//! Spectre errors.
+//! ngspice errors.
 
 use std::sync::Arc;
 
 use thiserror::Error as ThisError;
 
-/// The result type returned by Spectre library functions.
+/// The result type returned by ngspice library functions.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Possible Spectre errors.
+/// Possible ngspice errors.
 #[derive(ThisError, Debug)]
 pub enum Error {
     /// I/O error.
@@ -23,9 +23,9 @@ pub enum Error {
     #[error("error parsing output rawfile")]
     RawfileParse(#[from] spice_rawfile::error::Error),
     /// Error generating results.
-    #[error("error generating spectre results")]
+    #[error("error generating ngspice results")]
     Generator(#[from] Arc<Error>),
     /// Error caching results.
-    #[error("error generating spectre results")]
+    #[error("error generating ngspice results")]
     Caching(#[from] Arc<cache::error::Error>),
 }

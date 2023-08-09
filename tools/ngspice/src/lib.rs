@@ -472,6 +472,8 @@ pub(crate) fn node_current_path(
             }
         }
         _ => {
+            // FIXME: This doesn't work since the port index is required for saving,
+            // but the name is required for recovering.
             str_path.push_str(&signal);
             if let Some(index) = index {
                 str_path.push_str(&format!("[{}]", index));
