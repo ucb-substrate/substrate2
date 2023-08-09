@@ -48,7 +48,7 @@ pub fn get_snippets(item: TokenStream) -> TokenStream {
     let mut full = "```\n".to_string();
     let mut selected = String::new();
     let mut current_snippet = 0;
-    
+
     for line in contents.split('\n') {
         let trimmed = line.trim();
         let trimmed_len = line.trim_start().len();

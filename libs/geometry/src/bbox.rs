@@ -2,7 +2,7 @@
 
 use impl_trait_for_tuples::impl_for_tuples;
 
-use crate::{rect::Rect, union::BoundingUnion, polygon::Polygon};
+use crate::{polygon::Polygon, rect::Rect, union::BoundingUnion};
 
 /// A geometric shape that has a bounding box.
 ///
@@ -63,9 +63,12 @@ impl Bbox for Option<Rect> {
 impl Bbox for Option<Polygon> {
     fn bbox(&self) -> Option<Rect> {
         match self {
-            Some(polygon) => {
-                Rect::from_sides_option(polygon.left(), polygon.bot(), polygon.right(), polygon.top())
-            }
+            Some(polygon) => Rect::from_sides_option(
+                polygon.left(),
+                polygon.bot(),
+                polygon.right(),
+                polygon.top(),
+            ),
             None => None,
         }
     }
@@ -73,7 +76,7 @@ impl Bbox for Option<Polygon> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bbox::Bbox, rect::Rect, polygon::Polygon, point::Point};
+    use crate::{bbox::Bbox, point::Point, polygon::Polygon, rect::Rect};
 
     #[test]
     fn bbox_works_for_tuples() {
@@ -96,9 +99,9 @@ mod tests {
     #[test]
     fn bbox_works_for_polygon() {
         let points = vec![
-        Point { x: -10, y: 25 },
-        Point { x: 0, y: 16 },
-        Point { x: 40, y: -20 },
+            Point { x: -10, y: 25 },
+            Point { x: 0, y: 16 },
+            Point { x: 40, y: -20 },
         ];
         let polygon = Polygon::from_verts(points);
         assert_eq!(polygon.bbox(), Some(Rect::from_sides(-10, -20, 40, 25)));
@@ -117,5 +120,4 @@ mod tests {
         );
         assert_eq!(tuple.bbox(), Some(Rect::from_sides(-10, -20, 100, 200)));
     }
-
 }

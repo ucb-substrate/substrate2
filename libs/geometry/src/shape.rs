@@ -2,9 +2,9 @@
 
 use crate::{
     bbox::Bbox,
+    polygon::Polygon,
     prelude::Transform,
     rect::Rect,
-    polygon::Polygon,
     transform::{HasTransformedView, TransformMut, TranslateMut},
     union::BoundingUnion,
 };
@@ -28,7 +28,6 @@ impl Shape {
         }
     }
 
-
     /// If this shape is a rectangle, returns the contained polygon.
     /// Otherwise, returns [`None`].
     pub fn polygon(&self) -> Option<Polygon> {
@@ -43,7 +42,7 @@ impl TranslateMut for Shape {
     fn translate_mut(&mut self, p: crate::point::Point) {
         match self {
             Shape::Rect(rect) => rect.translate_mut(p),
-            Shape::Polygon(polygon) => polygon.translate_mut(p)
+            Shape::Polygon(polygon) => polygon.translate_mut(p),
         };
     }
 }

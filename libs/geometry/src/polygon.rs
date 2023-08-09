@@ -17,7 +17,7 @@ pub struct Polygon {
 impl Polygon {
     /// Creates a polygon with given vertices.
     pub fn from_verts(vec: Vec<Point>) -> Self {
-        Self{points: vec}
+        Self { points: vec }
     }
 
     /// Returns the bottom y-coordinate in the polygon.
@@ -35,7 +35,7 @@ impl Polygon {
     /// assert_eq!(polygon.bot(), 0);
     /// ```
     pub fn bot(&self) -> i64 {
-        self.points.iter().map(|point|point.y).min().unwrap() 
+        self.points.iter().map(|point| point.y).min().unwrap()
     }
 
     /// Returns the top y-coordinate in the polygon.
@@ -53,7 +53,7 @@ impl Polygon {
     /// assert_eq!(polygon.top(), 5);
     /// ```
     pub fn top(&self) -> i64 {
-        self.points.iter().map(|point|point.y).max().unwrap() 
+        self.points.iter().map(|point| point.y).max().unwrap()
     }
 
     /// Returns the leftmost x-coordinate in the polygon.
@@ -71,7 +71,7 @@ impl Polygon {
     /// assert_eq!(polygon.left(), -4);
     /// ```
     pub fn left(&self) -> i64 {
-        self.points.iter().map(|point|point.x).min().unwrap() 
+        self.points.iter().map(|point| point.x).min().unwrap()
     }
 
     /// Returns the rightmost x-coordinate in the polygon.
@@ -89,7 +89,7 @@ impl Polygon {
     /// assert_eq!(polygon.right(), 1);
     /// ```
     pub fn right(&self) -> i64 {
-        self.points.iter().map(|point|point.x).max().unwrap() 
+        self.points.iter().map(|point| point.x).max().unwrap()
     }
 
     /// Returns a the vector of points representing the polygon.
@@ -102,7 +102,7 @@ impl Polygon {
     /// Returns a point with x-coordinate equal to the average of all x-coordinates
     /// and y-coordinate equal to the average of all y-coordinates.
     /// Note that the current behavior is to round down.
-    /// 
+    ///
     /// # Example
     ///
     /// ```
@@ -116,8 +116,8 @@ impl Polygon {
     /// assert_eq!(polygon.center(), Point::new(-1, 2));
     /// ```
     pub fn center(&self) -> Point {
-        let x = self.points.iter().map(|point|point.x).sum::<i64>()/self.points.len() as i64;
-        let y = self.points.iter().map(|point|point.y).sum::<i64>()/self.points.len() as i64;
+        let x = self.points.iter().map(|point| point.x).sum::<i64>() / self.points.len() as i64;
+        let y = self.points.iter().map(|point| point.y).sum::<i64>() / self.points.len() as i64;
         Point::new(x, y)
     }
 }
@@ -125,9 +125,12 @@ impl Polygon {
 impl Bbox for Polygon {
     fn bbox(&self) -> Option<Rect> {
         match self {
-            polygon => {
-                Rect::from_sides_option(polygon.left(), polygon.bot(), polygon.right(), polygon.top())
-            }
+            polygon => Rect::from_sides_option(
+                polygon.left(),
+                polygon.bot(),
+                polygon.right(),
+                polygon.top(),
+            ),
         }
     }
 }
@@ -139,7 +142,7 @@ impl TranslateMut for Polygon {
 }
 
 impl TransformMut for Polygon {
-    fn transform_mut(&mut self,trans:Transformation) {
+    fn transform_mut(&mut self, trans: Transformation) {
         self.points.transform_mut(trans);
     }
 }

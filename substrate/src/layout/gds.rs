@@ -19,8 +19,9 @@ use slotmap::{new_key_type, SlotMap};
 use tracing::{span, Level};
 use uniquify::Names;
 
-
 use crate::io::{LayoutBundleBuilder, LayoutType};
+use crate::io::{LayoutDataBuilder, LayoutType};
+use crate::layout::error::GdsExportError;
 use crate::pdk::layers::LayerInfo;
 use crate::{
     io::{IoShape, NameBuf, PortGeometry},
@@ -264,7 +265,6 @@ impl ExportGds for Shape {
                     ..Default::default()
                 }
                 .into(),
-                
             })
         } else {
             None
@@ -316,14 +316,17 @@ impl ExportGds for Polygon {
         let span = span!(Level::INFO, "polygon", polygon = ?self);
         let _guard = span.enter();
 
-        let mut points: Vec<gds::GdsPoint> = self.points().iter().map(|p| p.export(exporter)).collect::<Result<Vec<gds::GdsPoint>, GdsExportError>>()?;
+        let mut points: Vec<gds::GdsPoint> =
+            self.points()
+                .iter()
+                .map(|p| p.export(exporter))
+                .collect::<Result<Vec<gds::GdsPoint>, GdsExportError>>()?;
         let point0 = self.points()[0].export(exporter)?;
-        
+
         points.push(point0);
         Ok(points)
     }
 }
-
 
 impl ExportGds for Orientation {
     type Output = gds::GdsStrans;
@@ -595,29 +598,28 @@ impl<'a> GdsImporter<'a> {
                         if elem.is_none() {
                             continue;
                         }
-                        
-                        
+
                         let elem = elem.unwrap();
 
                         use crate::geometry::contains::Contains;
-                        match elem.shape(){
-                            geometry::shape::Shape::Rect(rect) =>
+                        match elem.shape() {
+                            geometry::shape::Shape::Rect(rect) => {
                                 if rect.contains(&loc).is_full() {
                                     port.push(IoShape::new(
-                                    family.primary,
-                                    pin_layer,
-                                    text_layer,
-                                    rect.clone(),
-                                ));
-                                has_geometry = true;
-    
+                                        family.primary,
+                                        pin_layer,
+                                        text_layer,
+                                        rect.clone(),
+                                    ));
+                                    has_geometry = true;
+
                                     // This pin shape is stored in a port.
                                     // No need to also include it as a regular element.
                                     elems.remove(*ekey);
                                 }
-                            _ => () 
+                            }
+                            _ => (),
                         }
-                        
                     }
                 }
                 if !has_geometry {
