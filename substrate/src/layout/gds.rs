@@ -604,16 +604,16 @@ impl<'a> GdsImporter<'a> {
                         if let geometry::shape::Shape::Rect(rect) = elem.shape() {
                             if rect.contains(&loc).is_full() {
                                 port.push(IoShape::new(
-                            family.primary,
-                                pin_layer,
-                                text_layer,
-                                *rect,
-                            ));
-                            has_geometry = true;
-                            
-                            // This pin shape is stored in a port.
-                            // No need to also include it as a regular element.
-                            elems.remove(*ekey);
+                                    family.primary,
+                                    pin_layer,
+                                    text_layer,
+                                    *rect,
+                                ));
+                                has_geometry = true;
+
+                                // This pin shape is stored in a port.
+                                // No need to also include it as a regular element.
+                                elems.remove(*ekey);
                             }
                         }
                     }
