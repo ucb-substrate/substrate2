@@ -50,7 +50,8 @@ pub fn get_snippets(item: TokenStream) -> TokenStream {
     let mut current_snippet = 0;
 
     for line in contents.split('\n') {
-        let trimmed = line.trim_start();
+        let trimmed = line.trim();
+        let trimmed_len = line.trim_start().len();
         if current_snippet < args.snippets.len() {
             if trimmed == format!("// begin-code-snippet {}", &args.snippets[current_snippet]) {
                 in_snippet = true;
@@ -78,7 +79,7 @@ pub fn get_snippets(item: TokenStream) -> TokenStream {
             {
                 hidden = true;
                 selected.push('\n');
-                selected.push_str(&line[..line.len() - trimmed.len()]);
+                selected.push_str(&line[..line.len() - trimmed_len]);
                 selected.push_str("// ...\n\n");
                 continue;
             } else if trimmed == format!("// end-ellipses {}", &args.snippets[current_snippet]) {

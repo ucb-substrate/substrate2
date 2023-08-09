@@ -2,7 +2,7 @@
 
 use impl_trait_for_tuples::impl_for_tuples;
 
-use crate::{rect::Rect, union::BoundingUnion};
+use crate::{polygon::Polygon, rect::Rect, union::BoundingUnion};
 
 /// A geometric shape that has a bounding box.
 ///
@@ -60,9 +60,23 @@ impl Bbox for Option<Rect> {
     }
 }
 
+impl Bbox for Option<Polygon> {
+    fn bbox(&self) -> Option<Rect> {
+        match self {
+            Some(polygon) => Rect::from_sides_option(
+                polygon.left(),
+                polygon.bot(),
+                polygon.right(),
+                polygon.top(),
+            ),
+            None => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{bbox::Bbox, rect::Rect};
+    use crate::{bbox::Bbox, point::Point, polygon::Polygon, rect::Rect};
 
     #[test]
     fn bbox_works_for_tuples() {
@@ -80,5 +94,30 @@ mod tests {
             Rect::from_sides(-50, 20, 90, 250),
         ];
         assert_eq!(v.bbox(), Some(Rect::from_sides(-50, 0, 100, 250)));
+    }
+
+    #[test]
+    fn bbox_works_for_polygon() {
+        let points = vec![
+            Point { x: -10, y: 25 },
+            Point { x: 0, y: 16 },
+            Point { x: 40, y: -20 },
+        ];
+        let polygon = Polygon::from_verts(points);
+        assert_eq!(polygon.bbox(), Some(Rect::from_sides(-10, -20, 40, 25)));
+    }
+
+    #[test]
+    fn bbox_works_for_diff_types() {
+        let points = vec![
+            Point { x: -10, y: 25 },
+            Point { x: 0, y: 16 },
+            Point { x: 40, y: -20 },
+        ];
+        let tuple: (Rect, Polygon) = (
+            Rect::from_sides(0, 0, 100, 200),
+            Polygon::from_verts(points),
+        );
+        assert_eq!(tuple.bbox(), Some(Rect::from_sides(-10, -20, 100, 200)));
     }
 }
