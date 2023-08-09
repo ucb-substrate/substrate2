@@ -1,22 +1,22 @@
 // begin-code-snippet imports
 use std::path::Path;
 
+use substrate::simulation::data::FromSaved;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::{Pulse, Vsource};
-use spectre::{Options, Spectre, Tran};
+use spectre::tran::{Tran, TranTime, TranVoltage};
+use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::{Node, Signal, TestbenchIo};
 use substrate::pdk::corner::{InstallCorner, Pvt};
-use substrate::schematic::{Cell, HasSchematic};
-use substrate::simulation::data::HasNodeData;
+use substrate::schematic::{Cell, HasSchematic, HasSchematicData};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
-use substrate::Block;
+use substrate::simulation::{Testbench, HasSimSchematic};
 
 use super::Inverter;
 // end-code-snippet imports
@@ -38,15 +38,15 @@ impl InverterTb {
 // end-code-snippet struct-and-impl
 
 // begin-code-snippet schematic
-impl HasSchematic for InverterTb {
+impl HasSchematicData for InverterTb {
     type Data = Node;
 }
 
-impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
+impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
+        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv = cell.instantiate(self.dut);
 
@@ -85,18 +85,33 @@ pub struct InverterTbData {
     pub tf: f64,
 }
 
+#[derive(Debug, Clone, FromSaved)]
+pub struct Vout {
+    t: TranTime,
+    v: TranVoltage,
+}
+
+impl substrate::simulation::data::Save<Spectre, Tran, &Cell<InverterTb>> for Vout {
+    fn save(ctx: &substrate::simulation::SimulationContext, to_save: &Cell<InverterTb>, opts: &mut <Spectre as substrate::simulation::Simulator>::Options)
+            -> Self::Key {
+        Self::Key {
+            t: TranTime::save(ctx, to_save, opts),
+            v: TranVoltage::save(ctx, to_save.data(), opts),
+        }
+    }
+}
+
 impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(
         &self,
-        cell: &Cell<Self>,
-        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
+        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre, Self>,
     ) -> Self::Output {
-        let mut opts = Options::default();
-        sim.pdk.pdk.install_corner(self.pvt.corner, &mut opts);
-        let output = sim
+        let opts = Options::default();
+        let output: Vout = sim
             .simulate(
                 opts,
+                Some(&self.pvt.corner),
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),
@@ -105,9 +120,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        let vout = output.get_data(&cell.data()).unwrap();
-        let time = output.get_data("time").unwrap();
-        let vout = WaveformRef::new(time, vout);
+        let vout = WaveformRef::new(&output.t, &output.v);
         let mut trans = vout.transitions(
             0.2 * self.pvt.voltage.to_f64().unwrap(),
             0.8 * self.pvt.voltage.to_f64().unwrap(),
@@ -158,7 +171,7 @@ impl InverterDesign {
                 lch: self.lch,
             };
             let tb = InverterTb::new(pvt, dut);
-            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
+            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}"))).expect("failed to run simulation");
             println!("Simulating with pw = {pw} gave:\n{:#?}", data);
             let diff = (data.tr - data.tf).abs();
             if let Some((pdiff, _)) = opt {
