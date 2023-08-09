@@ -1,6 +1,7 @@
-//! Spectre transient analysis options and data structures.
+//! ngspice transient analysis options and data structures.
 
-use crate::{node_voltage_path, ErrPreset, SaveStmt, Spectre};
+use crate::blocks::Resistor;
+use crate::{node_voltage_path, Ngspice, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
@@ -10,7 +11,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::RawLib;
-use substrate::schematic::{Cell, HasSchematicData};
+use substrate::schematic::{Cell, HasSchematicData, NestedInstance, NestedInstanceView};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -18,15 +19,14 @@ use substrate::type_dispatch::impl_dispatch;
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Tran {
+    /// Suggested computing increment (sec).
+    pub step: Decimal,
     /// Stop time (sec).
     pub stop: Decimal,
     /// Start time (sec).
     ///
     /// Defaults to 0.
     pub start: Option<Decimal>,
-
-    /// The error preset.
-    pub errpreset: Option<ErrPreset>,
 }
 
 /// The result of a transient analysis.
@@ -42,27 +42,27 @@ pub struct TranOutput {
     pub(crate) saved_values: HashMap<u64, ArcStr>,
 }
 
-impl FromSaved<Spectre, Tran> for TranOutput {
+impl FromSaved<Ngspice, Tran> for TranOutput {
     type Key = ();
     fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::Key) -> Self {
         (*output).clone()
     }
 }
 
-impl<T: HasSchematicData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
+impl<T: HasSchematicData> Save<Ngspice, Tran, &Cell<T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext,
         _to_save: &Cell<T>,
-        _opts: &mut <Spectre as Simulator>::Options,
+        _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
     }
 }
 
-impl Save<Spectre, Tran, ()> for TranOutput {
+impl Save<Ngspice, Tran, ()> for TranOutput {
     fn save(
         _ctx: &SimulationContext,
         _to_save: (),
-        _opts: &mut <Spectre as Simulator>::Options,
+        _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
     }
 }
@@ -78,27 +78,27 @@ impl Deref for TranTime {
     }
 }
 
-impl FromSaved<Spectre, Tran> for TranTime {
+impl FromSaved<Ngspice, Tran> for TranTime {
     type Key = ();
     fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::Key) -> Self {
         TranTime(output.time.clone())
     }
 }
 
-impl<T: HasSchematicData> Save<Spectre, Tran, &Cell<T>> for TranTime {
+impl<T: HasSchematicData> Save<Ngspice, Tran, &Cell<T>> for TranTime {
     fn save(
         _ctx: &SimulationContext,
         _to_save: &Cell<T>,
-        _opts: &mut <Spectre as Simulator>::Options,
+        _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
     }
 }
 
-impl Save<Spectre, Tran, ()> for TranTime {
+impl Save<Ngspice, Tran, ()> for TranTime {
     fn save(
         _ctx: &SimulationContext,
         _to_save: (),
-        _opts: &mut <Spectre as Simulator>::Options,
+        _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
     }
 }
@@ -118,7 +118,7 @@ impl Deref for TranVoltage {
     }
 }
 
-impl FromSaved<Spectre, Tran> for TranVoltage {
+impl FromSaved<Ngspice, Tran> for TranVoltage {
     type Key = TranVoltageKey;
     fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
         TranVoltage(
@@ -132,42 +132,42 @@ impl FromSaved<Spectre, Tran> for TranVoltage {
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
-impl<T> Save<Spectre, Tran, T> for TranVoltage {
+impl<T> Save<Ngspice, Tran, T> for TranVoltage {
     fn save(
         _ctx: &SimulationContext,
         to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         opts.save_tran_voltage(to_save)
     }
 }
 
-impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
+impl Save<Ngspice, Tran, &scir::SignalPath> for TranVoltage {
     fn save(
         _ctx: &SimulationContext,
         to_save: &scir::SignalPath,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         opts.save_tran_voltage(SaveStmt::ScirVoltage(to_save.clone()))
     }
 }
 
-impl Save<Spectre, Tran, &NodePath> for TranVoltage {
+impl Save<Ngspice, Tran, &NodePath> for TranVoltage {
     fn save(
         ctx: &SimulationContext,
         to_save: &NodePath,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         Self::save(ctx, ctx.lib.convert_node_path(to_save).unwrap(), opts)
     }
 }
 
 #[impl_dispatch({scir::SignalPath; NodePath})]
-impl<T> Save<Spectre, Tran, T> for TranVoltage {
+impl<T> Save<Ngspice, Tran, T> for TranVoltage {
     fn save(
         ctx: &SimulationContext,
         to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         Self::save(ctx, &to_save, opts)
     }
@@ -188,13 +188,15 @@ impl Deref for TranCurrent {
     }
 }
 
-impl FromSaved<Spectre, Tran> for TranCurrent {
+impl FromSaved<Ngspice, Tran> for TranCurrent {
     type Key = TranCurrentKey;
     fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
+        println!("{:?}", output.raw_values);
         let currents: Vec<Arc<Vec<f64>>> = key
             .0
             .iter()
             .map(|key| {
+                println!("{:?}", output.saved_values.get(key).unwrap());
                 output
                     .raw_values
                     .get(output.saved_values.get(key).unwrap())
@@ -214,31 +216,63 @@ impl FromSaved<Spectre, Tran> for TranCurrent {
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
-impl<T> Save<Spectre, Tran, T> for TranCurrent {
+impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(
         _ctx: &SimulationContext,
         to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         opts.save_tran_current(to_save)
     }
 }
 
-impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
+#[impl_dispatch({
+    &NestedInstanceView<'a, Resistor>;
+    NestedInstanceView<'a, Resistor>
+})]
+impl<'a, T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(
-        _ctx: &SimulationContext,
-        to_save: &scir::SignalPath,
-        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
-        opts.save_tran_current(SaveStmt::ScirCurrent(to_save.clone()))
+        opts.save_tran_current(SaveStmt::ResistorCurrent(
+            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+        ))
     }
 }
 
-impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
+#[impl_dispatch({
+    &NestedInstance<Resistor>;
+    NestedInstance<Resistor>
+})]
+impl<T> Save<Ngspice, Tran, T> for TranCurrent {
+    fn save(
+        ctx: &SimulationContext,
+        to_save: T,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> Self::Key {
+        opts.save_tran_current(SaveStmt::ResistorCurrent(
+            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+        ))
+    }
+}
+
+impl Save<Ngspice, Tran, &scir::SignalPath> for TranCurrent {
+    fn save(
+        _ctx: &SimulationContext,
+        to_save: &scir::SignalPath,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> Self::Key {
+        opts.probe_tran_current(ProbeStmt::ScirCurrent(to_save.clone()))
+    }
+}
+
+impl Save<Ngspice, Tran, &TerminalPath> for TranCurrent {
     fn save(
         ctx: &SimulationContext,
         to_save: &TerminalPath,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         TranCurrentKey(
             ctx.lib
@@ -252,11 +286,11 @@ impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
 }
 
 #[impl_dispatch({scir::SignalPath; TerminalPath})]
-impl<T> Save<Spectre, Tran, T> for TranCurrent {
+impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(
         ctx: &SimulationContext,
         to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
+        opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         Self::save(ctx, &to_save, opts)
     }
@@ -288,7 +322,7 @@ impl Analysis for Tran {
     type Output = TranOutput;
 }
 
-impl Supports<Tran> for Spectre {
+impl Supports<Tran> for Ngspice {
     fn into_input(a: Tran, inputs: &mut Vec<Self::Input>) {
         inputs.push(a.into());
     }

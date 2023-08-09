@@ -1,8 +1,7 @@
-//! Spectre plugin for Substrate.
+//! ngspice plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::HashMap;
-use std::fmt::Display;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::prelude::PermissionsExt;
@@ -14,55 +13,29 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
-use indexmap::{IndexMap, IndexSet};
-use netlist::Netlister;
-use psfparser::binary::ast::Trace;
 use scir::netlist::{Include, NetlistLibConversion};
-use scir::Library;
+use scir::{Library, SignalPathTail};
 use serde::{Deserialize, Serialize};
+use spice_rawfile::parser::Data;
 use substrate::execute::Executor;
 use substrate::simulation::{SimulationContext, Simulator};
+use substrate::spice::Netlister;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
 pub mod error;
-pub mod netlist;
 pub(crate) mod templates;
 pub mod tran;
 
-/// Spectre error presets.
-#[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize,
-)]
-pub enum ErrPreset {
-    /// Liberal.
-    Liberal,
-    /// Moderate.
-    #[default]
-    Moderate,
-    /// Conservative.
-    Conservative,
-}
-
-impl Display for ErrPreset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::Liberal => write!(f, "liberal"),
-            Self::Moderate => write!(f, "moderate"),
-            Self::Conservative => write!(f, "conservative"),
-        }
-    }
-}
-
-/// Contents of a Spectre save statement.
+/// Contents of a ngspice save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum SaveStmt {
-    /// A raw string to follow "save".
+    /// A raw string to follow ".save".
     Raw(ArcStr),
     /// A SCIR signal path representing a node whose voltage should be saved.
     ScirVoltage(scir::SignalPath),
-    /// A SCIR signal path representing a terminal whose current should be saved.
-    ScirCurrent(scir::SignalPath),
+    /// A SCIR signal path representing a resistor whose current should be saved.
+    ResistorCurrent(scir::InstancePath),
 }
 
 impl<T: Into<ArcStr>> From<T> for SaveStmt {
@@ -77,26 +50,123 @@ impl SaveStmt {
         Self::from(path)
     }
 
-    pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_save_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
         match self {
             SaveStmt::Raw(raw) => raw.clone(),
-            SaveStmt::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            SaveStmt::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+            SaveStmt::ScirVoltage(scir) => arcstr::format!(
+                "v({})",
+                node_voltage_path(lib, conv, &lib.simplify_path(scir.clone()),)
+            ),
+            SaveStmt::ResistorCurrent(scir) => {
+                arcstr::format!("@R.{}.R0[i]", instance_path(lib, conv, scir))
+            }
+        }
+    }
+
+    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+        match self {
+            SaveStmt::Raw(raw) => raw.clone(),
+            SaveStmt::ScirVoltage(_) => self.to_save_string(lib, conv),
+            SaveStmt::ResistorCurrent(_) => {
+                arcstr::format!("i({})", self.to_save_string(lib, conv).to_lowercase())
+            }
         }
     }
 }
 
-/// Spectre simulator global configuration.
-#[derive(Debug, Clone, Default)]
-pub struct Spectre {}
+/// Contents of a ngspice probe statement.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum ProbeStmt {
+    /// A raw string to follow ".probe".
+    Raw(ArcStr),
+    /// A SCIR signal path representing a terminal whose current should be saved.
+    ScirCurrent(scir::SignalPath),
+}
 
-/// Spectre per-simulation options.
+impl<T: Into<ArcStr>> From<T> for ProbeStmt {
+    fn from(value: T) -> Self {
+        Self::Raw(value.into())
+    }
+}
+
+impl ProbeStmt {
+    /// Creates a new [`ProbeStmt`].
+    pub fn new(path: impl Into<ArcStr>) -> Self {
+        Self::from(path)
+    }
+
+    pub(crate) fn to_probe_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+        match self {
+            ProbeStmt::Raw(raw) => raw.clone(),
+            ProbeStmt::ScirCurrent(scir) => {
+                arcstr::format!("i({})", node_current_path(lib, conv, scir, true))
+            }
+        }
+    }
+
+    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+        match self {
+            ProbeStmt::Raw(raw) => raw.clone(),
+            ProbeStmt::ScirCurrent(scir) => {
+                arcstr::format!(
+                    "i({})",
+                    node_current_path(lib, conv, scir, false).to_lowercase()
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub(crate) enum SavedData {
+    Save(SaveStmt),
+    Probe(ProbeStmt),
+}
+
+impl SavedData {
+    pub(crate) fn netlist<W: Write>(
+        &self,
+        out: &mut W,
+        lib: &Library,
+        conv: &NetlistLibConversion,
+    ) -> std::io::Result<()> {
+        match self {
+            Self::Save(save) => write!(out, ".save {}", save.to_save_string(lib, conv)),
+            Self::Probe(probe) => write!(out, ".probe {}", probe.to_probe_string(lib, conv)),
+        }
+    }
+
+    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+        match self {
+            Self::Save(save) => save.to_data_string(lib, conv),
+            Self::Probe(probe) => probe.to_data_string(lib, conv),
+        }
+    }
+}
+
+impl From<SaveStmt> for SavedData {
+    fn from(value: SaveStmt) -> Self {
+        Self::Save(value)
+    }
+}
+
+impl From<ProbeStmt> for SavedData {
+    fn from(value: ProbeStmt) -> Self {
+        Self::Probe(value)
+    }
+}
+
+/// ngspice simulator global configuration.
+#[derive(Debug, Clone, Default)]
+pub struct Ngspice {}
+
+/// ngspice per-simulation options.
 ///
 /// A single simulation contains zero or more analyses.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    includes: IndexSet<Include>,
-    saves: IndexMap<SaveStmt, u64>,
+    includes: HashSet<Include>,
+    saves: HashMap<SavedData, u64>,
     next_save_key: u64,
 }
 
@@ -110,7 +180,7 @@ impl Options {
         self.includes.insert(Include::new(path).section(section));
     }
 
-    fn save_inner(&mut self, save: impl Into<SaveStmt>) -> u64 {
+    fn save_inner(&mut self, save: impl Into<SavedData>) -> u64 {
         let save = save.into();
 
         if let Some(key) = self.saves.get(&save) {
@@ -125,12 +195,17 @@ impl Options {
 
     /// Marks a transient voltage to be saved in all transient analyses.
     pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> TranVoltageKey {
-        TranVoltageKey(self.save_inner(save))
+        TranVoltageKey(self.save_inner(save.into()))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
     pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save)])
+        TranCurrentKey(vec![self.save_inner(save.into())])
+    }
+
+    /// Marks a transient current to be saved in all transient analyses.
+    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> TranCurrentKey {
+        TranCurrentKey(vec![self.save_inner(save.into())])
     }
 }
 
@@ -142,8 +217,9 @@ struct CachedSim {
 struct CachedSimState {
     input: Vec<Input>,
     netlist: PathBuf,
-    output_dir: PathBuf,
+    output_file: PathBuf,
     log: PathBuf,
+    err_log: PathBuf,
     run_script: PathBuf,
     work_dir: PathBuf,
     executor: Arc<dyn Executor>,
@@ -161,8 +237,9 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let CachedSimState {
                 input,
                 netlist,
-                output_dir,
+                output_file,
                 log,
+                err_log,
                 run_script,
                 work_dir,
                 executor,
@@ -170,10 +247,10 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             write_run_script(
                 RunScriptContext {
                     netlist: &netlist,
-                    raw_output_dir: &output_dir,
+                    raw_output_file: &output_file,
                     log_path: &log,
+                    err_path: &err_log,
                     bashrc: None,
-                    format: "psfbin",
                     flags: "",
                 },
                 &run_script,
@@ -188,51 +265,36 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             command.arg(&run_script).current_dir(&work_dir);
             executor
                 .execute(command, Default::default())
-                .map_err(|_| Error::SpectreError)?;
+                .map_err(|_| Error::NgspiceError)?;
+
+            let contents = std::fs::read(&output_file)?;
+            let rawfile = spice_rawfile::parse(&contents)?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
-            for (i, an) in input.iter().enumerate() {
+
+            for (an, results) in input.iter().zip(rawfile.analyses.into_iter()) {
                 match an {
-                    Input::Tran(_) => {
-                        let file = output_dir.join(format!("analysis{i}.tran.tran"));
-                        let file = std::fs::read(file)?;
-                        let ast = psfparser::binary::parse(&file).map_err(|e| {
-                            tracing::error!("error parsing PSF file: {}", e);
-                            Error::PsfParse
-                        })?;
-                        let mut tid_map = HashMap::new();
-                        let mut values = HashMap::new();
-                        for sweep in ast.sweeps.iter() {
-                            tid_map.insert(sweep.id, sweep.name);
+                    Input::Tran(_) => match results.data {
+                        Data::Real(real) => raw_outputs.push(HashMap::from_iter(
+                            results
+                                .variables
+                                .into_iter()
+                                .map(|var| (var.name.to_string(), real[var.idx].clone())),
+                        )),
+                        _ => {
+                            return Err(Error::NgspiceError);
                         }
-                        for trace in ast.traces.iter() {
-                            match trace {
-                                Trace::Group(g) => {
-                                    for s in g.signals.iter() {
-                                        tid_map.insert(s.id, s.name);
-                                    }
-                                }
-                                Trace::Signal(s) => {
-                                    tid_map.insert(s.id, s.name);
-                                }
-                            }
-                        }
-                        for (id, value) in ast.values.values.into_iter() {
-                            let name = tid_map[&id].to_string();
-                            let value = value.unwrap_real();
-                            values.insert(name, value);
-                        }
-                        raw_outputs.push(values);
-                    }
+                    },
                 }
             }
+
             Ok(raw_outputs)
         };
         inner().map_err(Arc::new)
     }
 }
 
-impl Spectre {
+impl Ngspice {
     fn simulate(
         &self,
         ctx: &SimulationContext,
@@ -240,7 +302,7 @@ impl Spectre {
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&ctx.work_dir)?;
-        let netlist = ctx.work_dir.join("netlist.scs");
+        let netlist = ctx.work_dir.join("netlist.spice");
         let mut f = std::fs::File::create(&netlist)?;
         let mut w = Vec::new();
 
@@ -257,19 +319,20 @@ impl Spectre {
 
         writeln!(w)?;
         for save in saves {
-            writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+            save.netlist(&mut w, &ctx.lib.scir, &conv)?;
+            writeln!(w)?;
         }
 
         writeln!(w)?;
-        for (i, an) in input.iter().enumerate() {
-            write!(w, "analysis{i} ")?;
+        for an in input.iter() {
             an.netlist(&mut w)?;
             writeln!(w)?;
         }
         f.write_all(&w)?;
 
-        let output_dir = ctx.work_dir.join("psf/");
-        let log = ctx.work_dir.join("spectre.log");
+        let output_file = ctx.work_dir.join("data.raw");
+        let log = ctx.work_dir.join("ngspice.log");
+        let err_log = ctx.work_dir.join("ngspice.err");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
         let executor = ctx.executor.clone();
@@ -277,15 +340,16 @@ impl Spectre {
         let raw_outputs = ctx
             .cache
             .get_with_state(
-                "spectre.simulation.outputs",
+                "ngspice.simulation.outputs",
                 CachedSim {
                     simulation_netlist: w,
                 },
                 CachedSimState {
                     input,
                     netlist,
-                    output_dir,
+                    output_file,
                     log,
+                    err_log,
                     run_script,
                     work_dir,
                     executor,
@@ -313,7 +377,7 @@ impl Spectre {
                     saved_values: options
                         .saves
                         .iter()
-                        .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, &conv)))
+                        .map(|(k, v)| (*v, k.to_data_string(&ctx.lib.scir, &conv)))
                         .collect(),
                 }
                 .into()
@@ -324,7 +388,7 @@ impl Spectre {
     }
 }
 
-impl Simulator for Spectre {
+impl Simulator for Ngspice {
     type Input = Input;
     type Options = Options;
     type Output = Output;
@@ -340,7 +404,6 @@ impl Simulator for Spectre {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn instance_path(
     lib: &Library,
     conv: &NetlistLibConversion,
@@ -362,7 +425,7 @@ pub(crate) fn node_voltage_path(
     instances.push(signal);
     let mut str_path = instances.join(".");
     if let Some(index) = index {
-        str_path.push_str(&format!("\\[{}\\]", index));
+        str_path.push_str(&format!("[{}]", index));
     }
     str_path
 }
@@ -371,22 +434,56 @@ pub(crate) fn node_current_path(
     lib: &Library,
     conv: &NetlistLibConversion,
     path: &scir::SignalPath,
+    save: bool,
 ) -> String {
     let scir::NamedSignalPath {
         instances,
         signal,
         index,
     } = lib.convert_signal_path(conv, path);
-    let mut str_path = instances.join(".");
+    assert_eq!(
+        instances.len(),
+        1,
+        "ngspice only supports saving currents of top level instance terminals"
+    );
+    let mut str_path = if save {
+        instances.join(".")
+    } else {
+        instances
+            .0
+            .into_iter()
+            .map(|inst| inst.substr(1..))
+            .collect::<Vec<_>>()
+            .join(".")
+    };
     str_path.push(':');
-    str_path.push_str(&signal);
-    if let Some(index) = index {
-        str_path.push_str(&format!("[{}]", index));
+    match path.tail {
+        SignalPathTail::Scir { cell, slice } => {
+            let cell = lib.cell(cell);
+            if save {
+                let signal = cell.signal(slice.signal());
+                let idx = signal.port.expect("signal is not a valid terminal");
+                str_path.push_str(&format!("{}", idx + slice.index().unwrap_or_default() + 1));
+            } else {
+                str_path.push_str(&signal);
+                if let Some(index) = index {
+                    str_path.push_str(&format!("[{}]", index));
+                }
+            }
+        }
+        _ => {
+            // FIXME: This doesn't work since the port index is required for saving,
+            // but the name is required for recovering.
+            str_path.push_str(&signal);
+            if let Some(index) = index {
+                str_path.push_str(&format!("[{}]", index));
+            }
+        }
     }
     str_path
 }
 
-/// Inputs directly supported by Spectre.
+/// Inputs directly supported by ngspice.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Input {
     /// Transient simulation input.
@@ -399,7 +496,7 @@ impl From<Tran> for Input {
     }
 }
 
-/// Outputs directly produced by Spectre.
+/// Outputs directly produced by ngspice.
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
@@ -431,12 +528,9 @@ impl Input {
 
 impl Tran {
     fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
-        write!(out, "tran stop={}", self.stop)?;
+        write!(out, ".tran {} {}", self.step, self.stop)?;
         if let Some(ref start) = self.start {
-            write!(out, " start={start}")?;
-        }
-        if let Some(errpreset) = self.errpreset {
-            write!(out, " errpreset={errpreset}")?;
+            write!(out, "{start}")?;
         }
         Ok(())
     }
