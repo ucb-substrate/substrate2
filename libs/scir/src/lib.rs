@@ -345,6 +345,11 @@ pub enum PrimitiveDeviceKind {
         value: Expr,
     },
     /// A 3-terminal resistor.
+    ///
+    /// Typically, at least one of `value` or `model`
+    /// should be specified. However, this is not a strict
+    /// requirement, as some PDKs may elect to convey value and/or
+    /// model information in the parameters.
     Res3 {
         /// The positive terminal.
         pos: SliceOne,
@@ -352,8 +357,8 @@ pub enum PrimitiveDeviceKind {
         neg: SliceOne,
         /// The substrate/body terminal.
         sub: SliceOne,
-        /// The value of the resistance, in Ohms.
-        value: Expr,
+        /// The resistor value, in ohms.
+        value: Option<Expr>,
         /// The name of the resistor model to use.
         ///
         /// The available resistor models are usually specified by a PDK.
