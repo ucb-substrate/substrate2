@@ -9,6 +9,6 @@ spectre = { version = "0.6.1", registry = "substrate", path = "../../tools/spect
 
 rust_decimal = "1.31"
 rust_decimal_macros = "1.31"
-indexmap = { version = "1", features = ["serde"] }
+indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 arcstr = { version = "1", features = ["serde"] }
