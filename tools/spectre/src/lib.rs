@@ -1,7 +1,7 @@
 //! Spectre plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
@@ -14,6 +14,7 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
+use indexmap::{IndexMap, IndexSet};
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use scir::netlist::{Include, NetlistLibConversion};
@@ -94,8 +95,8 @@ pub struct Spectre {}
 /// A single simulation contains zero or more analyses.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    includes: HashSet<Include>,
-    saves: HashMap<SaveStmt, u64>,
+    includes: IndexSet<Include>,
+    saves: IndexMap<SaveStmt, u64>,
     next_save_key: u64,
 }
 

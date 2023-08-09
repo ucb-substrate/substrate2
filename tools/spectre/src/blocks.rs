@@ -1,9 +1,9 @@
 //! Spectre-specific blocks for use in testbenches.
 
+use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use substrate::block::Block;
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
@@ -80,7 +80,7 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         use arcstr::literal;
-        let mut params = HashMap::new();
+        let mut params = IndexMap::new();
         match self {
             Self::Dc(dc) => {
                 params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));

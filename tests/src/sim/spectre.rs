@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
 use cache::multi::MultiCache;
+use indexmap::IndexMap;
 use rust_decimal_macros::dec;
 use scir::Expr::NumericLiteral;
 use serde::{Deserialize, Serialize};
@@ -34,8 +34,8 @@ use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
-use crate::shared::vdivider::Resistor;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
+use substrate::schematic::primitives::Resistor;
 
 #[test]
 fn vdivider_tran() {
@@ -312,7 +312,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
                     ports: vec![PrimitiveNode::new("1", io.p), PrimitiveNode::new("2", io.n)],
                     cell: arcstr::literal!("resistor"),
                 },
-                HashMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
+                IndexMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
             ));
             Ok(())
         }

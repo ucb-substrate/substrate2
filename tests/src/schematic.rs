@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use substrate::schematic::primitives::Resistor;
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block::Block,
@@ -14,7 +15,7 @@ use substrate::{
 use crate::shared::{
     buffer::Buffer,
     pdk::ExamplePdkA,
-    vdivider::{PowerIo, Resistor, Vdivider, VdividerIo},
+    vdivider::{PowerIo, Vdivider, VdividerIo},
 };
 use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
@@ -26,7 +27,7 @@ fn can_generate_vdivider_schematic() {
         r2: Resistor::new(100),
     };
     let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
-    assert_eq!(scir.cells().count(), 3);
+    assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
     println!("Issues = {:#?}", issues);
@@ -44,19 +45,7 @@ fn can_generate_vdivider_schematic() {
     assert!(port_names.contains("out"));
     assert_eq!(vdiv.ports().count(), 3);
     let contents = vdiv.contents().as_ref().unwrap_clear();
-    assert_eq!(contents.primitives().count(), 0);
-    assert_eq!(contents.instances().count(), 2);
-
-    let res300 = scir.cell_named("resistor_300");
-    let contents = res300.contents().as_ref().unwrap_clear();
-    assert_eq!(res300.ports().count(), 2);
-    assert_eq!(contents.primitives().count(), 1);
-    assert_eq!(contents.instances().count(), 0);
-
-    let res100 = scir.cell_named("resistor_100");
-    let contents = res100.contents().as_ref().unwrap_clear();
-    assert_eq!(res100.ports().count(), 2);
-    assert_eq!(contents.primitives().count(), 1);
+    assert_eq!(contents.primitives().count(), 2);
     assert_eq!(contents.instances().count(), 0);
 }
 

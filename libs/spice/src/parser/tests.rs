@@ -78,7 +78,7 @@ fn parse_dff() {
                     assert_eq!(
                         inst.params,
                         Params {
-                            values: HashMap::from_iter([
+                            values: IndexMap::from_iter([
                                 ("w".into(), "3".into()),
                                 ("l".into(), "0.15".into())
                             ]),

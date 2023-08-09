@@ -550,6 +550,24 @@ impl RawCell {
                                     nodes: vec![pos.clone(), neg.clone()],
                                 });
                         }
+                        super::PrimitiveDeviceKind::Cap2 { pos, neg, value } => {
+                            let id = ctx.whitebox_contents_mut().add_primitive(
+                                scir::PrimitiveDevice::from_params(
+                                    arcstr::format!("cap{i}"),
+                                    scir::PrimitiveDeviceKind::Cap2 {
+                                        pos: nodes[&pos.node],
+                                        neg: nodes[&neg.node],
+                                        value: scir::Expr::NumericLiteral(*value),
+                                    },
+                                    p.params.clone(),
+                                ),
+                            );
+                            conv.primitives
+                                .push(ScirPrimitiveDeviceConversion::Primitive {
+                                    id,
+                                    nodes: vec![pos.clone(), neg.clone()],
+                                });
+                        }
                         super::PrimitiveDeviceKind::RawInstance { ports, cell } => {
                             let id = ctx.whitebox_contents_mut().add_primitive(
                                 scir::PrimitiveDevice::from_params(

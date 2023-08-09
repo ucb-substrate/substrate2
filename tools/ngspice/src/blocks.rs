@@ -1,18 +1,14 @@
-//! Spectre-specific blocks for use in testbenches.
+//! ngspice-specific blocks for use in testbenches.
 
 use rust_decimal::Decimal;
-use scir::Expr;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use substrate::block::Block;
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{
-    BlackboxContents, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
-};
+use substrate::schematic::{BlackboxContents, HasSchematicData};
 use substrate::simulation::HasSimSchematic;
 
-use crate::{Ngspice, Spectre};
+use crate::Ngspice;
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -31,10 +27,13 @@ pub struct Pulse {
     pub width: Option<Decimal>,
     /// Waveform delay.
     pub delay: Option<Decimal>,
+    /// Number of pulses.
+    pub num_pulses: Option<Decimal>,
 }
 
 /// A voltage source.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
+#[substrate(io = "TwoTerminalIo")]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
@@ -54,23 +53,6 @@ impl Vsource {
     }
 }
 
-impl Block for Vsource {
-    type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
-
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("vsource")
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        // `vsource` is a reserved Spectre keyword,
-        // so we call this block `uservsource`.
-        arcstr::format!("uservsource")
-    }
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
 impl HasSchematicData for Vsource {
     type Data = ();
 }
@@ -81,76 +63,56 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Ngspice> for Vsource {
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::SimCellBuilder<PDK, Ngspice, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        use arcstr::literal;
-        let mut params = HashMap::new();
+        let mut contents = BlackboxContents::new();
+        contents.push("V0");
+        contents.push(io.p);
+        contents.push(io.n);
+
         match self {
             Self::Dc(dc) => {
-                params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));
-                params.insert(literal!("dc"), Expr::NumericLiteral(*dc));
+                contents.push("DC");
+                contents.push(format!("{}", dc));
             }
             Self::Pulse(pulse) => {
-                params.insert(literal!("type"), Expr::StringLiteral(literal!("pulse")));
-                params.insert(literal!("val0"), Expr::NumericLiteral(pulse.val0));
-                params.insert(literal!("val1"), Expr::NumericLiteral(pulse.val1));
-                if let Some(period) = pulse.period {
-                    params.insert(literal!("period"), Expr::NumericLiteral(period));
-                }
-                if let Some(rise) = pulse.rise {
-                    params.insert(literal!("rise"), Expr::NumericLiteral(rise));
-                }
-                if let Some(fall) = pulse.fall {
-                    params.insert(literal!("fall"), Expr::NumericLiteral(fall));
-                }
-                if let Some(width) = pulse.width {
-                    params.insert(literal!("width"), Expr::NumericLiteral(width));
-                }
-                if let Some(delay) = pulse.delay {
-                    params.insert(literal!("delay"), Expr::NumericLiteral(delay));
-                }
+                contents.push(format!(
+                    "PULSE({} {} {} {} {} {} {} {})",
+                    pulse.val0,
+                    pulse.val1,
+                    pulse.delay.unwrap_or_default(),
+                    pulse.rise.unwrap_or_default(),
+                    pulse.fall.unwrap_or_default(),
+                    pulse.width.unwrap_or_default(),
+                    pulse.period.unwrap_or_default(),
+                    pulse.num_pulses.unwrap_or_default(),
+                ));
             }
         };
+        cell.set_blackbox(contents);
         Ok(())
     }
 }
 
-/// A current probe.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct Iprobe;
+/// A resistor.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
+#[substrate(io = "TwoTerminalIo")]
+pub struct Resistor(pub Decimal);
 
-impl Block for Iprobe {
-    type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
-
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("iprobe")
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        // `iprobe` is a reserved Spectre keyword,
-        // so we call this block `useriprobe`.
-        arcstr::format!("useriprobe")
-    }
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
-impl HasSchematicData for Iprobe {
+impl HasSchematicData for Resistor {
     type Data = ();
 }
 
-impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
+impl<PDK: Pdk> HasSimSchematic<PDK, Ngspice> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Ngspice, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
-            cell: arcstr::literal!("iprobe"),
-            ports: vec![
-                PrimitiveNode::new("in", io.p),
-                PrimitiveNode::new("out", io.n),
-            ],
-        }));
+        let mut contents = BlackboxContents::new();
+        contents.push("R0");
+        contents.push(io.p);
+        contents.push(io.n);
+        contents.push(format!("{}", self.0));
+        cell.set_blackbox(contents);
         Ok(())
     }
 }
