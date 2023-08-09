@@ -14,6 +14,7 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
+use indexmap::IndexMap;
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
 use scir::netlist::{Include, NetlistLibConversion};
@@ -63,7 +64,7 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: HashSet<Include>,
-    saves: HashMap<netlist::Save, u64>,
+    saves: IndexMap<netlist::Save, u64>,
     next_save_key: u64,
 }
 

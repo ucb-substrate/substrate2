@@ -31,6 +31,7 @@ use std::ops::{Deref, DerefMut};
 use arcstr::ArcStr;
 use diagnostics::IssueSet;
 use drivers::DriverIssue;
+use indexmap::IndexMap;
 use opacity::Opacity;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -280,8 +281,8 @@ pub struct PrimitiveDevice {
     pub name: ArcStr,
     /// The kind (resistor, capacitor, etc.) of this primitive device.
     pub kind: PrimitiveDeviceKind,
-    /// An unordered set of parameters, represented as key-value pairs.
-    pub params: HashMap<ArcStr, Expr>,
+    /// An set of parameters, represented as key-value pairs.
+    pub params: IndexMap<ArcStr, Expr>,
 }
 
 impl PrimitiveDevice {
@@ -290,7 +291,7 @@ impl PrimitiveDevice {
     pub fn from_params(
         name: impl Into<ArcStr>,
         kind: PrimitiveDeviceKind,
-        params: impl Into<HashMap<ArcStr, Expr>>,
+        params: impl Into<IndexMap<ArcStr, Expr>>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -655,7 +656,7 @@ pub struct Instance {
     connections: HashMap<ArcStr, Concat>,
 
     /// A map mapping parameter names to expressions indicating their values.
-    params: HashMap<ArcStr, Expr>,
+    params: IndexMap<ArcStr, Expr>,
 }
 
 /// The (possibly blackboxed) contents of a SCIR cell.
@@ -692,7 +693,7 @@ pub struct Cell {
     pub(crate) name: ArcStr,
     pub(crate) ports: Ports,
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
-    pub(crate) params: HashMap<ArcStr, Param>,
+    pub(crate) params: IndexMap<ArcStr, Param>,
     pub(crate) contents: CellContents,
 }
 
@@ -1074,7 +1075,7 @@ impl Cell {
             name: name.into(),
             ports: Ports::new(),
             signals: HashMap::new(),
-            params: HashMap::new(),
+            params: IndexMap::new(),
             contents: CellContents::Clear(Default::default()),
         }
     }
@@ -1089,7 +1090,7 @@ impl Cell {
             name: name.into(),
             ports: Ports::new(),
             signals: HashMap::new(),
-            params: HashMap::new(),
+            params: IndexMap::new(),
             contents: CellContents::Opaque(Default::default()),
         }
     }
@@ -1273,7 +1274,7 @@ impl Instance {
             cell,
             name: name.into(),
             connections: HashMap::new(),
-            params: HashMap::new(),
+            params: IndexMap::new(),
         }
     }
 

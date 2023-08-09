@@ -13,6 +13,7 @@ tera = "1"
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
+indexmap = { version = "1", features = ["serde"] }
 
 cache = { version = "0.3.1", registry = "substrate", path = "../../libs/cache" }
 scir = { version = "0.5.0", registry = "substrate", path = "../../libs/scir" }

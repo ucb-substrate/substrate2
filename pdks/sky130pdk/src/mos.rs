@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use rust_decimal::Decimal;
@@ -101,7 +100,7 @@ macro_rules! define_mos {
                         ],
                         cell: arcstr::literal!(stringify!($opensubckt)),
                     },
-                    HashMap::from_iter([
+                    indexmap::IndexMap::from_iter([
                         (
                             arcstr::literal!("w"),
                             substrate::scir::Expr::NumericLiteral(w),
@@ -139,7 +138,7 @@ macro_rules! define_mos {
                         ],
                         cell: arcstr::literal!(stringify!($comsubckt)),
                     },
-                    HashMap::from_iter([
+                    indexmap::IndexMap::from_iter([
                         (
                             arcstr::literal!("w"),
                             substrate::scir::Expr::NumericLiteral(w),

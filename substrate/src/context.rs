@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use arcstr::ArcStr;
 use config::Config;
 use examples::get_snippets;
+use indexmap::IndexMap;
 use scir::TopKind;
 use tracing::{span, Level};
 
@@ -199,7 +200,7 @@ impl<PDK: Pdk> Context<PDK> {
                 let data = block.layout(&mut io_builder, &mut cell_builder);
 
                 let io = io_builder.build()?;
-                let ports = HashMap::from_iter(
+                let ports = IndexMap::from_iter(
                     block
                         .io()
                         .flat_names(None)
