@@ -3,9 +3,10 @@
 
 use arcstr::ArcStr;
 use scir::netlist::{
-    Include, NetlistKind, NetlistLibConversion, NetlisterInstance, RenameGround, SpiceLikeNetlister,
+    Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
+    RenameGround, SpiceLikeNetlister,
 };
-use scir::{Expr, Library, SignalInfo};
+use scir::{Library, SignalInfo};
 use std::io::prelude::*;
 
 pub mod parser;
@@ -61,52 +62,53 @@ impl SpiceLikeNetlister for NetlisterImpl {
         write!(out, ".ENDS {}", name)
     }
 
-    fn write_start_instance<W: Write>(
+    fn write_instance<W: Write>(
         &mut self,
         out: &mut W,
         name: &ArcStr,
-    ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("X{}", name);
-        write!(out, "{}", name)?;
-        Ok(name.clone())
-    }
-
-    fn write_end_instance<W: Write>(&mut self, out: &mut W, child: &ArcStr) -> std::io::Result<()> {
-        write!(out, " {}", child)
-    }
-
-    fn write_start_res2<W: Write>(
-        &mut self,
-        out: &mut W,
-        name: &ArcStr,
-    ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("R{}", name);
-        write!(out, "{}", name)?;
-        Ok(name.clone())
-    }
-
-    fn write_end_res2<W: Write>(&mut self, out: &mut W, value: &Expr) -> std::io::Result<()> {
-        write!(out, " ")?;
-        self.write_expr(out, value)?;
-        Ok(())
-    }
-
-    fn write_start_raw_instance<W: Write>(
-        &mut self,
-        out: &mut W,
-        name: &ArcStr,
-    ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("X{}", name);
-        write!(out, "{}", name)?;
-        Ok(name.clone())
-    }
-
-    fn write_end_raw_instance<W: Write>(
-        &mut self,
-        out: &mut W,
+        connections: impl Iterator<Item = ArcStr>,
         child: &ArcStr,
-    ) -> std::io::Result<()> {
-        write!(out, " {}", child)
+    ) -> std::io::Result<ArcStr> {
+        let name = arcstr::format!("X{}", name);
+        write!(out, "{}", name)?;
+
+        for connection in connections {
+            write!(out, " {}", connection)?;
+        }
+
+        write!(out, " {}", child)?;
+
+        Ok(name)
+    }
+
+    fn write_primitive<W: Write>(
+        &mut self,
+        out: &mut W,
+        name: &ArcStr,
+        kind: NetlistPrimitiveDeviceKind,
+    ) -> std::io::Result<ArcStr> {
+        Ok(match kind {
+            NetlistPrimitiveDeviceKind::Res2 { pos, neg, value } => {
+                let name = arcstr::format!("R{}", name);
+                write!(out, "{}", name)?;
+                for port in [pos, neg] {
+                    write!(out, " {}", port)?;
+                }
+                write!(out, " ")?;
+                self.write_expr(out, value)?;
+                name
+            }
+            NetlistPrimitiveDeviceKind::RawInstance { ports, cell } => {
+                let name = arcstr::format!("X{}", name);
+                write!(out, "{}", name)?;
+                for port in ports {
+                    write!(out, " {}", port)?;
+                }
+                write!(out, " {}", cell)?;
+                name
+            }
+            _ => todo!(),
+        })
     }
 }
 

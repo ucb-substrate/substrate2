@@ -71,6 +71,44 @@ impl NetlistCellConversion {
     }
 }
 
+/// An enumeration of primitive devices to netlist.
+#[derive(Debug, Clone)]
+pub enum NetlistPrimitiveDeviceKind<'a> {
+    /// An ideal 2-terminal resistor.
+    Res2 {
+        /// The positive terminal.
+        pos: ArcStr,
+        /// The negative terminal.
+        neg: ArcStr,
+        /// The value of the resistance, in Ohms.
+        value: &'a Expr,
+    },
+    /// A 3-terminal resistor.
+    Res3 {
+        /// The positive terminal.
+        pos: ArcStr,
+        /// The negative terminal.
+        neg: ArcStr,
+        /// The substrate/body terminal.
+        sub: ArcStr,
+        /// The value of the resistance, in Ohms.
+        value: &'a Expr,
+        /// The name of the resistor model to use.
+        ///
+        /// The available resistor models are usually specified by a PDK.
+        model: Option<ArcStr>,
+    },
+    /// A raw instance.
+    ///
+    /// This can be an instance of a subcircuit defined outside a SCIR library.
+    RawInstance {
+        /// The ports of the instance, as an ordered list.
+        ports: Vec<ArcStr>,
+        /// The name of the cell being instantiated.
+        cell: ArcStr,
+    },
+}
+
 /// A SPICE-like netlister.
 ///
 /// Appropriate newlines will be added after each function call, so newlines added by
@@ -92,18 +130,21 @@ pub trait SpiceLikeNetlister {
     ) -> Result<()>;
     /// Writes an end subcircuit statement.
     fn write_end_subckt<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> Result<()>;
-    /// Writes the portion of an instance declaration before the connections.
-    fn write_start_instance<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> Result<ArcStr>;
-    /// Writes the portion of an instance declaration after the connections.
-    fn write_end_instance<W: Write>(&mut self, out: &mut W, child: &ArcStr) -> Result<()>;
-    /// Writes the portion of a two-port resistor primitive declaration before the connections.
-    fn write_start_res2<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> Result<ArcStr>;
-    /// Writes the portion of a two-port resistor primitive declaration after the connections.
-    fn write_end_res2<W: Write>(&mut self, out: &mut W, value: &Expr) -> Result<()>;
-    /// Writes the portion of a raw instance declaration before the connections.
-    fn write_start_raw_instance<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> Result<ArcStr>;
-    /// Writes the portion of a raw instance declaration after the connections.
-    fn write_end_raw_instance<W: Write>(&mut self, out: &mut W, child: &ArcStr) -> Result<()>;
+    /// Writes a SCIR instance.
+    fn write_instance<W: Write>(
+        &mut self,
+        out: &mut W,
+        name: &ArcStr,
+        connections: impl Iterator<Item = ArcStr>,
+        child: &ArcStr,
+    ) -> Result<ArcStr>;
+    /// Writes a primitive instantiation.
+    fn write_primitive<W: Write>(
+        &mut self,
+        out: &mut W,
+        name: &ArcStr,
+        kind: NetlistPrimitiveDeviceKind,
+    ) -> Result<ArcStr>;
     /// Writes the parameters of a primitive device immediately following the written ending.
     fn write_params<W: Write>(
         &mut self,
@@ -284,41 +325,53 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                 for (id, inst) in contents.instances() {
                     let child = self.lib.cell(inst.cell());
                     write!(self.out, "{}", indent)?;
-                    let name = self.netlister.write_start_instance(self.out, inst.name())?;
+                    let ports = child
+                        .ports()
+                        .flat_map(|port| {
+                            let port_name = &child.signal(port.signal()).name;
+                            let conn = inst.connection(port_name);
+                            conn.parts()
+                                .map(|part| self.make_slice(cell, *part, &ground))
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Result<Vec<_>>>()?
+                        .into_iter();
+                    let name = self.netlister.write_instance(
+                        self.out,
+                        inst.name(),
+                        ports,
+                        child.name(),
+                    )?;
                     conv.instances.insert(id, name);
-                    for port in child.ports() {
-                        let port_name = &child.signal(port.signal()).name;
-                        let conn = inst.connection(port_name);
-                        for part in conn.parts() {
-                            self.write_slice(cell, *part, &ground)?;
-                        }
-                    }
-                    self.netlister.write_end_instance(self.out, child.name())?;
                     writeln!(self.out)?;
                 }
 
                 for (id, device) in contents.primitives() {
                     write!(self.out, "{}", indent)?;
-                    match &device.kind {
+                    let netlist_kind = match &device.kind {
                         PrimitiveDeviceKind::Res2 { pos, neg, value } => {
-                            let name = self.netlister.write_start_res2(self.out, &device.name)?;
-                            conv.primitives.insert(id, name);
-                            self.write_slice(cell, pos.into(), &ground)?;
-                            self.write_slice(cell, neg.into(), &ground)?;
-                            self.netlister.write_end_res2(self.out, value)?;
+                            NetlistPrimitiveDeviceKind::Res2 {
+                                pos: self.make_slice(cell, pos.into(), &ground)?,
+                                neg: self.make_slice(cell, neg.into(), &ground)?,
+                                value,
+                            }
                         }
                         PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
-                            let name = self
-                                .netlister
-                                .write_start_raw_instance(self.out, &device.name)?;
-                            conv.primitives.insert(id, name);
-                            for port in ports.iter() {
-                                self.write_slice(cell, port.into(), &ground)?;
+                            NetlistPrimitiveDeviceKind::RawInstance {
+                                ports: ports
+                                    .iter()
+                                    .copied()
+                                    .map(|slice| self.make_slice(cell, slice.into(), &ground))
+                                    .collect::<Result<_>>()?,
+                                cell: child.clone(),
                             }
-                            self.netlister.write_end_raw_instance(self.out, child)?;
                         }
                         _ => todo!(),
-                    }
+                    };
+                    let name =
+                        self.netlister
+                            .write_primitive(self.out, &device.name, netlist_kind)?;
+                    conv.primitives.insert(id, name);
                     self.netlister.write_params(self.out, &device.params)?;
                     writeln!(self.out)?;
                 }
@@ -339,17 +392,28 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
         slice: Slice,
         rename_ground: &Option<(ArcStr, ArcStr)>,
     ) -> Result<()> {
-        write!(self.out, " ")?;
+        let slice = self.make_slice(cell, slice, rename_ground)?;
+        write!(self.out, " {}", slice)
+    }
+
+    fn make_slice(
+        &mut self,
+        cell: &Cell,
+        slice: Slice,
+        rename_ground: &Option<(ArcStr, ArcStr)>,
+    ) -> Result<ArcStr> {
         let sig_info = cell.signal(slice.signal());
         if let Some((signal, replace_with)) = rename_ground {
             if signal == &sig_info.name && slice.range().is_none() {
                 // Ground renaming cannot apply to buses.
                 // TODO assert that the ground port has width 1.
-                write!(self.out, "{}", replace_with)?;
-                return Ok(());
+                return Ok(arcstr::format!("{}", replace_with));
             }
         }
-        self.netlister.write_slice(self.out, slice, sig_info)?;
-        Ok(())
+        let mut buf = Vec::new();
+        self.netlister.write_slice(&mut buf, slice, sig_info)?;
+        Ok(ArcStr::from(std::str::from_utf8(&buf).expect(
+            "slice should only have UTF8-compatible characters",
+        )))
     }
 }
