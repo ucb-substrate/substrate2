@@ -98,12 +98,12 @@ impl RawLib {
     }
     /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SignalPath`].
     pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SignalPath> {
-        let (instances, cell, _) = self.convert_instance_path_inner(path.top, &path.instances)?;
+        let (instances, cell, id) = self.convert_instance_path_inner(path.top, &path.instances)?;
 
         let slice = *cell.signals.get(&path.node)?;
 
         Some(scir::SignalPath {
-            tail: SignalPathTail::Slice(slice),
+            tail: SignalPathTail::Scir { cell: id, slice },
             instances,
             top: self.conv.top,
         })
@@ -131,10 +131,12 @@ impl RawLib {
 
         let mut instances = Vec::new();
         let mut last_clear = false;
+        let mut scir_id = self.conv.top;
         for inst in &path.instances {
             let conv = cell.instances.get(inst).unwrap();
             match conv.instance.as_ref() {
                 Opacity::Opaque(id) => {
+                    scir_id = self.scir.cell(scir_id).instance(*id).cell();
                     instances.push(*id);
                     cell = self.conv.cells.get(&conv.child)?;
                     last_clear = false;
@@ -158,7 +160,10 @@ impl RawLib {
             signals
         } else {
             vec![scir::SignalPath {
-                tail: SignalPathTail::Slice(slice),
+                tail: SignalPathTail::Scir {
+                    cell: scir_id,
+                    slice,
+                },
                 instances,
                 top: self.conv.top,
             }]
@@ -202,7 +207,10 @@ impl RawLib {
                             .slice_one()
                             .unwrap_or_else(|| port_slice.index(concat_index));
                         signals.push(scir::SignalPath {
-                            tail: SignalPathTail::Slice(tail),
+                            tail: SignalPathTail::Scir {
+                                cell: inst.cell(),
+                                slice: tail,
+                            },
                             instances: instances.clone(),
                             top: self.conv.top,
                         });

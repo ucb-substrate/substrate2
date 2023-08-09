@@ -14,44 +14,19 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
-use netlist::Netlister;
-use psfparser::binary::ast::Trace;
 use scir::netlist::{Include, NetlistLibConversion};
-use scir::Library;
+use scir::{Library, SignalPathTail};
 use serde::{Deserialize, Serialize};
+use spice_rawfile::parser::Data;
 use substrate::execute::Executor;
 use substrate::simulation::{SimulationContext, Simulator};
+use substrate::spice::Netlister;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
 pub mod error;
-pub mod netlist;
 pub(crate) mod templates;
 pub mod tran;
-
-/// Spectre error presets.
-#[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize,
-)]
-pub enum ErrPreset {
-    /// Liberal.
-    Liberal,
-    /// Moderate.
-    #[default]
-    Moderate,
-    /// Conservative.
-    Conservative,
-}
-
-impl Display for ErrPreset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::Liberal => write!(f, "liberal"),
-            Self::Moderate => write!(f, "moderate"),
-            Self::Conservative => write!(f, "conservative"),
-        }
-    }
-}
 
 /// Contents of a Spectre save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -80,14 +55,18 @@ impl SaveStmt {
         match self {
             SaveStmt::Raw(raw) => raw.clone(),
             SaveStmt::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            SaveStmt::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+            SaveStmt::ScirVoltage(scir) => ArcStr::from(node_voltage_path(
+                lib,
+                conv,
+                &lib.simplify_path(scir.clone()),
+            )),
         }
     }
 }
 
-/// Spectre simulator global configuration.
+/// ngspice simulator global configuration.
 #[derive(Debug, Clone, Default)]
-pub struct Spectre {}
+pub struct Ngspice {}
 
 /// Spectre per-simulation options.
 ///
@@ -141,8 +120,9 @@ struct CachedSim {
 struct CachedSimState {
     input: Vec<Input>,
     netlist: PathBuf,
-    output_dir: PathBuf,
+    output_file: PathBuf,
     log: PathBuf,
+    err_log: PathBuf,
     run_script: PathBuf,
     work_dir: PathBuf,
     executor: Arc<dyn Executor>,
@@ -160,8 +140,9 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let CachedSimState {
                 input,
                 netlist,
-                output_dir,
+                output_file,
                 log,
+                err_log,
                 run_script,
                 work_dir,
                 executor,
@@ -169,10 +150,10 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             write_run_script(
                 RunScriptContext {
                     netlist: &netlist,
-                    raw_output_dir: &output_dir,
+                    raw_output_file: &output_file,
                     log_path: &log,
+                    err_path: &err_log,
                     bashrc: None,
-                    format: "psfbin",
                     flags: "",
                 },
                 &run_script,
@@ -187,51 +168,35 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             command.arg(&run_script).current_dir(&work_dir);
             executor
                 .execute(command, Default::default())
-                .map_err(|_| Error::SpectreError)?;
+                .map_err(|_| Error::NgspiceError)?;
+
+            let rawfile = spice_rawfile::parse(&std::fs::read(&output_file)?)?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
-            for (i, an) in input.iter().enumerate() {
+
+            for (i, (an, results)) in input.iter().zip(rawfile.analyses.into_iter()).enumerate() {
                 match an {
-                    Input::Tran(_) => {
-                        let file = output_dir.join(format!("analysis{i}.tran.tran"));
-                        let file = std::fs::read(file)?;
-                        let ast = psfparser::binary::parse(&file).map_err(|e| {
-                            tracing::error!("error parsing PSF file: {}", e);
-                            Error::PsfParse
-                        })?;
-                        let mut tid_map = HashMap::new();
-                        let mut values = HashMap::new();
-                        for sweep in ast.sweeps.iter() {
-                            tid_map.insert(sweep.id, sweep.name);
+                    Input::Tran(_) => match results.data {
+                        Data::Real(real) => raw_outputs.push(HashMap::from_iter(
+                            results
+                                .variables
+                                .into_iter()
+                                .map(|var| (var.name.to_string(), real[var.idx].clone())),
+                        )),
+                        _ => {
+                            return Err(Error::NgspiceError);
                         }
-                        for trace in ast.traces.iter() {
-                            match trace {
-                                Trace::Group(g) => {
-                                    for s in g.signals.iter() {
-                                        tid_map.insert(s.id, s.name);
-                                    }
-                                }
-                                Trace::Signal(s) => {
-                                    tid_map.insert(s.id, s.name);
-                                }
-                            }
-                        }
-                        for (id, value) in ast.values.values.into_iter() {
-                            let name = tid_map[&id].to_string();
-                            let value = value.unwrap_real();
-                            values.insert(name, value);
-                        }
-                        raw_outputs.push(values);
-                    }
+                    },
                 }
             }
+
             Ok(raw_outputs)
         };
         inner().map_err(Arc::new)
     }
 }
 
-impl Spectre {
+impl Ngspice {
     fn simulate(
         &self,
         ctx: &SimulationContext,
@@ -239,7 +204,7 @@ impl Spectre {
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
         std::fs::create_dir_all(&ctx.work_dir)?;
-        let netlist = ctx.work_dir.join("netlist.scs");
+        let netlist = ctx.work_dir.join("netlist.spice");
         let mut f = std::fs::File::create(&netlist)?;
         let mut w = Vec::new();
 
@@ -267,8 +232,9 @@ impl Spectre {
         }
         f.write_all(&w)?;
 
-        let output_dir = ctx.work_dir.join("psf/");
-        let log = ctx.work_dir.join("spectre.log");
+        let output_file = ctx.work_dir.join("data.raw");
+        let log = ctx.work_dir.join("ngspice.log");
+        let err_log = ctx.work_dir.join("ngspice.err");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
         let executor = ctx.executor.clone();
@@ -276,15 +242,16 @@ impl Spectre {
         let raw_outputs = ctx
             .cache
             .get_with_state(
-                "spectre.simulation.outputs",
+                "ngspice.simulation.outputs",
                 CachedSim {
                     simulation_netlist: w,
                 },
                 CachedSimState {
                     input,
                     netlist,
-                    output_dir,
+                    output_file,
                     log,
+                    err_log,
                     run_script,
                     work_dir,
                     executor,
@@ -323,7 +290,7 @@ impl Spectre {
     }
 }
 
-impl Simulator for Spectre {
+impl Simulator for Ngspice {
     type Input = Input;
     type Options = Options;
     type Output = Output;
@@ -361,7 +328,7 @@ pub(crate) fn node_voltage_path(
     instances.push(signal);
     let mut str_path = instances.join(".");
     if let Some(index) = index {
-        str_path.push_str(&format!("\\[{}\\]", index));
+        str_path.push_str(&format!("[{}]", index));
     }
     str_path
 }
@@ -376,16 +343,40 @@ pub(crate) fn node_current_path(
         signal,
         index,
     } = lib.convert_signal_path(conv, path);
+    assert_eq!(
+        instances.len(),
+        1,
+        "ngspice only supports saving currents of top level instance terminals"
+    );
     let mut str_path = instances.join(".");
     str_path.push(':');
-    str_path.push_str(&signal);
-    if let Some(index) = index {
-        str_path.push_str(&format!("[{}]", index));
+    match path.tail {
+        SignalPathTail::Scir { cell, slice } => {
+            let cell = lib.cell(cell);
+            let mut idx = 0;
+            let mut found = false;
+            for port in cell.ports() {
+                let signal = cell.signal(port.signal());
+                if signal.id == slice.signal() {
+                    if let Some(index) = slice.index() {
+                        idx += index;
+                    }
+                    found = true;
+                    break;
+                }
+                idx += signal.width.unwrap_or(1);
+            }
+            assert!(found, "the provided signal is not a valid terminal");
+            str_path.push_str(&format!("{}", idx));
+        }
+        _ => {
+            str_path.push_str(&signal);
+        }
     }
     str_path
 }
 
-/// Inputs directly supported by Spectre.
+/// Inputs directly supported by ngspice.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Input {
     /// Transient simulation input.
@@ -398,7 +389,7 @@ impl From<Tran> for Input {
     }
 }
 
-/// Outputs directly produced by Spectre.
+/// Outputs directly produced by ngspice.
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
@@ -430,12 +421,9 @@ impl Input {
 
 impl Tran {
     fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
-        write!(out, "tran stop={}", self.stop)?;
+        write!(out, ".tran {} {}", self.step, self.stop)?;
         if let Some(ref start) = self.start {
-            write!(out, " start={start}")?;
-        }
-        if let Some(errpreset) = self.errpreset {
-            write!(out, " errpreset={errpreset}")?;
+            write!(out, "{start}")?;
         }
         Ok(())
     }

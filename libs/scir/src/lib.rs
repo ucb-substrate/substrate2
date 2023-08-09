@@ -155,7 +155,7 @@ pub struct SignalPath {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum SignalPathTail {
     /// A signal slice within a SCIR cell.
-    Slice(SliceOne),
+    Scir { cell: CellId, slice: SliceOne },
     /// A signal within a primitive device.
     Primitive {
         /// The ID of the primitive device instance.
@@ -957,7 +957,7 @@ impl LibraryBuilder {
                     index: None,
                 }
             }
-            SignalPathTail::Slice(slice) => {
+            SignalPathTail::Scir { slice, .. } => {
                 let cell = self.cell(cell);
                 NamedSignalPath {
                     instances: NamedInstancePath(instances),
@@ -979,7 +979,7 @@ impl LibraryBuilder {
             return path;
         }
 
-        let slice = if let SignalPathTail::Slice(slice) = &mut path.tail {
+        let slice = if let SignalPathTail::Scir { slice, .. } = &mut path.tail {
             slice
         } else {
             panic!("path is terminated with a primitive instance and cannot be simplified")
