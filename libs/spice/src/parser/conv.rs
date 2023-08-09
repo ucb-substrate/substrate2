@@ -124,16 +124,12 @@ impl<'a> ScirConverter<'a> {
                         neg: node(&res.neg, &mut cell),
                         value: str_as_numeric_lit(&res.value)?,
                     };
-                    cell.add_primitive(prim.into());
+                    cell.add_primitive(scir::PrimitiveDevice::new(&**res.name, prim));
                 }
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if blackbox {
-                        let ports = inst
-                            .ports
-                            .iter()
-                            .map(|s| node(s, &mut cell).into())
-                            .collect();
+                        let ports = inst.ports.iter().map(|s| node(s, &mut cell)).collect();
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params
@@ -141,7 +137,11 @@ impl<'a> ScirConverter<'a> {
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
                             .collect::<ConvResult<HashMap<_, _>>>()?;
                         let kind = scir::PrimitiveDeviceKind::RawInstance { ports, cell: child };
-                        cell.add_primitive(scir::PrimitiveDevice::from_params(kind, params));
+                        cell.add_primitive(scir::PrimitiveDevice::from_params(
+                            &**inst.name,
+                            kind,
+                            params,
+                        ));
                     } else {
                         let subckt = self
                             .subckts

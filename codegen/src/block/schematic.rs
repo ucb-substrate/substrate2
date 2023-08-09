@@ -335,7 +335,6 @@ impl ToTokens for HasSchematicInputReceiver {
                             #substrate::schematic::PrimitiveDeviceKind::ScirInstance {
                                 lib,
                                 cell: cell_id,
-                                name: #substrate::arcstr::literal!(#name),
                                 connections,
                             }
                         ));

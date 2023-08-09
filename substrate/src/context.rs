@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use arcstr::ArcStr;
 use config::Config;
 use examples::get_snippets;
+use scir::TopKind;
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -326,8 +327,7 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn export_scir<T: HasSchematic<PDK>>(&self, block: T) -> Result<RawLib, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
-        cell.raw
-            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::No)
+        cell.raw.to_scir_lib(TopKind::Cell)
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -340,8 +340,7 @@ impl<PDK: Pdk> Context<PDK> {
     {
         let cell = self.generate_testbench_schematic(Arc::new(block));
         let cell = cell.cell();
-        cell.raw
-            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
+        self.export_testbench_scir_for_cell(cell)
     }
 
     /// Export the given cell and all sub-cells as a SCIR library.
@@ -355,8 +354,7 @@ impl<PDK: Pdk> Context<PDK> {
         T: HasSimSchematic<PDK, S>,
         S: Simulator,
     {
-        cell.raw
-            .to_scir_lib(crate::schematic::conv::ExportAsTestbench::Yes)
+        cell.raw.to_scir_lib(TopKind::Testbench)
     }
 
     /// Installs a new layer set in the context.
