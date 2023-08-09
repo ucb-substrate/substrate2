@@ -86,10 +86,10 @@ For example, blocks must implement `Eq` so that Substrate can tell if two blocks
 We can finally generate a schematic for our inverter.
 
 Describing a Schematic in Substrate requires implementing two traits:
-* `HasSchematic` declares that a block has a schematic, but without describing the schematic.
-* `HasSchematicImpl` specifies the actual schematic in a particular PDK.
+* `HasSchematicData` declares that a block can generate schematic data.
+* `HasSchematic` specifies the actual schematic in a particular PDK.
 
-The `HasSchematic` trait allows you to declare a `Data` type for data returned by your block's
+The `HasSchematicData` trait allows you to declare a `Data` type for data returned by your block's
 schematic generator.
 This can be useful if you, for example, want to save a node in your circuit to probe in a simulation later on.
 For now, we don't want to save anything, so we'll set `Data` to Rust's unit type, `()`.
@@ -126,11 +126,11 @@ As a result, creating a testbench is similar to creating a regular block, but wi
 * We don't have to define an IO, since all testbenches must declare their IO to be `TestbenchIo`.
   `TestbenchIo` has one port, `vss`, that allows simulators to identify a global ground (which
   they often assign to node 0).
-* Instead of implementing `HasSchematicImpl`, testbenches implement `HasTestbenchSchematicImpl`,
+* Instead of implementing `HasSchematic`, testbenches implement `HasSimSchematic`,
   which declares that a testbench has a particular setup in a given PDK **and** a given simulator.
   This allows testbenches to use simulator-specific blocks, such as PRBS sources in Spectre.
-  For example, trying to instantiate a Spectre PRBS source in an Ngspice testbench
-  will result in a compile-time error.
+  Trying to instantiate a Spectre PRBS source in an Ngspice testbench
+  would result in a compile-time error.
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
 We'll make our testbench take two parameters:
@@ -151,7 +151,7 @@ Let's now create the schematic for our testbench. This should have three compone
 * The instance of the inverter itself.
 
 Recall that schematic generators can return data for later use. Here, we'd like to probe
-the output node of our inverter, so we'll set `Data` in `HasSchematic` to be of type `Node`.
+the output node of our inverter, so we'll set `Data` in `HasSchematicData` to be of type `Node`.
 
 Here's our testbench setup:
 
@@ -175,8 +175,7 @@ This is how our testbench looks:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{InverterTb}</CodeSnippet>
 
-Notice in particular how we obtain the output waveform `vout`
-by querying the output using the data we returned from our schematic generator.
+Notice in particular how we obtain the output waveform `vout`.
 
 We use the `WaveformRef` API to look for 20-80% transitions, and capture their duration.
 
