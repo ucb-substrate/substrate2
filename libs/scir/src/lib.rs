@@ -26,7 +26,7 @@
 
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use arcstr::ArcStr;
 use diagnostics::IssueSet;
@@ -37,10 +37,12 @@ use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
 pub mod merge;
+pub mod netlist;
 mod slice;
 
-pub use slice::{IndexOwned, Slice, SliceOne, SliceRange, SliceWidthNotOne};
-use validation::ValidatorIssue;
+use crate::netlist::NetlistLibConversion;
+use crate::validation::ValidatorIssue;
+pub use slice::{IndexOwned, Slice, SliceOne, SliceRange};
 
 pub(crate) mod drivers;
 pub(crate) mod validation;
@@ -141,10 +143,12 @@ impl From<SliceOne> for SignalId {
 /// A path to a node in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SignalPath {
+    /// Name of the top cell.
+    pub top: CellId,
+    /// Path of instance names.
+    pub instances: Vec<InstanceId>,
     /// The end of the signal path.
     pub tail: SignalPathTail,
-    /// The path to the containing instance.
-    pub instances: InstancePath,
 }
 
 /// The end of a signal path.
@@ -164,23 +168,39 @@ pub enum SignalPathTail {
 /// A path of strings to a node in a SCIR library.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedSignalPath {
+    /// The path to the containing instance.
+    pub instances: NamedInstancePath,
     /// The signal name.
     pub signal: ArcStr,
     /// The signal index.
     ///
     /// [`None`] for single-wire signals.
     pub index: Option<usize>,
-    /// The path to the containing instance.
-    pub instances: NamedInstancePath,
 }
 
 /// A path to an instance in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct InstancePath {
-    /// Path of instance names.
-    pub instances: Vec<InstanceId>,
     /// Name of the top cell.
     pub top: CellId,
+    /// Path of SCIR instance IDs.
+    pub instances: Vec<InstanceId>,
+    /// The end of the instance path.
+    pub tail: InstancePathTail,
+}
+
+/// The end of an instance path.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum InstancePathTail {
+    /// An instance with an associated SCIR cell.
+    Scir(CellId),
+    /// A primitive device instance or an instance within a primitive device.
+    Primitive {
+        /// The ID of the primitive device instance.
+        id: PrimitiveDeviceId,
+        /// A path of strings to the desired instance within the primitive.
+        name_path: Vec<ArcStr>,
+    },
 }
 
 /// A path of strings to an instance in a SCIR library.
@@ -192,6 +212,12 @@ impl Deref for NamedInstancePath {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for NamedInstancePath {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -250,6 +276,8 @@ impl Display for PrimitiveDeviceId {
 /// A primitive device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimitiveDevice {
+    /// The name of this primitive device.
+    pub name: ArcStr,
     /// The kind (resistor, capacitor, etc.) of this primitive device.
     pub kind: PrimitiveDeviceKind,
     /// An unordered set of parameters, represented as key-value pairs.
@@ -260,10 +288,12 @@ impl PrimitiveDevice {
     /// Create a new primitive device with the given parameters.
     #[inline]
     pub fn from_params(
+        name: impl Into<ArcStr>,
         kind: PrimitiveDeviceKind,
         params: impl Into<HashMap<ArcStr, Expr>>,
     ) -> Self {
         Self {
+            name: name.into(),
             kind,
             params: params.into(),
         }
@@ -271,18 +301,18 @@ impl PrimitiveDevice {
 
     /// Create a new primitive device with no parameters.
     #[inline]
-    pub fn new(kind: PrimitiveDeviceKind) -> Self {
+    pub fn new(name: impl Into<ArcStr>, kind: PrimitiveDeviceKind) -> Self {
         Self {
+            name: name.into(),
             kind,
             params: Default::default(),
         }
     }
-}
 
-impl From<PrimitiveDeviceKind> for PrimitiveDevice {
+    /// The name of this primitive device.
     #[inline]
-    fn from(value: PrimitiveDeviceKind) -> Self {
-        Self::new(value)
+    pub fn name(&self) -> &ArcStr {
+        &self.name
     }
 }
 
@@ -324,7 +354,7 @@ pub enum PrimitiveDeviceKind {
     /// This can be an instance of a subcircuit defined outside a SCIR library.
     RawInstance {
         /// The ports of the instance, as an ordered list.
-        ports: Vec<Slice>,
+        ports: Vec<SliceOne>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
     },
@@ -332,11 +362,11 @@ pub enum PrimitiveDeviceKind {
 
 impl PrimitiveDevice {
     /// An iterator over the nodes referenced in the device.
-    pub(crate) fn nodes(&self) -> impl IntoIterator<Item = Slice> {
+    pub(crate) fn nodes(&self) -> impl IntoIterator<Item = SliceOne> {
         match &self.kind {
-            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![pos.into(), neg.into()],
+            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
             PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => {
-                vec![pos.into(), neg.into(), sub.into()]
+                vec![*pos, *neg, *sub]
             }
             PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
         }
@@ -398,6 +428,18 @@ impl From<Slice> for Concat {
     }
 }
 
+/// The type of the top cell of the library.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub enum TopKind {
+    /// A testbench cell with one port (VSS).
+    ///
+    /// Inlined during netlisting and often has nodes connected to its VSS port connected to a
+    /// simulator-specific ground node.
+    Testbench,
+    /// A normal cell that will be exported as a subcircuit.
+    Cell,
+}
+
 impl From<SliceOne> for Concat {
     #[inline]
     fn from(value: SliceOne) -> Self {
@@ -411,9 +453,9 @@ impl From<SliceOne> for Concat {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Top {
     /// The ID of the top-level cell.
-    cell: CellId,
-    /// Whether or not to inline the top-level cell during netlisting.
-    inline: bool,
+    pub cell: CellId,
+    /// The type of the top-level cell.
+    pub kind: TopKind,
 }
 
 /// A library of SCIR cells.
@@ -743,10 +785,10 @@ impl LibraryBuilder {
 
     /// Sets the top cell to the given cell ID.
     ///
-    /// If `inline` is set to `true`, the top cell will
+    /// If `kind` is set to [`TopKind::Testbench`], the top cell will
     /// be flattened during netlisting.
-    pub fn set_top(&mut self, cell: CellId, inline: bool) {
-        self.top = Some(Top { cell, inline });
+    pub fn set_top(&mut self, cell: CellId, kind: TopKind) {
+        self.top = Some(Top { cell, kind });
     }
 
     /// The ID of the top-level cell, if there is one.
@@ -755,12 +797,14 @@ impl LibraryBuilder {
         self.top.map(|t| t.cell)
     }
 
-    /// Whether or not to inline the top-level cell.
+    /// Returns `true` if the top-level cell is a testbench.
     ///
     /// If no top cell has been set, returns `false`.
     #[inline]
-    pub fn inline_top(&self) -> bool {
-        self.top.map(|t| t.inline).unwrap_or_default()
+    pub fn is_testbench(&self) -> bool {
+        self.top
+            .map(|t| t.kind == TopKind::Testbench)
+            .unwrap_or_default()
     }
 
     /// Returns `true` if the given cell should be emitted inline during netlisting.
@@ -768,7 +812,7 @@ impl LibraryBuilder {
     /// At the moment, the only cell that may be inlined is the top-level cell.
     /// However, this is subject to change.
     pub fn should_inline(&self, cell: CellId) -> bool {
-        self.inline_top() && self.top_cell().map(|c| c == cell).unwrap_or_default()
+        self.is_testbench() && self.top_cell().map(|c| c == cell).unwrap_or_default()
     }
 
     /// The name of the library.
@@ -828,18 +872,100 @@ impl LibraryBuilder {
         self.order.iter().map(|&id| (id, self.cell(id)))
     }
 
-    /// Converts an [`InstancePath`] to a [`NamedInstancePath`] and the [`CellId`] of the final
-    /// instance in the path.
-    pub fn convert_instance_path(&self, path: &InstancePath) -> (NamedInstancePath, CellId) {
-        let mut instances = Vec::new();
-        let mut id = path.top;
-        for instance in &path.instances {
+    fn convert_instance_path_head(
+        &self,
+        conv: &NetlistLibConversion,
+        top: CellId,
+        instances: &[InstanceId],
+    ) -> (Vec<ArcStr>, CellId) {
+        let mut instance_names = Vec::new();
+        let mut id = top;
+        for instance in instances {
             let cell = self.cell(id);
             let inst = cell.instance(*instance);
-            instances.push(inst.name().clone());
+            let inst_conv = conv.cells.get(&id).and_then(|c| c.instances.get(instance));
+            if let Some(name) = inst_conv {
+                instance_names.push(name.clone());
+            } else {
+                instance_names.push(inst.name().clone());
+            }
             id = inst.cell();
         }
-        (NamedInstancePath(instances), id)
+        (instance_names, id)
+    }
+
+    /// Converts an [`InstancePath`] to a [`NamedInstancePath`] and the [`CellId`] of the final
+    /// instance in the path.
+    ///
+    /// Uses `conv` to convert SCIR instance names to netlisted instances if a corresponding
+    /// entry is found.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the path does not exist.
+    pub fn convert_instance_path(
+        &self,
+        conv: &NetlistLibConversion,
+        path: &InstancePath,
+    ) -> NamedInstancePath {
+        let (mut instances, cell) =
+            self.convert_instance_path_head(conv, path.top, &path.instances);
+        if let InstancePathTail::Primitive { id, name_path } = &path.tail {
+            let prim_conv = conv.cells.get(&cell).and_then(|c| c.primitives.get(id));
+            if let Some(name) = prim_conv {
+                instances.push(name.clone());
+            } else {
+                let cell = self.cell(cell);
+                let prim = cell.primitive(*id);
+                instances.push(prim.name().clone());
+            }
+            instances.extend(name_path.iter().cloned());
+        }
+        NamedInstancePath(instances)
+    }
+
+    /// Converts an [`SignalPath`] to a [`NamedSignalPath`].
+    ///
+    /// Uses `conv` to convert SCIR instance names to netlisted instances if a corresponding
+    /// entry is found.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the path does not exist.
+    pub fn convert_signal_path(
+        &self,
+        conv: &NetlistLibConversion,
+        path: &SignalPath,
+    ) -> NamedSignalPath {
+        let (mut instances, cell) =
+            self.convert_instance_path_head(conv, path.top, &path.instances);
+        match &path.tail {
+            SignalPathTail::Primitive { id, name_path } => {
+                let prim_conv = conv.cells.get(&cell).and_then(|c| c.primitives.get(id));
+                if let Some(name) = prim_conv {
+                    instances.push(name.clone());
+                } else {
+                    let cell = self.cell(cell);
+                    let prim = cell.primitive(*id);
+                    instances.push(prim.name().clone());
+                }
+                instances.extend(name_path.iter().cloned());
+                let signal = instances.pop().unwrap();
+                NamedSignalPath {
+                    instances: NamedInstancePath(instances),
+                    signal,
+                    index: None,
+                }
+            }
+            SignalPathTail::Slice(slice) => {
+                let cell = self.cell(cell);
+                NamedSignalPath {
+                    instances: NamedInstancePath(instances),
+                    signal: cell.signal(slice.signal()).name.clone(),
+                    index: slice.index(),
+                }
+            }
+        }
     }
 
     /// Returns a simplified path to the provided node, bubbling up through IOs.
@@ -849,7 +975,7 @@ impl LibraryBuilder {
     /// Panics if the provided path does not exist or the path is terminated with
     /// [`SignalPathTail::Primitive`].
     pub fn simplify_path(&self, mut path: SignalPath) -> SignalPath {
-        if path.instances.instances.is_empty() {
+        if path.instances.is_empty() {
             return path;
         }
 
@@ -858,37 +984,36 @@ impl LibraryBuilder {
         } else {
             panic!("path is terminated with a primitive instance and cannot be simplified")
         };
-        let mut cells = Vec::with_capacity(path.instances.instances.len());
-        let mut cell = self.cell(path.instances.top);
+        let mut cells = Vec::with_capacity(path.instances.len());
+        let mut cell = self.cell(path.top);
 
-        for inst in path.instances.instances.iter() {
+        for inst in path.instances.iter() {
             let inst = &cell.contents().as_ref().unwrap_clear().instances[inst];
             cells.push(inst.cell);
             cell = self.cell(inst.cell);
         }
 
-        assert_eq!(cells.len(), path.instances.instances.len());
+        assert_eq!(cells.len(), path.instances.len());
 
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
             let info = cell.signal(slice.signal());
             if !info.port {
-                path.instances.instances.truncate(i + 1);
+                path.instances.truncate(i + 1);
                 return path;
             } else {
                 let parent = if i == 0 {
-                    self.cell(path.instances.top)
+                    self.cell(path.top)
                 } else {
                     self.cell(cells[i - 1])
                 };
-                let inst = &parent.contents().as_ref().unwrap_clear().instances
-                    [&path.instances.instances[i]];
+                let inst = &parent.contents().as_ref().unwrap_clear().instances[&path.instances[i]];
                 let idx = slice.index().unwrap_or_default();
                 *slice = inst.connection(info.name.as_ref()).index(idx);
             }
         }
 
-        path.instances.instances = Vec::new();
+        path.instances = Vec::new();
         path
     }
 
@@ -1071,6 +1196,21 @@ impl Cell {
             .as_ref()
             .unwrap_clear()
             .instances
+            .get(&id)
+            .unwrap()
+    }
+
+    /// Get the primitive associated with the given ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no primitive with the given ID exists (including if the cell is a blackbox).
+    #[inline]
+    pub fn primitive(&self, id: PrimitiveDeviceId) -> &PrimitiveDevice {
+        self.contents()
+            .as_ref()
+            .unwrap_clear()
+            .primitives
             .get(&id)
             .unwrap()
     }

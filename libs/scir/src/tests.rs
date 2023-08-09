@@ -13,11 +13,14 @@ fn duplicate_instance_names() {
         .contents_mut()
         .as_mut()
         .unwrap_clear()
-        .add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::Res2 {
-            pos,
-            neg,
-            value: dec!(3300).into(),
-        }));
+        .add_primitive(PrimitiveDevice::new(
+            "res0",
+            PrimitiveDeviceKind::Res2 {
+                pos,
+                neg,
+                value: dec!(3300).into(),
+            },
+        ));
     wrapper.expose_port(pos, Direction::InOut);
     wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
@@ -84,11 +87,11 @@ fn cannot_add_instance_to_blackbox() {
 fn cannot_add_primitive_to_blackbox() {
     let mut cell = Cell::new_blackbox("cell");
     cell.add_blackbox_elem("* content");
-    cell.add_primitive(
+    cell.add_primitive(PrimitiveDevice::new(
+        "rawinst",
         PrimitiveDeviceKind::RawInstance {
             ports: vec![],
             cell: "raw_subckt".into(),
-        }
-        .into(),
-    );
+        },
+    ));
 }

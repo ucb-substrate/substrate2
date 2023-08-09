@@ -1,9 +1,10 @@
 //! Spectre transient analysis options and data structures.
 
-use crate::netlist::{self, SpectreLibConversion};
+use crate::netlist;
 use crate::{node_voltage_path, ErrPreset, Spectre};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
+use scir::netlist::NetlistLibConversion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -33,7 +34,7 @@ pub struct Tran {
 #[derive(Debug, Clone)]
 pub struct TranOutput {
     pub(crate) lib: Arc<RawLib>,
-    pub(crate) conv: Arc<SpectreLibConversion>,
+    pub(crate) conv: Arc<NetlistLibConversion>,
     /// The time points of the transient simulation.
     pub time: Arc<Vec<f64>>,
     /// A map from signal name to values.

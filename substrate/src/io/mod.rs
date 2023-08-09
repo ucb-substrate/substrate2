@@ -259,25 +259,25 @@ pub struct Node(u32);
 /// Created when accessing nodes from instances propagated through data.
 #[derive(Clone, Debug)]
 pub struct NestedNode {
+    pub(crate) instances: InstancePath,
     pub(crate) node: Node,
-    pub(crate) path: InstancePath,
 }
 
 /// A path from a top level cell to a nested node.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodePath {
-    pub(crate) node: Node,
-    pub(crate) path: Vec<InstanceId>,
     pub(crate) top: CellId,
+    pub(crate) instances: Vec<InstanceId>,
+    pub(crate) node: Node,
 }
 
 impl NestedNode {
     /// Returns the path to this node.
     pub fn path(&self) -> NodePath {
         NodePath {
+            top: self.instances.top,
+            instances: self.instances.path.iter().copied().collect(),
             node: self.node,
-            path: self.path.path.iter().copied().collect(),
-            top: self.path.top,
         }
     }
 }
