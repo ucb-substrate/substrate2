@@ -30,9 +30,9 @@ impl Shape {
 
     /// If this shape is a rectangle, returns the contained polygon.
     /// Otherwise, returns [`None`].
-    pub fn polygon(&self) -> Option<Polygon> {
+    pub fn polygon(&self) -> Option<&Polygon> {
         match self {
-            Self::Polygon(p) => Some(p.clone()),
+            Self::Polygon(p) => Some(p),
             _ => None,
         }
     }
