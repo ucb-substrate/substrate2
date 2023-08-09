@@ -2,6 +2,7 @@ use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
+use type_dispatch::derive::add_trait_bounds;
 
 use crate::substrate_ident;
 
@@ -20,6 +21,8 @@ pub struct BlockInputReceiver {
     #[darling(multiple)]
     #[allow(unused)]
     layout: Vec<darling::util::Ignored>,
+    #[darling(default)]
+    flatten: bool,
 }
 
 impl ToTokens for BlockInputReceiver {
@@ -29,9 +32,21 @@ impl ToTokens for BlockInputReceiver {
             ref ident,
             ref generics,
             ref io,
+            flatten,
             ..
         } = *self;
 
+        let mut generics = generics.clone();
+        add_trait_bounds(&mut generics, quote!(#substrate::serde::Serialize));
+        add_trait_bounds(
+            &mut generics,
+            quote!(#substrate::serde::de::DeserializeOwned),
+        );
+        add_trait_bounds(&mut generics, quote!(::std::hash::Hash));
+        add_trait_bounds(&mut generics, quote!(::std::cmp::Eq));
+        add_trait_bounds(&mut generics, quote!(::std::marker::Send));
+        add_trait_bounds(&mut generics, quote!(::std::marker::Sync));
+        add_trait_bounds(&mut generics, quote!(::std::any::Any));
         let (imp, ty, wher) = generics.split_for_impl();
 
         let name = ident.to_string().to_case(Case::Snake);
@@ -39,6 +54,8 @@ impl ToTokens for BlockInputReceiver {
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
+                const FLATTEN: bool = #flatten;
+
                 fn id() -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))
                 }

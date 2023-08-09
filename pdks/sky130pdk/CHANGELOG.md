@@ -5,6 +5,68 @@
     * substrate bumped from 0.1.0 to 0.1.1
     * spectre bumped from 0.1.0 to 0.1.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.6.0 to 0.6.1
+    * spectre bumped from 0.6.0 to 0.6.1
+
+## [0.6.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.5.0...sky130pdk-v0.6.0) (2023-08-08)
+
+
+### Features
+
+* **macros:** refactor macro reexports ([#250](https://github.com/substrate-labs/substrate2/issues/250)) ([a332717](https://github.com/substrate-labs/substrate2/commit/a332717e549fdea50306067e1c92dc60293aed4c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.5.0 to 0.6.0
+    * spectre bumped from 0.5.0 to 0.6.0
+
+## [0.5.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.4.0...sky130pdk-v0.5.0) (2023-08-05)
+
+
+### Features
+
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.4.0 to 0.5.0
+    * spectre bumped from 0.4.0 to 0.5.0
+
+## [0.4.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.3.0...sky130pdk-v0.4.0) (2023-08-04)
+
+
+### Features
+
+* **corners:** require specifying corner by default ([#221](https://github.com/substrate-labs/substrate2/issues/221)) ([4c2c3e4](https://github.com/substrate-labs/substrate2/commit/4c2c3e4a3cd8b7e68921baf3af8b87f1da048936))
+* **io:** composable port directions and runtime connection checking ([#231](https://github.com/substrate-labs/substrate2/issues/231)) ([e1e367a](https://github.com/substrate-labs/substrate2/commit/e1e367a2b8940319cb4f804888746a094f06e161))
+* **parameters:** substrate schematic primitives support parameters ([#233](https://github.com/substrate-labs/substrate2/issues/233)) ([5dabcb2](https://github.com/substrate-labs/substrate2/commit/5dabcb270cab0d259b7301d67f77de6d55261092))
+* **pdk:** remove `PdkData` object to clean up interface ([#218](https://github.com/substrate-labs/substrate2/issues/218)) ([1dd166a](https://github.com/substrate-labs/substrate2/commit/1dd166a8f23e7b3c011c01b5c8527b8c5494ddea))
+* **save-api:** add typed API for saving arbitrary signals ([#228](https://github.com/substrate-labs/substrate2/issues/228)) ([046be02](https://github.com/substrate-labs/substrate2/commit/046be02acbedc7fa2bb4896b92ec17babd80eee5))
+* **schematics:** rename `HasSchematic` and `HasSchematicImpl` ([#226](https://github.com/substrate-labs/substrate2/issues/226)) ([a2b9c78](https://github.com/substrate-labs/substrate2/commit/a2b9c78ea6ff56983e9a02aeafe655e92852c264))
+* **spectre:** vsource uses primitives instead of being blackboxed ([5dabcb2](https://github.com/substrate-labs/substrate2/commit/5dabcb270cab0d259b7301d67f77de6d55261092))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate rust_decimal to 1.31 ([#219](https://github.com/substrate-labs/substrate2/issues/219)) ([6f596d5](https://github.com/substrate-labs/substrate2/commit/6f596d5c46dc1bf045a1b8a5ef727adbc3b147cf))
+* **deps:** update rust crate rust_decimal_macros to 1.31 ([#220](https://github.com/substrate-labs/substrate2/issues/220)) ([72147d3](https://github.com/substrate-labs/substrate2/commit/72147d385368e2bd302821c981dd75209aa87dcb))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.3.0 to 0.4.0
+    * spectre bumped from 0.3.0 to 0.4.0
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.2.0...sky130pdk-v0.3.0) (2023-07-23)
 
 

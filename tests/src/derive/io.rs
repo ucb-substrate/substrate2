@@ -1,20 +1,11 @@
 //! Tests for ensuring that `#[derive(Io)]` works.
 
-use substrate::io::{
-    HierarchicalBuildFrom, Input, LayoutType, Output, SchematicType, Signal, Undirected,
-};
-use substrate::layout::element::NamedPorts;
-use substrate::Io;
+use substrate::io::Io;
+use substrate::io::{Input, Output, Signal};
 
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
-pub struct GenericIo<T>
-where
-    T: Clone + Undirected + SchematicType + LayoutType + 'static,
-    <T as SchematicType>::Data: Undirected,
-    <T as LayoutType>::Data: Undirected,
-    <T as LayoutType>::Builder: Undirected + HierarchicalBuildFrom<NamedPorts>,
-{
+pub struct GenericIo<T> {
     /// A single input field.
     pub signal: Input<T>,
 }
@@ -31,3 +22,33 @@ pub struct NamedStructIo {
 /// A tuple struct Io.
 #[derive(Debug, Clone, Io)]
 pub struct TupleIo(pub Input<Signal>, pub Output<Signal>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_log::test;
+
+    /// Takes an IO type.
+    ///
+    /// Used to validate that a given type implements `Io`.
+    fn takes_io<T: Io>() -> usize {
+        std::mem::size_of::<T>()
+    }
+
+    #[test]
+    fn generic_io_implements_io() {
+        takes_io::<GenericIo<Signal>>();
+        takes_io::<GenericIo<NamedStructIo>>();
+        takes_io::<GenericIo<TupleIo>>();
+    }
+
+    #[test]
+    fn named_struct_io_implements_io() {
+        takes_io::<NamedStructIo>();
+    }
+
+    #[test]
+    fn tuple_io_implements_io() {
+        takes_io::<TupleIo>();
+    }
+}

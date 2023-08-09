@@ -45,7 +45,6 @@ use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
 use sky130pdk::Sky130OpenPdk;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 use substrate::context::Context;
@@ -85,9 +84,8 @@ Now that we've defined the `Io` of our block, we can define a schematic.
 
 ## Schematics
 
-We first implement the `HasSchematic` trait on `Inverter`.
-This trait declares that `Inverter` has a schematic in some process,
-and allows us to specify the type of data produced when generating an `Inverter` schematic.
+We first implement the `HasSchematicData` trait on `Inverter`.
+This trait declares that `Inverter` can generate schematic data.
 This allows us to do things like save nodes we might want to probe in simulation, but for
 now, we don't have any particular data we'd like to save, so we'll set `Data` to Rust's
 empty unit type.
@@ -97,7 +95,6 @@ empty unit type.
 use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::MosParams;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 
@@ -128,13 +125,13 @@ impl Block for Inverter {
     }
 }
 // hidden-rust-doc-end
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = ();
 }
 ```
 
 We now specify the actual content of the schematic
-by implementing `HasSchematicImpl`. This trait requires us to specify
+by implementing `HasSchematic`. This trait requires us to specify
 the PDK for which the schematic is valid. In this case, the schematic
 is for the `Sky130OpenPdk`.
 
@@ -144,7 +141,6 @@ use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
 use sky130pdk::Sky130OpenPdk;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 
@@ -175,11 +171,11 @@ impl Block for Inverter {
     }
 }
 
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = ();
 }
 // hidden-rust-doc-end
-impl HasSchematicImpl<Sky130OpenPdk> for Inverter {
+impl HasSchematic<Sky130OpenPdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,
@@ -213,7 +209,6 @@ use serde::{Serialize, Deserialize};
 use substrate::block::Block;
 use sky130pdk::mos::*;
 use sky130pdk::Sky130OpenPdk;
-use substrate::Io;
 use substrate::io::*;
 use substrate::schematic::*;
 use substrate::context::Context;
@@ -245,10 +240,10 @@ impl Block for Inverter {
     }
 }
 
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = ();
 }
-impl HasSchematicImpl<Sky130OpenPdk> for Inverter {
+impl HasSchematic<Sky130OpenPdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,

@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.5.0](https://github.com/substrate-labs/substrate2/compare/scir-v0.4.0...scir-v0.5.0) (2023-08-08)
+
+
+### Features
+
+* **slices:** use `SliceOne` instead of `Slice` where possible ([#253](https://github.com/substrate-labs/substrate2/issues/253)) ([8eba8ed](https://github.com/substrate-labs/substrate2/commit/8eba8ed5aad0aa4911ae31f4521d297487256087))
+* **validation:** create type for unvalidated SCIR library ([#252](https://github.com/substrate-labs/substrate2/issues/252)) ([1550a22](https://github.com/substrate-labs/substrate2/commit/1550a22b9a1c9f7cd9717feaa45d00487cc8848e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * diagnostics bumped from 0.2.0 to 0.3.0
+
+## [0.4.0](https://github.com/substrate-labs/substrate2/compare/scir-v0.3.0...scir-v0.4.0) (2023-08-05)
+
+
+### Features
+
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/scir-v0.2.0...scir-v0.3.0) (2023-08-04)
+
+
+### Features
+
+* **io:** composable port directions and runtime connection checking ([#231](https://github.com/substrate-labs/substrate2/issues/231)) ([e1e367a](https://github.com/substrate-labs/substrate2/commit/e1e367a2b8940319cb4f804888746a094f06e161))
+* **ports:** add name map for ports ([#237](https://github.com/substrate-labs/substrate2/issues/237)) ([118b484](https://github.com/substrate-labs/substrate2/commit/118b4849e4408aa93d9fa39ef387dd051b2f5044))
+* **primitives:** support parameters in SCIR primitive devices ([#232](https://github.com/substrate-labs/substrate2/issues/232)) ([a8f5b45](https://github.com/substrate-labs/substrate2/commit/a8f5b45a00b77d050f6a812c469e19da3305e064))
+* **repo:** reorganize repo ([#207](https://github.com/substrate-labs/substrate2/issues/207)) ([54a6b43](https://github.com/substrate-labs/substrate2/commit/54a6b43079d283a29bc0aa9e18dc6230b56fa385))
+* **save-api:** add typed API for saving arbitrary signals ([#228](https://github.com/substrate-labs/substrate2/issues/228)) ([046be02](https://github.com/substrate-labs/substrate2/commit/046be02acbedc7fa2bb4896b92ec17babd80eee5))
+* **schematics:** blackboxes can reference nodes ([#208](https://github.com/substrate-labs/substrate2/issues/208)) ([d998b4a](https://github.com/substrate-labs/substrate2/commit/d998b4a133d47d0123768dfb3c27f8ee32ed9db9))
+* **schematics:** user-specified schematic hierarchy flattening ([#222](https://github.com/substrate-labs/substrate2/issues/222)) ([251f377](https://github.com/substrate-labs/substrate2/commit/251f37778526d2f1c08a2b3c66f72ffe273021fa))
+* **spice-parser:** spice parser follows include directives ([#229](https://github.com/substrate-labs/substrate2/issues/229)) ([5259acf](https://github.com/substrate-labs/substrate2/commit/5259acfa703c3879d44d324279293278c46f1ff5))
+* **validation:** SCIR driver analysis and validation ([#239](https://github.com/substrate-labs/substrate2/issues/239)) ([5a91448](https://github.com/substrate-labs/substrate2/commit/5a914489294bed06be1bd34aaa1036e4357d9a52))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate rust_decimal to 1.31 ([#219](https://github.com/substrate-labs/substrate2/issues/219)) ([6f596d5](https://github.com/substrate-labs/substrate2/commit/6f596d5c46dc1bf045a1b8a5ef727adbc3b147cf))
+* **deps:** update rust crate rust_decimal_macros to 1.31 ([#220](https://github.com/substrate-labs/substrate2/issues/220)) ([72147d3](https://github.com/substrate-labs/substrate2/commit/72147d385368e2bd302821c981dd75209aa87dcb))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * diagnostics bumped from 0.1.0 to 0.2.0
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/scir-v0.1.0...scir-v0.2.0) (2023-07-23)
 
 

@@ -1,24 +1,26 @@
 [package]
 name = "codegen"
-version = "0.3.0"
+version = "0.6.1"
 edition = "2021"
 
 [dependencies]
 darling = "0.20"
-syn = { version = "2", features = ["full"] }
+syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"
 proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
 
-examples = { version = "<=0.0.0", registry = "substrate", path = "../docs/examples" }
+examples = { version = "0.3.1", registry = "substrate", path = "../docs/examples" }
+type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/type_dispatch" }
 
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
-substrate = { version = "<=0.3.0", registry = "substrate", path = "../substrate" }
-sky130pdk = { version = "<=0.3.0", registry = "substrate", path = "../pdks/sky130pdk" }
+substrate = { version = "<=0.6.1", registry = "substrate", path = "../substrate" }
+sky130pdk = { version = "<=0.6.1", registry = "substrate", path = "../pdks/sky130pdk" }
+spectre = { version = "<=0.6.1", registry = "substrate", path = "../tools/spectre" }
 
 [lib]
 proc-macro = true

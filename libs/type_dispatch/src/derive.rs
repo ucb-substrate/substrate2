@@ -1,3 +1,5 @@
+//! Utilities for writing derive macros that dispatch a method call to fields in the struct.
+
 use darling::ast::{Data, Style};
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
@@ -5,50 +7,59 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{GenericParam, Generics, Index, Visibility};
 
+/// A receiver for parsing derive macro inputs.
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any, enum_any))]
-pub(crate) struct DeriveInputReceiver {
-    pub ident: syn::Ident,
-    pub generics: syn::Generics,
-    pub data: darling::ast::Data<syn::Variant, syn::Field>,
+pub struct DeriveInputReceiver {
+    ident: syn::Ident,
+    generics: syn::Generics,
+    data: darling::ast::Data<syn::Variant, syn::Field>,
 }
 
-// Add a bound `T: trait_` to every type parameter T.
-pub(crate) fn add_trait_bounds(trait_: TokenStream, mut generics: Generics) -> Generics {
+/// Add a bound `T: trait_` to every type parameter T.
+pub fn add_trait_bounds(generics: &mut Generics, trait_: TokenStream) {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(syn::parse_quote!(#trait_));
         }
     }
-    generics
 }
 
-pub(crate) struct FieldTokens {
+/// Tokens used for generating struct fields in derived implementations.
+pub struct FieldTokens {
     /// For named structs: "pub field:"
     /// For tuple structs: "pub"
-    pub(crate) declare: TokenStream,
+    pub declare: TokenStream,
     /// For named structs: "self.field"
     /// For tuple structs: "self.2"
-    pub(crate) refer: TokenStream,
+    pub refer: TokenStream,
     /// For named structs: "field:"
     /// For tuple structs: ""
-    pub(crate) assign: TokenStream,
+    pub assign: TokenStream,
     /// For named structs: "field"
     /// For tuple structs: "__substrate_derive_field2"
-    pub(crate) temp: TokenStream,
+    pub temp: TokenStream,
     /// For named structs: "field"
     /// For tuple structs: "elem2"
-    pub(crate) pretty_ident: TokenStream,
+    pub pretty_ident: TokenStream,
 }
 
-pub(crate) fn field_tokens(
+/// Generates a [`struct@syn::Ident`] for a destructuring an element of a tuple.
+pub fn tuple_ident(idx: usize) -> syn::Ident {
+    format_ident!("__type_dispatch_derive_field{idx}")
+}
+
+/// Returns a [`FieldTokens`] object for a struct that can be referenced using
+/// the tokens in `referent`.
+pub fn field_tokens_with_referent(
     style: Style,
     vis: &Visibility,
     attrs: &Vec<syn::Attribute>,
     idx: usize,
     ident: &Option<syn::Ident>,
+    referent: TokenStream,
 ) -> FieldTokens {
-    let tuple_ident = format_ident!("__substrate_derive_field{idx}");
+    let tuple_ident = tuple_ident(idx);
     let pretty_tuple_ident = format_ident!("elem{idx}");
     let idx = syn::Index::from(idx);
 
@@ -56,14 +67,14 @@ pub(crate) fn field_tokens(
         Style::Unit => (quote!(), quote!(), quote!(), quote!(), quote!()),
         Style::Struct => (
             quote!(#(#attrs)* #vis #ident:),
-            quote!(self.#ident),
+            quote!(#referent.#ident),
             quote!(#ident:),
             quote!(#ident),
             quote!(#ident),
         ),
         Style::Tuple => (
             quote!(#(#attrs)* #vis),
-            quote!(self.#idx),
+            quote!(#referent.#idx),
             quote!(),
             quote!(#tuple_ident),
             quote!(#pretty_tuple_ident),
@@ -79,14 +90,31 @@ pub(crate) fn field_tokens(
     }
 }
 
-pub(crate) struct DeriveTrait {
+/// Returns a [`FieldTokens`] object for a struct that can be referenced with `self`.
+pub fn field_tokens(
+    style: Style,
+    vis: &Visibility,
+    attrs: &Vec<syn::Attribute>,
+    idx: usize,
+    ident: &Option<syn::Ident>,
+) -> FieldTokens {
+    field_tokens_with_referent(style, vis, attrs, idx, ident, syn::parse_quote!(self))
+}
+
+/// Configuration for deriving a trait.
+pub struct DeriveTrait {
+    /// The trait to be implemented.
     pub trait_: TokenStream,
+    /// The trait's associated method.
     pub method: TokenStream,
+    /// Identifiers for extra arguments to the trait's associated methods.
     pub extra_arg_idents: Vec<TokenStream>,
+    /// Types for extra arguments to the trait's associated methods.
     pub extra_arg_tys: Vec<TokenStream>,
 }
 
-pub(crate) fn derive_trait(
+/// Derives a trait using the given configuration and input.
+pub fn derive_trait(
     config: &DeriveTrait,
     receiver: DeriveInputReceiver,
 ) -> proc_macro2::TokenStream {
@@ -97,7 +125,8 @@ pub(crate) fn derive_trait(
         ref extra_arg_tys,
     } = *config;
 
-    let generics = add_trait_bounds(quote!(#trait_), receiver.generics);
+    let mut generics = receiver.generics;
+    add_trait_bounds(&mut generics, quote!(#trait_));
     let (imp, ty, wher) = generics.split_for_impl();
 
     let match_clause: TokenStream = match receiver.data {
@@ -195,18 +224,19 @@ pub(crate) fn derive_trait(
     }
 }
 
-pub(crate) fn struct_body(style: Style, decl: bool, contents: TokenStream) -> TokenStream {
+/// Formats the contents of a struct body in the appropriate style.
+pub fn struct_body(style: Style, decl: bool, contents: TokenStream) -> TokenStream {
     if decl {
         match style {
             Style::Unit => quote!(;),
-            Style::Tuple => quote!( (  #contents ); ),
-            Style::Struct => quote!( {  #contents } ),
+            Style::Tuple => quote!( ( #contents ); ),
+            Style::Struct => quote!( { #contents } ),
         }
     } else {
         match style {
             Style::Unit => quote!(),
-            Style::Tuple => quote!( (  #contents ) ),
-            Style::Struct => quote!( {  #contents } ),
+            Style::Tuple => quote!( ( #contents ) ),
+            Style::Struct => quote!( { #contents } ),
         }
     }
 }

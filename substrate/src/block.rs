@@ -3,7 +3,9 @@
 use std::{any::Any, hash::Hash};
 
 use arcstr::ArcStr;
-use serde::{Deserialize, Serialize};
+pub use codegen::Block;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::io::Io;
 
@@ -12,9 +14,11 @@ use crate::io::Io;
 /// # Examples
 ///
 #[doc = examples::get_snippets!("core", "inverter")]
-pub trait Block: Serialize + Deserialize<'static> + Hash + Eq + Send + Sync + Any {
+pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;
+    /// Whether or not this block should be flattened.
+    const FLATTEN: bool = false;
 
     /// A crate-wide unique identifier for this block.
     fn id() -> ArcStr;

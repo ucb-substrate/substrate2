@@ -4,15 +4,11 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
 
-use crate::derive::{add_trait_bounds, struct_body};
 use crate::substrate_ident;
+use type_dispatch::derive::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(
-    attributes(substrate),
-    supports(struct_any, enum_any),
-    forward_attrs(allow, doc, cfg)
-)]
+#[darling(attributes(substrate), supports(any), forward_attrs(allow, doc, cfg))]
 pub struct DataInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
@@ -163,10 +159,8 @@ impl ToTokens for DataInputReceiver {
             ref attrs,
         } = *self;
 
-        let generics = add_trait_bounds(
-            quote!(#substrate::schematic::HasNestedView),
-            generics.clone(),
-        );
+        let mut generics = generics.clone();
+        add_trait_bounds(&mut generics, quote!(#substrate::schematic::HasNestedView));
         let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
         let mut ref_generics = generics.clone();
         ref_generics.params.push(lifetime.clone());
@@ -242,7 +236,7 @@ impl ToTokens for DataInputReceiver {
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(substrate), supports(any))]
-pub struct HasSchematicImplInputReceiver {
+pub struct HasSchematicInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     #[allow(unused)]
@@ -252,6 +246,9 @@ pub struct HasSchematicImplInputReceiver {
     layout: Vec<darling::util::Ignored>,
     #[darling(multiple)]
     schematic: Vec<SchematicHardMacro>,
+    #[darling(default)]
+    #[allow(unused)]
+    flatten: darling::util::Ignored,
 }
 
 #[derive(Debug, FromMeta)]
@@ -262,10 +259,10 @@ pub struct SchematicHardMacro {
     name: String,
 }
 
-impl ToTokens for HasSchematicImplInputReceiver {
+impl ToTokens for HasSchematicInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let substrate = substrate_ident();
-        let HasSchematicImplInputReceiver {
+        let HasSchematicInputReceiver {
             ref ident,
             ref generics,
             ref schematic,
@@ -275,7 +272,7 @@ impl ToTokens for HasSchematicImplInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_schematic = quote! {
-            impl #imp #substrate::schematic::HasSchematic for #ident #ty #wher {
+            impl #imp #substrate::schematic::HasSchematicData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -313,10 +310,10 @@ impl ToTokens for HasSchematicImplInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::schematic::HasSchematicImpl<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::schematic::HasSchematic<#pdk> for #ident #ty #wher {
                     fn schematic(
                         &self,
-                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Data,
+                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,
                         cell: &mut #substrate::schematic::CellBuilder<#pdk, Self>,
                     ) -> #substrate::error::Result<Self::Data> {
                         use #substrate::pdk::Pdk;
@@ -334,12 +331,14 @@ impl ToTokens for HasSchematicImplInputReceiver {
                                 (f, nodes)
                             }));
 
-                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::ScirInstance {
-                            lib,
-                            cell: cell_id,
-                            name: #substrate::arcstr::literal!(#name),
-                            connections,
-                        });
+                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::new(
+                            #substrate::schematic::PrimitiveDeviceKind::ScirInstance {
+                                lib,
+                                cell: cell_id,
+                                name: #substrate::arcstr::literal!(#name),
+                                connections,
+                            }
+                        ));
                         Ok(())
                     }
                 }

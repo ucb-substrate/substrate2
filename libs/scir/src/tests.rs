@@ -5,7 +5,7 @@ use crate::*;
 
 #[test]
 fn duplicate_instance_names() {
-    let mut lib = Library::new("duplicate_instance_names");
+    let mut lib = LibraryBuilder::new("duplicate_instance_names");
     let mut wrapper = Cell::new_whitebox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
@@ -13,13 +13,13 @@ fn duplicate_instance_names() {
         .contents_mut()
         .as_mut()
         .unwrap_clear()
-        .add_primitive(PrimitiveDevice::Res2 {
+        .add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::Res2 {
             pos,
             neg,
             value: dec!(3300).into(),
-        });
-    wrapper.expose_port(pos);
-    wrapper.expose_port(neg);
+        }));
+    wrapper.expose_port(pos, Direction::InOut);
+    wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
     let mut vdivider = Cell::new_whitebox("vdivider");
@@ -39,9 +39,9 @@ fn duplicate_instance_names() {
     r2.connect("neg", out);
     vdivider.add_instance(r2);
 
-    vdivider.expose_port(vdd);
-    vdivider.expose_port(vss);
-    vdivider.expose_port(out);
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
 
     lib.add_cell(vdivider);
 
@@ -52,7 +52,7 @@ fn duplicate_instance_names() {
 
 #[test]
 fn instantiate_blackbox() {
-    let mut lib = Library::new("library");
+    let mut lib = LibraryBuilder::new("library");
     let mut cell1 = Cell::new_blackbox("cell1");
     cell1.add_blackbox_elem("* content");
     let cell1 = lib.add_cell(cell1);
@@ -69,7 +69,7 @@ fn instantiate_blackbox() {
 #[test]
 #[should_panic]
 fn cannot_add_instance_to_blackbox() {
-    let mut lib = Library::new("library");
+    let mut lib = LibraryBuilder::new("library");
     let mut cell1 = Cell::new_blackbox("cell1");
     cell1.add_blackbox_elem("* content");
     let cell1 = lib.add_cell(cell1);
@@ -84,9 +84,11 @@ fn cannot_add_instance_to_blackbox() {
 fn cannot_add_primitive_to_blackbox() {
     let mut cell = Cell::new_blackbox("cell");
     cell.add_blackbox_elem("* content");
-    cell.add_primitive(PrimitiveDevice::RawInstance {
-        ports: vec![],
-        cell: "raw_subckt".into(),
-        params: Default::default(),
-    });
+    cell.add_primitive(
+        PrimitiveDeviceKind::RawInstance {
+            ports: vec![],
+            cell: "raw_subckt".into(),
+        }
+        .into(),
+    );
 }

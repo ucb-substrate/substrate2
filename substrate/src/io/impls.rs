@@ -47,11 +47,9 @@ impl Flatten<Direction> for () {
     }
 }
 
-impl Undirected for () {}
-
 impl SchematicType for () {
-    type Data = ();
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = ();
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         ((), ids)
     }
 }
@@ -71,13 +69,13 @@ impl Flatten<Node> for () {
 }
 
 impl LayoutType for () {
-    type Data = ();
+    type Bundle = ();
     type Builder = ();
 
     fn builder(&self) {}
 }
 
-impl LayoutDataBuilder<()> for () {
+impl LayoutBundleBuilder<()> for () {
     fn build(self) -> Result<()> {
         Ok(())
     }
@@ -97,9 +95,18 @@ impl FlatLen for Signal {
     }
 }
 
+impl Flatten<Direction> for Signal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend(std::iter::once(Direction::InOut));
+    }
+}
+
 impl SchematicType for Signal {
-    type Data = Node;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = Node;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -109,7 +116,7 @@ impl SchematicType for Signal {
 }
 
 impl LayoutType for Signal {
-    type Data = PortGeometry;
+    type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
 
     fn builder(&self) -> Self::Builder {
@@ -123,8 +130,6 @@ impl HasNameTree for Signal {
     }
 }
 
-impl Undirected for Signal {}
-
 impl FlatLen for ShapePort {
     fn len(&self) -> usize {
         1
@@ -132,7 +137,7 @@ impl FlatLen for ShapePort {
 }
 
 impl LayoutType for ShapePort {
-    type Data = IoShape;
+    type Bundle = IoShape;
     type Builder = OptionBuilder<IoShape>;
 
     fn builder(&self) -> Self::Builder {
@@ -145,8 +150,6 @@ impl HasNameTree for ShapePort {
         Some(vec![])
     }
 }
-
-impl Undirected for ShapePort {}
 
 impl CustomLayoutType<Signal> for ShapePort {
     fn from_layout_type(_other: &Signal) -> Self {
@@ -161,7 +164,7 @@ impl FlatLen for LayoutPort {
 }
 
 impl LayoutType for LayoutPort {
-    type Data = PortGeometry;
+    type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
 
     fn builder(&self) -> Self::Builder {
@@ -174,8 +177,6 @@ impl HasNameTree for LayoutPort {
         Some(vec![])
     }
 }
-
-impl Undirected for LayoutPort {}
 
 impl CustomLayoutType<Signal> for LayoutPort {
     fn from_layout_type(_other: &Signal) -> Self {
@@ -209,6 +210,14 @@ impl HasNestedView for Node {
     }
 }
 
+impl HasTerminalView for Node {
+    type TerminalView<'a> = Terminal;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        Terminal(self.nested_view(parent))
+    }
+}
+
 impl HasNestedView for NestedNode {
     type NestedView<'a> = NestedNode;
 
@@ -220,20 +229,11 @@ impl HasNestedView for NestedNode {
     }
 }
 
-impl Undirected for Node {}
+impl HasNestedView for Terminal {
+    type NestedView<'a> = Terminal;
 
-impl FlatLen for NestedNode {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl Flatten<Node> for NestedNode {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        output.extend(std::iter::once(self.node));
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        Terminal(self.0.nested_view(parent))
     }
 }
 
@@ -256,23 +256,17 @@ impl Flatten<PortGeometry> for IoShape {
     }
 }
 
-impl Undirected for IoShape {}
-
 impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
     fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
         self.set(source.get(path).unwrap().primary.clone());
     }
 }
 
-impl<T: LayoutData> LayoutDataBuilder<T> for OptionBuilder<T> {
+impl<T: LayoutBundle> LayoutBundleBuilder<T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
         self.build()
     }
 }
-
-impl<T: Undirected> Undirected for OptionBuilder<T> {}
-
-impl<T: Undirected> Undirected for Option<T> {}
 
 impl FlatLen for PortGeometry {
     fn len(&self) -> usize {
@@ -319,15 +313,13 @@ impl HasTransformedView for PortGeometry {
     }
 }
 
-impl Undirected for PortGeometry {}
-
 impl FlatLen for PortGeometryBuilder {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
+impl LayoutBundleBuilder<PortGeometry> for PortGeometryBuilder {
     fn build(self) -> Result<PortGeometry> {
         Ok(PortGeometry {
             primary: self.primary.ok_or_else(|| {
@@ -343,8 +335,6 @@ impl LayoutDataBuilder<PortGeometry> for PortGeometryBuilder {
     }
 }
 
-impl Undirected for PortGeometryBuilder {}
-
 impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
     fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
         let source = source.get(path).unwrap();
@@ -354,32 +344,34 @@ impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
     }
 }
 
-impl<T: Undirected> AsRef<T> for Input<T> {
+// FIXME: macro-ify START
+
+impl<T> AsRef<T> for Input<T> {
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
 
-impl<T: Undirected> Deref for Input<T> {
+impl<T> Deref for Input<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T: Undirected> DerefMut for Input<T> {
+impl<T> DerefMut for Input<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<U: Undirected, T: From<U> + Undirected> From<U> for Input<T> {
-    fn from(value: U) -> Self {
-        Input(value.into())
+impl<T> From<T> for Input<T> {
+    fn from(value: T) -> Self {
+        Input(value)
     }
 }
 
-impl<T: Undirected> Borrow<T> for Input<T> {
+impl<T> Borrow<T> for Input<T> {
     fn borrow(&self) -> &T {
         &self.0
     }
@@ -387,23 +379,20 @@ impl<T: Undirected> Borrow<T> for Input<T> {
 
 impl<T> SchematicType for Input<T>
 where
-    T: Undirected + SchematicType,
-    T::Data: Undirected,
+    T: SchematicType,
 {
-    type Data = Input<T::Data>;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
-        (Input(data), ids)
+        (data, ids)
     }
 }
 
 impl<T> LayoutType for Input<T>
 where
-    T: Undirected + LayoutType,
-    T::Data: Undirected,
-    T::Builder: Undirected,
+    T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -413,29 +402,27 @@ where
 
 impl<T, U: CustomLayoutType<T>> CustomLayoutType<Input<T>> for U
 where
-    T: Undirected + LayoutType,
-    T::Data: Undirected,
-    T::Builder: Undirected,
+    T: LayoutType,
 {
     fn from_layout_type(other: &Input<T>) -> Self {
         <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
-impl<T: Undirected + HasNameTree> HasNameTree for Input<T> {
+impl<T: HasNameTree> HasNameTree for Input<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         self.0.names()
     }
 }
 
-impl<T: Undirected + FlatLen> FlatLen for Input<T> {
+impl<T: FlatLen> FlatLen for Input<T> {
     #[inline]
     fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl<T: Undirected + FlatLen> Flatten<Direction> for Input<T> {
+impl<T: FlatLen> Flatten<Direction> for Input<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
@@ -443,7 +430,7 @@ impl<T: Undirected + FlatLen> Flatten<Direction> for Input<T> {
         output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
     }
 }
-impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
+impl<T: Flatten<Node>> Flatten<Node> for Input<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
@@ -452,7 +439,7 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for Input<T> {
     }
 }
 
-impl<T: Undirected + HasNestedView> HasNestedView for Input<T> {
+impl<T: HasNestedView> HasNestedView for Input<T> {
     type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
@@ -460,25 +447,30 @@ impl<T: Undirected + HasNestedView> HasNestedView for Input<T> {
     }
 }
 
+impl<T: HasTerminalView> HasTerminalView for Input<T> {
+    type TerminalView<'a> = T::TerminalView<'a> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.0.terminal_view(parent)
+    }
+}
+
 impl<T> SchematicType for Output<T>
 where
-    T: Undirected + SchematicType,
-    T::Data: Undirected,
+    T: SchematicType,
 {
-    type Data = Output<T::Data>;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
-        (Output(data), ids)
+        (data, ids)
     }
 }
 
 impl<T> LayoutType for Output<T>
 where
-    T: Undirected + LayoutType,
-    T::Data: Undirected,
-    T::Builder: Undirected,
+    T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -488,29 +480,27 @@ where
 
 impl<T, U: CustomLayoutType<T>> CustomLayoutType<Output<T>> for U
 where
-    T: Undirected + LayoutType,
-    T::Data: Undirected,
-    T::Builder: Undirected,
+    T: LayoutType,
 {
     fn from_layout_type(other: &Output<T>) -> Self {
         <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
-impl<T: Undirected + HasNameTree> HasNameTree for Output<T> {
+impl<T: HasNameTree> HasNameTree for Output<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         self.0.names()
     }
 }
 
-impl<T: Undirected + FlatLen> FlatLen for Output<T> {
+impl<T: FlatLen> FlatLen for Output<T> {
     #[inline]
     fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
+impl<T: FlatLen> Flatten<Direction> for Output<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
@@ -519,7 +509,7 @@ impl<T: Undirected + FlatLen> Flatten<Direction> for Output<T> {
     }
 }
 
-impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
+impl<T: Flatten<Node>> Flatten<Node> for Output<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
@@ -528,7 +518,7 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for Output<T> {
     }
 }
 
-impl<T: Undirected + HasNestedView> HasNestedView for Output<T> {
+impl<T: HasNestedView> HasNestedView for Output<T> {
     type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
@@ -536,32 +526,40 @@ impl<T: Undirected + HasNestedView> HasNestedView for Output<T> {
     }
 }
 
-impl<T: Undirected> AsRef<T> for Output<T> {
+impl<T: HasTerminalView> HasTerminalView for Output<T> {
+    type TerminalView<'a> = T::TerminalView<'a> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.0.terminal_view(parent)
+    }
+}
+
+impl<T> AsRef<T> for Output<T> {
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
 
-impl<T: Undirected> Deref for Output<T> {
+impl<T> Deref for Output<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T: Undirected> DerefMut for Output<T> {
+impl<T> DerefMut for Output<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<U: Undirected, T: From<U> + Undirected> From<U> for Output<T> {
-    fn from(value: U) -> Self {
-        Output(value.into())
+impl<T> From<T> for Output<T> {
+    fn from(value: T) -> Self {
+        Output(value)
     }
 }
 
-impl<T: Undirected> Borrow<T> for Output<T> {
+impl<T> Borrow<T> for Output<T> {
     fn borrow(&self) -> &T {
         &self.0
     }
@@ -569,23 +567,20 @@ impl<T: Undirected> Borrow<T> for Output<T> {
 
 impl<T> SchematicType for InOut<T>
 where
-    T: Undirected + SchematicType,
-    T::Data: Undirected,
+    T: SchematicType,
 {
-    type Data = InOut<T::Data>;
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let (data, ids) = self.0.instantiate(ids);
-        (InOut(data), ids)
+        (data, ids)
     }
 }
 
 impl<T> LayoutType for InOut<T>
 where
-    T: Undirected + LayoutType,
-    T::Data: Undirected,
-    T::Builder: Undirected,
+    T: LayoutType,
 {
-    type Data = T::Data;
+    type Bundle = T::Bundle;
     type Builder = T::Builder;
 
     fn builder(&self) -> Self::Builder {
@@ -595,36 +590,34 @@ where
 
 impl<T, U: CustomLayoutType<T>> CustomLayoutType<InOut<T>> for U
 where
-    T: Undirected + LayoutType,
-    T::Data: Undirected,
-    T::Builder: Undirected,
+    T: LayoutType,
 {
     fn from_layout_type(other: &InOut<T>) -> Self {
         <U as CustomLayoutType<T>>::from_layout_type(&other.0)
     }
 }
 
-impl<T: Undirected + HasNameTree> HasNameTree for InOut<T> {
+impl<T: HasNameTree> HasNameTree for InOut<T> {
     fn names(&self) -> Option<Vec<NameTree>> {
         self.0.names()
     }
 }
 
-impl<T: Undirected + FlatLen> FlatLen for InOut<T> {
+impl<T: FlatLen> FlatLen for InOut<T> {
     #[inline]
     fn len(&self) -> usize {
         self.0.len()
     }
 }
-impl<T: Undirected + FlatLen> Flatten<Direction> for InOut<T> {
+impl<T: FlatLen> Flatten<Direction> for InOut<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
+        output.extend(std::iter::repeat(Direction::InOut).take(self.0.len()))
     }
 }
-impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
+impl<T: Flatten<Node>> Flatten<Node> for InOut<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
@@ -633,7 +626,7 @@ impl<T: Undirected + Flatten<Node>> Flatten<Node> for InOut<T> {
     }
 }
 
-impl<T: Undirected + SchematicData + HasNestedView> HasNestedView for InOut<T> {
+impl<T: HasNestedView> HasNestedView for InOut<T> {
     type NestedView<'a> = T::NestedView<'a> where T: 'a;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
@@ -641,35 +634,145 @@ impl<T: Undirected + SchematicData + HasNestedView> HasNestedView for InOut<T> {
     }
 }
 
-impl<T: Undirected> AsRef<T> for InOut<T> {
+impl<T: HasTerminalView> HasTerminalView for InOut<T> {
+    type TerminalView<'a> = T::TerminalView<'a> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        self.0.terminal_view(parent)
+    }
+}
+
+impl<T> AsRef<T> for InOut<T> {
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
-impl<T: Undirected> Deref for InOut<T> {
+impl<T> Deref for InOut<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T: Undirected> DerefMut for InOut<T> {
+impl<T> DerefMut for InOut<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<U: Undirected, T: From<U> + Undirected> From<U> for InOut<T> {
-    fn from(value: U) -> Self {
-        InOut(value.into())
+impl<T> From<T> for InOut<T> {
+    fn from(value: T) -> Self {
+        InOut(value)
     }
 }
 
-impl<T: Undirected> Borrow<T> for InOut<T> {
+impl<T> Borrow<T> for InOut<T> {
     fn borrow(&self) -> &T {
         &self.0
     }
 }
+
+impl<T> SchematicType for Flipped<T>
+where
+    T: SchematicType,
+{
+    type Bundle = T::Bundle;
+    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
+        let (data, ids) = self.0.instantiate(ids);
+        (data, ids)
+    }
+}
+
+impl<T> LayoutType for Flipped<T>
+where
+    T: LayoutType,
+{
+    type Bundle = T::Bundle;
+    type Builder = T::Builder;
+
+    fn builder(&self) -> Self::Builder {
+        self.0.builder()
+    }
+}
+
+impl<T, U: CustomLayoutType<T>> CustomLayoutType<Flipped<T>> for U
+where
+    T: LayoutType,
+{
+    fn from_layout_type(other: &Flipped<T>) -> Self {
+        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
+    }
+}
+
+impl<T: HasNameTree> HasNameTree for Flipped<T> {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        self.0.names()
+    }
+}
+
+impl<T: FlatLen> FlatLen for Flipped<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<T: Flatten<Direction>> Flatten<Direction> for Flipped<T> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        let inner = self.0.flatten_vec();
+        output.extend(inner.into_iter().map(|d| d.flip()))
+    }
+}
+impl<T: Flatten<Node>> Flatten<Node> for Flipped<T> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output);
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for Flipped<T> {
+    type NestedView<'a> = T::NestedView<'a> where T: 'a;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
+        self.0.nested_view(parent)
+    }
+}
+
+impl<T> AsRef<T> for Flipped<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T> Deref for Flipped<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for Flipped<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> From<T> for Flipped<T> {
+    fn from(value: T) -> Self {
+        Flipped(value)
+    }
+}
+
+impl<T> Borrow<T> for Flipped<T> {
+    fn borrow(&self) -> &T {
+        &self.0
+    }
+}
+
+// FIXME: macro-ify END
 
 impl<T: FlatLen> FlatLen for Array<T> {
     fn len(&self) -> usize {
@@ -678,9 +781,9 @@ impl<T: FlatLen> FlatLen for Array<T> {
 }
 
 impl<T: SchematicType> SchematicType for Array<T> {
-    type Data = ArrayData<T::Data>;
+    type Bundle = ArrayData<T::Bundle>;
 
-    fn instantiate<'n>(&self, mut ids: &'n [Node]) -> (Self::Data, &'n [Node]) {
+    fn instantiate<'n>(&self, mut ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
                 let (elem, new_ids) = self.ty.instantiate(ids);
@@ -699,7 +802,7 @@ impl<T: SchematicType> SchematicType for Array<T> {
 }
 
 impl<T: LayoutType> LayoutType for Array<T> {
-    type Data = ArrayData<T::Data>;
+    type Bundle = ArrayData<T::Bundle>;
     type Builder = ArrayData<T::Builder>;
 
     fn builder(&self) -> Self::Builder {
@@ -771,7 +874,9 @@ impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
     }
 }
 
-impl<T: LayoutData, B: LayoutDataBuilder<T>> LayoutDataBuilder<ArrayData<T>> for ArrayData<B> {
+impl<T: LayoutBundle, B: LayoutBundleBuilder<T>> LayoutBundleBuilder<ArrayData<T>>
+    for ArrayData<B>
+{
     fn build(self) -> Result<ArrayData<T>> {
         let mut elems = Vec::new();
         for e in self.elems {
@@ -794,8 +899,6 @@ impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
         }
     }
 }
-
-impl<T: Undirected> Undirected for Array<T> {}
 
 impl<T: FlatLen> FlatLen for ArrayData<T> {
     fn len(&self) -> usize {
@@ -821,6 +924,21 @@ impl<T: HasNestedView> HasNestedView for ArrayData<T> {
                 .elems
                 .iter()
                 .map(|elem| elem.nested_view(parent))
+                .collect(),
+            ty_len: self.ty_len,
+        }
+    }
+}
+
+impl<T: HasTerminalView> HasTerminalView for ArrayData<T> {
+    type TerminalView<'a> = ArrayData<T::TerminalView<'a>> where T: 'a;
+
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+        ArrayData {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem| elem.terminal_view(parent))
                 .collect(),
             ty_len: self.ty_len,
         }
@@ -857,37 +975,9 @@ where
     }
 }
 
-impl<T: Undirected> Undirected for ArrayData<T> {}
-
 impl<T> Connect<T> for T {}
 impl<T> Connect<&T> for T {}
 impl<T> Connect<T> for &T {}
-impl<T: Undirected> Connect<T> for Input<T> {}
-impl<T: Undirected> Connect<T> for Output<T> {}
-impl<T: Undirected> Connect<T> for InOut<T> {}
-impl<T: Undirected> Connect<Input<T>> for T {}
-impl<T: Undirected> Connect<Output<T>> for T {}
-impl<T: Undirected> Connect<InOut<T>> for T {}
-impl<T: Undirected> Connect<&T> for &Input<T> {}
-impl<T: Undirected> Connect<&T> for &Output<T> {}
-impl<T: Undirected> Connect<&T> for &InOut<T> {}
-impl<T: Undirected> Connect<&Input<T>> for &T {}
-impl<T: Undirected> Connect<&Output<T>> for &T {}
-impl<T: Undirected> Connect<&InOut<T>> for &T {}
-
-// For analog circuits, we don't check directionality of connections.
-impl<T: Undirected> Connect<Input<T>> for Output<T> {}
-impl<T: Undirected> Connect<Input<T>> for InOut<T> {}
-impl<T: Undirected> Connect<Output<T>> for Input<T> {}
-impl<T: Undirected> Connect<Output<T>> for InOut<T> {}
-impl<T: Undirected> Connect<InOut<T>> for Input<T> {}
-impl<T: Undirected> Connect<InOut<T>> for Output<T> {}
-impl<T: Undirected> Connect<&Input<T>> for &Output<T> {}
-impl<T: Undirected> Connect<&Input<T>> for &InOut<T> {}
-impl<T: Undirected> Connect<&Output<T>> for &Input<T> {}
-impl<T: Undirected> Connect<&Output<T>> for &InOut<T> {}
-impl<T: Undirected> Connect<&InOut<T>> for &Input<T> {}
-impl<T: Undirected> Connect<&InOut<T>> for &Output<T> {}
 
 impl From<ArcStr> for NameFragment {
     fn from(value: ArcStr) -> Self {

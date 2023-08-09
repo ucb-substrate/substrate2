@@ -6,17 +6,17 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::{Pulse, Vsource};
-use spectre::{Options, Spectre, Tran};
+use spectre::tran::Tran;
+use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::TestbenchIo;
 use substrate::io::{Node, Signal};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematic};
-use substrate::simulation::data::HasNodeData;
+use substrate::schematic::HasSchematicData;
+use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{HasTestbenchSchematicImpl, Testbench};
-use substrate::Block;
+use substrate::simulation::{HasSimSchematic, Testbench};
 
 use super::Inverter;
 
@@ -34,15 +34,15 @@ impl InverterTb {
     }
 }
 
-impl HasSchematic for InverterTb {
+impl HasSchematicData for InverterTb {
     type Data = Node;
 }
 
-impl HasTestbenchSchematicImpl<Sky130CommercialPdk, Spectre> for InverterTb {
+impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
+        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv = cell.instantiate(self.dut);
 
@@ -83,13 +83,12 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(
         &self,
-        cell: &Cell<Self>,
-        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre>,
+        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre, Self>,
     ) -> Self::Output {
         let output = sim
-            .simulate(
+            .simulate_default(
                 Options::default(),
-                self.pvt.corner,
+                Some(&self.pvt.corner),
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),
@@ -98,8 +97,8 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        let vout = output.get_data(&cell.data()).unwrap();
-        let time = output.get_data("time").unwrap();
+        let vout = output.get_data(&sim.tb.data()).unwrap();
+        let time = &output.time;
         let vout = WaveformRef::new(time, vout);
         let mut trans = vout.transitions(
             0.2 * self.pvt.voltage.to_f64().unwrap(),
@@ -149,7 +148,7 @@ impl InverterDesign {
                 lch: self.lch,
             };
             let tb = InverterTb::new(pvt, dut);
-            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}")));
+            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}"))).unwrap();
             println!("Simulating with pw = {pw} gave:\n{:#?}", data);
             let diff = (data.tr - data.tf).abs();
             if let Some((pdiff, _)) = opt {

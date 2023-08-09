@@ -304,7 +304,7 @@ impl Display for Cause {
     }
 }
 
-impl Library {
+impl LibraryBuilder {
     /// Check whether or not this library is valid.
     pub fn validate(&self) -> IssueSet<ValidatorIssue> {
         let _guard = span!(Level::INFO, "validating SCIR Library").entered();
@@ -441,7 +441,7 @@ impl Library {
             }
         }
 
-        for device in contents.primitives.iter() {
+        for (_, device) in contents.primitives.iter() {
             for slice in device.nodes() {
                 if !cell.signals.contains_key(&slice.signal()) {
                     issues.add(invalid_signal(slice.signal()));
@@ -601,7 +601,7 @@ impl Library {
             }
         }
 
-        for device in contents.primitives.iter() {
+        for (_, device) in contents.primitives.iter() {
             for slice in device.nodes() {
                 if slice.width() != 1 {
                     let issue = ValidatorIssue::new_and_log(
@@ -629,7 +629,7 @@ mod tests {
         let c1 = Cell::new_whitebox("duplicate_cell_name");
         let mut c2 = Cell::new_blackbox("duplicate_cell_name");
         c2.add_blackbox_elem("* contents of cell");
-        let mut lib = Library::new("duplicate_cell_names");
+        let mut lib = LibraryBuilder::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);
         let issues = lib.validate();

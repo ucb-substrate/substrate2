@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
 use spectre::Spectre;
 use substrate::pdk::corner::InstallCorner;
-use substrate::Corner;
 
 use crate::Sky130CommercialPdk;
 
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Corner)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Sky130Corner {
     #[default]
     Tt,
@@ -73,12 +72,12 @@ impl Sky130Corner {
 impl InstallCorner<Spectre> for Sky130CommercialPdk {
     fn install_corner(
         &self,
-        corner: impl AsRef<<Self as substrate::pdk::Pdk>::Corner>,
+        corner: &<Self as substrate::pdk::Pdk>::Corner,
         opts: &mut <Spectre as substrate::simulation::Simulator>::Options,
     ) {
         opts.include(self.root_dir.join(format!(
             "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
-            corner.as_ref().name()
+            corner.name()
         )));
     }
 }

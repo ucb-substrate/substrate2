@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use corner::*;
 use rust_decimal_macros::dec;
+use substrate::pdk::layers::{LayerFamily, Layers};
 use substrate::pdk::Pdk;
-use substrate::{LayerFamily, Layers};
 
 pub mod corner;
 pub mod mos;

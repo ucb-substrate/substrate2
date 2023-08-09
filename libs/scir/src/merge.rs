@@ -14,13 +14,13 @@ struct Merger<'a> {
     mapping: HashMap<CellId, CellId>,
     /// Destination cell ID -> name.
     names: Names<CellId>,
-    dst: &'a mut Library,
-    src: &'a Library,
+    dst: &'a mut LibraryBuilder,
+    src: &'a LibraryBuilder,
 }
 
 impl<'a> Merger<'a> {
     #[inline]
-    fn new(dst: &'a mut Library, src: &'a Library) -> Self {
+    fn new(dst: &'a mut LibraryBuilder, src: &'a LibraryBuilder) -> Self {
         Self {
             mapping: HashMap::with_capacity(src.cells.len()),
             names: Names::with_capacity(src.cells.len() + dst.cells.len()),
@@ -78,7 +78,7 @@ impl MergedMapping {
     }
 }
 
-impl Library {
+impl LibraryBuilder {
     /// Merges another SCIR library into the current library.
     pub fn merge(&mut self, other: &Self) -> MergedMapping {
         Merger::new(self, other).merge()

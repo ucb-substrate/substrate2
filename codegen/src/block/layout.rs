@@ -4,8 +4,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
 
-use crate::derive::{add_trait_bounds, struct_body};
 use crate::substrate_ident;
+use type_dispatch::derive::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(
@@ -162,9 +162,10 @@ impl ToTokens for DataInputReceiver {
             ref vis,
             ref attrs,
         } = *self;
-        let generics = add_trait_bounds(
+        let mut generics = generics.clone();
+        add_trait_bounds(
+            &mut generics,
             quote!(#substrate::geometry::transform::HasTransformedView),
-            generics.clone(),
         );
 
         let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
@@ -243,7 +244,7 @@ impl ToTokens for DataInputReceiver {
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(substrate), supports(any))]
-pub struct HasLayoutImplInputReceiver {
+pub struct HasLayoutInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     #[allow(unused)]
@@ -253,6 +254,9 @@ pub struct HasLayoutImplInputReceiver {
     schematic: Vec<darling::util::Ignored>,
     #[darling(multiple)]
     layout: Vec<LayoutHardMacro>,
+    #[darling(default)]
+    #[allow(unused)]
+    flatten: darling::util::Ignored,
 }
 
 #[derive(Debug, FromMeta)]
@@ -263,10 +267,10 @@ pub struct LayoutHardMacro {
     name: String,
 }
 
-impl ToTokens for HasLayoutImplInputReceiver {
+impl ToTokens for HasLayoutInputReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let substrate = substrate_ident();
-        let HasLayoutImplInputReceiver {
+        let HasLayoutInputReceiver {
             ref ident,
             ref generics,
             ref layout,
@@ -276,7 +280,7 @@ impl ToTokens for HasLayoutImplInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_layout = quote! {
-            impl #imp #substrate::layout::HasLayout for #ident #ty #wher {
+            impl #imp #substrate::layout::HasLayoutData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -294,7 +298,7 @@ impl ToTokens for HasLayoutImplInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::layout::HasLayoutImpl<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::layout::HasLayout<#pdk> for #ident #ty #wher {
                     fn layout(
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,

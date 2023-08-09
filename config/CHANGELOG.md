@@ -1,5 +1,17 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.2.0 to 0.2.1
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.2.1 to 0.3.0
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.3.0 to 0.3.1
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/config-v0.1.0...config-v0.2.0) (2023-07-23)
 
 

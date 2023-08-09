@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/diagnostics-v0.2.0...diagnostics-v0.3.0) (2023-08-08)
+
+
+### Features
+
+* **validation:** create type for unvalidated SCIR library ([#252](https://github.com/substrate-labs/substrate2/issues/252)) ([1550a22](https://github.com/substrate-labs/substrate2/commit/1550a22b9a1c9f7cd9717feaa45d00487cc8848e))
+
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/diagnostics-v0.1.0...diagnostics-v0.2.0) (2023-08-04)
+
+
+### Features
+
+* **repo:** reorganize repo ([#207](https://github.com/substrate-labs/substrate2/issues/207)) ([54a6b43](https://github.com/substrate-labs/substrate2/commit/54a6b43079d283a29bc0aa9e18dc6230b56fa385))
+
 ## 0.1.0 (2023-07-07)
 
 

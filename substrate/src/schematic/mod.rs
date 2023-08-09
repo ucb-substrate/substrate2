@@ -5,6 +5,7 @@ pub mod conv;
 use cache::error::TryInnerError;
 use cache::mem::TypeCache;
 use cache::CacheHandle;
+pub use codegen::{HasSchematic, SchematicData};
 use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -19,35 +20,35 @@ use rust_decimal::Decimal;
 
 use crate::block::Block;
 use crate::context::Context;
+use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, FlatLen, Flatten, HasNameTree, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
-    SchematicData, SchematicType,
+    Connect, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
+    SchematicBundle, SchematicType, TerminalView,
 };
 use crate::pdk::Pdk;
-use crate::simulation::{HasTestbenchSchematicImpl, Simulator};
+use crate::simulation::{HasSimSchematic, Simulator};
 
-/// A block that has a schematic.
-pub trait HasSchematic: Block {
+/// A block that has associated schematic data.
+pub trait HasSchematicData: Block {
     /// Extra data to be stored with the block's generated cell.
     ///
     /// Common uses include storing important instances for access during simulation and any
     /// important computations that may impact blocks that instantiate this block.
-    type Data: Data;
+    type Data: SchematicData;
 }
 
 /// A block that has a schematic for process design kit `PDK`.
-pub trait HasSchematicImpl<PDK: Pdk>: HasSchematic {
+pub trait HasSchematic<PDK: Pdk>: HasSchematicData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Data,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> Result<Self::Data>;
 }
 
 /// A builder for creating a schematic cell.
-#[allow(dead_code)]
 pub struct CellBuilder<PDK: Pdk, T: Block> {
     /// The current global context.
     pub ctx: Context<PDK>,
@@ -61,6 +62,11 @@ pub struct CellBuilder<PDK: Pdk, T: Block> {
     pub(crate) node_names: HashMap<Node, NameBuf>,
     pub(crate) cell_name: ArcStr,
     pub(crate) phantom: PhantomData<T>,
+    /// Outward-facing ports of this cell
+    ///
+    /// Directions are as viewed by a parent cell instantiating this cell; these
+    /// are the wrong directions to use when looking at connections to this
+    /// cell's IO from *within* the cell.
     pub(crate) ports: Vec<Port>,
     pub(crate) blackbox: Option<BlackboxContents>,
 }
@@ -151,8 +157,8 @@ impl From<&str> for BlackboxContents {
     }
 }
 
-/// A builder for creating a testbench schematic cell.
-pub struct TestbenchCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
+/// A builder for creating a simulation schematic cell.
+pub struct SimCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
     pub(crate) simulator: Arc<S>,
     pub(crate) inner: CellBuilder<PDK, T>,
 }
@@ -160,7 +166,7 @@ pub struct TestbenchCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
 impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     pub(crate) fn finish(self) -> RawCell {
         let mut roots = HashMap::with_capacity(self.node_names.len());
-        let mut uf = self.node_ctx.into_inner();
+        let mut uf = self.node_ctx.into_uf();
         for &node in self.node_names.keys() {
             let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
@@ -186,20 +192,23 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             uf,
             roots,
             contents,
+            flatten: T::FLATTEN,
         }
     }
 
     /// Create a new signal with the given name and hardware type.
+    #[track_caller]
     pub fn signal<TY: SchematicType>(
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <TY as SchematicType>::Data {
-        let ids = self.node_ctx.nodes(ty.len(), NodePriority::Named);
-        let (data, ids_rest) = ty.instantiate(&ids);
-        assert!(ids_rest.is_empty());
+    ) -> <TY as SchematicType>::Bundle {
+        let (nodes, data) = self.node_ctx.instantiate_undirected(
+            &ty,
+            NodePriority::Named,
+            SourceInfo::from_caller(),
+        );
 
-        let nodes = data.flatten_vec();
         let names = ty.flat_names(Some(name.into().into()));
         assert_eq!(nodes.len(), names.len());
 
@@ -210,13 +219,13 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
 
     /// Starts generating a block in a new thread and returns a handle to its cell.
     ///
-    /// Can be used to check data stored in the cell or other generation results before adding the
+    /// Can be used to check data stored in the cell or other generated results before adding the
     /// cell to the current schematic with [`CellBuilder::add`].
     ///
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
-    pub fn generate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> CellHandle<I> {
+    pub fn generate<I: HasSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
         self.ctx.generate_schematic(block)
     }
 
@@ -226,10 +235,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     ///
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
-    pub fn generate_blocking<I: HasSchematicImpl<PDK>>(
-        &mut self,
-        block: I,
-    ) -> Result<CellHandle<I>> {
+    pub fn generate_blocking<I: HasSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
         let cell = self.ctx.generate_schematic(block);
         cell.try_cell()?;
         Ok(cell)
@@ -247,13 +253,14 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
-    pub fn add<I: HasSchematicImpl<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+    #[track_caller]
+    pub fn add<I: HasSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
 
-        self.post_instantiate(cell)
+        self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Instantiate a schematic view of the given block.
@@ -262,8 +269,8 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
     /// [`CellBuilder::add`].
     ///
-    /// Spawns a thread that generates the underlying cell and panics if generation fails. If error
-    /// recovery is desired, use generate and add workflow mentioned above.
+    /// Spawns a thread that generates the underlying cell and panics if the generator fails. If error
+    /// recovery is desired, use the generate and add workflow mentioned above.
     ///
     /// # Panics
     ///
@@ -271,32 +278,35 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
-    pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
+    #[track_caller]
+    pub fn instantiate<I: HasSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
 
         let cell = self.ctx.generate_schematic(block);
-        self.post_instantiate(cell)
+        self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Creates nodes for the newly-instantiated block's IOs.
-    fn post_instantiate<I: HasSchematic>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+    fn post_instantiate<I: HasSchematicData>(
+        &mut self,
+        cell: CellHandle<I>,
+        source_info: SourceInfo,
+    ) -> Instance<I> {
         let io = cell.block.io();
 
-        let ids = self.node_ctx.nodes(io.len(), NodePriority::Auto);
-        let (io_data, ids_rest) = io.instantiate(&ids);
-        assert!(ids_rest.is_empty());
+        let (nodes, io_data) =
+            self.node_ctx
+                .instantiate_directed(&io, NodePriority::Auto, source_info);
 
-        let connections = io_data.flatten_vec();
         let names = io.flat_names(Some(
             arcstr::format!("xinst{}", self.instances.len()).into(),
         ));
-        assert_eq!(connections.len(), names.len());
+        assert_eq!(nodes.len(), names.len());
 
-        self.node_names
-            .extend(connections.iter().copied().zip(names));
+        self.node_names.extend(nodes.iter().copied().zip(names));
 
         self.next_instance_id.increment();
 
@@ -318,7 +328,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
                     id: inst.id,
                     name: arcstr::literal!("unnamed"),
                     child: cell.raw.clone(),
-                    connections,
+                    connections: nodes,
                 };
                 send.send(Some(raw)).unwrap();
             } else {
@@ -332,9 +342,9 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// Create an instance and immediately connect its ports.
     pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
     where
-        I: HasSchematicImpl<PDK>,
-        C: SchematicData,
-        <I::Io as SchematicType>::Data: Connect<C>,
+        I: HasSchematic<PDK>,
+        C: SchematicBundle,
+        <I::Io as SchematicType>::Bundle: Connect<C>,
     {
         let inst = self.instantiate(block);
         self.connect(inst.io, io);
@@ -343,15 +353,20 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        D1: SchematicData,
-        D2: SchematicData,
+        D1: SchematicBundle,
+        D2: SchematicBundle,
         D1: Connect<D2>,
     {
-        let s1f = s1.flatten_vec();
-        let s2f = s2.flatten_vec();
+        let s1f: Vec<Node> = s1.flatten_vec();
+        let s2f: Vec<Node> = s2.flatten_vec();
         assert_eq!(s1f.len(), s2f.len());
         s1f.into_iter().zip(s2f).for_each(|(a, b)| {
-            self.node_ctx.connect(a, b);
+            // FIXME: proper error handling mechanism (collect all errors into
+            // context and emit later)
+            let res = self.node_ctx.connect(a, b);
+            if let Err(err) = res {
+                tracing::warn!(?err, "connection failed");
+            }
         });
     }
 
@@ -386,7 +401,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     }
 }
 
-impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
+impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     /// Get a reference to the simulator being used.
     pub fn simulator(&self) -> &S {
         &self.simulator
@@ -401,7 +416,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <TY as SchematicType>::Data {
+    ) -> <TY as SchematicType>::Bundle {
         self.inner.signal(name, ty)
     }
 
@@ -413,7 +428,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
-    pub fn generate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> CellHandle<I> {
+    pub fn generate<I: HasSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
         self.inner.generate(block)
     }
 
@@ -423,10 +438,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     ///
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
-    pub fn generate_blocking<I: HasSchematicImpl<PDK>>(
-        &mut self,
-        block: I,
-    ) -> Result<CellHandle<I>> {
+    pub fn generate_blocking<I: HasSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
         self.inner.generate_blocking(block)
     }
 
@@ -442,12 +454,13 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
-    pub fn add<I: HasSchematicImpl<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+    #[track_caller]
+    pub fn add<I: HasSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
-        self.inner.post_instantiate(cell)
+        self.inner.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Instantiate a schematic view of the given block.
@@ -456,16 +469,16 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     ///
     /// Panics if this cell has been marked as a blackbox.
     /// A blackbox cell cannot contain instances or primitive devices.
-    pub fn instantiate<I: HasSchematicImpl<PDK>>(&mut self, block: I) -> Instance<I> {
+    pub fn instantiate<I: HasSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
         self.inner.instantiate(block)
     }
 
     /// Create an instance and immediately connect its ports.
     pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
     where
-        I: HasSchematicImpl<PDK>,
-        C: SchematicData,
-        <I::Io as SchematicType>::Data: Connect<C>,
+        I: HasSchematic<PDK>,
+        C: SchematicBundle,
+        <I::Io as SchematicType>::Bundle: Connect<C>,
     {
         self.inner.instantiate_connected(block, io)
     }
@@ -473,8 +486,8 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        D1: SchematicData,
-        D2: SchematicData,
+        D1: SchematicBundle,
+        D2: SchematicBundle,
         D1: Connect<D2>,
     {
         self.inner.connect(s1, s2)
@@ -509,10 +522,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
-    pub fn generate_tb<I: HasTestbenchSchematicImpl<PDK, S>>(
-        &mut self,
-        block: I,
-    ) -> TestbenchCellHandle<I> {
+    pub fn generate_tb<I: HasSimSchematic<PDK, S>>(&mut self, block: I) -> SimCellHandle<I> {
         self.inner.ctx.generate_testbench_schematic(Arc::new(block))
     }
 
@@ -522,10 +532,10 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     ///
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
-    pub fn generate_tb_blocking<I: HasTestbenchSchematicImpl<PDK, S>>(
+    pub fn generate_tb_blocking<I: HasSimSchematic<PDK, S>>(
         &mut self,
         block: I,
-    ) -> Result<TestbenchCellHandle<I>> {
+    ) -> Result<SimCellHandle<I>> {
         let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
         cell.try_cell()?;
         Ok(cell)
@@ -543,15 +553,14 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     /// A blackbox cell cannot contain instances or primitive devices.
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
-    pub fn add_tb<I: HasTestbenchSchematicImpl<PDK, S>>(
-        &mut self,
-        cell: TestbenchCellHandle<I>,
-    ) -> Instance<I> {
+    #[track_caller]
+    pub fn add_tb<I: HasSimSchematic<PDK, S>>(&mut self, cell: SimCellHandle<I>) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
-        self.inner.post_instantiate(cell.0)
+        self.inner
+            .post_instantiate(cell.0, SourceInfo::from_caller())
     }
 
     /// Instantiate a testbench schematic view of the given block.
@@ -560,17 +569,16 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
     ///
     /// Panics if this cell has been marked as a blackbox.
     /// A blackbox cell cannot contain instances or primitive devices.
-    pub fn instantiate_tb<I: HasTestbenchSchematicImpl<PDK, S>>(
-        &mut self,
-        block: I,
-    ) -> Instance<I> {
+    #[track_caller]
+    pub fn instantiate_tb<I: HasSimSchematic<PDK, S>>(&mut self, block: I) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
         );
 
         let cell = self.inner.ctx.generate_testbench_schematic(Arc::new(block));
-        self.inner.post_instantiate(cell.0)
+        self.inner
+            .post_instantiate(cell.0, SourceInfo::from_caller())
     }
 
     /// Gets the global context.
@@ -580,31 +588,42 @@ impl<PDK: Pdk, S: Simulator, T: Block> TestbenchCellBuilder<PDK, S, T> {
 }
 
 /// A schematic cell.
-#[derive(Clone)]
-pub struct Cell<T: HasSchematic> {
+pub struct Cell<T: HasSchematicData> {
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
-    pub(crate) data: T::Data,
+    pub(crate) data: Arc<T::Data>,
     pub(crate) raw: Arc<RawCell>,
     /// The cell's input/output interface.
-    io: <T::Io as SchematicType>::Data,
+    io: Arc<<T::Io as SchematicType>::Bundle>,
     /// The path corresponding to this cell.
     path: InstancePath,
 }
 
-impl<T: HasSchematic> Cell<T> {
+impl<T: HasSchematicData> Clone for Cell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            data: self.data.clone(),
+            raw: self.raw.clone(),
+            io: self.io.clone(),
+            path: self.path.clone(),
+        }
+    }
+}
+
+impl<T: HasSchematicData> Cell<T> {
     pub(crate) fn new(
-        io: <T::Io as SchematicType>::Data,
+        io: <T::Io as SchematicType>::Bundle,
         block: Arc<T>,
         data: T::Data,
         raw: Arc<RawCell>,
     ) -> Self {
         let id = raw.id;
         Self {
-            io,
+            io: Arc::new(io),
             block,
-            data,
+            data: Arc::new(data),
             raw,
             path: InstancePath::new(id),
         }
@@ -621,7 +640,7 @@ impl<T: HasSchematic> Cell<T> {
     }
 
     /// Returns this cell's IO.
-    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
+    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Bundle> {
         self.io.nested_view(&self.path)
     }
 
@@ -630,19 +649,19 @@ impl<T: HasSchematic> Cell<T> {
             block: &self.block,
             data: self.data.nested_view(parent),
             raw: self.raw.clone(),
-            io: self.io.nested_view(parent),
+            io: self.io.terminal_view(parent),
         }
     }
 }
 
 /// A handle to a schematic cell that is being generated.
-pub struct CellHandle<T: HasSchematic> {
+pub struct CellHandle<T: HasSchematicData> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<T>,
     pub(crate) cell: CacheHandle<Result<Cell<T>>>,
 }
 
-impl<T: HasSchematic> Clone for CellHandle<T> {
+impl<T: HasSchematicData> Clone for CellHandle<T> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -654,9 +673,9 @@ impl<T: HasSchematic> Clone for CellHandle<T> {
 
 /// A handle to a testbench schematic cell that is being generated.
 #[derive(Clone)]
-pub struct TestbenchCellHandle<T: HasSchematic>(pub(crate) CellHandle<T>);
+pub struct SimCellHandle<T: HasSchematicData>(pub(crate) CellHandle<T>);
 
-impl<T: HasSchematic> CellHandle<T> {
+impl<T: HasSchematicData> CellHandle<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
@@ -680,7 +699,7 @@ impl<T: HasSchematic> CellHandle<T> {
     }
 }
 
-impl<T: HasSchematic> TestbenchCellHandle<T> {
+impl<T: HasSchematicData> SimCellHandle<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
@@ -711,7 +730,7 @@ pub(crate) struct RawInstance {
 }
 
 /// A context-wide unique identifier for a cell.
-#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(u64);
 
 impl CellId {
@@ -731,6 +750,8 @@ pub(crate) struct RawCell {
     node_names: HashMap<Node, NameBuf>,
     roots: HashMap<Node, Node>,
     contents: RawCellContents,
+    /// Whether this cell should be flattened when being exported.
+    flatten: bool,
 }
 
 /// The (possibly blackboxed) contents of a raw cell.
@@ -755,21 +776,39 @@ impl InstanceId {
 
 /// An instance of a schematic cell.
 #[allow(dead_code)]
-pub struct Instance<T: HasSchematic> {
+pub struct Instance<T: HasSchematicData> {
     id: InstanceId,
     /// Path of the parent cell.
     parent: InstancePath,
     /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
-    io: <T::Io as SchematicType>::Data,
+    io: <T::Io as SchematicType>::Bundle,
     cell: CellHandle<T>,
 }
 
-impl<T: HasSchematic> Instance<T> {
+impl<T: HasSchematicData> Instance<T> {
     /// The ports of this instance.
-    pub fn io(&self) -> &<T::Io as SchematicType>::Data {
+    ///
+    /// Used for node connection purposes.
+    pub fn io(&self) -> &<T::Io as SchematicType>::Bundle {
         &self.io
+    }
+
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Bundle>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Bundle> {
+        self.cell().io
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -825,13 +864,29 @@ impl<T: HasSchematic> Instance<T> {
 
 /// A primitive device.
 #[derive(Debug, Clone)]
-pub enum PrimitiveDevice {
+pub struct PrimitiveDevice {
+    /// The kind (resistor, capacitor, etc.) of this primitive device.
+    kind: PrimitiveDeviceKind,
+    /// An unordered set of parameters, represented as key-value pairs.
+    params: HashMap<ArcStr, scir::Expr>,
+}
+
+/// A node connected to a terminal of a [`PrimitiveDevice`].
+#[derive(Debug, Clone)]
+pub struct PrimitiveNode {
+    pub(crate) port: ArcStr,
+    pub(crate) node: Node,
+}
+
+/// An enumeration of the possible kinds of primitive devices.
+#[derive(Debug, Clone)]
+pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive node.
-        pos: Node,
+        pos: PrimitiveNode,
         /// The negative node.
-        neg: Node,
+        neg: PrimitiveNode,
         /// The value of the resistor, in Ohms.
         value: Decimal,
     },
@@ -840,11 +895,9 @@ pub enum PrimitiveDevice {
     /// This can be an instance of a subcircuit defined outside of Substrate.
     RawInstance {
         /// The ports of the instance, as an ordered list.
-        ports: Vec<Node>,
+        ports: Vec<PrimitiveNode>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
-        /// Parameters to the cell being instantiated.
-        params: HashMap<ArcStr, scir::Expr>,
     },
     /// An instance of a SCIR cell.
     ///
@@ -864,11 +917,67 @@ pub enum PrimitiveDevice {
     },
 }
 
+impl PrimitiveDevice {
+    /// Create a new primitive device with the given parameters.
+    #[inline]
+    pub fn from_params(
+        kind: PrimitiveDeviceKind,
+        params: impl Into<HashMap<ArcStr, scir::Expr>>,
+    ) -> Self {
+        Self {
+            kind,
+            params: params.into(),
+        }
+    }
+
+    /// Create a new primitive device with no parameters.
+    #[inline]
+    pub fn new(kind: PrimitiveDeviceKind) -> Self {
+        Self {
+            kind,
+            params: Default::default(),
+        }
+    }
+}
+
+impl PrimitiveNode {
+    /// Creates a [`PrimitiveNode`] from a node and the name of the port that it is
+    /// connected to.
+    pub fn new(port: impl Into<ArcStr>, node: Node) -> Self {
+        Self {
+            port: port.into(),
+            node,
+        }
+    }
+}
+
+impl From<PrimitiveDeviceKind> for PrimitiveDevice {
+    #[inline]
+    fn from(value: PrimitiveDeviceKind) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<PrimitiveDevice> for PrimitiveDeviceKind {
+    fn from(value: PrimitiveDevice) -> Self {
+        value.kind
+    }
+}
+
 /// A wrapper around schematic-specific context data.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
     pub(crate) cell_cache: TypeCache,
+}
+
+impl Default for SchematicContext {
+    fn default() -> Self {
+        Self {
+            next_id: CellId(0),
+            cell_cache: Default::default(),
+        }
+    }
 }
 
 impl SchematicContext {
@@ -960,13 +1069,13 @@ impl InstancePath {
     }
 }
 
-/// Data that can be stored in [`HasSchematic::Data`](crate::schematic::HasSchematic::Data).
-pub trait Data: HasNestedView + Send + Sync {}
-impl<T: HasNestedView + Send + Sync> Data for T {}
+/// Data that can be stored in [`HasSchematicData::Data`](crate::schematic::HasSchematicData::Data).
+pub trait SchematicData: HasNestedView + Send + Sync {}
+impl<T: HasNestedView + Send + Sync> SchematicData for T {}
 
 /// An object that can be nested in the data of a cell.
 ///
-/// Stores a path of instances up to the current cell using a linked list.
+/// Stores a path of instances up to the current cell using an [`InstancePath`].
 pub trait HasNestedView {
     /// A view of the nested object.
     type NestedView<'a>
@@ -1001,10 +1110,16 @@ impl<T: HasNestedView> HasNestedView for Vec<T> {
 /// The associated nested view of an object.
 pub type NestedView<'a, T> = <T as HasNestedView>::NestedView<'a>;
 
+impl HasNestedView for () {
+    type NestedView<'a> = ();
+
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {}
+}
+
 /// A view of a nested cell.
 ///
 /// Created when accessing a cell from one of its instantiations in another cell.
-pub struct NestedCellView<'a, T: HasSchematic> {
+pub struct NestedCellView<'a, T: HasSchematicData> {
     /// The block from which this cell was generated.
     block: &'a T,
     /// Data returned by the cell's schematic generator.
@@ -1012,10 +1127,10 @@ pub struct NestedCellView<'a, T: HasSchematic> {
     #[allow(dead_code)]
     pub(crate) raw: Arc<RawCell>,
     /// The cell's input/output interface.
-    io: NestedView<'a, <T::Io as SchematicType>::Data>,
+    io: TerminalView<'a, <T::Io as SchematicType>::Bundle>,
 }
 
-impl<'a, T: HasSchematic> NestedCellView<'a, T> {
+impl<'a, T: HasSchematicData> NestedCellView<'a, T> {
     /// Returns the block whose schematic this cell represents.
     pub fn block(&'a self) -> &'a T {
         self.block
@@ -1025,24 +1140,17 @@ impl<'a, T: HasSchematic> NestedCellView<'a, T> {
     pub fn data(&'a self) -> &'a NestedView<'a, T::Data> {
         &self.data
     }
-
-    /// Returns this cell's IO.
-    pub fn io(&'a self) -> &'a NestedView<<T::Io as SchematicType>::Data> {
-        &self.io
-    }
 }
 
 /// A view of a nested instance.
 ///
 /// Created when accessing an instance stored in the data of a nested cell.
-pub struct NestedInstanceView<'a, T: HasSchematic> {
+pub struct NestedInstanceView<'a, T: HasSchematicData> {
     id: InstanceId,
-    /// Path to the parent cell of this instance.
-    parent: InstancePath,
-    /// Head of linked list path to this instance relative to the current cell.
+    /// The path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
-    io: &'a <T::Io as SchematicType>::Data,
+    io: &'a <T::Io as SchematicType>::Bundle,
     cell: CellHandle<T>,
 }
 
@@ -1051,30 +1159,21 @@ pub struct NestedInstanceView<'a, T: HasSchematic> {
 ///
 /// A [`NestedInstance`] can be used to store a nested instance directly in a cell's data for
 /// easier access.
-pub struct NestedInstance<T: HasSchematic> {
+pub struct NestedInstance<T: HasSchematicData> {
     id: InstanceId,
-    /// Path to the parent cell of this instance.
-    parent: InstancePath,
     /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
-    io: <T::Io as SchematicType>::Data,
+    io: <T::Io as SchematicType>::Bundle,
     cell: CellHandle<T>,
 }
 
-impl HasNestedView for () {
-    type NestedView<'a> = ();
-
-    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {}
-}
-
-impl<T: HasSchematic> HasNestedView for Instance<T> {
+impl<T: HasSchematicData> HasNestedView for Instance<T> {
     type NestedView<'a> = NestedInstanceView<'a, T>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
-            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -1082,10 +1181,21 @@ impl<T: HasSchematic> HasNestedView for Instance<T> {
     }
 }
 
-impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
-    /// The ports of this instance.
-    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.parent)
+impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Bundle>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Bundle> {
+        self.cell().io
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -1142,21 +1252,24 @@ impl<'a, T: HasSchematic> NestedInstanceView<'a, T> {
     pub fn to_owned(&self) -> NestedInstance<T> {
         NestedInstance {
             id: self.id,
-            parent: self.parent.clone(),
             path: self.path.clone(),
             io: (*self.io).clone(),
             cell: self.cell.clone(),
         }
     }
+
+    /// Returns the path of this instance relative to the top cell.
+    pub fn path(&self) -> &InstancePath {
+        &self.path
+    }
 }
 
-impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
+impl<T: HasSchematicData> HasNestedView for NestedInstance<T> {
     type NestedView<'a> = NestedInstanceView<'a, T>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
         Self::NestedView {
             id: self.id,
-            parent: self.parent.prepend(parent),
             path: self.path.prepend(parent),
             io: &self.io,
             cell: self.cell.clone(),
@@ -1164,10 +1277,21 @@ impl<T: HasSchematic> HasNestedView for NestedInstance<T> {
     }
 }
 
-impl<T: HasSchematic> NestedInstance<T> {
-    /// The ports of this instance.
-    pub fn io(&self) -> NestedView<<T::Io as SchematicType>::Data> {
-        self.io.nested_view(&self.parent)
+impl<T: HasSchematicData> NestedInstance<T> {
+    /// Tries to access this instance's terminals.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Bundle>> {
+        self.try_cell().map(|cell| cell.io)
+    }
+
+    /// Tries to access this instance's terminals
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Bundle> {
+        self.cell().io
     }
 
     /// Tries to access the underlying [`Cell`].
@@ -1218,5 +1342,10 @@ impl<T: HasSchematic> NestedInstance<T> {
     /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
         self.cell().block
+    }
+
+    /// Returns the path of this instance relative to the top cell.
+    pub fn path(&self) -> &InstancePath {
+        &self.path
     }
 }

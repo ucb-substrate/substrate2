@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.4.0](https://github.com/substrate-labs/substrate2/compare/spice-v0.3.0...spice-v0.4.0) (2023-08-08)
+
+
+### Features
+
+* **slices:** use `SliceOne` instead of `Slice` where possible ([#253](https://github.com/substrate-labs/substrate2/issues/253)) ([8eba8ed](https://github.com/substrate-labs/substrate2/commit/8eba8ed5aad0aa4911ae31f4521d297487256087))
+* **validation:** create type for unvalidated SCIR library ([#252](https://github.com/substrate-labs/substrate2/issues/252)) ([1550a22](https://github.com/substrate-labs/substrate2/commit/1550a22b9a1c9f7cd9717feaa45d00487cc8848e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.4.0 to 0.5.0
+
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/spice-v0.2.0...spice-v0.3.0) (2023-08-05)
+
+
+### Features
+
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.3.0 to 0.4.0
+
+## [0.2.0](https://github.com/substrate-labs/substrate2/compare/spice-v0.1.0...spice-v0.2.0) (2023-08-04)
+
+
+### Features
+
+* **primitives:** support parameters in SCIR primitive devices ([#232](https://github.com/substrate-labs/substrate2/issues/232)) ([a8f5b45](https://github.com/substrate-labs/substrate2/commit/a8f5b45a00b77d050f6a812c469e19da3305e064))
+* **repo:** reorganize repo ([#207](https://github.com/substrate-labs/substrate2/issues/207)) ([54a6b43](https://github.com/substrate-labs/substrate2/commit/54a6b43079d283a29bc0aa9e18dc6230b56fa385))
+* **schematics:** blackboxes can reference nodes ([#208](https://github.com/substrate-labs/substrate2/issues/208)) ([d998b4a](https://github.com/substrate-labs/substrate2/commit/d998b4a133d47d0123768dfb3c27f8ee32ed9db9))
+* **spice-parser:** spice parser follows include directives ([#229](https://github.com/substrate-labs/substrate2/issues/229)) ([5259acf](https://github.com/substrate-labs/substrate2/commit/5259acfa703c3879d44d324279293278c46f1ff5))
+* **validation:** SCIR driver analysis and validation ([#239](https://github.com/substrate-labs/substrate2/issues/239)) ([5a91448](https://github.com/substrate-labs/substrate2/commit/5a914489294bed06be1bd34aaa1036e4357d9a52))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.2.0 to 0.3.0
+
 ## [0.1.0](https://github.com/substrate-labs/substrate2/compare/spice-v0.0.0...spice-v0.1.0) (2023-07-23)
 
 

@@ -4,16 +4,14 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::geometry::prelude::*;
 use substrate::io::{
-    CustomLayoutType, InOut, Input, IoShape, LayoutPort, Node, Output, PortGeometry, ShapePort,
-    Signal,
+    CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
+    PortGeometry, ShapePort, Signal,
 };
-use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutImpl, Instance};
+use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutData, Instance, LayoutData};
+use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{Pdk, PdkLayers};
-use substrate::supported_pdks;
-use substrate::{
-    Block, Corner, DerivedLayerFamily, DerivedLayers, HasSchematicImpl, Io, LayerFamily, Layers,
-    LayoutData, LayoutType,
-};
+use substrate::schematic::HasSchematic;
+use substrate::type_dispatch::impl_dispatch;
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -47,7 +45,7 @@ pub struct Met1 {
 // end-code-snippet layers
 
 // begin-code-snippet derive_corner
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ExamplePdkCorner {
     Tt,
     Ss,
@@ -69,7 +67,7 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ExampleCorner;
 
 #[derive(Layers)]
@@ -198,11 +196,11 @@ impl Block for Inverter {
 // end-code-snippet inverter
 
 // begin-code-snippet inverter_layout
-impl HasLayout for Inverter {
+impl HasLayoutData for Inverter {
     type Data = ();
 }
 
-impl HasLayoutImpl<ExamplePdk> for Inverter {
+impl HasLayout<ExamplePdk> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -234,7 +232,7 @@ impl HasLayoutImpl<ExamplePdk> for Inverter {
 // end-code-snippet inverter_layout
 
 // begin-code-snippet inverter_multiprocess
-impl HasLayoutImpl<ExamplePdkA> for Inverter {
+impl HasLayout<ExamplePdkA> for Inverter {
     // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
@@ -266,7 +264,7 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
     // end-ellipses inverter_multiprocess
 }
 
-impl HasLayoutImpl<ExamplePdkB> for Inverter {
+impl HasLayout<ExamplePdkB> for Inverter {
     // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
@@ -350,6 +348,7 @@ mod __buffer_io_signal_override {
 
 mod __buffer_io_custom_layout {
     use super::*;
+    use substrate::io::Io;
 
     // begin-code-snippet buffer_io_custom_layout
     #[derive(Io, Clone, Default)]
@@ -416,12 +415,12 @@ pub struct BufferData {
 }
 
 // begin-code-snippet buffer_layout
-impl HasLayout for Buffer {
+impl HasLayoutData for Buffer {
     type Data = BufferData;
 }
 
 // begin-code-snippet cell_builder_generate
-impl HasLayoutImpl<ExamplePdk> for Buffer {
+impl HasLayout<ExamplePdk> for Buffer {
     fn layout(
         // begin-ellipses cell_builder_generate
         &self,
@@ -449,12 +448,12 @@ impl HasLayoutImpl<ExamplePdk> for Buffer {
 // end-code-snippet buffer_layout
 
 // begin-code-snippet buffer_multiprocess
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasLayoutImpl<T> for Buffer {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasLayout<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<T, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
@@ -475,7 +474,7 @@ impl HasLayoutImpl<T> for Buffer {
 // end-code-snippet buffer_multiprocess
 
 // begin-code-snippet buffer_hard_macro
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematicImpl)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "r###\"
@@ -533,4 +532,38 @@ fn generate_layout() {
 
 fn main() {
     generate_layout();
+}
+
+/// Demonstrates how to save simulator output.
+mod sim {
+    use spectre::tran::{TranCurrent, TranVoltage};
+    use substrate::simulation::data::FromSaved;
+
+    // begin-code-snippet sim_from_saved
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub enum SavedEnum {
+        Fields {
+            vout: TranVoltage,
+            iout: TranCurrent,
+        },
+        Tuple(TranVoltage, TranCurrent),
+        Unit,
+    }
+
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub struct NamedFields {
+        vout: TranVoltage,
+        iout: TranCurrent,
+    }
+
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub struct NewType(NamedFields);
+
+    #[derive(Debug, Clone, FromSaved)]
+    #[allow(unused)]
+    pub struct Tuple(NamedFields, SavedEnum);
+    // end-code-snippet sim_from_saved
 }

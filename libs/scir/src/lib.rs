@@ -25,9 +25,12 @@
 #![warn(missing_docs)]
 
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
+use std::ops::Deref;
 
 use arcstr::ArcStr;
+use diagnostics::IssueSet;
+use drivers::DriverIssue;
 use opacity::Opacity;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -36,7 +39,10 @@ use tracing::{span, Level};
 pub mod merge;
 mod slice;
 
-pub use slice::{IndexOwned, Slice, SliceRange};
+pub use slice::{IndexOwned, Slice, SliceOne, SliceRange, SliceWidthNotOne};
+use validation::ValidatorIssue;
+
+pub(crate) mod drivers;
 pub(crate) mod validation;
 
 #[cfg(test)]
@@ -113,7 +119,9 @@ impl Param {
 /// A signal ID created in the context of one cell must
 /// *not* be used in the context of another cell.
 /// You should instead create a new signal ID in the second cell.
-#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
+)]
 pub struct SignalId(u64);
 
 impl From<Slice> for SignalId {
@@ -123,19 +131,68 @@ impl From<Slice> for SignalId {
     }
 }
 
+impl From<SliceOne> for SignalId {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        value.signal()
+    }
+}
+
 /// A path to a node in a SCIR library.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NodePath {
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct SignalPath {
+    /// The end of the signal path.
+    pub tail: SignalPathTail,
+    /// The path to the containing instance.
+    pub instances: InstancePath,
+}
+
+/// The end of a signal path.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum SignalPathTail {
+    /// A signal slice within a SCIR cell.
+    Slice(SliceOne),
+    /// A signal within a primitive device.
+    Primitive {
+        /// The ID of the primitive device instance.
+        id: PrimitiveDeviceId,
+        /// A path of strings to the desired signal within the primitive.
+        name_path: Vec<ArcStr>,
+    },
+}
+
+/// A path of strings to a node in a SCIR library.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NamedSignalPath {
     /// The signal name.
-    pub signal: SignalId,
+    pub signal: ArcStr,
     /// The signal index.
     ///
     /// [`None`] for single-wire signals.
     pub index: Option<usize>,
+    /// The path to the containing instance.
+    pub instances: NamedInstancePath,
+}
+
+/// A path to an instance in a SCIR library.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct InstancePath {
     /// Path of instance names.
     pub instances: Vec<InstanceId>,
     /// Name of the top cell.
     pub top: CellId,
+}
+
+/// A path of strings to an instance in a SCIR library.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NamedInstancePath(pub Vec<ArcStr>);
+
+impl Deref for NamedInstancePath {
+    type Target = Vec<ArcStr>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// An opaque cell identifier.
@@ -143,16 +200,28 @@ pub struct NodePath {
 /// A cell ID created in the context of one library must
 /// *not* be used in the context of another library.
 /// You should instead create a new cell ID in the second library.
-#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct CellId(u64);
 
 /// An opaque instance identifier.
 ///
-/// A instance ID created in the context of one library must
-/// *not* be used in the context of another library.
-/// You should instead create a new instance ID in the second library.
-#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
+/// An instance ID created in the context of one cell must
+/// *not* be used in the context of another cell.
+/// You should instead create a new instance ID in the second cell.
+#[derive(
+    Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
+)]
 pub struct InstanceId(u64);
+
+/// An opaque primitive device identifier.
+///
+/// A primitive device ID created in the context of one cell must
+/// *not* be used in the context of another cell.
+/// You should instead create a new primitive device ID in the second cell.
+#[derive(
+    Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
+)]
+pub struct PrimitiveDeviceId(u64);
 
 impl Display for SignalId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -172,26 +241,77 @@ impl Display for InstanceId {
     }
 }
 
-/// An enumeration of supported primitive devices.
+impl Display for PrimitiveDeviceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "prim{}", self.0)
+    }
+}
+
+/// A primitive device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PrimitiveDevice {
+pub struct PrimitiveDevice {
+    /// The kind (resistor, capacitor, etc.) of this primitive device.
+    pub kind: PrimitiveDeviceKind,
+    /// An unordered set of parameters, represented as key-value pairs.
+    pub params: HashMap<ArcStr, Expr>,
+}
+
+impl PrimitiveDevice {
+    /// Create a new primitive device with the given parameters.
+    #[inline]
+    pub fn from_params(
+        kind: PrimitiveDeviceKind,
+        params: impl Into<HashMap<ArcStr, Expr>>,
+    ) -> Self {
+        Self {
+            kind,
+            params: params.into(),
+        }
+    }
+
+    /// Create a new primitive device with no parameters.
+    #[inline]
+    pub fn new(kind: PrimitiveDeviceKind) -> Self {
+        Self {
+            kind,
+            params: Default::default(),
+        }
+    }
+}
+
+impl From<PrimitiveDeviceKind> for PrimitiveDevice {
+    #[inline]
+    fn from(value: PrimitiveDeviceKind) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<PrimitiveDevice> for PrimitiveDeviceKind {
+    fn from(value: PrimitiveDevice) -> Self {
+        value.kind
+    }
+}
+
+/// An enumeration of supported primitive kinds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PrimitiveDeviceKind {
     /// An ideal 2-terminal resistor.
     Res2 {
         /// The positive terminal.
-        pos: Slice,
+        pos: SliceOne,
         /// The negative terminal.
-        neg: Slice,
+        neg: SliceOne,
         /// The value of the resistance, in Ohms.
         value: Expr,
     },
     /// A 3-terminal resistor.
     Res3 {
         /// The positive terminal.
-        pos: Slice,
+        pos: SliceOne,
         /// The negative terminal.
-        neg: Slice,
+        neg: SliceOne,
         /// The substrate/body terminal.
-        sub: Slice,
+        sub: SliceOne,
         /// The value of the resistance, in Ohms.
         value: Expr,
         /// The name of the resistor model to use.
@@ -207,18 +327,18 @@ pub enum PrimitiveDevice {
         ports: Vec<Slice>,
         /// The name of the cell being instantiated.
         cell: ArcStr,
-        /// Parameters to the cell being instantiated.
-        params: HashMap<ArcStr, Expr>,
     },
 }
 
 impl PrimitiveDevice {
     /// An iterator over the nodes referenced in the device.
     pub(crate) fn nodes(&self) -> impl IntoIterator<Item = Slice> {
-        match self {
-            Self::Res2 { pos, neg, .. } => vec![*pos, *neg],
-            Self::Res3 { pos, neg, sub, .. } => vec![*pos, *neg, *sub],
-            Self::RawInstance { ports, .. } => ports.clone(),
+        match &self.kind {
+            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![pos.into(), neg.into()],
+            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => {
+                vec![pos.into(), neg.into(), sub.into()]
+            }
+            PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
         }
     }
 }
@@ -257,6 +377,13 @@ impl FromIterator<Slice> for Concat {
     }
 }
 
+impl FromIterator<SliceOne> for Concat {
+    fn from_iter<T: IntoIterator<Item = SliceOne>>(iter: T) -> Self {
+        let parts = iter.into_iter().map(|s| s.into()).collect();
+        Self { parts }
+    }
+}
+
 impl From<Vec<Slice>> for Concat {
     #[inline]
     fn from(value: Vec<Slice>) -> Self {
@@ -271,6 +398,15 @@ impl From<Slice> for Concat {
     }
 }
 
+impl From<SliceOne> for Concat {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self {
+            parts: vec![value.into()],
+        }
+    }
+}
+
 /// Information about the top-level cell in a SCIR library.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Top {
@@ -282,7 +418,7 @@ pub struct Top {
 
 /// A library of SCIR cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Library {
+pub struct LibraryBuilder {
     /// The current ID counter.
     ///
     /// Initialized to 0 when the library is created.
@@ -307,15 +443,137 @@ pub struct Library {
     order: Vec<CellId>,
 }
 
+/// A SCIR library that is guaranteed to be valid.
+///
+/// The contents of the library cannot be mutated.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Library(LibraryBuilder);
+
+impl Deref for Library {
+    type Target = LibraryBuilder;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Issues encountered when validating a SCIR library.
+#[derive(Debug, Clone)]
+pub struct Issues {
+    /// Correctness issues.
+    pub correctness: IssueSet<ValidatorIssue>,
+    /// Driver connectivity issues.
+    pub drivers: IssueSet<DriverIssue>,
+}
+
+impl Display for Issues {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.correctness.is_empty() && self.drivers.is_empty() {
+            write!(f, "no issues")?;
+        }
+        if !self.correctness.is_empty() {
+            writeln!(f, "correctness issues:\n{}", self.correctness)?;
+        }
+        if !self.drivers.is_empty() {
+            writeln!(f, "driver issues:\n{}", self.drivers)?;
+        }
+        Ok(())
+    }
+}
+
+impl Issues {
+    /// Returns `true` if there are warnings.
+    pub fn has_warning(&self) -> bool {
+        self.correctness.has_warning() || self.drivers.has_warning()
+    }
+
+    /// Returns `true` if there are errors.
+    pub fn has_error(&self) -> bool {
+        self.correctness.has_error() || self.drivers.has_error()
+    }
+}
+
+/// Port directions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+pub enum Direction {
+    /// Input.
+    Input,
+    /// Output.
+    Output,
+    /// Input or output.
+    ///
+    /// Represents ports whose direction is not known
+    /// at generator elaboration time.
+    #[default]
+    InOut,
+}
+
+impl Direction {
+    /// Returns the flipped direction.
+    ///
+    /// [`Direction::InOut`] is unchanged by flipping.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use scir::Direction;
+    /// assert_eq!(Direction::Input.flip(), Direction::Output);
+    /// assert_eq!(Direction::Output.flip(), Direction::Input);
+    /// assert_eq!(Direction::InOut.flip(), Direction::InOut);
+    /// ```
+    #[inline]
+    pub fn flip(&self) -> Self {
+        match *self {
+            Self::Input => Self::Output,
+            Self::Output => Self::Input,
+            Self::InOut => Self::InOut,
+        }
+    }
+
+    /// Test if two nodes of the respective directions are allowed be connected
+    /// to each other.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use scir::Direction;
+    /// assert_eq!(Direction::Input.is_compatible_with(Direction::Output), true);
+    /// assert_eq!(Direction::Output.is_compatible_with(Direction::Output), false);
+    /// assert_eq!(Direction::Output.is_compatible_with(Direction::InOut), true);
+    /// ```
+    pub fn is_compatible_with(&self, other: Direction) -> bool {
+        use Direction::*;
+
+        #[allow(clippy::match_like_matches_macro)]
+        match (*self, other) {
+            (Output, Output) => false,
+            _ => true,
+        }
+    }
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Output => write!(f, "output"),
+            Self::Input => write!(f, "input"),
+            Self::InOut => write!(f, "inout"),
+        }
+    }
+}
+
 /// A signal exposed by a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Port {
     signal: SignalId,
+    direction: Direction,
 }
 
 /// Information about a signal in a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
+    /// The ID representing this signal.
+    pub id: SignalId,
+
     /// The name of this signal.
     pub name: ArcStr,
 
@@ -380,10 +638,19 @@ pub struct Cell {
     /// Initialized to 0 upon cell creation.
     signal_id: u64,
     pub(crate) name: ArcStr,
-    pub(crate) ports: Vec<Port>,
+    pub(crate) ports: Ports,
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
     pub(crate) params: HashMap<ArcStr, Param>,
     pub(crate) contents: CellContents,
+}
+
+/// A set of signals exposed by a cell.
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct Ports {
+    /// Signals exposed by a cell.
+    ports: Vec<Port>,
+    /// Mapping from a port name to its index in `ports`.
+    name_map: HashMap<ArcStr, usize>,
 }
 
 /// The inner contents of a non-blackbox cell.
@@ -393,13 +660,19 @@ pub struct CellInner {
     ///
     /// Initialized to 0 upon cell creation.
     instance_id: u64,
+    /// The last primitive ID assigned.
+    ///
+    /// Initialized to 0 upon cell creation.
+    primitive_id: u64,
     pub(crate) instances: HashMap<InstanceId, Instance>,
     /// The order in which instances are added to this cell.
-    pub(crate) order: Vec<InstanceId>,
-    pub(crate) primitives: Vec<PrimitiveDevice>,
+    pub(crate) instance_order: Vec<InstanceId>,
+    pub(crate) primitives: HashMap<PrimitiveDeviceId, PrimitiveDevice>,
+    /// The order in which primitives are added to this cell.
+    pub(crate) primitive_order: Vec<PrimitiveDeviceId>,
 }
 
-impl Library {
+impl LibraryBuilder {
     /// Creates a new, empty library.
     pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
@@ -444,10 +717,28 @@ impl Library {
     pub(crate) fn add_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
         let id = id.into();
         assert!(!self.cells.contains_key(&id));
-        self.cell_id = id.0;
+        self.cell_id = std::cmp::max(id.0, self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         self.order.push(id);
+    }
+
+    /// Adds the given cell to the library with the given cell ID,
+    /// overwriting an existing cell with the same ID.
+    ///
+    /// This can lead to unintended effects.
+    /// This method is intended for use only by Substrate libraries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is **not** already in use.
+    #[doc(hidden)]
+    pub fn overwrite_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell) {
+        let id = id.into();
+        assert!(self.cells.contains_key(&id));
+        self.cell_id = std::cmp::max(id.0, self.cell_id);
+        self.name_map.insert(cell.name.clone(), id);
+        self.cells.insert(id, cell);
     }
 
     /// Sets the top cell to the given cell ID.
@@ -491,8 +782,15 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given ID.
+    /// For a non-panicking alternative, see [`try_cell`](LibraryBuilder::try_cell).
     pub fn cell(&self, id: CellId) -> &Cell {
         self.cells.get(&id).unwrap()
+    }
+
+    /// Gets the cell with the given ID.
+    #[inline]
+    pub fn try_cell(&self, id: CellId) -> Option<&Cell> {
+        self.cells.get(&id)
     }
 
     /// Gets the cell with the given name.
@@ -509,6 +807,7 @@ impl Library {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
+    /// For a non-panicking alternative, see [`try_cell_id_named`](LibraryBuilder::try_cell_id_named).
     pub fn cell_id_named(&self, name: &str) -> CellId {
         match self.name_map.get(name) {
             Some(&cell) => cell,
@@ -519,55 +818,115 @@ impl Library {
         }
     }
 
+    /// Gets the cell ID corresponding to the given name.
+    pub fn try_cell_id_named(&self, name: &str) -> Option<CellId> {
+        self.name_map.get(name).copied()
+    }
+
     /// Iterates over the `(id, cell)` pairs in this library.
     pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell)> {
         self.order.iter().map(|&id| (id, self.cell(id)))
+    }
+
+    /// Converts an [`InstancePath`] to a [`NamedInstancePath`] and the [`CellId`] of the final
+    /// instance in the path.
+    pub fn convert_instance_path(&self, path: &InstancePath) -> (NamedInstancePath, CellId) {
+        let mut instances = Vec::new();
+        let mut id = path.top;
+        for instance in &path.instances {
+            let cell = self.cell(id);
+            let inst = cell.instance(*instance);
+            instances.push(inst.name().clone());
+            id = inst.cell();
+        }
+        (NamedInstancePath(instances), id)
     }
 
     /// Returns a simplified path to the provided node, bubbling up through IOs.
     ///
     /// # Panics
     ///
-    /// Panics if the provided path does not exist.
-    pub fn simplify_path(&self, mut path: NodePath) -> NodePath {
-        if path.instances.is_empty() {
+    /// Panics if the provided path does not exist or the path is terminated with
+    /// [`SignalPathTail::Primitive`].
+    pub fn simplify_path(&self, mut path: SignalPath) -> SignalPath {
+        if path.instances.instances.is_empty() {
             return path;
         }
 
-        let mut cells = Vec::with_capacity(path.instances.len());
-        let mut cell = self.cell(path.top);
+        let slice = if let SignalPathTail::Slice(slice) = &mut path.tail {
+            slice
+        } else {
+            panic!("path is terminated with a primitive instance and cannot be simplified")
+        };
+        let mut cells = Vec::with_capacity(path.instances.instances.len());
+        let mut cell = self.cell(path.instances.top);
 
-        for inst in path.instances.iter() {
+        for inst in path.instances.instances.iter() {
             let inst = &cell.contents().as_ref().unwrap_clear().instances[inst];
             cells.push(inst.cell);
             cell = self.cell(inst.cell);
         }
 
-        assert_eq!(cells.len(), path.instances.len());
+        assert_eq!(cells.len(), path.instances.instances.len());
 
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
-            let info = cell.signal(path.signal);
+            let info = cell.signal(slice.signal());
             if !info.port {
-                path.instances.truncate(i + 1);
+                path.instances.instances.truncate(i + 1);
                 return path;
             } else {
                 let parent = if i == 0 {
-                    self.cell(path.top)
+                    self.cell(path.instances.top)
                 } else {
                     self.cell(cells[i - 1])
                 };
-                let inst = &parent.contents().as_ref().unwrap_clear().instances[&path.instances[i]];
-                let idx = if let Some(idx) = path.index { idx } else { 0 };
-                let slice = inst.connection(info.name.as_ref()).index(idx);
-                path.signal = slice.signal();
-                path.index = slice.range().map(|range| range.start);
+                let inst = &parent.contents().as_ref().unwrap_clear().instances
+                    [&path.instances.instances[i]];
+                let idx = slice.index().unwrap_or_default();
+                *slice = inst.connection(info.name.as_ref()).index(idx);
             }
         }
 
-        NodePath {
-            instances: Vec::new(),
-            ..path
+        path.instances.instances = Vec::new();
+        path
+    }
+
+    /// Validate and construct a SCIR [`Library`].
+    ///
+    /// If errors are encountered during validation,
+    /// returns an `Err(_)` containing the set of issues found.
+    /// If no errors are encountered, returns an `Ok(_)` containing
+    /// the SCIR library. Warnings and infos are discarded.
+    ///
+    /// If you want to inspect warnings/infos, consider using
+    /// [`try_build`](LibraryBuilder::try_build) instead.
+    #[inline]
+    pub fn build(self) -> Result<Library, Issues> {
+        self.try_build().map(|ok| ok.0)
+    }
+
+    /// Validate and construct a SCIR [`Library`].
+    ///
+    /// If errors are encountered during validation,
+    /// returns an `Err(_)` containing the set of issues found.
+    /// If no errors are encountered, returns `Ok((library, issues))`.
+    /// The issues returned will not have any errors, but may have
+    /// warnings or infos.
+    ///
+    /// If you do not want to inspect warnings/infos, consider using
+    /// [`build`](LibraryBuilder::build) instead.
+    pub fn try_build(self) -> Result<(Library, Issues), Issues> {
+        let correctness = self.validate();
+        let drivers = self.validate_drivers();
+        let issues = Issues {
+            correctness,
+            drivers,
+        };
+        if issues.has_error() {
+            Err(issues)
+        } else {
+            Ok((Library(self), issues))
         }
     }
 }
@@ -578,7 +937,7 @@ impl Cell {
         Self {
             signal_id: 0,
             name: name.into(),
-            ports: Vec::new(),
+            ports: Ports::new(),
             signals: HashMap::new(),
             params: HashMap::new(),
             contents: CellContents::Clear(Default::default()),
@@ -593,7 +952,7 @@ impl Cell {
         Self {
             signal_id: 0,
             name: name.into(),
-            ports: Vec::new(),
+            ports: Ports::new(),
             signals: HashMap::new(),
             params: HashMap::new(),
             contents: CellContents::Opaque(Default::default()),
@@ -601,18 +960,19 @@ impl Cell {
     }
 
     /// Creates a new 1-bit signal in this cell.
-    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> Slice {
+    pub fn add_node(&mut self, name: impl Into<ArcStr>) -> SliceOne {
         self.signal_id += 1;
         let id = SignalId(self.signal_id);
         self.signals.insert(
             id,
             SignalInfo {
+                id,
                 port: false,
                 name: name.into(),
                 width: None,
             },
         );
-        Slice::new(id, None)
+        SliceOne::new(id, None)
     }
 
     /// Creates a new 1-dimensional bus in this cell.
@@ -623,6 +983,7 @@ impl Cell {
         self.signals.insert(
             id,
             SignalInfo {
+                id,
                 port: false,
                 name: name.into(),
                 width: Some(width),
@@ -640,10 +1001,11 @@ impl Cell {
     /// # Panics
     ///
     /// Panics if the provided signal does not exist.
-    pub fn expose_port(&mut self, signal: impl Into<SignalId>) {
+    pub fn expose_port(&mut self, signal: impl Into<SignalId>, direction: Direction) {
         let signal = signal.into();
-        self.signals.get_mut(&signal).unwrap().port = true;
-        self.ports.push(Port { signal });
+        let info = self.signals.get_mut(&signal).unwrap();
+        info.port = true;
+        self.ports.push(info.name.clone(), signal, direction);
     }
 
     /// Returns a reference to the contents of this cell.
@@ -674,6 +1036,12 @@ impl Cell {
     #[inline]
     pub fn ports(&self) -> impl Iterator<Item = &Port> {
         self.ports.iter()
+    }
+
+    /// Get a port of this cell by name.
+    #[inline]
+    pub fn port(&self, name: &str) -> &Port {
+        self.ports.get_named(name)
     }
 
     /// Iterate over the signals of this cell.
@@ -729,12 +1097,8 @@ impl Cell {
     ///
     /// Panics if this cell is a blackbox.
     #[inline]
-    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
-        self.contents
-            .as_mut()
-            .unwrap_clear()
-            .primitives
-            .push(device);
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) -> PrimitiveDeviceId {
+        self.contents.as_mut().unwrap_clear().add_primitive(device)
     }
 
     /// Add the given [`BlackboxElement`] to the cell.
@@ -808,6 +1172,30 @@ impl Instance {
     }
 }
 
+impl Ports {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+    /// Pushes a port to the set of ports.
+    pub(crate) fn push(&mut self, name: impl Into<ArcStr>, signal: SignalId, direction: Direction) {
+        self.ports.push(Port { signal, direction });
+        self.name_map.insert(name.into(), self.ports.len() - 1);
+    }
+
+    pub(crate) fn get_named(&self, name: &str) -> &Port {
+        let idx = self.name_map.get(name).unwrap();
+        &self.ports[*idx]
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &Port> {
+        self.ports.iter()
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.ports.len()
+    }
+}
+
 impl Port {
     /// The ID of the signal this port exposes.
     #[inline]
@@ -847,26 +1235,32 @@ impl CellInner {
         self.instance_id += 1;
         let id = InstanceId(self.instance_id);
         self.instances.insert(id, instance);
-        self.order.push(id);
+        self.instance_order.push(id);
         id
     }
 
     /// Add the given [`PrimitiveDevice`] to the cell.
     #[inline]
-    pub fn add_primitive(&mut self, device: PrimitiveDevice) {
-        self.primitives.push(device);
+    pub fn add_primitive(&mut self, device: PrimitiveDevice) -> PrimitiveDeviceId {
+        self.primitive_id += 1;
+        let id = PrimitiveDeviceId(self.primitive_id);
+        self.primitives.insert(id, device);
+        self.primitive_order.push(id);
+        id
     }
 
     /// Iterate over the primitive devices of this cell.
     #[inline]
-    pub fn primitives(&self) -> impl Iterator<Item = &PrimitiveDevice> {
-        self.primitives.iter()
+    pub fn primitives(&self) -> impl Iterator<Item = (PrimitiveDeviceId, &PrimitiveDevice)> {
+        self.primitive_order
+            .iter()
+            .map(|x| (*x, &self.primitives[x]))
     }
 
     /// Iterate over the instances of this cell.
     #[inline]
     pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance)> {
-        self.order.iter().map(|x| (*x, &self.instances[x]))
+        self.instance_order.iter().map(|x| (*x, &self.instances[x]))
     }
 
     /// Iterate over mutable references to the instances of this cell.
@@ -905,10 +1299,25 @@ impl From<Slice> for BlackboxElement {
     }
 }
 
+impl From<SliceOne> for BlackboxElement {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self::Slice(value.into())
+    }
+}
+
 impl From<String> for BlackboxContents {
     fn from(value: String) -> Self {
         Self {
             elems: vec![BlackboxElement::RawString(value)],
         }
+    }
+}
+
+impl SignalInfo {
+    /// The [`Slice`] representing this entire signal.
+    #[inline]
+    pub fn slice(&self) -> Slice {
+        Slice::new(self.id, self.width.map(SliceRange::with_width))
     }
 }

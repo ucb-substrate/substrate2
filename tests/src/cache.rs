@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 use substrate::{
     block::Block,
     context::Context,
-    schematic::{HasSchematic, HasSchematicImpl},
-    SchematicData,
+    schematic::{HasSchematic, HasSchematicData, SchematicData},
 };
 
 use crate::shared::pdk::ExamplePdkA;
@@ -54,14 +53,14 @@ pub struct CacheBlockData {
     design: u64,
 }
 
-impl HasSchematic for CacheBlock {
+impl HasSchematicData for CacheBlock {
     type Data = CacheBlockData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for CacheBlock {
+impl HasSchematic<ExamplePdkA> for CacheBlock {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let design = *cell

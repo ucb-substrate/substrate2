@@ -29,6 +29,9 @@ pub enum ConvError {
     /// Attempted to export a blackboxed subcircuit.
     #[error("cannot export a blackboxed subcircuit")]
     ExportBlackbox,
+    /// Netlist conversion produced invalid SCIR.
+    #[error("netlist conversion produced SCIR containing errors: {0}")]
+    InvalidScir(Box<scir::Issues>),
 }
 
 /// Converts a parsed SPICE netlist to [`scir`].
@@ -37,7 +40,7 @@ pub enum ConvError {
 /// Top-level component instantiations are ignored.
 pub struct ScirConverter<'a> {
     ast: &'a Ast,
-    lib: scir::Library,
+    lib: scir::LibraryBuilder,
     blackbox_cells: HashSet<Substr>,
     subckts: HashMap<SubcktName, &'a Subckt>,
     ids: HashMap<SubcktName, scir::CellId>,
@@ -48,7 +51,7 @@ impl<'a> ScirConverter<'a> {
     pub fn new(name: impl Into<ArcStr>, ast: &'a Ast) -> Self {
         Self {
             ast,
-            lib: scir::Library::new(name),
+            lib: scir::LibraryBuilder::new(name),
             blackbox_cells: Default::default(),
             subckts: Default::default(),
             ids: Default::default(),
@@ -63,27 +66,29 @@ impl<'a> ScirConverter<'a> {
     /// Consumes the converter, yielding a SCIR [library](scir::Library)].
     pub fn convert(mut self) -> ConvResult<scir::Library> {
         self.map_subckts();
-        for elem in self.ast.elems.iter() {
-            match elem {
-                Elem::Subckt(subckt) => {
-                    match self.convert_subckt(subckt) {
-                        // Export blackbox errors can be ignored; we just skip
-                        // exporting a SCIR cell for blackboxed subcircuits.
-                        Ok(_) | Err(ConvError::ExportBlackbox) => (),
-                        Err(e) => return Err(e),
-                    };
-                }
-                _ => continue,
-            }
+        let subckts = self.subckts.values().copied().collect::<Vec<_>>();
+        for subckt in subckts {
+            match self.convert_subckt(subckt) {
+                // Export blackbox errors can be ignored; we just skip
+                // exporting a SCIR cell for blackboxed subcircuits.
+                Ok(_) | Err(ConvError::ExportBlackbox) => (),
+                Err(e) => return Err(e),
+            };
         }
-        Ok(self.lib)
+        let lib = self
+            .lib
+            .build()
+            .map_err(|issues| ConvError::InvalidScir(Box::new(issues)))?;
+        Ok(lib)
     }
 
     fn map_subckts(&mut self) {
         for elem in self.ast.elems.iter() {
             match elem {
                 Elem::Subckt(s) => {
-                    self.subckts.insert(s.name.clone(), s);
+                    if self.subckts.insert(s.name.clone(), s).is_some() {
+                        tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
+                    }
                 }
                 _ => continue,
             }
@@ -100,7 +105,7 @@ impl<'a> ScirConverter<'a> {
         }
 
         let mut cell = scir::Cell::new_whitebox(ArcStr::from(subckt.name.as_str()));
-        let mut nodes: HashMap<Substr, scir::Slice> = HashMap::new();
+        let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
             if let Some(&node) = nodes.get(name) {
                 return node;
@@ -114,29 +119,29 @@ impl<'a> ScirConverter<'a> {
             match component {
                 Component::Mos(_mos) => todo!(),
                 Component::Res(res) => {
-                    let prim = scir::PrimitiveDevice::Res2 {
+                    let prim = scir::PrimitiveDeviceKind::Res2 {
                         pos: node(&res.pos, &mut cell),
                         neg: node(&res.neg, &mut cell),
                         value: str_as_numeric_lit(&res.value)?,
                     };
-                    cell.add_primitive(prim);
+                    cell.add_primitive(prim.into());
                 }
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if blackbox {
-                        let ports = inst.ports.iter().map(|s| node(s, &mut cell)).collect();
+                        let ports = inst
+                            .ports
+                            .iter()
+                            .map(|s| node(s, &mut cell).into())
+                            .collect();
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params
                             .iter()
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
-                            .collect::<ConvResult<_>>()?;
-                        let prim = scir::PrimitiveDevice::RawInstance {
-                            ports,
-                            cell: child,
-                            params,
-                        };
-                        cell.add_primitive(prim);
+                            .collect::<ConvResult<HashMap<_, _>>>()?;
+                        let kind = scir::PrimitiveDeviceKind::RawInstance { ports, cell: child };
+                        cell.add_primitive(scir::PrimitiveDevice::from_params(kind, params));
                     } else {
                         let subckt = self
                             .subckts
@@ -165,7 +170,9 @@ impl<'a> ScirConverter<'a> {
 
         for port in subckt.ports.iter() {
             let port = node(port, &mut cell);
-            cell.expose_port(port);
+            // In the future, we may support parsing port directions from comments in the SPICE file.
+            // For now, we simply expose all ports using the default direction.
+            cell.expose_port(port, Default::default());
         }
 
         let id = self.lib.add_cell(cell);

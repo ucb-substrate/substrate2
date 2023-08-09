@@ -1,12 +1,14 @@
 //! Spectre-specific blocks for use in testbenches.
 
 use rust_decimal::Decimal;
+use scir::Expr;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use substrate::block::Block;
-use substrate::io::VsourceIo;
+use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{BlackboxContents, HasSchematic};
-use substrate::simulation::HasTestbenchSchematicImpl;
+use substrate::schematic::{HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode};
+use substrate::simulation::HasSimSchematic;
 
 use crate::Spectre;
 
@@ -30,8 +32,6 @@ pub struct Pulse {
 }
 
 /// A voltage source.
-///
-/// Currently only spuports DC values.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum Vsource {
     /// A dc voltage source.
@@ -53,7 +53,9 @@ impl Vsource {
 }
 
 impl Block for Vsource {
-    type Io = VsourceIo;
+    type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
     }
@@ -67,50 +69,94 @@ impl Block for Vsource {
     }
 }
 
-impl HasSchematic for Vsource {
+impl HasSchematicData for Vsource {
     type Data = ();
 }
 
-impl<PDK: Pdk> HasTestbenchSchematicImpl<PDK, Spectre> for Vsource {
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Vsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
-        cell: &mut substrate::schematic::TestbenchCellBuilder<PDK, Spectre, Self>,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        let mut contents = BlackboxContents::new();
+        use arcstr::literal;
+        let mut params = HashMap::new();
         match self {
             Self::Dc(dc) => {
-                contents.push("V0 (");
-                contents.push(*io.p);
-                contents.push(*io.n);
-                contents.push(format!(") vsource type=dc dc={}", dc));
+                params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));
+                params.insert(literal!("dc"), Expr::NumericLiteral(*dc));
             }
             Self::Pulse(pulse) => {
-                contents.push("V0 (");
-                contents.push(*io.p);
-                contents.push(*io.n);
-                contents.push(format!(
-                    ") vsource type=pulse val0={} val1={}",
-                    pulse.val0, pulse.val1
-                ));
+                params.insert(literal!("type"), Expr::StringLiteral(literal!("pulse")));
+                params.insert(literal!("val0"), Expr::NumericLiteral(pulse.val0));
+                params.insert(literal!("val1"), Expr::NumericLiteral(pulse.val1));
                 if let Some(period) = pulse.period {
-                    contents.push(format!("period={period}"));
+                    params.insert(literal!("period"), Expr::NumericLiteral(period));
                 }
                 if let Some(rise) = pulse.rise {
-                    contents.push(format!("rise={rise}"));
+                    params.insert(literal!("rise"), Expr::NumericLiteral(rise));
                 }
                 if let Some(fall) = pulse.fall {
-                    contents.push(format!("fall={fall}"));
+                    params.insert(literal!("fall"), Expr::NumericLiteral(fall));
                 }
                 if let Some(width) = pulse.width {
-                    contents.push(format!("width={width}"));
+                    params.insert(literal!("width"), Expr::NumericLiteral(width));
                 }
                 if let Some(delay) = pulse.delay {
-                    contents.push(format!("delay={delay}"));
+                    params.insert(literal!("delay"), Expr::NumericLiteral(delay));
                 }
             }
         };
-        cell.set_blackbox(contents);
+
+        cell.add_primitive(PrimitiveDevice::from_params(
+            PrimitiveDeviceKind::RawInstance {
+                cell: arcstr::literal!("vsource"),
+                ports: vec![PrimitiveNode::new("p", io.p), PrimitiveNode::new("n", io.n)],
+            },
+            params,
+        ));
+        Ok(())
+    }
+}
+
+/// A current probe.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct Iprobe;
+
+impl Block for Iprobe {
+    type Io = TwoTerminalIo;
+    const FLATTEN: bool = true;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("iprobe")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        // `iprobe` is a reserved Spectre keyword,
+        // so we call this block `useriprobe`.
+        arcstr::format!("useriprobe")
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasSchematicData for Iprobe {
+    type Data = ();
+}
+
+impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for Iprobe {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
+        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+    ) -> substrate::error::Result<Self::Data> {
+        cell.add_primitive(PrimitiveDevice::new(PrimitiveDeviceKind::RawInstance {
+            cell: arcstr::literal!("iprobe"),
+            ports: vec![
+                PrimitiveNode::new("in", io.p),
+                PrimitiveNode::new("out", io.n),
+            ],
+        }));
         Ok(())
     }
 }

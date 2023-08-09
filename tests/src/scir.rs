@@ -2,7 +2,7 @@ use crate::netlist::vdivider;
 
 #[test]
 fn merge_scir_libraries() {
-    let mut lib1 = vdivider();
+    let mut lib1 = (*vdivider()).clone();
     let lib2 = vdivider();
     let mapping = lib1.merge(&lib2);
 

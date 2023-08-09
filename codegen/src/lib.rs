@@ -2,29 +2,26 @@
 #![warn(missing_docs)]
 
 mod block;
-mod derive;
 mod io;
 mod pdk;
 mod sim;
 
-use crate::pdk::corner::CornerReceiver;
 use darling::FromDeriveInput;
-use derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
 use examples::get_snippets;
-use io::{io_impl, layout_io, schematic_io, IoInputReceiver};
+use io::{io_core_impl, io_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,
 };
-use pdk::supported_pdks::supported_pdks_impl;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use sim::simulator_tuples_impl;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
+
+use crate::sim::simulator_tuples_impl;
 
 macro_rules! handle_error {
     ($expression:expr) => {
@@ -37,42 +34,12 @@ macro_rules! handle_error {
     };
 }
 
-/// Enumerates PDKs supported by a certain layout implementation of a block.
-///
-/// Automatically implements the appropriate trait for all specified PDKs given a process-portable
-/// implementation in a single PDK.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "inverter_multiprocess", "buffer_multiprocess")]
-#[proc_macro_attribute]
-pub fn supported_pdks(args: TokenStream, input: TokenStream) -> TokenStream {
-    supported_pdks_impl(args, input)
-}
-
-/// Derives a corner implementation on a struct.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "derive_corner")]
-#[proc_macro_derive(Corner, attributes(layer))]
-pub fn derive_corner(input: TokenStream) -> TokenStream {
-    let receiver = handle_error!(CornerReceiver::from_derive_input(&parse_macro_input!(
-        input as DeriveInput
-    )));
-    quote!(
-        #receiver
-    )
-    .into()
-}
-
 /// Derives a layer implementation on a tuple struct containing only an ID.
 ///
 /// # Examples
 ///
 /// ```
-/// # use substrate::Layer;
-/// # use substrate::pdk::layers::LayerId;
+/// # use substrate::pdk::layers::{Layer, LayerId};
 /// #[derive(Layer, Clone, Copy)]
 /// #[layer(name = "poly", gds = "66/20")]
 /// pub struct Poly(LayerId);
@@ -185,13 +152,11 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let schematic = schematic_io(&input);
     let layout = layout_io(&input);
+    let io_core_impl = io_core_impl(&input);
     let io_impl = io_impl(&input);
-    let ident = parsed.ident;
-    let (imp, ty, wher) = parsed.generics.split_for_impl();
-    let substrate = substrate_ident();
     quote!(
-        impl #imp #substrate::io::Io for #ident #ty #wher {}
         #io_impl
+        #io_core_impl
         #schematic
         #layout
     )
@@ -212,9 +177,9 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let layout = layout_io(&input);
-    let io_impl = io_impl(&input);
+    let io_core_impl = io_core_impl(&input);
     quote!(
-        #io_impl
+        #io_core_impl
         #layout
     )
     .into()
@@ -265,7 +230,7 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
 /// ```
 /// use serde::{Serialize, Deserialize};
-/// use substrate::Block;
+/// use substrate::block::Block;
 ///
 /// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
 /// #[substrate(io = "substrate::io::TestbenchIo")]
@@ -283,6 +248,24 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// the name of the struct/enum converted to snake case. For example, the name
 /// of a block called `MyBlock` will be `my_block`.
 /// If you wish to customize this behavior, consider implementing `Block` manually.
+///
+/// ## Flattening
+///
+/// Some blocks may simply be wrappers around inner blocks.
+/// If you wish to flatten a block, add the `#[substrate(flatten)]` attribute to it.
+/// The block will be inlined during netlisting.
+///
+/// The `flatten` attribute is ignored when netlisting top-level blocks such as testbenches.
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use substrate::block::Block;
+///
+/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+/// #[substrate(io = "substrate::io::TestbenchIo", flatten)]
+/// pub struct MyFlattenedBlock {
+///   // ...
+/// }
+/// ```
 #[proc_macro_derive(Block, attributes(substrate))]
 pub fn derive_block(input: TokenStream) -> TokenStream {
     let receiver =
@@ -296,53 +279,18 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
 
 /// Implements `substrate::simulation::Supports<Tuple> for Simulator`
 /// for all tuples up to a specified max size.
-#[doc(hidden)]
 #[proc_macro]
 pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
 }
 
-/// Derives `substrate::geometry::transform::TranslateMut`.
-#[proc_macro_derive(TranslateMut)]
-pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
-    let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
-    let substrate = substrate_ident();
-    let config = DeriveTrait {
-        trait_: quote!(#substrate::geometry::transform::TranslateMut),
-        method: quote!(translate_mut),
-        extra_arg_idents: vec![quote!(__substrate_derive_point)],
-        extra_arg_tys: vec![quote!(#substrate::geometry::point::Point)],
-    };
-
-    let expanded = derive_trait(&config, receiver);
-    proc_macro::TokenStream::from(expanded)
-}
-
-/// Derives `substrate::geometry::transform::TransformMut`.
-#[proc_macro_derive(TransformMut)]
-pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
-    let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
-    let substrate = substrate_ident();
-    let config = DeriveTrait {
-        trait_: quote!(#substrate::geometry::transform::TransformMut),
-        method: quote!(transform_mut),
-        extra_arg_idents: vec![quote!(__substrate_derive_transformation)],
-        extra_arg_tys: vec![quote!(#substrate::geometry::transform::Transformation)],
-    };
-
-    let expanded = derive_trait(&config, receiver);
-    proc_macro::TokenStream::from(expanded)
-}
-
-/// Derives `substrate::schematic::HasSchematicImpl` for any Substrate block.
+/// Derives `substrate::schematic::HasSchematic` for any Substrate block.
 ///
 /// This turns the block into a schematic hard macro.
 /// You must add a `#[substrate(schematic(...))]` attribute to configure this macro;
 /// see the examples below.
 /// Using multiple `#[substrate(schematic(...))]` attributes allows you to
-/// generate `HasSchematicImpl` implementations for multiple PDKs.
+/// generate `HasSchematic` implementations for multiple PDKs.
 ///
 /// This macro only works on Substrate blocks,
 /// so you must also add a `#[derive(Block)]` attribute
@@ -376,9 +324,9 @@ pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
 ///
 #[doc = get_snippets!("core", "buffer_hard_macro")]
 #[proc_macro_error]
-#[proc_macro_derive(HasSchematicImpl, attributes(substrate))]
+#[proc_macro_derive(HasSchematic, attributes(substrate))]
 pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
-    let receiver = block::schematic::HasSchematicImplInputReceiver::from_derive_input(
+    let receiver = block::schematic::HasSchematicInputReceiver::from_derive_input(
         &parse_macro_input!(input as DeriveInput),
     );
     let receiver = handle_error!(receiver);
@@ -388,13 +336,13 @@ pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Derives `substrate::layout::HasLayoutImpl` for any Substrate block.
+/// Derives `substrate::layout::HasLayout` for any Substrate block.
 ///
 /// This turns the block into a layout hard macro.
 /// You must add a `#[substrate(layout(...))]` attribute to configure this macro;
 /// see the examples below.
 /// Using multiple `#[substrate(layout(...))]` attributes allows you to
-/// generate `HasLayoutImpl` implementations for multiple PDKs.
+/// generate `HasLayout` implementations for multiple PDKs.
 ///
 /// This macro only works on Substrate blocks,
 /// so you must also add a `#[derive(Block)]` attribute
@@ -422,11 +370,33 @@ pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
 /// * `fmt = "function_that_returns_path()"`
 /// * `fmt = "function_with_arguments_that_returns_path(\"my_argument\")"`
 #[proc_macro_error]
-#[proc_macro_derive(HasLayoutImpl, attributes(substrate))]
+#[proc_macro_derive(HasLayout, attributes(substrate))]
 pub fn derive_has_layout_impl(input: TokenStream) -> TokenStream {
-    let receiver = block::layout::HasLayoutImplInputReceiver::from_derive_input(
-        &parse_macro_input!(input as DeriveInput),
-    );
+    let receiver = block::layout::HasLayoutInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    ));
+    let receiver = handle_error!(receiver);
+    quote!(
+        #receiver
+    )
+    .into()
+}
+
+/// Generates an implementation of `FromSaved<Sim, Analysis>` for a type.
+///
+/// All fields of the type must implement `FromSaved`.
+/// Unit structs are not supported. Enums that do not embed a field in at least
+/// one variant are also not supported.
+///
+/// # Examples
+///
+#[doc = get_snippets!("core", "sim_from_saved")]
+#[proc_macro_error]
+#[proc_macro_derive(FromSaved, attributes(substrate))]
+pub fn derive_from_saved(input: TokenStream) -> TokenStream {
+    let receiver = sim::save::FromSavedInputReceiver::from_derive_input(&parse_macro_input!(
+        input as DeriveInput
+    ));
     let receiver = handle_error!(receiver);
     quote!(
         #receiver

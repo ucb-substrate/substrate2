@@ -1,0 +1,23 @@
+[package]
+name = "type_dispatch_macros"
+version = "0.3.0"
+edition = "2021"
+description = "Macros for the `type_dispatch` crate."
+license = "BSD-3-Clause"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+darling = "0.20"
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+proc-macro-crate = "1"
+proc-macro-error = "1"
+itertools = "0.11.0"
+
+[dev-dependencies]
+type_dispatch = { version = "<=0.3.0", registry = "substrate", path = "../type_dispatch" }
+
+[lib]
+proc-macro = true

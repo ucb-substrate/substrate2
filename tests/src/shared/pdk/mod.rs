@@ -8,8 +8,9 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{HasSchematic, HasSchematicImpl, PrimitiveDevice};
-use substrate::Corner;
+use substrate::schematic::{
+    HasSchematic, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
@@ -29,7 +30,7 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Corner)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ExampleCorner;
 
 /// An NMOS in PDK A.
@@ -52,24 +53,31 @@ impl Block for NmosA {
     }
 }
 
-impl HasSchematic for NmosA {
+impl HasSchematicData for NmosA {
     type Data = ();
 }
 
-impl HasSchematicImpl<ExamplePdkA> for NmosA {
+impl HasSchematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::RawInstance {
-            ports: vec![*io.d, *io.g, *io.s, *io.b],
-            cell: arcstr::literal!("example_pdk_nmos_a"),
-            params: HashMap::from_iter([
+        cell.add_primitive(PrimitiveDevice::from_params(
+            PrimitiveDeviceKind::RawInstance {
+                ports: vec![
+                    PrimitiveNode::new("d", io.d),
+                    PrimitiveNode::new("g", io.g),
+                    PrimitiveNode::new("s", io.s),
+                    PrimitiveNode::new("b", io.b),
+                ],
+                cell: arcstr::literal!("example_pdk_nmos_a"),
+            },
+            HashMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
-        });
+        ));
         Ok(())
     }
 }
@@ -94,24 +102,31 @@ impl Block for PmosA {
     }
 }
 
-impl HasSchematic for PmosA {
+impl HasSchematicData for PmosA {
     type Data = ();
 }
 
-impl HasSchematicImpl<ExamplePdkA> for PmosA {
+impl HasSchematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::RawInstance {
-            ports: vec![*io.d, *io.g, *io.s, *io.b],
-            cell: arcstr::literal!("example_pdk_pmos_a"),
-            params: HashMap::from_iter([
+        cell.add_primitive(PrimitiveDevice::from_params(
+            PrimitiveDeviceKind::RawInstance {
+                ports: vec![
+                    PrimitiveNode::new("d", io.d),
+                    PrimitiveNode::new("g", io.g),
+                    PrimitiveNode::new("s", io.s),
+                    PrimitiveNode::new("b", io.b),
+                ],
+                cell: arcstr::literal!("example_pdk_pmos_a"),
+            },
+            HashMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
-        });
+        ));
         Ok(())
     }
 }

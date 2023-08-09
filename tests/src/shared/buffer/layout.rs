@@ -5,26 +5,27 @@ use geometry::{
     union::BoundingUnion,
 };
 
+use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     io::IoShape,
     layout::{
         element::Shape,
         tiling::{ArrayTiler, Tile, TileAlignMode},
-        HasLayout, HasLayoutImpl, Instance,
+        HasLayout, HasLayoutData, Instance, LayoutData,
     },
-    pdk::{layers::HasPin, PdkLayers},
-    supported_pdks, DerivedLayerFamily, DerivedLayers, Layers, LayoutData,
+    pdk::layers::{DerivedLayerFamily, DerivedLayers, HasPin, Layers},
+    pdk::PdkLayers,
 };
 
 use crate::shared::pdk::{ExamplePdkA, ExamplePdkB};
 
 use super::{Buffer, BufferN, BufferNxM, Inverter};
 
-impl HasLayout for Inverter {
+impl HasLayoutData for Inverter {
     type Data = ();
 }
 
-impl HasLayoutImpl<ExamplePdkA> for Inverter {
+impl HasLayout<ExamplePdkA> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -59,7 +60,7 @@ impl HasLayoutImpl<ExamplePdkA> for Inverter {
     }
 }
 
-impl HasLayoutImpl<ExamplePdkB> for Inverter {
+impl HasLayout<ExamplePdkB> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -159,16 +160,16 @@ pub struct BufferData {
     pub inv2: Instance<Inverter>,
 }
 
-impl HasLayout for Buffer {
+impl HasLayoutData for Buffer {
     type Data = BufferData;
 }
 
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasLayoutImpl<T> for Buffer {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasLayout<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<T, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let derived_layers = DerivedLayers::from(cell.ctx.layers.as_ref());
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
@@ -212,16 +213,16 @@ pub struct BufferNData {
     pub buffers: Vec<Instance<Buffer>>,
 }
 
-impl HasLayout for BufferN {
+impl HasLayoutData for BufferN {
     type Data = BufferNData;
 }
 
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasLayoutImpl<T> for BufferN {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasLayout<PDK> for BufferN {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<T, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let buffer = cell.generate(Buffer::new(self.strength));
 
@@ -262,16 +263,16 @@ impl HasLayoutImpl<T> for BufferN {
     }
 }
 
-impl HasLayout for BufferNxM {
+impl HasLayoutData for BufferNxM {
     type Data = ();
 }
 
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasLayoutImpl<T> for BufferNxM {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasLayout<PDK> for BufferNxM {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<T, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let derived_layers = DerivedLayers::from(cell.ctx.layers.as_ref());
         let buffern = cell.generate(BufferN::new(self.strength, self.n));

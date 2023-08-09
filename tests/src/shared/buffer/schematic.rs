@@ -1,8 +1,8 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
+use substrate::io::Terminal;
 use substrate::{
-    io::{NestedNode, Node, Signal},
-    schematic::{HasSchematic, HasSchematicImpl, Instance, NestedInstance},
-    SchematicData,
+    io::Signal,
+    schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance, SchematicData},
 };
 
 use crate::shared::pdk::{ExamplePdkA, NmosA, PmosA};
@@ -12,19 +12,19 @@ use super::{BufferN, Inverter};
 #[derive(SchematicData)]
 pub struct InverterData {
     #[substrate(nested)]
-    pub din: Node,
+    pub pmos_g: Terminal,
     #[substrate(nested)]
     pub pmos: Instance<PmosA>,
 }
 
-impl HasSchematic for Inverter {
+impl HasSchematicData for Inverter {
     type Data = InverterData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for Inverter {
+impl HasSchematic<ExamplePdkA> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let nmos = cell.instantiate(NmosA { w: 500, l: 150 });
@@ -40,7 +40,10 @@ impl HasSchematicImpl<ExamplePdkA> for Inverter {
 
         cell.connect(io.vdd, pmos_io.s);
         cell.connect(io.vss, nmos.s);
-        Ok(InverterData { din: *io.din, pmos })
+        Ok(InverterData {
+            pmos_g: pmos.terminals().g,
+            pmos,
+        })
     }
 }
 
@@ -52,14 +55,14 @@ pub struct BufferData {
     pub inv2: Instance<Inverter>,
 }
 
-impl HasSchematic for Buffer {
+impl HasSchematicData for Buffer {
     type Data = BufferData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for Buffer {
+impl HasSchematic<ExamplePdkA> for Buffer {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let inv1 = cell.instantiate(Inverter::new(self.strength));
@@ -88,21 +91,21 @@ impl HasSchematicImpl<ExamplePdkA> for Buffer {
 #[derive(SchematicData)]
 pub struct BufferNData {
     #[substrate(nested)]
-    pub bubbled_din: NestedNode,
+    pub bubbled_pmos_g: Terminal,
     #[substrate(nested)]
     pub bubbled_inv1: NestedInstance<Inverter>,
     #[substrate(nested)]
     pub buffers: Vec<Instance<Buffer>>,
 }
 
-impl HasSchematic for BufferN {
+impl HasSchematicData for BufferN {
     type Data = BufferNData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for BufferN {
+impl HasSchematic<ExamplePdkA> for BufferN {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut buffers = Vec::new();
@@ -117,11 +120,11 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
             cell.connect(buffers[i].io().din, buffers[i - 1].io().dout);
         }
 
-        let bubbled_din = buffers[0].data().inv1.data().din;
+        let bubbled_pmos_g = buffers[0].data().inv1.data().pmos_g;
         let bubbled_inv1 = buffers[0].data().inv1.to_owned();
 
         Ok(BufferNData {
-            bubbled_din,
+            bubbled_pmos_g,
             bubbled_inv1,
             buffers,
         })
@@ -131,21 +134,21 @@ impl HasSchematicImpl<ExamplePdkA> for BufferN {
 #[derive(SchematicData)]
 pub struct BufferNxMData {
     #[substrate(nested)]
-    pub bubbled_din: NestedNode,
+    pub bubbled_pmos_g: Terminal,
     #[substrate(nested)]
     pub bubbled_inv1: NestedInstance<Inverter>,
     #[substrate(nested)]
     pub buffer_chains: Vec<Instance<BufferN>>,
 }
 
-impl HasSchematic for BufferNxM {
+impl HasSchematicData for BufferNxM {
     type Data = BufferNxMData;
 }
 
-impl HasSchematicImpl<ExamplePdkA> for BufferNxM {
+impl HasSchematic<ExamplePdkA> for BufferNxM {
     fn schematic(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut buffer_chains = Vec::new();
@@ -158,11 +161,11 @@ impl HasSchematicImpl<ExamplePdkA> for BufferNxM {
             buffer_chains.push(buffer);
         }
 
-        let bubbled_din = buffer_chains[0].data().bubbled_din;
+        let bubbled_pmos_g = buffer_chains[0].data().bubbled_pmos_g;
         let bubbled_inv1 = buffer_chains[0].data().bubbled_inv1.to_owned();
 
         Ok(BufferNxMData {
-            bubbled_din,
+            bubbled_pmos_g,
             bubbled_inv1,
             buffer_chains,
         })

@@ -1,10 +1,12 @@
 //! Spectre netlist exporter.
 #![warn(missing_docs)]
 
+use crate::{node_current_path, node_voltage_path};
 use arcstr::ArcStr;
 use opacity::Opacity;
-use scir::Slice;
-use scir::{BinOp, Cell, Expr, Library, PrimitiveDevice};
+use scir::{BinOp, Cell, CellId, Expr, Library, PrimitiveDeviceId};
+use scir::{PrimitiveDeviceKind, Slice};
+use std::collections::HashMap;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -39,6 +41,62 @@ impl Include {
     }
 }
 
+/// A Spectre save statement.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum Save {
+    /// A raw string.
+    Raw(ArcStr),
+    /// A SCIR signal path representing a node whose voltage should be saved.
+    ScirVoltage(scir::SignalPath),
+    /// A SCIR signal path representing a terminal whose current should be saved.
+    ScirCurrent(scir::SignalPath),
+}
+
+impl<T: Into<ArcStr>> From<T> for Save {
+    fn from(value: T) -> Self {
+        Self::Raw(value.into())
+    }
+}
+
+impl Save {
+    /// Creates a new [`Save`].
+    pub fn new(path: impl Into<ArcStr>) -> Self {
+        Self::from(path)
+    }
+
+    pub(crate) fn to_string(&self, lib: &Library, conv: &SpectreLibConversion) -> ArcStr {
+        match self {
+            Save::Raw(raw) => raw.clone(),
+            Save::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
+            Save::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+        }
+    }
+}
+
+/// Metadata associated with the conversion from a SCIR library to a Spectre netlist.
+#[derive(Debug, Clone, Default)]
+pub struct SpectreLibConversion {
+    pub(crate) cells: HashMap<CellId, SpectreCellConversion>,
+}
+
+impl SpectreLibConversion {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Metadata associated with the conversion from a SCIR cell to a netlisted Spectre subcircuit.
+#[derive(Debug, Clone, Default)]
+pub struct SpectreCellConversion {
+    pub(crate) primitives: HashMap<PrimitiveDeviceId, ArcStr>,
+}
+
+impl SpectreCellConversion {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// A Spectre netlister.
 ///
 /// The netlister can write to any type that implements [`Write`].
@@ -46,24 +104,35 @@ impl Include {
 pub struct Netlister<'a, W: Write> {
     lib: &'a Library,
     includes: &'a [Include],
+    saves: &'a [Save],
     out: &'a mut W,
 }
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new Spectre netlister writing to the given output stream.
-    pub fn new(lib: &'a Library, includes: &'a [Include], out: &'a mut W) -> Self {
-        Self { lib, includes, out }
+    pub fn new(
+        lib: &'a Library,
+        includes: &'a [Include],
+        saves: &'a [Save],
+        out: &'a mut W,
+    ) -> Self {
+        Self {
+            lib,
+            includes,
+            saves,
+            out,
+        }
     }
 
     /// Exports this netlister's library to its output stream.
     #[inline]
-    pub fn export(mut self) -> Result<()> {
-        self.export_library()?;
+    pub fn export(mut self) -> Result<SpectreLibConversion> {
+        let lib = self.export_library()?;
         self.out.flush()?;
-        Ok(())
+        Ok(lib)
     }
 
-    fn export_library(&mut self) -> Result<()> {
+    fn export_library(&mut self) -> Result<SpectreLibConversion> {
         writeln!(self.out, "// {}\n", self.lib.name())?;
         writeln!(self.out, "simulator lang=spectre\n")?;
         writeln!(self.out, "// This is a generated file.")?;
@@ -81,13 +150,21 @@ impl<'a, W: Write> Netlister<'a, W> {
         }
         writeln!(self.out)?;
 
+        let mut conv = SpectreLibConversion::new();
+
         for (id, cell) in self.lib.cells() {
-            self.export_cell(cell, self.lib.should_inline(id))?;
+            conv.cells
+                .insert(id, self.export_cell(cell, self.lib.should_inline(id))?);
         }
-        Ok(())
+
+        for save in self.saves {
+            writeln!(self.out, "save {}", save.to_string(self.lib, &conv))?;
+        }
+        writeln!(self.out)?;
+        Ok(conv)
     }
 
-    fn export_cell(&mut self, cell: &Cell, inline: bool) -> Result<()> {
+    fn export_cell(&mut self, cell: &Cell, inline: bool) -> Result<SpectreCellConversion> {
         let indent = if inline { "" } else { "  " };
 
         let ground = if inline {
@@ -117,6 +194,7 @@ impl<'a, W: Write> Netlister<'a, W> {
             writeln!(self.out, " )\n")?;
         }
 
+        let mut conv = SpectreCellConversion::new();
         match cell.contents() {
             Opacity::Opaque(contents) => {
                 for (i, elem) in contents.elems.iter().enumerate() {
@@ -147,31 +225,29 @@ impl<'a, W: Write> Netlister<'a, W> {
                     writeln!(self.out, " ) {}", child.name())?;
                 }
 
-                for (i, device) in contents.primitives().enumerate() {
-                    match device {
-                        PrimitiveDevice::Res2 { pos, neg, value } => {
+                for (i, (id, device)) in contents.primitives().enumerate() {
+                    match &device.kind {
+                        PrimitiveDeviceKind::Res2 { pos, neg, value } => {
+                            conv.primitives.insert(id, arcstr::format!("res{}", i));
                             write!(self.out, "{}res{} (", indent, i)?;
-                            self.write_slice(cell, *pos, ground)?;
-                            self.write_slice(cell, *neg, ground)?;
+                            self.write_slice(cell, pos.into(), ground)?;
+                            self.write_slice(cell, neg.into(), ground)?;
                             write!(self.out, " ) resistor r=")?;
                             self.write_expr(value)?;
                         }
-                        PrimitiveDevice::RawInstance {
-                            ports,
-                            cell: child,
-                            params,
-                        } => {
+                        PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
+                            conv.primitives.insert(id, arcstr::format!("rawinst{}", i));
                             write!(self.out, "{}rawinst{} (", indent, i)?;
                             for port in ports.iter() {
                                 self.write_slice(cell, *port, ground)?;
                             }
                             write!(self.out, " ) {}", child)?;
-                            for (key, value) in params.iter() {
-                                write!(self.out, " {key}=")?;
-                                self.write_expr(value)?;
-                            }
                         }
                         _ => todo!(),
+                    }
+                    for (key, value) in device.params.iter() {
+                        write!(self.out, " {key}=")?;
+                        self.write_expr(value)?;
                     }
                     writeln!(self.out)?;
                 }
@@ -182,7 +258,7 @@ impl<'a, W: Write> Netlister<'a, W> {
             writeln!(self.out, "\nends {}", cell.name())?;
         }
         writeln!(self.out)?;
-        Ok(())
+        Ok(conv)
     }
 
     fn write_slice(

@@ -1,15 +1,14 @@
-use substrate::schematic::{HasSchematic, Instance};
-use substrate::SchematicData;
+use substrate::schematic::{HasSchematicData, Instance, SchematicData};
 
 #[derive(Default, SchematicData)]
-pub struct SchematicInstances<T: HasSchematic> {
+pub struct SchematicInstances<T: HasSchematicData> {
     #[substrate(nested)]
     pub instances: Vec<Instance<T>>,
     pub field: i64,
 }
 
 #[derive(SchematicData)]
-pub enum EnumInstances<T: HasSchematic> {
+pub enum EnumInstances<T: HasSchematicData> {
     One {
         #[substrate(nested)]
         one: Instance<T>,
@@ -23,7 +22,7 @@ pub enum EnumInstances<T: HasSchematic> {
 }
 
 #[derive(SchematicData)]
-pub struct TwoInstances<T: HasSchematic>(
+pub struct TwoInstances<T: HasSchematicData>(
     #[substrate(nested)] pub Instance<T>,
     #[substrate(nested)] pub Instance<T>,
     pub i64,

@@ -5,7 +5,6 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::MosIo;
-use substrate::schematic::{HasSchematic, HasSchematicImpl};
 
 use super::{Sky130CommercialPdk, Sky130OpenPdk};
 
@@ -79,23 +78,30 @@ macro_rules! define_mos {
             }
         }
 
-        impl HasSchematic for $typ {
+        impl substrate::schematic::HasSchematicData for $typ {
             type Data = ();
         }
 
-        impl HasSchematicImpl<Sky130OpenPdk> for $typ {
+        impl substrate::schematic::HasSchematic<Sky130OpenPdk> for $typ {
             fn schematic(
                 &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
                 cell: &mut substrate::schematic::CellBuilder<Sky130OpenPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
                 // Convert from DB units to microns.
                 let w = Decimal::new(self.params.w, 3);
                 let l = Decimal::new(self.params.l, 3);
-                cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
-                    ports: vec![*io.d, *io.g, *io.s, *io.b],
-                    cell: arcstr::literal!(stringify!($opensubckt)),
-                    params: HashMap::from_iter([
+                cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
+                    substrate::schematic::PrimitiveDeviceKind::RawInstance {
+                        ports: vec![
+                            substrate::schematic::PrimitiveNode::new("d", io.d),
+                            substrate::schematic::PrimitiveNode::new("g", io.g),
+                            substrate::schematic::PrimitiveNode::new("s", io.s),
+                            substrate::schematic::PrimitiveNode::new("b", io.b),
+                        ],
+                        cell: arcstr::literal!(stringify!($opensubckt)),
+                    },
+                    HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
                             substrate::scir::Expr::NumericLiteral(w),
@@ -109,24 +115,31 @@ macro_rules! define_mos {
                             substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
                         ),
                     ]),
-                });
+                ));
                 Ok(())
             }
         }
 
-        impl HasSchematicImpl<Sky130CommercialPdk> for $typ {
+        impl substrate::schematic::HasSchematic<Sky130CommercialPdk> for $typ {
             fn schematic(
                 &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
                 cell: &mut substrate::schematic::CellBuilder<Sky130CommercialPdk, Self>,
             ) -> substrate::error::Result<Self::Data> {
                 // Convert from DB units to microns.
                 let w = Decimal::new(self.params.w, 3);
                 let l = Decimal::new(self.params.l, 3);
-                cell.add_primitive(substrate::schematic::PrimitiveDevice::RawInstance {
-                    ports: vec![*io.d, *io.g, *io.s, *io.b],
-                    cell: arcstr::literal!(stringify!($comsubckt)),
-                    params: HashMap::from_iter([
+                cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
+                    substrate::schematic::PrimitiveDeviceKind::RawInstance {
+                        ports: vec![
+                            substrate::schematic::PrimitiveNode::new("d", io.d),
+                            substrate::schematic::PrimitiveNode::new("g", io.g),
+                            substrate::schematic::PrimitiveNode::new("s", io.s),
+                            substrate::schematic::PrimitiveNode::new("b", io.b),
+                        ],
+                        cell: arcstr::literal!(stringify!($comsubckt)),
+                    },
+                    HashMap::from_iter([
                         (
                             arcstr::literal!("w"),
                             substrate::scir::Expr::NumericLiteral(w),
@@ -140,7 +153,7 @@ macro_rules! define_mos {
                             substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
                         ),
                     ]),
-                });
+                ));
                 Ok(())
             }
         }

@@ -4,18 +4,21 @@ use spice::Netlister;
 
 /// Creates a 1:3 resistive voltage divider.
 pub(crate) fn vdivider() -> Library {
-    let mut lib = Library::new("vdivider");
+    let mut lib = LibraryBuilder::new("vdivider");
     let mut wrapper = Cell::new_whitebox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
     let contents = wrapper.contents_mut().as_mut().unwrap_clear();
-    contents.add_primitive(PrimitiveDevice::Res2 {
-        pos,
-        neg,
-        value: dec!(3300).into(),
-    });
-    wrapper.expose_port(pos);
-    wrapper.expose_port(neg);
+    contents.add_primitive(
+        PrimitiveDeviceKind::Res2 {
+            pos,
+            neg,
+            value: dec!(3300).into(),
+        }
+        .into(),
+    );
+    wrapper.expose_port(pos, Direction::InOut);
+    wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
     let mut vdivider = Cell::new_whitebox("vdivider");
@@ -40,17 +43,17 @@ pub(crate) fn vdivider() -> Library {
     r3.connect("neg", vss);
     contents.add_instance(r3);
 
-    vdivider.expose_port(vdd);
-    vdivider.expose_port(vss);
-    vdivider.expose_port(out);
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
     lib.add_cell(vdivider);
 
-    lib
+    lib.build().unwrap()
 }
 
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library {
-    let mut lib = Library::new("vdivider");
+    let mut lib = LibraryBuilder::new("vdivider");
     let mut wrapper = Cell::new_blackbox("resistor_wrapper");
     let pos = wrapper.add_node("pos");
     let neg = wrapper.add_node("neg");
@@ -58,8 +61,8 @@ pub(crate) fn vdivider_blackbox() -> Library {
     wrapper.add_blackbox_elem(pos);
     wrapper.add_blackbox_elem(neg);
     wrapper.add_blackbox_elem("3300");
-    wrapper.expose_port(pos);
-    wrapper.expose_port(neg);
+    wrapper.expose_port(pos, Direction::InOut);
+    wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
     let mut vdivider = Cell::new_whitebox("vdivider");
@@ -84,12 +87,12 @@ pub(crate) fn vdivider_blackbox() -> Library {
     r3.connect("neg", vss);
     contents.add_instance(r3);
 
-    vdivider.expose_port(vdd);
-    vdivider.expose_port(vss);
-    vdivider.expose_port(out);
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
     lib.add_cell(vdivider);
 
-    lib
+    lib.build().unwrap()
 }
 
 #[test]
@@ -161,7 +164,7 @@ fn netlist_spectre_vdivider() {
     let lib = vdivider();
     let mut buf: Vec<u8> = Vec::new();
     let includes = Vec::new();
-    let netlister = spectre::netlist::Netlister::new(&lib, &includes, &mut buf);
+    let netlister = spectre::netlist::Netlister::new(&lib, &includes, &[], &mut buf);
     netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);

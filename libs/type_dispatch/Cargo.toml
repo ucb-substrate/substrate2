@@ -1,0 +1,18 @@
+[package]
+name = "type_dispatch"
+version = "0.3.0"
+edition = "2021"
+description = "Utilities for dispatching functions, constants, and trait implementations based on types."
+license = "BSD-3-Clause"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+duplicate = "1"
+darling = "0.20"
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+type_dispatch_macros = { version = "0.3.0", registry = "substrate", path = "../type_dispatch_macros" }
+
+

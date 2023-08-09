@@ -10,6 +10,8 @@
 //! ```
 #![warn(missing_docs)]
 
+extern crate self as geometry;
+
 pub mod align;
 pub mod bbox;
 pub mod contains;

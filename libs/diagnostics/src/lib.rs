@@ -38,7 +38,7 @@ pub enum Severity {
 }
 
 /// A collection of issues.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IssueSet<T> {
     issues: Vec<T>,
     num_errors: usize,
@@ -60,6 +60,18 @@ impl<T> IssueSet<T> {
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.issues.iter()
+    }
+
+    /// The number of issues in this issue set.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.issues.len()
+    }
+
+    /// Returns `true` if this issue set is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.issues.is_empty()
     }
 }
 
@@ -144,5 +156,14 @@ impl Display for Severity {
             Self::Warning => write!(f, "warning"),
             Self::Error => write!(f, "error"),
         }
+    }
+}
+
+impl<T: Display> Display for IssueSet<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for issue in self.issues.iter() {
+            writeln!(f, "{}", issue)?;
+        }
+        Ok(())
     }
 }

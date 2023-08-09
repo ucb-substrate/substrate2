@@ -3,12 +3,12 @@ use std::collections::HashSet;
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::{conv::RawLib, HasSchematic, HasSchematicImpl},
-    supported_pdks,
+    schematic::{conv::RawLib, HasSchematic, HasSchematicData},
 };
 
 use crate::shared::{
@@ -25,7 +25,7 @@ fn can_generate_vdivider_schematic() {
         r1: Resistor::new(300),
         r2: Resistor::new(100),
     };
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider);
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 3);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -61,6 +61,67 @@ fn can_generate_vdivider_schematic() {
 }
 
 #[test]
+fn can_generate_flattened_vdivider_schematic() {
+    let ctx = Context::new(ExamplePdkA);
+    let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
+    assert_eq!(scir.cells().count(), 1);
+    let issues = scir.validate();
+    println!("Library:\n{:#?}", scir);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = scir.cell_named("vdivider");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 3);
+    assert!(port_names.contains("pwr_vdd"));
+    assert!(port_names.contains("pwr_vss"));
+    assert!(port_names.contains("out"));
+    assert_eq!(vdiv.ports().count(), 3);
+    let contents = vdiv.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 2);
+    assert_eq!(contents.instances().count(), 0);
+}
+
+#[test]
+fn can_generate_flattened_vdivider_array_schematic() {
+    let ctx = Context::new(ExamplePdkA);
+    let vdiv1 = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
+    let vdiv2 = crate::shared::vdivider::flattened::Vdivider::new(600, 800);
+    let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);
+    let vdivs = vec![vdiv1, vdiv2, vdiv3];
+    let vdivider = crate::shared::vdivider::flattened::VdividerArray { vdividers: vdivs };
+    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
+    assert_eq!(scir.cells().count(), 1);
+    let issues = scir.validate();
+    println!("Library:\n{:#?}", scir);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = scir.cell_named("flattened_vdivider_array_3");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 6);
+    assert!(port_names.contains("elements_0_vdd"));
+    assert!(port_names.contains("elements_0_vss"));
+    assert!(port_names.contains("elements_1_vdd"));
+    assert!(port_names.contains("elements_1_vss"));
+    assert!(port_names.contains("elements_2_vdd"));
+    assert!(port_names.contains("elements_2_vss"));
+    assert_eq!(vdiv.ports().count(), 6);
+    let contents = vdiv.contents().as_ref().unwrap_clear();
+    assert_eq!(contents.primitives().count(), 6);
+    assert_eq!(contents.instances().count(), 0);
+}
+
+#[test]
 fn nested_io_naming() {
     let io = VdividerIo {
         pwr: PowerIo {
@@ -87,7 +148,7 @@ fn nested_io_naming() {
 #[test]
 fn internal_signal_names_preserved() {
     let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_scir(Buffer::new(5));
+    let RawLib { scir, conv: _ } = ctx.export_scir(Buffer::new(5)).unwrap();
     assert_eq!(scir.cells().count(), 4);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -111,50 +172,50 @@ fn nested_node_naming() {
     let handle = ctx.generate_schematic(BufferNxM::new(5, 5, 5));
     let cell = handle.cell();
 
-    assert_ne!(
-        cell.data().bubbled_inv1.io().din.path(),
-        cell.data().bubbled_din.path()
+    assert_eq!(
+        cell.data().bubbled_inv1.data().pmos.terminals().g.path(),
+        cell.data().bubbled_pmos_g.path()
     );
 
     assert_eq!(
-        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().bubbled_inv1.terminals().din.path(),
         cell.data().buffer_chains[0]
             .data()
             .bubbled_inv1
-            .io()
+            .terminals()
             .din
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_inv1.io().din.path(),
+        cell.data().bubbled_inv1.terminals().din.path(),
         cell.data().buffer_chains[0].data().buffers[0]
             .data()
             .inv1
-            .io()
+            .terminals()
             .din
             .path()
     );
 
     assert_eq!(
-        cell.data().bubbled_din.path(),
-        cell.data().buffer_chains[0].data().bubbled_din.path()
+        cell.data().bubbled_pmos_g.path(),
+        cell.data().buffer_chains[0].data().bubbled_pmos_g.path()
     );
     assert_eq!(
-        cell.data().bubbled_din.path(),
+        cell.data().bubbled_pmos_g.path(),
         cell.data().buffer_chains[0]
             .data()
             .bubbled_inv1
             .data()
-            .din
+            .pmos_g
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_din.path(),
+        cell.data().bubbled_pmos_g.path(),
         cell.data().buffer_chains[0].data().buffers[0]
             .data()
             .inv1
             .data()
-            .din
+            .pmos_g
             .path()
     );
 }
@@ -178,16 +239,16 @@ impl Block for Block1 {
     }
 }
 
-impl HasSchematic for Block1 {
+impl HasSchematicData for Block1 {
     type Data = ();
 }
 
-#[supported_pdks(ExamplePdkA, ExamplePdkB)]
-impl HasSchematicImpl<ExamplePdkA> for Block1 {
+#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
+impl<PDK> HasSchematic<PDK> for Block1 {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
-        _cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
+        _cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         Err(substrate::error::Error::Anyhow(
             anyhow!("failed to generate block 1").into(),
@@ -214,14 +275,14 @@ impl Block for Block2 {
     }
 }
 
-impl HasSchematic for Block2 {
+impl HasSchematicData for Block2 {
     type Data = ();
 }
 
-impl HasSchematicImpl<ExamplePdkA> for Block2 {
+impl HasSchematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let handle = cell.generate(Block1);
@@ -231,10 +292,10 @@ impl HasSchematicImpl<ExamplePdkA> for Block2 {
     }
 }
 
-impl HasSchematicImpl<ExamplePdkB> for Block2 {
+impl HasSchematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Data,
+        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut substrate::schematic::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let handle = cell.generate_blocking(Block1)?;

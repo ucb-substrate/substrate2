@@ -13,17 +13,18 @@ use tracing::{span, Level};
 
 use crate::block::Block;
 use crate::cache::Cache;
+use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
-    FlatLen, Flatten, HasNameTree, LayoutDataBuilder, LayoutType, NodeContext, NodePriority, Port,
-    SchematicType,
+    Flatten, Flipped, HasNameTree, LayoutBundleBuilder, LayoutType, NodeContext, NodePriority,
+    Port, SchematicType,
 };
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
-use crate::layout::HasLayoutImpl;
+use crate::layout::HasLayout;
 use crate::layout::LayoutContext;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::pdk::layers::GdsLayerSpec;
@@ -34,12 +35,9 @@ use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellHandle as SchematicCellHandle,
-    HasSchematicImpl, InstanceId, InstancePath, SchematicContext, TestbenchCellBuilder,
-    TestbenchCellHandle,
+    HasSchematic, InstanceId, InstancePath, SchematicContext, SimCellBuilder, SimCellHandle,
 };
-use crate::simulation::{
-    HasTestbenchSchematicImpl, SimController, SimulationContext, Simulator, Testbench,
-};
+use crate::simulation::{HasSimSchematic, SimController, SimulationContext, Simulator, Testbench};
 
 /// The global context.
 ///
@@ -179,7 +177,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: HasLayoutImpl<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: HasLayout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
@@ -220,11 +218,7 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Writes a layout to a GDS file.
-    pub fn write_layout<T: HasLayoutImpl<PDK>>(
-        &self,
-        block: T,
-        path: impl AsRef<Path>,
-    ) -> Result<()> {
+    pub fn write_layout<T: HasLayout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
         let handle = self.generate_layout(block);
         let cell = handle.try_cell()?;
 
@@ -272,7 +266,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_schematic<T: HasSchematicImpl<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
+    pub fn generate_schematic<T: HasSchematic<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
@@ -298,21 +292,21 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a testbench schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub(crate) fn generate_testbench_schematic<T, S>(&self, block: Arc<T>) -> TestbenchCellHandle<T>
+    pub(crate) fn generate_testbench_schematic<T, S>(&self, block: Arc<T>) -> SimCellHandle<T>
     where
-        T: HasTestbenchSchematicImpl<PDK, S>,
+        T: HasSimSchematic<PDK, S>,
         S: Simulator,
     {
         let simulator = self.get_simulator::<S>();
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
-        TestbenchCellHandle(SchematicCellHandle {
+        SimCellHandle(SchematicCellHandle {
             id,
             block: block.clone(),
             cell: inner.schematic.cell_cache.generate(block, move |block| {
                 let (inner, io_data) = prepare_cell_builder(id, context, block.as_ref());
-                let mut cell_builder = TestbenchCellBuilder { simulator, inner };
+                let mut cell_builder = SimCellBuilder { simulator, inner };
                 let data = block.schematic(&io_data, &mut cell_builder);
                 data.map(|data| {
                     SchematicCell::new(
@@ -329,7 +323,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<T: HasSchematicImpl<PDK>>(&self, block: T) -> RawLib {
+    pub fn export_scir<T: HasSchematic<PDK>>(&self, block: T) -> Result<RawLib, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
         cell.raw
@@ -339,9 +333,9 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_testbench_scir<T, S>(&self, block: T) -> RawLib
+    pub fn export_testbench_scir<T, S>(&self, block: T) -> Result<RawLib, scir::Issues>
     where
-        T: HasTestbenchSchematicImpl<PDK, S>,
+        T: HasSimSchematic<PDK, S>,
         S: Simulator,
     {
         let cell = self.generate_testbench_schematic(Arc::new(block));
@@ -353,9 +347,12 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given cell and all sub-cells as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn export_testbench_scir_for_cell<T, S>(&self, cell: &SchematicCell<T>) -> RawLib
+    pub(crate) fn export_testbench_scir_for_cell<T, S>(
+        &self,
+        cell: &SchematicCell<T>,
+    ) -> Result<RawLib, scir::Issues>
     where
-        T: HasTestbenchSchematicImpl<PDK, S>,
+        T: HasSimSchematic<PDK, S>,
         S: Simulator,
     {
         cell.raw
@@ -380,7 +377,7 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Simulate the given testbench.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> T::Output
+    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
     where
         S: Simulator,
         T: Testbench<PDK, S>,
@@ -388,8 +385,9 @@ impl<PDK: Pdk> Context<PDK> {
         let simulator = self.get_simulator::<S>();
         let block = Arc::new(block);
         let cell = self.generate_testbench_schematic(block.clone());
+        // TODO: Handle errors.
         let cell = cell.cell();
-        let lib = self.export_testbench_scir_for_cell(cell);
+        let lib = self.export_testbench_scir_for_cell(cell)?;
         let ctx = SimulationContext {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),
@@ -398,12 +396,13 @@ impl<PDK: Pdk> Context<PDK> {
         };
         let controller = SimController {
             pdk: self.pdk.clone(),
+            tb: (*cell).clone(),
             simulator,
             ctx,
         };
 
         // TODO caching
-        block.run(cell, controller)
+        Ok(block.run(controller))
     }
 
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {
@@ -429,24 +428,28 @@ fn prepare_cell_builder<PDK: Pdk, T: Block>(
     block: &T,
 ) -> (
     SchematicCellBuilder<PDK, T>,
-    <<T as Block>::Io as SchematicType>::Data,
+    <<T as Block>::Io as SchematicType>::Bundle,
 ) {
     let mut node_ctx = NodeContext::new();
-    let io = block.io();
-    let nodes = node_ctx.nodes(io.len(), NodePriority::Io);
-    let (io_data, nodes_rest) = io.instantiate(&nodes);
-    assert!(nodes_rest.is_empty());
+    // outward-facing IO (to other enclosing blocks)
+    let io_outward = block.io();
+    // inward-facing IO (this block's IO ports as viewed by the interior of the
+    // block)
+    let io_internal = Flipped(io_outward.clone());
+    // FIXME: the cell's IO should not be attributed to this call site
+    let (nodes, io_data) =
+        node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
     let cell_name = block.name();
 
-    let names = io.flat_names(None);
-    let dirs = io.flatten_vec();
+    let names = io_outward.flat_names(None);
+    let outward_dirs = io_outward.flatten_vec();
     assert_eq!(nodes.len(), names.len());
-    assert_eq!(nodes.len(), dirs.len());
+    assert_eq!(nodes.len(), outward_dirs.len());
 
     let ports = nodes
         .iter()
         .copied()
-        .zip(dirs)
+        .zip(outward_dirs)
         .map(|(node, direction)| Port::new(node, direction))
         .collect();
 

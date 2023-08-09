@@ -9,39 +9,25 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::netlist::SpectreLibConversion;
+use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use netlist::{Include, Netlister};
 use psfparser::binary::ast::Trace;
-use rust_decimal::Decimal;
+use scir::{Library, SignalPathTail};
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::io::NodePath;
-use substrate::schematic::conv::RawLib;
-use substrate::simulation::data::HasNodeData;
-use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
+use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
 pub mod error;
 pub mod netlist;
 pub(crate) mod templates;
-
-/// A transient analysis.
-#[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Tran {
-    /// Stop time (sec).
-    pub stop: Decimal,
-    /// Start time (sec).
-    ///
-    /// Defaults to 0.
-    pub start: Option<Decimal>,
-
-    /// The error preset.
-    pub errpreset: Option<ErrPreset>,
-}
+pub mod tran;
 
 /// Spectre error presets.
 #[derive(
@@ -67,84 +53,6 @@ impl Display for ErrPreset {
     }
 }
 
-/// The result of a transient analysis.
-#[derive(Debug, Clone)]
-pub struct TranOutput {
-    lib: Arc<RawLib>,
-    /// A map from signal name to values.
-    pub values: HashMap<String, Vec<f64>>,
-}
-
-impl HasNodeData<str, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
-        self.values.get(k)
-    }
-}
-
-impl HasNodeData<scir::NodePath, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &scir::NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&*node_path(
-            &self.lib,
-            &self.lib.scir.simplify_path(k.clone()),
-        ))
-    }
-}
-
-impl HasNodeData<NodePath, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &NodePath) -> Option<&Vec<f64>> {
-        self.get_data(&self.lib.conv.convert_path(k)?)
-    }
-}
-
-impl Analysis for Tran {
-    type Output = TranOutput;
-}
-
-/// Inputs directly supported by Spectre.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Input {
-    /// Transient simulation input.
-    Tran(Tran),
-}
-
-/// Outputs directly produced by Spectre.
-#[derive(Debug, Clone)]
-pub enum Output {
-    /// Transient simulation output.
-    Tran(TranOutput),
-}
-
-impl From<Tran> for Input {
-    fn from(value: Tran) -> Self {
-        Self::Tran(value)
-    }
-}
-
-impl From<TranOutput> for Output {
-    fn from(value: TranOutput) -> Self {
-        Self::Tran(value)
-    }
-}
-
-impl TryFrom<Output> for TranOutput {
-    type Error = Error;
-    fn try_from(value: Output) -> Result<Self> {
-        match value {
-            Output::Tran(t) => Ok(t),
-        }
-    }
-}
-
-impl Supports<Tran> for Spectre {
-    fn into_input(a: Tran, inputs: &mut Vec<Self::Input>) {
-        inputs.push(a.into());
-    }
-    fn from_output(outputs: &mut impl Iterator<Item = Self::Output>) -> <Tran as Analysis>::Output {
-        let item = outputs.next().unwrap();
-        item.try_into().unwrap()
-    }
-}
-
 /// Spectre simulator global configuration.
 #[derive(Debug, Clone, Default)]
 pub struct Spectre {}
@@ -155,6 +63,8 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: HashSet<Include>,
+    saves: HashMap<netlist::Save, u64>,
+    next_save_key: u64,
 }
 
 impl Options {
@@ -165,6 +75,29 @@ impl Options {
     /// Include the given section of a file.
     pub fn include_section(&mut self, path: impl Into<PathBuf>, section: impl Into<ArcStr>) {
         self.includes.insert(Include::new(path).section(section));
+    }
+
+    fn save_inner(&mut self, save: impl Into<netlist::Save>) -> u64 {
+        let save = save.into();
+
+        if let Some(key) = self.saves.get(&save) {
+            *key
+        } else {
+            let save_key = self.next_save_key;
+            self.next_save_key += 1;
+            self.saves.insert(save, save_key);
+            save_key
+        }
+    }
+
+    /// Marks a transient voltage to be saved in all transient analyses.
+    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageKey {
+        TranVoltageKey(self.save_inner(save))
+    }
+
+    /// Marks a transient current to be saved in all transient analyses.
+    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
+        TranCurrentKey(vec![self.save_inner(save)])
     }
 }
 
@@ -279,13 +212,15 @@ impl Spectre {
         let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
         // the order of includes may change even if the contents of the set did not change.
         includes.sort();
+        saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
-        netlister.export()?;
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
+        let conv = netlister.export()?;
 
         for (i, an) in input.iter().enumerate() {
             write!(w, "analysis{i} ")?;
@@ -324,12 +259,23 @@ impl Spectre {
             })?
             .clone();
 
+        let conv = Arc::new(conv);
         let outputs = raw_outputs
             .into_iter()
-            .map(|values| {
+            .map(|mut raw_values| {
                 TranOutput {
                     lib: ctx.lib.clone(),
-                    values,
+                    conv: conv.clone(),
+                    time: Arc::new(raw_values.remove("time").unwrap()),
+                    raw_values: raw_values
+                        .into_iter()
+                        .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                        .collect(),
+                    saved_values: options
+                        .saves
+                        .iter()
+                        .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, &conv)))
+                        .collect(),
                 }
                 .into()
             })
@@ -355,21 +301,109 @@ impl Simulator for Spectre {
     }
 }
 
-pub(crate) fn node_path(lib: &RawLib, path: &scir::NodePath) -> String {
-    let mut str_path = String::new();
-    let scir = &lib.scir;
-    let mut cell = scir.cell(path.top);
-    for instance in &path.instances {
-        let inst = cell.instance(*instance);
-        str_path.push_str(inst.name());
-        str_path.push('.');
-        cell = scir.cell(inst.cell());
+#[allow(dead_code)]
+pub(crate) fn instance_path(lib: &Library, path: &scir::InstancePath) -> String {
+    let named_path = lib.convert_instance_path(path).0;
+    named_path.join(".")
+}
+
+pub(crate) fn node_voltage_path(
+    lib: &Library,
+    conv: &SpectreLibConversion,
+    path: &scir::SignalPath,
+) -> String {
+    let (named_path, id) = lib.convert_instance_path(&path.instances);
+    let mut named_path = (*named_path).clone();
+    let cell = lib.cell(id);
+
+    match &path.tail {
+        SignalPathTail::Slice(slice) => {
+            named_path.push(cell.signal(slice.signal()).name.clone());
+            let mut str_path = named_path.join(".");
+            if let Some(index) = slice.index() {
+                str_path.push_str(&format!("[{}]", index));
+            }
+            str_path
+        }
+        SignalPathTail::Primitive {
+            id: prim_id,
+            name_path: buf,
+        } => {
+            named_path.push(conv.cells[&id].primitives[prim_id].clone());
+            let buf = buf.clone();
+            named_path.extend(buf);
+            named_path.join(".")
+        }
     }
-    str_path.push_str(&cell.signal(path.signal).name);
-    if let Some(index) = path.index {
-        str_path.push_str(&format!("[{}]", index));
+}
+
+pub(crate) fn node_current_path(
+    lib: &Library,
+    conv: &SpectreLibConversion,
+    path: &scir::SignalPath,
+) -> String {
+    let (named_path, id) = lib.convert_instance_path(&path.instances);
+    let mut named_path = (*named_path).clone();
+    let cell = lib.cell(id);
+
+    match &path.tail {
+        SignalPathTail::Slice(slice) => {
+            let mut str_path = named_path.join(".");
+            str_path.push(':');
+            str_path.push_str(&cell.signal(slice.signal()).name);
+            if let Some(index) = slice.index() {
+                str_path.push_str(&format!("[{}]", index));
+            }
+            str_path
+        }
+        SignalPathTail::Primitive {
+            id: prim_id,
+            name_path: buf,
+        } => {
+            named_path.push(conv.cells[&id].primitives[prim_id].clone());
+            let mut buf = buf.clone();
+            named_path.extend(buf.drain(..buf.len() - 1));
+            let mut str_path = named_path.join(".");
+            str_path.push(':');
+            str_path.push_str(&buf.pop().unwrap());
+            str_path
+        }
     }
-    str_path
+}
+
+/// Inputs directly supported by Spectre.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Input {
+    /// Transient simulation input.
+    Tran(Tran),
+}
+
+impl From<Tran> for Input {
+    fn from(value: Tran) -> Self {
+        Self::Tran(value)
+    }
+}
+
+/// Outputs directly produced by Spectre.
+#[derive(Debug, Clone)]
+pub enum Output {
+    /// Transient simulation output.
+    Tran(TranOutput),
+}
+
+impl From<TranOutput> for Output {
+    fn from(value: TranOutput) -> Self {
+        Self::Tran(value)
+    }
+}
+
+impl TryFrom<Output> for TranOutput {
+    type Error = Error;
+    fn try_from(value: Output) -> Result<Self> {
+        match value {
+            Output::Tran(t) => Ok(t),
+        }
+    }
 }
 
 impl Input {

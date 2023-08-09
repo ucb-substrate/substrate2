@@ -31,11 +31,16 @@ pub struct Substr(arcstr::Substr);
 pub struct Parser {
     buffer: Vec<Token>,
     ast: Ast,
-    state: ParseState,
+    state: ParserState,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug)]
-enum ParseState {
+struct ParserState {
+    include_stack: Vec<PathBuf>,
+    reader_state: ReaderState,
+}
+#[derive(Clone, Default, Eq, PartialEq, Debug)]
+enum ReaderState {
     #[default]
     Top,
     Subckt(Subckt),
@@ -49,6 +54,7 @@ impl Parser {
         let s: ArcStr = std::fs::read_to_string(path).unwrap().into();
         let s = Substr(arcstr::Substr::full(s));
         let mut parser = Self::default();
+        parser.state.include_stack.push(path.into());
         let name = match s.lines().next() {
             Some(name) => ArcStr::from(name),
             None => arcstr::format!("{:?}", path),
@@ -63,13 +69,29 @@ impl Parser {
         Ok(parsed)
     }
 
+    fn parse_file_inner(&mut self, path: impl AsRef<Path>) -> Result<(), ParserError> {
+        let path = path.as_ref();
+        let s: ArcStr = std::fs::read_to_string(path)
+            .map_err(|err| ParserError::FailedToRead {
+                path: path.into(),
+                err,
+            })?
+            .into();
+        let s = Substr(arcstr::Substr::full(s));
+        self.state.include_stack.push(path.into());
+        let res = self.parse_inner(s);
+        self.state.include_stack.pop().unwrap();
+        res?;
+        Ok(())
+    }
+
     /// Parse the given string.
     pub fn parse(data: impl Into<Substr>) -> Result<ParsedSpice, ParserError> {
         let data = data.into();
         let mut parser = Self::default();
         let name = match data.lines().next() {
             Some(name) => ArcStr::from(name),
-            None => arcstr::literal!("scir_library"),
+            None => arcstr::literal!("spice_library"),
         };
         parser.parse_inner(data)?;
 
@@ -84,24 +106,38 @@ impl Parser {
     fn parse_inner(&mut self, data: Substr) -> Result<(), ParserError> {
         let mut tok = Tokenizer::new(data);
         while let Some(line) = self.parse_line(&mut tok)? {
-            match (&mut self.state, line) {
-                (ParseState::Top, Line::SubcktDecl { name, ports }) => {
-                    self.state = ParseState::Subckt(Subckt {
+            match (&mut self.state.reader_state, line) {
+                (ReaderState::Top, Line::SubcktDecl { name, ports }) => {
+                    self.state.reader_state = ReaderState::Subckt(Subckt {
                         name,
                         ports,
                         components: vec![],
                     });
                 }
-                (ParseState::Top, Line::Component(c)) => {
+                (ReaderState::Top, Line::Component(c)) => {
                     self.ast.elems.push(Elem::Component(c));
                 }
-                (ParseState::Subckt(ref mut subckt), Line::Component(c)) => {
+                (ReaderState::Top, Line::Include { path }) => {
+                    let resolved_path = Path::new::<str>(path.0.as_ref());
+                    let resolved_path = if resolved_path.is_relative() {
+                        let root = self
+                            .state
+                            .include_stack
+                            .last()
+                            .ok_or(ParserError::UnexpectedRelativePath(path.clone()))?;
+                        root.parent().unwrap().join(resolved_path)
+                    } else {
+                        resolved_path.into()
+                    };
+                    self.parse_file_inner(resolved_path)?;
+                }
+                (ReaderState::Subckt(ref mut subckt), Line::Component(c)) => {
                     subckt.components.push(c);
                 }
-                (ParseState::Subckt(ref mut subckt), Line::EndSubckt) => {
+                (ReaderState::Subckt(ref mut subckt), Line::EndSubckt) => {
                     let subckt = std::mem::take(subckt);
                     self.ast.elems.push(Elem::Subckt(subckt));
-                    self.state = ParseState::Top;
+                    self.state.reader_state = ReaderState::Top;
                 }
                 (_, line) => return Err(ParserError::UnexpectedLine(Box::new(line))),
             }
@@ -134,6 +170,16 @@ impl Parser {
                     Line::SubcktDecl { name, ports }
                 } else if d.eq_ignore_ascii_case(".ends") {
                     Line::EndSubckt
+                } else if d.eq_ignore_ascii_case(".include") {
+                    let mut path = self.buffer[1].try_ident()?.clone();
+                    // remove enclosing quotation marks, if any.
+                    if path.starts_with('"') {
+                        let mut chars = path.chars();
+                        chars.next().unwrap();
+                        chars.next_back().unwrap();
+                        path = Substr(path.substr_from(chars.as_str()));
+                    }
+                    Line::Include { path }
                 } else {
                     return Err(ParserError::UnexpectedDirective(d.clone()));
                 }
@@ -239,6 +285,11 @@ pub enum Line {
     Component(Component),
     /// The end of a subcircuit.
     EndSubckt,
+    /// An include directive.
+    Include {
+        /// The path to include.
+        path: Substr,
+    },
 }
 
 /// An element of a SPICE netlist AST.
@@ -399,6 +450,20 @@ pub enum ParserError {
     /// An unsupported or unexpected token.
     #[error("unexpected token: {0:?}")]
     UnexpectedToken(Token),
+    /// A relative path was used in an unsupported position.
+    ///
+    /// For example, relative paths are forbidden when parsing inline spice.
+    #[error("unexpected relative path: {0:?}")]
+    UnexpectedRelativePath(Substr),
+    /// Error trying to read the given file.
+    #[error("failed to read file at path `{path:?}`: {err:?}")]
+    FailedToRead {
+        /// The path we attempted to read.
+        path: PathBuf,
+        /// The underlying error.
+        #[source]
+        err: std::io::Error,
+    },
 }
 
 /// A tokenizer error.

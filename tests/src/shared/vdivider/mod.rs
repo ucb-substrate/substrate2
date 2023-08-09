@@ -2,13 +2,15 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
+use substrate::io::Io;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::pdk::Pdk;
 use substrate::schematic::{
-    CellBuilder, HasSchematic, HasSchematicImpl, Instance, PrimitiveDevice,
+    CellBuilder, HasSchematic, HasSchematicData, Instance, PrimitiveDeviceKind, PrimitiveNode,
+    SchematicData,
 };
-use substrate::{Io, SchematicData};
 
+pub mod flattened;
 pub mod tb;
 
 #[derive(Debug, Default, Clone, Io)]
@@ -26,6 +28,13 @@ pub struct PowerIo {
 #[derive(Debug, Default, Clone, Io)]
 pub struct VdividerIo {
     pub pwr: PowerIo,
+    pub out: Output<Signal>,
+}
+
+#[derive(Debug, Default, Clone, Io)]
+pub struct VdividerFlatIo {
+    pub vdd: InOut<Signal>,
+    pub vss: InOut<Signal>,
     pub out: Output<Signal>,
 }
 
@@ -66,6 +75,7 @@ pub struct VdividerArray {
 
 impl Block for Resistor {
     type Io = ResistorIo;
+    const FLATTEN: bool = false;
 
     fn id() -> ArcStr {
         arcstr::literal!("resistor")
@@ -82,6 +92,7 @@ impl Block for Resistor {
 
 impl Block for Vdivider {
     type Io = VdividerIo;
+    const FLATTEN: bool = false;
 
     fn id() -> ArcStr {
         arcstr::literal!("vdivider")
@@ -119,7 +130,7 @@ impl Block for VdividerArray {
     }
 }
 
-impl HasSchematic for Resistor {
+impl HasSchematicData for Resistor {
     type Data = ();
 }
 
@@ -131,30 +142,33 @@ pub struct VdividerData {
     r2: Instance<Resistor>,
 }
 
-impl HasSchematic for Vdivider {
+impl HasSchematicData for Vdivider {
     type Data = VdividerData;
 }
 
-impl HasSchematic for VdividerArray {
+impl HasSchematicData for VdividerArray {
     type Data = Vec<Instance<Vdivider>>;
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for Resistor {
+impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
     fn schematic(
         &self,
         io: &ResistorIoSchematic,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::Res2 {
-            pos: *io.p,
-            neg: *io.n,
-            value: self.value,
-        });
+        cell.add_primitive(
+            PrimitiveDeviceKind::Res2 {
+                pos: PrimitiveNode::new("p", io.p),
+                neg: PrimitiveNode::new("n", io.n),
+                value: self.value,
+            }
+            .into(),
+        );
         Ok(())
     }
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
+impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
     fn schematic(
         &self,
         io: &VdividerIoSchematic,
@@ -171,10 +185,10 @@ impl<PDK: Pdk> HasSchematicImpl<PDK> for Vdivider {
     }
 }
 
-impl<PDK: Pdk> HasSchematicImpl<PDK> for VdividerArray {
+impl<PDK: Pdk> HasSchematic<PDK> for VdividerArray {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Data,
+        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::Data> {
         let mut vdividers = Vec::new();

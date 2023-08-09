@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.1](https://github.com/substrate-labs/substrate2/compare/cache-v0.3.0...cache-v0.3.1) (2023-08-08)
+
+
+### Bug Fixes
+
+* **tests:** fix hanging test ([#246](https://github.com/substrate-labs/substrate2/issues/246)) ([b60c7f2](https://github.com/substrate-labs/substrate2/commit/b60c7f26db1993069d542d8333e173293f4c217b))
+
+## [0.3.0](https://github.com/substrate-labs/substrate2/compare/cache-v0.2.1...cache-v0.3.0) (2023-08-05)
+
+
+### Features
+
+* **terminals:** add support for terminal paths ([#236](https://github.com/substrate-labs/substrate2/issues/236)) ([3fba7f6](https://github.com/substrate-labs/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+
+## [0.2.1](https://github.com/substrate-labs/substrate2/compare/cache-v0.2.0...cache-v0.2.1) (2023-08-04)
+
+
+### Bug Fixes
+
+* **build:** fix build script for publishing ([#202](https://github.com/substrate-labs/substrate2/issues/202)) ([de11a28](https://github.com/substrate-labs/substrate2/commit/de11a28e79fea1b7a611f5f7a7815ff5433adaf9))
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/cache-v0.1.0...cache-v0.2.0) (2023-07-23)
 
 
