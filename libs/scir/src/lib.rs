@@ -482,7 +482,7 @@ pub struct LibraryBuilder {
     name: ArcStr,
 
     /// A map of the cells in the library.
-    cells: HashMap<CellId, Cell>,
+    cells: IndexMap<CellId, Cell>,
 
     /// A map of cell name to cell ID.
     ///
@@ -491,9 +491,6 @@ pub struct LibraryBuilder {
 
     /// Information about the top cell, if there is one.
     top: Option<Top>,
-
-    /// The order in which cells were added to this library.
-    order: Vec<CellId>,
 }
 
 /// A SCIR library that is guaranteed to be valid.
@@ -717,12 +714,8 @@ pub struct CellInner {
     ///
     /// Initialized to 0 upon cell creation.
     primitive_id: u64,
-    pub(crate) instances: HashMap<InstanceId, Instance>,
-    /// The order in which instances are added to this cell.
-    pub(crate) instance_order: Vec<InstanceId>,
-    pub(crate) primitives: HashMap<PrimitiveDeviceId, PrimitiveDevice>,
-    /// The order in which primitives are added to this cell.
-    pub(crate) primitive_order: Vec<PrimitiveDeviceId>,
+    pub(crate) instances: IndexMap<InstanceId, Instance>,
+    pub(crate) primitives: IndexMap<PrimitiveDeviceId, PrimitiveDevice>,
 }
 
 impl LibraryBuilder {
@@ -731,10 +724,9 @@ impl LibraryBuilder {
         Self {
             cell_id: 0,
             name: name.into(),
-            cells: HashMap::new(),
+            cells: IndexMap::new(),
             name_map: HashMap::new(),
             top: None,
-            order: Vec::new(),
         }
     }
 
@@ -745,7 +737,6 @@ impl LibraryBuilder {
         let id = self.alloc_id();
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
-        self.order.push(id);
         id
     }
 
@@ -773,7 +764,6 @@ impl LibraryBuilder {
         self.cell_id = std::cmp::max(id.0, self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
-        self.order.push(id);
     }
 
     /// Adds the given cell to the library with the given cell ID,
@@ -880,7 +870,7 @@ impl LibraryBuilder {
 
     /// Iterates over the `(id, cell)` pairs in this library.
     pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell)> {
-        self.order.iter().map(|&id| (id, self.cell(id)))
+        self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
     fn convert_instance_path_head(
@@ -1386,7 +1376,6 @@ impl CellInner {
         self.instance_id += 1;
         let id = InstanceId(self.instance_id);
         self.instances.insert(id, instance);
-        self.instance_order.push(id);
         id
     }
 
@@ -1396,22 +1385,19 @@ impl CellInner {
         self.primitive_id += 1;
         let id = PrimitiveDeviceId(self.primitive_id);
         self.primitives.insert(id, device);
-        self.primitive_order.push(id);
         id
     }
 
     /// Iterate over the primitive devices of this cell.
     #[inline]
     pub fn primitives(&self) -> impl Iterator<Item = (PrimitiveDeviceId, &PrimitiveDevice)> {
-        self.primitive_order
-            .iter()
-            .map(|x| (*x, &self.primitives[x]))
+        self.primitives.iter().map(|(k, v)| (*k, v))
     }
 
     /// Iterate over the instances of this cell.
     #[inline]
     pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance)> {
-        self.instance_order.iter().map(|x| (*x, &self.instances[x]))
+        self.instances.iter().map(|(k, v)| (*k, v))
     }
 
     /// Iterate over mutable references to the instances of this cell.
