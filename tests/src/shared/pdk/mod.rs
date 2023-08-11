@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use ngspice::Ngspice;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
@@ -162,6 +163,6 @@ pub fn sky130_open_ctx() -> Context<Sky130OpenPdk> {
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .pdk(Sky130OpenPdk::new(pdk_root))
-        .with_simulator(Spectre::default())
+        .with_simulator(Ngspice::default())
         .build()
 }

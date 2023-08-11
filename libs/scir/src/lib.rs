@@ -156,7 +156,12 @@ pub struct SignalPath {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum SignalPathTail {
     /// A signal slice within a SCIR cell.
-    Slice(SliceOne),
+    Scir {
+        /// The ID of the cell that contains the signal.
+        cell: CellId,
+        /// The signal slice.
+        slice: SliceOne,
+    },
     /// A signal within a primitive device.
     Primitive {
         /// The ID of the primitive device instance.
@@ -637,8 +642,11 @@ pub struct SignalInfo {
     /// For single-wire signals, this will be [`None`].
     pub width: Option<usize>,
 
-    /// Set to `true` if this signal corresponds to a port.
-    port: bool,
+    /// Set to `Some(..)` if this signal corresponds to a port.
+    ///
+    /// The contained `usize` represents the index at which the port
+    /// corresponding to this signal starts.
+    pub port: Option<usize>,
 }
 
 /// An instance of a child cell placed inside a parent cell.
@@ -692,6 +700,7 @@ pub struct Cell {
     ///
     /// Initialized to 0 upon cell creation.
     signal_id: u64,
+    port_idx: usize,
     pub(crate) name: ArcStr,
     pub(crate) ports: Ports,
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
@@ -963,7 +972,7 @@ impl LibraryBuilder {
                     index: None,
                 }
             }
-            SignalPathTail::Slice(slice) => {
+            SignalPathTail::Scir { slice, .. } => {
                 let cell = self.cell(cell);
                 NamedSignalPath {
                     instances: NamedInstancePath(instances),
@@ -985,7 +994,7 @@ impl LibraryBuilder {
             return path;
         }
 
-        let slice = if let SignalPathTail::Slice(slice) = &mut path.tail {
+        let slice = if let SignalPathTail::Scir { slice, .. } = &mut path.tail {
             slice
         } else {
             panic!("path is terminated with a primitive instance and cannot be simplified")
@@ -1004,7 +1013,7 @@ impl LibraryBuilder {
         for i in (0..cells.len()).rev() {
             let cell = self.cell(cells[i]);
             let info = cell.signal(slice.signal());
-            if !info.port {
+            if info.port.is_none() {
                 path.instances.truncate(i + 1);
                 return path;
             } else {
@@ -1067,6 +1076,7 @@ impl Cell {
     pub fn new_whitebox(name: impl Into<ArcStr>) -> Self {
         Self {
             signal_id: 0,
+            port_idx: 0,
             name: name.into(),
             ports: Ports::new(),
             signals: HashMap::new(),
@@ -1082,6 +1092,7 @@ impl Cell {
     pub fn new_blackbox(name: impl Into<ArcStr>) -> Self {
         Self {
             signal_id: 0,
+            port_idx: 0,
             name: name.into(),
             ports: Ports::new(),
             signals: HashMap::new(),
@@ -1098,7 +1109,7 @@ impl Cell {
             id,
             SignalInfo {
                 id,
-                port: false,
+                port: None,
                 name: name.into(),
                 width: None,
             },
@@ -1115,7 +1126,7 @@ impl Cell {
             id,
             SignalInfo {
                 id,
-                port: false,
+                port: None,
                 name: name.into(),
                 width: Some(width),
             },
@@ -1135,7 +1146,8 @@ impl Cell {
     pub fn expose_port(&mut self, signal: impl Into<SignalId>, direction: Direction) {
         let signal = signal.into();
         let info = self.signals.get_mut(&signal).unwrap();
-        info.port = true;
+        info.port = Some(self.port_idx);
+        self.port_idx += info.width.unwrap_or(1);
         self.ports.push(info.name.clone(), signal, direction);
     }
 

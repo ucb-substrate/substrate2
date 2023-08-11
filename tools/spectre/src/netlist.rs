@@ -1,9 +1,7 @@
 //! Spectre netlist exporter.
 #![warn(missing_docs)]
 
-use crate::{node_current_path, node_voltage_path};
 use arcstr::ArcStr;
-use rust_decimal::Decimal;
 use scir::netlist::{
     Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
     RenameGround, SpiceLikeNetlister,
@@ -14,49 +12,11 @@ use std::io::prelude::*;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
-/// A Spectre simulator signal.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub enum SimSignal {
-    /// A raw string.
-    Raw(ArcStr),
-    /// A SCIR signal path representing a node whose voltage should be saved.
-    ScirVoltage(scir::SignalPath),
-    /// A SCIR signal path representing a terminal whose current should be saved.
-    ScirCurrent(scir::SignalPath),
-}
-
-impl<T: Into<ArcStr>> From<T> for SimSignal {
-    fn from(value: T) -> Self {
-        Self::Raw(value.into())
-    }
-}
-
-impl SimSignal {
-    /// Creates a new [`SimSignal`].
-    pub fn new(path: impl Into<ArcStr>) -> Self {
-        Self::from(path)
-    }
-
-    pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
-        match self {
-            SimSignal::Raw(raw) => raw.clone(),
-            SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            SimSignal::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
-        }
-    }
-}
-
 /// A Spectre netlister.
 ///
 /// The netlister can write to any type that implements [`Write`].
 /// Since the netlister may issue many small write calls,
-pub struct Netlister<'a, W> {
-    lib: &'a Library,
-    includes: &'a [Include],
-    saves: &'a [SimSignal],
-    ics: &'a [(SimSignal, Decimal)],
-    out: &'a mut W,
-}
+pub struct Netlister<'a, W>(NetlisterInstance<'a, NetlisterImpl, W>);
 
 struct NetlisterImpl;
 
@@ -72,11 +32,7 @@ impl SpiceLikeNetlister for NetlisterImpl {
         Ok(())
     }
 
-    fn write_include<W: Write>(
-        &mut self,
-        out: &mut W,
-        include: &scir::netlist::Include,
-    ) -> std::io::Result<()> {
+    fn write_include<W: Write>(&mut self, out: &mut W, include: &Include) -> std::io::Result<()> {
         if let Some(section) = &include.section {
             write!(out, "include {:?} section={}", include.path, section)?;
         } else {
@@ -195,44 +151,22 @@ impl SpiceLikeNetlister for NetlisterImpl {
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new Spectre netlister writing to the given output stream.
-    pub fn new(
-        lib: &'a Library,
-        includes: &'a [Include],
-        saves: &'a [SimSignal],
-        ics: &'a [(SimSignal, Decimal)],
-        out: &'a mut W,
-    ) -> Self {
-        Self {
-            lib,
-            includes,
-            saves,
-            ics,
-            out,
-        }
-    }
-
-    /// Exports the netlister's library to its output stream.
-    pub fn export(self) -> std::io::Result<NetlistLibConversion> {
-        let conv = NetlisterInstance::new(
+    pub fn new(lib: &'a Library, includes: &'a [Include], out: &'a mut W) -> Self {
+        Self(NetlisterInstance::new(
             NetlisterImpl,
-            if self.lib.is_testbench() {
+            if lib.is_testbench() {
                 NetlistKind::Testbench(RenameGround::Yes(ArcStr::from("0")))
             } else {
                 NetlistKind::Cells
             },
-            self.lib,
-            self.includes,
-            self.out,
-        )
-        .export()?;
+            lib,
+            includes,
+            out,
+        ))
+    }
 
-        writeln!(self.out)?;
-        for save in self.saves {
-            writeln!(self.out, "save {}", save.to_string(self.lib, &conv))?;
-        }
-        for (key, value) in self.ics {
-            writeln!(self.out, "ic {}={}", key.to_string(self.lib, &conv), value)?;
-        }
-        Ok(conv)
+    /// Exports the netlister's library to its output stream.
+    pub fn export(self) -> std::io::Result<NetlistLibConversion> {
+        self.0.export()
     }
 }
