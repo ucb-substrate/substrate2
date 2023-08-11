@@ -22,7 +22,7 @@ use scir::netlist::{Include, NetlistLibConversion};
 use scir::Library;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::io::NodePath;
+use substrate::io::{NestedNode, NodePath};
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -131,6 +131,18 @@ impl SetInitialCondition<&scir::SignalPath, Decimal> for Options {
 impl SetInitialCondition<&NodePath, Decimal> for Options {
     fn set_initial_condition(&mut self, key: &NodePath, value: Decimal, ctx: &SimulationContext) {
         self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
+    }
+}
+
+impl SetInitialCondition<&NestedNode, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: &NestedNode, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(key.path(), value, ctx);
+    }
+}
+
+impl SetInitialCondition<NestedNode, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: NestedNode, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(key.path(), value, ctx);
     }
 }
 
