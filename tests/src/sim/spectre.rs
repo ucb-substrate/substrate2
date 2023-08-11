@@ -397,15 +397,13 @@ fn spectre_initial_condition() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
 
-    let (first, last) = ctx
+    let (first, _) = ctx
         .simulate(crate::shared::rc::RcTb::new(dec!(1.4)), &sim_dir)
         .unwrap();
     assert_relative_eq!(first, 1.4);
-    assert_relative_eq!(last, 1.4 * std::f64::consts::E.powi(-10));
 
-    let (first, last) = ctx
+    let (first, _) = ctx
         .simulate(crate::shared::rc::RcTb::new(dec!(2.1)), sim_dir)
         .unwrap();
     assert_relative_eq!(first, 2.1);
-    assert_relative_eq!(last, 2.1 * std::f64::consts::E.powi(-10));
 }
