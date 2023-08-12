@@ -6,7 +6,6 @@ use geometry::{
 };
 
 use substrate::pdk::{HasLayout, Pdk};
-use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     io::IoShape,
     layout::{

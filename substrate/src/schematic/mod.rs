@@ -28,7 +28,8 @@ use crate::io::{
     Connect, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundle, SchematicType, TerminalView,
 };
-use crate::pdk::Pdk;
+use crate::pdk::{HasSchematic, Pdk};
+use crate::sealed;
 use crate::simulation::{HasSimSchematic, Simulator};
 
 /// A block that exports data from its schematic.
@@ -50,6 +51,37 @@ pub trait Schematic<PDK: Pdk>: ExportsSchematicData {
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> Result<Self::Data>;
+}
+
+/// A block that implements [`Schematic<PDK>`].
+///
+/// Automatically implemented for blocks that implement [`Schematic<PDK>`] and
+/// cannot be implemented outside of Substrate.
+pub trait SchematicImplemented<PDK: Pdk>: ExportsSchematicData {
+    /// Generates the block's layout.
+    ///
+    /// For internal use only.
+    #[doc(hidden)]
+    fn schematic_impl(
+        &self,
+        io: &mut <<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Self>,
+        _: sealed::Token,
+    ) -> Result<Self::Data>;
+}
+
+impl<PDK: Pdk, B: ExportsSchematicData> SchematicImplemented<PDK> for B
+where
+    PDK: HasSchematic<B>,
+{
+    fn schematic_impl(
+        &self,
+        io: &mut <<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Self>,
+        _: sealed::Token,
+    ) -> Result<Self::Data> {
+        PDK::schematic(self, io, cell, sealed::Token)
+    }
 }
 
 /// A builder for creating a schematic cell.

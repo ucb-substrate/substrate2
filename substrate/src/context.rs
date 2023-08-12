@@ -25,8 +25,8 @@ use crate::io::{
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
+use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
-use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData};
 use crate::layout::{LayoutContext, LayoutImplemented};
 use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
