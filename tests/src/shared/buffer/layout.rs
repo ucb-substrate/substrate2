@@ -154,9 +154,7 @@ pub struct ExtraLayers {
 
 #[derive(LayoutData)]
 pub struct BufferData {
-    #[substrate(transform)]
     pub inv1: Instance<Inverter>,
-    #[substrate(transform)]
     pub inv2: Instance<Inverter>,
 }
 
@@ -220,7 +218,6 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
 
 #[derive(Default, LayoutData)]
 pub struct BufferNData {
-    #[substrate(transform)]
     pub buffers: Vec<Instance<Buffer>>,
 }
 

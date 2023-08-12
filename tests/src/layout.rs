@@ -208,9 +208,6 @@ fn transform_point_enum() {
 #[derive(LayoutData)]
 pub enum MyData {
     Unit,
-    Tuple(#[substrate(transform)] Instance<Inverter>),
-    Strukt {
-        #[substrate(transform)]
-        val: Instance<Inverter>,
-    },
+    Tuple(Instance<Inverter>),
+    Strukt { val: Instance<Inverter> },
 }

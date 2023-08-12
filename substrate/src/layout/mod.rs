@@ -36,7 +36,10 @@ pub mod error;
 pub mod gds;
 pub mod tiling;
 
-/// An object used to store data created during layout generation.
+/// Data exported from a generated layout.
+///
+/// Contained data is transformed with the containing instance
+/// according to its [`HasTransformedView`] implementation.
 pub trait LayoutData: HasTransformedView + Send + Sync {}
 impl<T: HasTransformedView + Send + Sync> LayoutData for T {}
 

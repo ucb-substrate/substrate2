@@ -520,9 +520,7 @@ pub struct BufferInlineHardMacro;
 // begin-code-snippet buffern_data
 #[derive(Default, LayoutData)]
 pub struct BufferNData {
-    #[substrate(transform)]
     pub buffers: Vec<Instance<Buffer>>,
-    pub width: i64,
 }
 // end-code-snippet buffern_data
 
