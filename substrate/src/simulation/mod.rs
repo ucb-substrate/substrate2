@@ -119,6 +119,12 @@ pub struct SimController<PDK: Pdk, S: Simulator, T: Testbench<PDK, S>> {
     pub(crate) ctx: SimulationContext,
 }
 
+/// Set an initial condition.
+pub trait SetInitialCondition<K, V> {
+    /// Set an initial condition assigning the given value to the given key.
+    fn set_initial_condition(&mut self, key: K, value: V, ctx: &SimulationContext);
+}
+
 impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
     /// Run the given analysis, returning the default output.
     ///
@@ -153,6 +159,14 @@ impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimControl
         let key = O::save(&self.ctx, &self.tb, &mut options);
         let output = self.simulate_default(options, corner, input)?;
         Ok(O::from_saved(&output, key))
+    }
+
+    /// Set an initial condition by mutating the given options.
+    pub fn set_initial_condition<K, V>(&self, key: K, value: V, options: &mut S::Options)
+    where
+        S::Options: SetInitialCondition<K, V>,
+    {
+        options.set_initial_condition(key, value, &self.ctx);
     }
 }
 

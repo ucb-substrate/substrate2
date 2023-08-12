@@ -17,11 +17,14 @@ use error::*;
 use indexmap::{IndexMap, IndexSet};
 use netlist::Netlister;
 use psfparser::binary::ast::Trace;
+use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
 use scir::Library;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::simulation::{SimulationContext, Simulator};
+use substrate::io::{NestedNode, NodePath};
+use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
+use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -54,34 +57,34 @@ impl Display for ErrPreset {
     }
 }
 
-/// Contents of a Spectre save statement.
+/// A signal referenced by a save/ic Spectre statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub enum SaveStmt {
-    /// A raw string to follow "save".
+pub enum SimSignal {
+    /// A raw string to follow "save/ic".
     Raw(ArcStr),
-    /// A SCIR signal path representing a node whose voltage should be saved.
+    /// A SCIR signal path representing a node whose voltage should be referenced.
     ScirVoltage(scir::SignalPath),
-    /// A SCIR signal path representing a terminal whose current should be saved.
+    /// A SCIR signal path representing a terminal whose current should be referenced.
     ScirCurrent(scir::SignalPath),
 }
 
-impl<T: Into<ArcStr>> From<T> for SaveStmt {
+impl<T: Into<ArcStr>> From<T> for SimSignal {
     fn from(value: T) -> Self {
         Self::Raw(value.into())
     }
 }
 
-impl SaveStmt {
-    /// Creates a new [`SaveStmt`].
+impl SimSignal {
+    /// Creates a new [`SimSignal`].
     pub fn new(path: impl Into<ArcStr>) -> Self {
         Self::from(path)
     }
 
     pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
         match self {
-            SaveStmt::Raw(raw) => raw.clone(),
-            SaveStmt::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            SaveStmt::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+            SimSignal::Raw(raw) => raw.clone(),
+            SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
+            SimSignal::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
         }
     }
 }
@@ -96,7 +99,8 @@ pub struct Spectre {}
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     includes: IndexSet<Include>,
-    saves: IndexMap<SaveStmt, u64>,
+    saves: IndexMap<SimSignal, u64>,
+    ics: IndexMap<SimSignal, Decimal>,
     next_save_key: u64,
 }
 
@@ -110,7 +114,7 @@ impl Options {
         self.includes.insert(Include::new(path).section(section));
     }
 
-    fn save_inner(&mut self, save: impl Into<SaveStmt>) -> u64 {
+    fn save_inner(&mut self, save: impl Into<SimSignal>) -> u64 {
         let save = save.into();
 
         if let Some(key) = self.saves.get(&save) {
@@ -123,14 +127,61 @@ impl Options {
         }
     }
 
+    fn set_ic_inner(&mut self, key: impl Into<SimSignal>, value: Decimal) {
+        self.ics.insert(key.into(), value);
+    }
+
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> TranVoltageKey {
+    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> TranVoltageKey {
         TranVoltageKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> TranCurrentKey {
+    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> TranCurrentKey {
         TranCurrentKey(vec![self.save_inner(save)])
+    }
+}
+
+#[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
+impl<K> SetInitialCondition<K, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext) {
+        self.set_ic_inner(key, value);
+    }
+}
+
+impl SetInitialCondition<&scir::SignalPath, Decimal> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: &scir::SignalPath,
+        value: Decimal,
+        _ctx: &SimulationContext,
+    ) {
+        self.set_ic_inner(SimSignal::ScirVoltage(key.clone()), value);
+    }
+}
+
+impl SetInitialCondition<&NodePath, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: &NodePath, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
+    }
+}
+
+impl SetInitialCondition<&NestedNode, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: &NestedNode, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(key.path(), value, ctx);
+    }
+}
+
+impl SetInitialCondition<NestedNode, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: NestedNode, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(key.path(), value, ctx);
+    }
+}
+
+#[impl_dispatch({scir::SignalPath; NodePath})]
+impl<T> SetInitialCondition<T, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(&key, value, ctx);
     }
 }
 
@@ -246,6 +297,11 @@ impl Spectre {
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
+        let ics = options
+            .ics
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
         // the order of includes may change even if the contents of the set did not change.
@@ -258,6 +314,9 @@ impl Spectre {
         writeln!(w)?;
         for save in saves {
             writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+        }
+        for (k, v) in ics {
+            writeln!(w, "ic {}={}", k.to_string(&ctx.lib.scir, &conv), v)?;
         }
 
         writeln!(w)?;

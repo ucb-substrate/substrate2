@@ -1,6 +1,6 @@
 //! Spectre transient analysis options and data structures.
 
-use crate::{node_voltage_path, ErrPreset, SaveStmt, Spectre};
+use crate::{node_voltage_path, ErrPreset, SimSignal, Spectre};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
@@ -131,7 +131,7 @@ impl FromSaved<Spectre, Tran> for TranVoltage {
     }
 }
 
-#[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
+#[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         _ctx: &SimulationContext,
@@ -148,7 +148,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        opts.save_tran_voltage(SaveStmt::ScirVoltage(to_save.clone()))
+        opts.save_tran_voltage(SimSignal::ScirVoltage(to_save.clone()))
     }
 }
 
@@ -213,7 +213,7 @@ impl FromSaved<Spectre, Tran> for TranCurrent {
     }
 }
 
-#[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
+#[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
         _ctx: &SimulationContext,
@@ -230,7 +230,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
-        opts.save_tran_current(SaveStmt::ScirCurrent(to_save.clone()))
+        opts.save_tran_current(SimSignal::ScirCurrent(to_save.clone()))
     }
 }
 
