@@ -9,6 +9,12 @@ use std::any::Any;
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 
+use crate::block::Block;
+use crate::error::Result;
+use crate::io::LayoutType;
+use crate::layout::{CellBuilder, ExportsLayoutData, Layout};
+use crate::sealed;
+
 use self::corner::*;
 use self::layers::Layers;
 
@@ -29,6 +35,34 @@ pub trait Pdk: Send + Sync + Any {
     /// The default implementation returns an empty list.
     fn schematic_primitives(&self) -> Vec<ArcStr> {
         Vec::new()
+    }
+}
+
+/// A PDK that has a layout for block `B`.
+///
+/// This trait is intended to be used to impose bound on supported PDKs based
+/// on blocks that they have layouts for.
+///
+/// Automatically implemented for blocks that implement [`Layout<PDK>`] and
+/// cannot be implemented outside of Substrate.
+pub trait HasLayout<B: ExportsLayoutData>: Pdk + Sized {
+    /// Generates the block's layout by running [`Layout::layout`].
+    fn layout(
+        block: &B,
+        io: &mut <<B as Block>::Io as LayoutType>::Builder,
+        cell: &mut CellBuilder<Self, B>,
+        _: sealed::Token,
+    ) -> Result<B::Data>;
+}
+
+impl<PDK: Pdk, B: Layout<PDK>> HasLayout<B> for PDK {
+    fn layout(
+        block: &B,
+        io: &mut <<B as Block>::Io as LayoutType>::Builder,
+        cell: &mut CellBuilder<Self, B>,
+        _: sealed::Token,
+    ) -> Result<B::Data> {
+        block.layout(io, cell)
     }
 }
 

@@ -24,7 +24,8 @@ use geometry::{
 use once_cell::sync::OnceCell;
 
 use crate::io::LayoutType;
-use crate::pdk::Pdk;
+use crate::pdk::{HasLayout, Pdk};
+use crate::sealed;
 use crate::{block::Block, error::Error};
 use crate::{context::Context, error::Result};
 
@@ -58,6 +59,37 @@ pub trait Layout<PDK: Pdk>: ExportsLayoutData {
         io: &mut <<Self as Block>::Io as LayoutType>::Builder,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> Result<Self::Data>;
+}
+
+/// A block that implements [`Layout<PDK>`].
+///
+/// Automatically implemented for blocks that implement [`Layout<PDK>`] and
+/// cannot be implemented outside of Substrate.
+pub trait LayoutImplemented<PDK: Pdk>: ExportsLayoutData {
+    /// Generates the block's layout.
+    ///
+    /// For internal use only.
+    #[doc(hidden)]
+    fn layout_impl(
+        &self,
+        io: &mut <<Self as Block>::Io as LayoutType>::Builder,
+        cell: &mut CellBuilder<PDK, Self>,
+        _: sealed::Token,
+    ) -> Result<Self::Data>;
+}
+
+impl<PDK: Pdk, B: ExportsLayoutData> LayoutImplemented<PDK> for B
+where
+    PDK: HasLayout<B>,
+{
+    fn layout_impl(
+        &self,
+        io: &mut <<Self as Block>::Io as LayoutType>::Builder,
+        cell: &mut CellBuilder<PDK, Self>,
+        _: sealed::Token,
+    ) -> Result<Self::Data> {
+        PDK::layout(self, io, cell, sealed::Token)
+    }
 }
 
 /// Layout-specific context data.
@@ -352,7 +384,7 @@ impl<T: ExportsLayoutData> HasTransformedView for Instance<T> {
     }
 }
 
-impl<PDK: Pdk, I: Layout<PDK>> Draw<PDK> for Instance<I> {
+impl<PDK: Pdk, I: LayoutImplemented<PDK>> Draw<PDK> for Instance<I> {
     fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
         recv.draw_instance(self);
         Ok(())
@@ -390,12 +422,12 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     /// Generate an instance of `block`.
     ///
     /// Returns immediately, allowing generation to complete in the background. Attempting to
-    /// acceess the generated instance's cell will block until generation is complete.
+    /// access the generated instance's cell will block until generation is complete.
     ///
     /// # Examples
     ///
     #[doc = get_snippets!("core", "cell_builder_generate")]
-    pub fn generate<I: Layout<PDK>>(&mut self, block: I) -> Instance<I> {
+    pub fn generate<I: LayoutImplemented<PDK>>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
         Instance::new(cell)
     }
@@ -404,7 +436,10 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     ///
     /// Blocks on generation, returning only once the instance's cell is populated. Useful for
     /// handling errors thrown by the generation of a cell immediately.
-    pub fn generate_blocking<I: Layout<PDK>>(&mut self, block: I) -> Result<Instance<I>> {
+    pub fn generate_blocking<I: LayoutImplemented<PDK>>(
+        &mut self,
+        block: I,
+    ) -> Result<Instance<I>> {
         let cell = self.ctx.generate_layout(block);
         cell.try_cell()?;
         Ok(Instance::new(cell))
@@ -518,7 +553,7 @@ impl<PDK> DrawReceiver<PDK> {
 }
 
 impl<PDK: Pdk> DrawReceiver<PDK> {
-    pub(crate) fn draw_instance<I: Layout<PDK>>(&mut self, inst: Instance<I>) {
+    pub(crate) fn draw_instance<I: LayoutImplemented<PDK>>(&mut self, inst: Instance<I>) {
         let instance = Arc::new(OnceCell::new());
         self.instances.push(instance.clone());
 
