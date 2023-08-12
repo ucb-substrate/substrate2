@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode};
+use substrate::schematic::{
+    ExportsSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+};
 use substrate::simulation::HasSimSchematic;
 
 use crate::Spectre;
@@ -69,7 +71,7 @@ impl Block for Vsource {
     }
 }
 
-impl HasSchematicData for Vsource {
+impl ExportsSchematicData for Vsource {
     type Data = ();
 }
 
@@ -140,7 +142,7 @@ impl Block for Iprobe {
     }
 }
 
-impl HasSchematicData for Iprobe {
+impl ExportsSchematicData for Iprobe {
     type Data = ();
 }
 

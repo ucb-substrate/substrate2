@@ -15,7 +15,7 @@ use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
-use crate::schematic::{Cell, HasSchematicData, SimCellBuilder};
+use crate::schematic::{Cell, ExportsSchematicData, SimCellBuilder};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
 
@@ -182,9 +182,9 @@ pub trait Testbench<PDK: Pdk, S: Simulator>:
 
 /// A block that has a schematic compatible with the given PDK and simulator.
 ///
-/// Unlike [`HasSchematic`](crate::schematic::HasSchematic), this trait indicates that the schematic of this block
+/// Unlike [`Schematic`](crate::schematic::Schematic), this trait indicates that the schematic of this block
 /// is simulator-specific.
-pub trait HasSimSchematic<PDK: Pdk, S: Simulator>: Block + HasSchematicData {
+pub trait HasSimSchematic<PDK: Pdk, S: Simulator>: Block + ExportsSchematicData {
     /// Generates the block's schematic.
     fn schematic(
         &self,

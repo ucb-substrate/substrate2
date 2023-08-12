@@ -4,12 +4,10 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 
 use substrate::block::Block;
-use substrate::{layout::HasLayout, schematic::HasSchematic};
+use substrate::{layout::Layout, schematic::Schematic};
 use test_log::test;
 
-#[derive(
-    Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic, HasLayout,
-)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic, Layout)]
 #[substrate(io = "BufferIo", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",
@@ -34,7 +32,7 @@ use test_log::test;
 ))]
 pub struct BufferHardMacro;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "r#\"
@@ -56,7 +54,7 @@ pub struct BufferHardMacro;
 ))]
 pub struct BufferInlineHardMacro;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
 #[substrate(io = "crate::shared::vdivider::VdividerFlatIo", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",

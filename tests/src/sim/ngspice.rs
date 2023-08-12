@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130OpenPdk;
 use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
-use substrate::schematic::{Cell, HasSchematicData, Instance, SchematicData, SimCellBuilder};
+use substrate::schematic::{Cell, ExportsSchematicData, Instance, SchematicData, SimCellBuilder};
 use substrate::simulation::data::{FromSaved, Save};
 use substrate::simulation::{
     HasSimSchematic, SimController, SimulationContext, Simulator, Testbench,
@@ -33,7 +33,7 @@ fn ngspice_can_save_voltages_and_currents() {
         r3: Instance<ngspice::blocks::Resistor>,
     }
 
-    impl HasSchematicData for ResistorTb {
+    impl ExportsSchematicData for ResistorTb {
         type Data = ResistorTbData;
     }
 

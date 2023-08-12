@@ -6,7 +6,7 @@ pub mod primitives;
 use cache::error::TryInnerError;
 use cache::mem::TypeCache;
 use cache::CacheHandle;
-pub use codegen::{HasSchematic, SchematicData};
+pub use codegen::{Schematic, SchematicData};
 use indexmap::IndexMap;
 use opacity::Opacity;
 use pathtree::PathTree;
@@ -31,17 +31,19 @@ use crate::io::{
 use crate::pdk::Pdk;
 use crate::simulation::{HasSimSchematic, Simulator};
 
-/// A block that has associated schematic data.
-pub trait HasSchematicData: Block {
-    /// Extra data to be stored with the block's generated cell.
+/// A block that exports data from its schematic.
+///
+/// All blocks that have a schematic implementation must export data.
+pub trait ExportsSchematicData: Block {
+    /// Extra schematic data to be stored with the block's generated cell.
     ///
-    /// Common uses include storing important instances for access during simulation and any
-    /// important computations that may impact blocks that instantiate this block.
+    /// When the block is instantiated, all contained data will be nested
+    /// within that instance.
     type Data: SchematicData;
 }
 
-/// A block that has a schematic for process design kit `PDK`.
-pub trait HasSchematic<PDK: Pdk>: HasSchematicData {
+/// A block that can be netlisted in process design kit `PDK`.
+pub trait Schematic<PDK: Pdk>: ExportsSchematicData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
@@ -227,7 +229,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
-    pub fn generate<I: HasSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
+    pub fn generate<I: Schematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
         self.ctx.generate_schematic(block)
     }
 
@@ -237,7 +239,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     ///
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
-    pub fn generate_blocking<I: HasSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
+    pub fn generate_blocking<I: Schematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
         let cell = self.ctx.generate_schematic(block);
         cell.try_cell()?;
         Ok(cell)
@@ -256,7 +258,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
-    pub fn add<I: HasSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+    pub fn add<I: Schematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
@@ -281,7 +283,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
-    pub fn instantiate<I: HasSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
+    pub fn instantiate<I: Schematic<PDK>>(&mut self, block: I) -> Instance<I> {
         assert!(
             self.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
@@ -292,7 +294,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     }
 
     /// Creates nodes for the newly-instantiated block's IOs.
-    fn post_instantiate<I: HasSchematicData>(
+    fn post_instantiate<I: ExportsSchematicData>(
         &mut self,
         cell: CellHandle<I>,
         source_info: SourceInfo,
@@ -344,7 +346,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
     /// Create an instance and immediately connect its ports.
     pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
     where
-        I: HasSchematic<PDK>,
+        I: Schematic<PDK>,
         C: SchematicBundle,
         <I::Io as SchematicType>::Bundle: Connect<C>,
     {
@@ -430,7 +432,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
-    pub fn generate<I: HasSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
+    pub fn generate<I: Schematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
         self.inner.generate(block)
     }
 
@@ -440,7 +442,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     ///
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
-    pub fn generate_blocking<I: HasSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
+    pub fn generate_blocking<I: Schematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
         self.inner.generate_blocking(block)
     }
 
@@ -457,7 +459,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
-    pub fn add<I: HasSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+    pub fn add<I: Schematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         assert!(
             self.inner.blackbox.is_none(),
             "cannot add instances to a blackbox cell"
@@ -471,14 +473,14 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
     ///
     /// Panics if this cell has been marked as a blackbox.
     /// A blackbox cell cannot contain instances or primitive devices.
-    pub fn instantiate<I: HasSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
+    pub fn instantiate<I: Schematic<PDK>>(&mut self, block: I) -> Instance<I> {
         self.inner.instantiate(block)
     }
 
     /// Create an instance and immediately connect its ports.
     pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
     where
-        I: HasSchematic<PDK>,
+        I: Schematic<PDK>,
         C: SchematicBundle,
         <I::Io as SchematicType>::Bundle: Connect<C>,
     {
@@ -590,7 +592,7 @@ impl<PDK: Pdk, S: Simulator, T: Block> SimCellBuilder<PDK, S, T> {
 }
 
 /// A schematic cell.
-pub struct Cell<T: HasSchematicData> {
+pub struct Cell<T: ExportsSchematicData> {
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
@@ -602,7 +604,7 @@ pub struct Cell<T: HasSchematicData> {
     path: InstancePath,
 }
 
-impl<T: HasSchematicData> Clone for Cell<T> {
+impl<T: ExportsSchematicData> Clone for Cell<T> {
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -614,7 +616,7 @@ impl<T: HasSchematicData> Clone for Cell<T> {
     }
 }
 
-impl<T: HasSchematicData> Cell<T> {
+impl<T: ExportsSchematicData> Cell<T> {
     pub(crate) fn new(
         io: <T::Io as SchematicType>::Bundle,
         block: Arc<T>,
@@ -657,13 +659,13 @@ impl<T: HasSchematicData> Cell<T> {
 }
 
 /// A handle to a schematic cell that is being generated.
-pub struct CellHandle<T: HasSchematicData> {
+pub struct CellHandle<T: ExportsSchematicData> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<T>,
     pub(crate) cell: CacheHandle<Result<Cell<T>>>,
 }
 
-impl<T: HasSchematicData> Clone for CellHandle<T> {
+impl<T: ExportsSchematicData> Clone for CellHandle<T> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -675,9 +677,9 @@ impl<T: HasSchematicData> Clone for CellHandle<T> {
 
 /// A handle to a testbench schematic cell that is being generated.
 #[derive(Clone)]
-pub struct SimCellHandle<T: HasSchematicData>(pub(crate) CellHandle<T>);
+pub struct SimCellHandle<T: ExportsSchematicData>(pub(crate) CellHandle<T>);
 
-impl<T: HasSchematicData> CellHandle<T> {
+impl<T: ExportsSchematicData> CellHandle<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
@@ -701,7 +703,7 @@ impl<T: HasSchematicData> CellHandle<T> {
     }
 }
 
-impl<T: HasSchematicData> SimCellHandle<T> {
+impl<T: ExportsSchematicData> SimCellHandle<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
@@ -778,7 +780,7 @@ impl InstanceId {
 
 /// An instance of a schematic cell.
 #[allow(dead_code)]
-pub struct Instance<T: HasSchematicData> {
+pub struct Instance<T: ExportsSchematicData> {
     id: InstanceId,
     /// Path of the parent cell.
     parent: InstancePath,
@@ -789,7 +791,7 @@ pub struct Instance<T: HasSchematicData> {
     cell: CellHandle<T>,
 }
 
-impl<T: HasSchematicData> Instance<T> {
+impl<T: ExportsSchematicData> Instance<T> {
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
@@ -1076,7 +1078,7 @@ impl InstancePath {
     }
 }
 
-/// Data that can be stored in [`HasSchematicData::Data`](crate::schematic::HasSchematicData::Data).
+/// Data that can be stored in [`HasSchematicData::Data`](crate::schematic::ExportsSchematicData::Data).
 pub trait SchematicData: HasNestedView + Send + Sync {}
 impl<T: HasNestedView + Send + Sync> SchematicData for T {}
 
@@ -1126,7 +1128,7 @@ impl HasNestedView for () {
 /// A view of a nested cell.
 ///
 /// Created when accessing a cell from one of its instantiations in another cell.
-pub struct NestedCellView<'a, T: HasSchematicData> {
+pub struct NestedCellView<'a, T: ExportsSchematicData> {
     /// The block from which this cell was generated.
     block: &'a T,
     /// Data returned by the cell's schematic generator.
@@ -1137,7 +1139,7 @@ pub struct NestedCellView<'a, T: HasSchematicData> {
     io: TerminalView<'a, <T::Io as SchematicType>::Bundle>,
 }
 
-impl<'a, T: HasSchematicData> NestedCellView<'a, T> {
+impl<'a, T: ExportsSchematicData> NestedCellView<'a, T> {
     /// Returns the block whose schematic this cell represents.
     pub fn block(&'a self) -> &'a T {
         self.block
@@ -1152,7 +1154,7 @@ impl<'a, T: HasSchematicData> NestedCellView<'a, T> {
 /// A view of a nested instance.
 ///
 /// Created when accessing an instance stored in the data of a nested cell.
-pub struct NestedInstanceView<'a, T: HasSchematicData> {
+pub struct NestedInstanceView<'a, T: ExportsSchematicData> {
     id: InstanceId,
     /// The path to this instance relative to the current cell.
     path: InstancePath,
@@ -1166,7 +1168,7 @@ pub struct NestedInstanceView<'a, T: HasSchematicData> {
 ///
 /// A [`NestedInstance`] can be used to store a nested instance directly in a cell's data for
 /// easier access.
-pub struct NestedInstance<T: HasSchematicData> {
+pub struct NestedInstance<T: ExportsSchematicData> {
     id: InstanceId,
     /// Path to this instance relative to the current cell.
     path: InstancePath,
@@ -1175,7 +1177,7 @@ pub struct NestedInstance<T: HasSchematicData> {
     cell: CellHandle<T>,
 }
 
-impl<T: HasSchematicData> HasNestedView for Instance<T> {
+impl<T: ExportsSchematicData> HasNestedView for Instance<T> {
     type NestedView<'a> = NestedInstanceView<'a, T>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
@@ -1188,7 +1190,7 @@ impl<T: HasSchematicData> HasNestedView for Instance<T> {
     }
 }
 
-impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
+impl<'a, T: ExportsSchematicData> NestedInstanceView<'a, T> {
     /// Tries to access this instance's terminals.
     ///
     /// Returns an error if one was thrown during generation.
@@ -1271,7 +1273,7 @@ impl<'a, T: HasSchematicData> NestedInstanceView<'a, T> {
     }
 }
 
-impl<T: HasSchematicData> HasNestedView for NestedInstance<T> {
+impl<T: ExportsSchematicData> HasNestedView for NestedInstance<T> {
     type NestedView<'a> = NestedInstanceView<'a, T>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView<'_> {
@@ -1284,7 +1286,7 @@ impl<T: HasSchematicData> HasNestedView for NestedInstance<T> {
     }
 }
 
-impl<T: HasSchematicData> NestedInstance<T> {
+impl<T: ExportsSchematicData> NestedInstance<T> {
     /// Tries to access this instance's terminals.
     ///
     /// Returns an error if one was thrown during generation.

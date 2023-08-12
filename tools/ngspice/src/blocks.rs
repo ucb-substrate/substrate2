@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{BlackboxContents, HasSchematicData};
+use substrate::schematic::{BlackboxContents, ExportsSchematicData};
 use substrate::simulation::HasSimSchematic;
 
 use crate::Ngspice;
@@ -53,7 +53,7 @@ impl Vsource {
     }
 }
 
-impl HasSchematicData for Vsource {
+impl ExportsSchematicData for Vsource {
     type Data = ();
 }
 
@@ -97,7 +97,7 @@ impl<PDK: Pdk> HasSimSchematic<PDK, Ngspice> for Vsource {
 #[substrate(io = "TwoTerminalIo")]
 pub struct Resistor(pub Decimal);
 
-impl HasSchematicData for Resistor {
+impl ExportsSchematicData for Resistor {
     type Data = ();
 }
 

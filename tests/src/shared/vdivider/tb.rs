@@ -9,7 +9,7 @@ use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
-use substrate::schematic::{Cell, HasSchematic, HasSchematicData, Instance, SchematicData};
+use substrate::schematic::{Cell, ExportsSchematicData, Instance, Schematic, SchematicData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{HasSimSchematic, SimulationContext, Simulator, Testbench};
 
@@ -28,7 +28,7 @@ pub struct VdividerTbData {
     dut: Instance<Vdivider>,
 }
 
-impl HasSchematicData for VdividerTb {
+impl ExportsSchematicData for VdividerTb {
     type Data = VdividerTbData;
 }
 
@@ -66,14 +66,14 @@ impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for Vdivid
 #[substrate(io = "TestbenchIo")]
 pub struct VdividerDuplicateSubcktTb;
 
-impl HasSchematicData for VdividerDuplicateSubcktTb {
+impl ExportsSchematicData for VdividerDuplicateSubcktTb {
     type Data = Instance<VdividerDuplicateSubckt>;
 }
 
 impl<PDK> HasSimSchematic<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
     PDK: Pdk,
-    VdividerDuplicateSubckt: HasSchematic<PDK>,
+    VdividerDuplicateSubckt: Schematic<PDK>,
 {
     fn schematic(
         &self,
@@ -104,7 +104,7 @@ pub struct VdividerDuplicateSubcktTbOutput {
 impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
     PDK: Pdk + InstallCorner<Spectre>,
-    VdividerDuplicateSubckt: HasSchematic<PDK>,
+    VdividerDuplicateSubckt: Schematic<PDK>,
 {
     type Output = VdividerDuplicateSubcktTbOutput;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
@@ -182,7 +182,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
 #[substrate(io = "TestbenchIo")]
 pub struct VdividerArrayTb;
 
-impl HasSchematicData for VdividerArrayTb {
+impl ExportsSchematicData for VdividerArrayTb {
     type Data = Instance<VdividerArray>;
 }
 
@@ -217,7 +217,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for Vdivid
 #[substrate(io = "TestbenchIo")]
 pub struct FlattenedVdividerArrayTb;
 
-impl HasSchematicData for FlattenedVdividerArrayTb {
+impl ExportsSchematicData for FlattenedVdividerArrayTb {
     type Data = Instance<super::flattened::VdividerArray>;
 }
 

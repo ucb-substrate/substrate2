@@ -26,7 +26,7 @@ use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
-use crate::layout::HasLayout;
+use crate::layout::Layout;
 use crate::layout::LayoutContext;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::pdk::layers::GdsLayerSpec;
@@ -37,7 +37,7 @@ use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellHandle as SchematicCellHandle,
-    HasSchematic, InstanceId, InstancePath, SchematicContext, SimCellBuilder, SimCellHandle,
+    InstanceId, InstancePath, Schematic, SchematicContext, SimCellBuilder, SimCellHandle,
 };
 use crate::simulation::{HasSimSchematic, SimController, SimulationContext, Simulator, Testbench};
 
@@ -179,7 +179,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: HasLayout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: Layout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
@@ -220,7 +220,7 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Writes a layout to a GDS file.
-    pub fn write_layout<T: HasLayout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
+    pub fn write_layout<T: Layout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
         let handle = self.generate_layout(block);
         let cell = handle.try_cell()?;
 
@@ -268,7 +268,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_schematic<T: HasSchematic<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
+    pub fn generate_schematic<T: Schematic<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
@@ -325,7 +325,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<T: HasSchematic<PDK>>(&self, block: T) -> Result<RawLib, scir::Issues> {
+    pub fn export_scir<T: Schematic<PDK>>(&self, block: T) -> Result<RawLib, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
         cell.raw.to_scir_lib(TopKind::Cell)

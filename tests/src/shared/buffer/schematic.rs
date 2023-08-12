@@ -2,7 +2,7 @@ use crate::shared::buffer::{Buffer, BufferNxM};
 use substrate::io::Terminal;
 use substrate::{
     io::Signal,
-    schematic::{HasSchematic, HasSchematicData, Instance, NestedInstance, SchematicData},
+    schematic::{ExportsSchematicData, Instance, NestedInstance, Schematic, SchematicData},
 };
 
 use crate::shared::pdk::{ExamplePdkA, NmosA, PmosA};
@@ -17,11 +17,11 @@ pub struct InverterData {
     pub pmos: Instance<PmosA>,
 }
 
-impl HasSchematicData for Inverter {
+impl ExportsSchematicData for Inverter {
     type Data = InverterData;
 }
 
-impl HasSchematic<ExamplePdkA> for Inverter {
+impl Schematic<ExamplePdkA> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -55,11 +55,11 @@ pub struct BufferData {
     pub inv2: Instance<Inverter>,
 }
 
-impl HasSchematicData for Buffer {
+impl ExportsSchematicData for Buffer {
     type Data = BufferData;
 }
 
-impl HasSchematic<ExamplePdkA> for Buffer {
+impl Schematic<ExamplePdkA> for Buffer {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -98,11 +98,11 @@ pub struct BufferNData {
     pub buffers: Vec<Instance<Buffer>>,
 }
 
-impl HasSchematicData for BufferN {
+impl ExportsSchematicData for BufferN {
     type Data = BufferNData;
 }
 
-impl HasSchematic<ExamplePdkA> for BufferN {
+impl Schematic<ExamplePdkA> for BufferN {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -141,11 +141,11 @@ pub struct BufferNxMData {
     pub buffer_chains: Vec<Instance<BufferN>>,
 }
 
-impl HasSchematicData for BufferNxM {
+impl ExportsSchematicData for BufferNxM {
     type Data = BufferNxMData;
 }
 
-impl HasSchematic<ExamplePdkA> for BufferNxM {
+impl Schematic<ExamplePdkA> for BufferNxM {
     fn schematic(
         &self,
         io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,

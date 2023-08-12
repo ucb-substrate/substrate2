@@ -280,7 +280,7 @@ impl ToTokens for HasLayoutInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_layout = quote! {
-            impl #imp #substrate::layout::HasLayoutData for #ident #ty #wher {
+            impl #imp #substrate::layout::ExportsLayoutData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -298,7 +298,7 @@ impl ToTokens for HasLayoutInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::layout::HasLayout<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::layout::Layout<#pdk> for #ident #ty #wher {
                     fn layout(
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,

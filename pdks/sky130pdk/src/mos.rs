@@ -1,11 +1,11 @@
+//! MOS devices and parameters.
+
 use std::fmt::Display;
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::MosIo;
-
-use super::{Sky130CommercialPdk, Sky130OpenPdk};
 
 /// MOSFET sizing parameters.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +56,7 @@ macro_rules! define_mos {
         }
 
         impl $typ {
+            /// Creates a new [`$typ`].
             #[inline]
             pub fn new(params: impl Into<MosParams>) -> Self {
                 Self {
@@ -78,15 +79,15 @@ macro_rules! define_mos {
             }
         }
 
-        impl substrate::schematic::HasSchematicData for $typ {
+        impl substrate::schematic::ExportsSchematicData for $typ {
             type Data = ();
         }
 
-        impl substrate::schematic::HasSchematic<Sky130OpenPdk> for $typ {
+        impl<PDK: crate::Sky130Pdk> substrate::schematic::Schematic<PDK> for $typ {
             fn schematic(
                 &self,
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-                cell: &mut substrate::schematic::CellBuilder<Sky130OpenPdk, Self>,
+                cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
             ) -> substrate::error::Result<Self::Data> {
                 // Convert from DB units to microns.
                 let w = Decimal::new(self.params.w, 3);
@@ -99,45 +100,10 @@ macro_rules! define_mos {
                             substrate::schematic::PrimitiveNode::new("s", io.s),
                             substrate::schematic::PrimitiveNode::new("b", io.b),
                         ],
-                        cell: arcstr::literal!(stringify!($opensubckt)),
-                    },
-                    indexmap::IndexMap::from_iter([
-                        (
-                            arcstr::literal!("w"),
-                            substrate::scir::Expr::NumericLiteral(w),
-                        ),
-                        (
-                            arcstr::literal!("l"),
-                            substrate::scir::Expr::NumericLiteral(l),
-                        ),
-                        (
-                            arcstr::literal!("nf"),
-                            substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
-                        ),
-                    ]),
-                ));
-                Ok(())
-            }
-        }
-
-        impl substrate::schematic::HasSchematic<Sky130CommercialPdk> for $typ {
-            fn schematic(
-                &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-                cell: &mut substrate::schematic::CellBuilder<Sky130CommercialPdk, Self>,
-            ) -> substrate::error::Result<Self::Data> {
-                // Convert from DB units to microns.
-                let w = Decimal::new(self.params.w, 3);
-                let l = Decimal::new(self.params.l, 3);
-                cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
-                    substrate::schematic::PrimitiveDeviceKind::RawInstance {
-                        ports: vec![
-                            substrate::schematic::PrimitiveNode::new("d", io.d),
-                            substrate::schematic::PrimitiveNode::new("g", io.g),
-                            substrate::schematic::PrimitiveNode::new("s", io.s),
-                            substrate::schematic::PrimitiveNode::new("b", io.b),
-                        ],
-                        cell: arcstr::literal!(stringify!($comsubckt)),
+                        cell: match PDK::FLAVOR {
+                            crate::Sky130PdkFlavor::Open => arcstr::literal!(stringify!($opensubckt)),
+                            crate::Sky130PdkFlavor::Commercial => arcstr::literal!(stringify!($comsubckt)),
+                        },
                     },
                     indexmap::IndexMap::from_iter([
                         (

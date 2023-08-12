@@ -11,7 +11,7 @@ use substrate::{
     layout::{
         element::Shape,
         tiling::{ArrayTiler, Tile, TileAlignMode},
-        HasLayout, HasLayoutData, Instance, LayoutData,
+        ExportsLayoutData, Instance, Layout, LayoutData,
     },
     pdk::layers::{DerivedLayerFamily, DerivedLayers, HasPin, Layers},
     pdk::PdkLayers,
@@ -21,11 +21,11 @@ use crate::shared::pdk::{ExamplePdkA, ExamplePdkB};
 
 use super::{Buffer, BufferN, BufferNxM, Inverter};
 
-impl HasLayoutData for Inverter {
+impl ExportsLayoutData for Inverter {
     type Data = ();
 }
 
-impl HasLayout<ExamplePdkA> for Inverter {
+impl Layout<ExamplePdkA> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -60,7 +60,7 @@ impl HasLayout<ExamplePdkA> for Inverter {
     }
 }
 
-impl HasLayout<ExamplePdkB> for Inverter {
+impl Layout<ExamplePdkB> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -160,12 +160,12 @@ pub struct BufferData {
     pub inv2: Instance<Inverter>,
 }
 
-impl HasLayoutData for Buffer {
+impl ExportsLayoutData for Buffer {
     type Data = BufferData;
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasLayout<PDK> for Buffer {
+impl<PDK> Layout<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -213,12 +213,12 @@ pub struct BufferNData {
     pub buffers: Vec<Instance<Buffer>>,
 }
 
-impl HasLayoutData for BufferN {
+impl ExportsLayoutData for BufferN {
     type Data = BufferNData;
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasLayout<PDK> for BufferN {
+impl<PDK> Layout<PDK> for BufferN {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -263,12 +263,12 @@ impl<PDK> HasLayout<PDK> for BufferN {
     }
 }
 
-impl HasLayoutData for BufferNxM {
+impl ExportsLayoutData for BufferNxM {
     type Data = ();
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasLayout<PDK> for BufferNxM {
+impl<PDK> Layout<PDK> for BufferNxM {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,

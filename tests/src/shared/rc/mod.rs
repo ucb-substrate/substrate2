@@ -9,7 +9,7 @@ use substrate::io::{Node, Signal};
 use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{Capacitor, Resistor};
-use substrate::schematic::HasSchematicData;
+use substrate::schematic::ExportsSchematicData;
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::{HasSimSchematic, Testbench};
 
@@ -28,7 +28,7 @@ impl RcTb {
     }
 }
 
-impl HasSchematicData for RcTb {
+impl ExportsSchematicData for RcTb {
     type Data = Node;
 }
 

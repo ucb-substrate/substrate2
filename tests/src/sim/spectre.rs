@@ -20,8 +20,8 @@ use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, HasSchematic, HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind,
-    PrimitiveNode, SimCellBuilder,
+    Cell, ExportsSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+    Schematic, SimCellBuilder,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{
@@ -180,7 +180,7 @@ fn spectre_can_include_sections() {
     #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl HasSchematicData for LibIncludeResistor {
+    impl ExportsSchematicData for LibIncludeResistor {
         type Data = ();
     }
 
@@ -200,7 +200,7 @@ fn spectre_can_include_sections() {
     #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
-    impl HasSchematicData for LibIncludeTb {
+    impl ExportsSchematicData for LibIncludeTb {
         type Data = Instance<LibIncludeResistor>;
     }
 
@@ -268,7 +268,7 @@ fn spectre_can_include_sections() {
 
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
-    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
     #[substrate(io = "TwoTerminalIo", flatten)]
     #[substrate(schematic(
         source = "r#\"\
@@ -286,7 +286,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TwoTerminalIo", flatten)]
     pub struct VirtualResistor;
 
-    impl HasSchematicData for VirtualResistor {
+    impl ExportsSchematicData for VirtualResistor {
         type Data = ();
     }
 
@@ -322,7 +322,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TestbenchIo")]
     struct VirtualResistorTb;
 
-    impl HasSchematicData for VirtualResistorTb {
+    impl ExportsSchematicData for VirtualResistorTb {
         type Data = Instance<VirtualResistor>;
     }
 
