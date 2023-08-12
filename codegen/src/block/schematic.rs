@@ -272,7 +272,7 @@ impl ToTokens for HasSchematicInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_schematic = quote! {
-            impl #imp #substrate::schematic::HasSchematicData for #ident #ty #wher {
+            impl #imp #substrate::schematic::ExportsSchematicData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -310,7 +310,7 @@ impl ToTokens for HasSchematicInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::schematic::HasSchematic<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::schematic::Schematic<#pdk> for #ident #ty #wher {
                     fn schematic(
                         &self,
                         io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,

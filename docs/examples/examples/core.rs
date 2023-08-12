@@ -7,10 +7,10 @@ use substrate::io::{
     CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
     PortGeometry, ShapePort, Signal,
 };
-use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutData, Instance, LayoutData};
+use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{Pdk, PdkLayers};
-use substrate::schematic::HasSchematic;
+use substrate::schematic::Schematic;
 use substrate::type_dispatch::impl_dispatch;
 
 // begin-code-snippet pdk
@@ -196,11 +196,11 @@ impl Block for Inverter {
 // end-code-snippet inverter
 
 // begin-code-snippet inverter_layout
-impl HasLayoutData for Inverter {
+impl ExportsLayoutData for Inverter {
     type Data = ();
 }
 
-impl HasLayout<ExamplePdk> for Inverter {
+impl Layout<ExamplePdk> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -232,7 +232,7 @@ impl HasLayout<ExamplePdk> for Inverter {
 // end-code-snippet inverter_layout
 
 // begin-code-snippet inverter_multiprocess
-impl HasLayout<ExamplePdkA> for Inverter {
+impl Layout<ExamplePdkA> for Inverter {
     // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
@@ -264,7 +264,7 @@ impl HasLayout<ExamplePdkA> for Inverter {
     // end-ellipses inverter_multiprocess
 }
 
-impl HasLayout<ExamplePdkB> for Inverter {
+impl Layout<ExamplePdkB> for Inverter {
     // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
@@ -415,12 +415,12 @@ pub struct BufferData {
 }
 
 // begin-code-snippet buffer_layout
-impl HasLayoutData for Buffer {
+impl ExportsLayoutData for Buffer {
     type Data = BufferData;
 }
 
 // begin-code-snippet cell_builder_generate
-impl HasLayout<ExamplePdk> for Buffer {
+impl Layout<ExamplePdk> for Buffer {
     fn layout(
         // begin-ellipses cell_builder_generate
         &self,
@@ -449,7 +449,7 @@ impl HasLayout<ExamplePdk> for Buffer {
 
 // begin-code-snippet buffer_multiprocess
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasLayout<PDK> for Buffer {
+impl<PDK> Layout<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -474,7 +474,7 @@ impl<PDK> HasLayout<PDK> for Buffer {
 // end-code-snippet buffer_multiprocess
 
 // begin-code-snippet buffer_hard_macro
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "r###\"

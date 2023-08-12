@@ -10,7 +10,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::RawLib;
-use substrate::schematic::{Cell, HasSchematicData};
+use substrate::schematic::{Cell, ExportsSchematicData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -49,7 +49,7 @@ impl FromSaved<Spectre, Tran> for TranOutput {
     }
 }
 
-impl<T: HasSchematicData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
+impl<T: ExportsSchematicData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext,
         _to_save: &Cell<T>,
@@ -85,7 +85,7 @@ impl FromSaved<Spectre, Tran> for TranTime {
     }
 }
 
-impl<T: HasSchematicData> Save<Spectre, Tran, &Cell<T>> for TranTime {
+impl<T: ExportsSchematicData> Save<Spectre, Tran, &Cell<T>> for TranTime {
     fn save(
         _ctx: &SimulationContext,
         _to_save: &Cell<T>,

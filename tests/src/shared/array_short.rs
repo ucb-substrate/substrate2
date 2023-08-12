@@ -4,7 +4,7 @@ use substrate::io::*;
 use substrate::schematic::*;
 
 use substrate::pdk::Pdk;
-use substrate::{block::Block, schematic::HasSchematic};
+use substrate::{block::Block, schematic::Schematic};
 
 #[derive(Debug, Clone, Io)]
 pub struct ArrayIo {
@@ -35,11 +35,11 @@ impl Block for ArrayShort {
     }
 }
 
-impl HasSchematicData for ArrayShort {
+impl ExportsSchematicData for ArrayShort {
     type Data = ();
 }
 
-impl<PDK: Pdk> HasSchematic<PDK> for ArrayShort {
+impl<PDK: Pdk> Schematic<PDK> for ArrayShort {
     fn schematic(
         &self,
         io: &ArrayIoSchematic,

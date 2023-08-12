@@ -284,13 +284,13 @@ pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
 }
 
-/// Derives `substrate::schematic::HasSchematic` for any Substrate block.
+/// Derives `substrate::schematic::Schematic` for any Substrate block.
 ///
 /// This turns the block into a schematic hard macro.
 /// You must add a `#[substrate(schematic(...))]` attribute to configure this macro;
 /// see the examples below.
 /// Using multiple `#[substrate(schematic(...))]` attributes allows you to
-/// generate `HasSchematic` implementations for multiple PDKs.
+/// generate `Schematic` implementations for multiple PDKs.
 ///
 /// This macro only works on Substrate blocks,
 /// so you must also add a `#[derive(Block)]` attribute
@@ -324,7 +324,7 @@ pub fn simulator_tuples(input: TokenStream) -> TokenStream {
 ///
 #[doc = get_snippets!("core", "buffer_hard_macro")]
 #[proc_macro_error]
-#[proc_macro_derive(HasSchematic, attributes(substrate))]
+#[proc_macro_derive(Schematic, attributes(substrate))]
 pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
     let receiver = block::schematic::HasSchematicInputReceiver::from_derive_input(
         &parse_macro_input!(input as DeriveInput),
@@ -336,13 +336,13 @@ pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Derives `substrate::layout::HasLayout` for any Substrate block.
+/// Derives `substrate::layout::Layout` for any Substrate block.
 ///
 /// This turns the block into a layout hard macro.
 /// You must add a `#[substrate(layout(...))]` attribute to configure this macro;
 /// see the examples below.
 /// Using multiple `#[substrate(layout(...))]` attributes allows you to
-/// generate `HasLayout` implementations for multiple PDKs.
+/// generate `Layout` implementations for multiple PDKs.
 ///
 /// This macro only works on Substrate blocks,
 /// so you must also add a `#[derive(Block)]` attribute
@@ -370,7 +370,7 @@ pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
 /// * `fmt = "function_that_returns_path()"`
 /// * `fmt = "function_with_arguments_that_returns_path(\"my_argument\")"`
 #[proc_macro_error]
-#[proc_macro_derive(HasLayout, attributes(substrate))]
+#[proc_macro_derive(Layout, attributes(substrate))]
 pub fn derive_has_layout_impl(input: TokenStream) -> TokenStream {
     let receiver = block::layout::HasLayoutInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput

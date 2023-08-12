@@ -9,7 +9,7 @@ use substrate::{
     block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::{conv::RawLib, HasSchematic, HasSchematicData},
+    schematic::{conv::RawLib, ExportsSchematicData, Schematic},
 };
 
 use crate::shared::{
@@ -228,12 +228,12 @@ impl Block for Block1 {
     }
 }
 
-impl HasSchematicData for Block1 {
+impl ExportsSchematicData for Block1 {
     type Data = ();
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasSchematic<PDK> for Block1 {
+impl<PDK> Schematic<PDK> for Block1 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -264,11 +264,11 @@ impl Block for Block2 {
     }
 }
 
-impl HasSchematicData for Block2 {
+impl ExportsSchematicData for Block2 {
     type Data = ();
 }
 
-impl HasSchematic<ExamplePdkA> for Block2 {
+impl Schematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -281,7 +281,7 @@ impl HasSchematic<ExamplePdkA> for Block2 {
     }
 }
 
-impl HasSchematic<ExamplePdkB> for Block2 {
+impl Schematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,

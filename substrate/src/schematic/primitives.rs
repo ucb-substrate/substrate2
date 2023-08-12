@@ -9,7 +9,7 @@ use crate::block::Block;
 use crate::io::TwoTerminalIo;
 use crate::pdk::Pdk;
 
-use super::{HasSchematic, HasSchematicData, PrimitiveDeviceKind, PrimitiveNode};
+use super::{ExportsSchematicData, PrimitiveDeviceKind, PrimitiveNode, Schematic};
 
 /// An ideal 2-terminal resistor.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,10 +48,10 @@ impl Block for Resistor {
         Default::default()
     }
 }
-impl HasSchematicData for Resistor {
+impl ExportsSchematicData for Resistor {
     type Data = ();
 }
-impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
+impl<PDK: Pdk> Schematic<PDK> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as crate::io::SchematicType>::Bundle,
@@ -106,10 +106,10 @@ impl Block for Capacitor {
         Default::default()
     }
 }
-impl HasSchematicData for Capacitor {
+impl ExportsSchematicData for Capacitor {
     type Data = ();
 }
-impl<PDK: Pdk> HasSchematic<PDK> for Capacitor {
+impl<PDK: Pdk> Schematic<PDK> for Capacitor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as crate::io::SchematicType>::Bundle,
