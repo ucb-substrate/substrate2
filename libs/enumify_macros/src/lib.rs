@@ -33,6 +33,10 @@ macro_rules! handle_attr_error {
     };
 }
 
+/// Implement enum helper functions.
+///
+/// This adds implementations for `as_ref`, `as_mut`,
+/// and other helpers.
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn enumify(args: TokenStream, input: TokenStream) -> TokenStream {

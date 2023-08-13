@@ -23,8 +23,6 @@ pub(crate) struct EnumifyInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     data: darling::ast::Data<EnumifyVariant, ()>,
-    vis: syn::Visibility,
-    attrs: Vec<syn::Attribute>,
 }
 
 #[derive(Debug, FromVariant)]
@@ -178,12 +176,7 @@ fn as_mut_variant_match_arm(xident: &syn::Ident, variant: &EnumifyVariant) -> To
     }
 }
 
-fn field_assign(
-    as_enum: bool,
-    style: Style,
-    idx: usize,
-    field: &EnumifyField,
-) -> TokenStream {
+fn field_assign(as_enum: bool, style: Style, idx: usize, field: &EnumifyField) -> TokenStream {
     let EnumifyField {
         ref ident,
         ref vis,
@@ -219,12 +212,8 @@ impl EnumifyInputReceiver {
             ast::Data::Enum(ref variants) => {
                 let unwraps = variants.iter().filter_map(unwrap_variant);
                 let is = variants.iter().filter_map(is_variant);
-                let as_ref_arms = variants
-                    .iter()
-                    .map(|v| as_ref_variant_match_arm(&ident, v));
-                let as_mut_arms = variants
-                    .iter()
-                    .map(|v| as_mut_variant_match_arm(&ident, v));
+                let as_ref_arms = variants.iter().map(|v| as_ref_variant_match_arm(ident, v));
+                let as_mut_arms = variants.iter().map(|v| as_mut_variant_match_arm(ident, v));
                 quote! {
                     impl #imp #ident #ty #wher {
                         #(#unwraps)*
@@ -249,13 +238,5 @@ impl EnumifyInputReceiver {
         tokens.extend(quote! {
             #expanded
         });
-    }
-}
-
-fn struct_body(style: Style, contents: TokenStream) -> TokenStream {
-    match style {
-        Style::Unit => quote!(),
-        Style::Tuple => quote!( ( #contents ) ),
-        Style::Struct => quote!( { #contents } ),
     }
 }
