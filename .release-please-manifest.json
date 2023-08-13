@@ -4,6 +4,8 @@
   "docs/examples": "0.3.1",
   "libs/cache": "0.3.1",
   "libs/diagnostics": "0.3.0",
+  "libs/enumify": "0.0.0",
+  "libs/enumify_macros": "0.0.0",
   "libs/gds": "0.3.0",
   "libs/geometry": "0.4.0",
   "libs/geometry_macros": "0.0.1",

@@ -8,6 +8,8 @@
     "docs/examples": {},
     "libs/cache": {},
     "libs/diagnostics": {},
+    "libs/enumify": {},
+    "libs/enumify_macros": {},
     "libs/gds": {},
     "libs/geometry": {},
     "libs/opacity": {},
