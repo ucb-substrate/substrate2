@@ -7,3 +7,5 @@ license = "BSD-3-Clause"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+
+enumify = { version = "0.0.0", registry = "substrate", path = "../enumify" }
