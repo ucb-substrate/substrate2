@@ -2327,7 +2327,6 @@ dependencies = [
  "arcstr",
  "indexmap 2.0.0",
  "nom",
- "opacity",
  "scir",
  "thiserror",
  "tracing",
