@@ -1,14 +1,11 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub use enumify_macros::*;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[enumify]
+pub enum Opacity<O, C> {
+    /// An item whose contents cannot be inspected except in summary form as type `O`.
+    Opaque(O),
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+    /// An item whose contents are visible to users as type `C`.
+    Clear(C),
 }

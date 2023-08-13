@@ -4,3 +4,4 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+enumify_macros = { version = "0.0.0", registry = "substrate", path = "../enumify_macros" }

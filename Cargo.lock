@@ -791,6 +791,9 @@ dependencies = [
 [[package]]
 name = "enumify"
 version = "0.0.0"
+dependencies = [
+ "enumify_macros",
+]
 
 [[package]]
 name = "enumify_macros"
