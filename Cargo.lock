@@ -2120,8 +2120,8 @@ version = "0.5.0"
 dependencies = [
  "arcstr",
  "diagnostics",
+ "enumify",
  "indexmap 2.0.0",
- "opacity",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",

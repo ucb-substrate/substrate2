@@ -32,7 +32,6 @@ use arcstr::ArcStr;
 use diagnostics::IssueSet;
 use drivers::DriverIssue;
 use indexmap::IndexMap;
-use opacity::Opacity;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
@@ -670,7 +669,17 @@ pub struct Instance {
 }
 
 /// The (possibly blackboxed) contents of a SCIR cell.
-pub type CellContents = Opacity<BlackboxContents, CellInner>;
+pub type CellContents = CellContent<BlackboxContents, CellInner>;
+
+/// The content of a cell, which may or may not be blackboxed.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[enumify::enumify]
+pub enum CellContent<O, C> {
+    /// A blackboxed cell.
+    Opaque(O),
+    /// A not blackboxed cell.
+    Clear(C),
+}
 
 /// The contents of a blackbox cell.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

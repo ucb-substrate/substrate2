@@ -1,12 +1,11 @@
 //! Utilities for writing netlisters for SCIR libraries.
 
 use crate::{
-    BinOp, BlackboxElement, Cell, CellId, Expr, InstanceId, Library, PrimitiveDeviceId,
-    PrimitiveDeviceKind, SignalInfo, Slice,
+    BinOp, BlackboxElement, Cell, CellContent, CellId, Expr, InstanceId, Library,
+    PrimitiveDeviceId, PrimitiveDeviceKind, SignalInfo, Slice,
 };
 use arcstr::ArcStr;
 use indexmap::IndexMap;
-use opacity::Opacity;
 use std::collections::HashMap;
 use std::io::{Result, Write};
 use std::path::PathBuf;
@@ -321,7 +320,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
 
         let mut conv = NetlistCellConversion::new();
         match cell.contents() {
-            Opacity::Opaque(contents) => {
+            CellContent::Opaque(contents) => {
                 for (i, elem) in contents.elems.iter().enumerate() {
                     match elem {
                         BlackboxElement::RawString(s) => {
@@ -336,7 +335,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                 }
                 writeln!(self.out)?;
             }
-            Opacity::Clear(contents) => {
+            CellContent::Clear(contents) => {
                 for (id, inst) in contents.instances() {
                     let child = self.lib.cell(inst.cell());
                     write!(self.out, "{}", indent)?;
