@@ -26,9 +26,8 @@ use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
-use crate::layout::Layout;
-use crate::layout::LayoutContext;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
+use crate::layout::{LayoutContext, LayoutImplemented};
 use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
@@ -39,6 +38,7 @@ use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellHandle as SchematicCellHandle,
     InstanceId, InstancePath, Schematic, SchematicContext, SimCellBuilder, SimCellHandle,
 };
+use crate::sealed::Token;
 use crate::simulation::{HasSimSchematic, SimController, SimulationContext, Simulator, Testbench};
 
 /// The global context.
@@ -179,7 +179,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: Layout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: LayoutImplemented<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
@@ -197,7 +197,7 @@ impl<PDK: Pdk> Context<PDK> {
                 let mut io_builder = block.io().builder();
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
-                let data = block.layout(&mut io_builder, &mut cell_builder);
+                let data = block.layout_impl(&mut io_builder, &mut cell_builder, Token);
 
                 let io = io_builder.build()?;
                 let ports = IndexMap::from_iter(
@@ -220,7 +220,11 @@ impl<PDK: Pdk> Context<PDK> {
     }
 
     /// Writes a layout to a GDS file.
-    pub fn write_layout<T: Layout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
+    pub fn write_layout<T: LayoutImplemented<PDK>>(
+        &self,
+        block: T,
+        path: impl AsRef<Path>,
+    ) -> Result<()> {
         let handle = self.generate_layout(block);
         let cell = handle.try_cell()?;
 
