@@ -76,6 +76,11 @@ fn unwrap_variant(variant: &EnumifyVariant) -> Option<TokenStream> {
     let ty = &field.ty;
 
     Some(quote! {
+        /// Return the value contained in this variant.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the enum value is not of the expected variant.
         pub fn #method_name(self) -> #ty {
             match self {
                 Self::#ident(x) => x,
@@ -95,6 +100,7 @@ fn is_variant(variant: &EnumifyVariant) -> Option<TokenStream> {
     let ident = &variant.ident;
 
     Some(quote! {
+        /// Return true if this value is the expected variant.
         pub fn #method_name(&self) -> bool {
             match self {
                 Self::#ident(..) => true,
@@ -219,12 +225,18 @@ impl EnumifyInputReceiver {
                         #(#unwraps)*
                         #(#is)*
 
+                        /// Converts generic types to references.
+                        ///
+                        /// For example, transforms the type parameter `T` to `&T`.
                         pub fn as_ref(&self) -> #ident #ref_generics {
                             match *self {
                                 #(#as_ref_arms)*
                             }
                         }
 
+                        /// Converts generic types to mutable references.
+                        ///
+                        /// For example, transforms the type parameter `T` to `&mut T`.
                         pub fn as_mut(&mut self) -> #ident #mut_generics {
                             match *self {
                                 #(#as_mut_arms)*

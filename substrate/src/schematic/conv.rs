@@ -482,7 +482,8 @@ impl RawCell {
                         BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n].into()),
                     })
                     .collect();
-                ctx.cell.set_contents(Opacity::Opaque(transformed));
+                ctx.cell
+                    .set_contents(scir::CellContent::Opaque(transformed));
             }
             Opacity::Clear(contents) => {
                 let contents_mut = ctx.cell.contents_mut().as_mut();
