@@ -16,5 +16,4 @@ tracing = "0.1"
 cache = { version = "0.3.1", registry = "substrate", path = "../../libs/cache" }
 scir = { version = "0.5.0", registry = "substrate", path = "../../libs/scir" }
 substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }
-opacity = { version = "0.1.0", registry = "substrate", path = "../../libs/opacity" }
 spice_rawfile = { version = "0.1.0", registry = "substrate", path = "../../libs/spice_rawfile" }

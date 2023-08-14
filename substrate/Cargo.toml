@@ -27,7 +27,7 @@ cache = { version = "0.3.1", registry = "substrate", path = "../libs/cache" }
 codegen = { version = "0.6.1", registry = "substrate", path = "../codegen" }
 geometry = { version = "0.4.0", registry = "substrate", path = "../libs/geometry" }
 gds = { version = "0.3.0", registry = "substrate", path = "../libs/gds" }
-opacity = { version = "0.1.0", path = "../libs/opacity", registry = "substrate" }
+enumify = { version = "0.0.0", registry = "substrate", path = "../libs/enumify" }
 scir = { version = "0.5.0", registry = "substrate", path = "../libs/scir" }
 pathtree = { version = "0.2.0", registry = "substrate", path = "../libs/pathtree" }
 spice = { version = "0.4.0", registry = "substrate", path = "../libs/spice" }
