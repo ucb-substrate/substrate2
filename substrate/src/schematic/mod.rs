@@ -8,7 +8,6 @@ use cache::mem::TypeCache;
 use cache::CacheHandle;
 pub use codegen::{Schematic, SchematicData};
 use indexmap::IndexMap;
-use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -791,7 +790,17 @@ pub(crate) struct RawCell {
 }
 
 /// The (possibly blackboxed) contents of a raw cell.
-pub(crate) type RawCellContents = Opacity<BlackboxContents, RawCellInner>;
+pub(crate) type RawCellContents = RawCellContent<BlackboxContents, RawCellInner>;
+
+/// The content of a cell, which may or may not be blackboxed.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[enumify::enumify]
+pub enum RawCellContent<O, C> {
+    /// A blackboxed cell.
+    Opaque(O),
+    /// A not blackboxed cell.
+    Clear(C),
+}
 
 /// The inner contents of a not-blackboxed [`RawCell`].
 #[derive(Debug, Clone)]

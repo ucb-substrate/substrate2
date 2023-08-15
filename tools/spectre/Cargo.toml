@@ -18,4 +18,3 @@ indexmap = { version = "2", features = ["serde"] }
 cache = { version = "0.3.1", registry = "substrate", path = "../../libs/cache" }
 scir = { version = "0.5.0", registry = "substrate", path = "../../libs/scir" }
 substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }
-opacity = { version = "0.1.0", registry = "substrate", path = "../../libs/opacity" }
