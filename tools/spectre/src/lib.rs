@@ -16,7 +16,6 @@ use cache::CacheableWithState;
 use error::*;
 use indexmap::{IndexMap, IndexSet};
 use netlist::Netlister;
-use psfparser::binary::ast::Trace;
 use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
 use scir::Library;
@@ -193,7 +192,7 @@ struct CachedSim {
 struct CachedSimState {
     input: Vec<Input>,
     netlist: PathBuf,
-    output_dir: PathBuf,
+    output_path: PathBuf,
     log: PathBuf,
     run_script: PathBuf,
     work_dir: PathBuf,
@@ -212,7 +211,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let CachedSimState {
                 input,
                 netlist,
-                output_dir,
+                output_path,
                 log,
                 run_script,
                 work_dir,
@@ -221,10 +220,10 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             write_run_script(
                 RunScriptContext {
                     netlist: &netlist,
-                    raw_output_dir: &output_dir,
+                    raw_output_path: &output_path,
                     log_path: &log,
                     bashrc: None,
-                    format: "psfbin",
+                    format: "nutbin",
                     flags: "",
                 },
                 &run_script,
@@ -242,36 +241,28 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 .map_err(|_| Error::SpectreError)?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
-            for (i, an) in input.iter().enumerate() {
-                match an {
+
+            let file = std::fs::read(&output_path)?;
+            let ast = spice_rawfile::parse(&file).map_err(|e| {
+                tracing::error!("error parsing raw output file: {}", e);
+                Error::Parse
+            })?;
+            assert_eq!(ast.analyses.len(), input.len());
+
+            for (input, output) in input.iter().zip(ast.analyses) {
+                match input {
                     Input::Tran(_) => {
-                        let file = output_dir.join(format!("analysis{i}.tran.tran"));
-                        let file = std::fs::read(file)?;
-                        let ast = psfparser::binary::parse(&file).map_err(|e| {
-                            tracing::error!("error parsing PSF file: {}", e);
-                            Error::PsfParse
-                        })?;
-                        let mut tid_map = HashMap::new();
                         let mut values = HashMap::new();
-                        for sweep in ast.sweeps.iter() {
-                            tid_map.insert(sweep.id, sweep.name);
-                        }
-                        for trace in ast.traces.iter() {
-                            match trace {
-                                Trace::Group(g) => {
-                                    for s in g.signals.iter() {
-                                        tid_map.insert(s.id, s.name);
-                                    }
-                                }
-                                Trace::Signal(s) => {
-                                    tid_map.insert(s.id, s.name);
-                                }
-                            }
-                        }
-                        for (id, value) in ast.values.values.into_iter() {
-                            let name = tid_map[&id].to_string();
-                            let value = value.unwrap_real();
-                            values.insert(name, value);
+
+                        let data = output.data.unwrap_real();
+                        for (idx, vec) in data.into_iter().enumerate() {
+                            let var_name = output
+                                .variables
+                                .get(idx)
+                                .ok_or(Error::Parse)?
+                                .name
+                                .to_string();
+                            values.insert(var_name, vec);
                         }
                         raw_outputs.push(values);
                     }
@@ -327,7 +318,7 @@ impl Spectre {
         }
         f.write_all(&w)?;
 
-        let output_dir = ctx.work_dir.join("psf/");
+        let output_path = ctx.work_dir.join("netlist.raw");
         let log = ctx.work_dir.join("spectre.log");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
@@ -343,7 +334,7 @@ impl Spectre {
                 CachedSimState {
                     input,
                     netlist,
-                    output_dir,
+                    output_path,
                     log,
                     run_script,
                     work_dir,
