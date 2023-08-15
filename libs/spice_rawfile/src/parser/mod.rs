@@ -8,7 +8,7 @@ use nom::combinator::opt;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
 use nom::number::complete::le_f64;
-use nom::sequence::{delimited, pair, tuple};
+use nom::sequence::{delimited, tuple};
 use nom::{Err, IResult};
 use serde::{Deserialize, Serialize};
 
@@ -148,15 +148,16 @@ fn parse_f64(input: &[u8]) -> Result<f64, Err<Error<&[u8]>>> {
 fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
     let value = take_till1(is_space_or_line);
     // In AC analysis, may have a `grid=X` declaration
-    let grid = opt(pair(space1, &value));
-    let (input, (_, idx, _, name, _, unit, _, _, _)) = tuple((
+    let kwargs = opt(take_till1(is_newline));
+    let (input, (_, idx, _, name, _, unit, _, _, _, _)) = tuple((
         space0,
         &value,
         space1,
         &value,
         space1,
         &value,
-        grid,
+        space0,
+        kwargs,
         space0,
         line_ending,
     ))(input)?;
