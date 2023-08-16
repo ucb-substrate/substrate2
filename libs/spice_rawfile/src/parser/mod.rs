@@ -2,7 +2,7 @@
 use std::str;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag_no_case, take, take_till1, take_while1};
+use nom::bytes::complete::{tag_no_case, take, take_till1, take_while, take_while1};
 use nom::character::complete::{line_ending, space0, space1};
 use nom::combinator::opt;
 use nom::error::{Error, ErrorKind};
@@ -168,7 +168,7 @@ fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
 }
 
 fn variables(input: &[u8]) -> IResult<&[u8], Vec<Variable>> {
-    let (input, _) = tuple((tag_no_case("Variables:"), space0, line_ending))(input)?;
+    let (input, _) = tuple((tag_no_case("Variables:"), space0, opt(line_ending), space0))(input)?;
     let (input, vars) = many0(variable)(input)?;
     Ok((input, vars))
 }
@@ -190,13 +190,18 @@ fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u
 }
 
 fn real_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], Data> {
+    println!("here1");
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Values:"), space0, line_ending))(input)?;
+        (input, _) = take_while(is_space_or_line)(input)?;
+        println!("here2");
 
         let mut out = vec![Vec::with_capacity(points); vars];
         for _ in 0..points {
             (input, _) = take_till1(is_space_or_line)(input)?;
+            println!("here3");
             for item in out.iter_mut().take(vars) {
+                println!("here4");
                 let val;
                 (input, _) = take_while1(is_space_or_line)(input)?;
                 (input, val) = take_till1(is_space_or_line)(input)?;

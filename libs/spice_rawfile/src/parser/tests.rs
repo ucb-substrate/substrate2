@@ -131,3 +131,35 @@ fn test_ascii_analyses() {
     assert_eq!(data0[1].real.len(), 13);
     assert_eq!(data0[1].imag.len(), 13);
 }
+
+#[test]
+fn test_ascii_analysis_2() {
+    let path = PathBuf::from(EXAMPLES_PATH).join("netlist.ascii.raw");
+    let data = std::fs::read(path).unwrap();
+    let (_, analysis) = analysis(&data).unwrap();
+    println!("{analysis:?}");
+
+    assert_eq!(analysis.num_variables, 5);
+    assert_eq!(analysis.num_points, 55);
+    assert_eq!(analysis.variables.len(), 5);
+
+    let data = analysis.data.unwrap_real();
+    assert_eq!(data.len(), 5);
+    data.iter().for_each(|vec| assert_eq!(vec.len(), 55))
+}
+
+#[test]
+fn test_bin_analysis_2() {
+    let path = PathBuf::from(EXAMPLES_PATH).join("netlist.bin.raw");
+    let data = std::fs::read(path).unwrap();
+    let (_, analysis) = analysis(&data).unwrap();
+    println!("{analysis:?}");
+
+    assert_eq!(analysis.num_variables, 5);
+    assert_eq!(analysis.num_points, 55);
+    assert_eq!(analysis.variables.len(), 5);
+
+    let data = analysis.data.unwrap_real();
+    assert_eq!(data.len(), 5);
+    data.iter().for_each(|vec| assert_eq!(vec.len(), 55))
+}
