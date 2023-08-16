@@ -2,13 +2,13 @@
 use std::str;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag_no_case, take, take_till1, take_while1};
+use nom::bytes::complete::{tag_no_case, take, take_till1, take_while, take_while1};
 use nom::character::complete::{line_ending, space0, space1};
 use nom::combinator::opt;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
 use nom::number::complete::le_f64;
-use nom::sequence::{delimited, pair, tuple};
+use nom::sequence::{delimited, tuple};
 use nom::{Err, IResult};
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +19,9 @@ mod tests;
 /// Data stored by a single analysis.
 pub struct Analysis<'a> {
     /// The title of the analysis.
-    pub title: &'a str,
+    pub title: Option<&'a str>,
     /// The date on which the analysis was performed.
-    pub date: &'a str,
+    pub date: Option<&'a str>,
     /// Plot name.
     pub plotname: &'a str,
     /// Flags.
@@ -33,23 +33,27 @@ pub struct Analysis<'a> {
     /// The saved variable names.
     pub variables: Vec<Variable<'a>>,
     /// The saved variable values.
-    pub data: Data,
+    pub data: AnalysisData,
 }
 
 /// Data saved by an [`Analysis`].
+pub type AnalysisData = Data<Vec<RealSignal>, Vec<ComplexSignal>>;
+
+/// Data saved by an [`Analysis`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Data {
+#[enumify::enumify]
+pub enum Data<R, C> {
     /// A set of real signals.
-    Real(Vec<RealSignal>),
+    Real(R),
     /// A set of complex signals.
-    Complex(Vec<ComplexSignal>),
+    Complex(C),
 }
 
 /// A real data vector.
 pub type RealSignal = Vec<f64>;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// A complex data vector.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComplexSignal {
     /// The real part.
     pub real: Vec<f64>,
@@ -62,26 +66,6 @@ impl ComplexSignal {
         Self {
             real: Vec::with_capacity(cap),
             imag: Vec::with_capacity(cap),
-        }
-    }
-}
-
-impl Data {
-    /// Assert that this data contains real signal vectors and return those vectors.
-    #[inline]
-    pub fn unwrap_real(self) -> Vec<RealSignal> {
-        match self {
-            Self::Real(v) => v,
-            _ => panic!("Attempted to unwrap complex data as real"),
-        }
-    }
-
-    /// Assert that this data contains complex signal vectors and return those vectors.
-    #[inline]
-    pub fn unwrap_complex(self) -> Vec<ComplexSignal> {
-        match self {
-            Self::Complex(v) => v,
-            _ => panic!("Attempted to unwrap real data as complex"),
         }
     }
 }
@@ -105,12 +89,15 @@ fn is_space_or_line(c: u8) -> bool {
     c == b'\n' || c == b'\r' || c == b' ' || c == b'\t'
 }
 
-fn header<'a>(input: &'a [u8], key: &str) -> IResult<&'a [u8], &'a str> {
-    let tag = tag_no_case(key);
-    let header_value = take_till1(is_newline);
-    let (input, value) = delimited(tag, header_value, line_ending)(input)?;
-    let value = from_utf8(value)?;
-    Ok((input, value))
+fn header<'a, 'b>(key: &'b str) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], &'a str> + 'b {
+    move |input| {
+        let tag = tag_no_case(key);
+        let (input, _) = space0(input)?;
+        let header_value = take_till1(is_newline);
+        let (input, value) = delimited(tag, header_value, line_ending)(input)?;
+        let value = from_utf8(value)?;
+        Ok((input, value))
+    }
 }
 
 fn from_utf8(input: &[u8]) -> Result<&str, Err<Error<&[u8]>>> {
@@ -148,15 +135,16 @@ fn parse_f64(input: &[u8]) -> Result<f64, Err<Error<&[u8]>>> {
 fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
     let value = take_till1(is_space_or_line);
     // In AC analysis, may have a `grid=X` declaration
-    let grid = opt(pair(space1, &value));
-    let (input, (_, idx, _, name, _, unit, _, _, _)) = tuple((
+    let kwargs = opt(take_till1(is_newline));
+    let (input, (_, idx, _, name, _, unit, _, _, _, _)) = tuple((
         space0,
         &value,
         space1,
         &value,
         space1,
         &value,
-        grid,
+        space0,
+        kwargs,
         space0,
         line_ending,
     ))(input)?;
@@ -167,12 +155,12 @@ fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
 }
 
 fn variables(input: &[u8]) -> IResult<&[u8], Vec<Variable>> {
-    let (input, _) = tuple((tag_no_case("Variables:"), space0, line_ending))(input)?;
+    let (input, _) = tuple((tag_no_case("Variables:"), space0, opt(line_ending), space0))(input)?;
     let (input, vars) = many0(variable)(input)?;
     Ok((input, vars))
 }
 
-fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], Data> {
+fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Binary:"), space0, line_ending))(input)?;
         let mut out = vec![Vec::with_capacity(points); vars];
@@ -184,13 +172,14 @@ fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u
             }
         }
 
-        Ok((input, Data::Real(out)))
+        Ok((input, AnalysisData::Real(out)))
     }
 }
 
-fn real_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], Data> {
+fn real_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Values:"), space0, line_ending))(input)?;
+        (input, _) = take_while(is_space_or_line)(input)?;
 
         let mut out = vec![Vec::with_capacity(points); vars];
         for _ in 0..points {
@@ -204,18 +193,21 @@ fn real_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8
             (input, _) = take_while1(is_space_or_line)(input)?;
         }
 
-        Ok((input, Data::Real(out)))
+        Ok((input, AnalysisData::Real(out)))
     }
 }
 
-fn real_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], Data> {
+fn real_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], AnalysisData> {
     alt((
         real_data_binary(vars, points),
         real_data_ascii(vars, points),
     ))(input)
 }
 
-fn complex_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], Data> {
+fn complex_data_binary(
+    vars: usize,
+    points: usize,
+) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Binary:"), space0, line_ending))(input)?;
 
@@ -231,13 +223,17 @@ fn complex_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<
             }
         }
 
-        Ok((input, Data::Complex(out)))
+        Ok((input, AnalysisData::Complex(out)))
     }
 }
 
-fn complex_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], Data> {
+fn complex_data_ascii(
+    vars: usize,
+    points: usize,
+) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Values:"), space0, line_ending))(input)?;
+        (input, _) = take_while(is_space_or_line)(input)?;
 
         let mut out = vec![ComplexSignal::with_capacity(points); vars];
         for _ in 0..points {
@@ -255,11 +251,11 @@ fn complex_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&
             (input, _) = take_while1(is_space_or_line)(input)?;
         }
 
-        Ok((input, Data::Complex(out)))
+        Ok((input, AnalysisData::Complex(out)))
     }
 }
 
-fn complex_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], Data> {
+fn complex_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], AnalysisData> {
     alt((
         complex_data_binary(vars, points),
         complex_data_ascii(vars, points),
@@ -267,13 +263,14 @@ fn complex_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], Data
 }
 
 fn analysis(input: &[u8]) -> IResult<&[u8], Analysis> {
-    let (input, title) = header(input, "Title: ")?;
-    let (input, date) = header(input, "Date: ")?;
-    let (input, plotname) = header(input, "Plotname: ")?;
-    let (input, flags) = header(input, "Flags: ")?;
-    let (input, num_variables) = header(input, "No. Variables: ")?;
+    let (input, _) = take_while(is_space_or_line)(input)?;
+    let (input, title) = opt(header("Title:"))(input)?;
+    let (input, date) = opt(header("Date:"))(input)?;
+    let (input, plotname) = header("Plotname:")(input)?;
+    let (input, flags) = header("Flags:")(input)?;
+    let (input, num_variables) = header("No. Variables:")(input)?;
     let num_variables = parse_usize_str(num_variables)?;
-    let (input, num_points) = header(input, "No. Points: ")?;
+    let (input, num_points) = header("No. Points:")(input)?;
     let num_points = parse_usize_str(num_points)?;
     let (input, variables) = variables(input)?;
 

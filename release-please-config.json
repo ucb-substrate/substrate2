@@ -15,7 +15,7 @@
     "libs/pathtree": {},
     "libs/scir": {},
     "libs/spice": {},
-    "libs/spice_rawfile": {},
+    "libs/nutlex": {},
     "libs/type_dispatch": {},
     "libs/type_dispatch_macros": {},
     "libs/uniquify": {},

@@ -10,7 +10,7 @@ set -e
 
 spectre \
   -format {{ format }} \
-  -raw {{ raw_output_dir }} \
+  -raw {{ raw_output_path }} \
   =log {{ log_path }} \
   {{ flags }} \
   {{ netlist }}

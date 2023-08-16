@@ -21,7 +21,7 @@ pub enum Error {
     NgspiceError,
     /// Error parsing output rawfile.
     #[error("error parsing output rawfile")]
-    RawfileParse(#[from] spice_rawfile::error::Error),
+    RawfileParse(#[from] nutlex::error::Error),
     /// Error generating results.
     #[error("error generating ngspice results")]
     Generator(#[from] Arc<Error>),
