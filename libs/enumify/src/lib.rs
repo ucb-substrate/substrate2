@@ -5,6 +5,7 @@
 //! Consider an enum like this:
 //!
 //! ```
+//! # use std::sync::Arc;
 //! pub enum ArcNumber {
 //!   Float(Arc<f64>),
 //!   Int(Arc<u64>),
@@ -14,6 +15,7 @@
 //! With enumify, you should write this:
 //!
 //! ```
+//! # use std::sync::Arc;
 //! #[enumify::enumify]
 //! pub enum Number<F, I> {
 //!   Float(F),
@@ -23,7 +25,7 @@
 //!
 //! let x = ArcNumber::Int(Arc::new(123));
 //! let inner: &Arc<u64> = x.as_ref().unwrap_int();
-//! assert_eq!(*inner, 123);
+//! assert_eq!(**inner, 123);
 //! ```
 //!
 //! The enumify macro adds the following methods:
