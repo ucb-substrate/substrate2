@@ -89,10 +89,7 @@ fn is_space_or_line(c: u8) -> bool {
     c == b'\n' || c == b'\r' || c == b' ' || c == b'\t'
 }
 
-fn header<'a, 'b>(key: &'a str) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], &'a str> + 'b
-where
-    'a: 'b,
-{
+fn header<'a, 'b>(key: &'b str) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], &'a str> + 'b {
     move |input| {
         let tag = tag_no_case(key);
         let (input, _) = space0(input)?;
