@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::parse;
+
 use super::*;
 
 pub(crate) const EXAMPLES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
@@ -133,33 +135,49 @@ fn test_ascii_analyses() {
 }
 
 #[test]
-fn test_ascii_analysis_2() {
-    let path = PathBuf::from(EXAMPLES_PATH).join("netlist.ascii.raw");
-    let data = std::fs::read(path).unwrap();
-    let (_, analysis) = analysis(&data).unwrap();
-    println!("{analysis:?}");
+fn test_vdivider_analyses() {
+    for path in ["netlist.ascii.raw", "netlist.bin.raw"] {
+        let path = PathBuf::from(EXAMPLES_PATH).join(path);
+        let data = std::fs::read(path).unwrap();
+        let rawfile = parse(&data).unwrap();
 
-    assert_eq!(analysis.num_variables, 5);
-    assert_eq!(analysis.num_points, 55);
-    assert_eq!(analysis.variables.len(), 5);
+        let analysis = &rawfile.analyses[0];
+        assert_eq!(analysis.num_variables, 5);
+        assert_eq!(analysis.num_points, 55);
+        assert_eq!(analysis.variables.len(), 5);
 
-    let data = analysis.data.unwrap_real();
-    assert_eq!(data.len(), 5);
-    data.iter().for_each(|vec| assert_eq!(vec.len(), 55))
-}
+        let data = analysis.data.as_ref().unwrap_real();
+        assert_eq!(data.len(), 5);
+        data.iter().for_each(|vec| assert_eq!(vec.len(), 55));
 
-#[test]
-fn test_bin_analysis_2() {
-    let path = PathBuf::from(EXAMPLES_PATH).join("netlist.bin.raw");
-    let data = std::fs::read(path).unwrap();
-    let (_, analysis) = analysis(&data).unwrap();
-    println!("{analysis:?}");
+        let analysis = &rawfile.analyses[1];
+        assert_eq!(analysis.num_variables, 5);
+        assert_eq!(analysis.num_points, 102);
+        assert_eq!(analysis.variables.len(), 5);
 
-    assert_eq!(analysis.num_variables, 5);
-    assert_eq!(analysis.num_points, 55);
-    assert_eq!(analysis.variables.len(), 5);
+        let data = analysis.data.as_ref().unwrap_complex();
+        assert_eq!(data.len(), 5);
+        data.iter().for_each(|vec| {
+            assert_eq!(vec.real.len(), 102);
+            assert_eq!(vec.imag.len(), 102);
+        });
 
-    let data = analysis.data.unwrap_real();
-    assert_eq!(data.len(), 5);
-    data.iter().for_each(|vec| assert_eq!(vec.len(), 55))
+        let analysis = &rawfile.analyses[2];
+        assert_eq!(analysis.num_variables, 5);
+        assert_eq!(analysis.num_points, 51);
+        assert_eq!(analysis.variables.len(), 5);
+
+        let data = analysis.data.as_ref().unwrap_real();
+        assert_eq!(data.len(), 5);
+        data.iter().for_each(|vec| assert_eq!(vec.len(), 51));
+
+        let analysis = &rawfile.analyses[3];
+        assert_eq!(analysis.num_variables, 6);
+        assert_eq!(analysis.num_points, 102);
+        assert_eq!(analysis.variables.len(), 6);
+
+        let data = analysis.data.as_ref().unwrap_real();
+        assert_eq!(data.len(), 6);
+        data.iter().for_each(|vec| assert_eq!(vec.len(), 102));
+    }
 }

@@ -1535,6 +1535,7 @@ dependencies = [
 name = "nutlex"
 version = "0.1.0"
 dependencies = [
+ "enumify",
  "nom",
  "serde",
  "thiserror",
