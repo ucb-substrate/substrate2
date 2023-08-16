@@ -247,7 +247,11 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 tracing::error!("error parsing raw output file: {}", e);
                 Error::Parse
             })?;
-            assert_eq!(ast.analyses.len(), input.len());
+            assert_eq!(
+                ast.analyses.len(),
+                input.len(),
+                "the output file has more analyses than the input"
+            );
 
             for (input, output) in input.iter().zip(ast.analyses) {
                 match input {
