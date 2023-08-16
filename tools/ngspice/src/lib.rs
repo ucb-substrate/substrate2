@@ -13,10 +13,10 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
+use nutlex::parser::Data;
 use scir::netlist::{Include, NetlistLibConversion};
 use scir::{Library, SignalPathTail};
 use serde::{Deserialize, Serialize};
-use spice_rawfile::parser::Data;
 use substrate::execute::Executor;
 use substrate::simulation::{SimulationContext, Simulator};
 use substrate::spice::Netlister;
@@ -268,7 +268,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 .map_err(|_| Error::NgspiceError)?;
 
             let contents = std::fs::read(&output_file)?;
-            let rawfile = spice_rawfile::parse(&contents)?;
+            let rawfile = nutlex::parse(&contents)?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
 

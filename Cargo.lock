@@ -1449,11 +1449,11 @@ dependencies = [
  "arcstr",
  "cache",
  "lazy_static",
+ "nutlex",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
  "serde",
- "spice_rawfile",
  "substrate",
  "tera",
  "thiserror",
@@ -1529,6 +1529,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "nutlex"
+version = "0.1.0"
+dependencies = [
+ "nom",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -2281,11 +2290,11 @@ dependencies = [
  "cache",
  "indexmap 2.0.0",
  "lazy_static",
+ "nutlex",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
  "serde",
- "spice_rawfile",
  "substrate",
  "tera",
  "thiserror",
@@ -2302,15 +2311,6 @@ dependencies = [
  "scir",
  "thiserror",
  "tracing",
-]
-
-[[package]]
-name = "spice_rawfile"
-version = "0.1.0"
-dependencies = [
- "nom",
- "serde",
- "thiserror",
 ]
 
 [[package]]

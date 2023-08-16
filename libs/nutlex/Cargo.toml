@@ -1,8 +1,8 @@
 [package]
-name = "spice_rawfile"
+name = "nutlex"
 version = "0.1.0"
 edition = "2021"
-description = "Parse SPICE rawfiles"
+description = "Parse SPICE nutmeg files (aka rawfiles)"
 
 [dependencies]
 nom = "7.1"
