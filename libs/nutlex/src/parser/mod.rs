@@ -266,34 +266,22 @@ fn complex_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], Anal
 }
 
 fn analysis(input: &[u8]) -> IResult<&[u8], Analysis> {
-    println!("here1");
     let (input, _) = take_while(is_space_or_line)(input)?;
-    println!("here2");
     let (input, title) = opt(header("Title:"))(input)?;
-    println!("here3");
     let (input, date) = opt(header("Date:"))(input)?;
-    println!("here4");
     let (input, plotname) = header("Plotname:")(input)?;
-    println!("here5");
     let (input, flags) = header("Flags:")(input)?;
-    println!("here6");
     let (input, num_variables) = header("No. Variables:")(input)?;
-    println!("here7");
     let num_variables = parse_usize_str(num_variables)?;
-    println!("here8");
     let (input, num_points) = header("No. Points:")(input)?;
-    println!("here9");
     let num_points = parse_usize_str(num_points)?;
-    println!("here10");
     let (input, variables) = variables(input)?;
-    println!("here11");
 
     let (input, data) = if flags.contains("complex") {
         complex_data(input, num_variables, num_points)?
     } else {
         real_data(input, num_variables, num_points)?
     };
-    println!("here12");
 
     Ok((
         input,
