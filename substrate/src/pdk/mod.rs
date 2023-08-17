@@ -3,17 +3,20 @@
 pub mod corner;
 pub mod data;
 pub mod layers;
+pub mod primitives;
 
 use std::any::Any;
 
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 
-use crate::block::Block;
+use crate::block::{Block, PdkPrimitive};
 use crate::error::Result;
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
-use crate::schematic::{CellBuilder as SchematicCellBuilder, ExportsSchematicData, Schematic};
+use crate::schematic::{
+    CellBuilder as SchematicCellBuilder, CellBuilder, ExportsSchematicData, Schema, Schematic,
+};
 use crate::sealed;
 
 use self::corner::*;
@@ -21,6 +24,8 @@ use self::layers::Layers;
 
 /// A process development kit.
 pub trait Pdk: Send + Sync + Any {
+    /// An internal representation of PDK primitives.
+    type Primitive;
     /// A set of layers used by the PDK.
     type Layers: Layers;
     /// The type representing a corner in this PDK.
@@ -28,43 +33,42 @@ pub trait Pdk: Send + Sync + Any {
     /// The layout database unit for this PDK.
     const LAYOUT_DB_UNITS: Option<Decimal> = None;
 
-    /// The names of all schematic primitives in the PDK.
-    ///
-    /// This should include the names of transistors,
-    /// resistors, capacitors, inductors, etc.
-    ///
-    /// The default implementation returns an empty list.
-    fn schematic_primitives(&self) -> Vec<ArcStr> {
-        Vec::new()
-    }
+    fn raw_instance(
+        inst: &primitives::RawInstance,
+        io: &<<primitives::RawInstance as Block>::Io as SchematicType>::Bundle,
+    ) -> Self::Primitive;
 }
 
-/// A PDK that has a schematic for block `B`.
-///
-/// This trait is intended to be used to impose bounds on supported PDKs based
-/// on blocks that they have schematics for.
-///
-/// Automatically implemented for blocks that implement [`Schematic<PDK>`] and
-/// cannot be implemented outside of Substrate.
-pub trait HasSchematic<B: ExportsSchematicData>: Pdk + Sized {
-    /// Generates the block's schematic by running [`Schematic::schematic`].
-    #[doc(hidden)]
-    fn schematic(
-        block: &B,
-        io: &mut <<B as Block>::Io as SchematicType>::Bundle,
-        cell: &mut SchematicCellBuilder<Self, B>,
-        _: sealed::Token,
-    ) -> Result<B::Data>;
+pub trait ToSchema<S: Schema>: Pdk {
+    fn to_schema(primitive: Self::Primitive) -> S::Primitive;
+}
+pub trait FromSchema<S: Schema>: Pdk {
+    fn from_schema(primitive: S::Primitive) -> Option<Self::Primitive>;
 }
 
-impl<PDK: Pdk, B: Schematic<PDK>> HasSchematic<B> for PDK {
+pub trait HasPdkPrimitive<B: Block<Kind = PdkPrimitive>>: Pdk {
+    fn primitive(block: &B, io: &<<B as Block>::Io as SchematicType>::Bundle) -> Self::Primitive;
+}
+
+pub trait PdkSchematic<PDK: Pdk>: ExportsSchematicData {
+    /// Generates the block's schematic.
     fn schematic(
-        block: &B,
-        io: &mut <<B as Block>::Io as SchematicType>::Bundle,
-        cell: &mut SchematicCellBuilder<Self, B>,
-        _: sealed::Token,
-    ) -> Result<B::Data> {
-        block.schematic(io, cell)
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Self>,
+    ) -> Result<Self::Data>;
+}
+
+impl<B: Block<Kind = PdkPrimitive> + ExportsSchematicData, PDK: Pdk> PdkSchematic<PDK> for B
+where
+    PDK: HasPdkPrimitive<B>,
+{
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut SchematicCellBuilder<PDK, Self>,
+    ) -> Result<Self::Data> {
+        todo!()
     }
 }
 

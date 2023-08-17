@@ -1,15 +1,69 @@
 //! Schematic primitives.
 
+use indexmap::IndexMap;
 use rust_decimal::Decimal;
+use scir::Expr;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::arcstr;
 use crate::arcstr::ArcStr;
-use crate::block::Block;
-use crate::io::TwoTerminalIo;
+use crate::block::{Block, SchemaPrimitive};
+use crate::io::{Array, InOut, Signal, TwoTerminalIo};
 use crate::pdk::Pdk;
 
 use super::{ExportsSchematicData, PrimitiveDeviceKind, PrimitiveNode, Schematic};
+
+/// An instance with a pre-defined cell.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawInstance {
+    /// The name of the underlying cell.
+    cell: ArcStr,
+    /// The name of the ports of the underlying cell.
+    ports: Vec<ArcStr>,
+    /// The parameters to pass to the instance.
+    params: IndexMap<ArcStr, Expr>,
+}
+impl RawInstance {
+    /// Create a new raw instance with the given parameters.
+    #[inline]
+    pub fn from_params(
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        params: impl Into<IndexMap<ArcStr, Expr>>,
+    ) -> Self {
+        Self {
+            cell,
+            ports,
+            params: params.into(),
+        }
+    }
+    /// Create a new raw instance with no parameters.
+    #[inline]
+    pub fn new(cell: ArcStr, ports: Vec<ArcStr>) -> Self {
+        Self {
+            cell,
+            ports,
+            params: IndexMap::new(),
+        }
+    }
+}
+impl Block for RawInstance {
+    type Kind = SchemaPrimitive;
+    type Io = InOut<Array<Signal>>;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("raw_instance")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("raw_instance_{}", self.cell)
+    }
+
+    fn io(&self) -> Self::Io {
+        InOut(Array::new(self.ports.len(), Default::default()))
+    }
+}
 
 /// An ideal 2-terminal resistor.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,8 +87,8 @@ impl Resistor {
     }
 }
 impl Block for Resistor {
+    type Kind = SchemaPrimitive;
     type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
 
     fn id() -> ArcStr {
         arcstr::literal!("resistor")
@@ -46,26 +100,6 @@ impl Block for Resistor {
 
     fn io(&self) -> Self::Io {
         Default::default()
-    }
-}
-impl ExportsSchematicData for Resistor {
-    type Data = ();
-}
-impl<PDK: Pdk> Schematic<PDK> for Resistor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as crate::io::SchematicType>::Bundle,
-        cell: &mut super::CellBuilder<PDK, Self>,
-    ) -> crate::error::Result<Self::Data> {
-        cell.add_primitive(
-            PrimitiveDeviceKind::Res2 {
-                pos: PrimitiveNode::new("p", io.p),
-                neg: PrimitiveNode::new("n", io.n),
-                value: self.value,
-            }
-            .into(),
-        );
-        Ok(())
     }
 }
 
@@ -91,8 +125,8 @@ impl Capacitor {
     }
 }
 impl Block for Capacitor {
+    type Kind = SchemaPrimitive;
     type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
 
     fn id() -> ArcStr {
         arcstr::literal!("capacitor")
@@ -104,25 +138,5 @@ impl Block for Capacitor {
 
     fn io(&self) -> Self::Io {
         Default::default()
-    }
-}
-impl ExportsSchematicData for Capacitor {
-    type Data = ();
-}
-impl<PDK: Pdk> Schematic<PDK> for Capacitor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as crate::io::SchematicType>::Bundle,
-        cell: &mut super::CellBuilder<PDK, Self>,
-    ) -> crate::error::Result<Self::Data> {
-        cell.add_primitive(
-            PrimitiveDeviceKind::Cap2 {
-                pos: PrimitiveNode::new("p", io.p),
-                neg: PrimitiveNode::new("n", io.n),
-                value: self.value,
-            }
-            .into(),
-        );
-        Ok(())
     }
 }

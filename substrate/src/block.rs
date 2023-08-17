@@ -8,6 +8,45 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::io::Io;
+use crate::sealed;
+use crate::sealed::Token;
+
+pub trait BlockKind {
+    const FLATTEN: bool;
+
+    #[doc(hidden)]
+    fn sealed(_: sealed::Token);
+}
+
+pub struct Cell;
+impl BlockKind for Cell {
+    const FLATTEN: bool = false;
+    fn sealed(_: sealed::Token) {}
+}
+
+pub struct InlineCell;
+impl BlockKind for InlineCell {
+    const FLATTEN: bool = true;
+    fn sealed(_: sealed::Token) {}
+}
+
+pub struct SchemaPrimitive;
+impl BlockKind for SchemaPrimitive {
+    const FLATTEN: bool = true;
+    fn sealed(_: Token) {}
+}
+
+pub struct PdkPrimitive;
+impl BlockKind for PdkPrimitive {
+    const FLATTEN: bool = true;
+    fn sealed(_: Token) {}
+}
+
+pub struct Opaque;
+impl BlockKind for Opaque {
+    const FLATTEN: bool = false;
+    fn sealed(_: Token) {}
+}
 
 /// A block that can be instantiated by Substrate.
 ///
@@ -15,10 +54,10 @@ use crate::io::Io;
 ///
 #[doc = examples::get_snippets!("core", "inverter")]
 pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
+    /// The kind of this block.
+    type Kind: BlockKind;
     /// The ports of this block.
     type Io: Io;
-    /// Whether or not this block should be flattened.
-    const FLATTEN: bool = false;
 
     /// A crate-wide unique identifier for this block.
     fn id() -> ArcStr;

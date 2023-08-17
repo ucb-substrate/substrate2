@@ -12,7 +12,6 @@ use opacity::Opacity;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
 use std::thread;
@@ -20,7 +19,7 @@ use std::thread;
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 
-use crate::block::Block;
+use crate::block::{Block, Opaque, PdkPrimitive, SchemaPrimitive};
 use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
@@ -28,9 +27,30 @@ use crate::io::{
     Connect, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundle, SchematicType, TerminalView,
 };
-use crate::pdk::{HasSchematic, Pdk};
-use crate::sealed;
+use crate::pdk::{HasPdkPrimitive, Pdk, PdkSchematic, ToSchema};
 use crate::simulation::{HasSimSchematic, Simulator};
+
+/// A format for storing Substrate schematics.
+///
+/// Any tool that uses Substrate schematics (e.g. netlisters, LVS tools,
+/// autorouters, etc.) can implement this trait in order to receive
+/// schematics in the desired format.
+pub trait Schema {
+    type Primitive;
+
+    fn raw_instance(
+        inst: &primitives::RawInstance,
+        io: &<<primitives::RawInstance as Block>::Io as SchematicType>::Bundle,
+    ) -> Self::Primitive;
+}
+
+pub trait HasSchemaPrimitive<B: Block<Kind = SchemaPrimitive>>: Schema {
+    fn primitive(block: &B, io: &<<B as Block>::Io as SchematicType>::Bundle) -> Self::Primitive;
+}
+
+pub trait Blackbox<PDK: Pdk, S: Schema>: Block<Kind = Opaque> {
+    fn contents(self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> BlackboxContents;
+}
 
 /// A block that exports data from its schematic.
 ///
@@ -43,68 +63,101 @@ pub trait ExportsSchematicData: Block {
     type Data: SchematicData;
 }
 
-/// A block that can be netlisted in process design kit `PDK`.
-pub trait Schematic<PDK: Pdk>: ExportsSchematicData {
+pub trait Schematic<PDK: ToSchema<S>, S: Schema, K = <Self as Block>::Kind>: Block {
     /// Generates the block's schematic.
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Self>,
+        cell: &mut CellBuilder<PDK, S>,
     ) -> Result<Self::Data>;
 }
 
-/// A block that implements [`Schematic<PDK>`].
-///
-/// Automatically implemented for blocks that implement [`Schematic<PDK>`] and
-/// cannot be implemented outside of Substrate.
-pub trait SchematicImplemented<PDK: Pdk>: ExportsSchematicData {
-    /// Generates the block's layout.
-    ///
-    /// For internal use only.
-    #[doc(hidden)]
-    fn schematic_impl(
+impl<PDK: Pdk, N: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>> Schematic<PDK, N> for B {
+    fn schematic(
         &self,
-        io: &mut <<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Self>,
-        _: sealed::Token,
-    ) -> Result<Self::Data>;
-}
-
-impl<PDK: Pdk, B: ExportsSchematicData> SchematicImplemented<PDK> for B
-where
-    PDK: HasSchematic<B>,
-{
-    fn schematic_impl(
-        &self,
-        io: &mut <<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Self>,
-        _: sealed::Token,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
     ) -> Result<Self::Data> {
-        PDK::schematic(self, io, cell, sealed::Token)
+        todo!()
+    }
+}
+impl<PDK: ToSchema<S> + HasPdkPrimitive<B>, S: Schema, B: Block<Kind = PdkPrimitive>>
+    Schematic<PDK, S> for B
+{
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data> {
+        todo!()
+    }
+}
+impl<PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK> + Block<Kind = crate::block::Cell>>
+    Schematic<PDK, S> for B
+{
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data> {
+        todo!()
+    }
+}
+impl<
+        PDK: ToSchema<S>,
+        S: Schema,
+        B: PdkSchematic<PDK> + Block<Kind = crate::block::InlineCell>,
+    > Schematic<PDK, S> for B
+{
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data> {
+        todo!()
+    }
+}
+impl<PDK: Pdk, S: Schema, B: Blackbox<PDK, S>> Schematic<PDK, S> for B {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data> {
+        todo!()
     }
 }
 
 /// A builder for creating a schematic cell.
-pub struct CellBuilder<PDK: Pdk, T: Block> {
+pub struct CellBuilder<PDK: ToSchema<S>, S: Schema> {
+    /// Schema configuration.
+    pub schema: Arc<S>,
     /// The current global context.
     pub ctx: Context<PDK>,
     pub(crate) id: CellId,
-    pub(crate) next_instance_id: InstanceId,
+    pub(crate) cell_name: ArcStr,
+    pub(crate) flatten: bool,
     /// The root instance path that all nested paths should be relative to.
     pub(crate) root: InstancePath,
     pub(crate) node_ctx: NodeContext,
-    pub(crate) instances: Vec<Receiver<Option<RawInstance>>>,
-    pub(crate) primitives: Vec<PrimitiveDevice>,
     pub(crate) node_names: HashMap<Node, NameBuf>,
-    pub(crate) cell_name: ArcStr,
-    pub(crate) phantom: PhantomData<T>,
     /// Outward-facing ports of this cell
     ///
     /// Directions are as viewed by a parent cell instantiating this cell; these
     /// are the wrong directions to use when looking at connections to this
     /// cell's IO from *within* the cell.
     pub(crate) ports: Vec<Port>,
-    pub(crate) blackbox: Option<BlackboxContents>,
+    pub(crate) contents: CellBuilderContents<S::Primitive>,
+}
+
+enum CellBuilderContents<P> {
+    Cell(CellContents),
+    Primitive(P),
+    Blackbox(BlackboxContents),
+}
+
+pub struct CellContents {
+    pub(crate) next_instance_id: InstanceId,
+    pub(crate) instances: Vec<Receiver<Option<RawInstance>>>,
 }
 
 /// The contents of a blackbox cell.
@@ -193,13 +246,7 @@ impl From<&str> for BlackboxContents {
     }
 }
 
-/// A builder for creating a simulation schematic cell.
-pub struct SimCellBuilder<PDK: Pdk, S: Simulator, T: Block> {
-    pub(crate) simulator: Arc<S>,
-    pub(crate) inner: CellBuilder<PDK, T>,
-}
-
-impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
+impl<PDK: ToSchema<S>, S: Schema> CellBuilder<PDK, S> {
     pub(crate) fn finish(self) -> RawCell {
         let mut roots = HashMap::with_capacity(self.node_names.len());
         let mut uf = self.node_ctx.into_uf();
@@ -228,7 +275,7 @@ impl<PDK: Pdk, T: Block> CellBuilder<PDK, T> {
             uf,
             roots,
             contents,
-            flatten: T::FLATTEN,
+            flatten: self.flatten,
         }
     }
 
