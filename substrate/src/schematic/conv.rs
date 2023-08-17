@@ -3,7 +3,6 @@
 use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
-use opacity::Opacity;
 use scir::{
     Cell, CellId as ScirCellId, CellInner, IndexOwned, Instance, InstancePathTail, LibraryBuilder,
     SignalPathTail, TopKind,
@@ -13,7 +12,7 @@ use uniquify::Names;
 use crate::io::{Node, NodePath, TerminalPath};
 use crate::schematic::{InstancePath, PrimitiveNode};
 
-use super::{BlackboxElement, CellId, InstanceId, RawCell};
+use super::{BlackboxElement, CellId, InstanceId, RawCell, RawCellContent};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -84,12 +83,12 @@ impl RawLib {
         for inst in instances {
             let conv = cell.instances.get(inst).unwrap();
             match conv.instance.as_ref() {
-                Opacity::Opaque(id) => {
+                RawCellContent::Opaque(id) => {
                     scir_id = self.scir.cell(scir_id).instance(*id).cell();
                     scir_instances.push(*id);
                     cell = self.conv.cells.get(&conv.child)?;
                 }
-                Opacity::Clear(conv) => {
+                RawCellContent::Clear(conv) => {
                     cell = conv;
                 }
             }
@@ -135,13 +134,13 @@ impl RawLib {
         for inst in &path.instances {
             let conv = cell.instances.get(inst).unwrap();
             match conv.instance.as_ref() {
-                Opacity::Opaque(id) => {
+                RawCellContent::Opaque(id) => {
                     scir_id = self.scir.cell(scir_id).instance(*id).cell();
                     instances.push(*id);
                     cell = self.conv.cells.get(&conv.child)?;
                     last_clear = false;
                 }
-                Opacity::Clear(conv) => {
+                RawCellContent::Clear(conv) => {
                     cell = conv;
                     last_clear = true;
                 }
@@ -261,7 +260,7 @@ impl RawLib {
         }
         for (_, conv) in conv.instances.iter() {
             match conv.instance.as_ref() {
-                Opacity::Opaque(id) => {
+                RawCellContent::Opaque(id) => {
                     self.find_connected_terminals_in_scir_instance(
                         parent_cell,
                         *id,
@@ -270,7 +269,7 @@ impl RawLib {
                         signals,
                     );
                 }
-                Opacity::Clear(conv) => {
+                RawCellContent::Clear(conv) => {
                     self.find_connected_terminals(conv, slice, instances, signals);
                 }
             }
@@ -279,7 +278,7 @@ impl RawLib {
 }
 
 /// A converted SCIR instance.
-type ConvertedScirInstance = Opacity<scir::InstanceId, ScirCellConversion>;
+type ConvertedScirInstance = RawCellContent<scir::InstanceId, ScirCellConversion>;
 
 /// Data used to map between a Substrate cell and a SCIR cell.
 ///
@@ -470,7 +469,7 @@ impl RawCell {
         }
 
         match self.contents.as_ref() {
-            Opacity::Opaque(contents) => {
+            RawCellContent::Opaque(contents) => {
                 assert!(flatten.is_no(), "cannot flat-export a blackbox cell");
                 let transformed = contents
                     .elems
@@ -482,9 +481,10 @@ impl RawCell {
                         BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n].into()),
                     })
                     .collect();
-                ctx.cell.set_contents(Opacity::Opaque(transformed));
+                ctx.cell
+                    .set_contents(scir::CellContent::Opaque(transformed));
             }
-            Opacity::Clear(contents) => {
+            RawCellContent::Clear(contents) => {
                 let contents_mut = ctx.cell.contents_mut().as_mut();
                 let clear = contents_mut.is_clear();
                 assert!(clear, "cannot flatten a cell into a blackbox parent cell");
@@ -499,7 +499,7 @@ impl RawCell {
                             instance.id,
                             ScirInstanceConversion {
                                 child: instance.child.id,
-                                instance: Opacity::Clear(inst_conv),
+                                instance: RawCellContent::Clear(inst_conv),
                             },
                         );
                     } else {
@@ -523,7 +523,7 @@ impl RawCell {
                             instance.id,
                             ScirInstanceConversion {
                                 child: instance.child.id,
-                                instance: Opacity::Opaque(id),
+                                instance: RawCellContent::Opaque(id),
                             },
                         );
                     }

@@ -12,8 +12,8 @@ serde = "1"
 indexmap = { version = "2", features = ["serde"] }
 
 diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
-opacity = { version = "0.1.0", path = "../opacity", registry = "substrate" }
 uniquify = { version = "0.2.0", path = "../uniquify", registry = "substrate" }
+enumify = { version = "0.0.0", path = "../enumify", registry = "substrate" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

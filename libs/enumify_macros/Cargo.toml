@@ -1,0 +1,18 @@
+[package]
+name = "enumify_macros"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+darling = "0.20"
+syn = { version = "2" }
+quote = "1"
+proc-macro2 = "1"
+proc-macro-crate = "1"
+proc-macro-error = "1"
+convert_case = "0.6"
+
+type_dispatch = { version = "0.3.0", registry = "substrate", path = "../type_dispatch" }
+
+[lib]
+proc-macro = true
