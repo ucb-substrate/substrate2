@@ -3,12 +3,12 @@
 //! Atoll projects are made of one or more **blocks**.
 //! Each block is a compact, rectangular grid of devices.
 //! Each block in turn is composed of a set of tiles drawn from a TileSet.
-//! TileSets provide a tile configurator for each tile archetype.
+//! TileSets provide a tile generator for each tile archetype.
 //!
 //! The set of tile archetypes is given by the Cartesian product
 //! of [`Col`] and [`Row`].
 //!
-//! A tile configurator takes tile configuration info and produces
+//! A tile generator takes tile configuration info and produces
 //! a tile of its archetype.
 //!
 //! # Grid structure
