@@ -123,14 +123,6 @@ impl Polygon {
     }
 
     /// Helper function that checks if a point is contained within a triangle
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use geometry::prelude::*;
-    ///
-    ///
-    /// ```
     fn traingle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
         let total_area = Polygon::triangle_area(v1, v2, v3);
         let sum_area = Polygon::triangle_area(p, v2, v3)
@@ -140,14 +132,6 @@ impl Polygon {
     }
 
     /// Helper function that finds the area of a given triangle
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use geometry::prelude::*;
-    ///
-    ///
-    /// ```
     fn triangle_area(v1: Point, v2: Point, v3: Point) -> f32 {
         ((v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)) as f32 / 2.0).abs()
     }
