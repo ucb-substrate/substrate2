@@ -1,0 +1,8 @@
+[package]
+name = "atoll"
+version = "0.0.0"
+edition = "2021"
+description = "Automatic transformation of logical layout"
+license = "BSD-3-Clause"
+
+[dependencies]

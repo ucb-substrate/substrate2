@@ -6,6 +6,7 @@
     "codegen": {},
     "config": {},
     "docs/examples": {},
+    "libs/atoll": {},
     "libs/cache": {},
     "libs/diagnostics": {},
     "libs/enumify": {},
