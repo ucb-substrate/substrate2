@@ -6,7 +6,7 @@ use crate::{
     prelude::Transform,
     rect::Rect,
     transform::{HasTransformedView, TransformMut, TranslateMut},
-    union::BoundingUnion,
+    union::BoundingUnion, contains::{Contains, Containment},
 };
 
 /// An enumeration of geometric shapes.
@@ -85,5 +85,14 @@ impl<T: Bbox> BoundingUnion<T> for Shape {
 
     fn bounding_union(&self, other: &T) -> Self::Output {
         self.bbox().bounding_union(&other.bbox())
+    }
+}
+
+impl Contains<crate::point::Point> for Shape {
+    fn contains(&self, p: &crate::point::Point) -> Containment {
+        match self {
+            Shape::Rect(rect) => rect.contains(p),
+            Shape::Polygon(polygon) => polygon.contains(p),
+        }
     }
 }
