@@ -3,10 +3,11 @@ use std::sync::{Arc, Mutex};
 use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use substrate::schematic::{HasNestedView, InstancePath};
 use substrate::{
     block::Block,
     context::Context,
-    schematic::{HasSchematic, HasSchematicData, SchematicData},
+    schematic::{ExportsSchematicData, Schematic},
 };
 
 use crate::shared::pdk::ExamplePdkA;
@@ -48,16 +49,24 @@ impl Block for CacheBlock {
     }
 }
 
-#[derive(SchematicData)]
+#[derive(Debug, Clone, Copy)]
 pub struct CacheBlockData {
     design: u64,
 }
 
-impl HasSchematicData for CacheBlock {
+impl HasNestedView for CacheBlockData {
+    type NestedView<'a> = Self;
+
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {
+        *self
+    }
+}
+
+impl ExportsSchematicData for CacheBlock {
     type Data = CacheBlockData;
 }
 
-impl HasSchematic<ExamplePdkA> for CacheBlock {
+impl Schematic<ExamplePdkA> for CacheBlock {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -81,7 +90,7 @@ fn caching_works() {
         //
         // Should only run the design script once even though 5 schematics are generated.
         let handle = ctx.generate_schematic(CacheBlock(i));
-        assert_eq!(*handle.cell().data().design, 25);
+        assert_eq!(handle.cell().data().design, 25);
     }
     assert_eq!(*RUNS.lock().unwrap(), 1);
 }

@@ -1,7 +1,7 @@
 //! Spectre plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
@@ -14,13 +14,16 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
+use indexmap::{IndexMap, IndexSet};
 use netlist::Netlister;
-use psfparser::binary::ast::Trace;
+use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
 use scir::Library;
 use serde::{Deserialize, Serialize};
 use substrate::execute::Executor;
-use substrate::simulation::{SimulationContext, Simulator};
+use substrate::io::{NestedNode, NodePath};
+use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
+use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -53,6 +56,38 @@ impl Display for ErrPreset {
     }
 }
 
+/// A signal referenced by a save/ic Spectre statement.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum SimSignal {
+    /// A raw string to follow "save/ic".
+    Raw(ArcStr),
+    /// A SCIR signal path representing a node whose voltage should be referenced.
+    ScirVoltage(scir::SignalPath),
+    /// A SCIR signal path representing a terminal whose current should be referenced.
+    ScirCurrent(scir::SignalPath),
+}
+
+impl<T: Into<ArcStr>> From<T> for SimSignal {
+    fn from(value: T) -> Self {
+        Self::Raw(value.into())
+    }
+}
+
+impl SimSignal {
+    /// Creates a new [`SimSignal`].
+    pub fn new(path: impl Into<ArcStr>) -> Self {
+        Self::from(path)
+    }
+
+    pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+        match self {
+            SimSignal::Raw(raw) => raw.clone(),
+            SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
+            SimSignal::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+        }
+    }
+}
+
 /// Spectre simulator global configuration.
 #[derive(Debug, Clone, Default)]
 pub struct Spectre {}
@@ -62,8 +97,9 @@ pub struct Spectre {}
 /// A single simulation contains zero or more analyses.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    includes: HashSet<Include>,
-    saves: HashMap<netlist::Save, u64>,
+    includes: IndexSet<Include>,
+    saves: IndexMap<SimSignal, u64>,
+    ics: IndexMap<SimSignal, Decimal>,
     next_save_key: u64,
 }
 
@@ -77,7 +113,7 @@ impl Options {
         self.includes.insert(Include::new(path).section(section));
     }
 
-    fn save_inner(&mut self, save: impl Into<netlist::Save>) -> u64 {
+    fn save_inner(&mut self, save: impl Into<SimSignal>) -> u64 {
         let save = save.into();
 
         if let Some(key) = self.saves.get(&save) {
@@ -90,14 +126,61 @@ impl Options {
         }
     }
 
+    fn set_ic_inner(&mut self, key: impl Into<SimSignal>, value: Decimal) {
+        self.ics.insert(key.into(), value);
+    }
+
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<netlist::Save>) -> TranVoltageKey {
+    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> TranVoltageKey {
         TranVoltageKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<netlist::Save>) -> TranCurrentKey {
+    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> TranCurrentKey {
         TranCurrentKey(vec![self.save_inner(save)])
+    }
+}
+
+#[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
+impl<K> SetInitialCondition<K, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext) {
+        self.set_ic_inner(key, value);
+    }
+}
+
+impl SetInitialCondition<&scir::SignalPath, Decimal> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: &scir::SignalPath,
+        value: Decimal,
+        _ctx: &SimulationContext,
+    ) {
+        self.set_ic_inner(SimSignal::ScirVoltage(key.clone()), value);
+    }
+}
+
+impl SetInitialCondition<&NodePath, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: &NodePath, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
+    }
+}
+
+impl SetInitialCondition<&NestedNode, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: &NestedNode, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(key.path(), value, ctx);
+    }
+}
+
+impl SetInitialCondition<NestedNode, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: NestedNode, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(key.path(), value, ctx);
+    }
+}
+
+#[impl_dispatch({scir::SignalPath; NodePath})]
+impl<T> SetInitialCondition<T, Decimal> for Options {
+    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext) {
+        self.set_initial_condition(&key, value, ctx);
     }
 }
 
@@ -109,7 +192,7 @@ struct CachedSim {
 struct CachedSimState {
     input: Vec<Input>,
     netlist: PathBuf,
-    output_dir: PathBuf,
+    output_path: PathBuf,
     log: PathBuf,
     run_script: PathBuf,
     work_dir: PathBuf,
@@ -128,7 +211,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let CachedSimState {
                 input,
                 netlist,
-                output_dir,
+                output_path,
                 log,
                 run_script,
                 work_dir,
@@ -137,10 +220,10 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             write_run_script(
                 RunScriptContext {
                     netlist: &netlist,
-                    raw_output_dir: &output_dir,
+                    raw_output_path: &output_path,
                     log_path: &log,
                     bashrc: None,
-                    format: "psfbin",
+                    format: "nutbin",
                     flags: "",
                 },
                 &run_script,
@@ -158,36 +241,32 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 .map_err(|_| Error::SpectreError)?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
-            for (i, an) in input.iter().enumerate() {
-                match an {
+
+            let file = std::fs::read(&output_path)?;
+            let ast = nutlex::parse(&file).map_err(|e| {
+                tracing::error!("error parsing raw output file: {}", e);
+                Error::Parse
+            })?;
+            assert_eq!(
+                ast.analyses.len(),
+                input.len(),
+                "the output file has more analyses than the input"
+            );
+
+            for (input, output) in input.iter().zip(ast.analyses) {
+                match input {
                     Input::Tran(_) => {
-                        let file = output_dir.join(format!("analysis{i}.tran.tran"));
-                        let file = std::fs::read(file)?;
-                        let ast = psfparser::binary::parse(&file).map_err(|e| {
-                            tracing::error!("error parsing PSF file: {}", e);
-                            Error::PsfParse
-                        })?;
-                        let mut tid_map = HashMap::new();
                         let mut values = HashMap::new();
-                        for sweep in ast.sweeps.iter() {
-                            tid_map.insert(sweep.id, sweep.name);
-                        }
-                        for trace in ast.traces.iter() {
-                            match trace {
-                                Trace::Group(g) => {
-                                    for s in g.signals.iter() {
-                                        tid_map.insert(s.id, s.name);
-                                    }
-                                }
-                                Trace::Signal(s) => {
-                                    tid_map.insert(s.id, s.name);
-                                }
-                            }
-                        }
-                        for (id, value) in ast.values.values.into_iter() {
-                            let name = tid_map[&id].to_string();
-                            let value = value.unwrap_real();
-                            values.insert(name, value);
+
+                        let data = output.data.unwrap_real();
+                        for (idx, vec) in data.into_iter().enumerate() {
+                            let var_name = output
+                                .variables
+                                .get(idx)
+                                .ok_or(Error::Parse)?
+                                .name
+                                .to_string();
+                            values.insert(var_name, vec);
                         }
                         raw_outputs.push(values);
                     }
@@ -213,14 +292,27 @@ impl Spectre {
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
+        let ics = options
+            .ics
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
         // the order of includes may change even if the contents of the set did not change.
         includes.sort();
         saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &saves, &mut w);
+        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
         let conv = netlister.export()?;
+
+        writeln!(w)?;
+        for save in saves {
+            writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+        }
+        for (k, v) in ics {
+            writeln!(w, "ic {}={}", k.to_string(&ctx.lib.scir, &conv), v)?;
+        }
 
         writeln!(w)?;
         for (i, an) in input.iter().enumerate() {
@@ -230,7 +322,7 @@ impl Spectre {
         }
         f.write_all(&w)?;
 
-        let output_dir = ctx.work_dir.join("psf/");
+        let output_path = ctx.work_dir.join("netlist.raw");
         let log = ctx.work_dir.join("spectre.log");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
@@ -246,7 +338,7 @@ impl Spectre {
                 CachedSimState {
                     input,
                     netlist,
-                    output_dir,
+                    output_path,
                     log,
                     run_script,
                     work_dir,
@@ -324,7 +416,7 @@ pub(crate) fn node_voltage_path(
     instances.push(signal);
     let mut str_path = instances.join(".");
     if let Some(index) = index {
-        str_path.push_str(&format!("[{}]", index));
+        str_path.push_str(&format!("\\[{}\\]", index));
     }
     str_path
 }

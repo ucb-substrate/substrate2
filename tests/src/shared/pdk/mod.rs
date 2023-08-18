@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
+use ngspice::Ngspice;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
@@ -9,7 +9,7 @@ use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{
-    HasSchematic, HasSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+    ExportsSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode, Schematic,
 };
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
@@ -53,11 +53,11 @@ impl Block for NmosA {
     }
 }
 
-impl HasSchematicData for NmosA {
+impl ExportsSchematicData for NmosA {
     type Data = ();
 }
 
-impl HasSchematic<ExamplePdkA> for NmosA {
+impl Schematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -73,7 +73,7 @@ impl HasSchematic<ExamplePdkA> for NmosA {
                 ],
                 cell: arcstr::literal!("example_pdk_nmos_a"),
             },
-            HashMap::from_iter([
+            IndexMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
@@ -102,11 +102,11 @@ impl Block for PmosA {
     }
 }
 
-impl HasSchematicData for PmosA {
+impl ExportsSchematicData for PmosA {
     type Data = ();
 }
 
-impl HasSchematic<ExamplePdkA> for PmosA {
+impl Schematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -122,7 +122,7 @@ impl HasSchematic<ExamplePdkA> for PmosA {
                 ],
                 cell: arcstr::literal!("example_pdk_pmos_a"),
             },
-            HashMap::from_iter([
+            IndexMap::from_iter([
                 (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
                 (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
             ]),
@@ -163,6 +163,6 @@ pub fn sky130_open_ctx() -> Context<Sky130OpenPdk> {
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .pdk(Sky130OpenPdk::new(pdk_root))
-        .with_simulator(Spectre::default())
+        .with_simulator(Ngspice::default())
         .build()
 }

@@ -8,7 +8,7 @@ use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(any), forward_attrs(allow, doc, cfg))]
+#[darling(supports(any), forward_attrs(allow, doc, cfg))]
 pub struct DataInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
@@ -27,14 +27,12 @@ pub struct DataVariant {
 }
 
 #[derive(Debug, FromField)]
-#[darling(attributes(substrate), forward_attrs(allow, doc, cfg))]
+#[darling(forward_attrs(allow, doc, cfg))]
 pub struct DataField {
     ident: Option<syn::Ident>,
     vis: syn::Visibility,
     ty: syn::Type,
     attrs: Vec<syn::Attribute>,
-    #[darling(default)]
-    nested: bool,
 }
 
 fn transform_variant_decl(variant: &DataVariant) -> TokenStream {
@@ -93,14 +91,9 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
         ref vis,
         ref ty,
         ref attrs,
-        nested,
     } = field;
     let substrate = substrate_ident();
-    let field_ty = if *nested {
-        quote!(#substrate::schematic::NestedView<'__substrate_derive_lifetime, #ty>)
-    } else {
-        quote!(&'__substrate_derive_lifetime #ty)
-    };
+    let field_ty = quote!(#substrate::schematic::NestedView<'__substrate_derive_lifetime, #ty>);
 
     match ident {
         Some(ident) => {
@@ -120,10 +113,7 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
 
 fn transform_field_assign(use_self: bool, idx: usize, field: &DataField) -> TokenStream {
     let DataField {
-        ref ident,
-        ref ty,
-        nested,
-        ..
+        ref ident, ref ty, ..
     } = field;
     let substrate = substrate_ident();
     let tuple_ident = tuple_ident(idx);
@@ -136,11 +126,7 @@ fn transform_field_assign(use_self: bool, idx: usize, field: &DataField) -> Toke
         (false, None) => quote!(&#tuple_ident),
     };
 
-    let value = if *nested {
-        quote!(<#ty as #substrate::schematic::HasNestedView>::nested_view(#val, __substrate_derive_parent))
-    } else {
-        quote!(#val)
-    };
+    let value = quote!(<#ty as #substrate::schematic::HasNestedView>::nested_view(#val, __substrate_derive_parent));
 
     match ident {
         Some(ident) => quote! { #ident: #value, },
@@ -272,7 +258,7 @@ impl ToTokens for HasSchematicInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_schematic = quote! {
-            impl #imp #substrate::schematic::HasSchematicData for #ident #ty #wher {
+            impl #imp #substrate::schematic::ExportsSchematicData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -310,7 +296,7 @@ impl ToTokens for HasSchematicInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::schematic::HasSchematic<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::schematic::Schematic<#pdk> for #ident #ty #wher {
                     fn schematic(
                         &self,
                         io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,

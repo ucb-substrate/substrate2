@@ -53,7 +53,7 @@ impl<'a> Merger<'a> {
         let mut n_cell = cell.clone();
         n_cell.name = n_name;
 
-        if let Opacity::Clear(inner) = n_cell.contents_mut() {
+        if let CellContent::Clear(inner) = n_cell.contents_mut() {
             for (_, inst) in inner.instances_mut() {
                 let n_child_id = self.merge_cell(inst.cell(), self.src.cell(inst.cell()));
                 inst.cell = n_child_id;

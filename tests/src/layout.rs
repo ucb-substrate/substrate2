@@ -7,7 +7,7 @@ use substrate::context::Context;
 use substrate::geometry::transform::{Transform, TransformMut, Translate, TranslateMut};
 use substrate::layout::element::Shape;
 use substrate::layout::tiling::{GridTile, GridTiler, Tile};
-use substrate::layout::{HasLayout, HasLayoutData, Instance, LayoutData};
+use substrate::layout::{ExportsLayoutData, Instance, Layout, LayoutData};
 
 use crate::shared::buffer::{BufferNxM, Inverter};
 
@@ -35,11 +35,11 @@ pub enum PointEnum {
 #[substrate(io = "()")]
 pub struct GridTilerExample;
 
-impl HasLayoutData for GridTilerExample {
+impl ExportsLayoutData for GridTilerExample {
     type Data = ();
 }
 
-impl HasLayout<ExamplePdkA> for GridTilerExample {
+impl Layout<ExamplePdkA> for GridTilerExample {
     fn layout(
         &self,
         _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -208,9 +208,6 @@ fn transform_point_enum() {
 #[derive(LayoutData)]
 pub enum MyData {
     Unit,
-    Tuple(#[substrate(transform)] Instance<Inverter>),
-    Strukt {
-        #[substrate(transform)]
-        val: Instance<Inverter>,
-    },
+    Tuple(Instance<Inverter>),
+    Strukt { val: Instance<Inverter> },
 }

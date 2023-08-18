@@ -54,7 +54,6 @@ impl SpiceLikeNetlister for NetlisterImpl {
                 write!(out, " {}", sig.name)?;
             }
         }
-        writeln!(out)?;
         Ok(())
     }
 

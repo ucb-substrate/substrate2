@@ -5,19 +5,11 @@ use substrate::block::Block;
 use substrate::io::Io;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::pdk::Pdk;
-use substrate::schematic::{
-    CellBuilder, HasSchematic, HasSchematicData, Instance, PrimitiveDeviceKind, PrimitiveNode,
-    SchematicData,
-};
+use substrate::schematic::primitives::Resistor;
+use substrate::schematic::{CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData};
 
 pub mod flattened;
 pub mod tb;
-
-#[derive(Debug, Default, Clone, Io)]
-pub struct ResistorIo {
-    pub p: InOut<Signal>,
-    pub n: InOut<Signal>,
-}
 
 #[derive(Debug, Default, Clone, Io)]
 pub struct PowerIo {
@@ -36,20 +28,6 @@ pub struct VdividerFlatIo {
     pub vdd: InOut<Signal>,
     pub vss: InOut<Signal>,
     pub out: Output<Signal>,
-}
-
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Resistor {
-    pub value: Decimal,
-}
-
-impl Resistor {
-    #[inline]
-    pub fn new(value: impl Into<Decimal>) -> Self {
-        Self {
-            value: value.into(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,23 +51,6 @@ pub struct VdividerArray {
     pub vdividers: Vec<Vdivider>,
 }
 
-impl Block for Resistor {
-    type Io = ResistorIo;
-    const FLATTEN: bool = false;
-
-    fn id() -> ArcStr {
-        arcstr::literal!("resistor")
-    }
-
-    fn name(&self) -> ArcStr {
-        arcstr::format!("resistor_{}", self.value)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
 impl Block for Vdivider {
     type Io = VdividerIo;
     const FLATTEN: bool = false;
@@ -99,7 +60,7 @@ impl Block for Vdivider {
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::format!("vdivider_{}_{}", self.r1.value, self.r2.value)
+        arcstr::format!("vdivider_{}_{}", self.r1.value(), self.r2.value())
     }
 
     fn io(&self) -> Self::Io {
@@ -130,10 +91,6 @@ impl Block for VdividerArray {
     }
 }
 
-impl HasSchematicData for Resistor {
-    type Data = ();
-}
-
 #[derive(SchematicData)]
 pub struct VdividerData {
     #[substrate(nested)]
@@ -142,33 +99,15 @@ pub struct VdividerData {
     r2: Instance<Resistor>,
 }
 
-impl HasSchematicData for Vdivider {
+impl ExportsSchematicData for Vdivider {
     type Data = VdividerData;
 }
 
-impl HasSchematicData for VdividerArray {
+impl ExportsSchematicData for VdividerArray {
     type Data = Vec<Instance<Vdivider>>;
 }
 
-impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
-    fn schematic(
-        &self,
-        io: &ResistorIoSchematic,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(
-            PrimitiveDeviceKind::Res2 {
-                pos: PrimitiveNode::new("p", io.p),
-                neg: PrimitiveNode::new("n", io.n),
-                value: self.value,
-            }
-            .into(),
-        );
-        Ok(())
-    }
-}
-
-impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
+impl<PDK: Pdk> Schematic<PDK> for Vdivider {
     fn schematic(
         &self,
         io: &VdividerIoSchematic,
@@ -185,7 +124,7 @@ impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
     }
 }
 
-impl<PDK: Pdk> HasSchematic<PDK> for VdividerArray {
+impl<PDK: Pdk> Schematic<PDK> for VdividerArray {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,

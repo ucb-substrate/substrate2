@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
 use cache::multi::MultiCache;
+use indexmap::IndexMap;
 use rust_decimal_macros::dec;
 use scir::Expr::NumericLiteral;
 use serde::{Deserialize, Serialize};
@@ -20,8 +20,8 @@ use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, HasSchematic, HasSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind,
-    PrimitiveNode, SimCellBuilder,
+    Cell, ExportsSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+    Schematic, SimCellBuilder,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{
@@ -34,8 +34,8 @@ use crate::shared::inverter::tb::InverterTb;
 use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
-use crate::shared::vdivider::Resistor;
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
+use substrate::schematic::primitives::Resistor;
 
 #[test]
 fn vdivider_tran() {
@@ -180,7 +180,7 @@ fn spectre_can_include_sections() {
     #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl HasSchematicData for LibIncludeResistor {
+    impl ExportsSchematicData for LibIncludeResistor {
         type Data = ();
     }
 
@@ -200,7 +200,7 @@ fn spectre_can_include_sections() {
     #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
-    impl HasSchematicData for LibIncludeTb {
+    impl ExportsSchematicData for LibIncludeTb {
         type Data = Instance<LibIncludeResistor>;
     }
 
@@ -268,7 +268,7 @@ fn spectre_can_include_sections() {
 
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
-    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
     #[substrate(io = "TwoTerminalIo", flatten)]
     #[substrate(schematic(
         source = "r#\"\
@@ -286,7 +286,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TwoTerminalIo", flatten)]
     pub struct VirtualResistor;
 
-    impl HasSchematicData for VirtualResistor {
+    impl ExportsSchematicData for VirtualResistor {
         type Data = ();
     }
 
@@ -312,7 +312,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
                     ports: vec![PrimitiveNode::new("1", io.p), PrimitiveNode::new("2", io.n)],
                     cell: arcstr::literal!("resistor"),
                 },
-                HashMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
+                IndexMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
             ));
             Ok(())
         }
@@ -322,7 +322,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TestbenchIo")]
     struct VirtualResistorTb;
 
-    impl HasSchematicData for VirtualResistorTb {
+    impl ExportsSchematicData for VirtualResistorTb {
         type Data = Instance<VirtualResistor>;
     }
 
@@ -389,4 +389,21 @@ fn spectre_can_save_paths_with_flattened_instances() {
         .iter()
         .cloned()
         .all(|val| relative_eq!(val, 1.8 * (1. / 100. + 1. / 200. + 1. / 300.))));
+}
+
+#[test]
+fn spectre_initial_condition() {
+    let test_name = "spectre_initial_condition";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+
+    let (first, _) = ctx
+        .simulate(crate::shared::rc::RcTb::new(dec!(1.4)), &sim_dir)
+        .unwrap();
+    assert_relative_eq!(first, 1.4);
+
+    let (first, _) = ctx
+        .simulate(crate::shared::rc::RcTb::new(dec!(2.1)), sim_dir)
+        .unwrap();
+    assert_relative_eq!(first, 2.1);
 }

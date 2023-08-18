@@ -1,29 +1,15 @@
-use substrate::layout::{HasLayoutData, Instance, LayoutData};
+use substrate::layout::{ExportsLayoutData, Instance, LayoutData};
 
 #[derive(Default, LayoutData)]
-pub struct LayoutInstances<T: HasLayoutData> {
-    #[substrate(transform)]
+pub struct LayoutInstances<T: ExportsLayoutData> {
     pub instances: Vec<Instance<T>>,
-    pub field: i64,
 }
 
 #[derive(LayoutData)]
-pub enum EnumInstances<T: HasLayoutData> {
-    One {
-        #[substrate(transform)]
-        one: Instance<T>,
-        field: i64,
-    },
-    Two(
-        #[substrate(transform)] Instance<T>,
-        #[substrate(transform)] Instance<T>,
-        i64,
-    ),
+pub enum EnumInstances<T: ExportsLayoutData> {
+    One { one: Instance<T> },
+    Two(Instance<T>, Instance<T>),
 }
 
 #[derive(LayoutData)]
-pub struct TwoInstances<T: HasLayoutData>(
-    #[substrate(transform)] pub Instance<T>,
-    #[substrate(transform)] pub Instance<T>,
-    pub i64,
-);
+pub struct TwoInstances<T: ExportsLayoutData>(pub Instance<T>, pub Instance<T>);
