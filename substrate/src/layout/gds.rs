@@ -601,7 +601,7 @@ impl<'a> GdsImporter<'a> {
                         let elem = elem.unwrap();
 
                         use crate::geometry::contains::Contains;
-                       
+
                         if elem.shape().contains(&loc).is_full() {
                             port.push(IoShape::new(
                                 family.primary,
@@ -614,7 +614,7 @@ impl<'a> GdsImporter<'a> {
                             // This pin shape is stored in a port.
                             // No need to also include it as a regular element.
                             elems.remove(*ekey);
-                        }                    
+                        }
                     }
                 }
                 if !has_geometry {

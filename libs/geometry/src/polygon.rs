@@ -128,13 +128,15 @@ impl Polygon {
     ///
     /// ```
     /// use geometry::prelude::*;
-    /// 
-    /// 
+    ///
+    ///
     /// ```
-    pub fn traingle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
+    fn traingle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
         let total_area = Polygon::triangle_area(v1, v2, v3);
-        let sum_area = Polygon::triangle_area(p, v2, v3) + Polygon::triangle_area(v1, p, v3) + Polygon::triangle_area(v1, v2, p);
-        return sum_area == total_area;
+        let sum_area = Polygon::triangle_area(p, v2, v3)
+            + Polygon::triangle_area(v1, p, v3)
+            + Polygon::triangle_area(v1, v2, p);
+        sum_area == total_area
     }
 
     /// Helper function that finds the area of a given triangle
@@ -143,11 +145,11 @@ impl Polygon {
     ///
     /// ```
     /// use geometry::prelude::*;
-    /// 
-    /// 
+    ///
+    ///
     /// ```
-    pub fn triangle_area(v1: Point, v2: Point, v3: Point) -> f32 {
-        return ((v1.x*(v2.y-v3.y) + v2.x*(v3.y-v1.y)+ v3.x*(v1.y-v2.y)) as f32 / 2.0).abs();
+    fn triangle_area(v1: Point, v2: Point, v3: Point) -> f32 {
+        ((v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)) as f32 / 2.0).abs()
     }
 }
 
@@ -175,16 +177,14 @@ impl TransformMut for Polygon {
     }
 }
 
-
-
 impl Contains<Point> for Polygon {
-        fn contains(&self, p: &Point) -> Containment {
+    fn contains(&self, p: &Point) -> Containment {
         for (index, _) in self.points.iter().skip(1).enumerate() {
             let v1 = self.points.get(0).unwrap();
             let v2 = self.points.get(index).unwrap();
-            let v3 = self.points.get((index+1)%self.points.len()).unwrap();
-            if Polygon::traingle_contains(*p, *v1, *v2, *v3) == true {
-                return Containment::Full
+            let v3 = self.points.get((index + 1) % self.points.len()).unwrap();
+            if Polygon::traingle_contains(*p, *v1, *v2, *v3) {
+                return Containment::Full;
             }
         }
         Containment::None

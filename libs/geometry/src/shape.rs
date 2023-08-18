@@ -2,11 +2,12 @@
 
 use crate::{
     bbox::Bbox,
+    contains::{Containment, Contains},
     polygon::Polygon,
     prelude::Transform,
     rect::Rect,
     transform::{HasTransformedView, TransformMut, TranslateMut},
-    union::BoundingUnion, contains::{Contains, Containment},
+    union::BoundingUnion,
 };
 
 /// An enumeration of geometric shapes.
