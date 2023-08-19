@@ -7,6 +7,7 @@ use std::slice::SliceIndex;
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
 pub use geometry_macros::{TransformMut, TranslateMut};
 use impl_trait_for_tuples::impl_for_tuples;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::orientation::Orientation;
@@ -594,6 +595,98 @@ impl<'a, K, V> TransformedHashMap<'a, K, V> {
 }
 
 impl<'a, K: Hash + Eq, V> TransformedHashMap<'a, K, V> {
+    /// Returns `true` if the map contains a value for the specified key.
+    pub fn contains_key(&self, k: &K) -> bool {
+        self.inner.contains_key(k)
+    }
+}
+
+/// A transformed view of an [`IndexMap`].
+///
+/// Note that keys are not transformed by default and should be handled separately. If keys must be
+/// transformed, it might make sense to implement [`HasTransformedView`] on a new type that derefs
+/// to a [`HashMap`].
+#[derive(Clone, Copy)]
+pub struct TransformedIndexMap<'a, K, V> {
+    inner: &'a IndexMap<K, V>,
+    trans: Transformation,
+}
+
+impl<K, V: HasTransformedView> HasTransformedView for IndexMap<K, V> {
+    type TransformedView<'a> = TransformedIndexMap<'a, K, V> where K: 'a, V: 'a;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        TransformedIndexMap { inner: self, trans }
+    }
+}
+
+impl<'a, K, V: HasTransformedView> TransformedIndexMap<'a, K, V> {
+    /// Returns an iterator the transformed views of the contained elements.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, Transformed<V>)> {
+        self.inner
+            .iter()
+            .map(|(k, v)| (k, v.transformed_view(self.trans)))
+    }
+}
+
+impl<'a, K: Hash + Eq, V: HasTransformedView> TransformedIndexMap<'a, K, V> {
+    /// Creates transformed views of the contained elements and returns a HashMap mapping the
+    /// original keys to the transformed views.
+    pub fn to_index_map(&self) -> IndexMap<&K, Transformed<V>> {
+        self.inner
+            .iter()
+            .map(|(k, v)| (k, v.transformed_view(self.trans)))
+            .collect()
+    }
+
+    /// Returns the element or elements at the given index or `None` if the key does not exist.
+    pub fn get(&self, k: &K) -> Option<Transformed<V>> {
+        self.inner
+            .get(k)
+            .map(|elem| elem.transformed_view(self.trans))
+    }
+
+    /// Returns the element or elements at the given key or panics if the key does not exist.
+    pub fn index(&self, k: &K) -> Transformed<V> {
+        self.get(k).unwrap()
+    }
+}
+
+impl<'a, K: Hash + Eq, V: Transform + Clone> TransformedIndexMap<'a, K, V> {
+    /// Copies `self` into a new `Vec` with transformed contents.
+    pub fn to_transformed_index_map(&self) -> IndexMap<&K, V> {
+        (*self.inner)
+            .iter()
+            .map(|(k, v)| (k, v.clone().transform(self.trans)))
+            .collect()
+    }
+
+    /// Gets an owned copy of the transformed underlying data or `None` if the key does not exist.
+    pub fn get_transformed(&self, k: &K) -> Option<V> {
+        self.inner
+            .get(k)
+            .map(|elem| elem.clone().transform(self.trans))
+    }
+
+    /// Gets an owned copy of the transformed underlying data or panics if the key does not exist.
+    pub fn index_transformed(&self, k: &K) -> V {
+        self.get_transformed(k).unwrap()
+    }
+}
+
+impl<'a, K, V> TransformedIndexMap<'a, K, V> {
+    /// Returns `true` if the map contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Returns the number of elements in the map.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+impl<'a, K: Hash + Eq, V> TransformedIndexMap<'a, K, V> {
     /// Returns `true` if the map contains a value for the specified key.
     pub fn contains_key(&self, k: &K) -> bool {
         self.inner.contains_key(k)

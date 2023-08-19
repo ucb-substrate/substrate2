@@ -3,22 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::pdk::Pdk;
-use substrate::schematic::{CellBuilder, HasSchematic, HasSchematicData, Instance, SchematicData};
-
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
-#[substrate(io = "ResistorIo", flatten)]
-pub struct Resistor {
-    pub value: Decimal,
-}
-
-impl Resistor {
-    #[inline]
-    pub fn new(value: impl Into<Decimal>) -> Self {
-        Self {
-            value: value.into(),
-        }
-    }
-}
+use substrate::schematic::{CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
 #[substrate(io = "VdividerIo", flatten)]
@@ -60,15 +45,11 @@ impl Block for VdividerArray {
     }
 }
 
-impl HasSchematicData for Resistor {
-    type Data = ();
-}
-
-impl HasSchematicData for Vdivider {
+impl ExportsSchematicData for Vdivider {
     type Data = VdividerData;
 }
 
-impl HasSchematicData for VdividerArray {
+impl ExportsSchematicData for VdividerArray {
     type Data = Vec<Instance<Vdivider>>;
 }
 
@@ -80,25 +61,7 @@ pub struct VdividerData {
     pub r2: Instance<Resistor>,
 }
 
-impl<PDK: Pdk> HasSchematic<PDK> for Resistor {
-    fn schematic(
-        &self,
-        io: &ResistorIoSchematic,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(
-            PrimitiveDeviceKind::Res2 {
-                pos: PrimitiveNode::new("p", io.p),
-                neg: PrimitiveNode::new("n", io.n),
-                value: self.value,
-            }
-            .into(),
-        );
-        Ok(())
-    }
-}
-
-impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
+impl<PDK: Pdk> Schematic<PDK> for Vdivider {
     fn schematic(
         &self,
         io: &VdividerIoSchematic,
@@ -115,7 +78,7 @@ impl<PDK: Pdk> HasSchematic<PDK> for Vdivider {
     }
 }
 
-impl<PDK: Pdk> HasSchematic<PDK> for VdividerArray {
+impl<PDK: Pdk> Schematic<PDK> for VdividerArray {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,

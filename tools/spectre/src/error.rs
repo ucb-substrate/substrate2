@@ -19,9 +19,9 @@ pub enum Error {
     /// Error invoking Spectre.
     #[error("error running Spectre")]
     SpectreError,
-    /// Error parsing PSF output files.
-    #[error("error parsing PSF output file")]
-    PsfParse,
+    /// Error parsing output files.
+    #[error("error parsing Spectre output file")]
+    Parse,
     /// Error generating results.
     #[error("error generating spectre results")]
     Generator(#[from] Arc<Error>),

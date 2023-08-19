@@ -13,7 +13,7 @@ use substrate::context::Context;
 use substrate::io::TestbenchIo;
 use substrate::io::{Node, Signal};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::HasSchematicData;
+use substrate::schematic::ExportsSchematicData;
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{HasSimSchematic, Testbench};
@@ -34,7 +34,7 @@ impl InverterTb {
     }
 }
 
-impl HasSchematicData for InverterTb {
+impl ExportsSchematicData for InverterTb {
     type Data = Node;
 }
 

@@ -20,7 +20,7 @@ lazy_static! {
 #[derive(Debug, Copy, Clone, Serialize)]
 pub(crate) struct RunScriptContext<'a> {
     pub(crate) netlist: &'a PathBuf,
-    pub(crate) raw_output_dir: &'a PathBuf,
+    pub(crate) raw_output_path: &'a PathBuf,
     pub(crate) log_path: &'a PathBuf,
     pub(crate) bashrc: Option<&'a PathBuf>,
     pub(crate) format: &'a str,

@@ -8,11 +8,7 @@ use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(
-    attributes(substrate),
-    supports(struct_any, enum_any),
-    forward_attrs(allow, doc, cfg)
-)]
+#[darling(supports(struct_any, enum_any), forward_attrs(allow, doc, cfg))]
 pub struct DataInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
@@ -37,8 +33,6 @@ pub struct DataField {
     vis: syn::Visibility,
     ty: syn::Type,
     attrs: Vec<syn::Attribute>,
-    #[darling(default)]
-    transform: bool,
 }
 
 fn transform_variant_decl(variant: &DataVariant) -> TokenStream {
@@ -97,14 +91,10 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
         ref vis,
         ref ty,
         ref attrs,
-        transform,
     } = field;
     let substrate = substrate_ident();
-    let field_ty = if *transform {
-        quote!(#substrate::geometry::transform::Transformed<'__substrate_derive_lifetime, #ty>)
-    } else {
-        quote!(&'__substrate_derive_lifetime #ty)
-    };
+    let field_ty =
+        quote!(#substrate::geometry::transform::Transformed<'__substrate_derive_lifetime, #ty>);
 
     match ident {
         Some(ident) => {
@@ -124,10 +114,7 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
 
 fn transform_field_assign(use_self: bool, idx: usize, field: &DataField) -> TokenStream {
     let DataField {
-        ref ident,
-        ref ty,
-        transform,
-        ..
+        ref ident, ref ty, ..
     } = field;
     let substrate = substrate_ident();
     let tuple_ident = tuple_ident(idx);
@@ -140,11 +127,7 @@ fn transform_field_assign(use_self: bool, idx: usize, field: &DataField) -> Toke
         (false, None) => quote!(&#tuple_ident),
     };
 
-    let value = if *transform {
-        quote!(<#ty as #substrate::geometry::transform::HasTransformedView>::transformed_view(#val, __substrate_derive_transformation))
-    } else {
-        quote!(#val)
-    };
+    let value = quote!(<#ty as #substrate::geometry::transform::HasTransformedView>::transformed_view(#val, __substrate_derive_transformation));
 
     match ident {
         Some(ident) => quote! { #ident: #value, },
@@ -280,7 +263,7 @@ impl ToTokens for HasLayoutInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let has_layout = quote! {
-            impl #imp #substrate::layout::HasLayoutData for #ident #ty #wher {
+            impl #imp #substrate::layout::ExportsLayoutData for #ident #ty #wher {
                 type Data = ();
             }
         };
@@ -298,7 +281,7 @@ impl ToTokens for HasLayoutInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::layout::HasLayout<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::layout::Layout<#pdk> for #ident #ty #wher {
                     fn layout(
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,

@@ -6,7 +6,7 @@ No. Variables: 4
 No. Points: 13      
 Variables:
 	0	frequency	frequency	grid=3
-	1	v(xdut.vdd)	voltage
+	1	v(xdut.vdd)	voltage plot=0 grid=0
 	2	v(xdut.out)	voltage
 	3	i(v.xdut.vdd)	current
 Values:

@@ -3,18 +3,19 @@ use std::collections::HashSet;
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use substrate::schematic::primitives::Resistor;
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::{conv::RawLib, HasSchematic, HasSchematicData},
+    schematic::{conv::RawLib, ExportsSchematicData, Schematic},
 };
 
 use crate::shared::{
     buffer::Buffer,
     pdk::ExamplePdkA,
-    vdivider::{PowerIo, Resistor, Vdivider, VdividerIo},
+    vdivider::{PowerIo, Vdivider, VdividerIo},
 };
 use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
@@ -26,7 +27,7 @@ fn can_generate_vdivider_schematic() {
         r2: Resistor::new(100),
     };
     let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
-    assert_eq!(scir.cells().count(), 3);
+    assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
     println!("Issues = {:#?}", issues);
@@ -44,19 +45,7 @@ fn can_generate_vdivider_schematic() {
     assert!(port_names.contains("out"));
     assert_eq!(vdiv.ports().count(), 3);
     let contents = vdiv.contents().as_ref().unwrap_clear();
-    assert_eq!(contents.primitives().count(), 0);
-    assert_eq!(contents.instances().count(), 2);
-
-    let res300 = scir.cell_named("resistor_300");
-    let contents = res300.contents().as_ref().unwrap_clear();
-    assert_eq!(res300.ports().count(), 2);
-    assert_eq!(contents.primitives().count(), 1);
-    assert_eq!(contents.instances().count(), 0);
-
-    let res100 = scir.cell_named("resistor_100");
-    let contents = res100.contents().as_ref().unwrap_clear();
-    assert_eq!(res100.ports().count(), 2);
-    assert_eq!(contents.primitives().count(), 1);
+    assert_eq!(contents.primitives().count(), 2);
     assert_eq!(contents.instances().count(), 0);
 }
 
@@ -239,12 +228,12 @@ impl Block for Block1 {
     }
 }
 
-impl HasSchematicData for Block1 {
+impl ExportsSchematicData for Block1 {
     type Data = ();
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasSchematic<PDK> for Block1 {
+impl<PDK> Schematic<PDK> for Block1 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -275,11 +264,11 @@ impl Block for Block2 {
     }
 }
 
-impl HasSchematicData for Block2 {
+impl ExportsSchematicData for Block2 {
     type Data = ();
 }
 
-impl HasSchematic<ExamplePdkA> for Block2 {
+impl Schematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
@@ -292,7 +281,7 @@ impl HasSchematic<ExamplePdkA> for Block2 {
     }
 }
 
-impl HasSchematic<ExamplePdkB> for Block2 {
+impl Schematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
         _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,

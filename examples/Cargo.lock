@@ -402,9 +402,9 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cache"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "8845ebbdf7776b8ae56f05a92220c1927b5b92d3c60b11f65c1edf02d94ed435"
+checksum = "2812fb1e86dd587b9690522af55d4c80001a21d56e23699606135268b7d2244a"
 dependencies = [
  "backoff",
  "clap",
@@ -527,17 +527,19 @@ checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 
 [[package]]
 name = "codegen"
-version = "0.3.0"
+version = "0.6.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "67ecd821265a2653ab26e22ce283499ee8df0e7654b113abd86310902d433ee1"
+checksum = "557b273101f0bad1ea71fb4f8dc272399a7ac34e10da3702ab253052e25106ac"
 dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.1",
+ "examples",
  "proc-macro-crate 1.3.1",
  "proc-macro-error",
  "proc-macro2",
  "quote",
  "syn 2.0.23",
+ "type_dispatch",
 ]
 
 [[package]]
@@ -548,9 +550,9 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "config"
-version = "0.2.0"
+version = "0.2.3"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "57bd0983053294006db589207c7b5447e47e81437f99270af563f24b4cbec99b"
+checksum = "18804a849fdcd0d764a6d870e0b85de799cec2cffe060dfe6a4ba80008e294e9"
 dependencies = [
  "anyhow",
  "cache",
@@ -743,9 +745,9 @@ checksum = "850878694b7933ca4c9569d30a34b55031b9b139ee1fc7b94a527c4ef960d690"
 
 [[package]]
 name = "diagnostics"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "e16b3163cfa3a5f2a76e0357d0503163388766f8e922404678147459e9974d81"
+checksum = "6679a8fd51905c642fb2183bc3d25992796b05a24f1ed5f6f4ba0d9b14e6a46d"
 dependencies = [
  "serde",
  "tracing",
@@ -817,6 +819,20 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "examples"
+version = "0.3.1"
+source = "registry+https://github.com/substrate-labs/crates-index"
+checksum = "c1918fbbda2faab39bff15225ae18ccb3708f9c6e664b54a70022f5bb184fdde"
+dependencies = [
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+ "textwrap",
 ]
 
 [[package]]
@@ -940,9 +956,9 @@ dependencies = [
 
 [[package]]
 name = "gds"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "613af04c66cc7a034d9a577eda2f570b1847013e69a3089a18d25c32f43ddb44"
+checksum = "fd62e18551e71d79f3599cb88d12bdac4e74f85f136ec6679356dda1b0e1dbc6"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -971,14 +987,30 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "52855ca9fc85a87c4eb378aed6f3914ec9b7aa47b39a72644bc9a4b9a6f61bf5"
+checksum = "db60cb48d484a8991ba7c6284cb28598ab11e212da03b3d39bdd12ae94713849"
 dependencies = [
  "approx",
  "array_map",
+ "geometry_macros",
  "impl-trait-for-tuples",
  "serde",
+]
+
+[[package]]
+name = "geometry_macros"
+version = "0.0.1"
+source = "registry+https://github.com/substrate-labs/crates-index"
+checksum = "7181c3d566453c77c75296de2e5aeac6a81954bb2a57e645ad6f4da953ec1dd1"
+dependencies = [
+ "darling 0.20.1",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+ "type_dispatch",
 ]
 
 [[package]]
@@ -1282,6 +1314,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1531,9 +1572,9 @@ dependencies = [
 
 [[package]]
 name = "pathtree"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "2f8567bf7dd47d4952613ea3e53e0ad127ed3a10bd7db5f3340cfbb95d502dfa"
+checksum = "1c99d04ee8013e48c4a559c59223929eb6c3fa9cf9bad0b7b23117d4f27c9d2f"
 
 [[package]]
 name = "percent-encoding"
@@ -1758,7 +1799,7 @@ checksum = "119533552c9a7ffacc21e099c24a0ac8bb19c2a2a3f363de84cd9b844feab270"
 dependencies = [
  "bytes",
  "heck",
- "itertools",
+ "itertools 0.10.5",
  "lazy_static",
  "log",
  "multimap",
@@ -1779,7 +1820,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5d2d8d10f3c6ded6da8b05b5fb3b8a5082514344d56c9f871412d29b4e075b4"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -1977,13 +2018,12 @@ dependencies = [
 
 [[package]]
 name = "rust_decimal"
-version = "1.30.0"
+version = "1.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0446843641c69436765a35a5a77088e28c2e6a12da93e84aa3ab1cd4aa5a042"
+checksum = "4a2ab0025103a60ecaaf3abf24db1db240a4e1c15837090d2c32f625ac98abea"
 dependencies = [
  "arrayvec",
  "borsh",
- "bytecheck",
  "byteorder",
  "bytes",
  "num-traits",
@@ -1995,9 +2035,9 @@ dependencies = [
 
 [[package]]
 name = "rust_decimal_macros"
-version = "1.30.0"
+version = "1.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ca5c398d85f83b9a44de754a2048625a8c5eafcf070da7b8f116b685e2f6608"
+checksum = "c9c3bcd00383608992fd3e960f0a6e93a3b1e98218451aa1ca05a44505e5d52a"
 dependencies = [
  "quote",
  "rust_decimal",
@@ -2054,9 +2094,9 @@ dependencies = [
 
 [[package]]
 name = "scir"
-version = "0.2.0"
+version = "0.5.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "954d5da8e9ab17312b7485be246d32d98dfd19acb060c88521a99e8a8bb01e6e"
+checksum = "b15bd7af692818bd04b8d29e894e848fb041a3c0a436307cb1a6b5eb1510914d"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -2188,9 +2228,9 @@ dependencies = [
 
 [[package]]
 name = "sky130pdk"
-version = "0.3.0"
+version = "0.6.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "baecb45c4c4ea173c7e41451256f0811ef42a9853fd21a7d5250d13960213f89"
+checksum = "be5147b696035ebcfa52d29a9cb577db7da6b33a07a0c9b399bed64b915ee22f"
 dependencies = [
  "arcstr",
  "rust_decimal",
@@ -2251,9 +2291,9 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.3.0"
+version = "0.6.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "824309bbccd243373b918717488afe83a8dcbc6feef6d3c2b657e87b747b8b16"
+checksum = "4b89c918e9e952856a347c906a8745c526ddf76d69e0c2c04390bd1547def4d9"
 dependencies = [
  "arcstr",
  "cache",
@@ -2272,9 +2312,9 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.1.0"
+version = "0.4.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "157680001ce4c58ffe909bcd9bdf9af979880fa47eb7911c986683bf0fb00c22"
+checksum = "7aee18df5ea725579392798b9c3023343676b45028fcc0985dbc77b42cb6fead"
 dependencies = [
  "arcstr",
  "nom",
@@ -2292,9 +2332,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "substrate"
-version = "0.3.0"
+version = "0.6.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "ba711cb1555e7e51e349c3520bf4e2f6f470b4469c7e4711bc4caef1da8f3514"
+checksum = "d0d15032d9154f941b905e9d760acafc3d5931e08e885a8dbc5282f26df37cf0"
 dependencies = [
  "anyhow",
  "arcstr",
@@ -2305,6 +2345,7 @@ dependencies = [
  "downcast-rs",
  "duplicate",
  "ena",
+ "examples",
  "gds",
  "geometry",
  "impl-trait-for-tuples",
@@ -2319,6 +2360,7 @@ dependencies = [
  "spice",
  "thiserror",
  "tracing",
+ "type_dispatch",
  "uniquify",
 ]
 
@@ -2717,6 +2759,35 @@ name = "try-lock"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
+
+[[package]]
+name = "type_dispatch"
+version = "0.3.0"
+source = "registry+https://github.com/substrate-labs/crates-index"
+checksum = "42b95b55b4c53404406a0f3ce9cfcfd25b28d6760f822a7ac9466c7608f33f94"
+dependencies = [
+ "darling 0.20.1",
+ "duplicate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+ "type_dispatch_macros",
+]
+
+[[package]]
+name = "type_dispatch_macros"
+version = "0.3.0"
+source = "registry+https://github.com/substrate-labs/crates-index"
+checksum = "30619d1f6261cb23685dad0c028690301e4ca9bdd8459b1171b9f1aacf4a3901"
+dependencies = [
+ "darling 0.20.1",
+ "itertools 0.11.0",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+]
 
 [[package]]
 name = "typenum"

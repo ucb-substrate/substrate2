@@ -13,6 +13,7 @@ use geometry::{
     prelude::{Corner, Orientation, Point},
     rect::Rect,
 };
+use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use slotmap::{new_key_type, SlotMap};
@@ -128,6 +129,24 @@ impl ExportGds for RawCell {
 }
 
 impl ExportGds for HashMap<NameBuf, PortGeometry> {
+    type Output = Vec<gds::GdsElement>;
+
+    fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {
+        let mut elements = Vec::new();
+        for (name_buf, geometry) in self {
+            elements.extend((name_buf, &geometry.primary).export(exporter)?);
+            for shape in geometry.unnamed_shapes.iter() {
+                elements.extend((name_buf, shape).export(exporter)?);
+            }
+            for (_, shape) in geometry.named_shapes.iter() {
+                elements.extend((name_buf, shape).export(exporter)?);
+            }
+        }
+        Ok(elements)
+    }
+}
+
+impl ExportGds for IndexMap<NameBuf, PortGeometry> {
     type Output = Vec<gds::GdsElement>;
 
     fn export(&self, exporter: &mut GdsExporter<'_>) -> GdsExportResult<Self::Output> {

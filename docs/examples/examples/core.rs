@@ -7,11 +7,10 @@ use substrate::io::{
     CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
     PortGeometry, ShapePort, Signal,
 };
-use substrate::layout::{element::Shape, Cell, HasLayout, HasLayoutData, Instance, LayoutData};
+use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
-use substrate::pdk::{Pdk, PdkLayers};
-use substrate::schematic::HasSchematic;
-use substrate::type_dispatch::impl_dispatch;
+use substrate::pdk::{HasLayout, Pdk, PdkLayers};
+use substrate::schematic::Schematic;
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -196,11 +195,11 @@ impl Block for Inverter {
 // end-code-snippet inverter
 
 // begin-code-snippet inverter_layout
-impl HasLayoutData for Inverter {
+impl ExportsLayoutData for Inverter {
     type Data = ();
 }
 
-impl HasLayout<ExamplePdk> for Inverter {
+impl Layout<ExamplePdk> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -232,7 +231,7 @@ impl HasLayout<ExamplePdk> for Inverter {
 // end-code-snippet inverter_layout
 
 // begin-code-snippet inverter_multiprocess
-impl HasLayout<ExamplePdkA> for Inverter {
+impl Layout<ExamplePdkA> for Inverter {
     // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
@@ -264,7 +263,7 @@ impl HasLayout<ExamplePdkA> for Inverter {
     // end-ellipses inverter_multiprocess
 }
 
-impl HasLayout<ExamplePdkB> for Inverter {
+impl Layout<ExamplePdkB> for Inverter {
     // begin-ellipses inverter_multiprocess
     fn layout(
         &self,
@@ -414,42 +413,63 @@ pub struct BufferData {
     pub inv2: Instance<Inverter>,
 }
 
-// begin-code-snippet buffer_layout
-impl HasLayoutData for Buffer {
+impl ExportsLayoutData for Buffer {
     type Data = BufferData;
 }
 
-// begin-code-snippet cell_builder_generate
-impl HasLayout<ExamplePdk> for Buffer {
-    fn layout(
-        // begin-ellipses cell_builder_generate
-        &self,
-        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdk, Self>,
-        // end-ellipses cell_builder_generate
-    ) -> substrate::error::Result<Self::Data> {
-        let inv1 = cell.generate(Inverter::new(self.strength));
-        let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
+mod single_process_buffer {
+    use crate::{BufferData, BufferIo, ExamplePdk, Inverter};
+    use serde::{Deserialize, Serialize};
+    use substrate::block::Block;
+    use substrate::geometry::align::{AlignBbox, AlignMode};
+    use substrate::io::LayoutType;
+    use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 
-        cell.draw(inv1.clone())?;
-        cell.draw(inv2.clone())?;
-
-        io.vdd.merge(inv1.io().vdd);
-        io.vdd.merge(inv2.io().vdd);
-        io.vss.merge(inv1.io().vss);
-        io.vss.merge(inv2.io().vss);
-        io.din.merge(inv1.io().din);
-        io.dout.merge(inv2.io().dout);
-
-        Ok(BufferData { inv1, inv2 })
+    #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Block)]
+    #[substrate(io = "BufferIo")]
+    pub struct Buffer {
+        strength: usize,
     }
+
+    // begin-code-snippet buffer_layout
+    impl ExportsLayoutData for Buffer {
+        type Data = BufferData;
+    }
+
+    // begin-code-snippet cell_builder_generate
+    impl Layout<ExamplePdk> for Buffer {
+        fn layout(
+            // begin-ellipses cell_builder_generate
+            &self,
+            io: &mut <<Self as Block>::Io as LayoutType>::Builder,
+            cell: &mut CellBuilder<ExamplePdk, Self>,
+            // end-ellipses cell_builder_generate
+        ) -> substrate::error::Result<Self::Data> {
+            let inv1 = cell.generate(Inverter::new(self.strength));
+            let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
+
+            cell.draw(inv1.clone())?;
+            cell.draw(inv2.clone())?;
+
+            io.vdd.merge(inv1.io().vdd);
+            io.vdd.merge(inv2.io().vdd);
+            io.vss.merge(inv1.io().vss);
+            io.vss.merge(inv2.io().vss);
+            io.din.merge(inv1.io().din);
+            io.dout.merge(inv2.io().dout);
+
+            Ok(BufferData { inv1, inv2 })
+        }
+    }
+    // end-code-snippet cell_builder_generate
+    // end-code-snippet buffer_layout
 }
-// end-code-snippet cell_builder_generate
-// end-code-snippet buffer_layout
 
 // begin-code-snippet buffer_multiprocess
-#[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> HasLayout<PDK> for Buffer {
+pub trait BufferSupportedPdk: Pdk + HasLayout<Inverter> {}
+impl<PDK: Pdk + HasLayout<Inverter>> BufferSupportedPdk for PDK {}
+
+impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -474,7 +494,7 @@ impl<PDK> HasLayout<PDK> for Buffer {
 // end-code-snippet buffer_multiprocess
 
 // begin-code-snippet buffer_hard_macro
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, HasSchematic)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
 #[substrate(io = "BufferIo")]
 #[substrate(schematic(
     source = "r###\"
@@ -500,9 +520,7 @@ pub struct BufferInlineHardMacro;
 // begin-code-snippet buffern_data
 #[derive(Default, LayoutData)]
 pub struct BufferNData {
-    #[substrate(transform)]
     pub buffers: Vec<Instance<Buffer>>,
-    pub width: i64,
 }
 // end-code-snippet buffern_data
 

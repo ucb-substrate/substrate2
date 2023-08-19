@@ -84,7 +84,7 @@ Now that we've defined the `Io` of our block, we can define a schematic.
 
 ## Schematics
 
-We first implement the `HasSchematicData` trait on `Inverter`.
+We first implement the `ExportsSchematicData` trait on `Inverter`.
 This trait declares that `Inverter` can generate schematic data.
 This allows us to do things like save nodes we might want to probe in simulation, but for
 now, we don't have any particular data we'd like to save, so we'll set `Data` to Rust's
@@ -125,13 +125,13 @@ impl Block for Inverter {
     }
 }
 // hidden-rust-doc-end
-impl HasSchematicData for Inverter {
+impl ExportsSchematicData for Inverter {
     type Data = ();
 }
 ```
 
 We now specify the actual content of the schematic
-by implementing `HasSchematic`. This trait requires us to specify
+by implementing `Schematic`. This trait requires us to specify
 the PDK for which the schematic is valid. In this case, the schematic
 is for the `Sky130OpenPdk`.
 
@@ -171,11 +171,11 @@ impl Block for Inverter {
     }
 }
 
-impl HasSchematicData for Inverter {
+impl ExportsSchematicData for Inverter {
     type Data = ();
 }
 // hidden-rust-doc-end
-impl HasSchematic<Sky130OpenPdk> for Inverter {
+impl Schematic<Sky130OpenPdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,
@@ -240,10 +240,10 @@ impl Block for Inverter {
     }
 }
 
-impl HasSchematicData for Inverter {
+impl ExportsSchematicData for Inverter {
     type Data = ();
 }
-impl HasSchematic<Sky130OpenPdk> for Inverter {
+impl Schematic<Sky130OpenPdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,

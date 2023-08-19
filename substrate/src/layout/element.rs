@@ -13,6 +13,7 @@ use geometry::{
     },
     union::BoundingUnion,
 };
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -21,7 +22,7 @@ use crate::{
     pdk::{layers::LayerId, Pdk},
 };
 
-use super::{Draw, DrawReceiver, HasLayoutData, Instance};
+use super::{Draw, DrawReceiver, ExportsLayoutData, Instance};
 
 /// A context-wide unique identifier for a cell.
 #[derive(
@@ -36,7 +37,7 @@ impl CellId {
 }
 
 /// A mapping from names to ports.
-pub type NamedPorts = HashMap<NameBuf, PortGeometry>;
+pub type NamedPorts = IndexMap<NameBuf, PortGeometry>;
 
 /// A raw layout cell.
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -56,12 +57,12 @@ impl RawCell {
             name: name.into(),
             elements: Vec::new(),
             blockages: Vec::new(),
-            ports: HashMap::new(),
+            ports: IndexMap::new(),
             port_names: HashMap::new(),
         }
     }
 
-    pub(crate) fn with_ports(self, ports: HashMap<NameBuf, PortGeometry>) -> Self {
+    pub(crate) fn with_ports(self, ports: NamedPorts) -> Self {
         let port_names = ports.keys().map(|k| (k.to_string(), k.clone())).collect();
         Self {
             ports,
@@ -139,7 +140,7 @@ pub struct TransformedRawCell<'a> {
     elements: Transformed<'a, Vec<Element>>,
     #[allow(dead_code)]
     blockages: Transformed<'a, Vec<Shape>>,
-    ports: Transformed<'a, HashMap<NameBuf, PortGeometry>>,
+    ports: Transformed<'a, NamedPorts>,
 }
 
 impl HasTransformedView for RawCell {
@@ -205,7 +206,7 @@ impl Bbox for RawInstance {
     }
 }
 
-impl<T: HasLayoutData> TryFrom<Instance<T>> for RawInstance {
+impl<T: ExportsLayoutData> TryFrom<Instance<T>> for RawInstance {
     type Error = Error;
 
     fn try_from(value: Instance<T>) -> Result<Self> {
