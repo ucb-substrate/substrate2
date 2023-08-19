@@ -1005,6 +1005,7 @@ dependencies = [
  "geometry_macros",
  "impl-trait-for-tuples",
  "indexmap 2.0.0",
+ "num-rational",
  "serde",
 ]
 
