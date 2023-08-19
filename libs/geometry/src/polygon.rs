@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bbox::Bbox;
 use crate::contains::{Containment, Contains};
+use num_rational::Ratio;
 use crate::point::Point;
 use crate::rect::Rect;
 use crate::transform::{TransformMut, Transformation, TranslateMut};
@@ -121,20 +122,6 @@ impl Polygon {
         let y = self.points.iter().map(|point| point.y).sum::<i64>() / self.points.len() as i64;
         Point::new(x, y)
     }
-
-    /// Helper function that checks if a point is contained within a triangle
-    fn traingle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
-        let total_area = Polygon::triangle_area(v1, v2, v3);
-        let sum_area = Polygon::triangle_area(p, v2, v3)
-            + Polygon::triangle_area(v1, p, v3)
-            + Polygon::triangle_area(v1, v2, p);
-        sum_area == total_area
-    }
-
-    /// Helper function that finds the area of a given triangle
-    fn triangle_area(v1: Point, v2: Point, v3: Point) -> f32 {
-        ((v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)) as f32 / 2.0).abs()
-    }
 }
 
 impl Bbox for Polygon {
@@ -147,6 +134,21 @@ impl Bbox for Polygon {
             polygon.top(),
         )
     }
+}
+
+/// Helper function that checks if a point is contained within a triangle
+fn triangle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
+    let total_area = triangle_area(v1, v2, v3);
+    let sum_area = triangle_area(p, v2, v3)
+        + triangle_area(v1, p, v3)
+        + triangle_area(v1, v2, p);
+    sum_area == total_area
+}
+
+
+/// Helper function that finds the area of a given triangle
+fn triangle_area(v1: Point, v2: Point, v3: Point) -> Ratio<i64> {
+    Ratio::new(((v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)) ).abs(), 2)
 }
 
 impl TranslateMut for Polygon {
@@ -162,12 +164,37 @@ impl TransformMut for Polygon {
 }
 
 impl Contains<Point> for Polygon {
+    /// Determines if a point is contained within a polygon.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let points = vec![
+    ///     Point { x: -4, y: 0 },
+    ///     Point { x: 0, y: 0 },
+    ///     Point { x: 1, y: 2 },
+    ///     Point { x: 2, y: 2 },
+    ///     Point { x: -4, y: 5 },
+    /// ];
+    /// let p1 = Point::new(0,0);
+    /// let p2 = Point::new(0,4);
+    /// let p3 = Point::new(-5,3);
+    /// let p4 = Point::new(-2,4);
+    /// let p5 = Point::new(-2,2);
+    /// let polygon = Polygon::from_verts(points);
+    /// assert_eq!(polygon.contains(&p1), Containment::Full);
+    /// assert_eq!(polygon.contains(&p2), Containment::None);
+    /// assert_eq!(polygon.contains(&p3), Containment::None);
+    /// assert_eq!(polygon.contains(&p4), Containment::Full);
+    /// assert_eq!(polygon.contains(&p5), Containment::Full);
+    /// ```
     fn contains(&self, p: &Point) -> Containment {
         for (index, _) in self.points.iter().skip(1).enumerate() {
             let v1 = self.points.get(0).unwrap();
             let v2 = self.points.get(index).unwrap();
             let v3 = self.points.get((index + 1) % self.points.len()).unwrap();
-            if Polygon::traingle_contains(*p, *v1, *v2, *v3) {
+            if triangle_contains(*p, *v1, *v2, *v3) {
                 return Containment::Full;
             }
         }
