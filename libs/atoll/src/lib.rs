@@ -33,6 +33,8 @@
 //!   assuming `M0` is vertical (and therefore that `M1` is horizontal).
 //!
 //! All routing tracks must be fully internal to each tile.
+//! The line and space widths must each be even integers, so that the center
+//! of any track or space is also an integer.
 //!
 //! When the ratio `P(L+2) / P(L)` is not an integer, Atoll's routing algorithms assume
 //! that if track `T` on layer `L+2` lies strictly between tracks `U1` and `U2` on layer `L`,
@@ -163,13 +165,4 @@ pub struct Atoll {
     pub pmos: Vec<Row>,
     pub nmos: Vec<Row>,
     pub cols: Vec<Col>,
-}
-
-pub struct LayerIdx(usize);
-
-pub struct TrackIdx {
-    /// The bottom layer.
-    layer: LayerIdx,
-    x: i64,
-    y: i64,
 }
