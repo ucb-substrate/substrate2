@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::bbox::Bbox;
 use crate::contains::{Containment, Contains};
-use num_rational::Ratio;
 use crate::point::Point;
 use crate::rect::Rect;
 use crate::transform::{TransformMut, Transformation, TranslateMut};
+use num_rational::Ratio;
 
 /// A polygon, with vertex coordinates given
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -139,16 +139,16 @@ impl Bbox for Polygon {
 /// Helper function that checks if a point is contained within a triangle
 fn triangle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
     let total_area = triangle_area(v1, v2, v3);
-    let sum_area = triangle_area(p, v2, v3)
-        + triangle_area(v1, p, v3)
-        + triangle_area(v1, v2, p);
+    let sum_area = triangle_area(p, v2, v3) + triangle_area(v1, p, v3) + triangle_area(v1, v2, p);
     sum_area == total_area
 }
 
-
 /// Helper function that finds the area of a given triangle
 fn triangle_area(v1: Point, v2: Point, v3: Point) -> Ratio<i64> {
-    Ratio::new(((v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)) ).abs(), 2)
+    Ratio::new(
+        (v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)).abs(),
+        2,
+    )
 }
 
 impl TranslateMut for Polygon {

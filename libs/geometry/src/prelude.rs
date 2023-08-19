@@ -2,8 +2,8 @@
 
 pub use crate::align::{AlignBbox, AlignMode, AlignRect};
 pub use crate::bbox::Bbox;
+pub use crate::contains::{Containment, Contains};
 pub use crate::corner::Corner;
-pub use crate::contains::{Contains,Containment};
 pub use crate::dims::Dims;
 pub use crate::dir::Dir;
 pub use crate::edge::Edge;
