@@ -2,6 +2,7 @@
 
 use crate::{
     bbox::Bbox,
+    contains::{Containment, Contains},
     polygon::Polygon,
     prelude::Transform,
     rect::Rect,
@@ -85,5 +86,14 @@ impl<T: Bbox> BoundingUnion<T> for Shape {
 
     fn bounding_union(&self, other: &T) -> Self::Output {
         self.bbox().bounding_union(&other.bbox())
+    }
+}
+
+impl Contains<crate::point::Point> for Shape {
+    fn contains(&self, p: &crate::point::Point) -> Containment {
+        match self {
+            Shape::Rect(rect) => rect.contains(p),
+            Shape::Polygon(polygon) => polygon.contains(p),
+        }
     }
 }
