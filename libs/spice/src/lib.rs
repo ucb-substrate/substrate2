@@ -2,24 +2,41 @@
 #![warn(missing_docs)]
 
 use arcstr::ArcStr;
+use indexmap::IndexMap;
 use scir::netlist::{
     Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
     RenameGround, SpiceLikeNetlister,
 };
-use scir::{Library, SignalInfo};
+use scir::{Expr, Library, SignalInfo};
 use std::io::prelude::*;
 
 pub mod parser;
 
-/// A SPICE netlister.
-pub struct Netlister<'a, W> {
-    inst: NetlisterInstance<'a, NetlisterImpl, W>,
+#[derive(Debug, Clone)]
+pub enum Primitive {
+    Res2 {
+        value: Expr,
+    },
+    RawInstance {
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        params: IndexMap<ArcStr, Expr>,
+    },
 }
+
+/// A SPICE netlister.
+pub struct Netlister<'a, W>(NetlisterInstance<'a, NetlisterImpl, Primitive, W>);
 
 struct NetlisterImpl;
 
 impl SpiceLikeNetlister for NetlisterImpl {
-    fn write_prelude<W: Write>(&mut self, out: &mut W, lib: &Library) -> std::io::Result<()> {
+    type Primitive = Primitive;
+
+    fn write_prelude<W: Write>(
+        &mut self,
+        out: &mut W,
+        lib: &Library<Self::Primitive>,
+    ) -> std::io::Result<()> {
         writeln!(out, "* {}", lib.name())?;
         writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
         Ok(())
@@ -113,24 +130,22 @@ impl SpiceLikeNetlister for NetlisterImpl {
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new SPICE netlister writing to the given output stream.
-    pub fn new(lib: &'a Library, includes: &'a [Include], out: &'a mut W) -> Self {
-        Self {
-            inst: NetlisterInstance::new(
-                NetlisterImpl,
-                if lib.is_testbench() {
-                    NetlistKind::Testbench(RenameGround::Yes(ArcStr::from("0")))
-                } else {
-                    NetlistKind::Cells
-                },
-                lib,
-                includes,
-                out,
-            ),
-        }
+    pub fn new(lib: &'a Library<Primitive>, includes: &'a [Include], out: &'a mut W) -> Self {
+        Self(NetlisterInstance::new(
+            NetlisterImpl,
+            if lib.is_testbench() {
+                NetlistKind::Testbench(RenameGround::Yes(ArcStr::from("0")))
+            } else {
+                NetlistKind::Cells
+            },
+            lib,
+            includes,
+            out,
+        ))
     }
 
     /// Exports the netlister's library to its output stream.
     pub fn export(self) -> std::io::Result<NetlistLibConversion> {
-        self.inst.export()
+        self.0.export()
     }
 }

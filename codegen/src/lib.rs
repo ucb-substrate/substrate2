@@ -153,9 +153,7 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let schematic = schematic_io(&input);
     let layout = layout_io(&input);
     let io_core_impl = io_core_impl(&input);
-    let io_impl = io_impl(&input);
     quote!(
-        #io_impl
         #io_core_impl
         #schematic
         #layout

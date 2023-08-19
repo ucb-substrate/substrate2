@@ -5,6 +5,7 @@ use rust_decimal::Decimal;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use crate::arcstr;
 use crate::arcstr::ArcStr;
@@ -12,17 +13,25 @@ use crate::block::{Block, SchemaPrimitive};
 use crate::io::{Array, InOut, Signal, TwoTerminalIo};
 use crate::pdk::Pdk;
 
-use super::{ExportsSchematicData, PrimitiveDeviceKind, PrimitiveNode, Schematic};
+use super::{ExportsSchematicData, Schematic};
 
 /// An instance with a pre-defined cell.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawInstance {
     /// The name of the underlying cell.
-    cell: ArcStr,
+    pub cell: ArcStr,
     /// The name of the ports of the underlying cell.
-    ports: Vec<ArcStr>,
+    pub ports: Vec<ArcStr>,
     /// The parameters to pass to the instance.
-    params: IndexMap<ArcStr, Expr>,
+    pub params: IndexMap<ArcStr, Expr>,
+}
+
+impl Hash for RawInstance {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.cell.hash(state);
+        self.ports.hash(state);
+        self.params.iter().collect::<Vec<_>>().hash(state);
+    }
 }
 impl RawInstance {
     /// Create a new raw instance with the given parameters.

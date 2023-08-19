@@ -51,7 +51,7 @@ pub(crate) mod validation;
 pub(crate) mod tests;
 
 /// An expression, often used in parameter assignments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Expr {
     /// A numeric literal.
     NumericLiteral(Decimal),
@@ -244,6 +244,14 @@ pub struct CellId(u64);
 )]
 pub struct InstanceId(u64);
 
+/// An opaque primitive identifier.
+///
+/// A primitive ID created in the context of one library must
+/// *not* be used in the context of another library.
+/// You should instead create a new primitive ID in the second library.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct PrimitiveId(u64);
+
 /// An opaque primitive device identifier.
 ///
 /// A primitive device ID created in the context of one cell must
@@ -269,127 +277,6 @@ impl Display for CellId {
 impl Display for InstanceId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "inst{}", self.0)
-    }
-}
-
-impl Display for PrimitiveDeviceId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "prim{}", self.0)
-    }
-}
-
-/// A primitive device.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PrimitiveDevice {
-    /// The name of this primitive device.
-    pub name: ArcStr,
-    /// The kind (resistor, capacitor, etc.) of this primitive device.
-    pub kind: PrimitiveDeviceKind,
-    /// An set of parameters, represented as key-value pairs.
-    pub params: IndexMap<ArcStr, Expr>,
-}
-
-impl PrimitiveDevice {
-    /// Create a new primitive device with the given parameters.
-    #[inline]
-    pub fn from_params(
-        name: impl Into<ArcStr>,
-        kind: PrimitiveDeviceKind,
-        params: impl Into<IndexMap<ArcStr, Expr>>,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            kind,
-            params: params.into(),
-        }
-    }
-
-    /// Create a new primitive device with no parameters.
-    #[inline]
-    pub fn new(name: impl Into<ArcStr>, kind: PrimitiveDeviceKind) -> Self {
-        Self {
-            name: name.into(),
-            kind,
-            params: Default::default(),
-        }
-    }
-
-    /// The name of this primitive device.
-    #[inline]
-    pub fn name(&self) -> &ArcStr {
-        &self.name
-    }
-}
-
-impl From<PrimitiveDevice> for PrimitiveDeviceKind {
-    fn from(value: PrimitiveDevice) -> Self {
-        value.kind
-    }
-}
-
-/// An enumeration of supported primitive kinds.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PrimitiveDeviceKind {
-    /// An ideal 2-terminal resistor.
-    Res2 {
-        /// The positive terminal.
-        pos: SliceOne,
-        /// The negative terminal.
-        neg: SliceOne,
-        /// The value of the resistance, in ohms.
-        value: Expr,
-    },
-    /// An ideal 2-terminal capacitor.
-    Cap2 {
-        /// The positive terminal.
-        pos: SliceOne,
-        /// The negative terminal.
-        neg: SliceOne,
-        /// The value of the capacitor, in farads.
-        value: Expr,
-    },
-    /// A 3-terminal resistor.
-    ///
-    /// Typically, at least one of `value` or `model`
-    /// should be specified. However, this is not a strict
-    /// requirement, as some PDKs may elect to convey value and/or
-    /// model information in the parameters.
-    Res3 {
-        /// The positive terminal.
-        pos: SliceOne,
-        /// The negative terminal.
-        neg: SliceOne,
-        /// The substrate/body terminal.
-        sub: SliceOne,
-        /// The resistor value, in ohms.
-        value: Option<Expr>,
-        /// The name of the resistor model to use.
-        ///
-        /// The available resistor models are usually specified by a PDK.
-        model: Option<ArcStr>,
-    },
-    /// A raw instance.
-    ///
-    /// This can be an instance of a subcircuit defined outside a SCIR library.
-    RawInstance {
-        /// The ports of the instance, as an ordered list.
-        ports: Vec<SliceOne>,
-        /// The name of the cell being instantiated.
-        cell: ArcStr,
-    },
-}
-
-impl PrimitiveDevice {
-    /// An iterator over the nodes referenced in the device.
-    pub(crate) fn nodes(&self) -> impl IntoIterator<Item = SliceOne> {
-        match &self.kind {
-            PrimitiveDeviceKind::Res2 { pos, neg, .. } => vec![*pos, *neg],
-            PrimitiveDeviceKind::Cap2 { pos, neg, .. } => vec![*pos, *neg],
-            PrimitiveDeviceKind::Res3 { pos, neg, sub, .. } => {
-                vec![*pos, *neg, *sub]
-            }
-            PrimitiveDeviceKind::RawInstance { ports, .. } => ports.clone(),
-        }
     }
 }
 
@@ -478,20 +365,28 @@ pub struct Top {
     pub kind: TopKind,
 }
 
-/// A library of SCIR cells.
+/// A library of SCIR cells with primitive type P.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LibraryBuilder {
-    /// The current ID counter.
+pub struct LibraryBuilder<P> {
+    /// The current cell ID counter.
     ///
     /// Initialized to 0 when the library is created.
     /// Should be incremented before assigning a new ID.
     cell_id: u64,
+    /// The current primitive ID counter.
+    ///
+    /// Initialized to 0 when the library is created.
+    /// Should be incremented before assigning a new ID.
+    primitive_id: u64,
 
     /// The name of the library.
     name: ArcStr,
 
     /// A map of the cells in the library.
     cells: IndexMap<CellId, Cell>,
+
+    /// A map of the primitives in the library.
+    primitives: IndexMap<PrimitiveId, P>,
 
     /// A map of cell name to cell ID.
     ///
@@ -506,10 +401,10 @@ pub struct LibraryBuilder {
 ///
 /// The contents of the library cannot be mutated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Library(LibraryBuilder);
+pub struct Library<P>(LibraryBuilder<P>);
 
-impl Deref for Library {
-    type Target = LibraryBuilder;
+impl<P> Deref for Library<P> {
+    type Target = LibraryBuilder<P>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -651,8 +546,8 @@ pub struct SignalInfo {
 /// An instance of a child cell placed inside a parent cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
-    /// The ID of the child cell.
-    cell: CellId,
+    /// The ID of the child.
+    child: ChildId,
     /// The name of this instance.
     ///
     /// This is not necessarily the name of the child cell.
@@ -668,17 +563,36 @@ pub struct Instance {
     params: IndexMap<ArcStr, Expr>,
 }
 
+pub type ChildId = ChildIdContent<CellId, PrimitiveId>;
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[enumify::enumify]
+pub enum ChildIdContent<C, P> {
+    Cell(C),
+    Primitive(P),
+}
+
+impl From<CellId> for ChildId {
+    fn from(value: CellId) -> Self {
+        Self::Cell(value)
+    }
+}
+
+impl From<PrimitiveId> for ChildId {
+    fn from(value: PrimitiveId) -> Self {
+        Self::Primitive(value)
+    }
+}
+
 /// The (possibly blackboxed) contents of a SCIR cell.
-pub type CellContents = CellContent<BlackboxContents, CellInner>;
+pub type CellContents = CellContent<CellInner, BlackboxContents>;
 
 /// The content of a cell, which may or may not be blackboxed.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[enumify::enumify]
-pub enum CellContent<O, C> {
-    /// A blackboxed cell.
-    Opaque(O),
-    /// A not blackboxed cell.
-    Clear(C),
+pub enum CellContent<C, B> {
+    Cell(C),
+    Blackbox(B),
 }
 
 /// The contents of a blackbox cell.
@@ -733,21 +647,18 @@ pub struct CellInner {
     ///
     /// Initialized to 0 upon cell creation.
     instance_id: u64,
-    /// The last primitive ID assigned.
-    ///
-    /// Initialized to 0 upon cell creation.
-    primitive_id: u64,
     pub(crate) instances: IndexMap<InstanceId, Instance>,
-    pub(crate) primitives: IndexMap<PrimitiveDeviceId, PrimitiveDevice>,
 }
 
-impl LibraryBuilder {
+impl<P> LibraryBuilder<P> {
     /// Creates a new, empty library.
     pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
             cell_id: 0,
+            primitive_id: 0,
             name: name.into(),
             cells: IndexMap::new(),
+            primitives: IndexMap::new(),
             name_map: HashMap::new(),
             top: None,
         }
@@ -757,20 +668,20 @@ impl LibraryBuilder {
     ///
     /// Returns the ID of the newly added cell.
     pub fn add_cell(&mut self, cell: Cell) -> CellId {
-        let id = self.alloc_id();
+        let id = self.alloc_cell_id();
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         id
     }
 
     #[inline]
-    pub(crate) fn alloc_id(&mut self) -> CellId {
+    pub(crate) fn alloc_cell_id(&mut self) -> CellId {
         self.cell_id += 1;
-        self.curr_id()
+        self.curr_cell_id()
     }
 
     #[inline]
-    pub(crate) fn curr_id(&self) -> CellId {
+    pub(crate) fn curr_cell_id(&self) -> CellId {
         CellId(self.cell_id)
     }
 
@@ -805,6 +716,57 @@ impl LibraryBuilder {
         self.cell_id = std::cmp::max(id.0, self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
+    }
+
+    /// Adds the given primitive to the library.
+    ///
+    /// Returns the ID of the newly added primitive.
+    pub fn add_primitive(&mut self, primitive: P) -> PrimitiveId {
+        let id = self.alloc_primitive_id();
+        self.primitives.insert(id, primitive);
+        id
+    }
+
+    #[inline]
+    pub(crate) fn alloc_primitive_id(&mut self) -> PrimitiveId {
+        self.primitive_id += 1;
+        self.curr_primitive_id()
+    }
+
+    #[inline]
+    pub(crate) fn curr_primitive_id(&self) -> PrimitiveId {
+        PrimitiveId(self.primitive_id)
+    }
+
+    /// Adds the given primitive to the library with the given primitive ID.
+    ///
+    /// Returns the ID of the newly added primitive.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is already in use.
+    pub(crate) fn add_primitive_with_id(&mut self, id: impl Into<PrimitiveId>, primitive: P) {
+        let id = id.into();
+        assert!(!self.primitives.contains_key(&id));
+        self.primitive_id = std::cmp::max(id.0, self.primitive_id);
+        self.primitives.insert(id, primitive);
+    }
+
+    /// Adds the given primitive to the library with the given primitive ID,
+    /// overwriting an existing primitive with the same ID.
+    ///
+    /// This can lead to unintended effects.
+    /// This method is intended for use only by Substrate libraries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is **not** already in use.
+    #[doc(hidden)]
+    pub fn overwrite_primitive_with_id(&mut self, id: impl Into<PrimitiveId>, primitive: P) {
+        let id = id.into();
+        assert!(self.primitives.contains_key(&id));
+        self.primitive_id = std::cmp::max(id.0, self.primitive_id);
+        self.primitives.insert(id, primitive);
     }
 
     /// Sets the top cell to the given cell ID.
@@ -913,7 +875,8 @@ impl LibraryBuilder {
             } else {
                 instance_names.push(inst.name().clone());
             }
-            id = inst.cell();
+            todo!()
+            // id = inst.cell();
         }
         (instance_names, id)
     }
@@ -935,15 +898,7 @@ impl LibraryBuilder {
         let (mut instances, cell) =
             self.convert_instance_path_head(conv, path.top, &path.instances);
         if let InstancePathTail::Primitive { id, name_path } = &path.tail {
-            let prim_conv = conv.cells.get(&cell).and_then(|c| c.primitives.get(id));
-            if let Some(name) = prim_conv {
-                instances.push(name.clone());
-            } else {
-                let cell = self.cell(cell);
-                let prim = cell.primitive(*id);
-                instances.push(prim.name().clone());
-            }
-            instances.extend(name_path.iter().cloned());
+            todo!()
         }
         NamedInstancePath(instances)
     }
@@ -965,21 +920,7 @@ impl LibraryBuilder {
             self.convert_instance_path_head(conv, path.top, &path.instances);
         match &path.tail {
             SignalPathTail::Primitive { id, name_path } => {
-                let prim_conv = conv.cells.get(&cell).and_then(|c| c.primitives.get(id));
-                if let Some(name) = prim_conv {
-                    instances.push(name.clone());
-                } else {
-                    let cell = self.cell(cell);
-                    let prim = cell.primitive(*id);
-                    instances.push(prim.name().clone());
-                }
-                instances.extend(name_path.iter().cloned());
-                let signal = instances.pop().unwrap();
-                NamedSignalPath {
-                    instances: NamedInstancePath(instances),
-                    signal,
-                    index: None,
-                }
+                todo!()
             }
             SignalPathTail::Scir { slice, .. } => {
                 let cell = self.cell(cell);
@@ -1012,9 +953,8 @@ impl LibraryBuilder {
         let mut cell = self.cell(path.top);
 
         for inst in path.instances.iter() {
-            let inst = &cell.contents().as_ref().unwrap_clear().instances[inst];
-            cells.push(inst.cell);
-            cell = self.cell(inst.cell);
+            let inst = &cell.contents().as_ref().unwrap_cell().instances[inst];
+            todo!()
         }
 
         assert_eq!(cells.len(), path.instances.len());
@@ -1031,7 +971,7 @@ impl LibraryBuilder {
                 } else {
                     self.cell(cells[i - 1])
                 };
-                let inst = &parent.contents().as_ref().unwrap_clear().instances[&path.instances[i]];
+                let inst = &parent.contents().as_ref().unwrap_cell().instances[&path.instances[i]];
                 let idx = slice.index().unwrap_or_default();
                 *slice = inst.connection(info.name.as_ref()).index(idx);
             }
@@ -1051,7 +991,7 @@ impl LibraryBuilder {
     /// If you want to inspect warnings/infos, consider using
     /// [`try_build`](LibraryBuilder::try_build) instead.
     #[inline]
-    pub fn build(self) -> Result<Library, Issues> {
+    pub fn build(self) -> Result<Library<P>, Issues> {
         self.try_build().map(|ok| ok.0)
     }
 
@@ -1065,7 +1005,7 @@ impl LibraryBuilder {
     ///
     /// If you do not want to inspect warnings/infos, consider using
     /// [`build`](LibraryBuilder::build) instead.
-    pub fn try_build(self) -> Result<(Library, Issues), Issues> {
+    pub fn try_build(self) -> Result<(Library<P>, Issues), Issues> {
         let correctness = self.validate();
         let drivers = self.validate_drivers();
         let issues = Issues {
@@ -1081,8 +1021,8 @@ impl LibraryBuilder {
 }
 
 impl Cell {
-    /// Creates a new whitebox cell with the given name.
-    pub fn new_whitebox(name: impl Into<ArcStr>) -> Self {
+    /// Creates a new cell with the given name.
+    pub fn new(name: impl Into<ArcStr>) -> Self {
         Self {
             signal_id: 0,
             port_idx: 0,
@@ -1090,7 +1030,7 @@ impl Cell {
             ports: Ports::new(),
             signals: HashMap::new(),
             params: IndexMap::new(),
-            contents: CellContents::Clear(Default::default()),
+            contents: CellContents::Cell(Default::default()),
         }
     }
 
@@ -1106,7 +1046,7 @@ impl Cell {
             ports: Ports::new(),
             signals: HashMap::new(),
             params: IndexMap::new(),
-            contents: CellContents::Opaque(Default::default()),
+            contents: CellContents::Blackbox(Default::default()),
         }
     }
 
@@ -1221,23 +1161,8 @@ impl Cell {
     pub fn instance(&self, id: InstanceId) -> &Instance {
         self.contents()
             .as_ref()
-            .unwrap_clear()
+            .unwrap_cell()
             .instances
-            .get(&id)
-            .unwrap()
-    }
-
-    /// Get the primitive associated with the given ID.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no primitive with the given ID exists (including if the cell is a blackbox).
-    #[inline]
-    pub fn primitive(&self, id: PrimitiveDeviceId) -> &PrimitiveDevice {
-        self.contents()
-            .as_ref()
-            .unwrap_clear()
-            .primitives
             .get(&id)
             .unwrap()
     }
@@ -1255,17 +1180,7 @@ impl Cell {
     /// Panics if this cell is a blackbox.
     #[inline]
     pub fn add_instance(&mut self, instance: Instance) -> InstanceId {
-        self.contents.as_mut().unwrap_clear().add_instance(instance)
-    }
-
-    /// Add the given [`PrimitiveDevice`] to the cell.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this cell is a blackbox.
-    #[inline]
-    pub fn add_primitive(&mut self, device: PrimitiveDevice) -> PrimitiveDeviceId {
-        self.contents.as_mut().unwrap_clear().add_primitive(device)
+        self.contents.as_mut().unwrap_cell().add_instance(instance)
     }
 
     /// Add the given [`BlackboxElement`] to the cell.
@@ -1277,7 +1192,7 @@ impl Cell {
     pub fn add_blackbox_elem(&mut self, elem: impl Into<BlackboxElement>) {
         self.contents
             .as_mut()
-            .unwrap_opaque()
+            .unwrap_blackbox()
             .elems
             .push(elem.into());
     }
@@ -1285,9 +1200,9 @@ impl Cell {
 
 impl Instance {
     /// Create an instance of the given cell with the given name.
-    pub fn new(name: impl Into<ArcStr>, cell: CellId) -> Self {
+    pub fn new(name: impl Into<ArcStr>, child: impl Into<ChildId>) -> Self {
         Self {
-            cell,
+            child: child.into(),
             name: name.into(),
             connections: HashMap::new(),
             params: IndexMap::new(),
@@ -1310,8 +1225,8 @@ impl Instance {
     ///
     /// This instance represents an instantiation of the child cell in a parent cell.
     #[inline]
-    pub fn cell(&self) -> CellId {
-        self.cell
+    pub fn child(&self) -> ChildId {
+        self.child
     }
 
     /// The name of this instance.
@@ -1403,21 +1318,6 @@ impl CellInner {
         let id = InstanceId(self.instance_id);
         self.instances.insert(id, instance);
         id
-    }
-
-    /// Add the given [`PrimitiveDevice`] to the cell.
-    #[inline]
-    pub fn add_primitive(&mut self, device: PrimitiveDevice) -> PrimitiveDeviceId {
-        self.primitive_id += 1;
-        let id = PrimitiveDeviceId(self.primitive_id);
-        self.primitives.insert(id, device);
-        id
-    }
-
-    /// Iterate over the primitive devices of this cell.
-    #[inline]
-    pub fn primitives(&self) -> impl Iterator<Item = (PrimitiveDeviceId, &PrimitiveDevice)> {
-        self.primitives.iter().map(|(k, v)| (*k, v))
     }
 
     /// Iterate over the instances of this cell.

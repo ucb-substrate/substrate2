@@ -304,7 +304,7 @@ impl Display for Cause {
     }
 }
 
-impl LibraryBuilder {
+impl<P> LibraryBuilder<P> {
     /// Check whether or not this library is valid.
     pub fn validate(&self) -> IssueSet<ValidatorIssue> {
         let _guard = span!(Level::INFO, "validating SCIR Library").entered();
@@ -372,10 +372,10 @@ impl LibraryBuilder {
         };
 
         // Cannot validate blackbox cells.
-        if cell.contents().is_opaque() {
+        if cell.contents().is_blackbox() {
             return;
         }
-        let contents = cell.contents().as_ref().unwrap_clear();
+        let contents = cell.contents().as_ref().unwrap_cell();
 
         let mut inst_names = HashSet::new();
         for (_id, instance) in contents.instances.iter() {
@@ -441,14 +441,6 @@ impl LibraryBuilder {
             }
         }
 
-        for (_, device) in contents.primitives.iter() {
-            for slice in device.nodes() {
-                if !cell.signals.contains_key(&slice.signal()) {
-                    issues.add(invalid_signal(slice.signal()));
-                }
-            }
-        }
-
         let mut port_signals = HashSet::with_capacity(cell.ports.len());
         for port in cell.ports.iter() {
             if !cell.signals.contains_key(&port.signal) {
@@ -478,18 +470,21 @@ impl LibraryBuilder {
                 .entered();
 
         // Cannot validate blackbox cells.
-        if cell.contents().is_opaque() {
+        if cell.contents().is_blackbox() {
             return;
         }
-        let contents = cell.contents().as_ref().unwrap_clear();
+        let contents = cell.contents().as_ref().unwrap_cell();
 
         for (_id, instance) in contents.instances.iter() {
-            let child = match self.cells.get(&instance.cell) {
+            if instance.child.is_primitive() {
+                continue;
+            }
+            let child = match self.cells.get(&instance.child.unwrap_cell()) {
                 Some(child) => child,
                 None => {
                     let issue = ValidatorIssue::new_and_log(
                         Cause::MissingChildCell {
-                            child_cell_id: instance.cell,
+                            child_cell_id: instance.child.unwrap_cell(),
                             parent_cell_id: id,
                             parent_cell_name: cell.name.clone(),
                             instance_name: instance.name.clone(),
@@ -517,7 +512,7 @@ impl LibraryBuilder {
                                     actual_width: conn.width(),
                                     port: name.clone(),
                                     instance_name: instance.name.clone(),
-                                    child_cell_id: instance.cell,
+                                    child_cell_id: instance.child.unwrap_cell(),
                                     child_cell_name: child.name.clone(),
                                     parent_cell_name: cell.name.clone(),
                                     parent_cell_id: id,
@@ -530,7 +525,7 @@ impl LibraryBuilder {
                     None => {
                         let issue = ValidatorIssue::new_and_log(
                             Cause::UnconnectedPort {
-                                child_cell_id: instance.cell,
+                                child_cell_id: instance.child.unwrap_cell(),
                                 child_cell_name: child.name.clone(),
                                 port: name.clone(),
                                 parent_cell_name: cell.name.clone(),
@@ -549,7 +544,7 @@ impl LibraryBuilder {
                 if !child_ports.contains(conn) {
                     let issue = ValidatorIssue::new_and_log(
                         Cause::ExtraPort {
-                            child_cell_id: instance.cell,
+                            child_cell_id: instance.child.unwrap_cell(),
                             child_cell_name: child.name.clone(),
                             port: conn.clone(),
                             parent_cell_name: cell.name.clone(),
@@ -569,7 +564,7 @@ impl LibraryBuilder {
                 if instance.params.get(name).is_none() && !param.has_default() {
                     let issue = ValidatorIssue::new_and_log(
                         Cause::MissingParam {
-                            child_cell_id: instance.cell,
+                            child_cell_id: instance.child.unwrap_cell(),
                             child_cell_name: child.name.clone(),
                             param: name.clone(),
                             parent_cell_name: cell.name.clone(),
@@ -587,28 +582,12 @@ impl LibraryBuilder {
                 if !child_params.contains(param) {
                     let issue = ValidatorIssue::new_and_log(
                         Cause::ExtraParam {
-                            child_cell_id: instance.cell,
+                            child_cell_id: instance.child.unwrap_cell(),
                             child_cell_name: child.name.clone(),
                             param: param.clone(),
                             parent_cell_name: cell.name.clone(),
                             parent_cell_id: id,
                             instance_name: instance.name.clone(),
-                        },
-                        Severity::Warning,
-                    );
-                    issues.add(issue);
-                }
-            }
-        }
-
-        for (_, device) in contents.primitives.iter() {
-            for slice in device.nodes() {
-                if slice.width() != 1 {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::PrimitiveWidthMismatch {
-                            width: slice.width(),
-                            parent_cell_id: id,
-                            parent_cell_name: cell.name.clone(),
                         },
                         Severity::Warning,
                     );
@@ -626,10 +605,10 @@ mod tests {
 
     #[test]
     fn duplicate_cell_names() {
-        let c1 = Cell::new_whitebox("duplicate_cell_name");
+        let c1 = Cell::new("duplicate_cell_name");
         let mut c2 = Cell::new_blackbox("duplicate_cell_name");
         c2.add_blackbox_elem("* contents of cell");
-        let mut lib = LibraryBuilder::new("duplicate_cell_names");
+        let mut lib = LibraryBuilder::<()>::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);
         let issues = lib.validate();

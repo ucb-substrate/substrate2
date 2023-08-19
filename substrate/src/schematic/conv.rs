@@ -7,18 +7,19 @@ use scir::{
     Cell, CellId as ScirCellId, CellInner, IndexOwned, Instance, InstancePathTail, LibraryBuilder,
     SignalPathTail, TopKind,
 };
+use serde::{Deserialize, Serialize};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
-use crate::schematic::{InstancePath, PrimitiveNode};
+use crate::schematic::InstancePath;
 
 use super::{BlackboxElement, CellId, InstanceId, RawCell, RawCellContent};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
-pub struct RawLib {
+pub struct RawLib<P> {
     /// The SCIR library.
-    pub scir: scir::Library,
+    pub scir: scir::Library<P>,
     /// Associated conversion metadata.
     ///
     /// Can be used to retrieve SCIR objects from their corresponding Substrate IDs.
@@ -69,53 +70,22 @@ impl ScirLibConversionBuilder {
     }
 }
 
-impl RawLib {
+impl<P> RawLib<P> {
     fn convert_instance_path_inner<'a>(
         &self,
         top: CellId,
         instances: impl IntoIterator<Item = &'a InstanceId>,
     ) -> Option<(Vec<scir::InstanceId>, &ScirCellConversion, scir::CellId)> {
-        let mut cell = self.conv.cells.get(&top)?;
-        assert!(cell.top);
-        let mut scir_id = self.conv.top;
-
-        let mut scir_instances = Vec::new();
-        for inst in instances {
-            let conv = cell.instances.get(inst).unwrap();
-            match conv.instance.as_ref() {
-                RawCellContent::Opaque(id) => {
-                    scir_id = self.scir.cell(scir_id).instance(*id).cell();
-                    scir_instances.push(*id);
-                    cell = self.conv.cells.get(&conv.child)?;
-                }
-                RawCellContent::Clear(conv) => {
-                    cell = conv;
-                }
-            }
-        }
-        Some((scir_instances, cell, scir_id))
+        todo!()
     }
     /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SignalPath`].
     pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SignalPath> {
-        let (instances, cell, id) = self.convert_instance_path_inner(path.top, &path.instances)?;
-
-        let slice = *cell.signals.get(&path.node)?;
-
-        Some(scir::SignalPath {
-            tail: SignalPathTail::Scir { cell: id, slice },
-            instances,
-            top: self.conv.top,
-        })
+        todo!()
     }
 
     /// Converts a Substrate [`InstancePath`] to a SCIR [`scir::InstancePath`].
     pub fn convert_instance_path(&self, path: &InstancePath) -> Option<scir::InstancePath> {
-        let (instances, _, scir_id) = self.convert_instance_path_inner(path.top, &path.path)?;
-        Some(scir::InstancePath {
-            top: self.conv.top,
-            instances,
-            tail: InstancePathTail::Scir(scir_id),
-        })
+        todo!()
     }
 
     /// Converts a Substrate [`TerminalPath`] to a list SCIR [`scir::SignalPath`]s that are
@@ -125,48 +95,7 @@ impl RawLib {
     /// return more than one [`scir::SignalPath`], and unconnected terminals will return
     /// `Some(vec![])`.
     pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<scir::SignalPath>> {
-        let mut cell = self.conv.cells.get(&path.top)?;
-        assert!(cell.top);
-
-        let mut instances = Vec::new();
-        let mut last_clear = false;
-        let mut scir_id = self.conv.top;
-        for inst in &path.instances {
-            let conv = cell.instances.get(inst).unwrap();
-            match conv.instance.as_ref() {
-                RawCellContent::Opaque(id) => {
-                    scir_id = self.scir.cell(scir_id).instance(*id).cell();
-                    instances.push(*id);
-                    cell = self.conv.cells.get(&conv.child)?;
-                    last_clear = false;
-                }
-                RawCellContent::Clear(conv) => {
-                    cell = conv;
-                    last_clear = true;
-                }
-            }
-        }
-
-        // If the last cell in the conversion was `Opacity::Clear`, the provided terminal
-        // virtual and thus may correspond to more than one `scir::SignalPath`.
-        //
-        // Run DFS to find all signal paths that are directly connected to this virtual
-        // terminal.
-        let slice = *cell.signals.get(&path.node)?;
-        Some(if last_clear {
-            let mut signals = Vec::new();
-            self.find_connected_terminals(cell, slice, &mut instances, &mut signals);
-            signals
-        } else {
-            vec![scir::SignalPath {
-                tail: SignalPathTail::Scir {
-                    cell: scir_id,
-                    slice,
-                },
-                instances,
-                top: self.conv.top,
-            }]
-        })
+        todo!()
     }
 
     /// Must ensure that `instances` is returned to its original value by the end of the
@@ -182,42 +111,7 @@ impl RawLib {
         // let (signal, index) = slice;
         instances.push(id);
         let inst = parent_cell.instance(id);
-        for (name, conn) in inst.connections() {
-            let mut port_index = 0;
-            for part in conn.parts() {
-                if slice.signal() == part.signal() {
-                    let concat_index = match (slice.index(), part.range()) {
-                        (None, None) => Some(port_index),
-                        (Some(index), Some(range)) => {
-                            if range.contains(index) {
-                                Some(port_index + index - range.start())
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    };
-
-                    if let Some(concat_index) = concat_index {
-                        let child_cell = self.scir.cell(inst.cell());
-                        let port = child_cell.port(name);
-                        let port_slice = child_cell.signal(port.signal()).slice();
-                        let tail = port_slice
-                            .slice_one()
-                            .unwrap_or_else(|| port_slice.index(concat_index));
-                        signals.push(scir::SignalPath {
-                            tail: SignalPathTail::Scir {
-                                cell: inst.cell(),
-                                slice: tail,
-                            },
-                            instances: instances.clone(),
-                            top: self.conv.top,
-                        });
-                    }
-                }
-                port_index += part.width();
-            }
-        }
+        todo!();
         instances.pop().unwrap();
     }
 
@@ -231,54 +125,21 @@ impl RawLib {
         signals: &mut Vec<scir::SignalPath>,
     ) {
         let parent_cell = self.scir.cell(self.conv.id_mapping[&conv.id]);
-        for primitive in &conv.primitives {
-            match primitive {
-                ScirPrimitiveDeviceConversion::Primitive { id, nodes } => {
-                    for node in nodes {
-                        if &slice == conv.signals.get(&node.node).unwrap() {
-                            signals.push(scir::SignalPath {
-                                tail: SignalPathTail::Primitive {
-                                    id: *id,
-                                    name_path: vec![node.port.clone()],
-                                },
-                                instances: instances.clone(),
-                                top: self.conv.top,
-                            })
-                        }
-                    }
-                }
-                ScirPrimitiveDeviceConversion::Instance(id) => {
-                    self.find_connected_terminals_in_scir_instance(
-                        parent_cell,
-                        *id,
-                        slice,
-                        instances,
-                        signals,
-                    );
-                }
-            }
-        }
         for (_, conv) in conv.instances.iter() {
-            match conv.instance.as_ref() {
-                RawCellContent::Opaque(id) => {
-                    self.find_connected_terminals_in_scir_instance(
-                        parent_cell,
-                        *id,
-                        slice,
-                        instances,
-                        signals,
-                    );
-                }
-                RawCellContent::Clear(conv) => {
-                    self.find_connected_terminals(conv, slice, instances, signals);
-                }
-            }
+            todo!();
         }
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[enumify::enumify]
+enum ConvertedScirInstanceContent<U, F> {
+    Cell(U),
+    InlineCell(F),
+}
+
 /// A converted SCIR instance.
-type ConvertedScirInstance = RawCellContent<scir::InstanceId, ScirCellConversion>;
+type ConvertedScirInstance = ConvertedScirInstanceContent<scir::InstanceId, ScirCellConversion>;
 
 /// Data used to map between a Substrate cell and a SCIR cell.
 ///
@@ -293,7 +154,6 @@ pub(crate) struct ScirCellConversion {
     pub(crate) signals: HashMap<Node, scir::SliceOne>,
     /// Map Substrate instance IDs to SCIR instances and their underlying Substrate cell.
     pub(crate) instances: HashMap<InstanceId, ScirInstanceConversion>,
-    pub(crate) primitives: Vec<ScirPrimitiveDeviceConversion>,
 }
 
 impl ScirCellConversion {
@@ -304,7 +164,6 @@ impl ScirCellConversion {
             top: false,
             signals: HashMap::new(),
             instances: HashMap::new(),
-            primitives: Vec::new(),
         }
     }
 }
@@ -326,21 +185,19 @@ pub(crate) enum ScirPrimitiveDeviceConversion {
     Primitive {
         /// The SCIR ID of the translated primitive device.
         id: scir::PrimitiveDeviceId,
-        /// The nodes connected to this SCIR primitive.
-        nodes: Vec<PrimitiveNode>,
     },
     /// A Substrate primitive that translates to a [`scir::Instance`].
     Instance(scir::InstanceId),
 }
 
 #[derive(Debug, Clone)]
-struct ScirExportData {
-    lib: LibraryBuilder,
+struct ScirExportData<P> {
+    lib: LibraryBuilder<P>,
     conv: ScirLibConversionBuilder,
     cell_names: Names<CellId>,
 }
 
-impl ScirExportData {
+impl<P> ScirExportData<P> {
     fn new(name: impl Into<ArcStr>) -> Self {
         Self {
             lib: LibraryBuilder::new(name),
@@ -388,15 +245,15 @@ impl ScirExportContext {
     }
 
     fn whitebox_contents_mut(&mut self) -> &mut CellInner {
-        self.cell.contents_mut().as_mut().unwrap_clear()
+        self.cell.contents_mut().as_mut().unwrap_cell()
     }
 }
 
-impl RawCell {
+impl<P> RawCell<P> {
     /// Export this cell and all subcells as a SCIR library.
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn to_scir_lib(&self, kind: TopKind) -> Result<RawLib, scir::Issues> {
+    pub(crate) fn to_scir_lib(&self, kind: TopKind) -> Result<RawLib<P>, scir::Issues> {
         let mut data = ScirExportData::new(self.name.clone());
         let scir_id = self.to_scir_cell(&mut data);
         data.lib.set_top(scir_id, kind);
@@ -408,14 +265,14 @@ impl RawCell {
         })
     }
 
-    fn to_scir_cell(&self, data: &mut ScirExportData) -> ScirCellId {
+    fn to_scir_cell(&self, data: &mut ScirExportData<P>) -> ScirCellId {
         let name = data.cell_names.assign_name(self.id, &self.name);
 
         // Create the SCIR cell as a whitebox for now.
         // If this Substrate cell is actually a blackbox,
         // the contents of this SCIR cell will be made into a blackbox
         // by calling `cell.set_contents`.
-        let cell = Cell::new_whitebox(name);
+        let cell = Cell::new(name);
 
         let mut ctx = ScirExportContext::new(self.id, cell);
         let conv = self.to_scir_cell_inner(data, &mut ctx, FlatExport::No);
@@ -430,195 +287,11 @@ impl RawCell {
 
     fn to_scir_cell_inner(
         &self,
-        data: &mut ScirExportData,
+        data: &mut ScirExportData<P>,
         ctx: &mut ScirExportContext,
         flatten: FlatExport,
     ) -> ScirCellConversion {
-        if flatten.is_yes() {
-            assert!(
-                self.contents.is_clear(),
-                "cannot flat-export a blackbox cell"
-            );
-        }
-
-        let mut conv = ScirCellConversion::new(ctx.id);
-        let mut nodes = HashMap::new();
-        let mut roots_added = HashSet::new();
-
-        if let FlatExport::Yes(ref ports) = flatten {
-            // Flattened cells need to add all non-IO nodes to the enclosing cell.
-            assert_eq!(ports.len(), self.ports.len());
-            for (port, s) in self.ports.iter().zip(ports) {
-                let root = self.roots[&port.node()];
-                roots_added.insert(root);
-                nodes.insert(root, *s);
-            }
-        }
-
-        for (&src, &root) in self.roots.iter() {
-            let s = if !roots_added.contains(&root) {
-                let s = ctx.cell.add_node(self.node_name(root));
-                roots_added.insert(root);
-                nodes.insert(root, s);
-                s
-            } else {
-                nodes[&root]
-            };
-            nodes.insert(src, s);
-            conv.signals.insert(src, s);
-        }
-
-        match self.contents.as_ref() {
-            RawCellContent::Opaque(contents) => {
-                assert!(flatten.is_no(), "cannot flat-export a blackbox cell");
-                let transformed = contents
-                    .elems
-                    .iter()
-                    .map(|e| match e {
-                        BlackboxElement::RawString(s) => {
-                            scir::BlackboxElement::RawString(s.clone())
-                        }
-                        BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n].into()),
-                    })
-                    .collect();
-                ctx.cell
-                    .set_contents(scir::CellContent::Opaque(transformed));
-            }
-            RawCellContent::Clear(contents) => {
-                let contents_mut = ctx.cell.contents_mut().as_mut();
-                let clear = contents_mut.is_clear();
-                assert!(clear, "cannot flatten a cell into a blackbox parent cell");
-                for instance in contents.instances.iter() {
-                    if instance.child.flatten {
-                        let ports = instance.connections.iter().map(|c| nodes[c]).collect();
-                        let inst_conv =
-                            instance
-                                .child
-                                .to_scir_cell_inner(data, ctx, FlatExport::Yes(ports));
-                        conv.instances.insert(
-                            instance.id,
-                            ScirInstanceConversion {
-                                child: instance.child.id,
-                                instance: RawCellContent::Clear(inst_conv),
-                            },
-                        );
-                    } else {
-                        if !data.conv.id_mapping.contains_key(&instance.child.id) {
-                            instance.child.to_scir_cell(data);
-                        }
-                        let child: ScirCellId =
-                            *data.conv.id_mapping.get(&instance.child.id).unwrap();
-
-                        let mut sinst =
-                            Instance::new(arcstr::format!("inst{}", ctx.inst_idx), child);
-                        ctx.inst_idx += 1;
-                        assert_eq!(instance.child.ports.len(), instance.connections.len());
-                        for (port, &conn) in instance.child.ports.iter().zip(&instance.connections)
-                        {
-                            let scir_port_name = instance.child.node_name(port.node());
-                            sinst.connect(scir_port_name, nodes[&conn]);
-                        }
-                        let id = ctx.whitebox_contents_mut().add_instance(sinst);
-                        conv.instances.insert(
-                            instance.id,
-                            ScirInstanceConversion {
-                                child: instance.child.id,
-                                instance: RawCellContent::Opaque(id),
-                            },
-                        );
-                    }
-                }
-                for p in contents.primitives.iter() {
-                    let i = ctx.prim_idx;
-                    ctx.prim_idx += 1;
-                    match &p.kind {
-                        super::PrimitiveDeviceKind::Res2 { pos, neg, value } => {
-                            let id = ctx.whitebox_contents_mut().add_primitive(
-                                scir::PrimitiveDevice::from_params(
-                                    arcstr::format!("res{i}"),
-                                    scir::PrimitiveDeviceKind::Res2 {
-                                        pos: nodes[&pos.node],
-                                        neg: nodes[&neg.node],
-                                        value: scir::Expr::NumericLiteral(*value),
-                                    },
-                                    p.params.clone(),
-                                ),
-                            );
-                            conv.primitives
-                                .push(ScirPrimitiveDeviceConversion::Primitive {
-                                    id,
-                                    nodes: vec![pos.clone(), neg.clone()],
-                                });
-                        }
-                        super::PrimitiveDeviceKind::Cap2 { pos, neg, value } => {
-                            let id = ctx.whitebox_contents_mut().add_primitive(
-                                scir::PrimitiveDevice::from_params(
-                                    arcstr::format!("cap{i}"),
-                                    scir::PrimitiveDeviceKind::Cap2 {
-                                        pos: nodes[&pos.node],
-                                        neg: nodes[&neg.node],
-                                        value: scir::Expr::NumericLiteral(*value),
-                                    },
-                                    p.params.clone(),
-                                ),
-                            );
-                            conv.primitives
-                                .push(ScirPrimitiveDeviceConversion::Primitive {
-                                    id,
-                                    nodes: vec![pos.clone(), neg.clone()],
-                                });
-                        }
-                        super::PrimitiveDeviceKind::RawInstance { ports, cell } => {
-                            let id = ctx.whitebox_contents_mut().add_primitive(
-                                scir::PrimitiveDevice::from_params(
-                                    arcstr::format!("rawinst{i}"),
-                                    scir::PrimitiveDeviceKind::RawInstance {
-                                        ports: ports.iter().map(|p| nodes[&p.node]).collect(),
-                                        cell: cell.clone(),
-                                    },
-                                    p.params.clone(),
-                                ),
-                            );
-                            conv.primitives
-                                .push(ScirPrimitiveDeviceConversion::Primitive {
-                                    id,
-                                    nodes: ports.clone(),
-                                });
-                        }
-                        super::PrimitiveDeviceKind::ScirInstance {
-                            lib,
-                            cell,
-                            connections,
-                        } => {
-                            let mapping = data.lib.merge(lib);
-                            let cell = mapping.new_cell_id(*cell);
-                            let mut inst =
-                                scir::Instance::new(arcstr::format!("scirinst{i}"), cell);
-
-                            for (port, elems) in connections {
-                                let concat: scir::Concat = elems.iter().map(|n| nodes[n]).collect();
-                                inst.connect(port, concat);
-                            }
-
-                            for (key, value) in p.params.iter() {
-                                inst.set_param(key, value.clone());
-                            }
-                            let id = ctx.whitebox_contents_mut().add_instance(inst);
-                            conv.primitives
-                                .push(ScirPrimitiveDeviceConversion::Instance(id));
-                        }
-                    };
-                }
-            }
-        }
-
-        if flatten.is_no() {
-            for port in self.ports.iter() {
-                ctx.cell.expose_port(nodes[&port.node()], port.direction());
-            }
-        }
-
-        conv
+        todo!()
     }
 
     /// The name associated with the given node.

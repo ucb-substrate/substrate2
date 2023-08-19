@@ -1,8 +1,7 @@
 //! Utilities for writing netlisters for SCIR libraries.
 
 use crate::{
-    BinOp, BlackboxElement, Cell, CellContent, CellId, Expr, InstanceId, Library,
-    PrimitiveDeviceId, PrimitiveDeviceKind, SignalInfo, Slice,
+    BinOp, BlackboxElement, Cell, CellContent, CellId, Expr, InstanceId, Library, SignalInfo, Slice,
 };
 use arcstr::ArcStr;
 use indexmap::IndexMap;
@@ -60,8 +59,6 @@ impl NetlistLibConversion {
 pub struct NetlistCellConversion {
     /// The netlisted names of SCIR instances.
     pub instances: HashMap<InstanceId, ArcStr>,
-    /// The netlisted names of SCIR primitives.
-    pub primitives: HashMap<PrimitiveDeviceId, ArcStr>,
 }
 
 impl NetlistCellConversion {
@@ -128,9 +125,15 @@ pub enum NetlistPrimitiveDeviceKind<'a> {
 /// Appropriate newlines will be added after each function call, so newlines added by
 /// implementors may cause formatting issues.
 pub trait SpiceLikeNetlister {
+    type Primitive;
+
     /// Writes a prelude to the beginning of the output stream.
     #[allow(unused_variables)]
-    fn write_prelude<W: Write>(&mut self, out: &mut W, lib: &Library) -> Result<()> {
+    fn write_prelude<W: Write>(
+        &mut self,
+        out: &mut W,
+        lib: &Library<Self::Primitive>,
+    ) -> Result<()> {
         Ok(())
     }
     /// Writes an include statement.
@@ -214,7 +217,11 @@ pub trait SpiceLikeNetlister {
     }
     /// Writes a postlude to the end of the output stream.
     #[allow(unused_variables)]
-    fn write_postlude<W: Write>(&mut self, out: &mut W, lib: &Library) -> Result<()> {
+    fn write_postlude<W: Write>(
+        &mut self,
+        out: &mut W,
+        lib: &Library<Self::Primitive>,
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -239,20 +246,20 @@ pub enum NetlistKind {
 }
 
 /// An instance of a netlister.
-pub struct NetlisterInstance<'a, N, W> {
+pub struct NetlisterInstance<'a, N, P, W> {
     netlister: N,
     kind: NetlistKind,
-    lib: &'a Library,
+    lib: &'a Library<P>,
     includes: &'a [Include],
     out: &'a mut W,
 }
 
-impl<'a, N, W> NetlisterInstance<'a, N, W> {
+impl<'a, N, P, W> NetlisterInstance<'a, N, P, W> {
     /// Creates a new [`NetlisterInstance`].
     pub fn new(
         netlister: N,
         kind: NetlistKind,
-        lib: &'a Library,
+        lib: &'a Library<P>,
         includes: &'a [Include],
         out: &'a mut W,
     ) -> Self {
@@ -266,7 +273,7 @@ impl<'a, N, W> NetlisterInstance<'a, N, W> {
     }
 }
 
-impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
+impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive, W> {
     /// Exports a SCIR library to the output stream using a [`SpiceLikeNetlister`].
     pub fn export(mut self) -> Result<NetlistLibConversion> {
         let lib = self.export_library()?;
@@ -320,7 +327,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
 
         let mut conv = NetlistCellConversion::new();
         match cell.contents() {
-            CellContent::Opaque(contents) => {
+            CellContent::Blackbox(contents) => {
                 for (i, elem) in contents.elems.iter().enumerate() {
                     match elem {
                         BlackboxElement::RawString(s) => {
@@ -335,9 +342,9 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                 }
                 writeln!(self.out)?;
             }
-            CellContent::Clear(contents) => {
+            CellContent::Cell(contents) => {
                 for (id, inst) in contents.instances() {
-                    let child = self.lib.cell(inst.cell());
+                    let child = self.lib.cell(inst.child().unwrap_cell());
                     write!(self.out, "{}", indent)?;
                     let ports = child
                         .ports()
@@ -359,55 +366,9 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, W> {
                     conv.instances.insert(id, name);
                     writeln!(self.out)?;
                 }
-
-                for (id, device) in contents.primitives() {
-                    write!(self.out, "{}", indent)?;
-                    let netlist_kind = match &device.kind {
-                        PrimitiveDeviceKind::Res2 { pos, neg, value } => {
-                            NetlistPrimitiveDeviceKind::Res2 {
-                                pos: self.make_slice(cell, pos.into(), &ground)?,
-                                neg: self.make_slice(cell, neg.into(), &ground)?,
-                                value,
-                            }
-                        }
-                        PrimitiveDeviceKind::Cap2 { pos, neg, value } => {
-                            NetlistPrimitiveDeviceKind::Cap2 {
-                                pos: self.make_slice(cell, pos.into(), &ground)?,
-                                neg: self.make_slice(cell, neg.into(), &ground)?,
-                                value,
-                            }
-                        }
-                        PrimitiveDeviceKind::Res3 {
-                            pos,
-                            neg,
-                            sub,
-                            value,
-                            model,
-                        } => NetlistPrimitiveDeviceKind::Res3 {
-                            pos: self.make_slice(cell, pos.into(), &ground)?,
-                            neg: self.make_slice(cell, neg.into(), &ground)?,
-                            sub: self.make_slice(cell, sub.into(), &ground)?,
-                            value: value.as_ref(),
-                            model: model.clone(),
-                        },
-                        PrimitiveDeviceKind::RawInstance { ports, cell: child } => {
-                            NetlistPrimitiveDeviceKind::RawInstance {
-                                ports: ports
-                                    .iter()
-                                    .copied()
-                                    .map(|slice| self.make_slice(cell, slice.into(), &ground))
-                                    .collect::<Result<_>>()?,
-                                cell: child.clone(),
-                            }
-                        }
-                    };
-                    let name =
-                        self.netlister
-                            .write_primitive(self.out, &device.name, netlist_kind)?;
-                    conv.primitives.insert(id, name);
-                    self.netlister.write_params(self.out, &device.params)?;
-                    writeln!(self.out)?;
-                }
+            }
+            _ => {
+                todo!()
             }
         };
 

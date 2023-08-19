@@ -30,9 +30,6 @@ where
     }
 }
 
-/// Blocks with no ports can declare their `Io` as `()`.
-impl Io for () {}
-
 impl FlatLen for () {
     fn len(&self) -> usize {
         0
@@ -812,8 +809,6 @@ impl<T: LayoutType> LayoutType for Array<T> {
         }
     }
 }
-
-impl<T: Io> Io for Array<T> {}
 
 impl<T: LayoutType, U: LayoutType + CustomLayoutType<T>> CustomLayoutType<Array<T>> for Array<U> {
     fn from_layout_type(other: &Array<T>) -> Self {

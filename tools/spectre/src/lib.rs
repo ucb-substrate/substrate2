@@ -18,10 +18,13 @@ use indexmap::{IndexMap, IndexSet};
 use netlist::Netlister;
 use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
-use scir::Library;
+use scir::{Expr, Library};
 use serde::{Deserialize, Serialize};
+use substrate::block::Block;
 use substrate::execute::Executor;
-use substrate::io::{NestedNode, NodePath};
+use substrate::io::{NestedNode, NodePath, SchematicType};
+use substrate::schematic::primitives::RawInstance;
+use substrate::schematic::Schema;
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -31,6 +34,16 @@ pub mod error;
 pub mod netlist;
 pub(crate) mod templates;
 pub mod tran;
+
+/// Spectre primitives.
+#[derive(Debug, Clone)]
+pub enum SpectrePrimitive {
+    RawInstance {
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        params: IndexMap<ArcStr, Expr>,
+    },
+}
 
 /// Spectre error presets.
 #[derive(
@@ -79,7 +92,11 @@ impl SimSignal {
         Self::from(path)
     }
 
-    pub(crate) fn to_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_string(
+        &self,
+        lib: &Library<SpectrePrimitive>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             SimSignal::Raw(raw) => raw.clone(),
             SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
@@ -142,44 +159,59 @@ impl Options {
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
-impl<K> SetInitialCondition<K, Decimal> for Options {
-    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext) {
+impl<K> SetInitialCondition<K, Decimal, Spectre> for Options {
+    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext<Spectre>) {
         self.set_ic_inner(key, value);
     }
 }
 
-impl SetInitialCondition<&scir::SignalPath, Decimal> for Options {
+impl SetInitialCondition<&scir::SignalPath, Decimal, Spectre> for Options {
     fn set_initial_condition(
         &mut self,
         key: &scir::SignalPath,
         value: Decimal,
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
     ) {
         self.set_ic_inner(SimSignal::ScirVoltage(key.clone()), value);
     }
 }
 
-impl SetInitialCondition<&NodePath, Decimal> for Options {
-    fn set_initial_condition(&mut self, key: &NodePath, value: Decimal, ctx: &SimulationContext) {
+impl SetInitialCondition<&NodePath, Decimal, Spectre> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: &NodePath,
+        value: Decimal,
+        ctx: &SimulationContext<Spectre>,
+    ) {
         self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
     }
 }
 
-impl SetInitialCondition<&NestedNode, Decimal> for Options {
-    fn set_initial_condition(&mut self, key: &NestedNode, value: Decimal, ctx: &SimulationContext) {
+impl SetInitialCondition<&NestedNode, Decimal, Spectre> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: &NestedNode,
+        value: Decimal,
+        ctx: &SimulationContext<Spectre>,
+    ) {
         self.set_initial_condition(key.path(), value, ctx);
     }
 }
 
-impl SetInitialCondition<NestedNode, Decimal> for Options {
-    fn set_initial_condition(&mut self, key: NestedNode, value: Decimal, ctx: &SimulationContext) {
+impl SetInitialCondition<NestedNode, Decimal, Spectre> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: NestedNode,
+        value: Decimal,
+        ctx: &SimulationContext<Spectre>,
+    ) {
         self.set_initial_condition(key.path(), value, ctx);
     }
 }
 
 #[impl_dispatch({scir::SignalPath; NodePath})]
-impl<T> SetInitialCondition<T, Decimal> for Options {
-    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext) {
+impl<T> SetInitialCondition<T, Decimal, Spectre> for Options {
+    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext<Spectre>) {
         self.set_initial_condition(&key, value, ctx);
     }
 }
@@ -281,7 +313,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
 impl Spectre {
     fn simulate(
         &self,
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Self>,
         options: Options,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
@@ -378,7 +410,23 @@ impl Spectre {
     }
 }
 
+impl Schema for Spectre {
+    type Primitive = SpectrePrimitive;
+
+    fn raw_instance(
+        inst: &RawInstance,
+        io: &<<RawInstance as Block>::Io as SchematicType>::Bundle,
+    ) -> Self::Primitive {
+        SpectrePrimitive::RawInstance {
+            cell: inst.cell.clone(),
+            ports: inst.ports.clone(),
+            params: inst.params.clone(),
+        }
+    }
+}
+
 impl Simulator for Spectre {
+    type Schema = Spectre;
     type Input = Input;
     type Options = Options;
     type Output = Output;
@@ -386,7 +434,7 @@ impl Simulator for Spectre {
 
     fn simulate_inputs(
         &self,
-        config: &substrate::simulation::SimulationContext,
+        config: &substrate::simulation::SimulationContext<Self>,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {
@@ -396,7 +444,7 @@ impl Simulator for Spectre {
 
 #[allow(dead_code)]
 pub(crate) fn instance_path(
-    lib: &Library,
+    lib: &Library<SpectrePrimitive>,
     conv: &NetlistLibConversion,
     path: &scir::InstancePath,
 ) -> String {
@@ -404,7 +452,7 @@ pub(crate) fn instance_path(
 }
 
 pub(crate) fn node_voltage_path(
-    lib: &Library,
+    lib: &Library<SpectrePrimitive>,
     conv: &NetlistLibConversion,
     path: &scir::SignalPath,
 ) -> String {
@@ -422,7 +470,7 @@ pub(crate) fn node_voltage_path(
 }
 
 pub(crate) fn node_current_path(
-    lib: &Library,
+    lib: &Library<SpectrePrimitive>,
     conv: &NetlistLibConversion,
     path: &scir::SignalPath,
 ) -> String {

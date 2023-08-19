@@ -36,6 +36,7 @@ mod impls;
 pub trait Io: Directed + SchematicType + LayoutType {
     // TODO
 }
+impl<T: Directed + SchematicType + LayoutType> Io for T {}
 
 /// Indicates that a hardware type specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}

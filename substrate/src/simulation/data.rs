@@ -43,14 +43,17 @@ pub trait FromSaved<S: Simulator, A: Analysis> {
 pub trait Save<S: Simulator, A: Analysis + SupportedBy<S>, T>: FromSaved<S, A> {
     /// Marks the given output for saving, returning a key that can be used to recover
     /// the output once the simulation is complete.
-    fn save(ctx: &SimulationContext, to_save: T, opts: &mut <S as Simulator>::Options)
-        -> Self::Key;
+    fn save(
+        ctx: &SimulationContext<S>,
+        to_save: T,
+        opts: &mut <S as Simulator>::Options,
+    ) -> Self::Key;
 }
 
 #[impl_dispatch({NestedNode; &NestedNode})]
 impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, NodePath>> Save<S, A, N> for T {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<S>,
         to_save: N,
         opts: &mut <S as Simulator>::Options,
     ) -> Self::Key {
@@ -63,7 +66,7 @@ impl<N1, N2, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, N
     for T
 {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<S>,
         to_save: N2,
         opts: &mut <S as Simulator>::Options,
     ) -> Self::Key {
@@ -76,7 +79,7 @@ impl<N1, N2, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, N
     for T
 {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<S>,
         to_save: N2,
         opts: &mut <S as Simulator>::Options,
     ) -> Self::Key {

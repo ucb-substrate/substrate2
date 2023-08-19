@@ -67,7 +67,8 @@ macro_rules! define_mos {
 
         impl Block for $typ {
             type Io = MosIo;
-            const FLATTEN: bool = true;
+            type Kind = substrate::block::PdkPrimitive;
+
             fn id() -> substrate::arcstr::ArcStr {
                 arcstr::literal!(stringify!($name))
             }
@@ -79,48 +80,12 @@ macro_rules! define_mos {
             }
         }
 
-        impl substrate::schematic::ExportsSchematicData for $typ {
-            type Data = ();
-        }
-
-        impl<PDK: crate::Sky130Pdk> substrate::schematic::Schematic<PDK> for $typ {
-            fn schematic(
-                &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-                cell: &mut substrate::schematic::CellBuilder<PDK, Self>,
-            ) -> substrate::error::Result<Self::Data> {
-                // Convert from DB units to microns.
-                let w = Decimal::new(self.params.w, 3);
-                let l = Decimal::new(self.params.l, 3);
-                cell.add_primitive(substrate::schematic::PrimitiveDevice::from_params(
-                    substrate::schematic::PrimitiveDeviceKind::RawInstance {
-                        ports: vec![
-                            substrate::schematic::PrimitiveNode::new("d", io.d),
-                            substrate::schematic::PrimitiveNode::new("g", io.g),
-                            substrate::schematic::PrimitiveNode::new("s", io.s),
-                            substrate::schematic::PrimitiveNode::new("b", io.b),
-                        ],
-                        cell: match PDK::FLAVOR {
-                            crate::Sky130PdkFlavor::Open => arcstr::literal!(stringify!($opensubckt)),
-                            crate::Sky130PdkFlavor::Commercial => arcstr::literal!(stringify!($comsubckt)),
-                        },
-                    },
-                    indexmap::IndexMap::from_iter([
-                        (
-                            arcstr::literal!("w"),
-                            substrate::scir::Expr::NumericLiteral(w),
-                        ),
-                        (
-                            arcstr::literal!("l"),
-                            substrate::scir::Expr::NumericLiteral(l),
-                        ),
-                        (
-                            arcstr::literal!("nf"),
-                            substrate::scir::Expr::NumericLiteral(self.params.nf.into()),
-                        ),
-                    ]),
-                ));
-                Ok(())
+        impl substrate::pdk::HasPdkPrimitive<$typ> for crate::Sky130OpenPdk {
+            fn primitive(
+                block: &$typ,
+                io: &<<$typ as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
+            ) -> Self::Primitive {
+                crate::Sky130Primitive::Mos(block.params.clone())
             }
         }
     };

@@ -6,6 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::Primitive;
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use thiserror::Error;
@@ -41,7 +42,7 @@ pub enum ConvError {
 /// Top-level component instantiations are ignored.
 pub struct ScirConverter<'a> {
     ast: &'a Ast,
-    lib: scir::LibraryBuilder,
+    lib: scir::LibraryBuilder<Primitive>,
     blackbox_cells: HashSet<Substr>,
     subckts: HashMap<SubcktName, &'a Subckt>,
     ids: HashMap<SubcktName, scir::CellId>,
@@ -65,7 +66,7 @@ impl<'a> ScirConverter<'a> {
     }
 
     /// Consumes the converter, yielding a SCIR [library](scir::Library)].
-    pub fn convert(mut self) -> ConvResult<scir::Library> {
+    pub fn convert(mut self) -> ConvResult<scir::Library<Primitive>> {
         self.map_subckts();
         let subckts = self.subckts.values().copied().collect::<Vec<_>>();
         for subckt in subckts {
@@ -105,7 +106,7 @@ impl<'a> ScirConverter<'a> {
             return Err(ConvError::ExportBlackbox);
         }
 
-        let mut cell = scir::Cell::new_whitebox(ArcStr::from(subckt.name.as_str()));
+        let mut cell = scir::Cell::new(ArcStr::from(subckt.name.as_str()));
         let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
             if let Some(&node) = nodes.get(name) {
@@ -120,29 +121,37 @@ impl<'a> ScirConverter<'a> {
             match component {
                 Component::Mos(_mos) => todo!(),
                 Component::Res(res) => {
-                    let prim = scir::PrimitiveDeviceKind::Res2 {
-                        pos: node(&res.pos, &mut cell),
-                        neg: node(&res.neg, &mut cell),
+                    let id = self.lib.add_primitive(Primitive::Res2 {
                         value: str_as_numeric_lit(&res.value)?,
-                    };
-                    cell.add_primitive(scir::PrimitiveDevice::new(&**res.name, prim));
+                    });
+                    let mut sinst = scir::Instance::new(&**res.name, id);
+                    sinst.connect("1", node(&res.pos, &mut cell));
+                    sinst.connect("2", node(&res.neg, &mut cell));
+                    cell.add_instance(sinst);
                 }
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if blackbox {
-                        let ports = inst.ports.iter().map(|s| node(s, &mut cell)).collect();
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params
                             .iter()
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
                             .collect::<ConvResult<IndexMap<_, _>>>()?;
-                        let kind = scir::PrimitiveDeviceKind::RawInstance { ports, cell: child };
-                        cell.add_primitive(scir::PrimitiveDevice::from_params(
-                            &**inst.name,
-                            kind,
-                            params,
-                        ));
+                        let ports: Vec<_> = (0..inst.ports.len())
+                            .into_iter()
+                            .map(|i| arcstr::format!("{}", i + 1))
+                            .collect();
+                        let id = self.lib.add_primitive(Primitive::RawInstance {
+                            cell: child,
+                            ports: ports.clone(),
+                            params: IndexMap::new(),
+                        });
+                        let mut sinst = scir::Instance::new(&**inst.name, id);
+                        for (cport, iport) in ports.iter().zip(inst.ports.iter()) {
+                            sinst.connect(cport, node(iport, &mut cell));
+                        }
+                        cell.add_instance(sinst);
                     } else {
                         let subckt = self
                             .subckts

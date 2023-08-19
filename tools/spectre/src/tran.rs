@@ -1,6 +1,6 @@
 //! Spectre transient analysis options and data structures.
 
-use crate::{node_voltage_path, ErrPreset, SimSignal, Spectre};
+use crate::{node_voltage_path, ErrPreset, SimSignal, Spectre, SpectrePrimitive};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
+use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::{Cell, ExportsSchematicData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
@@ -32,7 +33,7 @@ pub struct Tran {
 /// The result of a transient analysis.
 #[derive(Debug, Clone)]
 pub struct TranOutput {
-    pub(crate) lib: Arc<RawLib>,
+    pub(crate) lib: Arc<RawLib<SpectrePrimitive>>,
     pub(crate) conv: Arc<NetlistLibConversion>,
     /// The time points of the transient simulation.
     pub time: Arc<Vec<f64>>,
@@ -49,10 +50,12 @@ impl FromSaved<Spectre, Tran> for TranOutput {
     }
 }
 
-impl<T: ExportsSchematicData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
+impl<PDK: Pdk, T: ExportsSchematicData<PDK, Spectre>> Save<Spectre, Tran, &Cell<PDK, Spectre, T>>
+    for TranOutput
+{
     fn save(
-        _ctx: &SimulationContext,
-        _to_save: &Cell<T>,
+        _ctx: &SimulationContext<Spectre>,
+        _to_save: &Cell<PDK, Spectre, T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -60,7 +63,7 @@ impl<T: ExportsSchematicData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
 
 impl Save<Spectre, Tran, ()> for TranOutput {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
         _to_save: (),
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -85,10 +88,12 @@ impl FromSaved<Spectre, Tran> for TranTime {
     }
 }
 
-impl<T: ExportsSchematicData> Save<Spectre, Tran, &Cell<T>> for TranTime {
+impl<PDK: Pdk, T: ExportsSchematicData<PDK, Spectre>> Save<Spectre, Tran, &Cell<PDK, Spectre, T>>
+    for TranTime
+{
     fn save(
-        _ctx: &SimulationContext,
-        _to_save: &Cell<T>,
+        _ctx: &SimulationContext<Spectre>,
+        _to_save: &Cell<PDK, Spectre, T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -96,7 +101,7 @@ impl<T: ExportsSchematicData> Save<Spectre, Tran, &Cell<T>> for TranTime {
 
 impl Save<Spectre, Tran, ()> for TranTime {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
         _to_save: (),
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -134,7 +139,7 @@ impl FromSaved<Spectre, Tran> for TranVoltage {
 #[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -144,7 +149,7 @@ impl<T> Save<Spectre, Tran, T> for TranVoltage {
 
 impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -154,7 +159,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
 
 impl Save<Spectre, Tran, &NodePath> for TranVoltage {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Spectre>,
         to_save: &NodePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -165,7 +170,7 @@ impl Save<Spectre, Tran, &NodePath> for TranVoltage {
 #[impl_dispatch({scir::SignalPath; NodePath})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -216,7 +221,7 @@ impl FromSaved<Spectre, Tran> for TranCurrent {
 #[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -226,7 +231,7 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
 
 impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Spectre>,
         to_save: &scir::SignalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -236,7 +241,7 @@ impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
 
 impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Spectre>,
         to_save: &TerminalPath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
@@ -254,7 +259,7 @@ impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
 #[impl_dispatch({scir::SignalPath; TerminalPath})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {

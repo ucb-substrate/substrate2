@@ -8,24 +8,37 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::blocks::Vsource;
 use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
+use indexmap::IndexMap;
 use nutlex::parser::Data;
 use scir::netlist::{Include, NetlistLibConversion};
-use scir::{Library, SignalPathTail};
+use scir::{Expr, Library, SignalPathTail};
 use serde::{Deserialize, Serialize};
+use substrate::block::Block;
 use substrate::execute::Executor;
+use substrate::io::SchematicType;
+use substrate::schematic::primitives::RawInstance;
+use substrate::schematic::Schema;
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::spice::Netlister;
+use substrate::spice::{Netlister, Primitive};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
 pub mod tran;
+
+/// ngspice primitives.
+#[derive(Debug, Clone)]
+pub enum NgspicePrimitive {
+    Spice(Primitive),
+    Vsource(Vsource),
+}
 
 /// Contents of a ngspice save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -50,7 +63,11 @@ impl SaveStmt {
         Self::from(path)
     }
 
-    pub(crate) fn to_save_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_save_string(
+        &self,
+        lib: &Library<NgspicePrimitive>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             SaveStmt::Raw(raw) => raw.clone(),
             SaveStmt::ScirVoltage(scir) => arcstr::format!(
@@ -63,7 +80,11 @@ impl SaveStmt {
         }
     }
 
-    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_data_string(
+        &self,
+        lib: &Library<NgspicePrimitive>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             SaveStmt::Raw(raw) => raw.clone(),
             SaveStmt::ScirVoltage(_) => self.to_save_string(lib, conv),
@@ -95,7 +116,11 @@ impl ProbeStmt {
         Self::from(path)
     }
 
-    pub(crate) fn to_probe_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_probe_string(
+        &self,
+        lib: &Library<NgspicePrimitive>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             ProbeStmt::Raw(raw) => raw.clone(),
             ProbeStmt::ScirCurrent(scir) => {
@@ -104,7 +129,11 @@ impl ProbeStmt {
         }
     }
 
-    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_data_string(
+        &self,
+        lib: &Library<NgspicePrimitive>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             ProbeStmt::Raw(raw) => raw.clone(),
             ProbeStmt::ScirCurrent(scir) => {
@@ -127,7 +156,7 @@ impl SavedData {
     pub(crate) fn netlist<W: Write>(
         &self,
         out: &mut W,
-        lib: &Library,
+        lib: &Library<NgspicePrimitive>,
         conv: &NetlistLibConversion,
     ) -> std::io::Result<()> {
         match self {
@@ -136,7 +165,11 @@ impl SavedData {
         }
     }
 
-    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_data_string(
+        &self,
+        lib: &Library<NgspicePrimitive>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             Self::Save(save) => save.to_data_string(lib, conv),
             Self::Probe(probe) => probe.to_data_string(lib, conv),
@@ -297,7 +330,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
 impl Ngspice {
     fn simulate(
         &self,
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Ngspice>,
         options: Options,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
@@ -314,7 +347,7 @@ impl Ngspice {
         includes.sort();
         saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
+        let netlister = Netlister::new(todo!(), todo!(), &mut w);
         let conv = netlister.export()?;
 
         writeln!(w)?;
@@ -388,7 +421,22 @@ impl Ngspice {
     }
 }
 
+impl Schema for Ngspice {
+    type Primitive = NgspicePrimitive;
+    fn raw_instance(
+        inst: &RawInstance,
+        io: &<<RawInstance as Block>::Io as SchematicType>::Bundle,
+    ) -> Self::Primitive {
+        NgspicePrimitive::Spice(Primitive::RawInstance {
+            cell: inst.cell.clone(),
+            ports: inst.ports.clone(),
+            params: inst.params.clone(),
+        })
+    }
+}
+
 impl Simulator for Ngspice {
+    type Schema = Ngspice;
     type Input = Input;
     type Options = Options;
     type Output = Output;
@@ -396,7 +444,7 @@ impl Simulator for Ngspice {
 
     fn simulate_inputs(
         &self,
-        config: &substrate::simulation::SimulationContext,
+        config: &substrate::simulation::SimulationContext<Self>,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {
@@ -405,7 +453,7 @@ impl Simulator for Ngspice {
 }
 
 pub(crate) fn instance_path(
-    lib: &Library,
+    lib: &Library<NgspicePrimitive>,
     conv: &NetlistLibConversion,
     path: &scir::InstancePath,
 ) -> String {
@@ -413,7 +461,7 @@ pub(crate) fn instance_path(
 }
 
 pub(crate) fn node_voltage_path(
-    lib: &Library,
+    lib: &Library<NgspicePrimitive>,
     conv: &NetlistLibConversion,
     path: &scir::SignalPath,
 ) -> String {
@@ -431,7 +479,7 @@ pub(crate) fn node_voltage_path(
 }
 
 pub(crate) fn node_current_path(
-    lib: &Library,
+    lib: &Library<NgspicePrimitive>,
     conv: &NetlistLibConversion,
     path: &scir::SignalPath,
     save: bool,

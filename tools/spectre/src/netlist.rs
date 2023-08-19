@@ -1,6 +1,7 @@
 //! Spectre netlist exporter.
 #![warn(missing_docs)]
 
+use crate::SpectrePrimitive;
 use arcstr::ArcStr;
 use scir::netlist::{
     Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
@@ -16,12 +17,17 @@ type Result<T> = std::result::Result<T, std::io::Error>;
 ///
 /// The netlister can write to any type that implements [`Write`].
 /// Since the netlister may issue many small write calls,
-pub struct Netlister<'a, W>(NetlisterInstance<'a, NetlisterImpl, W>);
+pub struct Netlister<'a, W>(NetlisterInstance<'a, NetlisterImpl, SpectrePrimitive, W>);
 
 struct NetlisterImpl;
 
 impl SpiceLikeNetlister for NetlisterImpl {
-    fn write_prelude<W: Write>(&mut self, out: &mut W, lib: &Library) -> std::io::Result<()> {
+    type Primitive = SpectrePrimitive;
+    fn write_prelude<W: Write>(
+        &mut self,
+        out: &mut W,
+        lib: &Library<SpectrePrimitive>,
+    ) -> std::io::Result<()> {
         writeln!(out, "// {}\n", lib.name())?;
         writeln!(out, "simulator lang=spectre\n")?;
         writeln!(out, "// This is a generated file.")?;
@@ -151,7 +157,11 @@ impl SpiceLikeNetlister for NetlisterImpl {
 
 impl<'a, W: Write> Netlister<'a, W> {
     /// Create a new Spectre netlister writing to the given output stream.
-    pub fn new(lib: &'a Library, includes: &'a [Include], out: &'a mut W) -> Self {
+    pub fn new(
+        lib: &'a Library<SpectrePrimitive>,
+        includes: &'a [Include],
+        out: &'a mut W,
+    ) -> Self {
         Self(NetlisterInstance::new(
             NetlisterImpl,
             if lib.is_testbench() {

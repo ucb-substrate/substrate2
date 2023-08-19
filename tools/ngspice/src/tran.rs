@@ -1,7 +1,7 @@
 //! ngspice transient analysis options and data structures.
 
 use crate::blocks::Resistor;
-use crate::{node_voltage_path, Ngspice, ProbeStmt, SaveStmt};
+use crate::{node_voltage_path, Ngspice, NgspicePrimitive, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
+use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::{Cell, ExportsSchematicData, NestedInstance, NestedInstanceView};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
@@ -32,7 +33,7 @@ pub struct Tran {
 /// The result of a transient analysis.
 #[derive(Debug, Clone)]
 pub struct TranOutput {
-    pub(crate) lib: Arc<RawLib>,
+    pub(crate) lib: Arc<RawLib<NgspicePrimitive>>,
     pub(crate) conv: Arc<NetlistLibConversion>,
     /// The time points of the transient simulation.
     pub time: Arc<Vec<f64>>,
@@ -49,10 +50,12 @@ impl FromSaved<Ngspice, Tran> for TranOutput {
     }
 }
 
-impl<T: ExportsSchematicData> Save<Ngspice, Tran, &Cell<T>> for TranOutput {
+impl<PDK: Pdk, T: ExportsSchematicData<PDK, Ngspice>> Save<Ngspice, Tran, &Cell<PDK, Ngspice, T>>
+    for TranOutput
+{
     fn save(
-        _ctx: &SimulationContext,
-        _to_save: &Cell<T>,
+        _ctx: &SimulationContext<Ngspice>,
+        _to_save: &Cell<PDK, Ngspice, T>,
         _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -60,7 +63,7 @@ impl<T: ExportsSchematicData> Save<Ngspice, Tran, &Cell<T>> for TranOutput {
 
 impl Save<Ngspice, Tran, ()> for TranOutput {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Ngspice>,
         _to_save: (),
         _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -85,10 +88,12 @@ impl FromSaved<Ngspice, Tran> for TranTime {
     }
 }
 
-impl<T: ExportsSchematicData> Save<Ngspice, Tran, &Cell<T>> for TranTime {
+impl<PDK: Pdk, T: ExportsSchematicData<PDK, Ngspice>> Save<Ngspice, Tran, &Cell<PDK, Ngspice, T>>
+    for TranTime
+{
     fn save(
-        _ctx: &SimulationContext,
-        _to_save: &Cell<T>,
+        _ctx: &SimulationContext<Ngspice>,
+        _to_save: &Cell<PDK, Ngspice, T>,
         _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -96,7 +101,7 @@ impl<T: ExportsSchematicData> Save<Ngspice, Tran, &Cell<T>> for TranTime {
 
 impl Save<Ngspice, Tran, ()> for TranTime {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Ngspice>,
         _to_save: (),
         _opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -134,7 +139,7 @@ impl FromSaved<Ngspice, Tran> for TranVoltage {
 #[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
 impl<T> Save<Ngspice, Tran, T> for TranVoltage {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Ngspice>,
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -144,7 +149,7 @@ impl<T> Save<Ngspice, Tran, T> for TranVoltage {
 
 impl Save<Ngspice, Tran, &scir::SignalPath> for TranVoltage {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Ngspice>,
         to_save: &scir::SignalPath,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -154,7 +159,7 @@ impl Save<Ngspice, Tran, &scir::SignalPath> for TranVoltage {
 
 impl Save<Ngspice, Tran, &NodePath> for TranVoltage {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Ngspice>,
         to_save: &NodePath,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -165,7 +170,7 @@ impl Save<Ngspice, Tran, &NodePath> for TranVoltage {
 #[impl_dispatch({scir::SignalPath; NodePath})]
 impl<T> Save<Ngspice, Tran, T> for TranVoltage {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Ngspice>,
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -218,7 +223,7 @@ impl FromSaved<Ngspice, Tran> for TranCurrent {
 #[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
 impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Ngspice>,
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -226,41 +231,41 @@ impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     }
 }
 
-#[impl_dispatch({
-    &NestedInstanceView<'a, Resistor>;
-    NestedInstanceView<'a, Resistor>
-})]
-impl<'a, T> Save<Ngspice, Tran, T> for TranCurrent {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::Key {
-        opts.save_tran_current(SaveStmt::ResistorCurrent(
-            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-        ))
-    }
-}
-
-#[impl_dispatch({
-    &NestedInstance<Resistor>;
-    NestedInstance<Resistor>
-})]
-impl<T> Save<Ngspice, Tran, T> for TranCurrent {
-    fn save(
-        ctx: &SimulationContext,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::Key {
-        opts.save_tran_current(SaveStmt::ResistorCurrent(
-            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-        ))
-    }
-}
+// #[impl_dispatch({
+//     &NestedInstanceView<'a, PDK, Ngspice, Resistor>;
+//     NestedInstanceView<'a, PDK, Ngspice, Resistor>
+// })]
+// impl<'a, T, PDK: Pdk> Save<Ngspice, Tran, T> for TranCurrent {
+//     fn save(
+//         ctx: &SimulationContext<Ngspice>,
+//         to_save: T,
+//         opts: &mut <Ngspice as Simulator>::Options,
+//     ) -> Self::Key {
+//         opts.save_tran_current(SaveStmt::ResistorCurrent(
+//             ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+//         ))
+//     }
+// }
+//
+// #[impl_dispatch({
+//     &NestedInstance<PDK, Ngspice, Resistor>;
+//     NestedInstance<PDK, Ngspice, Resistor>
+// })]
+// impl<T, PDK: Pdk> Save<Ngspice, Tran, T> for TranCurrent {
+//     fn save(
+//         ctx: &SimulationContext<Ngspice>,
+//         to_save: T,
+//         opts: &mut <Ngspice as Simulator>::Options,
+//     ) -> Self::Key {
+//         opts.save_tran_current(SaveStmt::ResistorCurrent(
+//             ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+//         ))
+//     }
+// }
 
 impl Save<Ngspice, Tran, &scir::SignalPath> for TranCurrent {
     fn save(
-        _ctx: &SimulationContext,
+        _ctx: &SimulationContext<Ngspice>,
         to_save: &scir::SignalPath,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -270,7 +275,7 @@ impl Save<Ngspice, Tran, &scir::SignalPath> for TranCurrent {
 
 impl Save<Ngspice, Tran, &TerminalPath> for TranCurrent {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Ngspice>,
         to_save: &TerminalPath,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
@@ -288,7 +293,7 @@ impl Save<Ngspice, Tran, &TerminalPath> for TranCurrent {
 #[impl_dispatch({scir::SignalPath; TerminalPath})]
 impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Ngspice>,
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {

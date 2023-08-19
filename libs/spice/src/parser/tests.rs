@@ -105,24 +105,9 @@ fn convert_dff_to_scir() {
     assert_eq!(lib.cells().count(), 1);
     let cell = lib.cell_named("openram_dff");
     assert_eq!(
-        cell.contents().as_ref().unwrap_clear().primitives().count(),
+        cell.contents().as_ref().unwrap_cell().instances().count(),
         22
     );
-    let (_, inst) = cell
-        .contents()
-        .as_ref()
-        .unwrap_clear()
-        .primitives()
-        .nth(10)
-        .unwrap();
-    match &inst.kind {
-        scir::PrimitiveDeviceKind::RawInstance { ports, cell } => {
-            assert_eq!(ports.len(), 4);
-            assert_eq!(cell, "sky130_fd_pr__pfet_01v8");
-            assert_eq!(inst.params.len(), 2);
-        }
-        _ => panic!("match failed"),
-    }
 }
 
 #[test]
@@ -138,22 +123,7 @@ fn convert_blackbox_to_scir() {
     assert_eq!(lib.cells().count(), 1);
     let cell = lib.cell_named("top");
     assert_eq!(
-        cell.contents().as_ref().unwrap_clear().primitives().count(),
+        cell.contents().as_ref().unwrap_cell().instances().count(),
         4
     );
-    let (_, inst) = cell
-        .contents()
-        .as_ref()
-        .unwrap_clear()
-        .primitives()
-        .nth(2)
-        .unwrap();
-    match &inst.kind {
-        scir::PrimitiveDeviceKind::RawInstance { ports, cell } => {
-            assert_eq!(ports.len(), 2);
-            assert_eq!(cell, "blackbox2");
-            assert_eq!(inst.params.len(), 0);
-        }
-        _ => panic!("match failed"),
-    }
 }

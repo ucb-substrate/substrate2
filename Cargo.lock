@@ -1448,6 +1448,7 @@ version = "0.0.0"
 dependencies = [
  "arcstr",
  "cache",
+ "indexmap 2.0.0",
  "lazy_static",
  "nutlex",
  "rust_decimal",

@@ -3,12 +3,12 @@
 pub mod corner;
 pub mod data;
 pub mod layers;
-pub mod primitives;
 
 use std::any::Any;
 
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
+use substrate::schematic::SchematicData;
 
 use crate::block::{Block, PdkPrimitive};
 use crate::error::Result;
@@ -32,15 +32,10 @@ pub trait Pdk: Send + Sync + Any {
     type Corner: Corner;
     /// The layout database unit for this PDK.
     const LAYOUT_DB_UNITS: Option<Decimal> = None;
-
-    fn raw_instance(
-        inst: &primitives::RawInstance,
-        io: &<<primitives::RawInstance as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive;
 }
 
 pub trait ToSchema<S: Schema>: Pdk {
-    fn to_schema(primitive: Self::Primitive) -> S::Primitive;
+    fn to_schema(primitive: Self::Primitive) -> Option<S::Primitive>;
 }
 pub trait FromSchema<S: Schema>: Pdk {
     fn from_schema(primitive: S::Primitive) -> Option<Self::Primitive>;
@@ -50,24 +45,42 @@ pub trait HasPdkPrimitive<B: Block<Kind = PdkPrimitive>>: Pdk {
     fn primitive(block: &B, io: &<<B as Block>::Io as SchematicType>::Bundle) -> Self::Primitive;
 }
 
-pub trait PdkSchematic<PDK: Pdk>: ExportsSchematicData {
-    /// Generates the block's schematic.
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> Result<Self::Data>;
+/// A block that exports data from its schematic.
+///
+/// All blocks that have a schematic implementation must export data.
+pub trait ExportsPdkSchematicData<PDK: Pdk>: Block {
+    /// Extra schematic data to be stored with the block's generated cell.
+    ///
+    /// When the block is instantiated, all contained data will be nested
+    /// within that instance.
+    type Data<S>: SchematicData
+    where
+        PDK: ToSchema<S>;
 }
 
-impl<B: Block<Kind = PdkPrimitive> + ExportsSchematicData, PDK: Pdk> PdkSchematic<PDK> for B
+pub trait PdkSchematic<PDK: Pdk>: ExportsPdkSchematicData<PDK> {
+    /// Generates the block's schematic.
+    fn schematic<S: Schema>(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data<S>>
+    where
+        PDK: ToSchema<S>;
+}
+
+impl<B: Block<Kind = PdkPrimitive> + ExportsPdkSchematicData<PDK>, PDK: Pdk> PdkSchematic<PDK> for B
 where
     PDK: HasPdkPrimitive<B>,
 {
-    fn schematic(
+    fn schematic<S: Schema>(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut SchematicCellBuilder<PDK, Self>,
-    ) -> Result<Self::Data> {
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data<S>>
+    where
+        PDK: ToSchema<S>,
+    {
         todo!()
     }
 }

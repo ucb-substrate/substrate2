@@ -9,6 +9,7 @@ use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
+use crate::Primitive;
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use nom::bytes::complete::{take_till, take_while};
@@ -762,7 +763,7 @@ impl Display for TokenizerError {
 
 impl ParsedSpice {
     /// Convert this SPICE netlist to a SCIR library.
-    pub fn to_scir(&self) -> conv::ConvResult<scir::Library> {
+    pub fn to_scir(&self) -> conv::ConvResult<scir::Library<Primitive>> {
         let conv = ScirConverter::new(self.name.clone(), &self.ast);
         conv.convert()
     }

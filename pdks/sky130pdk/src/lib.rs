@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use crate::layers::Sky130Layers;
+use crate::mos::MosParams;
 use corner::*;
 use rust_decimal_macros::dec;
 use substrate::pdk::Pdk;
@@ -13,6 +14,10 @@ use substrate::pdk::Pdk;
 pub mod corner;
 pub mod layers;
 pub mod mos;
+
+pub enum Sky130Primitive {
+    Mos(MosParams),
+}
 
 /// Flavors of the Sky 130 PDK.
 pub enum Sky130PdkFlavor {
@@ -50,25 +55,10 @@ impl Sky130OpenPdk {
 }
 
 impl Pdk for Sky130OpenPdk {
+    type Primitive = Sky130Primitive;
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
     const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
-    fn schematic_primitives(&self) -> Vec<arcstr::ArcStr> {
-        vec![
-            arcstr::literal!("sky130_fd_pr__nfet_01v8"),
-            arcstr::literal!("sky130_fd_pr__nfet_01v8_lvt"),
-            arcstr::literal!("sky130_fd_pr__nfet_03v3_nvt"),
-            arcstr::literal!("sky130_fd_pr__nfet_05v0_nvt"),
-            arcstr::literal!("sky130_fd_pr__nfet_20v0"),
-            arcstr::literal!("sky130_fd_pr__special_nfet_latch"),
-            arcstr::literal!("sky130_fd_pr__special_nfet_pass"),
-            arcstr::literal!("sky130_fd_pr__special_pfet_pass"),
-            arcstr::literal!("sky130_fd_pr__pfet_01v8"),
-            arcstr::literal!("sky130_fd_pr__pfet_01v8_lvt"),
-            arcstr::literal!("sky130_fd_pr__pfet_01v8_hvt"),
-            arcstr::literal!("sky130_fd_pr__pfet_20v0"),
-        ]
-    }
 }
 
 /// The commercial Sky 130 PDK.
@@ -92,24 +82,8 @@ impl Sky130CommercialPdk {
 }
 
 impl Pdk for Sky130CommercialPdk {
+    type Primitive = Sky130Primitive;
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
     const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
-
-    fn schematic_primitives(&self) -> Vec<arcstr::ArcStr> {
-        vec![
-            arcstr::literal!("nshort"),
-            arcstr::literal!("nlowvt"),
-            arcstr::literal!("ntvnative"),
-            arcstr::literal!("nhvnative"),
-            arcstr::literal!("nvhv"),
-            arcstr::literal!("npd"),
-            arcstr::literal!("npass"),
-            arcstr::literal!("ppu"),
-            arcstr::literal!("pshort"),
-            arcstr::literal!("phighvt"),
-            arcstr::literal!("plowvt"),
-            arcstr::literal!("pvhv"),
-        ]
-    }
 }
