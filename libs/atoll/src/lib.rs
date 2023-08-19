@@ -164,3 +164,12 @@ pub struct Atoll {
     pub nmos: Vec<Row>,
     pub cols: Vec<Col>,
 }
+
+pub struct LayerIdx(usize);
+
+pub struct TrackIdx {
+    /// The bottom layer.
+    layer: LayerIdx,
+    x: i64,
+    y: i64,
+}
