@@ -50,6 +50,21 @@ impl UniformTracks {
     pub fn pitch(&self) -> i64 {
         self.line + self.space
     }
+
+    /// Iterates over a range of adjacent tracks.
+    pub fn get_tracks(
+        &self,
+        range: impl Into<std::ops::Range<i64>>,
+    ) -> impl Iterator<Item = Span> + '_ {
+        range.into().map(|i| self.get(i))
+    }
+
+    /// Explicitly enumerates a range of adjacent tracks, returning an [`EnumeratedTracks`].
+    ///
+    /// Note that this uses `O(N)` storage, where `N` is the length of the range.
+    pub fn enumerate(&self, range: impl Into<std::ops::Range<i64>>) -> EnumeratedTracks {
+        self.get_tracks(range).collect()
+    }
 }
 
 /// A set of explicitly listed, ordered tracks.
