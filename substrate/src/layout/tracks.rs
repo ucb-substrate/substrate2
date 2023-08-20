@@ -40,7 +40,7 @@ impl UniformTracks {
     }
 
     /// Gets the coordinates of the `i`-th track.
-    pub fn get(&self, idx: i64) -> Span {
+    fn get(&self, idx: i64) -> Span {
         let start = self.offset + idx * self.pitch() - self.line / 2;
         Span::new(start, start + self.line)
     }
@@ -105,5 +105,43 @@ impl IntoIterator for EnumeratedTracks {
     type IntoIter = std::vec::IntoIter<Span>;
     fn into_iter(self) -> Self::IntoIter {
         self.tracks.into_iter()
+    }
+}
+
+/// A finite set of tracks.
+pub trait Tracks {
+    /// The track at the given index.
+    fn try_track(&self, idx: i64) -> Option<Span>;
+
+    /// The range of valid indices, as a tuple `(min, max)`.
+    ///
+    /// If there is no min/max index, implementers should return `None`.
+    fn range(&self) -> (Option<i64>, Option<i64>);
+
+    /// The track at the given index, panicking if the index is out of bounds.
+    #[inline]
+    fn track(&self, idx: i64) -> Span {
+        self.try_track(idx).expect("track index out of bounds")
+    }
+}
+
+impl Tracks for EnumeratedTracks {
+    fn try_track(&self, idx: i64) -> Option<Span> {
+        let idx = usize::try_from(idx).ok()?;
+        self.tracks.get(idx).copied()
+    }
+
+    fn range(&self) -> (Option<i64>, Option<i64>) {
+        (Some(0), Some(self.tracks.len() as i64))
+    }
+}
+
+impl Tracks for UniformTracks {
+    fn try_track(&self, idx: i64) -> Option<Span> {
+        Some(self.get(idx))
+    }
+
+    fn range(&self) -> (Option<i64>, Option<i64>) {
+        (None, None)
     }
 }
