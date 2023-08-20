@@ -132,7 +132,8 @@ impl Tracks for EnumeratedTracks {
     }
 
     fn range(&self) -> (Option<i64>, Option<i64>) {
-        (Some(0), Some(self.tracks.len() as i64))
+        let max = i64::try_from(self.tracks.len()).expect("track list length is too long");
+        (Some(0), Some(max))
     }
 }
 
@@ -143,5 +144,70 @@ impl Tracks for UniformTracks {
 
     fn range(&self) -> (Option<i64>, Option<i64>) {
         (None, None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use geometry::span::Span;
+
+    use super::*;
+
+    #[test]
+    fn enumerated_tracks() {
+        let tracks: EnumeratedTracks = [Span::new(10, 20), Span::new(30, 40), Span::new(80, 100)]
+            .into_iter()
+            .collect();
+
+        assert_eq!(tracks.track(0), Span::new(10, 20));
+        assert_eq!(tracks.track(1), Span::new(30, 40));
+        assert_eq!(tracks.track(2), Span::new(80, 100));
+        assert_eq!(tracks.range(), (Some(0), Some(3)));
+        assert_eq!(tracks.try_track(-1), None);
+        assert_eq!(tracks.try_track(3), None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn enumerated_tracks_panics_when_tracks_are_out_of_order() {
+        let _: EnumeratedTracks = [Span::new(10, 20), Span::new(15, 30), Span::new(80, 100)]
+            .into_iter()
+            .collect();
+    }
+
+    #[test]
+    fn uniform_tracks() {
+        let tracks = UniformTracks::new(20, 40);
+
+        assert_eq!(tracks.track(-2), Span::new(-130, -110));
+        assert_eq!(tracks.track(-1), Span::new(-70, -50));
+        assert_eq!(tracks.track(0), Span::new(-10, 10));
+        assert_eq!(tracks.track(1), Span::new(50, 70));
+        assert_eq!(tracks.track(2), Span::new(110, 130));
+        assert_eq!(tracks.range(), (None, None));
+    }
+
+    #[test]
+    fn uniform_tracks_with_offset() {
+        let tracks = UniformTracks::with_offset(20, 40, 15);
+
+        assert_eq!(tracks.track(-2), Span::new(-115, -105));
+        assert_eq!(tracks.track(-1), Span::new(-55, -35));
+        assert_eq!(tracks.track(0), Span::new(5, 25));
+        assert_eq!(tracks.track(1), Span::new(65, 85));
+        assert_eq!(tracks.track(2), Span::new(125, 145));
+        assert_eq!(tracks.range(), (None, None));
+    }
+
+    #[test]
+    #[should_panic]
+    fn uniform_tracks_requires_even_line_width() {
+        UniformTracks::new(5, 40);
+    }
+
+    #[test]
+    #[should_panic]
+    fn uniform_tracks_requires_even_spacing() {
+        UniformTracks::new(320, 645);
     }
 }
