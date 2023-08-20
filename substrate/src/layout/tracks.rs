@@ -191,7 +191,7 @@ mod tests {
     fn uniform_tracks_with_offset() {
         let tracks = UniformTracks::with_offset(20, 40, 15);
 
-        assert_eq!(tracks.track(-2), Span::new(-115, -105));
+        assert_eq!(tracks.track(-2), Span::new(-115, -95));
         assert_eq!(tracks.track(-1), Span::new(-55, -35));
         assert_eq!(tracks.track(0), Span::new(5, 25));
         assert_eq!(tracks.track(1), Span::new(65, 85));
