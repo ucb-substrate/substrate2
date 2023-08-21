@@ -15,7 +15,8 @@ use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
-use crate::schematic::{Cell, ExportsSchematicData, Schema, Schematic};
+use crate::schematic::schema::Schema;
+use crate::schematic::{Cell, ExportsSchematicData, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
 

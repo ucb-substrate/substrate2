@@ -46,6 +46,9 @@ pub enum Error {
     /// Schematic to SCIR conversion produced errors.
     #[error("error converting to SCIR: {0}")]
     ScirConversion(Box<scir::Issues>),
+    /// An error indicating that the schema does not support an instantiated primitive.
+    #[error("schema does not support primitive")]
+    UnsupportedPrimitive,
 }
 
 impl From<LayoutError> for Error {

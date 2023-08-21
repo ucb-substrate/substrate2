@@ -23,7 +23,7 @@ use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::RawInstance;
-use substrate::schematic::Schema;
+use substrate::schematic::schema::Schema;
 use substrate::simulation::{SimulationContext, Simulator};
 use substrate::spice::{Netlister, Primitive};
 use templates::{write_run_script, RunScriptContext};
@@ -423,16 +423,6 @@ impl Ngspice {
 
 impl Schema for Ngspice {
     type Primitive = NgspicePrimitive;
-    fn raw_instance(
-        inst: &RawInstance,
-        io: &<<RawInstance as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive {
-        NgspicePrimitive::Spice(Primitive::RawInstance {
-            cell: inst.cell.clone(),
-            ports: inst.ports.clone(),
-            params: inst.params.clone(),
-        })
-    }
 }
 
 impl Simulator for Ngspice {

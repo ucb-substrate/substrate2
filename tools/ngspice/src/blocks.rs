@@ -1,14 +1,12 @@
 //! ngspice-specific blocks for use in testbenches.
 
+use crate::{Ngspice, NgspicePrimitive};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate::block::{Block, SchemaPrimitive};
-use substrate::io::{SchematicType, TwoTerminalIo};
+use substrate::block::{self, Block};
+use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{BlackboxContents, ExportsSchematicData, HasSchemaPrimitive};
-use substrate::spice::Primitive;
-
-use crate::{Ngspice, NgspicePrimitive};
+use substrate::schematic::schema::HasSchemaPrimitive;
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -33,7 +31,7 @@ pub struct Pulse {
 
 /// A voltage source.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo", kind = "SchemaPrimitive")]
+#[substrate(io = "TwoTerminalIo", kind = "block::SchemaPrimitive")]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
@@ -54,24 +52,18 @@ impl Vsource {
 }
 
 impl HasSchemaPrimitive<Vsource> for Ngspice {
-    fn primitive(
-        block: &Vsource,
-        io: &<<Vsource as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive {
+    fn primitive(block: &Vsource) -> Self::Primitive {
         NgspicePrimitive::Vsource(block.clone())
     }
 }
 
 /// A resistor.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo", kind = "SchemaPrimitive")]
+#[substrate(io = "TwoTerminalIo", kind = "block::SchemaPrimitive")]
 pub struct Resistor(pub Decimal);
 
 impl HasSchemaPrimitive<Resistor> for Ngspice {
-    fn primitive(
-        block: &Resistor,
-        io: &<<Resistor as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive {
+    fn primitive(block: &Resistor) -> Self::Primitive {
         todo!()
     }
 }

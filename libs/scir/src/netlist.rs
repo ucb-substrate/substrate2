@@ -1,7 +1,7 @@
 //! Utilities for writing netlisters for SCIR libraries.
 
 use crate::{
-    BinOp, BlackboxElement, Cell, CellContent, CellId, Expr, InstanceId, Library, SignalInfo, Slice,
+    BinOp, BlackboxElement, Cell, CellId, CellKind, Expr, InstanceId, Library, SignalInfo, Slice,
 };
 use arcstr::ArcStr;
 use indexmap::IndexMap;
@@ -293,17 +293,21 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
 
         for (id, cell) in self.lib.cells() {
             conv.cells
-                .insert(id, self.export_cell(cell, self.lib.should_inline(id))?);
+                .insert(id, self.export_cell(cell, self.lib.is_testbench_top(id))?);
         }
 
         self.netlister.write_postlude(self.out, self.lib)?;
         Ok(conv)
     }
 
-    fn export_cell(&mut self, cell: &Cell, inline: bool) -> Result<NetlistCellConversion> {
-        let indent = if inline { "" } else { "  " };
+    fn export_cell(
+        &mut self,
+        cell: &Cell,
+        is_testbench_top: bool,
+    ) -> Result<NetlistCellConversion> {
+        let indent = if is_testbench_top { "" } else { "  " };
 
-        let ground = match (inline, &self.kind) {
+        let ground = match (is_testbench_top, &self.kind) {
             (true, NetlistKind::Testbench(RenameGround::Yes(replace_with))) => {
                 let msg = "testbench should have one port: ground";
                 let mut ports = cell.ports();
@@ -315,7 +319,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
             _ => None,
         };
 
-        if !inline {
+        if !is_testbench_top {
             let ports: Vec<&SignalInfo> = cell
                 .ports()
                 .map(|port| cell.signal(port.signal()))
@@ -327,7 +331,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
 
         let mut conv = NetlistCellConversion::new();
         match cell.contents() {
-            CellContent::Blackbox(contents) => {
+            CellKind::Blackbox(contents) => {
                 for (i, elem) in contents.elems.iter().enumerate() {
                     match elem {
                         BlackboxElement::RawString(s) => {
@@ -342,7 +346,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
                 }
                 writeln!(self.out)?;
             }
-            CellContent::Cell(contents) => {
+            CellKind::Cell(contents) => {
                 for (id, inst) in contents.instances() {
                     let child = self.lib.cell(inst.child().unwrap_cell());
                     write!(self.out, "{}", indent)?;
@@ -372,7 +376,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
             }
         };
 
-        if !inline {
+        if !is_testbench_top {
             writeln!(self.out)?;
             self.netlister.write_end_subckt(self.out, cell.name())?;
             writeln!(self.out, "\n")?;

@@ -24,7 +24,7 @@ use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
 use substrate::schematic::primitives::RawInstance;
-use substrate::schematic::Schema;
+use substrate::schematic::schema::Schema;
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -412,17 +412,6 @@ impl Spectre {
 
 impl Schema for Spectre {
     type Primitive = SpectrePrimitive;
-
-    fn raw_instance(
-        inst: &RawInstance,
-        io: &<<RawInstance as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive {
-        SpectrePrimitive::RawInstance {
-            cell: inst.cell.clone(),
-            ports: inst.ports.clone(),
-            params: inst.params.clone(),
-        }
-    }
 }
 
 impl Simulator for Spectre {

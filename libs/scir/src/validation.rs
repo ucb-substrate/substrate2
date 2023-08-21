@@ -442,7 +442,7 @@ impl<P> LibraryBuilder<P> {
         }
 
         let mut port_signals = HashSet::with_capacity(cell.ports.len());
-        for port in cell.ports.iter() {
+        for port in cell.ports() {
             if !cell.signals.contains_key(&port.signal) {
                 issues.add(invalid_signal(port.signal));
                 continue;
@@ -499,7 +499,7 @@ impl<P> LibraryBuilder<P> {
             let mut child_ports = HashSet::with_capacity(child.ports.len());
 
             // Check for missing ports
-            for port in child.ports.iter() {
+            for port in child.ports() {
                 let name = &child.signals[&port.signal].name;
                 child_ports.insert(name.clone());
                 match instance.connections.get(name) {

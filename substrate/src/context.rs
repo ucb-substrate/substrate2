@@ -2,7 +2,6 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -32,11 +31,12 @@ use crate::pdk::layers::GdsLayerSpec;
 use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
-use crate::pdk::{Pdk, ToSchema};
+use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
+use crate::schematic::schema::Schema;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderContents,
-    CellHandle as SchematicCellHandle, CellInner, InstanceId, InstancePath, Schema, Schematic,
+    CellHandle as SchematicCellHandle, CellInner, InstanceId, InstancePath, Schematic,
     SchematicContext,
 };
 use crate::sealed::Token;

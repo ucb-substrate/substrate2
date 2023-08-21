@@ -226,20 +226,12 @@ impl ToTokens for DataInputReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(any))]
+#[darling(attributes(substrate), supports(any), allow_unknown_fields)]
 pub struct HasLayoutInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
-    #[allow(unused)]
-    io: darling::util::Ignored,
-    #[darling(multiple)]
-    #[allow(unused)]
-    schematic: Vec<darling::util::Ignored>,
     #[darling(multiple)]
     layout: Vec<LayoutHardMacro>,
-    #[darling(default)]
-    #[allow(unused)]
-    flatten: darling::util::Ignored,
 }
 
 #[derive(Debug, FromMeta)]

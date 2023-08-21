@@ -1,22 +1,23 @@
 //! Traits and utilities for defining process design kits (PDKs).
 
 pub mod corner;
-pub mod data;
+mod data;
 pub mod layers;
 
 use std::any::Any;
+use std::sync::Arc;
 
-use arcstr::ArcStr;
 use rust_decimal::Decimal;
+use substrate::block::ScirKind;
 use substrate::schematic::SchematicData;
+use type_dispatch::impl_dispatch;
 
-use crate::block::{Block, PdkPrimitive};
-use crate::error::Result;
+use crate::block::{self, Block, PdkPrimitive};
+use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
-use crate::schematic::{
-    CellBuilder as SchematicCellBuilder, CellBuilder, ExportsSchematicData, Schema, Schematic,
-};
+use crate::schematic::schema::Schema;
+use crate::schematic::{CellBuilder, ScirCellInner};
 use crate::sealed;
 
 use self::corner::*;
@@ -35,20 +36,24 @@ pub trait Pdk: Send + Sync + Any {
 }
 
 pub trait ToSchema<S: Schema>: Pdk {
-    fn to_schema(primitive: Self::Primitive) -> Option<S::Primitive>;
+    fn convert_primitive(primitive: <Self as Pdk>::Primitive) -> Option<<S as Schema>::Primitive>;
 }
 pub trait FromSchema<S: Schema>: Pdk {
-    fn from_schema(primitive: S::Primitive) -> Option<Self::Primitive>;
+    fn convert_primitive(primitive: <S as Schema>::Primitive) -> Option<<Self as Pdk>::Primitive>;
 }
 
 pub trait HasPdkPrimitive<B: Block<Kind = PdkPrimitive>>: Pdk {
-    fn primitive(block: &B, io: &<<B as Block>::Io as SchematicType>::Bundle) -> Self::Primitive;
+    fn primitive(block: &B) -> Self::Primitive;
+}
+
+pub trait PdkScirSchematic<PDK: Pdk>: Block {
+    fn schematic(&self) -> Result<(scir::Library<PDK::Primitive>, scir::CellId)>;
 }
 
 /// A block that exports data from its schematic.
 ///
 /// All blocks that have a schematic implementation must export data.
-pub trait ExportsPdkSchematicData<PDK: Pdk>: Block {
+pub trait ExportsPdkSchematicData<PDK: Pdk, K = <Self as Block>::Kind>: Block {
     /// Extra schematic data to be stored with the block's generated cell.
     ///
     /// When the block is instantiated, all contained data will be nested
@@ -58,7 +63,7 @@ pub trait ExportsPdkSchematicData<PDK: Pdk>: Block {
         PDK: ToSchema<S>;
 }
 
-pub trait PdkSchematic<PDK: Pdk>: ExportsPdkSchematicData<PDK> {
+pub trait PdkSchematic<PDK: Pdk, K = <Self as Block>::Kind>: ExportsPdkSchematicData<PDK> {
     /// Generates the block's schematic.
     fn schematic<S: Schema>(
         &self,
@@ -69,19 +74,63 @@ pub trait PdkSchematic<PDK: Pdk>: ExportsPdkSchematicData<PDK> {
         PDK: ToSchema<S>;
 }
 
-impl<B: Block<Kind = PdkPrimitive> + ExportsPdkSchematicData<PDK>, PDK: Pdk> PdkSchematic<PDK> for B
+impl<PDK: HasPdkPrimitive<B>, B: Block<Kind = PdkPrimitive>>
+    ExportsPdkSchematicData<PDK, PdkPrimitive> for B
+{
+    type Data<S>
+    = ()
+    where
+    PDK: ToSchema<S>;
+}
+
+impl<B: Block<Kind = PdkPrimitive>, PDK: Pdk> PdkSchematic<PDK, PdkPrimitive> for B
 where
     PDK: HasPdkPrimitive<B>,
 {
     fn schematic<S: Schema>(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
     ) -> Result<Self::Data<S>>
     where
         PDK: ToSchema<S>,
     {
-        todo!()
+        cell.set_primitive(
+            PDK::convert_primitive(PDK::primitive(self)).ok_or(Error::UnsupportedPrimitive)?,
+        );
+        Ok(())
+    }
+}
+
+#[impl_dispatch({block::Scir; block::InlineScir})]
+impl<T, PDK: Pdk, B: Block<Kind = T> + PdkScirSchematic<PDK>> ExportsPdkSchematicData<PDK, T>
+    for B
+{
+    type Data<S>
+    = ()
+        where
+            PDK: ToSchema<S>;
+}
+
+#[impl_dispatch({block::Scir; block::InlineScir})]
+impl<T, PDK: Pdk, B: Block<Kind = T> + PdkScirSchematic<PDK>> PdkSchematic<PDK, T> for B {
+    fn schematic<S: Schema>(
+        &self,
+        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> Result<Self::Data<S>>
+    where
+        PDK: ToSchema<S>,
+    {
+        let (lib, id) = PdkScirSchematic::schematic(self)?;
+        let lib = lib
+            .convert_primitives(PDK::convert_primitive)
+            .ok_or(Error::UnsupportedPrimitive)?;
+        cell.set_scir(ScirCellInner {
+            lib: Arc::new(lib),
+            cell: id,
+        });
+        Ok(())
     }
 }
 

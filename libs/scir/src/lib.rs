@@ -85,6 +85,24 @@ pub enum BinOp {
     Div,
 }
 
+impl From<Decimal> for Expr {
+    fn from(value: Decimal) -> Self {
+        Self::NumericLiteral(value)
+    }
+}
+
+impl From<ArcStr> for Expr {
+    fn from(value: ArcStr) -> Self {
+        Self::StringLiteral(value)
+    }
+}
+
+impl From<bool> for Expr {
+    fn from(value: bool) -> Self {
+        Self::BoolLiteral(value)
+    }
+}
+
 /// A cell parameter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Param {
@@ -161,13 +179,6 @@ pub enum SignalPathTail {
         /// The signal slice.
         slice: SliceOne,
     },
-    /// A signal within a primitive device.
-    Primitive {
-        /// The ID of the primitive device instance.
-        id: PrimitiveDeviceId,
-        /// A path of strings to the desired signal within the primitive.
-        name_path: Vec<ArcStr>,
-    },
 }
 
 /// A path of strings to a node in a SCIR library.
@@ -199,13 +210,6 @@ pub struct InstancePath {
 pub enum InstancePathTail {
     /// An instance with an associated SCIR cell.
     Scir(CellId),
-    /// A primitive device instance or an instance within a primitive device.
-    Primitive {
-        /// The ID of the primitive device instance.
-        id: PrimitiveDeviceId,
-        /// A path of strings to the desired instance within the primitive.
-        name_path: Vec<ArcStr>,
-    },
 }
 
 /// A path of strings to an instance in a SCIR library.
@@ -252,16 +256,6 @@ pub struct InstanceId(u64);
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct PrimitiveId(u64);
 
-/// An opaque primitive device identifier.
-///
-/// A primitive device ID created in the context of one cell must
-/// *not* be used in the context of another cell.
-/// You should instead create a new primitive device ID in the second cell.
-#[derive(
-    Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
-)]
-pub struct PrimitiveDeviceId(u64);
-
 impl Display for SignalId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "signal{}", self.0)
@@ -275,6 +269,12 @@ impl Display for CellId {
 }
 
 impl Display for InstanceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "inst{}", self.0)
+    }
+}
+
+impl Display for PrimitiveId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "inst{}", self.0)
     }
@@ -340,7 +340,7 @@ impl From<Slice> for Concat {
 pub enum TopKind {
     /// A testbench cell with one port (VSS).
     ///
-    /// Inlined during netlisting and often has nodes connected to its VSS port connected to a
+    /// Inlined during netlisting and often has nodes connected to a
     /// simulator-specific ground node.
     Testbench,
     /// A normal cell that will be exported as a subcircuit.
@@ -385,19 +385,20 @@ pub struct LibraryBuilder<P> {
     /// A map of the cells in the library.
     cells: IndexMap<CellId, Cell>,
 
-    /// A map of the primitives in the library.
-    primitives: IndexMap<PrimitiveId, P>,
-
     /// A map of cell name to cell ID.
     ///
     /// SCIR makes no attempt to prevent duplicate cell names.
     name_map: HashMap<ArcStr, CellId>,
 
+    /// A map of the primitives in the library.
+    primitives: IndexMap<PrimitiveId, P>,
+
     /// Information about the top cell, if there is one.
     top: Option<Top>,
 }
 
-/// A SCIR library that is guaranteed to be valid.
+/// A SCIR library that is guaranteed to be valid (with the exception of primitives,
+/// which are opaque to SCIR).
 ///
 /// The contents of the library cannot be mutated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -407,6 +408,12 @@ impl<P> Deref for Library<P> {
     type Target = LibraryBuilder<P>;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<P> Library<P> {
+    pub fn convert_primitives<C>(self, convert_fn: impl Fn(P) -> Option<C>) -> Option<Library<C>> {
+        Some(Library(self.0.convert_primitives(convert_fn)?))
     }
 }
 
@@ -543,6 +550,14 @@ pub struct SignalInfo {
     pub port: Option<usize>,
 }
 
+impl SignalInfo {
+    /// The [`Slice`] representing this entire signal.
+    #[inline]
+    pub fn slice(&self) -> Slice {
+        Slice::new(self.id, self.width.map(SliceRange::with_width))
+    }
+}
+
 /// An instance of a child cell placed inside a parent cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
@@ -563,11 +578,11 @@ pub struct Instance {
     params: IndexMap<ArcStr, Expr>,
 }
 
-pub type ChildId = ChildIdContent<CellId, PrimitiveId>;
+pub type ChildId = ChildKind<CellId, PrimitiveId>;
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[enumify::enumify]
-pub enum ChildIdContent<C, P> {
+pub enum ChildKind<C, P> {
     Cell(C),
     Primitive(P),
 }
@@ -585,12 +600,12 @@ impl From<PrimitiveId> for ChildId {
 }
 
 /// The (possibly blackboxed) contents of a SCIR cell.
-pub type CellContents = CellContent<CellInner, BlackboxContents>;
+pub type CellContents = CellKind<CellInner, BlackboxContents>;
 
 /// The content of a cell, which may or may not be blackboxed.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[enumify::enumify]
-pub enum CellContent<C, B> {
+pub enum CellKind<C, B> {
     Cell(C),
     Blackbox(B),
 }
@@ -625,19 +640,10 @@ pub struct Cell {
     signal_id: u64,
     port_idx: usize,
     pub(crate) name: ArcStr,
-    pub(crate) ports: Ports,
+    pub(crate) ports: IndexMap<ArcStr, Port>,
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
     pub(crate) params: IndexMap<ArcStr, Param>,
     pub(crate) contents: CellContents,
-}
-
-/// A set of signals exposed by a cell.
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct Ports {
-    /// Signals exposed by a cell.
-    ports: Vec<Port>,
-    /// Mapping from a port name to its index in `ports`.
-    name_map: HashMap<ArcStr, usize>,
 }
 
 /// The inner contents of a non-blackbox cell.
@@ -793,12 +799,14 @@ impl<P> LibraryBuilder<P> {
             .unwrap_or_default()
     }
 
-    /// Returns `true` if the given cell should be emitted inline during netlisting.
-    ///
-    /// At the moment, the only cell that may be inlined is the top-level cell.
-    /// However, this is subject to change.
-    pub fn should_inline(&self, cell: CellId) -> bool {
-        self.is_testbench() && self.top_cell().map(|c| c == cell).unwrap_or_default()
+    /// Returns `true` if the given cell is the top cell.
+    pub fn is_top(&self, cell: CellId) -> bool {
+        self.top_cell().map(|c| c == cell).unwrap_or_default()
+    }
+
+    /// Returns `true` if the given cell is the top cell of a testbench library.
+    pub fn is_testbench_top(&self, cell: CellId) -> bool {
+        self.is_testbench() && self.is_top(cell)
     }
 
     /// The name of the library.
@@ -858,6 +866,29 @@ impl<P> LibraryBuilder<P> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
+    /// Gets the primitive with the given ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no primitive has the given ID.
+    /// For a non-panicking alternative, see [`try_primitive`](LibraryBuilder::try_primitive).
+    pub fn primitive(&self, id: PrimitiveId) -> &P {
+        self.primitives.get(&id).unwrap()
+    }
+
+    /// Gets the primitive with the given ID.
+    #[inline]
+    pub fn try_primitive(&self, id: PrimitiveId) -> Option<&P> {
+        self.primitives.get(&id)
+    }
+
+    /// Iterates over the `(id, primitive)` pairs in this library.
+    pub fn primitives(&self) -> impl Iterator<Item = (PrimitiveId, &P)> {
+        self.primitives
+            .iter()
+            .map(|(id, primitive)| (*id, primitive))
+    }
+
     fn convert_instance_path_head(
         &self,
         conv: &NetlistLibConversion,
@@ -897,9 +928,6 @@ impl<P> LibraryBuilder<P> {
     ) -> NamedInstancePath {
         let (mut instances, cell) =
             self.convert_instance_path_head(conv, path.top, &path.instances);
-        if let InstancePathTail::Primitive { id, name_path } = &path.tail {
-            todo!()
-        }
         NamedInstancePath(instances)
     }
 
@@ -919,9 +947,6 @@ impl<P> LibraryBuilder<P> {
         let (mut instances, cell) =
             self.convert_instance_path_head(conv, path.top, &path.instances);
         match &path.tail {
-            SignalPathTail::Primitive { id, name_path } => {
-                todo!()
-            }
             SignalPathTail::Scir { slice, .. } => {
                 let cell = self.cell(cell);
                 NamedSignalPath {
@@ -1018,6 +1043,33 @@ impl<P> LibraryBuilder<P> {
             Ok((Library(self), issues))
         }
     }
+
+    pub fn convert_primitives<C>(
+        self,
+        convert_fn: impl Fn(P) -> Option<C>,
+    ) -> Option<LibraryBuilder<C>> {
+        let LibraryBuilder {
+            cell_id,
+            primitive_id,
+            name,
+            cells,
+            name_map,
+            primitives,
+            top,
+        } = self;
+        Some(LibraryBuilder {
+            cell_id,
+            primitive_id,
+            name,
+            cells,
+            name_map,
+            primitives: primitives
+                .into_iter()
+                .map(|(k, v)| Some((k, convert_fn(v)?)))
+                .collect::<Option<_>>()?,
+            top,
+        })
+    }
 }
 
 impl Cell {
@@ -1027,7 +1079,7 @@ impl Cell {
             signal_id: 0,
             port_idx: 0,
             name: name.into(),
-            ports: Ports::new(),
+            ports: IndexMap::new(),
             signals: HashMap::new(),
             params: IndexMap::new(),
             contents: CellContents::Cell(Default::default()),
@@ -1043,7 +1095,7 @@ impl Cell {
             signal_id: 0,
             port_idx: 0,
             name: name.into(),
-            ports: Ports::new(),
+            ports: IndexMap::new(),
             signals: HashMap::new(),
             params: IndexMap::new(),
             contents: CellContents::Blackbox(Default::default()),
@@ -1097,7 +1149,8 @@ impl Cell {
         let info = self.signals.get_mut(&signal).unwrap();
         info.port = Some(self.port_idx);
         self.port_idx += info.width.unwrap_or(1);
-        self.ports.push(info.name.clone(), signal, direction);
+        self.ports
+            .insert(info.name.clone(), Port { signal, direction });
     }
 
     /// Returns a reference to the contents of this cell.
@@ -1127,13 +1180,17 @@ impl Cell {
     /// Iterate over the ports of this cell.
     #[inline]
     pub fn ports(&self) -> impl Iterator<Item = &Port> {
-        self.ports.iter()
+        self.ports.iter().map(|(_, port)| port)
     }
 
     /// Get a port of this cell by name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided port does not exist.
     #[inline]
     pub fn port(&self, name: &str) -> &Port {
-        self.ports.get_named(name)
+        self.ports.get(name).unwrap()
     }
 
     /// Iterate over the signals of this cell.
@@ -1254,53 +1311,11 @@ impl Instance {
     }
 }
 
-impl Ports {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-    /// Pushes a port to the set of ports.
-    pub(crate) fn push(&mut self, name: impl Into<ArcStr>, signal: SignalId, direction: Direction) {
-        self.ports.push(Port { signal, direction });
-        self.name_map.insert(name.into(), self.ports.len() - 1);
-    }
-
-    pub(crate) fn get_named(&self, name: &str) -> &Port {
-        let idx = self.name_map.get(name).unwrap();
-        &self.ports[*idx]
-    }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &Port> {
-        self.ports.iter()
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.ports.len()
-    }
-}
-
 impl Port {
     /// The ID of the signal this port exposes.
     #[inline]
     pub fn signal(&self) -> SignalId {
         self.signal
-    }
-}
-
-impl From<Decimal> for Expr {
-    fn from(value: Decimal) -> Self {
-        Self::NumericLiteral(value)
-    }
-}
-
-impl From<ArcStr> for Expr {
-    fn from(value: ArcStr) -> Self {
-        Self::StringLiteral(value)
-    }
-}
-
-impl From<bool> for Expr {
-    fn from(value: bool) -> Self {
-        Self::BoolLiteral(value)
     }
 }
 
@@ -1374,13 +1389,5 @@ impl From<String> for BlackboxContents {
         Self {
             elems: vec![BlackboxElement::RawString(value)],
         }
-    }
-}
-
-impl SignalInfo {
-    /// The [`Slice`] representing this entire signal.
-    #[inline]
-    pub fn slice(&self) -> Slice {
-        Slice::new(self.id, self.width.map(SliceRange::with_width))
     }
 }

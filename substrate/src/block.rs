@@ -18,16 +18,38 @@ pub trait BlockKind {
     fn sealed(_: sealed::Token);
 }
 
+pub trait ScirKind: BlockKind {
+    #[doc(hidden)]
+    fn sealed(_: sealed::Token);
+}
 pub struct Cell;
 impl BlockKind for Cell {
     const FLATTEN: bool = false;
-    fn sealed(_: sealed::Token) {}
+    fn sealed(_: Token) {}
 }
 
 pub struct InlineCell;
 impl BlockKind for InlineCell {
     const FLATTEN: bool = true;
-    fn sealed(_: sealed::Token) {}
+    fn sealed(_: Token) {}
+}
+
+pub struct Scir;
+impl BlockKind for Scir {
+    const FLATTEN: bool = false;
+    fn sealed(_: Token) {}
+}
+impl ScirKind for Scir {
+    fn sealed(_: Token) {}
+}
+
+pub struct InlineScir;
+impl BlockKind for InlineScir {
+    const FLATTEN: bool = true;
+    fn sealed(_: Token) {}
+}
+impl ScirKind for InlineScir {
+    fn sealed(_: Token) {}
 }
 
 pub struct SchemaPrimitive;

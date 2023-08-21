@@ -11,9 +11,6 @@ use crate::arcstr;
 use crate::arcstr::ArcStr;
 use crate::block::{Block, SchemaPrimitive};
 use crate::io::{Array, InOut, Signal, TwoTerminalIo};
-use crate::pdk::Pdk;
-
-use super::{ExportsSchematicData, Schematic};
 
 /// An instance with a pre-defined cell.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]

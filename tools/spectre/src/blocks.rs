@@ -5,9 +5,10 @@ use rust_decimal::Decimal;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use substrate::block::{Block, SchemaPrimitive};
-use substrate::io::{SchematicType, TwoTerminalIo};
+use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::{ExportsSchematicData, HasSchemaPrimitive, Schematic};
+use substrate::schematic::schema::HasSchemaPrimitive;
+use substrate::schematic::Schematic;
 
 use crate::{Spectre, SpectrePrimitive};
 
@@ -69,10 +70,7 @@ impl Block for Vsource {
 }
 
 impl HasSchemaPrimitive<Vsource> for Spectre {
-    fn primitive(
-        block: &Vsource,
-        io: &<<Vsource as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive {
+    fn primitive(block: &Vsource) -> Self::Primitive {
         use arcstr::literal;
         let mut params = IndexMap::new();
         match block {
@@ -132,10 +130,7 @@ impl Block for Iprobe {
 }
 
 impl HasSchemaPrimitive<Iprobe> for Spectre {
-    fn primitive(
-        block: &Iprobe,
-        io: &<<Iprobe as Block>::Io as SchematicType>::Bundle,
-    ) -> Self::Primitive {
+    fn primitive(block: &Iprobe) -> Self::Primitive {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],

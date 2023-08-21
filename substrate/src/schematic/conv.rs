@@ -13,7 +13,7 @@ use uniquify::Names;
 use crate::io::{Node, NodePath, TerminalPath};
 use crate::schematic::InstancePath;
 
-use super::{BlackboxElement, CellId, InstanceId, RawCell, RawCellContent};
+use super::{CellId, InstanceId, RawCell};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
@@ -181,11 +181,6 @@ pub(crate) struct ScirInstanceConversion {
 
 #[derive(Debug, Clone)]
 pub(crate) enum ScirPrimitiveDeviceConversion {
-    /// A Substrate primitive that translates to a [`scir::PrimitiveDevice`].
-    Primitive {
-        /// The SCIR ID of the translated primitive device.
-        id: scir::PrimitiveDeviceId,
-    },
     /// A Substrate primitive that translates to a [`scir::Instance`].
     Instance(scir::InstanceId),
 }

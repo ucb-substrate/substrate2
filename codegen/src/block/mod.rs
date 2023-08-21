@@ -10,17 +10,15 @@ pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(struct_any, enum_any))]
+#[darling(
+    attributes(substrate),
+    supports(struct_any, enum_any),
+    allow_unknown_fields
+)]
 pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
-    #[darling(multiple)]
-    #[allow(unused)]
-    schematic: Vec<darling::util::Ignored>,
-    #[darling(multiple)]
-    #[allow(unused)]
-    layout: Vec<darling::util::Ignored>,
     kind: syn::Type,
 }
 

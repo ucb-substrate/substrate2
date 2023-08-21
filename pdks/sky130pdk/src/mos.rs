@@ -2,7 +2,6 @@
 
 use std::fmt::Display;
 
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::MosIo;
@@ -82,8 +81,7 @@ macro_rules! define_mos {
 
         impl substrate::pdk::HasPdkPrimitive<$typ> for crate::Sky130OpenPdk {
             fn primitive(
-                block: &$typ,
-                io: &<<$typ as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
+                block: &$typ
             ) -> Self::Primitive {
                 crate::Sky130Primitive::Mos(block.params.clone())
             }

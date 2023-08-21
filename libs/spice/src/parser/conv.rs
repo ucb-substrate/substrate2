@@ -43,7 +43,6 @@ pub enum ConvError {
 pub struct ScirConverter<'a> {
     ast: &'a Ast,
     lib: scir::LibraryBuilder<Primitive>,
-    blackbox_cells: HashSet<Substr>,
     subckts: HashMap<SubcktName, &'a Subckt>,
     ids: HashMap<SubcktName, scir::CellId>,
 }
@@ -54,15 +53,9 @@ impl<'a> ScirConverter<'a> {
         Self {
             ast,
             lib: scir::LibraryBuilder::new(name),
-            blackbox_cells: Default::default(),
             subckts: Default::default(),
             ids: Default::default(),
         }
-    }
-
-    /// Blackboxes the given cell.
-    pub fn blackbox(&mut self, cell_name: impl Into<Substr>) {
-        self.blackbox_cells.insert(cell_name.into());
     }
 
     /// Consumes the converter, yielding a SCIR [library](scir::Library)].
@@ -102,10 +95,6 @@ impl<'a> ScirConverter<'a> {
             return Ok(id);
         }
 
-        if self.blackbox_cells.contains(&subckt.name) {
-            return Err(ConvError::ExportBlackbox);
-        }
-
         let mut cell = scir::Cell::new(ArcStr::from(subckt.name.as_str()));
         let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
@@ -130,8 +119,24 @@ impl<'a> ScirConverter<'a> {
                     cell.add_instance(sinst);
                 }
                 Component::Instance(inst) => {
-                    let blackbox = self.blackbox_cells.contains(&inst.child);
-                    if blackbox {
+                    if let Some(subckt) = self.subckts.get(&inst.child) {
+                        let id = self.convert_subckt(subckt)?;
+                        let mut sinst = scir::Instance::new(inst.name.as_str(), id);
+                        let subckt = self
+                            .subckts
+                            .get(&inst.child)
+                            .ok_or_else(|| ConvError::MissingSubckt(inst.child.clone()))?;
+
+                        for (cport, iport) in subckt.ports.iter().zip(inst.ports.iter()) {
+                            sinst.connect(cport.as_str(), node(iport, &mut cell));
+                        }
+
+                        for (k, v) in inst.params.iter() {
+                            sinst.set_param(k.as_str(), str_as_numeric_lit(v)?);
+                        }
+
+                        cell.add_instance(sinst);
+                    } else {
                         let child = ArcStr::from(inst.child.as_str());
                         let params = inst
                             .params
@@ -151,27 +156,6 @@ impl<'a> ScirConverter<'a> {
                         for (cport, iport) in ports.iter().zip(inst.ports.iter()) {
                             sinst.connect(cport, node(iport, &mut cell));
                         }
-                        cell.add_instance(sinst);
-                    } else {
-                        let subckt = self
-                            .subckts
-                            .get(&inst.child)
-                            .ok_or_else(|| ConvError::MissingSubckt(inst.child.clone()))?;
-                        let id = self.convert_subckt(subckt)?;
-                        let mut sinst = scir::Instance::new(inst.name.as_str(), id);
-                        let child = self
-                            .subckts
-                            .get(&inst.child)
-                            .ok_or_else(|| ConvError::MissingSubckt(inst.child.clone()))?;
-
-                        for (cport, iport) in child.ports.iter().zip(inst.ports.iter()) {
-                            sinst.connect(cport.as_str(), node(iport, &mut cell));
-                        }
-
-                        for (k, v) in inst.params.iter() {
-                            sinst.set_param(k.as_str(), str_as_numeric_lit(v)?);
-                        }
-
                         cell.add_instance(sinst);
                     }
                 }

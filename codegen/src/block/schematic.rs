@@ -221,20 +221,12 @@ impl ToTokens for DataInputReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(any))]
+#[darling(attributes(substrate), supports(any), allow_unknown_fields)]
 pub struct HasSchematicInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
-    #[allow(unused)]
-    io: darling::util::Ignored,
-    #[darling(multiple)]
-    #[allow(unused)]
-    layout: Vec<darling::util::Ignored>,
     #[darling(multiple)]
     schematic: Vec<SchematicHardMacro>,
-    #[darling(default)]
-    #[allow(unused)]
-    flatten: darling::util::Ignored,
 }
 
 #[derive(Debug, FromMeta)]
@@ -257,23 +249,13 @@ impl ToTokens for HasSchematicInputReceiver {
 
         let (imp, ty, wher) = generics.split_for_impl();
 
-        let has_schematic = quote! {
-            impl #imp #substrate::schematic::ExportsSchematicData for #ident #ty #wher {
-                type Data = ();
-            }
-        };
-
         let has_schematic_impls = schematic.iter().map(|schematic| {
             let SchematicHardMacro { source, fmt, pdk, name } = schematic;
 
             let parsed_to_scir = quote! {
                 let mut conv = #substrate::spice::parser::conv::ScirConverter::new(::std::stringify!(#ident), &parsed.ast);
 
-                for prim in cell.ctx.pdk.schematic_primitives() {
-                    conv.blackbox(#substrate::arcstr::Substr::full(prim));
-                }
-
-                let lib = ::std::sync::Arc::new(conv.convert().unwrap());
+                let lib = conv.convert().unwrap();
                 let cell_id = lib.cell_id_named(#name);
 
                 (lib, cell_id)
@@ -296,12 +278,10 @@ impl ToTokens for HasSchematicInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::schematic::Schematic<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::pdk::PdkScirSchematic<#pdk> for #ident #ty #wher {
                     fn schematic(
-                        &self,
-                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,
-                        cell: &mut #substrate::schematic::CellBuilder<#pdk, Self>,
-                    ) -> #substrate::error::Result<Self::Data> {
+                        &self
+                    ) -> #substrate::error::Result<(#substrate::scir::Library<<#pdk as #substrate::pdk::Pdk>::Primitive>, #substrate::scir::CellId)> {
                         use #substrate::pdk::Pdk;
 
                         let source = {
@@ -310,29 +290,18 @@ impl ToTokens for HasSchematicInputReceiver {
 
                         let (lib, cell_id) = { #scir };
 
-                        use #substrate::io::StructData;
-                        let connections: ::std::collections::HashMap<#substrate::arcstr::ArcStr, ::std::vec::Vec<#substrate::io::Node>> =
-                            ::std::collections::HashMap::from_iter(io.fields().into_iter().map(|f| {
-                                let nodes = io.field_nodes(&f).unwrap();
-                                (f, nodes)
-                            }));
-
-                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::new(
-                            #substrate::schematic::PrimitiveDeviceKind::ScirInstance {
-                                lib,
-                                cell: cell_id,
-                                connections,
-                            }
-                        ));
-                        Ok(())
+                        Ok((
+                            lib.convert_primitives(
+                                <#pdk as #substrate::pdk::FromSchema::<#substrate::schematic::schema::Spice>>::convert_primitive
+                            ).ok_or(#substrate::error::Error::UnsupportedPrimitive)?,
+                            cell_id
+                        ))
                     }
                 }
             }
         });
 
         let expanded = quote! {
-            #has_schematic
-
             #(#has_schematic_impls)*
         };
 

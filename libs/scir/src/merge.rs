@@ -53,7 +53,7 @@ impl<'a, P> Merger<'a, P> {
         let mut n_cell = (*cell).clone();
         n_cell.name = n_name;
 
-        if let CellContent::Cell(inner) = n_cell.contents_mut() {
+        if let CellKind::Cell(inner) = n_cell.contents_mut() {
             for (_, inst) in inner.instances_mut() {
                 let n_child_id = self.merge_cell(
                     inst.child().unwrap_cell(),

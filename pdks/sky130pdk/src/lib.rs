@@ -3,19 +3,29 @@
 //! Includes both open source and commercial PDK flavors.
 #![warn(missing_docs)]
 
+use arcstr::ArcStr;
+use indexmap::IndexMap;
 use std::path::PathBuf;
 
 use crate::layers::Sky130Layers;
 use crate::mos::MosParams;
 use corner::*;
 use rust_decimal_macros::dec;
-use substrate::pdk::Pdk;
+use substrate::pdk::{FromSchema, Pdk};
+use substrate::schematic::schema::{Schema, Spice};
+use substrate::scir::Expr;
+use substrate::spice;
 
 pub mod corner;
 pub mod layers;
 pub mod mos;
 
 pub enum Sky130Primitive {
+    RawInstance {
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        params: IndexMap<ArcStr, Expr>,
+    },
     Mos(MosParams),
 }
 
@@ -59,6 +69,25 @@ impl Pdk for Sky130OpenPdk {
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
     const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
+}
+
+impl FromSchema<Spice> for Sky130OpenPdk {
+    fn convert_primitive(
+        primitive: <Spice as Schema>::Primitive,
+    ) -> Option<<Self as Pdk>::Primitive> {
+        Some(match primitive {
+            spice::Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => Sky130Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            },
+            _ => todo!(),
+        })
+    }
 }
 
 /// The commercial Sky 130 PDK.
