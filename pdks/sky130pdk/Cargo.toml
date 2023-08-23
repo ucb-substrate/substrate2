@@ -8,7 +8,7 @@ substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate
 spectre = { version = "0.6.1", registry = "substrate", path = "../../tools/spectre" }
 ngspice = { version = "0.0.0", registry = "substrate", path = "../../tools/ngspice" }
 
-rust_decimal = "1.31"
+rust_decimal = "1.32"
 rust_decimal_macros = "1.32"
 indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
