@@ -9,7 +9,7 @@ spectre = { version = "0.6.1", registry = "substrate", path = "../../tools/spect
 ngspice = { version = "0.0.0", registry = "substrate", path = "../../tools/ngspice" }
 
 rust_decimal = "1.31"
-rust_decimal_macros = "1.31"
+rust_decimal_macros = "1.32"
 indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 arcstr = { version = "1", features = ["serde"] }
