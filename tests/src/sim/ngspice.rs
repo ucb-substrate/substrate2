@@ -5,13 +5,15 @@ use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130OpenPdk;
-use substrate::block::Block;
+use substrate::block::{self, Block};
 use substrate::io::{SchematicType, Signal, TestbenchIo};
-use substrate::schematic::{Cell, ExportsSchematicData, Instance, SchematicData, SimCellBuilder};
-use substrate::simulation::data::{FromSaved, Save};
-use substrate::simulation::{
-    HasSimSchematic, SimController, SimulationContext, Simulator, Testbench,
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{
+    Cell, CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData,
 };
+use substrate::simulation::data::{FromSaved, Save};
+use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;
 
 use crate::paths::get_path;
@@ -20,28 +22,25 @@ use crate::shared::pdk::sky130_open_ctx;
 #[test]
 fn ngspice_can_save_voltages_and_currents() {
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo")]
+    #[substrate(io = "TestbenchIo", kind = "block::InlineCell")]
     struct ResistorTb;
 
     #[derive(SchematicData)]
-    struct ResistorTbData {
-        #[substrate(nested)]
-        r1: Instance<ngspice::blocks::Resistor>,
-        #[substrate(nested)]
-        r2: Instance<ngspice::blocks::Resistor>,
-        #[substrate(nested)]
-        r3: Instance<ngspice::blocks::Resistor>,
+    struct ResistorTbData<PDK: Pdk, S: Schema> {
+        r1: Instance<PDK, S, ngspice::blocks::Resistor>,
+        r2: Instance<PDK, S, ngspice::blocks::Resistor>,
+        r3: Instance<PDK, S, ngspice::blocks::Resistor>,
     }
 
-    impl ExportsSchematicData for ResistorTb {
-        type Data = ResistorTbData;
+    impl ExportsSchematicData<Sky130OpenPdk, Ngspice> for ResistorTb {
+        type Data = ResistorTbData<Sky130OpenPdk, Ngspice>;
     }
 
-    impl HasSimSchematic<Sky130OpenPdk, Ngspice> for ResistorTb {
+    impl Schematic<Sky130OpenPdk, Ngspice> for ResistorTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-            cell: &mut SimCellBuilder<Sky130OpenPdk, Ngspice, Self>,
+            cell: &mut CellBuilder<Sky130OpenPdk, Ngspice>,
         ) -> substrate::error::Result<Self::Data> {
             let vdd = cell.signal("vdd", Signal);
             let r1 = cell.instantiate_tb(ngspice::blocks::Resistor(dec!(100)));
@@ -71,10 +70,10 @@ fn ngspice_can_save_voltages_and_currents() {
         r3_terminal: TranCurrent,
     }
 
-    impl Save<Ngspice, Tran, &Cell<ResistorTb>> for ResistorTbOutput {
+    impl<PDK: Pdk> Save<Ngspice, Tran, &Cell<PDK, Ngspice, ResistorTb>> for ResistorTbOutput {
         fn save(
-            ctx: &SimulationContext,
-            to_save: &Cell<ResistorTb>,
+            ctx: &SimulationContext<Ngspice>,
+            to_save: &Cell<PDK, Ngspice, ResistorTb>,
             opts: &mut <Ngspice as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {

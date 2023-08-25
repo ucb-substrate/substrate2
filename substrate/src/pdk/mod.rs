@@ -8,11 +8,10 @@ use std::any::Any;
 use std::sync::Arc;
 
 use rust_decimal::Decimal;
-use substrate::block::ScirKind;
 use substrate::schematic::SchematicData;
 use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block, PdkPrimitive};
+use crate::block::{self, Block, PdkPrimitive, ScirBlock};
 use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
@@ -26,7 +25,7 @@ use self::layers::Layers;
 /// A process development kit.
 pub trait Pdk: Send + Sync + Any {
     /// An internal representation of PDK primitives.
-    type Primitive;
+    type Primitive: Clone;
     /// A set of layers used by the PDK.
     type Layers: Layers;
     /// The type representing a corner in this PDK.
@@ -35,10 +34,15 @@ pub trait Pdk: Send + Sync + Any {
     const LAYOUT_DB_UNITS: Option<Decimal> = None;
 }
 
+/// A PDK whose primitives can be converted to primitives of schema `S`.
 pub trait ToSchema<S: Schema>: Pdk {
+    /// Converts a PDK primitive to a schema primitive.
     fn convert_primitive(primitive: <Self as Pdk>::Primitive) -> Option<<S as Schema>::Primitive>;
 }
+
+/// A PDK whose primitives can be created from primitives of schema `S`.
 pub trait FromSchema<S: Schema>: Pdk {
+    /// Converts a schema primitive to a PDK primitive.
     fn convert_primitive(primitive: <S as Schema>::Primitive) -> Option<<Self as Pdk>::Primitive>;
 }
 
@@ -46,7 +50,7 @@ pub trait HasPdkPrimitive<B: Block<Kind = PdkPrimitive>>: Pdk {
     fn primitive(block: &B) -> Self::Primitive;
 }
 
-pub trait PdkScirSchematic<PDK: Pdk>: Block {
+pub trait PdkScirSchematic<PDK: Pdk>: ScirBlock {
     fn schematic(&self) -> Result<(scir::Library<PDK::Primitive>, scir::CellId)>;
 }
 

@@ -18,10 +18,6 @@ pub trait BlockKind {
     fn sealed(_: sealed::Token);
 }
 
-pub trait ScirKind: BlockKind {
-    #[doc(hidden)]
-    fn sealed(_: sealed::Token);
-}
 pub struct Cell;
 impl BlockKind for Cell {
     const FLATTEN: bool = false;
@@ -39,16 +35,10 @@ impl BlockKind for Scir {
     const FLATTEN: bool = false;
     fn sealed(_: Token) {}
 }
-impl ScirKind for Scir {
-    fn sealed(_: Token) {}
-}
 
 pub struct InlineScir;
 impl BlockKind for InlineScir {
     const FLATTEN: bool = true;
-    fn sealed(_: Token) {}
-}
-impl ScirKind for InlineScir {
     fn sealed(_: Token) {}
 }
 
@@ -95,4 +85,16 @@ pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
 
     /// Returns a fully-specified instance of this cell's `Io`.
     fn io(&self) -> Self::Io;
+}
+
+pub trait ScirBlock<K = <Self as Block>::Kind>: Block {
+    #[doc(hidden)]
+    fn sealed(_: sealed::Token);
+}
+
+impl<B: Block<Kind = Scir>> ScirBlock<Scir> for B {
+    fn sealed(_: Token) {}
+}
+impl<B: Block<Kind = InlineScir>> ScirBlock<InlineScir> for B {
+    fn sealed(_: Token) {}
 }

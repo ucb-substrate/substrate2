@@ -1,15 +1,20 @@
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
 use substrate::schematic::{ExportsSchematicData, Instance, SchematicData};
 
 #[derive(Default, SchematicData)]
-pub struct SchematicInstances<T: ExportsSchematicData> {
-    pub instances: Vec<Instance<T>>,
+pub struct SchematicInstances<PDK: Pdk, S: Schema, T: ExportsSchematicData<PDK, S>> {
+    pub instances: Vec<Instance<PDK, S, T>>,
 }
 
 #[derive(SchematicData)]
-pub enum EnumInstances<T: ExportsSchematicData> {
-    One { one: Instance<T> },
-    Two(Instance<T>, Instance<T>),
+pub enum EnumInstances<PDK: Pdk, S: Schema, T: ExportsSchematicData<PDK, S>> {
+    One { one: Instance<PDK, S, T> },
+    Two(Instance<PDK, S, T>, Instance<PDK, S, T>),
 }
 
 #[derive(SchematicData)]
-pub struct TwoInstances<T: ExportsSchematicData>(pub Instance<T>, pub Instance<T>);
+pub struct TwoInstances<PDK: Pdk, S: Schema, T: ExportsSchematicData<PDK, S>>(
+    pub Instance<PDK, S, T>,
+    pub Instance<PDK, S, T>,
+);

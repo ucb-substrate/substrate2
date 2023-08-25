@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
 
-use substrate::pdk::Pdk;
-use substrate::{block::Block, schematic::Schematic};
+use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::schematic::schema::Schema;
+use substrate::{block, block::Block, schematic::Schematic};
 
 #[derive(Debug, Clone, Io)]
 pub struct ArrayIo {
@@ -19,6 +20,7 @@ pub struct ArrayShort {
 }
 
 impl Block for ArrayShort {
+    type Kind = block::Cell;
     type Io = ArrayIo;
 
     fn id() -> ArcStr {
@@ -35,16 +37,19 @@ impl Block for ArrayShort {
     }
 }
 
-impl ExportsSchematicData for ArrayShort {
-    type Data = ();
+impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for ArrayShort {
+    type Data<S> = () where PDK: ToSchema<S>;
 }
 
-impl<PDK: Pdk> Schematic<PDK> for ArrayShort {
-    fn schematic(
+impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
+    fn schematic<S: Schema>(
         &self,
-        io: &ArrayIoSchematic,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, S>,
+    ) -> substrate::error::Result<Self::Data<S>>
+    where
+        PDK: ToSchema<S>,
+    {
         for i in 0..self.width {
             cell.connect(io.inputs[i], io.out)
         }

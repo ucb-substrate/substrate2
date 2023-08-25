@@ -4,21 +4,26 @@ use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
 use spectre::Spectre;
-use substrate::block::Block;
+use substrate::block;
+use substrate::block::{Block, PdkPrimitive};
 use substrate::context::Context;
 use substrate::io::MosIo;
-use substrate::pdk::Pdk;
-use substrate::schematic::{
-    ExportsSchematicData, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode, Schematic,
-};
+use substrate::pdk::{HasPdkPrimitive, Pdk};
+use substrate::schematic::{ExportsSchematicData, Schematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
 pub mod layers;
 
+pub enum ExamplePrimitive {
+    Pmos { w: i64, l: i64 },
+    Nmos { w: i64, l: i64 },
+}
+
 pub struct ExamplePdkA;
 
 impl Pdk for ExamplePdkA {
+    type Primitive = ExamplePrimitive;
     type Layers = ExamplePdkALayers;
     type Corner = ExampleCorner;
 }
@@ -26,6 +31,7 @@ impl Pdk for ExamplePdkA {
 pub struct ExamplePdkB;
 
 impl Pdk for ExamplePdkB {
+    type Primitive = ExamplePrimitive;
     type Layers = ExamplePdkBLayers;
     type Corner = ExampleCorner;
 }
@@ -41,6 +47,7 @@ pub struct NmosA {
 }
 
 impl Block for NmosA {
+    type Kind = block::PdkPrimitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("nmos_a")
@@ -53,32 +60,12 @@ impl Block for NmosA {
     }
 }
 
-impl ExportsSchematicData for NmosA {
-    type Data = ();
-}
-
-impl Schematic<ExamplePdkA> for NmosA {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::from_params(
-            PrimitiveDeviceKind::RawInstance {
-                ports: vec![
-                    PrimitiveNode::new("d", io.d),
-                    PrimitiveNode::new("g", io.g),
-                    PrimitiveNode::new("s", io.s),
-                    PrimitiveNode::new("b", io.b),
-                ],
-                cell: arcstr::literal!("example_pdk_nmos_a"),
-            },
-            IndexMap::from_iter([
-                (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
-                (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
-            ]),
-        ));
-        Ok(())
+impl HasPdkPrimitive<NmosA> for ExamplePdkA {
+    fn primitive(block: &NmosA) -> Self::Primitive {
+        ExamplePrimitive::Nmos {
+            w: block.w,
+            l: block.l,
+        }
     }
 }
 
@@ -90,6 +77,7 @@ pub struct PmosA {
 }
 
 impl Block for PmosA {
+    type Kind = PdkPrimitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("pmos_a")
@@ -102,32 +90,12 @@ impl Block for PmosA {
     }
 }
 
-impl ExportsSchematicData for PmosA {
-    type Data = ();
-}
-
-impl Schematic<ExamplePdkA> for PmosA {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        cell.add_primitive(PrimitiveDevice::from_params(
-            PrimitiveDeviceKind::RawInstance {
-                ports: vec![
-                    PrimitiveNode::new("d", io.d),
-                    PrimitiveNode::new("g", io.g),
-                    PrimitiveNode::new("s", io.s),
-                    PrimitiveNode::new("b", io.b),
-                ],
-                cell: arcstr::literal!("example_pdk_pmos_a"),
-            },
-            IndexMap::from_iter([
-                (arcstr::literal!("w"), Expr::NumericLiteral(self.w.into())),
-                (arcstr::literal!("l"), Expr::NumericLiteral(self.l.into())),
-            ]),
-        ));
-        Ok(())
+impl HasPdkPrimitive<PmosA> for ExamplePdkA {
+    fn primitive(block: &PmosA) -> Self::Primitive {
+        ExamplePrimitive::Pmos {
+            w: block.w,
+            l: block.l,
+        }
     }
 }
 

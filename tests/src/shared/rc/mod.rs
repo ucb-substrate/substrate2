@@ -3,19 +3,20 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::tran::Tran;
 use spectre::{Options, Spectre};
-use substrate::block::Block;
-use substrate::io::TestbenchIo;
+use substrate::block::{Block, InlineCell};
 use substrate::io::{Node, Signal};
+use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{Capacitor, Resistor};
-use substrate::schematic::ExportsSchematicData;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellBuilder, ExportsSchematicData, Schematic};
 use substrate::simulation::data::HasSimData;
-use substrate::simulation::{HasSimSchematic, Testbench};
+use substrate::simulation::Testbench;
 
 /// An RC testbench.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct RcTb {
     ic: Decimal,
 }
@@ -28,15 +29,15 @@ impl RcTb {
     }
 }
 
-impl ExportsSchematicData for RcTb {
+impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for RcTb {
     type Data = Node;
 }
 
-impl<PDK: Pdk> HasSimSchematic<PDK, Spectre> for RcTb {
+impl<PDK: Pdk> Schematic<PDK, Spectre> for RcTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Spectre>,
     ) -> substrate::error::Result<Self::Data> {
         let vout = cell.signal("vout", Signal);
 

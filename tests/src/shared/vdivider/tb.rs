@@ -4,39 +4,40 @@ use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::tran::{Tran, TranCurrent, TranVoltage};
 use spectre::{Options, Spectre};
-use substrate::block::Block;
-use substrate::io::Signal;
+use substrate::block::{Block, InlineCell};
 use substrate::io::TestbenchIo;
+use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
-use substrate::schematic::{Cell, ExportsSchematicData, Instance, Schematic, SchematicData};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{
+    Cell, CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData,
+};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
-use substrate::simulation::{HasSimSchematic, SimulationContext, Simulator, Testbench};
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct VdividerTb;
 
 #[derive(SchematicData)]
-pub struct VdividerTbData {
-    #[substrate(nested)]
-    iprobe: Instance<Iprobe>,
-    #[substrate(nested)]
-    dut: Instance<Vdivider>,
+pub struct VdividerTbData<PDK: Pdk, S: Schema> {
+    iprobe: Instance<PDK, S, Iprobe>,
+    dut: Instance<PDK, S, Vdivider>,
 }
 
-impl ExportsSchematicData for VdividerTb {
-    type Data = VdividerTbData;
+impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for VdividerTb {
+    type Data = VdividerTbData<PDK, S>;
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Spectre>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd_a = cell.signal("vdd_a", Signal);
         let vdd = cell.signal("vdd", Signal);
@@ -63,22 +64,22 @@ impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for Vdivid
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct VdividerDuplicateSubcktTb;
 
-impl ExportsSchematicData for VdividerDuplicateSubcktTb {
-    type Data = Instance<VdividerDuplicateSubckt>;
+impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for VdividerDuplicateSubcktTb {
+    type Data = Instance<PDK, S, VdividerDuplicateSubckt>;
 }
 
-impl<PDK> HasSimSchematic<PDK, Spectre> for VdividerDuplicateSubcktTb
+impl<PDK> Schematic<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
     PDK: Pdk,
-    VdividerDuplicateSubckt: Schematic<PDK>,
+    VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Spectre>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
@@ -104,7 +105,7 @@ pub struct VdividerDuplicateSubcktTbOutput {
 impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
     PDK: Pdk + InstallCorner<Spectre>,
-    VdividerDuplicateSubckt: Schematic<PDK>,
+    VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
 {
     type Output = VdividerDuplicateSubcktTbOutput;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
@@ -145,10 +146,10 @@ pub struct VdividerTbTranOutput {
     pub out: TranVoltage,
 }
 
-impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
+impl<PDK: Pdk> Save<Spectre, Tran, &Cell<PDK, Spectre, VdividerTb>> for VdividerTbTranOutput {
     fn save(
-        ctx: &SimulationContext,
-        cell: &Cell<VdividerTb>,
+        ctx: &SimulationContext<Spectre>,
+        cell: &Cell<PDK, Spectre, VdividerTb>,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         Self::Key {
@@ -179,18 +180,18 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct VdividerArrayTb;
 
-impl ExportsSchematicData for VdividerArrayTb {
-    type Data = Instance<VdividerArray>;
+impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for VdividerArrayTb {
+    type Data = Instance<PDK, S, VdividerArray>;
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Spectre>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
@@ -214,18 +215,18 @@ impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for Vdivid
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct FlattenedVdividerArrayTb;
 
-impl ExportsSchematicData for FlattenedVdividerArrayTb {
-    type Data = Instance<super::flattened::VdividerArray>;
+impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for FlattenedVdividerArrayTb {
+    type Data = Instance<PDK, S, super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> HasSimSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Spectre, Self>,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<PDK, Spectre>,
     ) -> substrate::error::Result<Self::Data> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {

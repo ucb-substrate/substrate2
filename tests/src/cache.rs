@@ -3,8 +3,12 @@ use std::sync::{Arc, Mutex};
 use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use substrate::schematic::{HasNestedView, InstancePath};
+use substrate::io::SchematicType;
+use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
+    block,
     block::Block,
     context::Context,
     schematic::{ExportsSchematicData, Schematic},
@@ -34,6 +38,7 @@ impl Cacheable for CachedDesignScript {
 pub struct CacheBlock(u64);
 
 impl Block for CacheBlock {
+    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -62,16 +67,19 @@ impl HasNestedView for CacheBlockData {
     }
 }
 
-impl ExportsSchematicData for CacheBlock {
-    type Data = CacheBlockData;
+impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for CacheBlock {
+    type Data<S> = CacheBlockData where PDK: ToSchema<S>;
 }
 
-impl Schematic<ExamplePdkA> for CacheBlock {
-    fn schematic(
+impl PdkSchematic<ExamplePdkA> for CacheBlock {
+    fn schematic<S: Schema>(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<ExamplePdkA, S>,
+    ) -> substrate::error::Result<Self::Data<S>>
+    where
+        ExamplePdkA: ToSchema<S>,
+    {
         let design = *cell
             .ctx()
             .cache

@@ -3,15 +3,12 @@
 use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
-use scir::{
-    Cell, CellId as ScirCellId, CellInner, IndexOwned, Instance, InstancePathTail, LibraryBuilder,
-    SignalPathTail, TopKind,
-};
+use scir::{Cell, CellId as ScirCellId, CellInner, Instance, LibraryBuilder, PrimitiveId, TopKind};
 use serde::{Deserialize, Serialize};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
-use crate::schematic::InstancePath;
+use crate::schematic::{BlackboxElement, InstancePath, RawCellKind};
 
 use super::{CellId, InstanceId, RawCell};
 
@@ -31,7 +28,8 @@ pub struct RawLib<P> {
 /// Provides helpers for retrieving SCIR objects from their Substrate IDs.
 #[derive(Debug, Clone)]
 pub struct ScirLibConversion {
-    pub(crate) id_mapping: HashMap<CellId, ScirCellId>,
+    pub(crate) cell_mapping: HashMap<CellId, ScirCellId>,
+    pub(crate) primitive_mapping: HashMap<CellId, PrimitiveId>,
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
     pub(crate) top: scir::CellId,
@@ -39,7 +37,8 @@ pub struct ScirLibConversion {
 
 #[derive(Debug, Clone, Default)]
 struct ScirLibConversionBuilder {
-    pub(crate) id_mapping: HashMap<CellId, ScirCellId>,
+    pub(crate) cell_mapping: HashMap<CellId, ScirCellId>,
+    pub(crate) primitive_mapping: HashMap<CellId, PrimitiveId>,
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
     pub(crate) top: Option<scir::CellId>,
@@ -52,7 +51,8 @@ impl ScirLibConversionBuilder {
 
     fn build(self) -> ScirLibConversion {
         ScirLibConversion {
-            id_mapping: self.id_mapping,
+            cell_mapping: self.cell_mapping,
+            primitive_mapping: self.primitive_mapping,
             cells: self.cells,
             top: self.top.unwrap(),
         }
@@ -112,7 +112,6 @@ impl<P> RawLib<P> {
         instances.push(id);
         let inst = parent_cell.instance(id);
         todo!();
-        instances.pop().unwrap();
     }
 
     /// Must ensure that `instances` is returned to its original value by the end of the
@@ -124,7 +123,7 @@ impl<P> RawLib<P> {
         instances: &mut Vec<scir::InstanceId>,
         signals: &mut Vec<scir::SignalPath>,
     ) {
-        let parent_cell = self.scir.cell(self.conv.id_mapping[&conv.id]);
+        let parent_cell = self.scir.cell(self.conv.cell_mapping[&conv.id]);
         for (_, conv) in conv.instances.iter() {
             todo!();
         }
@@ -186,13 +185,13 @@ pub(crate) enum ScirPrimitiveDeviceConversion {
 }
 
 #[derive(Debug, Clone)]
-struct ScirExportData<P> {
+struct ScirLibExportContext<P> {
     lib: LibraryBuilder<P>,
     conv: ScirLibConversionBuilder,
     cell_names: Names<CellId>,
 }
 
-impl<P> ScirExportData<P> {
+impl<P> ScirLibExportContext<P> {
     fn new(name: impl Into<ArcStr>) -> Self {
         Self {
             lib: LibraryBuilder::new(name),
@@ -221,14 +220,14 @@ impl FlatExport {
     }
 }
 
-struct ScirExportContext {
+struct ScirCellExportContext {
     id: CellId,
     inst_idx: u64,
     prim_idx: u64,
     cell: scir::Cell,
 }
 
-impl ScirExportContext {
+impl ScirCellExportContext {
     #[inline]
     pub fn new(id: CellId, cell: scir::Cell) -> Self {
         Self {
@@ -245,50 +244,6 @@ impl ScirExportContext {
 }
 
 impl<P> RawCell<P> {
-    /// Export this cell and all subcells as a SCIR library.
-    ///
-    /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn to_scir_lib(&self, kind: TopKind) -> Result<RawLib<P>, scir::Issues> {
-        let mut data = ScirExportData::new(self.name.clone());
-        let scir_id = self.to_scir_cell(&mut data);
-        data.lib.set_top(scir_id, kind);
-        data.conv.set_top(self.id, scir_id);
-
-        Ok(RawLib {
-            scir: data.lib.build()?,
-            conv: data.conv.build(),
-        })
-    }
-
-    fn to_scir_cell(&self, data: &mut ScirExportData<P>) -> ScirCellId {
-        let name = data.cell_names.assign_name(self.id, &self.name);
-
-        // Create the SCIR cell as a whitebox for now.
-        // If this Substrate cell is actually a blackbox,
-        // the contents of this SCIR cell will be made into a blackbox
-        // by calling `cell.set_contents`.
-        let cell = Cell::new(name);
-
-        let mut ctx = ScirExportContext::new(self.id, cell);
-        let conv = self.to_scir_cell_inner(data, &mut ctx, FlatExport::No);
-        let ScirExportContext { cell, .. } = ctx;
-
-        let id = data.lib.add_cell(cell);
-        data.conv.add_cell(self.id, conv);
-        data.conv.id_mapping.insert(self.id, id);
-
-        id
-    }
-
-    fn to_scir_cell_inner(
-        &self,
-        data: &mut ScirExportData<P>,
-        ctx: &mut ScirExportContext,
-        flatten: FlatExport,
-    ) -> ScirCellConversion {
-        todo!()
-    }
-
     /// The name associated with the given node.
     ///
     /// # Panics
@@ -297,5 +252,215 @@ impl<P> RawCell<P> {
     fn node_name(&self, node: Node) -> String {
         let node = self.roots[&node];
         self.node_names[&node].to_string()
+    }
+}
+
+impl<P: Clone> RawCell<P> {
+    /// Export this cell and all subcells as a SCIR library.
+    ///
+    /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub(crate) fn to_scir_lib(&self, kind: TopKind) -> Result<RawLib<P>, scir::Issues> {
+        assert!(
+            !self.contents.is_primitive(),
+            "cannot export a primitive cell as a SCIR library"
+        );
+        let mut lib_ctx = ScirLibExportContext::new(self.name.clone());
+        let scir_id = self.to_scir_cell(&mut lib_ctx);
+        lib_ctx.lib.set_top(scir_id, kind);
+        lib_ctx.conv.set_top(self.id, scir_id);
+
+        Ok(RawLib {
+            scir: lib_ctx.lib.build()?,
+            conv: lib_ctx.conv.build(),
+        })
+    }
+
+    fn to_scir_cell(&self, lib_ctx: &mut ScirLibExportContext<P>) -> ScirCellId {
+        let name = lib_ctx.cell_names.assign_name(self.id, &self.name);
+
+        // Create the SCIR cell as a whitebox for now.
+        // If this Substrate cell is actually a blackbox,
+        // the contents of this SCIR cell will be made into a blackbox
+        // by calling `cell.set_contents`.
+        let cell = Cell::new(name);
+
+        let mut cell_ctx = ScirCellExportContext::new(self.id, cell);
+        let conv = self.export_instances(lib_ctx, &mut cell_ctx, FlatExport::No);
+        let ScirCellExportContext { cell, .. } = cell_ctx;
+
+        let id = lib_ctx.lib.add_cell(cell);
+        lib_ctx.conv.add_cell(self.id, conv);
+        lib_ctx.conv.cell_mapping.insert(self.id, id);
+
+        id
+    }
+    /// Exports the instances associated with `self` into the SCIR cell specified
+    /// in `cell_ctx`.
+    fn export_instances(
+        &self,
+        lib_ctx: &mut ScirLibExportContext<P>,
+        cell_ctx: &mut ScirCellExportContext,
+        flatten: FlatExport,
+    ) -> ScirCellConversion {
+        if flatten.is_yes() {
+            assert!(
+                self.contents.is_cell() || self.contents.is_scir(),
+                "can only flat-export cells"
+            );
+        }
+        let mut conv = ScirCellConversion::new(cell_ctx.id);
+        let mut nodes = HashMap::new();
+        let mut roots_added = HashSet::new();
+
+        if let FlatExport::Yes(ref ports) = flatten {
+            // Flattened cells need to add all non-IO nodes to the enclosing cell.
+            assert_eq!(ports.len(), self.ports.len());
+            for (port, s) in self.ports.iter().zip(ports) {
+                let root = self.roots[&port.node()];
+                roots_added.insert(root);
+                nodes.insert(root, *s);
+            }
+        }
+
+        for (&src, &root) in self.roots.iter() {
+            let s = if !roots_added.contains(&root) {
+                let s = cell_ctx.cell.add_node(self.node_name(root));
+                roots_added.insert(root);
+                nodes.insert(root, s);
+                s
+            } else {
+                nodes[&root]
+            };
+            nodes.insert(src, s);
+            conv.signals.insert(src, s);
+        }
+
+        match self.contents.as_ref() {
+            RawCellKind::Blackbox(ref contents) => {
+                // Unreachable if flatten is `FlatExport::Yes`, so simply
+                // sets the contents of the SCIR cell to the blackbox contents
+                // of the Substrate cell.
+                let transformed = contents
+                    .elems
+                    .iter()
+                    .map(|e| match e {
+                        BlackboxElement::RawString(s) => {
+                            scir::BlackboxElement::RawString(s.clone())
+                        }
+                        BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n].into()),
+                    })
+                    .collect();
+                cell_ctx
+                    .cell
+                    .set_contents(scir::CellContents::Blackbox(transformed));
+            }
+            RawCellKind::Scir(contents) => {
+                if flatten.is_yes() {
+                    todo!()
+                } else {
+                    // If the SCIR cell does not need to flattened, merge in the SCIR cell's library
+                    // and create a mapping from its associated Substrate cell ID to the ID in the merged
+                    // library.
+                    let mapping = lib_ctx.lib.merge(&*contents.lib);
+                    lib_ctx
+                        .conv
+                        .cell_mapping
+                        .insert(self.id, mapping.new_cell_id(contents.cell));
+                }
+            }
+            RawCellKind::Primitive(_contents) => {
+                // Primitive cells do not have nested instances that Substrate can handle,
+                // so [`RawCell::export_instances`] should never be called on a primitive
+                // cell.
+                unreachable!()
+            }
+            RawCellKind::Cell(contents) => {
+                // Substrate cells cannot be instantiated within SCIR cells,
+                // so only need to check that the parent cell is a Substrate cell.
+                let parent_is_cell = cell_ctx.cell.contents().is_cell();
+                assert!(
+                    parent_is_cell,
+                    "can only flatten a cell into a parent that is also a cell"
+                );
+
+                for instance in contents.instances.iter() {
+                    if let RawCellKind::Primitive(p) = &instance.child.contents {
+                        // Primitives do not have associated cells, so
+                        if !lib_ctx.conv.cell_mapping.contains_key(&instance.child.id) {
+                            lib_ctx
+                                .conv
+                                .primitive_mapping
+                                .insert(self.id, lib_ctx.lib.add_primitive(p.clone()));
+                        }
+
+                        let child: PrimitiveId = *lib_ctx
+                            .conv
+                            .primitive_mapping
+                            .get(&instance.child.id)
+                            .unwrap();
+
+                        let mut sinst =
+                            Instance::new(arcstr::format!("inst{}", cell_ctx.inst_idx), child);
+                        cell_ctx.inst_idx += 1;
+                        assert_eq!(instance.child.ports.len(), instance.connections.len());
+                        for (port, &conn) in instance.child.ports.iter().zip(&instance.connections)
+                        {
+                            let scir_port_name = instance.child.node_name(port.node());
+                            sinst.connect(scir_port_name, nodes[&conn]);
+                        }
+                        cell_ctx.whitebox_contents_mut().add_instance(sinst);
+                        continue;
+                    }
+                    if instance.child.flatten {
+                        let ports = instance.connections.iter().map(|c| nodes[c]).collect();
+                        let inst_conv = instance.child.export_instances(
+                            lib_ctx,
+                            cell_ctx,
+                            FlatExport::Yes(ports),
+                        );
+                        conv.instances.insert(
+                            instance.id,
+                            ScirInstanceConversion {
+                                child: instance.child.id,
+                                instance: ConvertedScirInstance::InlineCell(inst_conv),
+                            },
+                        );
+                    } else {
+                        if !lib_ctx.conv.cell_mapping.contains_key(&instance.child.id) {
+                            instance.child.to_scir_cell(lib_ctx);
+                        }
+                        let child: ScirCellId =
+                            *lib_ctx.conv.cell_mapping.get(&instance.child.id).unwrap();
+
+                        let mut sinst =
+                            Instance::new(arcstr::format!("inst{}", cell_ctx.inst_idx), child);
+                        cell_ctx.inst_idx += 1;
+                        assert_eq!(instance.child.ports.len(), instance.connections.len());
+                        for (port, &conn) in instance.child.ports.iter().zip(&instance.connections)
+                        {
+                            let scir_port_name = instance.child.node_name(port.node());
+                            sinst.connect(scir_port_name, nodes[&conn]);
+                        }
+                        let id = cell_ctx.whitebox_contents_mut().add_instance(sinst);
+                        conv.instances.insert(
+                            instance.id,
+                            ScirInstanceConversion {
+                                child: instance.child.id,
+                                instance: ConvertedScirInstanceContent::Cell(id),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+
+        if flatten.is_no() {
+            for port in self.ports.iter() {
+                cell_ctx
+                    .cell
+                    .expose_port(nodes[&port.node()], port.direction());
+            }
+        }
+        conv
     }
 }

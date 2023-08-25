@@ -8,20 +8,23 @@ use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::tran::Tran;
 use spectre::{Options, Spectre};
+use substrate::block;
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::io::TestbenchIo;
 use substrate::io::{Node, Signal};
+use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::ExportsSchematicData;
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellBuilder, ExportsSchematicData, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{HasSimSchematic, Testbench};
+use substrate::simulation::Testbench;
 
 use super::Inverter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "block::InlineCell")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,
@@ -34,15 +37,15 @@ impl InverterTb {
     }
 }
 
-impl ExportsSchematicData for InverterTb {
+impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for InverterTb {
     type Data = Node;
 }
 
-impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
+impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
     ) -> substrate::error::Result<Self::Data> {
         let inv = cell.instantiate(self.dut);
 

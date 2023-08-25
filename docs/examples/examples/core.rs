@@ -22,6 +22,7 @@ impl Pdk for ExamplePdk {
 }
 // end-code-snippet pdk
 
+#[derive(Clone)]
 pub enum ExamplePrimitive {}
 
 // begin-code-snippet layers
@@ -55,6 +56,7 @@ pub enum ExamplePdkCorner {
 }
 // end-code-snippet derive_corner
 
+#[derive(Clone)]
 pub struct ExamplePdkA;
 
 impl Pdk for ExamplePdkA {
@@ -63,6 +65,7 @@ impl Pdk for ExamplePdkA {
     type Corner = ExampleCorner;
 }
 
+#[derive(Clone)]
 pub struct ExamplePdkB;
 
 impl Pdk for ExamplePdkB {

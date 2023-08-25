@@ -1,25 +1,40 @@
+use arcstr::ArcStr;
+use indexmap::IndexMap;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use scir::*;
-use spice::Netlister;
+use spectre::SpectrePrimitive;
+use spice::{Netlister, Primitive};
+
+trait HasRes2 {
+    fn resistor(value: usize) -> Self;
+}
+
+impl HasRes2 for Primitive {
+    fn resistor(value: usize) -> Self {
+        Primitive::Res2 {
+            value: Expr::NumericLiteral(Decimal::from(value)),
+        }
+    }
+}
+
+impl HasRes2 for SpectrePrimitive {
+    fn resistor(value: usize) -> Self {
+        SpectrePrimitive::RawInstance {
+            cell: ArcStr::from("resistor"),
+            ports: vec!["pos".into(), "neg".into()],
+            params: IndexMap::from_iter([(
+                ArcStr::from("res"),
+                Expr::NumericLiteral(Decimal::from(value)),
+            )]),
+        }
+    }
+}
 
 /// Creates a 1:3 resistive voltage divider.
-pub(crate) fn vdivider() -> Library {
+pub(crate) fn vdivider<P: HasRes2>() -> Library<P> {
     let mut lib = LibraryBuilder::new("vdivider");
-    let mut wrapper = Cell::new_whitebox("resistor_wrapper");
-    let pos = wrapper.add_node("pos");
-    let neg = wrapper.add_node("neg");
-    let contents = wrapper.contents_mut().as_mut().unwrap_clear();
-    contents.add_primitive(PrimitiveDevice::new(
-        "res0",
-        PrimitiveDeviceKind::Res2 {
-            pos,
-            neg,
-            value: dec!(3300).into(),
-        },
-    ));
-    wrapper.expose_port(pos, Direction::InOut);
-    wrapper.expose_port(neg, Direction::InOut);
-    let wrapper = lib.add_cell(wrapper);
+    let mut wrapper = lib.add_primitive(P::resistor(100));
 
     let mut vdivider = Cell::new_whitebox("vdivider");
     let vdd = vdivider.add_node("vdd");
@@ -52,7 +67,7 @@ pub(crate) fn vdivider() -> Library {
 }
 
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
-pub(crate) fn vdivider_blackbox() -> Library {
+pub(crate) fn vdivider_blackbox() -> Library<Primitive> {
     let mut lib = LibraryBuilder::new("vdivider");
     let mut wrapper = Cell::new_blackbox("resistor_wrapper");
     let pos = wrapper.add_node("pos");

@@ -10,7 +10,6 @@ use cache::CacheHandle;
 pub use codegen::{Schematic, SchematicData};
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
@@ -22,7 +21,7 @@ use scir::Library;
 use substrate::pdk::PdkScirSchematic;
 use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block, Opaque, PdkPrimitive, ScirKind};
+use crate::block::{self, Block, Opaque, PdkPrimitive, ScirBlock};
 use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
@@ -30,10 +29,11 @@ use crate::io::{
     Connect, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundle, SchematicType, TerminalView,
 };
-use crate::pdk::{ExportsPdkSchematicData, HasPdkPrimitive, Pdk, PdkSchematic, ToSchema};
-use crate::simulation::Simulator;
+use crate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
 
-pub trait ScirSchematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: Block {
+/// A block with a schematic specified using SCIR.
+pub trait ScirSchematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ScirBlock {
+    /// Returns the library containing the SCIR cell and its ID.
     fn schematic(&self) -> Result<(Library<S::Primitive>, scir::CellId)>;
 }
 
@@ -51,7 +51,9 @@ impl<T, PDK: ToSchema<S>, S: Schema, B: Block<Kind = T> + PdkScirSchematic<PDK>>
     }
 }
 
+/// A block whose contents are opaque to Substrate.
 pub trait Blackbox<PDK: Pdk, S: Schema>: Block<Kind = Opaque> {
+    /// Returns the contents of the blackbox.
     fn contents(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> BlackboxContents;
 }
 
@@ -66,6 +68,7 @@ pub trait ExportsSchematicData<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: 
     type Data: SchematicData;
 }
 
+/// A block that has a schematic associated with the given PDK and schema.
 pub trait Schematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>:
     ExportsSchematicData<PDK, S, K>
 {
@@ -102,14 +105,14 @@ impl<T, PDK: Pdk, S: Schema, B: Block<Kind = T> + ScirSchematic<PDK, S>> Schemat
     }
 }
 
-#[impl_dispatch({PdkPrimitive; crate::block::Cell; crate::block::InlineCell})]
-impl<T, PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK> + Block<Kind = T>>
+#[impl_dispatch({crate::block::PdkPrimitive; crate::block::Cell; crate::block::InlineCell})]
+impl<T, PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK, T> + Block<Kind = T>>
     ExportsSchematicData<PDK, S, T> for B
 {
     type Data = <Self as ExportsPdkSchematicData<PDK>>::Data<S>;
 }
 #[impl_dispatch({PdkPrimitive; crate::block::Cell; crate::block::InlineCell})]
-impl<T, PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK> + Block<Kind = T>> Schematic<PDK, S, T>
+impl<T, PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK, T> + Block<Kind = T>> Schematic<PDK, S, T>
     for B
 {
     fn schematic(
@@ -256,7 +259,17 @@ impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
             let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
         }
-        todo!()
+
+        RawCell {
+            id: self.id,
+            name: self.cell_name,
+            node_names: self.node_names,
+            ports: self.ports,
+            uf,
+            roots,
+            contents: self.contents.into(),
+            flatten: self.flatten,
+        }
     }
 
     /// Create a new signal with the given name and hardware type.
@@ -302,7 +315,7 @@ impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
 
     /// Marks this cell as a SCIR cell.
     pub(crate) fn set_scir(&mut self, scir: ScirCellInner<S::Primitive>) {
-        self.contents = CellBuilderContents::ScirCell(scir);
+        self.contents = CellBuilderContents::Scir(scir);
     }
 
     /// Marks this cell as a primitive.
@@ -1067,6 +1080,24 @@ pub(crate) struct RawCell<P> {
 pub(crate) type RawCellContents<P> =
     RawCellKind<RawCellInner<P>, ScirCellInner<P>, P, BlackboxContents>;
 
+impl<P> From<CellBuilderContents<P>> for RawCellContents<P> {
+    fn from(value: CellBuilderContents<P>) -> Self {
+        match value {
+            CellBuilderContents::Cell(CellInner { instances, .. }) => {
+                RawCellContents::Cell(RawCellInner {
+                    instances: instances
+                        .into_iter()
+                        .map(|instance| instance.recv().unwrap().unwrap())
+                        .collect::<Vec<_>>(),
+                })
+            }
+            CellBuilderContents::Scir(s) => RawCellContents::Scir(s),
+            CellBuilderContents::Primitive(p) => RawCellContents::Primitive(p),
+            CellBuilderContents::Blackbox(b) => RawCellContents::Blackbox(b),
+        }
+    }
+}
+
 /// An enumeration of raw cell kinds.
 ///
 /// Can be used to store data associated with each kind of raw cell.
@@ -1074,7 +1105,7 @@ pub(crate) type RawCellContents<P> =
 #[enumify::enumify]
 pub(crate) enum RawCellKind<C, S, P, B> {
     Cell(C),
-    ScirCell(S),
+    Scir(S),
     Primitive(P),
     Blackbox(B),
 }

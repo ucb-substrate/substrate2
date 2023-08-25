@@ -1,5 +1,9 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
-use substrate::io::Terminal;
+use substrate::block::Block;
+use substrate::io::{SchematicType, Terminal};
+use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::CellBuilder;
 use substrate::{
     io::Signal,
     schematic::{ExportsSchematicData, Instance, NestedInstance, Schematic, SchematicData},
@@ -10,23 +14,24 @@ use crate::shared::pdk::{ExamplePdkA, NmosA, PmosA};
 use super::{BufferN, Inverter};
 
 #[derive(SchematicData)]
-pub struct InverterData {
-    #[substrate(nested)]
+pub struct InverterData<PDK: Pdk, S: Schema> {
     pub pmos_g: Terminal,
-    #[substrate(nested)]
-    pub pmos: Instance<PmosA>,
+    pub pmos: Instance<PDK, S, PmosA>,
 }
 
-impl ExportsSchematicData for Inverter {
-    type Data = InverterData;
+impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for Inverter {
+    type Data<S> = InverterData<PDK, S> where PDK: ToSchema<S>;
 }
 
-impl Schematic<ExamplePdkA> for Inverter {
-    fn schematic(
+impl PdkSchematic<ExamplePdkA> for Inverter {
+    fn schematic<S: Schema>(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<ExamplePdkA, S>,
+    ) -> substrate::error::Result<Self::Data<S>>
+    where
+        ExamplePdkA: ToSchema<S>,
+    {
         let nmos = cell.instantiate(NmosA { w: 500, l: 150 });
         let nmos = nmos.io();
 
@@ -48,23 +53,26 @@ impl Schematic<ExamplePdkA> for Inverter {
 }
 
 #[derive(SchematicData)]
-pub struct BufferData {
+pub struct BufferData<PDK: Pdk, S: Schema> {
     #[substrate(nested)]
-    pub inv1: Instance<Inverter>,
+    pub inv1: Instance<PDK, S, Inverter>,
     #[substrate(nested)]
-    pub inv2: Instance<Inverter>,
+    pub inv2: Instance<PDK, S, Inverter>,
 }
 
-impl ExportsSchematicData for Buffer {
-    type Data = BufferData;
+impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for Buffer {
+    type Data<S> = BufferData<PDK, S> where PDK: ToSchema<S>;
 }
 
-impl Schematic<ExamplePdkA> for Buffer {
-    fn schematic(
+impl PdkSchematic<ExamplePdkA> for Buffer {
+    fn schematic<S: Schema>(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<ExamplePdkA, S>,
+    ) -> substrate::error::Result<Self::Data<S>>
+    where
+        ExamplePdkA: ToSchema<S>,
+    {
         let inv1 = cell.instantiate(Inverter::new(self.strength));
         let inv1_io = inv1.io();
 
@@ -89,25 +97,25 @@ impl Schematic<ExamplePdkA> for Buffer {
 }
 
 #[derive(SchematicData)]
-pub struct BufferNData {
-    #[substrate(nested)]
+pub struct BufferNData<PDK: Pdk, S: Schema> {
     pub bubbled_pmos_g: Terminal,
-    #[substrate(nested)]
-    pub bubbled_inv1: NestedInstance<Inverter>,
-    #[substrate(nested)]
-    pub buffers: Vec<Instance<Buffer>>,
+    pub bubbled_inv1: NestedInstance<PDK, S, Inverter>,
+    pub buffers: Vec<Instance<PDK, S, Buffer>>,
 }
 
-impl ExportsSchematicData for BufferN {
-    type Data = BufferNData;
+impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for BufferN {
+    type Data<S> = BufferNData<PDK, S> where PDK: ToSchema<S>;
 }
 
-impl Schematic<ExamplePdkA> for BufferN {
-    fn schematic(
+impl PdkSchematic<ExamplePdkA> for BufferN {
+    fn schematic<S: Schema>(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<ExamplePdkA, S>,
+    ) -> substrate::error::Result<Self::Data<S>>
+    where
+        ExamplePdkA: ToSchema<S>,
+    {
         let mut buffers = Vec::new();
         for _ in 0..self.n {
             buffers.push(cell.instantiate(Buffer::new(self.strength)));
@@ -132,25 +140,25 @@ impl Schematic<ExamplePdkA> for BufferN {
 }
 
 #[derive(SchematicData)]
-pub struct BufferNxMData {
-    #[substrate(nested)]
+pub struct BufferNxMData<PDK: Pdk, S: Schema> {
     pub bubbled_pmos_g: Terminal,
-    #[substrate(nested)]
-    pub bubbled_inv1: NestedInstance<Inverter>,
-    #[substrate(nested)]
-    pub buffer_chains: Vec<Instance<BufferN>>,
+    pub bubbled_inv1: NestedInstance<PDK, S, Inverter>,
+    pub buffer_chains: Vec<Instance<PDK, S, BufferN>>,
 }
 
-impl ExportsSchematicData for BufferNxM {
-    type Data = BufferNxMData;
+impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for BufferNxM {
+    type Data<S> = BufferNxMData<PDK, S> where PDK: ToSchema<S>;
 }
 
-impl Schematic<ExamplePdkA> for BufferNxM {
-    fn schematic(
+impl PdkSchematic<ExamplePdkA> for BufferNxM {
+    fn schematic<S: Schema>(
         &self,
-        io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<ExamplePdkA, S>,
+    ) -> substrate::error::Result<Self::Data<S>>
+    where
+        ExamplePdkA: ToSchema<S>,
+    {
         let mut buffer_chains = Vec::new();
         for i in 0..self.n {
             let buffer = cell.instantiate(BufferN::new(self.strength, self.n));
