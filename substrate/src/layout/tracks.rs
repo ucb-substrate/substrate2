@@ -1,5 +1,6 @@
 //! Routing track management.
 
+use geometry::prelude::Dir;
 use geometry::span::Span;
 use serde::{Deserialize, Serialize};
 
@@ -87,6 +88,17 @@ impl EnumeratedTracks {
     pub fn new(iter: impl IntoIterator<Item = Span>) -> Self {
         iter.into_iter().collect()
     }
+
+    /// Returns the number of tracks in the set.
+    pub fn len(&self) -> usize {
+        self.tracks.len()
+    }
+
+    /// Returns `true` if the set of tracks is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.tracks.is_empty()
+    }
 }
 
 impl FromIterator<Span> for EnumeratedTracks {
@@ -146,6 +158,7 @@ impl Tracks for UniformTracks {
         (None, None)
     }
 }
+
 
 #[cfg(test)]
 mod tests {

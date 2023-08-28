@@ -183,6 +183,10 @@ dependencies = [
 [[package]]
 name = "atoll"
 version = "0.0.0"
+dependencies = [
+ "grid",
+ "substrate",
+]
 
 [[package]]
 name = "autocfg"
@@ -1066,6 +1070,12 @@ dependencies = [
  "ignore",
  "walkdir",
 ]
+
+[[package]]
+name = "grid"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eec1c01eb1de97451ee0d60de7d81cf1e72aabefb021616027f3d1c3ec1c723c"
 
 [[package]]
 name = "h2"
