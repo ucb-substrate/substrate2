@@ -5,10 +5,13 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};
-use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData};
+use substrate::schematic::{
+    CellBuilder, ExportsNestedNodes, Instance, InstanceData, PdkCellBuilder, Schematic,
+    SchematicData,
+};
 
 pub mod flattened;
 pub mod tb;
@@ -95,28 +98,25 @@ impl Block for VdividerArray {
 }
 
 #[derive(SchematicData)]
-pub struct VdividerData<PDK: Pdk, S: Schema> {
-    r1: Instance<PDK, S, Resistor>,
-    r2: Instance<PDK, S, Resistor>,
+pub struct VdividerData {
+    r1: InstanceData<Resistor>,
+    r2: InstanceData<Resistor>,
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for Vdivider {
-    type Data<S> = VdividerData<PDK, S> where PDK: ToSchema<S>;
+impl ExportsNestedNodes for Vdivider {
+    type NestedNodes = VdividerData;
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for VdividerArray {
-    type Data<S> = Vec<Instance<PDK, S, Vdivider>> where PDK: ToSchema<S>;
+impl ExportsNestedNodes for VdividerArray {
+    type NestedNodes = Vec<InstanceData<Vdivider>>;
 }
 
 impl<PDK: Pdk> PdkSchematic<PDK> for Vdivider {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
-    where
-        PDK: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
 
@@ -129,14 +129,11 @@ impl<PDK: Pdk> PdkSchematic<PDK> for Vdivider {
 }
 
 impl<PDK: Pdk> PdkSchematic<PDK> for VdividerArray {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
-    where
-        PDK: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let mut vdividers = Vec::new();
 
         for (i, vdivider) in self.vdividers.iter().enumerate() {

@@ -11,7 +11,7 @@ use substrate::pdk::corner::InstallCorner;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedNodes, Instance, InstanceData, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -24,13 +24,13 @@ use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 pub struct VdividerTb;
 
 #[derive(SchematicData)]
-pub struct VdividerTbData<PDK: Pdk, S: Schema> {
-    iprobe: Instance<PDK, S, Iprobe>,
-    dut: Instance<PDK, S, Vdivider>,
+pub struct VdividerTbData {
+    iprobe: InstanceData<Iprobe>,
+    dut: InstanceData<Vdivider>,
 }
 
-impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for VdividerTb {
-    type Data = VdividerTbData<PDK, S>;
+impl ExportsNestedNodes for VdividerTb {
+    type NestedNodes = VdividerTbData;
 }
 
 impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
@@ -38,7 +38,7 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let vdd_a = cell.signal("vdd_a", Signal);
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
@@ -67,8 +67,8 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
 #[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct VdividerDuplicateSubcktTb;
 
-impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for VdividerDuplicateSubcktTb {
-    type Data = Instance<PDK, S, VdividerDuplicateSubckt>;
+impl ExportsNestedNodes for VdividerDuplicateSubcktTb {
+    type NestedNodes = InstanceData<VdividerDuplicateSubckt>;
 }
 
 impl<PDK> Schematic<PDK, Spectre> for VdividerDuplicateSubcktTb
@@ -80,7 +80,7 @@ where
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
         let dut = cell.instantiate(VdividerDuplicateSubckt);
@@ -183,8 +183,8 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
 #[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct VdividerArrayTb;
 
-impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for VdividerArrayTb {
-    type Data = Instance<PDK, S, VdividerArray>;
+impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for VdividerArrayTb {
+    type NestedNodes = Instance<PDK, S, VdividerArray>;
 }
 
 impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
@@ -192,7 +192,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for VdividerArra
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
             vdividers: vec![
@@ -218,8 +218,8 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for VdividerArra
 #[substrate(io = "TestbenchIo", kind = "InlineCell")]
 pub struct FlattenedVdividerArrayTb;
 
-impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for FlattenedVdividerArrayTb {
-    type Data = Instance<PDK, S, super::flattened::VdividerArray>;
+impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for FlattenedVdividerArrayTb {
+    type NestedNodes = Instance<PDK, S, super::flattened::VdividerArray>;
 }
 
 impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
@@ -227,7 +227,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for FlattenedVdi
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {
             vdividers: vec![
@@ -274,7 +274,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
         let expected: Vec<_> = sim
             .tb
             .data()
-            .data()
+            .nodes()
             .into_iter()
             .map(|inst| {
                 (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
@@ -287,7 +287,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
         let out = sim
             .tb
             .data()
-            .data()
+            .nodes()
             .iter()
             .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
             .collect();
@@ -295,7 +295,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
         let out_nested = sim
             .tb
             .data()
-            .data()
+            .nodes()
             .iter()
             .map(|inst| {
                 output
@@ -336,7 +336,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
         let expected: Vec<_> = sim
             .tb
             .data()
-            .data()
+            .nodes()
             .into_iter()
             .map(|inst| {
                 (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
@@ -349,7 +349,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
         let out = sim
             .tb
             .data()
-            .data()
+            .nodes()
             .iter()
             .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
             .collect();
@@ -357,7 +357,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
         let out_nested = sim
             .tb
             .data()
-            .data()
+            .nodes()
             .iter()
             .map(|inst| {
                 output

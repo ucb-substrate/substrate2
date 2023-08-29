@@ -461,6 +461,7 @@ impl ena::unify::UnifyKey for Node {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct NodeContext {
     uf: NodeUf,
     connections_data: Vec<Option<NodeConnectionsData>>,

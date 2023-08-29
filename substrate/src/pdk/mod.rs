@@ -8,15 +8,15 @@ use std::any::Any;
 use std::sync::Arc;
 
 use rust_decimal::Decimal;
-use substrate::schematic::SchematicData;
+use substrate::schematic::{PdkCellBuilder, Primitive, SchematicData};
 use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block, PdkPrimitive, ScirBlock};
+use crate::block::{self, Block, PdkBlock, PdkPrimitive, ScirBlock};
 use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
 use crate::schematic::schema::Schema;
-use crate::schematic::{CellBuilder, ScirCellInner};
+use crate::schematic::{CellBuilder, ExportsNestedNodes, ScirCellInner};
 use crate::sealed;
 
 use self::corner::*;
@@ -25,7 +25,7 @@ use self::layers::Layers;
 /// A process development kit.
 pub trait Pdk: Send + Sync + Any {
     /// An internal representation of PDK primitives.
-    type Primitive: Clone;
+    type Primitive: Primitive;
     /// A set of layers used by the PDK.
     type Layers: Layers;
     /// The type representing a corner in this PDK.
@@ -54,83 +54,47 @@ pub trait PdkScirSchematic<PDK: Pdk>: ScirBlock {
     fn schematic(&self) -> Result<(scir::Library<PDK::Primitive>, scir::CellId)>;
 }
 
-/// A block that exports data from its schematic.
-///
-/// All blocks that have a schematic implementation must export data.
-pub trait ExportsPdkSchematicData<PDK: Pdk, K = <Self as Block>::Kind>: Block {
-    /// Extra schematic data to be stored with the block's generated cell.
-    ///
-    /// When the block is instantiated, all contained data will be nested
-    /// within that instance.
-    type Data<S>: SchematicData
-    where
-        PDK: ToSchema<S>;
-}
-
-pub trait PdkSchematic<PDK: Pdk, K = <Self as Block>::Kind>: ExportsPdkSchematicData<PDK> {
+pub trait PdkSchematic<PDK: Pdk, K = <Self as Block>::Kind>: ExportsNestedNodes + PdkBlock {
     /// Generates the block's schematic.
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::Data<S>>
-    where
-        PDK: ToSchema<S>;
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> Result<Self::NestedNodes>;
 }
 
-impl<PDK: HasPdkPrimitive<B>, B: Block<Kind = PdkPrimitive>>
-    ExportsPdkSchematicData<PDK, PdkPrimitive> for B
-{
-    type Data<S>
-    = ()
-    where
-    PDK: ToSchema<S>;
+impl<B: Block<Kind = PdkPrimitive>> ExportsNestedNodes<PdkPrimitive> for B {
+    type NestedNodes = ();
 }
 
 impl<B: Block<Kind = PdkPrimitive>, PDK: Pdk> PdkSchematic<PDK, PdkPrimitive> for B
 where
     PDK: HasPdkPrimitive<B>,
 {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         _io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::Data<S>>
-    where
-        PDK: ToSchema<S>,
-    {
-        cell.set_primitive(
-            PDK::convert_primitive(PDK::primitive(self)).ok_or(Error::UnsupportedPrimitive)?,
-        );
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> Result<Self::NestedNodes> {
+        cell.0.set_primitive(PDK::primitive(self));
         Ok(())
     }
 }
 
-#[impl_dispatch({block::Scir; block::InlineScir})]
-impl<T, PDK: Pdk, B: Block<Kind = T> + PdkScirSchematic<PDK>> ExportsPdkSchematicData<PDK, T>
-    for B
-{
-    type Data<S>
-    = ()
-        where
-            PDK: ToSchema<S>;
+impl<B: Block<Kind = block::PdkScir>> ExportsNestedNodes<block::PdkScir> for B {
+    type NestedNodes = ();
 }
 
-#[impl_dispatch({block::Scir; block::InlineScir})]
-impl<T, PDK: Pdk, B: Block<Kind = T> + PdkScirSchematic<PDK>> PdkSchematic<PDK, T> for B {
-    fn schematic<S: Schema>(
+impl<PDK: Pdk, B: Block<Kind = block::PdkScir> + PdkScirSchematic<PDK>>
+    PdkSchematic<PDK, block::PdkScir> for B
+{
+    fn schematic(
         &self,
         _io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::Data<S>>
-    where
-        PDK: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> Result<Self::NestedNodes> {
         let (lib, id) = PdkScirSchematic::schematic(self)?;
-        let lib = lib
-            .convert_primitives(PDK::convert_primitive)
-            .ok_or(Error::UnsupportedPrimitive)?;
-        cell.set_scir(ScirCellInner {
+        cell.0.set_scir(ScirCellInner {
             lib: Arc::new(lib),
             cell: id,
         });

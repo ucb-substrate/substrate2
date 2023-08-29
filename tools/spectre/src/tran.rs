@@ -11,7 +11,7 @@ use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
-use substrate::schematic::{Cell, ExportsSchematicData};
+use substrate::schematic::{Cell, ExportsNestedNodes};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -50,12 +50,10 @@ impl FromSaved<Spectre, Tran> for TranOutput {
     }
 }
 
-impl<PDK: Pdk, T: ExportsSchematicData<PDK, Spectre>> Save<Spectre, Tran, &Cell<PDK, Spectre, T>>
-    for TranOutput
-{
+impl<T: ExportsNestedNodes> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext<Spectre>,
-        _to_save: &Cell<PDK, Spectre, T>,
+        _to_save: &Cell<SpectrePrimitive, T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -88,12 +86,10 @@ impl FromSaved<Spectre, Tran> for TranTime {
     }
 }
 
-impl<PDK: Pdk, T: ExportsSchematicData<PDK, Spectre>> Save<Spectre, Tran, &Cell<PDK, Spectre, T>>
-    for TranTime
-{
+impl<T: ExportsNestedNodes> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranTime {
     fn save(
         _ctx: &SimulationContext<Spectre>,
-        _to_save: &Cell<PDK, Spectre, T>,
+        _to_save: &Cell<SpectrePrimitive, T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }

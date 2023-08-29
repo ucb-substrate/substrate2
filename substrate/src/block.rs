@@ -12,51 +12,42 @@ use crate::sealed;
 use crate::sealed::Token;
 
 pub trait BlockKind {
-    const FLATTEN: bool;
-
     #[doc(hidden)]
     fn sealed(_: sealed::Token);
 }
 
 pub struct Cell;
 impl BlockKind for Cell {
-    const FLATTEN: bool = false;
     fn sealed(_: Token) {}
 }
 
-pub struct InlineCell;
-impl BlockKind for InlineCell {
-    const FLATTEN: bool = true;
+pub struct PdkCell;
+impl BlockKind for PdkCell {
     fn sealed(_: Token) {}
 }
 
 pub struct Scir;
 impl BlockKind for Scir {
-    const FLATTEN: bool = false;
     fn sealed(_: Token) {}
 }
 
-pub struct InlineScir;
-impl BlockKind for InlineScir {
-    const FLATTEN: bool = true;
+pub struct PdkScir;
+impl BlockKind for PdkScir {
     fn sealed(_: Token) {}
 }
 
 pub struct SchemaPrimitive;
 impl BlockKind for SchemaPrimitive {
-    const FLATTEN: bool = true;
     fn sealed(_: Token) {}
 }
 
 pub struct PdkPrimitive;
 impl BlockKind for PdkPrimitive {
-    const FLATTEN: bool = true;
     fn sealed(_: Token) {}
 }
 
 pub struct Opaque;
 impl BlockKind for Opaque {
-    const FLATTEN: bool = false;
     fn sealed(_: Token) {}
 }
 
@@ -87,6 +78,21 @@ pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
     fn io(&self) -> Self::Io;
 }
 
+pub trait PdkBlock<K = <Self as Block>::Kind>: Block {
+    #[doc(hidden)]
+    fn sealed(_: sealed::Token);
+}
+
+impl<B: Block<Kind = PdkPrimitive>> PdkBlock<PdkPrimitive> for B {
+    fn sealed(_: Token) {}
+}
+impl<B: Block<Kind = PdkCell>> PdkBlock<PdkCell> for B {
+    fn sealed(_: Token) {}
+}
+impl<B: Block<Kind = PdkScir>> PdkBlock<PdkScir> for B {
+    fn sealed(_: Token) {}
+}
+
 pub trait ScirBlock<K = <Self as Block>::Kind>: Block {
     #[doc(hidden)]
     fn sealed(_: sealed::Token);
@@ -95,6 +101,6 @@ pub trait ScirBlock<K = <Self as Block>::Kind>: Block {
 impl<B: Block<Kind = Scir>> ScirBlock<Scir> for B {
     fn sealed(_: Token) {}
 }
-impl<B: Block<Kind = InlineScir>> ScirBlock<InlineScir> for B {
+impl<B: Block<Kind = PdkScir>> ScirBlock<PdkScir> for B {
     fn sealed(_: Token) {}
 }

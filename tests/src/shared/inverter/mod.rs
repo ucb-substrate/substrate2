@@ -3,9 +3,9 @@ use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
 use substrate::block::{self, Block};
 use substrate::io::{InOut, Input, Io, Output, SchematicType, Signal};
-use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsSchematicData, Schematic};
+use substrate::schematic::{CellBuilder, ExportsNestedNodes, Schematic};
 
 pub mod tb;
 #[derive(Io, Clone, Default, Debug)]
@@ -36,7 +36,7 @@ impl<PDK: Sky130Pdk> PdkSchematic<PDK> for Inverter {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
+    ) -> substrate::error::Result<Self::NestedNodes<S>>
     where
         PDK: ToSchema<S>,
     {

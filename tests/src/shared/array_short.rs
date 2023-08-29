@@ -46,7 +46,7 @@ impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
+    ) -> substrate::error::Result<Self::NestedNodes<S>>
     where
         PDK: ToSchema<S>,
     {

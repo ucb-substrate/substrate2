@@ -4,17 +4,17 @@ use anyhow::anyhow;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
-use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::CellBuilder;
+use substrate::schematic::{CellBuilder, PdkCellBuilder};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block,
     block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::{conv::RawLib, ExportsSchematicData, Schematic},
+    schematic::{conv::RawLib, ExportsNestedNodes, Schematic},
 };
 
 use crate::shared::{
@@ -234,20 +234,17 @@ impl Block for Block1 {
     }
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for Block1 {
-    type Data<S> = () where PDK: ToSchema<S>;
+impl ExportsNestedNodes for Block1 {
+    type NestedNodes = ();
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
 impl<PDK> PdkSchematic<PDK> for Block1 {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
-    where
-        PDK: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         Err(substrate::error::Error::Anyhow(
             anyhow!("failed to generate block 1").into(),
         ))
@@ -274,22 +271,16 @@ impl Block for Block2 {
     }
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for Block2 {
-    type Data<S>
-    = ()
-    where
-    PDK: ToSchema<S>;
+impl ExportsNestedNodes for Block2 {
+    type NestedNodes = ();
 }
 
 impl PdkSchematic<ExamplePdkA> for Block2 {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<ExamplePdkA, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
-    where
-        ExamplePdkA: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<ExamplePdkA>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let handle = cell.generate(Block1);
         handle.try_cell()?;
         let _inst = cell.add(handle);
@@ -298,14 +289,11 @@ impl PdkSchematic<ExamplePdkA> for Block2 {
 }
 
 impl PdkSchematic<ExamplePdkB> for Block2 {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<ExamplePdkB, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
-    where
-        ExamplePdkB: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<ExamplePdkB>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let handle = cell.generate_blocking(Block1)?;
         let _inst = cell.add(handle);
         Ok(())

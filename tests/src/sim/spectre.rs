@@ -20,7 +20,7 @@ use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, ExportsSchematicData, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
+    Cell, ExportsNestedNodes, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
     Schematic, SimCellBuilder,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
@@ -180,8 +180,8 @@ fn spectre_can_include_sections() {
     #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl ExportsSchematicData for LibIncludeResistor {
-        type Data = ();
+    impl ExportsNestedNodes for LibIncludeResistor {
+        type NestedNodes = ();
     }
 
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
@@ -200,8 +200,8 @@ fn spectre_can_include_sections() {
     #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
-    impl ExportsSchematicData for LibIncludeTb {
-        type Data = Instance<LibIncludeResistor>;
+    impl ExportsNestedNodes for LibIncludeTb {
+        type NestedNodes = Instance<LibIncludeResistor>;
     }
 
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
@@ -286,8 +286,8 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TwoTerminalIo", flatten)]
     pub struct VirtualResistor;
 
-    impl ExportsSchematicData for VirtualResistor {
-        type Data = ();
+    impl ExportsNestedNodes for VirtualResistor {
+        type NestedNodes = ();
     }
 
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
@@ -322,8 +322,8 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TestbenchIo")]
     struct VirtualResistorTb;
 
-    impl ExportsSchematicData for VirtualResistorTb {
-        type Data = Instance<VirtualResistor>;
+    impl ExportsNestedNodes for VirtualResistorTb {
+        type NestedNodes = Instance<VirtualResistor>;
     }
 
     impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {

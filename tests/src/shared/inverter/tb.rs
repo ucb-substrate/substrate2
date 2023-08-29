@@ -16,7 +16,7 @@ use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsSchematicData, Schematic};
+use substrate::schematic::{CellBuilder, ExportsNestedNodes, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::Testbench;
@@ -24,7 +24,7 @@ use substrate::simulation::Testbench;
 use super::Inverter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "block::InlineCell")]
+#[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,
@@ -37,8 +37,8 @@ impl InverterTb {
     }
 }
 
-impl<PDK: Pdk, S: Schema> ExportsSchematicData<PDK, S> for InverterTb {
-    type Data = Node;
+impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for InverterTb {
+    type NestedNodes = Node;
 }
 
 impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
@@ -46,7 +46,7 @@ impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let inv = cell.instantiate(self.dut);
 
         let vdd = cell.signal("vdd", Signal);

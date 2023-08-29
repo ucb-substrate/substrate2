@@ -8,7 +8,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::block::{Block, InlineCell};
+use crate::block::Block;
 use crate::cache::Cache;
 use crate::execute::Executor;
 use crate::io::{SchematicType, TestbenchIo};
@@ -16,7 +16,7 @@ use crate::pdk::corner::InstallCorner;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, ExportsSchematicData, Schematic};
+use crate::schematic::{Cell, ExportsNestedNodes, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
 
@@ -118,7 +118,7 @@ pub struct SimController<PDK: Pdk, S: Simulator, T: Testbench<PDK, S>> {
     /// The current PDK.
     pub pdk: Arc<PDK>,
     /// The current testbench cell.
-    pub tb: Cell<PDK, S::Schema, T>,
+    pub tb: Cell<<<S as Simulator>::Schema as Schema>::Primitive, T>,
     pub(crate) ctx: SimulationContext<S>,
 }
 
@@ -156,7 +156,7 @@ impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimControl
     pub fn simulate<
         'a,
         A: Analysis + SupportedBy<S>,
-        O: for<'b> Save<S, A, &'b Cell<PDK, S::Schema, T>>,
+        O: for<'b> Save<S, A, &'b Cell<<<S as Simulator>::Schema as Schema>::Primitive, T>>,
     >(
         &'a self,
         mut options: S::Options,
@@ -179,7 +179,7 @@ impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimControl
 
 /// A testbench that can be simulated.
 pub trait Testbench<PDK: Pdk, S: Simulator>:
-    Schematic<PDK, S::Schema> + Block<Io = TestbenchIo, Kind = InlineCell>
+    Schematic<PDK, S::Schema> + Block<Io = TestbenchIo>
 {
     /// The output produced by this testbench.
     type Output: Any + Serialize + DeserializeOwned;

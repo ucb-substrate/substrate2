@@ -1,11 +1,12 @@
 //! Traits and types for specifying formats for storing Substrate schematics.
 use std::any::Any;
+use substrate::schematic::Primitive;
 
 use crate::block::{Block, SchemaPrimitive};
 use crate::error::Result;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
-use crate::schematic::{CellBuilder, ExportsSchematicData, Schematic};
+use crate::schematic::{CellBuilder, ExportsNestedNodes, Schematic};
 
 /// A format for storing Substrate schematics.
 ///
@@ -14,7 +15,7 @@ use crate::schematic::{CellBuilder, ExportsSchematicData, Schematic};
 /// schematics in the desired format.
 pub trait Schema: Send + Sync + Any {
     /// The primitive type associated with this schema.
-    type Primitive: Clone + Send + Sync + Any;
+    type Primitive: Primitive;
 }
 
 /// A schema that has a primitive associated with a certain block.
@@ -23,10 +24,8 @@ pub trait HasSchemaPrimitive<B: Block<Kind = SchemaPrimitive>>: Schema {
     fn primitive(block: &B) -> Self::Primitive;
 }
 
-impl<PDK: Pdk, S: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>>
-    ExportsSchematicData<PDK, S, SchemaPrimitive> for B
-{
-    type Data = ();
+impl<B: Block<Kind = SchemaPrimitive>> ExportsNestedNodes<SchemaPrimitive> for B {
+    type NestedNodes = ();
 }
 impl<PDK: Pdk, S: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>>
     Schematic<PDK, S, SchemaPrimitive> for B
@@ -35,8 +34,8 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>>
         &self,
         _io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::Data> {
-        cell.set_primitive(S::primitive(self));
+    ) -> Result<Self::NestedNodes> {
+        cell.0.set_primitive(S::primitive(self));
         Ok(())
     }
 }

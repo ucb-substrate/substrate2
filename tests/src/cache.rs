@@ -4,14 +4,14 @@ use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
-use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
+use substrate::schematic::{CellBuilder, HasNestedView, InstancePath, PdkCellBuilder};
 use substrate::{
     block,
     block::Block,
     context::Context,
-    schematic::{ExportsSchematicData, Schematic},
+    schematic::{ExportsNestedNodes, Schematic},
 };
 
 use crate::shared::pdk::ExamplePdkA;
@@ -67,19 +67,16 @@ impl HasNestedView for CacheBlockData {
     }
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for CacheBlock {
-    type Data<S> = CacheBlockData where PDK: ToSchema<S>;
+impl ExportsNestedNodes for CacheBlock {
+    type NestedNodes = CacheBlockData;
 }
 
 impl PdkSchematic<ExamplePdkA> for CacheBlock {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<ExamplePdkA, S>,
-    ) -> substrate::error::Result<Self::Data<S>>
-    where
-        ExamplePdkA: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<ExamplePdkA>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let design = *cell
             .ctx()
             .cache
