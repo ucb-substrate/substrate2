@@ -54,7 +54,7 @@ impl ExportsNestedNodes for Vdivider {
 }
 
 impl ExportsNestedNodes for VdividerArray {
-    type NestedNodes = Vec<Instance<PDK, S, Vdivider>>;
+    type NestedNodes = Vec<InstanceData<Vdivider>>;
 }
 
 #[derive(SchematicData)]
@@ -63,11 +63,11 @@ pub struct VdividerData {
     pub r2: InstanceData<Resistor>,
 }
 
-impl<PDK: Pdk> PdkSchematic<PDK> for Vdivider {
+impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for Vdivider {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<PDK, S>,
     ) -> substrate::error::Result<Self::NestedNodes> {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
@@ -76,15 +76,18 @@ impl<PDK: Pdk> PdkSchematic<PDK> for Vdivider {
         cell.connect(io.out, r1.io().n);
         cell.connect(io.out, r2.io().p);
         cell.connect(io.pwr.vss, r2.io().n);
-        Ok(VdividerData { r1, r2 })
+        Ok(VdividerData {
+            r1: r1.data(),
+            r2: r2.data(),
+        })
     }
 }
 
-impl<PDK: Pdk> PdkSchematic<PDK> for VdividerArray {
+impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for VdividerArray {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<PDK, S>,
     ) -> substrate::error::Result<Self::NestedNodes> {
         let mut vdividers = Vec::new();
 
@@ -93,7 +96,7 @@ impl<PDK: Pdk> PdkSchematic<PDK> for VdividerArray {
 
             cell.connect(&vdiv.io().pwr, &io.elements[i]);
 
-            vdividers.push(vdiv);
+            vdividers.push(vdiv.data());
         }
 
         Ok(vdividers)

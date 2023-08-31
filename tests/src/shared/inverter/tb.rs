@@ -37,7 +37,7 @@ impl InverterTb {
     }
 }
 
-impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for InverterTb {
+impl ExportsNestedNodes for InverterTb {
     type NestedNodes = Node;
 }
 
@@ -52,11 +52,11 @@ impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
 
-        let vddsrc = cell.instantiate_tb(Vsource::dc(self.pvt.voltage));
+        let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate_tb(Vsource::pulse(Pulse {
+        let vin = cell.instantiate(Vsource::pulse(Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),

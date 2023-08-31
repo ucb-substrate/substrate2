@@ -23,8 +23,8 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
-use substrate::schematic::primitives::RawInstance;
-use substrate::schematic::schema::Schema;
+use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
+use substrate::schematic::schema::{HasSchemaPrimitive, Schema};
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -412,6 +412,42 @@ impl Spectre {
 
 impl Schema for Spectre {
     type Primitive = SpectrePrimitive;
+}
+
+impl HasSchemaPrimitive<Resistor> for Spectre {
+    fn primitive(block: &Resistor) -> Self::Primitive {
+        SpectrePrimitive::RawInstance {
+            cell: arcstr::literal!("resistor"),
+            ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+            params: IndexMap::from_iter([(
+                arcstr::literal!("r"),
+                Expr::NumericLiteral(block.value()),
+            )]),
+        }
+    }
+}
+
+impl HasSchemaPrimitive<Capacitor> for Spectre {
+    fn primitive(block: &Capacitor) -> Self::Primitive {
+        SpectrePrimitive::RawInstance {
+            cell: arcstr::literal!("capacitor"),
+            ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+            params: IndexMap::from_iter([(
+                arcstr::literal!("c"),
+                Expr::NumericLiteral(block.value()),
+            )]),
+        }
+    }
+}
+
+impl HasSchemaPrimitive<RawInstance> for Spectre {
+    fn primitive(block: &RawInstance) -> Self::Primitive {
+        SpectrePrimitive::RawInstance {
+            cell: block.cell.clone(),
+            ports: block.ports.clone(),
+            params: block.params.clone(),
+        }
+    }
 }
 
 impl Simulator for Spectre {

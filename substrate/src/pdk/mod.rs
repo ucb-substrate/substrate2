@@ -3,6 +3,7 @@
 pub mod corner;
 mod data;
 pub mod layers;
+pub mod primitives;
 
 use std::any::Any;
 use std::sync::Arc;

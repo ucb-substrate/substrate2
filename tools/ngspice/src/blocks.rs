@@ -56,14 +56,3 @@ impl HasSchemaPrimitive<Vsource> for Ngspice {
         NgspicePrimitive::Vsource(block.clone())
     }
 }
-
-/// A resistor.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo", kind = "block::SchemaPrimitive")]
-pub struct Resistor(pub Decimal);
-
-impl HasSchemaPrimitive<Resistor> for Ngspice {
-    fn primitive(block: &Resistor) -> Self::Primitive {
-        todo!()
-    }
-}

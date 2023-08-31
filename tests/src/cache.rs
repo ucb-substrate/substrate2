@@ -38,7 +38,7 @@ impl Cacheable for CachedDesignScript {
 pub struct CacheBlock(u64);
 
 impl Block for CacheBlock {
-    type Kind = block::Cell;
+    type Kind = block::PdkCell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {

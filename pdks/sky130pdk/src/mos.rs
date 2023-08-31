@@ -43,8 +43,30 @@ impl Display for MosParams {
     }
 }
 
-macro_rules! define_mos {
-    ($typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $comsubckt:ident) => {
+macro_rules! define_mosfets {
+    ($({$typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $comsubckt:ident}),*) => {
+        #[derive(Clone, Copy, Debug)]
+        pub enum MosKind {
+            $($typ),*
+        }
+
+        impl MosKind {
+            pub(crate) fn open_subckt(&self) -> arcstr::ArcStr {
+                match self {
+                    $(
+                        MosKind::$typ => arcstr::literal!(stringify!($opensubckt))
+                    ),*
+                }
+            }
+            pub(crate) fn commercial_subckt(&self) -> arcstr::ArcStr {
+                match self {
+                    $(
+                        MosKind::$typ => arcstr::literal!(stringify!($comsubckt))
+                    ),*
+                }
+            }
+        }
+        $(
         #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
         #[doc = $doc]
         #[doc = ""]
@@ -79,99 +101,103 @@ macro_rules! define_mos {
             }
         }
 
-        impl substrate::pdk::HasPdkPrimitive<$typ> for crate::Sky130OpenPdk {
+        impl substrate::pdk::HasPdkPrimitive<$typ> for crate::Sky130Pdk {
             fn primitive(
                 block: &$typ
             ) -> Self::Primitive {
-                crate::Sky130Primitive::Mos(block.params.clone())
+                crate::Sky130Primitive::Mos {
+                    kind: MosKind::$typ,
+                    params: block.params.clone(),
+                }
             }
         }
+        )*
     };
 }
 
-define_mos!(
-    Nfet01v8,
-    nfet_01v8,
-    "A core NMOS device.",
-    sky130_fd_pr__nfet_01v8,
-    nshort
-);
-define_mos!(
-    Nfet01v8Lvt,
-    nfet_01v8_lvt,
-    "A core low-threshold NMOS device.",
-    sky130_fd_pr__nfet_01v8_lvt,
-    nlowvt
-);
-define_mos!(
-    Nfet03v3Nvt,
-    nfet_03v3_nvt,
-    "A 3.3V native-threshold NMOS device.",
-    sky130_fd_pr__nfet_03v3_nvt,
-    ntvnative
-);
-define_mos!(
-    Nfet05v0Nvt,
-    nfet_05v0_nvt,
-    "A 5.0V native-threshold NMOS device.",
-    sky130_fd_pr__nfet_05v0_nvt,
-    nhvnative
-);
-define_mos!(
-    Nfet20v0,
-    nfet_20v0,
-    "A 20.0V NMOS device.",
-    sky130_fd_pr__nfet_20v0,
-    nvhv
-);
-
-define_mos!(
-    SpecialNfetLatch,
-    special_nfet_latch,
-    "A special latch NMOS, used as the pull down device in SRAM cells.",
-    sky130_fd_pr__special_nfet_latch,
-    npd
-);
-define_mos!(
-    SpecialNfetPass,
-    special_nfet_pass,
-    "A special pass NMOS, used as the access device in SRAM cells.",
-    sky130_fd_pr__special_nfet_pass,
-    npass
-);
-define_mos!(
-    SpecialPfetPass,
-    special_pfet_pass,
-    "A special pass PMOS, used as the pull-up device in SRAM cells.",
-    sky130_fd_pr__special_pfet_pass,
-    ppu
-);
-
-define_mos!(
-    Pfet01v8,
-    pfet_01v8,
-    "A core PMOS device.",
-    sky130_fd_pr__pfet_01v8,
-    pshort
-);
-define_mos!(
-    Pfet01v8Hvt,
-    pfet_01v8_hvt,
-    "A core high-threshold PMOS device.",
-    sky130_fd_pr__pfet_01v8_hvt,
-    phighvt
-);
-define_mos!(
-    Pfet01v8Lvt,
-    pfet_01v8_lvt,
-    "A core low-threshold PMOS device.",
-    sky130_fd_pr__pfet_01v8_lvt,
-    plowvt
-);
-define_mos!(
-    Pfet20v0,
-    pfet_20v0,
-    "A 20.0V PMOS device.",
-    sky130_fd_pr__pfet_20v0,
-    pvhv
+define_mosfets!(
+    {
+        Nfet01v8,
+        nfet_01v8,
+        "A core NMOS device.",
+        sky130_fd_pr__nfet_01v8,
+        nshort
+    },
+    {
+        Nfet01v8Lvt,
+        nfet_01v8_lvt,
+        "A core low-threshold NMOS device.",
+        sky130_fd_pr__nfet_01v8_lvt,
+        nlowvt
+    },
+    {
+        Nfet03v3Nvt,
+        nfet_03v3_nvt,
+        "A 3.3V native-threshold NMOS device.",
+        sky130_fd_pr__nfet_03v3_nvt,
+        ntvnative
+    },
+    {
+        Nfet05v0Nvt,
+        nfet_05v0_nvt,
+        "A 5.0V native-threshold NMOS device.",
+        sky130_fd_pr__nfet_05v0_nvt,
+        nhvnative
+    },
+    {
+        Nfet20v0,
+        nfet_20v0,
+        "A 20.0V NMOS device.",
+        sky130_fd_pr__nfet_20v0,
+        nvhv
+    },
+    {
+        SpecialNfetLatch,
+        special_nfet_latch,
+        "A special latch NMOS, used as the pull down device in SRAM cells.",
+        sky130_fd_pr__special_nfet_latch,
+        npd
+    },
+    {
+        SpecialNfetPass,
+        special_nfet_pass,
+        "A special pass NMOS, used as the access device in SRAM cells.",
+        sky130_fd_pr__special_nfet_pass,
+        npass
+    },
+    {
+        SpecialPfetPass,
+        special_pfet_pass,
+        "A special pass PMOS, used as the pull-up device in SRAM cells.",
+        sky130_fd_pr__special_pfet_pass,
+        ppu
+    },
+    {
+        Pfet01v8,
+        pfet_01v8,
+        "A core PMOS device.",
+        sky130_fd_pr__pfet_01v8,
+        pshort
+    },
+    {
+        Pfet01v8Hvt,
+        pfet_01v8_hvt,
+        "A core high-threshold PMOS device.",
+        sky130_fd_pr__pfet_01v8_hvt,
+        phighvt
+    },
+    {
+        Pfet01v8Lvt,
+        pfet_01v8_lvt,
+        "A core low-threshold PMOS device.",
+        sky130_fd_pr__pfet_01v8_lvt,
+        plowvt
+    },
+    {
+        Pfet20v0,
+        pfet_20v0,
+        "A 20.0V PMOS device.",
+        sky130_fd_pr__pfet_20v0,
+        pvhv
+    }
 );

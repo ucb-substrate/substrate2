@@ -1,9 +1,11 @@
 use crate::netlist::vdivider;
+use scir::{Library, LibraryBuilder};
+use spice::Primitive;
 
 #[test]
 fn merge_scir_libraries() {
-    let mut lib1 = (*vdivider()).clone();
-    let lib2 = vdivider();
+    let mut lib1: LibraryBuilder<Primitive> = (*vdivider()).clone();
+    let lib2: Library<Primitive> = vdivider();
     let mapping = lib1.merge(&lib2);
 
     let preserved_id = lib1.cell_id_named("vdivider");

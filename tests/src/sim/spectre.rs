@@ -11,22 +11,20 @@ use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130CommercialPdk;
 use spectre::blocks::Vsource;
 use spectre::tran::{Tran, TranCurrent};
-use spectre::{Options, Spectre};
-use substrate::block::Block;
+use spectre::{Options, Spectre, SpectrePrimitive};
+use substrate::block::{self, Block};
 use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
+use substrate::io::{ArrayData, Flatten, InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, ExportsNestedNodes, Instance, PrimitiveDevice, PrimitiveDeviceKind, PrimitiveNode,
-    Schematic, SimCellBuilder,
+    Blackbox, BlackboxContents, Cell, CellBuilder, ExportsNestedNodes, Instance, InstanceData,
+    Schematic,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
-use substrate::simulation::{
-    HasSimSchematic, SimController, SimulationContext, Simulator, Testbench,
-};
+use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;
 
 use crate::paths::test_data;
@@ -35,7 +33,7 @@ use crate::shared::inverter::Inverter;
 use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
-use substrate::schematic::primitives::Resistor;
+use substrate::schematic::primitives::{RawInstance, Resistor};
 
 #[test]
 fn vdivider_tran() {
@@ -177,41 +175,39 @@ fn spectre_can_include_sections() {
     }
 
     #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "LibIncludeResistorIo")]
+    #[substrate(io = "LibIncludeResistorIo", kind = "block::Blackbox")]
     struct LibIncludeResistor;
 
-    impl ExportsNestedNodes for LibIncludeResistor {
-        type NestedNodes = ();
-    }
-
-    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
-        fn schematic(
+    impl Blackbox<Sky130CommercialPdk, Spectre> for LibIncludeResistor {
+        fn contents(
             &self,
-            _io: &<<Self as Block>::Io as SchematicType>::Bundle,
-            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
-        ) -> substrate::error::Result<Self::Data> {
-            cell.set_blackbox("res0 (p n) example_resistor");
-
-            Ok(())
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        ) -> BlackboxContents {
+            let mut contents = BlackboxContents::new();
+            contents.push("res0 (");
+            contents.push(io.p);
+            contents.push(io.n);
+            contents.push(") example_resistor");
+            contents
         }
     }
 
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo")]
+    #[substrate(io = "TestbenchIo", kind = "block::Cell")]
     struct LibIncludeTb(String);
 
     impl ExportsNestedNodes for LibIncludeTb {
-        type NestedNodes = Instance<LibIncludeResistor>;
+        type NestedNodes = InstanceData<LibIncludeResistor>;
     }
 
-    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
+    impl Schematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
-        ) -> substrate::error::Result<Self::Data> {
+            cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
+        ) -> substrate::error::Result<Self::NestedNodes> {
             let vdd = cell.signal("vdd", Signal);
-            let dut = cell.instantiate_tb(LibIncludeResistor);
+            let dut = cell.instantiate(LibIncludeResistor);
             let res = cell.instantiate(Resistor::new(1000));
 
             cell.connect(dut.io().p, vdd);
@@ -283,55 +279,47 @@ fn spectre_can_save_paths_with_flattened_instances() {
     pub struct ScirResistor;
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TwoTerminalIo", flatten)]
+    #[substrate(io = "TwoTerminalIo", kind = "block::Cell", flatten)]
     pub struct VirtualResistor;
 
     impl ExportsNestedNodes for VirtualResistor {
         type NestedNodes = ();
     }
 
-    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
+    impl Schematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
-        ) -> substrate::error::Result<Self::Data> {
-            let res1 = cell.instantiate(ScirResistor);
-            cell.connect(res1.io().p, io.p);
-            cell.connect(res1.io().n, io.n);
-            cell.add_primitive(
-                PrimitiveDeviceKind::Res2 {
-                    pos: PrimitiveNode::new("1", io.p),
-                    neg: PrimitiveNode::new("2", io.n),
-                    value: dec!(200),
-                }
-                .into(),
+            cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
+        ) -> substrate::error::Result<Self::NestedNodes> {
+            let res1 = cell.instantiate_connected(ScirResistor, io);
+            let res = cell.instantiate_connected(Resistor::new(dec!(200)), io);
+            cell.instantiate_connected(
+                RawInstance::from_params(
+                    arcstr::literal!("resistor"),
+                    vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+                    IndexMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
+                ),
+                io,
             );
-            cell.add_primitive(PrimitiveDevice::from_params(
-                PrimitiveDeviceKind::RawInstance {
-                    ports: vec![PrimitiveNode::new("1", io.p), PrimitiveNode::new("2", io.n)],
-                    cell: arcstr::literal!("resistor"),
-                },
-                IndexMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),
-            ));
             Ok(())
         }
     }
 
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo")]
+    #[substrate(io = "TestbenchIo", kind = "block::Cell")]
     struct VirtualResistorTb;
 
     impl ExportsNestedNodes for VirtualResistorTb {
-        type NestedNodes = Instance<VirtualResistor>;
+        type NestedNodes = InstanceData<VirtualResistor>;
     }
 
-    impl HasSimSchematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
+    impl Schematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-            cell: &mut SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
-        ) -> substrate::error::Result<Self::Data> {
+            cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
+        ) -> substrate::error::Result<Self::NestedNodes> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate_tb(VirtualResistor);
 
@@ -351,10 +339,10 @@ fn spectre_can_save_paths_with_flattened_instances() {
         current_draw: TranCurrent,
     }
 
-    impl Save<Spectre, Tran, &Cell<VirtualResistorTb>> for VirtualResistorOutput {
+    impl Save<Spectre, Tran, &Cell<SpectrePrimitive, VirtualResistorTb>> for VirtualResistorOutput {
         fn save(
-            ctx: &SimulationContext,
-            to_save: &Cell<VirtualResistorTb>,
+            ctx: &SimulationContext<Spectre>,
+            to_save: &Cell<SpectrePrimitive, VirtualResistorTb>,
             opts: &mut <Spectre as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {

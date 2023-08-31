@@ -5,7 +5,7 @@ use substrate::block::{self, Block};
 use substrate::io::{InOut, Input, Io, Output, SchematicType, Signal};
 use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsNestedNodes, Schematic};
+use substrate::schematic::{CellBuilder, ExportsNestedNodes, PdkCellBuilder, Schematic};
 
 pub mod tb;
 #[derive(Io, Clone, Default, Debug)]
@@ -17,7 +17,7 @@ pub struct InverterIo {
 }
 
 #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-#[substrate(io = "InverterIo", kind = "block::Cell")]
+#[substrate(io = "InverterIo", kind = "block::PdkCell")]
 pub struct Inverter {
     /// NMOS width.
     pub nw: i64,
@@ -27,19 +27,16 @@ pub struct Inverter {
     pub lch: i64,
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for Inverter {
-    type Data<S> = () where PDK: ToSchema<S>;
+impl ExportsNestedNodes for Inverter {
+    type NestedNodes = ();
 }
 
-impl<PDK: Sky130Pdk> PdkSchematic<PDK> for Inverter {
-    fn schematic<S: Schema>(
+impl PdkSchematic<Sky130Pdk> for Inverter {
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::NestedNodes<S>>
-    where
-        PDK: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));
         cell.connect(io.dout, nmos.io().d);
         cell.connect(io.din, nmos.io().g);

@@ -952,8 +952,8 @@ impl<P, T: ExportsNestedNodes> Cell<P, T> {
         &self.block
     }
 
-    /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&self) -> NestedView<T::NestedNodes> {
+    /// Returns nested nodes propagated by the cell's schematic generator.
+    pub fn nodes(&self) -> NestedView<T::NestedNodes> {
         self.nodes.nested_view(&self.path)
     }
 
@@ -1246,6 +1246,10 @@ impl<B: ExportsNestedNodes> InstanceData<B> {
 
     pub fn nodes(&self) -> NestedView<<B as ExportsNestedNodes>::NestedNodes> {
         self.nodes.nested_view(&self.path)
+    }
+
+    pub fn path(&self) -> &InstancePath {
+        &self.path
     }
 }
 

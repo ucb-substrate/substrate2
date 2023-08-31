@@ -2,7 +2,7 @@ use geometry::prelude::{NamedOrientation, Point};
 use geometry::side::Sides;
 use geometry::{prelude::Bbox, rect::Rect};
 use serde::{Deserialize, Serialize};
-use substrate::block::Block;
+use substrate::block::{self, Block};
 use substrate::context::Context;
 use substrate::geometry::transform::{Transform, TransformMut, Translate, TranslateMut};
 use substrate::layout::element::Shape;
@@ -32,7 +32,7 @@ pub enum PointEnum {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Block, Serialize, Deserialize, Hash)]
-#[substrate(io = "()")]
+#[substrate(io = "()", kind = "block::Cell")]
 pub struct GridTilerExample;
 
 impl ExportsLayoutData for GridTilerExample {

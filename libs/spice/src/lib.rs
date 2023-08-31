@@ -17,6 +17,10 @@ pub enum Primitive {
     Res2 {
         value: Expr,
     },
+    Mos {
+        name: ArcStr,
+        params: IndexMap<ArcStr, Expr>,
+    },
     RawInstance {
         cell: ArcStr,
         ports: Vec<ArcStr>,

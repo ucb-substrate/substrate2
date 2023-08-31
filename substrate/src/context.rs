@@ -348,6 +348,18 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub fn export_pdk_scir<T: PdkSchematic<PDK>>(
+        &self,
+        block: T,
+    ) -> Result<RawLib<PDK::Primitive>, scir::Issues> {
+        let cell = self.generate_pdk_schematic(block);
+        let cell = cell.cell();
+        cell.raw.to_scir_lib(TopKind::Cell)
+    }
+
+    /// Export the given block and all sub-blocks as a SCIR library.
+    ///
+    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
     pub fn export_scir<S: Schema, T: Schematic<PDK, S>>(
         &self,
         block: T,

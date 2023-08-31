@@ -3,10 +3,10 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::tran::Tran;
 use spectre::{Options, Spectre};
-use substrate::block::{Block, InlineCell};
+use substrate::block::{self, Block};
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
-use substrate::pdk::corner::InstallCorner;
+use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::schema::Schema;
@@ -16,7 +16,7 @@ use substrate::simulation::Testbench;
 
 /// An RC testbench.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "InlineCell")]
+#[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct RcTb {
     ic: Decimal,
 }
@@ -29,7 +29,7 @@ impl RcTb {
     }
 }
 
-impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for RcTb {
+impl ExportsNestedNodes for RcTb {
     type NestedNodes = Node;
 }
 
@@ -53,7 +53,7 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for RcTb {
     }
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for RcTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
     type Output = (f64, f64);
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let mut opts = Options::default();

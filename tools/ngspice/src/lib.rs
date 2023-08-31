@@ -22,8 +22,9 @@ use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
-use substrate::schematic::primitives::RawInstance;
-use substrate::schematic::schema::Schema;
+use substrate::pdk::{Pdk, ToSchema};
+use substrate::schematic::primitives::{RawInstance, Resistor};
+use substrate::schematic::schema::{HasSchemaPrimitive, Schema, Spice};
 use substrate::simulation::{SimulationContext, Simulator};
 use substrate::spice::{Netlister, Primitive};
 use templates::{write_run_script, RunScriptContext};
@@ -423,6 +424,24 @@ impl Ngspice {
 
 impl Schema for Ngspice {
     type Primitive = NgspicePrimitive;
+}
+
+impl HasSchemaPrimitive<RawInstance> for Ngspice {
+    fn primitive(block: &RawInstance) -> Self::Primitive {
+        NgspicePrimitive::Spice(Primitive::RawInstance {
+            cell: block.cell.clone(),
+            ports: block.ports.clone(),
+            params: block.params.clone(),
+        })
+    }
+}
+
+impl HasSchemaPrimitive<Resistor> for Ngspice {
+    fn primitive(block: &Resistor) -> Self::Primitive {
+        NgspicePrimitive::Spice(Primitive::Res2 {
+            value: Expr::NumericLiteral(block.value()),
+        })
+    }
 }
 
 impl Simulator for Ngspice {

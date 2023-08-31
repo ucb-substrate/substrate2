@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use ngspice::Ngspice;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
-use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
+use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
 use substrate::block;
 use substrate::block::{Block, PdkPrimitive};
@@ -15,6 +15,7 @@ use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
 pub mod layers;
 
+#[derive(Copy, Clone, Debug)]
 pub enum ExamplePrimitive {
     Pmos { w: i64, l: i64 },
     Nmos { w: i64, l: i64 },
@@ -108,11 +109,11 @@ impl HasPdkPrimitive<PmosA> for ExamplePdkA {
 ///
 /// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
+pub fn sky130_commercial_ctx() -> Context<Sky130Pdk> {
     let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
         .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     Context::builder()
-        .pdk(Sky130CommercialPdk::new(pdk_root))
+        .pdk(Sky130Pdk::commercial(pdk_root))
         .with_simulator(Spectre::default())
         .build()
 }
@@ -126,11 +127,11 @@ pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
 ///
 /// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_open_ctx() -> Context<Sky130OpenPdk> {
+pub fn sky130_open_ctx() -> Context<Sky130Pdk> {
     let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
-        .pdk(Sky130OpenPdk::new(pdk_root))
+        .pdk(Sky130Pdk::open(pdk_root))
         .with_simulator(Ngspice::default())
         .build()
 }

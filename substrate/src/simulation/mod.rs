@@ -12,7 +12,7 @@ use crate::block::Block;
 use crate::cache::Cache;
 use crate::execute::Executor;
 use crate::io::{SchematicType, TestbenchIo};
-use crate::pdk::corner::InstallCorner;
+use crate::pdk::corner::SupportsSimulator;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
@@ -128,7 +128,7 @@ pub trait SetInitialCondition<K, V, S: Simulator> {
     fn set_initial_condition(&mut self, key: K, value: V, ctx: &SimulationContext<S>);
 }
 
-impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
+impl<PDK: Pdk + SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
     /// Run the given analysis, returning the default output.
     ///
     /// Note that providing [`None`] for `corner` will result in model files not being included,

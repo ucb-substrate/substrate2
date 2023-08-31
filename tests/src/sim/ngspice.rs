@@ -4,10 +4,11 @@ use ngspice::tran::{Tran, TranCurrent, TranVoltage};
 use ngspice::{Ngspice, NgspicePrimitive, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130OpenPdk;
+use sky130pdk::Sky130Pdk;
 use substrate::block::{self, Block};
 use substrate::io::{SchematicType, Signal, TestbenchIo};
 use substrate::pdk::Pdk;
+use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
     Cell, CellBuilder, ExportsNestedNodes, Instance, InstanceData, Schematic, SchematicData,
@@ -27,25 +28,25 @@ fn ngspice_can_save_voltages_and_currents() {
 
     #[derive(SchematicData)]
     struct ResistorTbData {
-        r1: InstanceData<ngspice::blocks::Resistor>,
-        r2: InstanceData<ngspice::blocks::Resistor>,
-        r3: InstanceData<ngspice::blocks::Resistor>,
+        r1: InstanceData<Resistor>,
+        r2: InstanceData<Resistor>,
+        r3: InstanceData<Resistor>,
     }
 
     impl ExportsNestedNodes for ResistorTb {
         type NestedNodes = ResistorTbData;
     }
 
-    impl Schematic<Sky130OpenPdk, Ngspice> for ResistorTb {
+    impl Schematic<Sky130Pdk, Ngspice> for ResistorTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-            cell: &mut CellBuilder<Sky130OpenPdk, Ngspice>,
+            cell: &mut CellBuilder<Sky130Pdk, Ngspice>,
         ) -> substrate::error::Result<Self::NestedNodes> {
             let vdd = cell.signal("vdd", Signal);
-            let r1 = cell.instantiate_tb(ngspice::blocks::Resistor(dec!(100)));
-            let r2 = cell.instantiate_tb(ngspice::blocks::Resistor(dec!(100)));
-            let r3 = cell.instantiate_tb(ngspice::blocks::Resistor(dec!(100)));
+            let r1 = cell.instantiate(Resistor::new(dec!(100)));
+            let r2 = cell.instantiate(Resistor::new(dec!(100)));
+            let r3 = cell.instantiate(Resistor::new(dec!(100)));
 
             cell.connect(r1.io().p, vdd);
             cell.connect(r1.io().n, r2.io().p);
@@ -53,11 +54,15 @@ fn ngspice_can_save_voltages_and_currents() {
             cell.connect(r1.io().n, r3.io().p);
             cell.connect(r3.io().n, io.vss);
 
-            let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+            let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
             cell.connect(vsource.io().p, vdd);
             cell.connect(vsource.io().n, io.vss);
 
-            Ok(ResistorTbData { r1, r2, r3 })
+            Ok(ResistorTbData {
+                r1: r1.data(),
+                r2: r2.data(),
+                r3: r3.data(),
+            })
         }
     }
 
@@ -70,26 +75,26 @@ fn ngspice_can_save_voltages_and_currents() {
         r3_terminal: TranCurrent,
     }
 
-    impl<PDK: Pdk> Save<Ngspice, Tran, &Cell<NgspicePrimitive, ResistorTb>> for ResistorTbOutput {
+    impl Save<Ngspice, Tran, &Cell<NgspicePrimitive, ResistorTb>> for ResistorTbOutput {
         fn save(
             ctx: &SimulationContext<Ngspice>,
             to_save: &Cell<NgspicePrimitive, ResistorTb>,
             opts: &mut <Ngspice as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {
-                r1: TranCurrent::save(ctx, to_save.data().r1, opts),
-                r2: TranCurrent::save(ctx, to_save.data().r2, opts),
-                r3: TranCurrent::save(ctx, to_save.data().r3, opts),
-                vout: TranVoltage::save(ctx, to_save.data().r1.terminals().n, opts),
-                r3_terminal: TranCurrent::save(ctx, to_save.data().r3.terminals().p, opts),
+                r1: TranCurrent::save(ctx, to_save.nodes().r1, opts),
+                r2: TranCurrent::save(ctx, to_save.nodes().r2, opts),
+                r3: TranCurrent::save(ctx, to_save.nodes().r3, opts),
+                vout: TranVoltage::save(ctx, to_save.nodes().r1.terminals().n, opts),
+                r3_terminal: TranCurrent::save(ctx, to_save.nodes().r3.terminals().p, opts),
             }
         }
     }
 
-    impl Testbench<Sky130OpenPdk, Ngspice> for ResistorTb {
+    impl Testbench<Sky130Pdk, Ngspice> for ResistorTb {
         type Output = ResistorTbOutput;
 
-        fn run(&self, sim: SimController<Sky130OpenPdk, Ngspice, Self>) -> Self::Output {
+        fn run(&self, sim: SimController<Sky130Pdk, Ngspice, Self>) -> Self::Output {
             sim.simulate(
                 Options::default(),
                 None,

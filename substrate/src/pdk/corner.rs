@@ -40,8 +40,8 @@ impl<C> Pvt<C> {
 pub trait Corner: Clone + Serialize + DeserializeOwned {}
 impl<T: Clone + Serialize + DeserializeOwned> Corner for T {}
 
-/// A PDK with process corners compatible with simulator `S`.
-pub trait InstallCorner<S: Simulator>: Pdk {
+/// A PDK compatible with simulator `S`.
+pub trait SupportsSimulator<S: Simulator>: Pdk {
     /// Install the given process corner in the given simulator.
     ///
     /// A typical corner installation involves telling the simulator to include

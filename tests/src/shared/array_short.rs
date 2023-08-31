@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
 
-use substrate::pdk::{ExportsPdkSchematicData, Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::schema::Schema;
 use substrate::{block, block::Block, schematic::Schematic};
 
@@ -20,7 +20,7 @@ pub struct ArrayShort {
 }
 
 impl Block for ArrayShort {
-    type Kind = block::Cell;
+    type Kind = block::PdkCell;
     type Io = ArrayIo;
 
     fn id() -> ArcStr {
@@ -37,19 +37,16 @@ impl Block for ArrayShort {
     }
 }
 
-impl<PDK: Pdk> ExportsPdkSchematicData<PDK> for ArrayShort {
-    type Data<S> = () where PDK: ToSchema<S>;
+impl ExportsNestedNodes for ArrayShort {
+    type NestedNodes = ();
 }
 
 impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::NestedNodes<S>>
-    where
-        PDK: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         for i in 0..self.width {
             cell.connect(io.inputs[i], io.out)
         }
@@ -61,12 +58,13 @@ impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
 mod tests {
     use super::*;
     use crate::shared::pdk::sky130_open_ctx;
+    use substrate::schematic::schema::Spice;
     use test_log::test;
 
     #[test]
     #[should_panic]
     fn panics_when_shorting_ios() {
         let ctx = sky130_open_ctx();
-        let _ = ctx.export_scir(ArrayShort { width: 5 });
+        let _ = ctx.export_pdk_scir(ArrayShort { width: 5 });
     }
 }

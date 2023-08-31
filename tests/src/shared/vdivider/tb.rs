@@ -3,11 +3,11 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::tran::{Tran, TranCurrent, TranVoltage};
-use spectre::{Options, Spectre};
-use substrate::block::{Block, InlineCell};
+use spectre::{Options, Spectre, SpectrePrimitive};
+use substrate::block::{self, Block};
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
-use substrate::pdk::corner::InstallCorner;
+use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
@@ -20,7 +20,7 @@ use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "InlineCell")]
+#[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct VdividerTb;
 
 #[derive(SchematicData)]
@@ -51,20 +51,23 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
         cell.connect(dut.io().pwr.vss, io.vss);
         cell.connect(dut.io().out, out);
 
-        let iprobe = cell.instantiate_tb(Iprobe);
+        let iprobe = cell.instantiate(Iprobe);
         cell.connect(iprobe.io().p, vdd_a);
         cell.connect(iprobe.io().n, vdd);
 
-        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd_a);
         cell.connect(vsource.io().n, io.vss);
 
-        Ok(VdividerTbData { iprobe, dut })
+        Ok(VdividerTbData {
+            iprobe: iprobe.data(),
+            dut: dut.data(),
+        })
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "InlineCell")]
+#[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct VdividerDuplicateSubcktTb;
 
 impl ExportsNestedNodes for VdividerDuplicateSubcktTb {
@@ -89,10 +92,10 @@ where
         cell.connect(dut.io().vss, io.vss);
         cell.connect(dut.io().out, out);
 
-        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut)
+        Ok(dut.data())
     }
 }
 
@@ -104,7 +107,7 @@ pub struct VdividerDuplicateSubcktTbOutput {
 
 impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
-    PDK: Pdk + InstallCorner<Spectre>,
+    PDK: Pdk + SupportsSimulator<Spectre>,
     VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
 {
     type Output = VdividerDuplicateSubcktTbOutput;
@@ -146,22 +149,22 @@ pub struct VdividerTbTranOutput {
     pub out: TranVoltage,
 }
 
-impl<PDK: Pdk> Save<Spectre, Tran, &Cell<PDK, Spectre, VdividerTb>> for VdividerTbTranOutput {
+impl Save<Spectre, Tran, &Cell<SpectrePrimitive, VdividerTb>> for VdividerTbTranOutput {
     fn save(
         ctx: &SimulationContext<Spectre>,
-        cell: &Cell<PDK, Spectre, VdividerTb>,
+        cell: &Cell<SpectrePrimitive, VdividerTb>,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         Self::Key {
-            current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
-            iprobe: TranCurrent::save(ctx, cell.data().iprobe.terminals().p, opts),
-            vdd: TranVoltage::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.data().dut.terminals().out, opts),
+            current: TranCurrent::save(ctx, cell.nodes().dut.terminals().pwr.vdd, opts),
+            iprobe: TranCurrent::save(ctx, cell.nodes().iprobe.terminals().p, opts),
+            vdd: TranVoltage::save(ctx, cell.nodes().dut.terminals().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.nodes().dut.terminals().out, opts),
         }
     }
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
     type Output = VdividerTbOutput;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let tran: VdividerTbTranOutput = sim
@@ -180,14 +183,14 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "InlineCell")]
+#[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct VdividerArrayTb;
 
-impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for VdividerArrayTb {
-    type NestedNodes = Instance<PDK, S, VdividerArray>;
+impl ExportsNestedNodes for VdividerArrayTb {
+    type NestedNodes = InstanceData<VdividerArray>;
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -207,22 +210,22 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for VdividerArra
             cell.connect(dut.io().elements[i].vss, io.vss);
         }
 
-        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut)
+        Ok(dut.data())
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "InlineCell")]
+#[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct FlattenedVdividerArrayTb;
 
-impl<PDK: Pdk, S: Schema> ExportsNestedNodes<PDK, S> for FlattenedVdividerArrayTb {
-    type NestedNodes = Instance<PDK, S, super::flattened::VdividerArray>;
+impl ExportsNestedNodes for FlattenedVdividerArrayTb {
+    type NestedNodes = InstanceData<super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -242,10 +245,10 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Schematic<PDK, Spectre> for FlattenedVdi
             cell.connect(dut.io().elements[i].vss, io.vss);
         }
 
-        let vsource = cell.instantiate_tb(Vsource::dc(dec!(1.8)));
+        let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut)
+        Ok(dut.data())
     }
 }
 
@@ -257,7 +260,7 @@ pub struct VdividerArrayTbData {
     pub vdd: Vec<f64>,
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for VdividerArrayTb {
     type Output = VdividerArrayTbData;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let output = sim
@@ -273,7 +276,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
 
         let expected: Vec<_> = sim
             .tb
-            .data()
+            .nodes()
             .nodes()
             .into_iter()
             .map(|inst| {
@@ -286,7 +289,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
 
         let out = sim
             .tb
-            .data()
+            .nodes()
             .nodes()
             .iter()
             .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
@@ -294,19 +297,19 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
 
         let out_nested = sim
             .tb
-            .data()
+            .nodes()
             .nodes()
             .iter()
             .map(|inst| {
                 output
-                    .get_data(&inst.data().r1.terminals().n)
+                    .get_data(&inst.nodes().r1.terminals().n)
                     .unwrap()
                     .clone()
             })
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.data().terminals().elements[0].vdd)
+            .get_data(&sim.tb.nodes().terminals().elements[0].vdd)
             .unwrap()
             .clone();
 
@@ -319,7 +322,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for VdividerArra
     }
 }
 
-impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
     type Output = VdividerArrayTbData;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let output = sim
@@ -335,7 +338,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
 
         let expected: Vec<_> = sim
             .tb
-            .data()
+            .nodes()
             .nodes()
             .into_iter()
             .map(|inst| {
@@ -348,7 +351,7 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
 
         let out = sim
             .tb
-            .data()
+            .nodes()
             .nodes()
             .iter()
             .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
@@ -356,19 +359,19 @@ impl<PDK: Pdk + InstallCorner<Spectre>> Testbench<PDK, Spectre> for FlattenedVdi
 
         let out_nested = sim
             .tb
-            .data()
+            .nodes()
             .nodes()
             .iter()
             .map(|inst| {
                 output
-                    .get_data(&inst.data().r1.terminals().n)
+                    .get_data(&inst.nodes().r1.terminals().n)
                     .unwrap()
                     .clone()
             })
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.data().terminals().elements[0].vdd)
+            .get_data(&sim.tb.nodes().terminals().elements[0].vdd)
             .unwrap()
             .clone();
 

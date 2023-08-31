@@ -1,6 +1,5 @@
 //! ngspice transient analysis options and data structures.
 
-use crate::blocks::Resistor;
 use crate::{node_voltage_path, Ngspice, NgspicePrimitive, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
@@ -12,7 +11,8 @@ use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
-use substrate::schematic::{Cell, ExportsNestedNodes};
+use substrate::schematic::primitives::Resistor;
+use substrate::schematic::{Cell, ExportsNestedNodes, InstanceData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -227,37 +227,21 @@ impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     }
 }
 
-// #[impl_dispatch({
-//     &NestedInstanceView<'a, PDK, Ngspice, Resistor>;
-//     NestedInstanceView<'a, PDK, Ngspice, Resistor>
-// })]
-// impl<'a, T, PDK: Pdk> Save<Ngspice, Tran, T> for TranCurrent {
-//     fn save(
-//         ctx: &SimulationContext<Ngspice>,
-//         to_save: T,
-//         opts: &mut <Ngspice as Simulator>::Options,
-//     ) -> Self::Key {
-//         opts.save_tran_current(SaveStmt::ResistorCurrent(
-//             ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-//         ))
-//     }
-// }
-//
-// #[impl_dispatch({
-//     &NestedInstance<PDK, Ngspice, Resistor>;
-//     NestedInstance<PDK, Ngspice, Resistor>
-// })]
-// impl<T, PDK: Pdk> Save<Ngspice, Tran, T> for TranCurrent {
-//     fn save(
-//         ctx: &SimulationContext<Ngspice>,
-//         to_save: T,
-//         opts: &mut <Ngspice as Simulator>::Options,
-//     ) -> Self::Key {
-//         opts.save_tran_current(SaveStmt::ResistorCurrent(
-//             ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-//         ))
-//     }
-// }
+#[impl_dispatch({
+    &InstanceData<Resistor>;
+    InstanceData<Resistor>
+})]
+impl<T> Save<Ngspice, Tran, T> for TranCurrent {
+    fn save(
+        ctx: &SimulationContext<Ngspice>,
+        to_save: T,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> Self::Key {
+        opts.save_tran_current(SaveStmt::ResistorCurrent(
+            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+        ))
+    }
+}
 
 impl Save<Ngspice, Tran, &scir::SignalPath> for TranCurrent {
     fn save(

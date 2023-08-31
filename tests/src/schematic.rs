@@ -31,7 +31,7 @@ fn can_generate_vdivider_schematic() {
         r1: Resistor::new(300),
         r2: Resistor::new(100),
     };
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -58,7 +58,7 @@ fn can_generate_vdivider_schematic() {
 fn can_generate_flattened_vdivider_schematic() {
     let ctx = Context::new(ExamplePdkA);
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -89,7 +89,7 @@ fn can_generate_flattened_vdivider_array_schematic() {
     let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);
     let vdivs = vec![vdiv1, vdiv2, vdiv3];
     let vdivider = crate::shared::vdivider::flattened::VdividerArray { vdividers: vdivs };
-    let RawLib { scir, conv: _ } = ctx.export_scir(vdivider).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -142,7 +142,7 @@ fn nested_io_naming() {
 #[test]
 fn internal_signal_names_preserved() {
     let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_scir(Buffer::new(5)).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(Buffer::new(5)).unwrap();
     assert_eq!(scir.cells().count(), 4);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -163,27 +163,27 @@ fn internal_signal_names_preserved() {
 #[test]
 fn nested_node_naming() {
     let ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_schematic(BufferNxM::new(5, 5, 5));
+    let handle = ctx.generate_pdk_schematic(BufferNxM::new(5, 5, 5));
     let cell = handle.cell();
 
     assert_eq!(
-        cell.data().bubbled_inv1.data().pmos.terminals().g.path(),
-        cell.data().bubbled_pmos_g.path()
+        cell.nodes().bubbled_inv1.nodes().pmos.terminals().g.path(),
+        cell.nodes().bubbled_pmos_g.path()
     );
 
     assert_eq!(
-        cell.data().bubbled_inv1.terminals().din.path(),
-        cell.data().buffer_chains[0]
-            .data()
+        cell.nodes().bubbled_inv1.terminals().din.path(),
+        cell.nodes().buffer_chains[0]
+            .nodes()
             .bubbled_inv1
             .terminals()
             .din
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_inv1.terminals().din.path(),
-        cell.data().buffer_chains[0].data().buffers[0]
-            .data()
+        cell.nodes().bubbled_inv1.terminals().din.path(),
+        cell.nodes().buffer_chains[0].nodes().buffers[0]
+            .nodes()
             .inv1
             .terminals()
             .din
@@ -191,24 +191,24 @@ fn nested_node_naming() {
     );
 
     assert_eq!(
-        cell.data().bubbled_pmos_g.path(),
-        cell.data().buffer_chains[0].data().bubbled_pmos_g.path()
+        cell.nodes().bubbled_pmos_g.path(),
+        cell.nodes().buffer_chains[0].nodes().bubbled_pmos_g.path()
     );
     assert_eq!(
-        cell.data().bubbled_pmos_g.path(),
-        cell.data().buffer_chains[0]
-            .data()
+        cell.nodes().bubbled_pmos_g.path(),
+        cell.nodes().buffer_chains[0]
+            .nodes()
             .bubbled_inv1
-            .data()
+            .nodes()
             .pmos_g
             .path()
     );
     assert_eq!(
-        cell.data().bubbled_pmos_g.path(),
-        cell.data().buffer_chains[0].data().buffers[0]
-            .data()
+        cell.nodes().bubbled_pmos_g.path(),
+        cell.nodes().buffer_chains[0].nodes().buffers[0]
+            .nodes()
             .inv1
-            .data()
+            .nodes()
             .pmos_g
             .path()
     );
@@ -218,7 +218,7 @@ fn nested_node_naming() {
 pub struct Block1;
 
 impl Block for Block1 {
-    type Kind = block::Cell;
+    type Kind = block::PdkCell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -255,7 +255,7 @@ impl<PDK> PdkSchematic<PDK> for Block1 {
 pub struct Block2;
 
 impl Block for Block2 {
-    type Kind = block::Cell;
+    type Kind = block::PdkCell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -303,10 +303,10 @@ impl PdkSchematic<ExamplePdkB> for Block2 {
 #[test]
 fn error_propagation_works() {
     let ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_schematic(Block2);
+    let handle = ctx.generate_pdk_schematic(Block2);
     assert!(handle.try_cell().is_err());
 
     let ctx = Context::new(ExamplePdkB);
-    let handle = ctx.generate_schematic(Block2);
+    let handle = ctx.generate_pdk_schematic(Block2);
     assert!(handle.try_cell().is_err());
 }

@@ -24,14 +24,11 @@ impl ExportsNestedNodes for Inverter {
 }
 
 impl PdkSchematic<ExamplePdkA> for Inverter {
-    fn schematic<S: Schema>(
+    fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<ExamplePdkA, S>,
-    ) -> substrate::error::Result<Self::NestedNodes<S>>
-    where
-        ExamplePdkA: ToSchema<S>,
-    {
+        cell: &mut PdkCellBuilder<ExamplePdkA>,
+    ) -> substrate::error::Result<Self::NestedNodes> {
         let nmos = cell.instantiate(NmosA { w: 500, l: 150 });
         let nmos = nmos.io();
 
@@ -47,7 +44,7 @@ impl PdkSchematic<ExamplePdkA> for Inverter {
         cell.connect(io.vss, nmos.s);
         Ok(InverterData {
             pmos_g: pmos.terminals().g,
-            pmos,
+            pmos: pmos.data(),
         })
     }
 }
@@ -87,7 +84,10 @@ impl PdkSchematic<ExamplePdkA> for Buffer {
             cell.connect(io.vss, inv.vss);
         }
 
-        Ok(BufferData { inv1, inv2 })
+        Ok(BufferData {
+            inv1: inv1.data(),
+            inv2: inv2.data(),
+        })
     }
 }
 
@@ -120,19 +120,19 @@ impl PdkSchematic<ExamplePdkA> for BufferN {
             cell.connect(buffers[i].io().din, buffers[i - 1].io().dout);
         }
 
-        let bubbled_pmos_g = buffers[0].nodes().inv1.data().pmos_g;
+        let bubbled_pmos_g = buffers[0].nodes().inv1.nodes().pmos_g;
         let bubbled_inv1 = buffers[0].nodes().inv1.to_owned();
 
         Ok(BufferNData {
             bubbled_pmos_g,
             bubbled_inv1,
-            buffers,
+            buffers: buffers.iter().map(|buffer| buffer.data()).collect(),
         })
     }
 }
 
 #[derive(SchematicData)]
-pub struct BufferNxMData<PDK: Pdk, S: Schema> {
+pub struct BufferNxMData {
     pub bubbled_pmos_g: Terminal,
     pub bubbled_inv1: InstanceData<Inverter>,
     pub buffer_chains: Vec<InstanceData<BufferN>>,
@@ -155,7 +155,7 @@ impl PdkSchematic<ExamplePdkA> for BufferNxM {
             cell.connect(io.dout[i], buffer.io().dout);
             cell.connect(io.vdd, buffer.io().vdd);
             cell.connect(io.vss, buffer.io().vss);
-            buffer_chains.push(buffer);
+            buffer_chains.push(buffer.data());
         }
 
         let bubbled_pmos_g = buffer_chains[0].nodes().bubbled_pmos_g;
