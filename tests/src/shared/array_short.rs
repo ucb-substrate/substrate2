@@ -37,8 +37,8 @@ impl Block for ArrayShort {
     }
 }
 
-impl ExportsNestedNodes for ArrayShort {
-    type NestedNodes = ();
+impl ExportsNestedData for ArrayShort {
+    type NestedData = ();
 }
 
 impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
@@ -46,7 +46,7 @@ impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<PDK>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         for i in 0..self.width {
             cell.connect(io.inputs[i], io.out)
         }

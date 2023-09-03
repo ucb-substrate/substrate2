@@ -11,7 +11,7 @@ use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedNodes, Instance, InstanceData, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, InstanceData, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -33,8 +33,8 @@ fn ngspice_can_save_voltages_and_currents() {
         r3: InstanceData<Resistor>,
     }
 
-    impl ExportsNestedNodes for ResistorTb {
-        type NestedNodes = ResistorTbData;
+    impl ExportsNestedData for ResistorTb {
+        type NestedData = ResistorTbData;
     }
 
     impl Schematic<Sky130Pdk, Ngspice> for ResistorTb {
@@ -42,7 +42,7 @@ fn ngspice_can_save_voltages_and_currents() {
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Sky130Pdk, Ngspice>,
-        ) -> substrate::error::Result<Self::NestedNodes> {
+        ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);
             let r1 = cell.instantiate(Resistor::new(dec!(100)));
             let r2 = cell.instantiate(Resistor::new(dec!(100)));

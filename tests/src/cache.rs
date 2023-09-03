@@ -11,7 +11,7 @@ use substrate::{
     block,
     block::Block,
     context::Context,
-    schematic::{ExportsNestedNodes, Schematic},
+    schematic::{ExportsNestedData, Schematic},
 };
 
 use crate::shared::pdk::ExamplePdkA;
@@ -67,8 +67,8 @@ impl HasNestedView for CacheBlockData {
     }
 }
 
-impl ExportsNestedNodes for CacheBlock {
-    type NestedNodes = CacheBlockData;
+impl ExportsNestedData for CacheBlock {
+    type NestedData = CacheBlockData;
 }
 
 impl PdkSchematic<ExamplePdkA> for CacheBlock {
@@ -76,7 +76,7 @@ impl PdkSchematic<ExamplePdkA> for CacheBlock {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let design = *cell
             .ctx()
             .cache

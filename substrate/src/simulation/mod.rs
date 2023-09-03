@@ -16,7 +16,7 @@ use crate::pdk::corner::SupportsSimulator;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, ExportsNestedNodes, Schematic};
+use crate::schematic::{Cell, ExportsNestedData, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
 

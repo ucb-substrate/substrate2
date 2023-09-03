@@ -16,7 +16,7 @@ use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsNestedNodes, Schematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::Testbench;
@@ -37,8 +37,8 @@ impl InverterTb {
     }
 }
 
-impl ExportsNestedNodes for InverterTb {
-    type NestedNodes = Node;
+impl ExportsNestedData for InverterTb {
+    type NestedData = Node;
 }
 
 impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
@@ -46,7 +46,7 @@ impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let inv = cell.instantiate(self.dut);
 
         let vdd = cell.signal("vdd", Signal);

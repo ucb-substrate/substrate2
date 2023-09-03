@@ -14,7 +14,7 @@ use substrate::{
     block::Block,
     context::Context,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
-    schematic::{conv::RawLib, ExportsNestedNodes, Schematic},
+    schematic::{conv::RawLib, ExportsNestedData, Schematic},
 };
 
 use crate::shared::{
@@ -234,8 +234,8 @@ impl Block for Block1 {
     }
 }
 
-impl ExportsNestedNodes for Block1 {
-    type NestedNodes = ();
+impl ExportsNestedData for Block1 {
+    type NestedData = ();
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
@@ -271,8 +271,8 @@ impl Block for Block2 {
     }
 }
 
-impl ExportsNestedNodes for Block2 {
-    type NestedNodes = ();
+impl ExportsNestedData for Block2 {
+    type NestedData = ();
 }
 
 impl PdkSchematic<ExamplePdkA> for Block2 {
@@ -280,7 +280,7 @@ impl PdkSchematic<ExamplePdkA> for Block2 {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate(Block1);
         handle.try_cell()?;
         let _inst = cell.add(handle);
@@ -293,7 +293,7 @@ impl PdkSchematic<ExamplePdkB> for Block2 {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkB>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate_blocking(Block1)?;
         let _inst = cell.add(handle);
         Ok(())

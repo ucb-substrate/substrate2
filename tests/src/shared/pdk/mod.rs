@@ -9,7 +9,7 @@ use substrate::block::{Block, PdkPrimitive};
 use substrate::context::Context;
 use substrate::io::MosIo;
 use substrate::pdk::{HasPdkPrimitive, Pdk};
-use substrate::schematic::{ExportsNestedNodes, Schematic};
+use substrate::schematic::{ExportsNestedData, Schematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 

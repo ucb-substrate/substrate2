@@ -19,7 +19,7 @@ pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
-    kind: syn::Type,
+    kind: syn::Ident,
 }
 
 impl ToTokens for BlockInputReceiver {
@@ -51,7 +51,7 @@ impl ToTokens for BlockInputReceiver {
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
-                type Kind = #kind;
+                type Kind = #substrate::block::#kind;
 
                 fn id() -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))

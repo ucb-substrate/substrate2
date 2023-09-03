@@ -150,7 +150,7 @@ impl<'a> ScirConverter<'a> {
                         let id = self.lib.add_primitive(Primitive::RawInstance {
                             cell: child,
                             ports: ports.clone(),
-                            params: IndexMap::new(),
+                            params,
                         });
                         let mut sinst = scir::Instance::new(&**inst.name, id);
                         for (cport, iport) in ports.iter().zip(inst.ports.iter()) {

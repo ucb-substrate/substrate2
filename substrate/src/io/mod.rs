@@ -355,42 +355,39 @@ impl From<&Terminal> for TerminalPath {
 /// Stores a path of instances up to each terminal using an [`InstancePath`].
 pub trait HasTerminalView {
     /// A view of the nested terminals.
-    type TerminalView<'a>
-    where
-        Self: 'a;
+    type TerminalView;
 
     /// Creates a terminal view of the object given a parent node.
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_>;
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView;
 }
 
 impl<T> HasTerminalView for &T
 where
     T: HasTerminalView,
 {
-    type TerminalView<'a>
-    = T::TerminalView<'a> where Self: 'a;
+    type TerminalView = T::TerminalView;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
         (*self).terminal_view(parent)
     }
 }
 
 // TODO: Potentially use lazy evaluation instead of cloning.
 impl<T: HasTerminalView> HasTerminalView for Vec<T> {
-    type TerminalView<'a> = Vec<TerminalView<'a, T>> where T: 'a;
+    type TerminalView = Vec<TerminalView<T>>;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
+    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
         self.iter().map(|elem| elem.terminal_view(parent)).collect()
     }
 }
 
 /// The associated terminal view of an object.
-pub type TerminalView<'a, T> = <T as HasTerminalView>::TerminalView<'a>;
+pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
 
 impl HasTerminalView for () {
-    type TerminalView<'a> = ();
+    type TerminalView = ();
 
-    fn terminal_view(&self, _parent: &InstancePath) -> Self::TerminalView<'_> {}
+    fn terminal_view(&self, _parent: &InstancePath) -> Self::TerminalView {}
 }
 
 /// The priority a node has in determining the name of a merged node.

@@ -12,7 +12,7 @@ use substrate::io::{NodePath, TerminalPath};
 use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::{Cell, ExportsNestedNodes, InstanceData};
+use substrate::schematic::{Cell, ExportsNestedData, InstanceData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -50,7 +50,7 @@ impl FromSaved<Ngspice, Tran> for TranOutput {
     }
 }
 
-impl<T: ExportsNestedNodes> Save<Ngspice, Tran, &Cell<NgspicePrimitive, T>> for TranOutput {
+impl<T: ExportsNestedData> Save<Ngspice, Tran, &Cell<NgspicePrimitive, T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext<Ngspice>,
         _to_save: &Cell<NgspicePrimitive, T>,
@@ -86,7 +86,7 @@ impl FromSaved<Ngspice, Tran> for TranTime {
     }
 }
 
-impl<T: ExportsNestedNodes> Save<Ngspice, Tran, &Cell<NgspicePrimitive, T>> for TranTime {
+impl<T: ExportsNestedData> Save<Ngspice, Tran, &Cell<NgspicePrimitive, T>> for TranTime {
     fn save(
         _ctx: &SimulationContext<Ngspice>,
         _to_save: &Cell<NgspicePrimitive, T>,

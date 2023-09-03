@@ -6,7 +6,7 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, InstanceData, PdkCellBuilder};
 use substrate::{
     io::Signal,
-    schematic::{ExportsNestedNodes, Instance, Schematic, SchematicData},
+    schematic::{ExportsNestedData, Instance, Schematic, SchematicData},
 };
 
 use crate::shared::pdk::{ExamplePdkA, NmosA, PmosA};
@@ -19,8 +19,8 @@ pub struct InverterData {
     pub pmos: InstanceData<PmosA>,
 }
 
-impl ExportsNestedNodes for Inverter {
-    type NestedNodes = InverterData;
+impl ExportsNestedData for Inverter {
+    type NestedData = InverterData;
 }
 
 impl PdkSchematic<ExamplePdkA> for Inverter {
@@ -28,7 +28,7 @@ impl PdkSchematic<ExamplePdkA> for Inverter {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(NmosA { w: 500, l: 150 });
         let nmos = nmos.io();
 
@@ -55,8 +55,8 @@ pub struct BufferData {
     pub inv2: InstanceData<Inverter>,
 }
 
-impl ExportsNestedNodes for Buffer {
-    type NestedNodes = BufferData;
+impl ExportsNestedData for Buffer {
+    type NestedData = BufferData;
 }
 
 impl PdkSchematic<ExamplePdkA> for Buffer {
@@ -64,7 +64,7 @@ impl PdkSchematic<ExamplePdkA> for Buffer {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let inv1 = cell.instantiate(Inverter::new(self.strength));
         let inv1_io = inv1.io();
 
@@ -98,8 +98,8 @@ pub struct BufferNData {
     pub buffers: Vec<InstanceData<Buffer>>,
 }
 
-impl ExportsNestedNodes for BufferN {
-    type NestedNodes = BufferNData;
+impl ExportsNestedData for BufferN {
+    type NestedData = BufferNData;
 }
 
 impl PdkSchematic<ExamplePdkA> for BufferN {
@@ -107,7 +107,7 @@ impl PdkSchematic<ExamplePdkA> for BufferN {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut buffers = Vec::new();
         for _ in 0..self.n {
             buffers.push(cell.instantiate(Buffer::new(self.strength)));
@@ -138,8 +138,8 @@ pub struct BufferNxMData {
     pub buffer_chains: Vec<InstanceData<BufferN>>,
 }
 
-impl ExportsNestedNodes for BufferNxM {
-    type NestedNodes = BufferNxMData;
+impl ExportsNestedData for BufferNxM {
+    type NestedData = BufferNxMData;
 }
 
 impl PdkSchematic<ExamplePdkA> for BufferNxM {
@@ -147,7 +147,7 @@ impl PdkSchematic<ExamplePdkA> for BufferNxM {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut buffer_chains = Vec::new();
         for i in 0..self.n {
             let buffer = cell.instantiate(BufferN::new(self.strength, self.n));

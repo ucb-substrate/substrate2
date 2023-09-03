@@ -21,7 +21,7 @@ use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
     Flatten, Flipped, HasNameTree, LayoutBundleBuilder, LayoutType, NodeContext, NodePriority,
-    Port, SchematicType,
+    Port, SchematicType, TestbenchIo,
 };
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
@@ -275,7 +275,7 @@ impl<PDK: Pdk> Context<PDK> {
     fn generate_schematic_inner<S: Schema, T: Schematic<PDK, S>>(
         &self,
         block: Arc<T>,
-    ) -> SchematicCellHandle<S::Primitive, T> {
+    ) -> SchematicCellHandle<T> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
@@ -303,7 +303,7 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn generate_schematic<S: Schema, T: Schematic<PDK, S>>(
         &self,
         block: T,
-    ) -> SchematicCellHandle<S::Primitive, T> {
+    ) -> SchematicCellHandle<T> {
         let block = Arc::new(block);
         self.generate_schematic_inner(block)
     }
@@ -311,7 +311,7 @@ impl<PDK: Pdk> Context<PDK> {
     fn generate_pdk_schematic_inner<T: PdkSchematic<PDK>>(
         &self,
         block: Arc<T>,
-    ) -> SchematicCellHandle<PDK::Primitive, T> {
+    ) -> SchematicCellHandle<T> {
         let context = self.clone();
         let mut inner = self.inner.write().unwrap();
         let id = inner.schematic.get_id();
@@ -337,10 +337,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a PDK schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_pdk_schematic<T: PdkSchematic<PDK>>(
-        &self,
-        block: T,
-    ) -> SchematicCellHandle<PDK::Primitive, T> {
+    pub fn generate_pdk_schematic<T: PdkSchematic<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
         let block = Arc::new(block);
         self.generate_pdk_schematic_inner(block)
     }
@@ -372,7 +369,7 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_testbench_scir<S: Schema, T: Schematic<PDK, S>>(
+    pub fn export_testbench_scir<S: Schema, T: Schematic<PDK, S> + Block<Io = TestbenchIo>>(
         &self,
         block: T,
     ) -> Result<RawLib<S::Primitive>, scir::Issues> {
@@ -384,14 +381,13 @@ impl<PDK: Pdk> Context<PDK> {
     /// Export the given cell and all sub-cells as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn export_testbench_scir_for_cell<T, S>(
-        &self,
-        cell: &SchematicCell<S::Primitive, T>,
-    ) -> Result<RawLib<S::Primitive>, scir::Issues>
-    where
-        T: Schematic<PDK, S>,
+    pub(crate) fn export_testbench_scir_for_cell<
         S: Schema,
-    {
+        T: Schematic<PDK, S> + Block<Io = TestbenchIo>,
+    >(
+        &self,
+        cell: &SchematicCell<T>,
+    ) -> Result<RawLib<S::Primitive>, scir::Issues> {
         cell.raw.to_scir_lib(TopKind::Testbench)
     }
 

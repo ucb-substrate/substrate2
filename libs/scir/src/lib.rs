@@ -367,7 +367,7 @@ pub struct Top {
 
 /// A library of SCIR cells with primitive type P.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LibraryBuilder<P> {
+pub struct LibraryBuilder<P = ()> {
     /// The current cell ID counter.
     ///
     /// Initialized to 0 when the library is created.
@@ -402,7 +402,7 @@ pub struct LibraryBuilder<P> {
 ///
 /// The contents of the library cannot be mutated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Library<P>(LibraryBuilder<P>);
+pub struct Library<P = ()>(LibraryBuilder<P>);
 
 impl<P> Deref for Library<P> {
     type Target = LibraryBuilder<P>;

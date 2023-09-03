@@ -4,8 +4,8 @@ use spice::Primitive;
 
 #[test]
 fn merge_scir_libraries() {
-    let mut lib1: LibraryBuilder<Primitive> = (*vdivider()).clone();
-    let lib2: Library<Primitive> = vdivider();
+    let mut lib1 = (*vdivider::<Primitive>()).clone();
+    let lib2 = vdivider::<Primitive>();
     let mapping = lib1.merge(&lib2);
 
     let preserved_id = lib1.cell_id_named("vdivider");

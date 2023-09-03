@@ -6,7 +6,7 @@ use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsNestedNodes, Instance, Schematic, SchematicData};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
 #[substrate(io = "VdividerIo", kind = "block::Cell")]
@@ -49,12 +49,12 @@ impl Block for VdividerArray {
     }
 }
 
-impl ExportsNestedNodes for Vdivider {
-    type NestedNodes = VdividerData;
+impl ExportsNestedData for Vdivider {
+    type NestedData = VdividerData;
 }
 
-impl ExportsNestedNodes for VdividerArray {
-    type NestedNodes = Vec<InstanceData<Vdivider>>;
+impl ExportsNestedData for VdividerArray {
+    type NestedData = Vec<InstanceData<Vdivider>>;
 }
 
 #[derive(SchematicData)]
@@ -68,7 +68,7 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for Vdivider {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
 
@@ -88,7 +88,7 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for VdividerAr
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut vdividers = Vec::new();
 
         for (i, vdivider) in self.vdividers.iter().enumerate() {

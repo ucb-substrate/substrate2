@@ -11,7 +11,7 @@ use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
-use substrate::schematic::{Cell, ExportsNestedNodes};
+use substrate::schematic::{Cell, ExportsNestedData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -50,7 +50,7 @@ impl FromSaved<Spectre, Tran> for TranOutput {
     }
 }
 
-impl<T: ExportsNestedNodes> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranOutput {
+impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext<Spectre>,
         _to_save: &Cell<SpectrePrimitive, T>,
@@ -86,7 +86,7 @@ impl FromSaved<Spectre, Tran> for TranTime {
     }
 }
 
-impl<T: ExportsNestedNodes> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranTime {
+impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranTime {
     fn save(
         _ctx: &SimulationContext<Spectre>,
         _to_save: &Cell<SpectrePrimitive, T>,

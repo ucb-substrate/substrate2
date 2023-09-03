@@ -20,7 +20,7 @@ use substrate::io::{ArrayData, Flatten, InOut, SchematicType, Signal, TestbenchI
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Blackbox, BlackboxContents, Cell, CellBuilder, ExportsNestedNodes, Instance, InstanceData,
+    Blackbox, BlackboxContents, Cell, CellBuilder, ExportsNestedData, Instance, InstanceData,
     Schematic,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
@@ -196,8 +196,8 @@ fn spectre_can_include_sections() {
     #[substrate(io = "TestbenchIo", kind = "block::Cell")]
     struct LibIncludeTb(String);
 
-    impl ExportsNestedNodes for LibIncludeTb {
-        type NestedNodes = InstanceData<LibIncludeResistor>;
+    impl ExportsNestedData for LibIncludeTb {
+        type NestedData = InstanceData<LibIncludeResistor>;
     }
 
     impl Schematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
@@ -205,7 +205,7 @@ fn spectre_can_include_sections() {
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
-        ) -> substrate::error::Result<Self::NestedNodes> {
+        ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate(LibIncludeResistor);
             let res = cell.instantiate(Resistor::new(1000));
@@ -282,8 +282,8 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TwoTerminalIo", kind = "block::Cell", flatten)]
     pub struct VirtualResistor;
 
-    impl ExportsNestedNodes for VirtualResistor {
-        type NestedNodes = ();
+    impl ExportsNestedData for VirtualResistor {
+        type NestedData = ();
     }
 
     impl Schematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
@@ -291,7 +291,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
-        ) -> substrate::error::Result<Self::NestedNodes> {
+        ) -> substrate::error::Result<Self::NestedData> {
             let res1 = cell.instantiate_connected(ScirResistor, io);
             let res = cell.instantiate_connected(Resistor::new(dec!(200)), io);
             cell.instantiate_connected(
@@ -310,8 +310,8 @@ fn spectre_can_save_paths_with_flattened_instances() {
     #[substrate(io = "TestbenchIo", kind = "block::Cell")]
     struct VirtualResistorTb;
 
-    impl ExportsNestedNodes for VirtualResistorTb {
-        type NestedNodes = InstanceData<VirtualResistor>;
+    impl ExportsNestedData for VirtualResistorTb {
+        type NestedData = InstanceData<VirtualResistor>;
     }
 
     impl Schematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
@@ -319,7 +319,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
-        ) -> substrate::error::Result<Self::NestedNodes> {
+        ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);
             let dut = cell.instantiate_tb(VirtualResistor);
 

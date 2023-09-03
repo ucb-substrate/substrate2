@@ -11,7 +11,7 @@ use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedNodes, Instance, InstanceData, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, InstanceData, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -29,8 +29,8 @@ pub struct VdividerTbData {
     dut: InstanceData<Vdivider>,
 }
 
-impl ExportsNestedNodes for VdividerTb {
-    type NestedNodes = VdividerTbData;
+impl ExportsNestedData for VdividerTb {
+    type NestedData = VdividerTbData;
 }
 
 impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
@@ -38,7 +38,7 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let vdd_a = cell.signal("vdd_a", Signal);
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
@@ -70,8 +70,8 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
 #[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct VdividerDuplicateSubcktTb;
 
-impl ExportsNestedNodes for VdividerDuplicateSubcktTb {
-    type NestedNodes = InstanceData<VdividerDuplicateSubckt>;
+impl ExportsNestedData for VdividerDuplicateSubcktTb {
+    type NestedData = InstanceData<VdividerDuplicateSubckt>;
 }
 
 impl<PDK> Schematic<PDK, Spectre> for VdividerDuplicateSubcktTb
@@ -83,7 +83,7 @@ where
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
         let dut = cell.instantiate(VdividerDuplicateSubckt);
@@ -186,8 +186,8 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 #[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct VdividerArrayTb;
 
-impl ExportsNestedNodes for VdividerArrayTb {
-    type NestedNodes = InstanceData<VdividerArray>;
+impl ExportsNestedData for VdividerArrayTb {
+    type NestedData = InstanceData<VdividerArray>;
 }
 
 impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
@@ -195,7 +195,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Vdivider
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
             vdividers: vec![
@@ -221,8 +221,8 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Vdivider
 #[substrate(io = "TestbenchIo", kind = "block::Cell")]
 pub struct FlattenedVdividerArrayTb;
 
-impl ExportsNestedNodes for FlattenedVdividerArrayTb {
-    type NestedNodes = InstanceData<super::flattened::VdividerArray>;
+impl ExportsNestedData for FlattenedVdividerArrayTb {
+    type NestedData = InstanceData<super::flattened::VdividerArray>;
 }
 
 impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
@@ -230,7 +230,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Flattene
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, Spectre>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {
             vdividers: vec![

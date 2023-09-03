@@ -6,7 +6,7 @@ use crate::block::{Block, SchemaPrimitive};
 use crate::error::Result;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
-use crate::schematic::{CellBuilder, ExportsNestedNodes, Schematic};
+use crate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 /// A format for storing Substrate schematics.
 ///
@@ -24,8 +24,8 @@ pub trait HasSchemaPrimitive<B: Block<Kind = SchemaPrimitive>>: Schema {
     fn primitive(block: &B) -> Self::Primitive;
 }
 
-impl<B: Block<Kind = SchemaPrimitive>> ExportsNestedNodes<SchemaPrimitive> for B {
-    type NestedNodes = ();
+impl<B: Block<Kind = SchemaPrimitive>> ExportsNestedData<SchemaPrimitive> for B {
+    type NestedData = ();
 }
 impl<PDK: Pdk, S: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>>
     Schematic<PDK, S, SchemaPrimitive> for B
@@ -34,7 +34,7 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>>
         &self,
         _io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::NestedNodes> {
+    ) -> Result<Self::NestedData> {
         cell.0.set_primitive(S::primitive(self));
         Ok(())
     }

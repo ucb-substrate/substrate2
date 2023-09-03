@@ -417,7 +417,7 @@ impl Schema for Spectre {
 impl HasSchemaPrimitive<Resistor> for Spectre {
     fn primitive(block: &Resistor) -> Self::Primitive {
         SpectrePrimitive::RawInstance {
-            cell: arcstr::literal!("resistor"),
+            cell: arcstr::li: Library<Primitive> teral!("resistor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: IndexMap::from_iter([(
                 arcstr::literal!("r"),

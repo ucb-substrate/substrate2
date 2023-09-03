@@ -288,7 +288,7 @@ mod tests {
         let c1 = Cell::new("duplicate_cell_name");
         let mut c2 = Cell::new_blackbox("duplicate_cell_name");
         c2.add_blackbox_elem("* contents of cell");
-        let mut lib = LibraryBuilder::<()>::new("duplicate_cell_names");
+        let mut lib = <LibraryBuilder>::new("duplicate_cell_names");
         lib.add_cell(c1);
         lib.add_cell(c2);
         let issues = lib.validate();
