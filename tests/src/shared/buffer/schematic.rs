@@ -117,8 +117,8 @@ impl PdkSchematic<ExamplePdkA> for BufferN {
             cell.connect(buffers[i].io().din, buffers[i - 1].io().dout);
         }
 
-        let bubbled_pmos_g = buffers[0].nodes().inv1.nodes().pmos_g;
-        let bubbled_inv1 = buffers[0].nodes().inv1.to_owned();
+        let bubbled_pmos_g = buffers[0].data().inv1.data().pmos_g;
+        let bubbled_inv1 = buffers[0].data().inv1.to_owned();
 
         Ok(BufferNData {
             bubbled_pmos_g,
@@ -155,8 +155,8 @@ impl PdkSchematic<ExamplePdkA> for BufferNxM {
             buffer_chains.push(buffer);
         }
 
-        let bubbled_pmos_g = buffer_chains[0].nodes().bubbled_pmos_g;
-        let bubbled_inv1 = buffer_chains[0].nodes().bubbled_inv1.to_owned();
+        let bubbled_pmos_g = buffer_chains[0].data().bubbled_pmos_g;
+        let bubbled_inv1 = buffer_chains[0].data().bubbled_inv1.to_owned();
 
         Ok(BufferNxMData {
             bubbled_pmos_g,

@@ -57,7 +57,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
     type Output = (f64, f64);
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let mut opts = Options::default();
-        sim.set_initial_condition(sim.tb.nodes(), self.ic, &mut opts);
+        sim.set_initial_condition(sim.tb.data(), self.ic, &mut opts);
         let output = sim
             .simulate_default(
                 opts,
@@ -69,7 +69,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
             )
             .unwrap();
 
-        let vout = output.get_data(&sim.tb.nodes()).unwrap();
+        let vout = output.get_data(&sim.tb.data()).unwrap();
 
         let first = vout.first().unwrap();
         let last = vout.last().unwrap();

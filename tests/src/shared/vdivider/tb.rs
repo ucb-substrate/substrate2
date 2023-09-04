@@ -25,8 +25,8 @@ pub struct VdividerTb;
 
 #[derive(SchematicData)]
 pub struct VdividerTbData {
-    iprobe: InstanceData<Iprobe>,
-    dut: InstanceData<Vdivider>,
+    iprobe: Instance<Iprobe>,
+    dut: Instance<Vdivider>,
 }
 
 impl ExportsNestedData for VdividerTb {
@@ -59,10 +59,7 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
         cell.connect(vsource.io().p, vdd_a);
         cell.connect(vsource.io().n, io.vss);
 
-        Ok(VdividerTbData {
-            iprobe: iprobe.data(),
-            dut: dut.data(),
-        })
+        Ok(VdividerTbData { iprobe, dut })
     }
 }
 
@@ -71,7 +68,7 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
 pub struct VdividerDuplicateSubcktTb;
 
 impl ExportsNestedData for VdividerDuplicateSubcktTb {
-    type NestedData = InstanceData<VdividerDuplicateSubckt>;
+    type NestedData = Instance<VdividerDuplicateSubckt>;
 }
 
 impl<PDK> Schematic<PDK, Spectre> for VdividerDuplicateSubcktTb
@@ -95,7 +92,7 @@ where
         let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut.data())
+        Ok(dut)
     }
 }
 
@@ -125,11 +122,11 @@ where
 
         VdividerDuplicateSubcktTbOutput {
             vdd: output
-                .get_data(&sim.tb.nodes().terminals().vdd)
+                .get_data(&sim.tb.data().terminals().vdd)
                 .unwrap()
                 .clone(),
             out: output
-                .get_data(&sim.tb.nodes().terminals().out)
+                .get_data(&sim.tb.data().terminals().out)
                 .unwrap()
                 .clone(),
         }
@@ -156,10 +153,10 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         Self::Key {
-            current: TranCurrent::save(ctx, cell.nodes().dut.terminals().pwr.vdd, opts),
-            iprobe: TranCurrent::save(ctx, cell.nodes().iprobe.terminals().p, opts),
-            vdd: TranVoltage::save(ctx, cell.nodes().dut.terminals().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.nodes().dut.terminals().out, opts),
+            current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
+            iprobe: TranCurrent::save(ctx, cell.data().iprobe.terminals().p, opts),
+            vdd: TranVoltage::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.data().dut.terminals().out, opts),
         }
     }
 }
@@ -187,7 +184,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 pub struct VdividerArrayTb;
 
 impl ExportsNestedData for VdividerArrayTb {
-    type NestedData = InstanceData<VdividerArray>;
+    type NestedData = Instance<VdividerArray>;
 }
 
 impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
@@ -213,7 +210,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Vdivider
         let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut.data())
+        Ok(dut)
     }
 }
 
@@ -222,7 +219,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Vdivider
 pub struct FlattenedVdividerArrayTb;
 
 impl ExportsNestedData for FlattenedVdividerArrayTb {
-    type NestedData = InstanceData<super::flattened::VdividerArray>;
+    type NestedData = Instance<super::flattened::VdividerArray>;
 }
 
 impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
@@ -248,7 +245,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Flattene
         let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
         cell.connect(vsource.io().p, vdd);
         cell.connect(vsource.io().n, io.vss);
-        Ok(dut.data())
+        Ok(dut)
     }
 }
 
@@ -276,8 +273,8 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 
         let expected: Vec<_> = sim
             .tb
-            .nodes()
-            .nodes()
+            .data()
+            .data()
             .into_iter()
             .map(|inst| {
                 (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
@@ -289,27 +286,27 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 
         let out = sim
             .tb
-            .nodes()
-            .nodes()
+            .data()
+            .data()
             .iter()
             .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
             .collect();
 
         let out_nested = sim
             .tb
-            .nodes()
-            .nodes()
+            .data()
+            .data()
             .iter()
             .map(|inst| {
                 output
-                    .get_data(&inst.nodes().r1.terminals().n)
+                    .get_data(&inst.data().r1.terminals().n)
                     .unwrap()
                     .clone()
             })
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.nodes().terminals().elements[0].vdd)
+            .get_data(&sim.tb.data().terminals().elements[0].vdd)
             .unwrap()
             .clone();
 
@@ -338,8 +335,8 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Flattene
 
         let expected: Vec<_> = sim
             .tb
-            .nodes()
-            .nodes()
+            .data()
+            .data()
             .into_iter()
             .map(|inst| {
                 (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
@@ -351,27 +348,27 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Flattene
 
         let out = sim
             .tb
-            .nodes()
-            .nodes()
+            .data()
+            .data()
             .iter()
             .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
             .collect();
 
         let out_nested = sim
             .tb
-            .nodes()
-            .nodes()
+            .data()
+            .data()
             .iter()
             .map(|inst| {
                 output
-                    .get_data(&inst.nodes().r1.terminals().n)
+                    .get_data(&inst.data().r1.terminals().n)
                     .unwrap()
                     .clone()
             })
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.nodes().terminals().elements[0].vdd)
+            .get_data(&sim.tb.data().terminals().elements[0].vdd)
             .unwrap()
             .clone();
 

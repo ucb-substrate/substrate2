@@ -78,11 +78,11 @@ fn ngspice_can_save_voltages_and_currents() {
             opts: &mut <Ngspice as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {
-                r1: TranCurrent::save(ctx, to_save.nodes().r1, opts),
-                r2: TranCurrent::save(ctx, to_save.nodes().r2, opts),
-                r3: TranCurrent::save(ctx, to_save.nodes().r3, opts),
-                vout: TranVoltage::save(ctx, to_save.nodes().r1.terminals().n, opts),
-                r3_terminal: TranCurrent::save(ctx, to_save.nodes().r3.terminals().p, opts),
+                r1: TranCurrent::save(ctx, to_save.data().r1, opts),
+                r2: TranCurrent::save(ctx, to_save.data().r2, opts),
+                r3: TranCurrent::save(ctx, to_save.data().r3, opts),
+                vout: TranVoltage::save(ctx, to_save.data().r1.terminals().n, opts),
+                r3_terminal: TranCurrent::save(ctx, to_save.data().r3.terminals().p, opts),
             }
         }
     }

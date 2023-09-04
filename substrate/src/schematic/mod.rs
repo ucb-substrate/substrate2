@@ -20,6 +20,7 @@ use std::sync::Arc;
 use std::thread;
 
 use arcstr::ArcStr;
+use once_cell::sync::OnceCell;
 use schema::Schema;
 use scir::Library;
 use substrate::pdk::PdkScirSchematic;
@@ -516,6 +517,8 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
                 .append_segment(cell_contents.next_instance_id, cell.id),
             cell: cell.clone(),
             io: io_data,
+
+            nested_data: OnceCell::new(),
         };
 
         let (send, recv) = mpsc::channel();
@@ -863,6 +866,19 @@ pub struct Cell<T: ExportsNestedData> {
     io: Arc<<T::Io as SchematicType>::Bundle>,
     /// The path corresponding to this cell.
     path: InstancePath,
+
+    /// Stored nested data for deref purposes.
+    nested_data: OnceCell<Arc<NestedView<T::NestedData>>>,
+}
+
+impl<T: ExportsNestedData> Deref for Cell<T> {
+    type Target = NestedView<T::NestedData>;
+
+    fn deref(&self) -> &Self::Target {
+        self.nested_data
+            .get_or_init(|| Arc::new(self.data()))
+            .as_ref()
+    }
 }
 impl<T: ExportsNestedData> Clone for Cell<T> {
     fn clone(&self) -> Self {
@@ -872,6 +888,8 @@ impl<T: ExportsNestedData> Clone for Cell<T> {
             nodes: self.nodes.clone(),
             io: self.io.clone(),
             path: self.path.clone(),
+
+            nested_data: self.nested_data.clone(),
         }
     }
 }
@@ -889,6 +907,7 @@ impl<T: ExportsNestedData> Cell<T> {
             block,
             nodes: Arc::new(data),
             path: InstancePath::new(id),
+            nested_data: OnceCell::new(),
         }
     }
 
@@ -897,8 +916,8 @@ impl<T: ExportsNestedData> Cell<T> {
         &self.block
     }
 
-    /// Returns nested nodes propagated by the cell's schematic generator.
-    pub fn nodes(&self) -> NestedView<T::NestedData> {
+    /// Returns nested data propagated by the cell's schematic generator.
+    pub fn data(&self) -> NestedView<T::NestedData> {
         self.nodes.nested_view(&self.path)
     }
 
@@ -960,6 +979,19 @@ pub struct Instance<T: ExportsNestedData> {
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Bundle,
     cell: CellHandle<T>,
+
+    /// Stored nested data for deref purposes.
+    nested_data: OnceCell<Arc<NestedView<T::NestedData>>>,
+}
+
+impl<T: ExportsNestedData> Deref for Instance<T> {
+    type Target = NestedView<T::NestedData>;
+
+    fn deref(&self) -> &Self::Target {
+        self.nested_data
+            .get_or_init(|| Arc::new(self.data()))
+            .as_ref()
+    }
 }
 
 impl<B: ExportsNestedData> Clone for Instance<B> {
@@ -970,6 +1002,8 @@ impl<B: ExportsNestedData> Clone for Instance<B> {
             path: self.path.clone(),
             io: self.io.clone(),
             cell: self.cell.clone(),
+
+            nested_data: self.nested_data.clone(),
         }
     }
 }
@@ -1009,31 +1043,10 @@ impl<T: ExportsNestedData> Instance<T> {
         self.cell.cell().io.terminal_view(&self.path)
     }
 
-    /// Tries to access the underlying [`Cell`].
-    ///
-    /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<InstanceData<T>> {
-        self.cell.try_cell().map(|cell| InstanceData {
-            block: cell.block.clone(),
-            io: cell.io.clone(),
-            nodes: cell.nodes.clone(),
-            path: self.path.clone(),
-        })
-    }
-
-    /// Returns the underlying [`Cell`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> InstanceData<T> {
-        self.try_data().expect("cell generation failed")
-    }
-
     /// Tries to access the underlying cell data.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_nodes(&self) -> Result<NestedView<T::NestedData>> {
+    pub fn try_data(&self) -> Result<NestedView<T::NestedData>> {
         self.cell
             .try_cell()
             .map(|data| data.nodes.nested_view(&self.path))
@@ -1044,7 +1057,7 @@ impl<T: ExportsNestedData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn nodes(&self) -> NestedView<T::NestedData> {
+    pub fn data(&self) -> NestedView<T::NestedData> {
         self.cell.cell().nodes.nested_view(&self.path)
     }
 
@@ -1291,7 +1304,7 @@ impl<B: ExportsNestedData> InstanceData<B> {
 /// Stores a path of instances up to the current cell using an [`InstancePath`].
 pub trait HasNestedView {
     /// A view of the nested object.
-    type NestedView;
+    type NestedView: Send + Sync;
 
     /// Creates a nested view of the object given a parent node.
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView;

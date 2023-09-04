@@ -100,7 +100,7 @@ impl Testbench<Sky130Pdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        let vout = output.get_data(&sim.tb.nodes()).unwrap();
+        let vout = output.get_data(&sim.tb.data()).unwrap();
         let time = &output.time;
         let vout = WaveformRef::new(time, vout);
         let mut trans = vout.transitions(

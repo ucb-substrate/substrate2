@@ -165,23 +165,17 @@ fn nested_node_naming() {
     let cell = handle.cell();
 
     assert_eq!(
-        cell.nodes().bubbled_inv1.nodes().pmos.terminals().g.path(),
-        cell.nodes().bubbled_pmos_g.path()
+        cell.data().bubbled_inv1.pmos.terminals().g.path(),
+        cell.data().bubbled_pmos_g.path()
     );
 
     assert_eq!(
-        cell.nodes().bubbled_inv1.terminals().din.path(),
-        cell.nodes().buffer_chains[0]
-            .nodes()
-            .bubbled_inv1
-            .terminals()
-            .din
-            .path()
+        cell.bubbled_inv1.terminals().din.path(),
+        cell.buffer_chains[0].bubbled_inv1.terminals().din.path()
     );
     assert_eq!(
-        cell.nodes().bubbled_inv1.terminals().din.path(),
-        cell.nodes().buffer_chains[0].nodes().buffers[0]
-            .nodes()
+        cell.bubbled_inv1.terminals().din.path(),
+        cell.buffer_chains[0].data().buffers[0]
             .inv1
             .terminals()
             .din
@@ -189,26 +183,16 @@ fn nested_node_naming() {
     );
 
     assert_eq!(
-        cell.nodes().bubbled_pmos_g.path(),
-        cell.nodes().buffer_chains[0].nodes().bubbled_pmos_g.path()
+        cell.bubbled_pmos_g.path(),
+        cell.buffer_chains[0].bubbled_pmos_g.path()
     );
     assert_eq!(
-        cell.nodes().bubbled_pmos_g.path(),
-        cell.nodes().buffer_chains[0]
-            .nodes()
-            .bubbled_inv1
-            .nodes()
-            .pmos_g
-            .path()
+        cell.bubbled_pmos_g.path(),
+        cell.buffer_chains[0].bubbled_inv1.pmos_g.path()
     );
     assert_eq!(
-        cell.nodes().bubbled_pmos_g.path(),
-        cell.nodes().buffer_chains[0].nodes().buffers[0]
-            .nodes()
-            .inv1
-            .nodes()
-            .pmos_g
-            .path()
+        cell.bubbled_pmos_g.path(),
+        cell.buffer_chains[0].buffers[0].inv1.pmos_g.path()
     );
 }
 
