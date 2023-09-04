@@ -20,7 +20,7 @@ use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "block::Cell")]
+#[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct VdividerTb;
 
 #[derive(SchematicData)]
@@ -67,7 +67,7 @@ impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "block::Cell")]
+#[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct VdividerDuplicateSubcktTb;
 
 impl ExportsNestedData for VdividerDuplicateSubcktTb {
@@ -125,11 +125,11 @@ where
 
         VdividerDuplicateSubcktTbOutput {
             vdd: output
-                .get_data(&sim.tb.data().terminals().vdd)
+                .get_data(&sim.tb.nodes().terminals().vdd)
                 .unwrap()
                 .clone(),
             out: output
-                .get_data(&sim.tb.data().terminals().out)
+                .get_data(&sim.tb.nodes().terminals().out)
                 .unwrap()
                 .clone(),
         }
@@ -149,10 +149,10 @@ pub struct VdividerTbTranOutput {
     pub out: TranVoltage,
 }
 
-impl Save<Spectre, Tran, &Cell<SpectrePrimitive, VdividerTb>> for VdividerTbTranOutput {
+impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
     fn save(
         ctx: &SimulationContext<Spectre>,
-        cell: &Cell<SpectrePrimitive, VdividerTb>,
+        cell: &Cell<VdividerTb>,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         Self::Key {
@@ -183,7 +183,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "block::Cell")]
+#[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct VdividerArrayTb;
 
 impl ExportsNestedData for VdividerArrayTb {
@@ -218,7 +218,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for Vdivider
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "block::Cell")]
+#[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct FlattenedVdividerArrayTb;
 
 impl ExportsNestedData for FlattenedVdividerArrayTb {

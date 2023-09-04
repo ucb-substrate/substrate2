@@ -25,7 +25,7 @@ pub mod corner;
 pub mod layers;
 pub mod mos;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Sky130Primitive {
     RawInstance {
         cell: ArcStr,

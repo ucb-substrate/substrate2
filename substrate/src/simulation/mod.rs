@@ -118,7 +118,7 @@ pub struct SimController<PDK: Pdk, S: Simulator, T: Testbench<PDK, S>> {
     /// The current PDK.
     pub pdk: Arc<PDK>,
     /// The current testbench cell.
-    pub tb: Cell<<<S as Simulator>::Schema as Schema>::Primitive, T>,
+    pub tb: Cell<T>,
     pub(crate) ctx: SimulationContext<S>,
 }
 
@@ -153,11 +153,7 @@ impl<PDK: Pdk + SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>> SimCon
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<
-        'a,
-        A: Analysis + SupportedBy<S>,
-        O: for<'b> Save<S, A, &'b Cell<<<S as Simulator>::Schema as Schema>::Primitive, T>>,
-    >(
+    pub fn simulate<'a, A: Analysis + SupportedBy<S>, O: for<'b> Save<S, A, &'b Cell<T>>>(
         &'a self,
         mut options: S::Options,
         corner: Option<&'a PDK::Corner>,

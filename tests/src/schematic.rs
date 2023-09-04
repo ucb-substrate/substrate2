@@ -2,11 +2,12 @@ use std::collections::HashSet;
 
 use anyhow::anyhow;
 use arcstr::ArcStr;
+use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
 use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::schema::Schema;
+use substrate::schematic::schema::{Schema, Spice};
 use substrate::schematic::{CellBuilder, PdkCellBuilder};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
@@ -31,7 +32,7 @@ fn can_generate_vdivider_schematic() {
         r1: Resistor::new(300),
         r2: Resistor::new(100),
     };
-    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(vdivider).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_scir::<Spice, _>(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -49,16 +50,15 @@ fn can_generate_vdivider_schematic() {
     assert!(port_names.contains("pwr_vss"));
     assert!(port_names.contains("out"));
     assert_eq!(vdiv.ports().count(), 3);
-    let contents = vdiv.contents().as_ref().unwrap_clear();
-    assert_eq!(contents.primitives().count(), 2);
-    assert_eq!(contents.instances().count(), 0);
+    let contents = vdiv.contents().as_ref().unwrap_cell();
+    assert_eq!(contents.instances().count(), 2);
 }
 
 #[test]
 fn can_generate_flattened_vdivider_schematic() {
     let ctx = Context::new(ExamplePdkA);
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
-    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(vdivider).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_scir::<Spice, _>(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -76,9 +76,8 @@ fn can_generate_flattened_vdivider_schematic() {
     assert!(port_names.contains("pwr_vss"));
     assert!(port_names.contains("out"));
     assert_eq!(vdiv.ports().count(), 3);
-    let contents = vdiv.contents().as_ref().unwrap_clear();
-    assert_eq!(contents.primitives().count(), 2);
-    assert_eq!(contents.instances().count(), 0);
+    let contents = vdiv.contents().as_ref().unwrap_cell();
+    assert_eq!(contents.instances().count(), 2);
 }
 
 #[test]
@@ -89,7 +88,7 @@ fn can_generate_flattened_vdivider_array_schematic() {
     let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);
     let vdivs = vec![vdiv1, vdiv2, vdiv3];
     let vdivider = crate::shared::vdivider::flattened::VdividerArray { vdividers: vdivs };
-    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(vdivider).unwrap();
+    let RawLib { scir, conv: _ } = ctx.export_scir::<Spice, _>(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -110,9 +109,8 @@ fn can_generate_flattened_vdivider_array_schematic() {
     assert!(port_names.contains("elements_2_vdd"));
     assert!(port_names.contains("elements_2_vss"));
     assert_eq!(vdiv.ports().count(), 6);
-    let contents = vdiv.contents().as_ref().unwrap_clear();
-    assert_eq!(contents.primitives().count(), 6);
-    assert_eq!(contents.instances().count(), 0);
+    let contents = vdiv.contents().as_ref().unwrap_cell();
+    assert_eq!(contents.instances().count(), 6);
 }
 
 #[test]
@@ -244,7 +242,7 @@ impl<PDK> PdkSchematic<PDK> for Block1 {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut PdkCellBuilder<PDK>,
-    ) -> substrate::error::Result<Self::NestedNodes> {
+    ) -> substrate::error::Result<Self::NestedData> {
         Err(substrate::error::Error::Anyhow(
             anyhow!("failed to generate block 1").into(),
         ))

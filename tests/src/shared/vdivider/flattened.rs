@@ -9,7 +9,7 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
-#[substrate(io = "VdividerIo", kind = "block::Cell")]
+#[substrate(io = "VdividerIo", kind = "Cell")]
 pub struct Vdivider {
     pub r1: Resistor,
     pub r2: Resistor,
@@ -54,13 +54,13 @@ impl ExportsNestedData for Vdivider {
 }
 
 impl ExportsNestedData for VdividerArray {
-    type NestedData = Vec<InstanceData<Vdivider>>;
+    type NestedData = Vec<Instance<Vdivider>>;
 }
 
 #[derive(SchematicData)]
 pub struct VdividerData {
-    pub r1: InstanceData<Resistor>,
-    pub r2: InstanceData<Resistor>,
+    pub r1: Instance<Resistor>,
+    pub r2: Instance<Resistor>,
 }
 
 impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for Vdivider {
@@ -76,10 +76,7 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for Vdivider {
         cell.connect(io.out, r1.io().n);
         cell.connect(io.out, r2.io().p);
         cell.connect(io.pwr.vss, r2.io().n);
-        Ok(VdividerData {
-            r1: r1.data(),
-            r2: r2.data(),
-        })
+        Ok(VdividerData { r1, r2 })
     }
 }
 
@@ -96,7 +93,7 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for VdividerAr
 
             cell.connect(&vdiv.io().pwr, &io.elements[i]);
 
-            vdividers.push(vdiv.data());
+            vdividers.push(vdiv);
         }
 
         Ok(vdividers)

@@ -16,7 +16,7 @@ use super::{BufferN, Inverter};
 #[derive(SchematicData)]
 pub struct InverterData {
     pub pmos_g: Terminal,
-    pub pmos: InstanceData<PmosA>,
+    pub pmos: Instance<PmosA>,
 }
 
 impl ExportsNestedData for Inverter {
@@ -44,15 +44,15 @@ impl PdkSchematic<ExamplePdkA> for Inverter {
         cell.connect(io.vss, nmos.s);
         Ok(InverterData {
             pmos_g: pmos.terminals().g,
-            pmos: pmos.data(),
+            pmos,
         })
     }
 }
 
 #[derive(SchematicData)]
 pub struct BufferData {
-    pub inv1: InstanceData<Inverter>,
-    pub inv2: InstanceData<Inverter>,
+    pub inv1: Instance<Inverter>,
+    pub inv2: Instance<Inverter>,
 }
 
 impl ExportsNestedData for Buffer {
@@ -84,18 +84,15 @@ impl PdkSchematic<ExamplePdkA> for Buffer {
             cell.connect(io.vss, inv.vss);
         }
 
-        Ok(BufferData {
-            inv1: inv1.data(),
-            inv2: inv2.data(),
-        })
+        Ok(BufferData { inv1, inv2 })
     }
 }
 
 #[derive(SchematicData)]
 pub struct BufferNData {
     pub bubbled_pmos_g: Terminal,
-    pub bubbled_inv1: InstanceData<Inverter>,
-    pub buffers: Vec<InstanceData<Buffer>>,
+    pub bubbled_inv1: Instance<Inverter>,
+    pub buffers: Vec<Instance<Buffer>>,
 }
 
 impl ExportsNestedData for BufferN {
@@ -126,7 +123,7 @@ impl PdkSchematic<ExamplePdkA> for BufferN {
         Ok(BufferNData {
             bubbled_pmos_g,
             bubbled_inv1,
-            buffers: buffers.iter().map(|buffer| buffer.data()).collect(),
+            buffers,
         })
     }
 }
@@ -134,8 +131,8 @@ impl PdkSchematic<ExamplePdkA> for BufferN {
 #[derive(SchematicData)]
 pub struct BufferNxMData {
     pub bubbled_pmos_g: Terminal,
-    pub bubbled_inv1: InstanceData<Inverter>,
-    pub buffer_chains: Vec<InstanceData<BufferN>>,
+    pub bubbled_inv1: Instance<Inverter>,
+    pub buffer_chains: Vec<Instance<BufferN>>,
 }
 
 impl ExportsNestedData for BufferNxM {
@@ -155,7 +152,7 @@ impl PdkSchematic<ExamplePdkA> for BufferNxM {
             cell.connect(io.dout[i], buffer.io().dout);
             cell.connect(io.vdd, buffer.io().vdd);
             cell.connect(io.vss, buffer.io().vss);
-            buffer_chains.push(buffer.data());
+            buffer_chains.push(buffer);
         }
 
         let bubbled_pmos_g = buffer_chains[0].nodes().bubbled_pmos_g;

@@ -12,6 +12,7 @@ use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::mpsc::{self, Receiver};
@@ -100,7 +101,7 @@ impl<
         &self,
         _io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::NestedNodes> {
+    ) -> Result<Self::NestedData> {
         let (lib, id) = ScirSchematic::schematic(self)?;
         cell.0.set_scir(ScirCellInner {
             lib: Arc::new(lib),
@@ -118,7 +119,7 @@ impl<T, PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK, T> + Block<Kind = T>> 
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::NestedNodes> {
+    ) -> Result<Self::NestedData> {
         cell.set_pdk_schematic(io, self)
     }
 }
@@ -157,8 +158,8 @@ pub(crate) struct CellBuilderInner<PDK: Pdk, P> {
 }
 
 impl<PDK: Pdk, P> CellBuilderInner<PDK, P> {
-    fn clone_without_contents(&self) -> Self {
-        Self {
+    fn clone_without_contents<C>(&self) -> CellBuilderInner<PDK, C> {
+        CellBuilderInner {
             ctx: self.ctx.clone(),
             id: self.id,
             cell_name: self.cell_name.clone(),
@@ -173,7 +174,6 @@ impl<PDK: Pdk, P> CellBuilderInner<PDK, P> {
             /// are the wrong directions to use when looking at connections to this
             /// cell's IO from *within* the cell.
             ports: self.ports.clone(),
-            raw_cells: self.raw_cells.clone(),
             contents: CellBuilderContents::Cell(CellInner {
                 next_instance_id: InstanceId(0),
                 instances: Vec::new(),
@@ -182,10 +182,7 @@ impl<PDK: Pdk, P> CellBuilderInner<PDK, P> {
     }
 }
 
-pub struct CellBuilder<PDK: Pdk, S: Schema>(
-    pub(crate) CellBuilderInner<PDK, S::Primitive>,
-    PhantomData<S>,
-);
+pub struct CellBuilder<PDK: Pdk, S: Schema>(pub(crate) CellBuilderInner<PDK, S::Primitive>);
 pub struct PdkCellBuilder<PDK: Pdk>(pub(crate) CellBuilderInner<PDK, PDK::Primitive>);
 
 pub(crate) type CellBuilderContents<P> =
@@ -203,19 +200,6 @@ impl<P: Primitive> CellBuilderContents<P> {
             Self::Blackbox(c) => CellBuilderContents::Blackbox(c),
         })
     }
-}
-
-/// An enumeration of raw cell kinds.
-///
-/// Can be used to store data associated with each kind of raw cell.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[enumify::enumify]
-pub(crate) enum CellBuilderKind<C, S, P, B> {
-    PdkCell(C),
-    Cell(C),
-    Scir(S),
-    Primitive(P),
-    Blackbox(B),
 }
 
 pub(crate) struct CellInner<P> {
@@ -538,12 +522,15 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
 
         cell_contents.instances.push(recv);
 
+        let context = self.ctx.clone();
+
         thread::spawn(move || {
             if let Ok(cell) = cell.try_cell() {
+                let child = context.get_raw_cell(cell.id).unwrap();
                 let raw = RawInstance {
                     id: inst.id,
                     name: arcstr::literal!("unnamed"),
-                    child: cell.raw.clone(),
+                    child,
                     connections: nodes,
                 };
                 send.send(Some(raw)).unwrap();
@@ -729,7 +716,7 @@ impl<PDK: Pdk> PdkCellBuilder<PDK> {
 
 impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
     pub(crate) fn new(inner: CellBuilderInner<PDK, S::Primitive>) -> Self {
-        Self(inner, PhantomData)
+        Self(inner)
     }
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
@@ -837,18 +824,37 @@ impl<PDK: ToSchema<S>, S: Schema> CellBuilder<PDK, S> {
     {
         let mut pdk_builder = PdkCellBuilder(self.0.clone_without_contents());
         let data = PdkSchematic::schematic(block, io, &mut pdk_builder)?;
-        let mut inner = pdk_builder.0;
-        inner.contents = inner
-            .contents
-            .convert_primitives(PDK::convert_primitive)
-            .ok_or(Error::UnsupportedPrimitive)?;
-        *self = CellBuilder::new(inner);
+        let CellBuilderInner {
+            ctx,
+            id,
+            cell_name,
+            flatten,
+            root,
+            node_ctx,
+            node_names,
+            ports,
+            contents,
+        } = pdk_builder.0;
+        *self = CellBuilder::new(CellBuilderInner {
+            ctx,
+            id,
+            cell_name,
+            flatten,
+            root,
+            node_ctx,
+            node_names,
+            ports,
+            contents: contents
+                .convert_primitives(PDK::convert_primitive)
+                .ok_or(Error::UnsupportedPrimitive)?,
+        });
         Ok(data)
     }
 }
 
 /// A schematic cell.
 pub struct Cell<T: ExportsNestedData> {
+    pub(crate) id: CellId,
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
@@ -861,6 +867,7 @@ pub struct Cell<T: ExportsNestedData> {
 impl<T: ExportsNestedData> Clone for Cell<T> {
     fn clone(&self) -> Self {
         Self {
+            id: self.id,
             block: self.block.clone(),
             nodes: self.nodes.clone(),
             io: self.io.clone(),
@@ -877,6 +884,7 @@ impl<T: ExportsNestedData> Cell<T> {
         data: T::NestedData,
     ) -> Self {
         Self {
+            id,
             io: Arc::new(io),
             block,
             nodes: Arc::new(data),
@@ -952,6 +960,27 @@ pub struct Instance<T: ExportsNestedData> {
     /// The cell's input/output interface.
     io: <T::Io as SchematicType>::Bundle,
     cell: CellHandle<T>,
+}
+
+impl<B: ExportsNestedData> Clone for Instance<B> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            parent: self.parent.clone(),
+            path: self.path.clone(),
+            io: self.io.clone(),
+            cell: self.cell.clone(),
+        }
+    }
+}
+
+impl<B: ExportsNestedData> HasNestedView for Instance<B> {
+    type NestedView = Instance<B>;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        let mut inst = (*self).clone();
+        inst.path = self.path.prepend(parent);
+        inst
+    }
 }
 
 impl<T: ExportsNestedData> Instance<T> {
@@ -1034,26 +1063,87 @@ impl<T: ExportsNestedData> Instance<T> {
     pub fn block(&self) -> &T {
         &self.cell.cell().block
     }
+
+    pub fn path(&self) -> &InstancePath {
+        &self.path
+    }
 }
 
 /// A wrapper around schematic-specific context data.
 #[derive(Debug, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
+    /// Cache from `CellCacheKey` and `PdkCellCacheKey` to `CellId`.
+    pub(crate) id_cache: TypeCache,
+    /// Cache from `CellCacheKey` and `PdkCellCacheKey` to `Result<Cell<B>>`.
     pub(crate) cell_cache: TypeCache,
+    /// Map from `CellId` to `RawCell<B>`.
+    pub(crate) raw_cells: HashMap<CellId, Arc<dyn Any + Send + Sync>>,
 }
 
-#[derive(Clone)]
-struct CellCacheKey<B, P> {
-    block: Arc<B>,
-    primitive: PhantomData<P>,
+pub(crate) struct CellCacheKey<B, PDK, S> {
+    pub(crate) block: Arc<B>,
+    pub(crate) phantom: PhantomData<(PDK, S)>,
+}
+
+impl<B, PDK, S> Clone for CellCacheKey<B, PDK, S> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<B: PartialEq, PDK, S> PartialEq for CellCacheKey<B, PDK, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.block.eq(&other.block)
+    }
+}
+
+impl<B: Eq, PDK, S> Eq for CellCacheKey<B, PDK, S> {}
+
+impl<B: Hash, PDK, S> Hash for CellCacheKey<B, PDK, S> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.block.hash(state)
+    }
+}
+
+pub(crate) struct PdkCellCacheKey<B, PDK> {
+    pub(crate) block: Arc<B>,
+    pub(crate) phantom: PhantomData<PDK>,
+}
+
+impl<B, PDK> Clone for PdkCellCacheKey<B, PDK> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<B: PartialEq, PDK> PartialEq for PdkCellCacheKey<B, PDK> {
+    fn eq(&self, other: &Self) -> bool {
+        self.block.eq(&other.block)
+    }
+}
+
+impl<B: Eq, PDK> Eq for PdkCellCacheKey<B, PDK> {}
+
+impl<B: Hash, PDK> Hash for PdkCellCacheKey<B, PDK> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.block.hash(state)
+    }
 }
 
 impl Default for SchematicContext {
     fn default() -> Self {
         Self {
             next_id: CellId(0),
+            id_cache: Default::default(),
             cell_cache: Default::default(),
+            raw_cells: HashMap::new(),
         }
     }
 }

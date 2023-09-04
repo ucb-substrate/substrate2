@@ -37,9 +37,9 @@ use crate::pdk::{Pdk, PdkSchematic};
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{
-    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderContents,
-    CellHandle as SchematicCellHandle, CellInner, InstanceId, InstancePath, Schematic,
-    SchematicContext,
+    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderContents, CellCacheKey,
+    CellHandle as SchematicCellHandle, CellId, CellInner, InstanceId, InstancePath,
+    PdkCellCacheKey, Primitive, RawCell as SchematicRawCell, Schematic, SchematicContext,
 };
 use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -276,24 +276,41 @@ impl<PDK: Pdk> Context<PDK> {
         &self,
         block: Arc<T>,
     ) -> SchematicCellHandle<T> {
-        let context = self.clone();
         let mut inner = self.inner.write().unwrap();
-        let id = inner.schematic.get_id();
+        let context = self.clone();
+        let key = CellCacheKey {
+            block: block.clone(),
+            phantom: PhantomData::<(PDK, S)>,
+        };
+        let id = *inner
+            .schematic
+            .id_cache
+            .generate(key.clone(), move |_| {
+                context.inner.write().unwrap().schematic.get_id()
+            })
+            .get();
+        let context = self.clone();
         SchematicCellHandle {
             id,
             block: block.clone(),
-            cell: inner.schematic.cell_cache.generate(block, move |block| {
-                let (mut cell_builder, io_data) = prepare_cell_builder(id, context, block.as_ref());
-                let data = block.schematic(&io_data, &mut cell_builder);
-                data.map(|data| {
-                    SchematicCell::new(
-                        io_data,
-                        block.clone(),
-                        data,
-                        Arc::new(cell_builder.0.finish()),
-                    )
-                })
-            }),
+            cell: inner.schematic.cell_cache.generate(
+                key,
+                move |CellCacheKey { block, .. }| {
+                    let (mut cell_builder, io_data) =
+                        prepare_cell_builder(id, context.clone(), block.as_ref());
+                    let data = block.schematic(&io_data, &mut cell_builder);
+                    data.map(|data| {
+                        context
+                            .inner
+                            .write()
+                            .unwrap()
+                            .schematic
+                            .raw_cells
+                            .insert(id, Arc::new(cell_builder.0.finish()));
+                        SchematicCell::new(id, io_data, block.clone(), data)
+                    })
+                },
+            ),
         }
     }
 
@@ -312,25 +329,41 @@ impl<PDK: Pdk> Context<PDK> {
         &self,
         block: Arc<T>,
     ) -> SchematicCellHandle<T> {
-        let context = self.clone();
         let mut inner = self.inner.write().unwrap();
-        let id = inner.schematic.get_id();
+        let key = PdkCellCacheKey {
+            block: block.clone(),
+            phantom: PhantomData::<PDK>,
+        };
+        let context = self.clone();
+        let id = *inner
+            .schematic
+            .id_cache
+            .generate(key.clone(), move |_| {
+                context.inner.write().unwrap().schematic.get_id()
+            })
+            .get();
+        let context = self.clone();
         SchematicCellHandle {
             id,
             block: block.clone(),
-            cell: inner.schematic.cell_cache.generate(block, move |block| {
-                let (mut cell_builder, io_data) =
-                    prepare_pdk_cell_builder(id, context, block.as_ref());
-                let data = block.schematic(&io_data, &mut cell_builder);
-                data.map(|data| {
-                    SchematicCell::new(
-                        io_data,
-                        block.clone(),
-                        data,
-                        Arc::new(cell_builder.0.finish()),
-                    )
-                })
-            }),
+            cell: inner.schematic.cell_cache.generate(
+                key,
+                move |PdkCellCacheKey { block, .. }| {
+                    let (mut cell_builder, io_data) =
+                        prepare_pdk_cell_builder(id, context.clone(), block.as_ref());
+                    let data = block.schematic(&io_data, &mut cell_builder);
+                    data.map(|data| {
+                        context
+                            .inner
+                            .write()
+                            .unwrap()
+                            .schematic
+                            .raw_cells
+                            .insert(id, Arc::new(cell_builder.0.finish()));
+                        SchematicCell::new(id, io_data, block.clone(), data)
+                    })
+                },
+            ),
         }
     }
 
@@ -351,7 +384,9 @@ impl<PDK: Pdk> Context<PDK> {
     ) -> Result<RawLib<PDK::Primitive>, scir::Issues> {
         let cell = self.generate_pdk_schematic(block);
         let cell = cell.cell();
-        cell.raw.to_scir_lib(TopKind::Cell)
+        self.get_raw_cell(cell.id)
+            .unwrap()
+            .to_scir_lib(TopKind::Cell)
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -363,7 +398,9 @@ impl<PDK: Pdk> Context<PDK> {
     ) -> Result<RawLib<S::Primitive>, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
-        cell.raw.to_scir_lib(TopKind::Cell)
+        self.get_raw_cell(cell.id)
+            .unwrap()
+            .to_scir_lib(TopKind::Cell)
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -388,7 +425,9 @@ impl<PDK: Pdk> Context<PDK> {
         &self,
         cell: &SchematicCell<T>,
     ) -> Result<RawLib<S::Primitive>, scir::Issues> {
-        cell.raw.to_scir_lib(TopKind::Testbench)
+        self.get_raw_cell(cell.id)
+            .unwrap()
+            .to_scir_lib(TopKind::Testbench)
     }
 
     /// Installs a new layer set in the context.
@@ -440,6 +479,19 @@ impl<PDK: Pdk> Context<PDK> {
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {
         let arc = self.simulators.get(&TypeId::of::<S>()).unwrap().clone();
         arc.downcast().unwrap()
+    }
+
+    pub(crate) fn get_raw_cell<P: Primitive>(
+        &self,
+        id: CellId,
+    ) -> Option<Arc<SchematicRawCell<P>>> {
+        self.inner
+            .read()
+            .unwrap()
+            .schematic
+            .raw_cells
+            .get(&id)
+            .and_then(|cell| cell.clone().downcast().ok())
     }
 }
 

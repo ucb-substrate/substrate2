@@ -1,4 +1,5 @@
 //! Traits and types for specifying formats for storing Substrate schematics.
+use scir::Expr;
 use std::any::Any;
 use substrate::schematic::Primitive;
 
@@ -6,6 +7,7 @@ use crate::block::{Block, SchemaPrimitive};
 use crate::error::Result;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
+use crate::schematic::primitives::Resistor;
 use crate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 /// A format for storing Substrate schematics.
@@ -45,4 +47,12 @@ pub struct Spice;
 
 impl Schema for Spice {
     type Primitive = spice::Primitive;
+}
+
+impl HasSchemaPrimitive<Resistor> for Spice {
+    fn primitive(block: &Resistor) -> Self::Primitive {
+        spice::Primitive::Res2 {
+            value: Expr::NumericLiteral(block.value()),
+        }
+    }
 }

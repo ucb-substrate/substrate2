@@ -123,10 +123,10 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             #declare <#field_ty as #substrate::io::SchematicType>::Bundle,
         });
         nested_view_fields.push(quote! {
-                #declare #substrate::schematic::NestedView<#lifetime, <#field_ty as #substrate::io::SchematicType>::Bundle>,
+                #declare #substrate::schematic::NestedView<<#field_ty as #substrate::io::SchematicType>::Bundle>,
         });
         terminal_view_fields.push(quote! {
-                #declare #substrate::io::TerminalView<#lifetime, <#field_ty as #substrate::io::SchematicType>::Bundle>,
+                #declare #substrate::io::TerminalView<<#field_ty as #substrate::io::SchematicType>::Bundle>,
         });
         construct_data_fields.push(quote! {
             #assign #temp,
@@ -180,9 +180,9 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         #(#attrs)*
         #vis struct #data_ident #st_generics #data_body
         #(#attrs)*
-        #vis struct #nested_view_ident #ref_generics #nested_view_body
+        #vis struct #nested_view_ident #st_generics #nested_view_body
         #(#attrs)*
-        #vis struct #terminal_view_ident #ref_generics #terminal_view_body
+        #vis struct #terminal_view_ident #st_generics #terminal_view_body
 
         impl #st_imp #substrate::io::FlatLen for #data_ident #st_ty #st_where {
             fn len(&self) -> usize {
@@ -207,17 +207,17 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         }
 
         impl #st_any_imp #substrate::schematic::HasNestedView for #data_ident #st_any_ty #st_any_where {
-            type NestedView<#lifetime> = #nested_view_ident #ref_ty;
+            type NestedView = #nested_view_ident #st_any_ty;
 
-            fn nested_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView<#lifetime> {
+            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView {
                 #nested_view_ident #construct_nested_view_body
             }
         }
 
         impl #st_any_imp #substrate::io::HasTerminalView for #data_ident #st_any_ty #st_any_where {
-            type TerminalView<#lifetime> = #terminal_view_ident #ref_ty;
+            type TerminalView = #terminal_view_ident #st_any_ty;
 
-            fn terminal_view<#lifetime>(&#lifetime self, parent: &#substrate::schematic::InstancePath) -> Self::TerminalView<#lifetime> {
+            fn terminal_view(&self, parent: &#substrate::schematic::InstancePath) -> Self::TerminalView {
                 #terminal_view_ident #construct_terminal_view_body
             }
         }
@@ -283,7 +283,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     for ident in idents {
         ref_wher
             .predicates
-            .push(syn::parse_quote!(<#ident as substrate::io::LayoutType>::Nundle: #lifetime));
+            .push(syn::parse_quote!(<#ident as substrate::io::LayoutType>::Bundle: #lifetime));
         hbf_generics.make_where_clause().predicates.push(syn::parse_quote!(<#ident as #substrate::io::LayoutType>::Builder: #substrate::io::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts>));
     }
 

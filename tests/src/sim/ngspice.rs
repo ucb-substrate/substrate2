@@ -23,14 +23,14 @@ use crate::shared::pdk::sky130_open_ctx;
 #[test]
 fn ngspice_can_save_voltages_and_currents() {
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "block::Cell")]
+    #[substrate(io = "TestbenchIo", kind = "Cell")]
     struct ResistorTb;
 
     #[derive(SchematicData)]
     struct ResistorTbData {
-        r1: InstanceData<Resistor>,
-        r2: InstanceData<Resistor>,
-        r3: InstanceData<Resistor>,
+        r1: Instance<Resistor>,
+        r2: Instance<Resistor>,
+        r3: Instance<Resistor>,
     }
 
     impl ExportsNestedData for ResistorTb {
@@ -58,11 +58,7 @@ fn ngspice_can_save_voltages_and_currents() {
             cell.connect(vsource.io().p, vdd);
             cell.connect(vsource.io().n, io.vss);
 
-            Ok(ResistorTbData {
-                r1: r1.data(),
-                r2: r2.data(),
-                r3: r3.data(),
-            })
+            Ok(ResistorTbData { r1, r2, r3 })
         }
     }
 
@@ -75,10 +71,10 @@ fn ngspice_can_save_voltages_and_currents() {
         r3_terminal: TranCurrent,
     }
 
-    impl Save<Ngspice, Tran, &Cell<NgspicePrimitive, ResistorTb>> for ResistorTbOutput {
+    impl Save<Ngspice, Tran, &Cell<ResistorTb>> for ResistorTbOutput {
         fn save(
             ctx: &SimulationContext<Ngspice>,
-            to_save: &Cell<NgspicePrimitive, ResistorTb>,
+            to_save: &Cell<ResistorTb>,
             opts: &mut <Ngspice as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {

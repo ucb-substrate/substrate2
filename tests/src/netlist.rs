@@ -6,7 +6,7 @@ use scir::*;
 use spectre::SpectrePrimitive;
 use spice::{Netlister, Primitive};
 
-trait HasRes2 {
+pub(crate) trait HasRes2 {
     fn resistor(value: usize) -> Self;
 }
 
@@ -36,13 +36,13 @@ pub(crate) fn vdivider<P: HasRes2>() -> Library<P> {
     let mut lib = LibraryBuilder::new("vdivider");
     let mut wrapper = lib.add_primitive(P::resistor(100));
 
-    let mut vdivider = Cell::new_whitebox("vdivider");
+    let mut vdivider = Cell::new("vdivider");
     let vdd = vdivider.add_node("vdd");
     let out = vdivider.add_node("out");
     let int = vdivider.add_node("int");
     let vss = vdivider.add_node("vss");
 
-    let contents = vdivider.contents_mut().as_mut().unwrap_clear();
+    let contents = vdivider.contents_mut().as_mut().unwrap_cell();
     let mut r1 = Instance::new("r1", wrapper);
     r1.connect("pos", vdd);
     r1.connect("neg", int);
@@ -80,13 +80,13 @@ pub(crate) fn vdivider_blackbox() -> Library<Primitive> {
     wrapper.expose_port(neg, Direction::InOut);
     let wrapper = lib.add_cell(wrapper);
 
-    let mut vdivider = Cell::new_whitebox("vdivider");
+    let mut vdivider = Cell::new("vdivider");
     let vdd = vdivider.add_node("vdd");
     let out = vdivider.add_node("out");
     let int = vdivider.add_node("int");
     let vss = vdivider.add_node("vss");
 
-    let contents = vdivider.contents_mut().as_mut().unwrap_clear();
+    let contents = vdivider.contents_mut().as_mut().unwrap_cell();
     let mut r1 = Instance::new("r1", wrapper);
     r1.connect("pos", vdd);
     r1.connect("neg", int);
@@ -112,7 +112,7 @@ pub(crate) fn vdivider_blackbox() -> Library<Primitive> {
 
 #[test]
 fn vdivider_is_valid() {
-    let lib = vdivider();
+    let lib = vdivider::<Primitive>();
     let issues = lib.validate();
     assert_eq!(issues.num_errors(), 0);
     assert_eq!(issues.num_warnings(), 0);

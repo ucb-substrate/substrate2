@@ -32,7 +32,7 @@ pub enum PointEnum {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Block, Serialize, Deserialize, Hash)]
-#[substrate(io = "()", kind = "block::Cell")]
+#[substrate(io = "()", kind = "Cell")]
 pub struct GridTilerExample;
 
 impl ExportsLayoutData for GridTilerExample {

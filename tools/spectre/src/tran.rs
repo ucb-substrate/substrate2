@@ -50,10 +50,10 @@ impl FromSaved<Spectre, Tran> for TranOutput {
     }
 }
 
-impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranOutput {
+impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<T>> for TranOutput {
     fn save(
         _ctx: &SimulationContext<Spectre>,
-        _to_save: &Cell<SpectrePrimitive, T>,
+        _to_save: &Cell<T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }
@@ -86,10 +86,10 @@ impl FromSaved<Spectre, Tran> for TranTime {
     }
 }
 
-impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<SpectrePrimitive, T>> for TranTime {
+impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<T>> for TranTime {
     fn save(
         _ctx: &SimulationContext<Spectre>,
-        _to_save: &Cell<SpectrePrimitive, T>,
+        _to_save: &Cell<T>,
         _opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
     }

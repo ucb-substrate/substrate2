@@ -31,7 +31,7 @@ pub struct Pulse {
 
 /// A voltage source.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo", kind = "block::SchemaPrimitive")]
+#[substrate(io = "TwoTerminalIo", kind = "SchemaPrimitive")]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),

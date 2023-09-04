@@ -12,7 +12,7 @@ use rust_decimal::Decimal;
 use substrate::schematic::{PdkCellBuilder, Primitive, SchematicData};
 use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block, PdkBlock, PdkPrimitive, ScirBlock};
+use crate::block::{self, Block, PdkBlock, PdkPrimitive, PdkScir, ScirBlock};
 use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
@@ -51,7 +51,7 @@ pub trait HasPdkPrimitive<B: Block<Kind = PdkPrimitive>>: Pdk {
     fn primitive(block: &B) -> Self::Primitive;
 }
 
-pub trait PdkScirSchematic<PDK: Pdk>: ScirBlock {
+pub trait PdkScirSchematic<PDK: Pdk>: Block<Kind = PdkScir> {
     fn schematic(&self) -> Result<(scir::Library<PDK::Primitive>, scir::CellId)>;
 }
 

@@ -4,7 +4,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130CommercialPdk;
+use sky130pdk::Sky130Pdk;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::tran::Tran;
 use spectre::{Options, Spectre};
@@ -24,7 +24,7 @@ use substrate::simulation::Testbench;
 use super::Inverter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "block::Cell")]
+#[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,
@@ -41,11 +41,11 @@ impl ExportsNestedData for InverterTb {
     type NestedData = Node;
 }
 
-impl Schematic<Sky130CommercialPdk, Spectre> for InverterTb {
+impl Schematic<Sky130Pdk, Spectre> for InverterTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<Sky130CommercialPdk, Spectre>,
+        cell: &mut CellBuilder<Sky130Pdk, Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let inv = cell.instantiate(self.dut);
 
@@ -82,11 +82,11 @@ pub struct InverterTbData {
     pub tf: f64,
 }
 
-impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
+impl Testbench<Sky130Pdk, Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(
         &self,
-        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre, Self>,
+        sim: substrate::simulation::SimController<Sky130Pdk, Spectre, Self>,
     ) -> Self::Output {
         let output = sim
             .simulate_default(
@@ -100,7 +100,7 @@ impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        let vout = output.get_data(&sim.tb.data()).unwrap();
+        let vout = output.get_data(&sim.tb.nodes()).unwrap();
         let time = &output.time;
         let vout = WaveformRef::new(time, vout);
         let mut trans = vout.transitions(
@@ -135,11 +135,7 @@ pub struct InverterDesign {
 }
 
 impl InverterDesign {
-    pub fn run(
-        &self,
-        ctx: &mut Context<Sky130CommercialPdk>,
-        work_dir: impl AsRef<Path>,
-    ) -> Inverter {
+    pub fn run(&self, ctx: &mut Context<Sky130Pdk>, work_dir: impl AsRef<Path>) -> Inverter {
         let work_dir = work_dir.as_ref();
         let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
 

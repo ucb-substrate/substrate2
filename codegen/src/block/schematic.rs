@@ -93,7 +93,7 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
         ref attrs,
     } = field;
     let substrate = substrate_ident();
-    let field_ty = quote!(#substrate::schematic::NestedView<'__substrate_derive_lifetime, #ty>);
+    let field_ty = quote!(#substrate::schematic::NestedView<#ty>);
 
     match ident {
         Some(ident) => {
@@ -174,15 +174,15 @@ impl ToTokens for DataInputReceiver {
 
                 quote! {
                     #(#attrs)*
-                    #vis struct #transformed_ident #ref_generics #body
+                    #vis struct #transformed_ident #generics #body
 
                     impl #imp #substrate::schematic::HasNestedView for #ident #ty #wher {
-                        type NestedView<#lifetime> = #transformed_ident #ref_ty;
+                        type NestedView = #transformed_ident #ty;
 
-                        fn nested_view<#lifetime>(
-                            &#lifetime self,
+                        fn nested_view(
+                            &self,
                             __substrate_derive_parent: &#substrate::schematic::InstancePath,
-                        ) -> Self::NestedView<#lifetime> {
+                        ) -> Self::NestedView {
                             #retval
                         }
                     }
@@ -195,16 +195,16 @@ impl ToTokens for DataInputReceiver {
                     .map(|v| transform_variant_match_arm(transformed_ident.clone(), v));
                 quote! {
                     #(#attrs)*
-                    #vis enum #transformed_ident #ref_generics {
+                    #vis enum #transformed_ident #generics {
                         #( #decls )*
                     }
                     impl #imp #substrate::schematic::HasNestedView for #ident #ty #wher {
-                        type NestedView<#lifetime> = #transformed_ident #ref_ty;
+                        type NestedView = #transformed_ident #ty;
 
-                        fn nested_view<#lifetime>(
-                            &#lifetime self,
+                        fn nested_view(
+                            &self,
                             __substrate_derive_parent: &#substrate::schematic::InstancePath,
-                        ) -> Self::NestedView<#lifetime> {
+                        ) -> Self::NestedView {
                             match self {
                                 #(#arms)*
                             }

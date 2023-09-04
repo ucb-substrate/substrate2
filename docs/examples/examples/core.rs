@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130OpenPdk;
+use sky130pdk::Sky130Pdk;
 use substrate::block::{self, Block};
 use substrate::context::Context;
 use substrate::geometry::prelude::*;
@@ -504,7 +504,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
 
 // begin-code-snippet buffer_hard_macro
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
-#[substrate(io = "BufferIo", kind = "block::Scir")]
+#[substrate(io = "BufferIo", kind = "PdkScir")]
 #[substrate(schematic(
     source = "r###\"
         * CMOS buffer
@@ -521,7 +521,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
     \"###",
     name = "buffer",
     fmt = "inline-spice",
-    pdk = "Sky130OpenPdk"
+    pdk = "Sky130Pdk"
 ))]
 pub struct BufferInlineHardMacro;
 // end-code-snippet buffer_hard_macro

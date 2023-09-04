@@ -60,9 +60,9 @@ pub struct CacheBlockData {
 }
 
 impl HasNestedView for CacheBlockData {
-    type NestedView<'a> = Self;
+    type NestedView = Self;
 
-    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView {
         *self
     }
 }
@@ -94,8 +94,8 @@ fn caching_works() {
         // Generates 5 different blocks that share the same design script.
         //
         // Should only run the design script once even though 5 schematics are generated.
-        let handle = ctx.generate_schematic(CacheBlock(i));
-        assert_eq!(handle.cell().data().design, 25);
+        let handle = ctx.generate_pdk_schematic(CacheBlock(i));
+        assert_eq!(handle.cell().nodes().design, 25);
     }
     assert_eq!(*RUNS.lock().unwrap(), 1);
 }

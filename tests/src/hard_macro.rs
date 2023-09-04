@@ -1,39 +1,31 @@
 use crate::shared::buffer::BufferIo;
 
 use serde::{Deserialize, Serialize};
-use sky130pdk::{Sky130CommercialPdk, Sky130OpenPdk};
+use sky130pdk::Sky130Pdk;
 
+use spectre::Spectre;
 use substrate::block::{self, Block};
 use substrate::{layout::Layout, schematic::Schematic};
 use test_log::test;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic, Layout)]
-#[substrate(io = "BufferIo", kind = "block::Scir", flatten)]
+#[substrate(io = "BufferIo", kind = "PdkScir", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",
     name = "buffer",
     fmt = "spice",
-    pdk = "Sky130OpenPdk"
+    pdk = "Sky130Pdk"
 ))]
-#[cfg_attr(
-    feature = "spectre",
-    substrate(schematic(
-        source = "crate::paths::test_data(\"spice/buffer_commercial.spice\")",
-        name = "buffer",
-        fmt = "spice",
-        pdk = "sky130pdk::Sky130CommercialPdk"
-    ))
-)]
 #[substrate(layout(
     source = "crate::paths::test_data(\"gds/buffer.gds\")",
     name = "buffer",
     fmt = "gds",
-    pdk = "Sky130OpenPdk"
+    pdk = "Sky130Pdk"
 ))]
 pub struct BufferHardMacro;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
-#[substrate(io = "BufferIo", kind = "block::Scir")]
+#[substrate(io = "BufferIo", kind = "PdkScir")]
 #[substrate(schematic(
     source = "r#\"
         * CMOS buffer
@@ -50,27 +42,21 @@ pub struct BufferHardMacro;
     \"#",
     name = "buffer",
     fmt = "inline-spice",
-    pdk = "Sky130OpenPdk"
+    pdk = "Sky130Pdk"
 ))]
 pub struct BufferInlineHardMacro;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
 #[substrate(
     io = "crate::shared::vdivider::VdividerFlatIo",
-    kind = "block::Scir",
+    kind = "PdkScir",
     flatten
 )]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
     name = "vdivider",
     fmt = "spice",
-    pdk = "Sky130OpenPdk"
-))]
-#[substrate(schematic(
-    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
-    name = "vdivider",
-    fmt = "spice",
-    pdk = "Sky130CommercialPdk"
+    pdk = "Sky130Pdk"
 ))]
 pub struct VdividerDuplicateSubckt;
 
@@ -79,7 +65,7 @@ fn export_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
-    let lib = ctx.export_scir(BufferHardMacro).unwrap();
+    let lib = ctx.export_scir::<Spectre, _>(BufferHardMacro).unwrap();
     println!("SCIR Library:\n{:#?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
@@ -110,7 +96,7 @@ fn export_hard_macro_in_another_pdk() {
     use crate::shared::pdk::sky130_commercial_ctx;
 
     let ctx = sky130_commercial_ctx();
-    let lib = ctx.export_scir(BufferHardMacro).unwrap();
+    let lib = ctx.export_scir::<Spectre, _>(BufferHardMacro).unwrap();
     assert_eq!(lib.scir.cells().count(), 3);
 
     println!("SCIR Library:\n{:?}", lib.scir);
@@ -128,7 +114,9 @@ fn export_inline_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
-    let lib = ctx.export_scir(BufferInlineHardMacro).unwrap();
+    let lib = ctx
+        .export_scir::<Spectre, _>(BufferInlineHardMacro)
+        .unwrap();
     assert_eq!(lib.scir.cells().count(), 3);
 
     println!("SCIR Library:\n{:?}", lib.scir);
