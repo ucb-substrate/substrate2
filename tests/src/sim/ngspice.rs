@@ -11,7 +11,7 @@ use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, InstanceData, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -78,11 +78,11 @@ fn ngspice_can_save_voltages_and_currents() {
             opts: &mut <Ngspice as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {
-                r1: TranCurrent::save(ctx, to_save.data().r1, opts),
-                r2: TranCurrent::save(ctx, to_save.data().r2, opts),
-                r3: TranCurrent::save(ctx, to_save.data().r3, opts),
-                vout: TranVoltage::save(ctx, to_save.data().r1.terminals().n, opts),
-                r3_terminal: TranCurrent::save(ctx, to_save.data().r3.terminals().p, opts),
+                r1: TranCurrent::save(ctx, &to_save.r1, opts),
+                r2: TranCurrent::save(ctx, &to_save.r2, opts),
+                r3: TranCurrent::save(ctx, &to_save.r3, opts),
+                vout: TranVoltage::save(ctx, to_save.r1.io().n, opts),
+                r3_terminal: TranCurrent::save(ctx, to_save.r3.io().p, opts),
             }
         }
     }

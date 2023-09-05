@@ -165,21 +165,17 @@ fn nested_node_naming() {
     let cell = handle.cell();
 
     assert_eq!(
-        cell.data().bubbled_inv1.pmos.terminals().g.path(),
-        cell.data().bubbled_pmos_g.path()
+        cell.bubbled_inv1.pmos.io().g.path(),
+        cell.bubbled_pmos_g.path()
     );
 
     assert_eq!(
-        cell.bubbled_inv1.terminals().din.path(),
-        cell.buffer_chains[0].bubbled_inv1.terminals().din.path()
+        cell.bubbled_inv1.io().din.path(),
+        cell.buffer_chains[0].bubbled_inv1.io().din.path()
     );
     assert_eq!(
-        cell.bubbled_inv1.terminals().din.path(),
-        cell.buffer_chains[0].data().buffers[0]
-            .inv1
-            .terminals()
-            .din
-            .path()
+        cell.bubbled_inv1.io().din.path(),
+        cell.buffer_chains[0].buffers[0].inv1.io().din.path()
     );
 
     assert_eq!(

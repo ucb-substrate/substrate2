@@ -11,7 +11,7 @@ use config::Config;
 use examples::get_snippets;
 use indexmap::IndexMap;
 use scir::TopKind;
-use substrate::schematic::{CellBuilderInner, PdkCellBuilder};
+use substrate::schematic::{CellBuilder, CellBuilderInner, PdkCellBuilder};
 use tracing::{span, Level};
 
 use crate::block::Block;
@@ -39,7 +39,8 @@ use crate::schematic::schema::Schema;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderContents, CellCacheKey,
     CellHandle as SchematicCellHandle, CellId, CellInner, InstanceId, InstancePath,
-    PdkCellCacheKey, Primitive, RawCell as SchematicRawCell, Schematic, SchematicContext,
+    PdkCellCacheKey, PreGenerateCellData, Primitive, RawCell as SchematicRawCell, Schematic,
+    SchematicContext,
 };
 use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -282,22 +283,33 @@ impl<PDK: Pdk> Context<PDK> {
             block: block.clone(),
             phantom: PhantomData::<(PDK, S)>,
         };
-        let id = *inner
+        let block_clone = block.clone();
+        let PreGenerateCellData {
+            id,
+            cell_builder,
+            io_data,
+        } = inner
             .schematic
-            .id_cache
-            .generate(key.clone(), move |_| {
-                context.inner.write().unwrap().schematic.get_id()
-            })
-            .get();
+            .pre_generate_data
+            .get_or_insert(key.clone(), move || {
+                let id = context.inner.write().unwrap().schematic.get_id();
+                let (cell_builder, io_data) =
+                    prepare_cell_builder::<_, S, _>(id, context.clone(), block_clone.as_ref());
+                PreGenerateCellData::<T, PDK> {
+                    id,
+                    cell_builder: cell_builder.0.into(),
+                    io_data: Arc::new(io_data),
+                }
+            });
         let context = self.clone();
         SchematicCellHandle {
             id,
             block: block.clone(),
+            io_data: Clone::clone(&io_data),
             cell: inner.schematic.cell_cache.generate(
                 key,
                 move |CellCacheKey { block, .. }| {
-                    let (mut cell_builder, io_data) =
-                        prepare_cell_builder(id, context.clone(), block.as_ref());
+                    let mut cell_builder = CellBuilder(cell_builder.into());
                     let data = block.schematic(&io_data, &mut cell_builder);
                     data.map(|data| {
                         context
@@ -335,22 +347,33 @@ impl<PDK: Pdk> Context<PDK> {
             phantom: PhantomData::<PDK>,
         };
         let context = self.clone();
-        let id = *inner
+        let block_clone = block.clone();
+        let PreGenerateCellData {
+            id,
+            cell_builder,
+            io_data,
+        } = inner
             .schematic
-            .id_cache
-            .generate(key.clone(), move |_| {
-                context.inner.write().unwrap().schematic.get_id()
-            })
-            .get();
+            .pre_generate_data
+            .get_or_insert(key.clone(), move || {
+                let id = context.inner.write().unwrap().schematic.get_id();
+                let (cell_builder, io_data) =
+                    prepare_pdk_cell_builder(id, context.clone(), block_clone.as_ref());
+                PreGenerateCellData::<T, PDK> {
+                    id,
+                    cell_builder: cell_builder.0.into(),
+                    io_data: Arc::new(io_data),
+                }
+            });
         let context = self.clone();
         SchematicCellHandle {
             id,
             block: block.clone(),
+            io_data: io_data.clone(),
             cell: inner.schematic.cell_cache.generate(
                 key,
                 move |PdkCellCacheKey { block, .. }| {
-                    let (mut cell_builder, io_data) =
-                        prepare_pdk_cell_builder(id, context.clone(), block.as_ref());
+                    let mut cell_builder = PdkCellBuilder(cell_builder.into());
                     let data = block.schematic(&io_data, &mut cell_builder);
                     data.map(|data| {
                         context

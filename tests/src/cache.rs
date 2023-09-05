@@ -95,7 +95,7 @@ fn caching_works() {
         //
         // Should only run the design script once even though 5 schematics are generated.
         let handle = ctx.generate_pdk_schematic(CacheBlock(i));
-        assert_eq!(handle.cell().data().design, 25);
+        assert_eq!(handle.cell().design, 25);
     }
     assert_eq!(*RUNS.lock().unwrap(), 1);
 }

@@ -296,10 +296,42 @@ impl From<&NestedNode> for NodePath {
 }
 
 /// A terminal of an instance.
-#[derive(Clone, Debug)]
-pub struct Terminal(NestedNode);
+#[derive(Copy, Clone, Debug)]
+pub struct Terminal {
+    cell_id: CellId,
+    cell_node: Node,
+    instance_id: InstanceId,
+    instance_node: Node,
+}
+
+impl Connect<Node> for Terminal {}
+impl Connect<&Node> for Terminal {}
+impl Connect<Node> for &Terminal {}
+impl Connect<&Node> for &Terminal {}
+impl Connect<Terminal> for Node {}
+impl Connect<&Terminal> for Node {}
+impl Connect<Terminal> for &Node {}
+impl Connect<&Terminal> for &Node {}
 
 impl Deref for Terminal {
+    type Target = Node;
+
+    fn deref(&self) -> &Self::Target {
+        &self.instance_node
+    }
+}
+
+impl AsRef<Node> for Terminal {
+    fn as_ref(&self) -> &Node {
+        self
+    }
+}
+
+/// A nested instance terminal.
+#[derive(Clone, Debug)]
+pub struct NestedTerminal(NestedNode);
+
+impl Deref for NestedTerminal {
     type Target = NestedNode;
 
     fn deref(&self) -> &Self::Target {
@@ -307,9 +339,15 @@ impl Deref for Terminal {
     }
 }
 
-impl AsRef<NestedNode> for Terminal {
+impl AsRef<NestedNode> for NestedTerminal {
     fn as_ref(&self) -> &NestedNode {
         self
+    }
+}
+
+impl NestedTerminal {
+    pub fn path(&self) -> TerminalPath {
+        TerminalPath(self.0.path())
     }
 }
 
@@ -331,21 +369,14 @@ impl AsRef<NodePath> for TerminalPath {
     }
 }
 
-impl Terminal {
-    /// Returns the path to this terminal.
-    pub fn path(&self) -> TerminalPath {
-        TerminalPath(self.0.path())
-    }
-}
-
-impl From<Terminal> for TerminalPath {
-    fn from(value: Terminal) -> Self {
+impl From<NestedTerminal> for TerminalPath {
+    fn from(value: NestedTerminal) -> Self {
         value.path()
     }
 }
 
-impl From<&Terminal> for TerminalPath {
-    fn from(value: &Terminal) -> Self {
+impl From<&NestedTerminal> for TerminalPath {
+    fn from(value: &NestedTerminal) -> Self {
         value.path()
     }
 }
@@ -355,10 +386,15 @@ impl From<&Terminal> for TerminalPath {
 /// Stores a path of instances up to each terminal using an [`InstancePath`].
 pub trait HasTerminalView {
     /// A view of the nested terminals.
-    type TerminalView;
+    type TerminalView: HasNestedView + Flatten<Node> + Send + Sync;
 
-    /// Creates a terminal view of the object given a parent node.
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView;
+    /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView;
 }
 
 impl<T> HasTerminalView for &T
@@ -367,17 +403,13 @@ where
 {
     type TerminalView = T::TerminalView;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
-        (*self).terminal_view(parent)
-    }
-}
-
-// TODO: Potentially use lazy evaluation instead of cloning.
-impl<T: HasTerminalView> HasTerminalView for Vec<T> {
-    type TerminalView = Vec<TerminalView<T>>;
-
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
-        self.iter().map(|elem| elem.terminal_view(parent)).collect()
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        HasTerminalView::terminal_view(cell, *cell_io, instance, *instance_io)
     }
 }
 
@@ -386,8 +418,13 @@ pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
 
 impl HasTerminalView for () {
     type TerminalView = ();
-
-    fn terminal_view(&self, _parent: &InstancePath) -> Self::TerminalView {}
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+    }
 }
 
 /// The priority a node has in determining the name of a merged node.

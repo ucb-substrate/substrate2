@@ -210,8 +210,18 @@ impl HasNestedView for Node {
 impl HasTerminalView for Node {
     type TerminalView = Terminal;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
-        Terminal(self.nested_view(parent))
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        Terminal {
+            cell_id: cell,
+            cell_node: *cell_io,
+            instance_id: instance,
+            instance_node: *instance_io,
+        }
     }
 }
 
@@ -226,11 +236,37 @@ impl HasNestedView for NestedNode {
     }
 }
 
+impl FlatLen for Terminal {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Node> for Terminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.instance_node.flatten(output);
+    }
+}
+
 impl HasNestedView for Terminal {
-    type NestedView = Terminal;
+    type NestedView = NestedTerminal;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        Terminal(self.0.nested_view(parent))
+        NestedTerminal(NestedNode {
+            instances: parent.append_segment(self.instance_id, self.cell_id),
+            node: self.cell_node,
+        })
+    }
+}
+
+impl HasNestedView for NestedTerminal {
+    type NestedView = NestedTerminal;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        NestedTerminal(self.0.nested_view(parent))
     }
 }
 
@@ -447,8 +483,13 @@ impl<T: HasNestedView> HasNestedView for Input<T> {
 impl<T: HasTerminalView> HasTerminalView for Input<T> {
     type TerminalView = T::TerminalView;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
-        self.0.terminal_view(parent)
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        HasTerminalView::terminal_view(cell, cell_io, instance, instance_io)
     }
 }
 
@@ -526,8 +567,13 @@ impl<T: HasNestedView> HasNestedView for Output<T> {
 impl<T: HasTerminalView> HasTerminalView for Output<T> {
     type TerminalView = T::TerminalView;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
-        self.0.terminal_view(parent)
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        HasTerminalView::terminal_view(cell, cell_io, instance, instance_io)
     }
 }
 
@@ -634,8 +680,13 @@ impl<T: HasNestedView> HasNestedView for InOut<T> {
 impl<T: HasTerminalView> HasTerminalView for InOut<T> {
     type TerminalView = T::TerminalView;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
-        self.0.terminal_view(parent)
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        HasTerminalView::terminal_view(cell, cell_io, instance, instance_io)
     }
 }
 
@@ -928,14 +979,22 @@ impl<T: HasNestedView> HasNestedView for ArrayData<T> {
 impl<T: HasTerminalView> HasTerminalView for ArrayData<T> {
     type TerminalView = ArrayData<T::TerminalView>;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView {
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
         ArrayData {
-            elems: self
+            elems: cell_io
                 .elems
                 .iter()
-                .map(|elem| elem.terminal_view(parent))
+                .zip(instance_io.elems.iter())
+                .map(|(cell_elem, instance_elem)| {
+                    HasTerminalView::terminal_view(cell, cell_elem, instance, instance_elem)
+                })
                 .collect(),
-            ty_len: self.ty_len,
+            ty_len: cell_io.ty_len,
         }
     }
 }

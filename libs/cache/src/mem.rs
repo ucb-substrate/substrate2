@@ -17,12 +17,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-struct TypeCacheMap<T> {
-    /// Effectively a map from `T -> HashMap<Arc<K>, CacheHandle<V>>`.
+struct TypeMapInner<T> {
+    /// Effectively a map from `T -> HashMap<K, V>`.
     entries: HashMap<T, Arc<Mutex<dyn Any + Send + Sync>>>,
 }
 
-impl<T> Default for TypeCacheMap<T> {
+impl<T> Default for TypeMapInner<T> {
     fn default() -> Self {
         Self {
             entries: HashMap::new(),
@@ -30,33 +30,48 @@ impl<T> Default for TypeCacheMap<T> {
     }
 }
 
-impl<T: Hash + PartialEq + Eq> TypeCacheMap<T> {
-    fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
+impl<T: Hash + PartialEq + Eq> TypeMapInner<T> {
+    fn get_or_insert<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any + Clone>(
         &mut self,
         namespace: T,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
-    ) -> CacheHandle<V> {
-        let key = Arc::new(key);
-
+        f: impl FnOnce() -> V,
+    ) -> V {
         let entry = self
             .entries
             .entry(namespace)
-            .or_insert(Arc::new(Mutex::<HashMap<Arc<K>, CacheHandle<V>>>::default()));
+            .or_insert(Arc::new(Mutex::<HashMap<K, V>>::default()));
 
         let mut entry_locked = entry.lock().unwrap();
 
         let entry = entry_locked
-            .downcast_mut::<HashMap<Arc<K>, CacheHandle<V>>>()
+            .downcast_mut::<HashMap<K, V>>()
             .unwrap()
-            .entry(key.clone());
+            .entry(key);
 
         match entry {
             Entry::Occupied(o) => o.get().clone(),
-            Entry::Vacant(v) => v
-                .insert(CacheHandle::new(move || generate_fn(key.as_ref())))
-                .clone(),
+            Entry::Vacant(v) => v.insert(f()).clone(),
         }
+    }
+}
+
+/// An in-memory map based on hashable types.
+#[derive(Default, Debug, Clone)]
+pub struct TypeMap {
+    /// A map from key type to another map from key to value.
+    ///
+    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
+    entries: TypeMapInner<TypeId>,
+}
+
+impl TypeMap {
+    pub fn get_or_insert<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any + Clone>(
+        &mut self,
+        key: K,
+        f: impl FnOnce() -> V,
+    ) -> V {
+        self.entries.get_or_insert(TypeId::of::<K>(), key, f)
     }
 }
 
@@ -66,12 +81,12 @@ pub struct TypeCache {
     /// A map from key type to another map from key to value handle.
     ///
     /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells: TypeCacheMap<TypeId>,
+    cells: TypeMapInner<TypeId>,
     /// A map from key and state types to another map from key to value handle.
     ///
     /// Effectively, the type of this map is
     /// `(TypeId::of::<K>(), TypeId::of::<S>()) -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells_with_state: TypeCacheMap<(TypeId, TypeId)>,
+    cells_with_state: TypeMapInner<(TypeId, TypeId)>,
 }
 
 impl TypeCache {
@@ -116,7 +131,11 @@ impl TypeCache {
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        self.cells.generate(TypeId::of::<K>(), key, generate_fn)
+        let key = Arc::new(key);
+        self.cells
+            .get_or_insert(TypeId::of::<K>(), key.clone(), move || {
+                CacheHandle::new(move || generate_fn(key.as_ref()))
+            })
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -168,10 +187,12 @@ impl TypeCache {
         state: S,
         generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
-        self.cells_with_state
-            .generate((TypeId::of::<K>(), TypeId::of::<S>()), key, |key| {
-                generate_fn(key, state)
-            })
+        let key = Arc::new(key);
+        self.cells_with_state.get_or_insert(
+            (TypeId::of::<K>(), TypeId::of::<S>()),
+            key.clone(),
+            move || CacheHandle::new(move || generate_fn(key.as_ref(), state)),
+        )
     }
 
     /// Gets a handle to a cacheable object from the cache, generating the object in the background

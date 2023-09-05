@@ -5,7 +5,7 @@ pub mod primitives;
 pub mod schema;
 
 use cache::error::TryInnerError;
-use cache::mem::TypeCache;
+use cache::mem::{TypeCache, TypeMap};
 use cache::CacheHandle;
 pub use codegen::{Schematic, SchematicData};
 use pathtree::PathTree;
@@ -31,8 +31,8 @@ use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority, NodeUf, Port,
-    SchematicBundle, SchematicType, TerminalView,
+    Connect, Flatten, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority,
+    NodeUf, Port, SchematicBundle, SchematicType, TerminalView,
 };
 use crate::pdk::{Pdk, PdkSchematic, ToSchema};
 
@@ -158,9 +158,27 @@ pub(crate) struct CellBuilderInner<PDK: Pdk, P> {
     pub(crate) contents: CellBuilderContents<P>,
 }
 
-impl<PDK: Pdk, P> CellBuilderInner<PDK, P> {
-    fn clone_without_contents<C>(&self) -> CellBuilderInner<PDK, C> {
-        CellBuilderInner {
+pub(crate) struct CellBuilderInnerWithoutContents<PDK: Pdk> {
+    /// The current global context.
+    pub ctx: Context<PDK>,
+    pub(crate) id: CellId,
+    pub(crate) cell_name: ArcStr,
+    pub(crate) flatten: bool,
+    /// The root instance path that all nested paths should be relative to.
+    pub(crate) root: InstancePath,
+    pub(crate) node_ctx: NodeContext,
+    pub(crate) node_names: HashMap<Node, NameBuf>,
+    /// Outward-facing ports of this cell.
+    ///
+    /// Directions are as viewed by a parent cell instantiating this cell; these
+    /// are the wrong directions to use when looking at connections to this
+    /// cell's IO from *within* the cell.
+    pub(crate) ports: Vec<Port>,
+}
+
+impl<PDK: Pdk> Clone for CellBuilderInnerWithoutContents<PDK> {
+    fn clone(&self) -> Self {
+        Self {
             ctx: self.ctx.clone(),
             id: self.id,
             cell_name: self.cell_name.clone(),
@@ -175,6 +193,69 @@ impl<PDK: Pdk, P> CellBuilderInner<PDK, P> {
             /// are the wrong directions to use when looking at connections to this
             /// cell's IO from *within* the cell.
             ports: self.ports.clone(),
+        }
+    }
+}
+
+impl<PDK: Pdk, P> CellBuilderInner<PDK, P> {
+    fn clone_without_contents(&self) -> CellBuilderInnerWithoutContents<PDK> {
+        CellBuilderInnerWithoutContents {
+            ctx: self.ctx.clone(),
+            id: self.id,
+            cell_name: self.cell_name.clone(),
+            flatten: self.flatten,
+            /// The root instance path that all nested paths should be relative to.
+            root: self.root.clone(),
+            node_ctx: self.node_ctx.clone(),
+            node_names: self.node_names.clone(),
+            /// Outward-facing ports of this cell.
+            ///
+            /// Directions are as viewed by a parent cell instantiating this cell; these
+            /// are the wrong directions to use when looking at connections to this
+            /// cell's IO from *within* the cell.
+            ports: self.ports.clone(),
+        }
+    }
+}
+
+impl<PDK: Pdk, P> From<CellBuilderInner<PDK, P>> for CellBuilderInnerWithoutContents<PDK> {
+    fn from(value: CellBuilderInner<PDK, P>) -> Self {
+        Self {
+            ctx: value.ctx,
+            id: value.id,
+            cell_name: value.cell_name,
+            flatten: value.flatten,
+            /// The root instance path that all nested paths should be relative to.
+            root: value.root,
+            node_ctx: value.node_ctx,
+            node_names: value.node_names,
+            /// Outward-facing ports of this cell.
+            ///
+            /// Directions are as viewed by a parent cell instantiating this cell; these
+            /// are the wrong directions to use when looking at connections to this
+            /// cell's IO from *within* the cell.
+            ports: value.ports,
+        }
+    }
+}
+
+impl<PDK: Pdk, P> From<CellBuilderInnerWithoutContents<PDK>> for CellBuilderInner<PDK, P> {
+    fn from(value: CellBuilderInnerWithoutContents<PDK>) -> Self {
+        Self {
+            ctx: value.ctx,
+            id: value.id,
+            cell_name: value.cell_name,
+            flatten: value.flatten,
+            /// The root instance path that all nested paths should be relative to.
+            root: value.root,
+            node_ctx: value.node_ctx,
+            node_names: value.node_names,
+            /// Outward-facing ports of this cell.
+            ///
+            /// Directions are as viewed by a parent cell instantiating this cell; these
+            /// are the wrong directions to use when looking at connections to this
+            /// cell's IO from *within* the cell.
+            ports: value.ports,
             contents: CellBuilderContents::Cell(CellInner {
                 next_instance_id: InstanceId(0),
                 instances: Vec::new(),
@@ -365,8 +446,8 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        D1: SchematicBundle,
-        D2: SchematicBundle,
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
         D1: Connect<D2>,
     {
         let s1f: Vec<Node> = s1.flatten_vec();
@@ -518,6 +599,7 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
             cell: cell.clone(),
             io: io_data,
 
+            terminal_view: OnceCell::new(),
             nested_data: OnceCell::new(),
         };
 
@@ -635,8 +717,8 @@ impl<PDK: Pdk> PdkCellBuilder<PDK> {
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        D1: SchematicBundle,
-        D2: SchematicBundle,
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
         D1: Connect<D2>,
     {
         self.0.connect(s1, s2)
@@ -734,8 +816,8 @@ impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        D1: SchematicBundle,
-        D2: SchematicBundle,
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
         D1: Connect<D2>,
     {
         self.0.connect(s1, s2)
@@ -825,7 +907,7 @@ impl<PDK: ToSchema<S>, S: Schema> CellBuilder<PDK, S> {
     where
         PDK: ToSchema<S>,
     {
-        let mut pdk_builder = PdkCellBuilder(self.0.clone_without_contents());
+        let mut pdk_builder = PdkCellBuilder(self.0.clone_without_contents().into());
         let data = PdkSchematic::schematic(block, io, &mut pdk_builder)?;
         let CellBuilderInner {
             ctx,
@@ -897,13 +979,13 @@ impl<T: ExportsNestedData> Clone for Cell<T> {
 impl<T: ExportsNestedData> Cell<T> {
     pub(crate) fn new(
         id: CellId,
-        io: <T::Io as SchematicType>::Bundle,
+        io: Arc<<T::Io as SchematicType>::Bundle>,
         block: Arc<T>,
         data: T::NestedData,
     ) -> Self {
         Self {
             id,
-            io: Arc::new(io),
+            io,
             block,
             nodes: Arc::new(data),
             path: InstancePath::new(id),
@@ -931,6 +1013,7 @@ impl<T: ExportsNestedData> Cell<T> {
 pub struct CellHandle<T: ExportsNestedData> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<T>,
+    pub(crate) io_data: Arc<<T::Io as SchematicType>::Bundle>,
     pub(crate) cell: CacheHandle<Result<Cell<T>>>,
 }
 
@@ -939,6 +1022,7 @@ impl<T: ExportsNestedData> Clone for CellHandle<T> {
         Self {
             id: self.id,
             block: self.block.clone(),
+            io_data: self.io_data.clone(),
             cell: self.cell.clone(),
         }
     }
@@ -980,9 +1064,13 @@ pub struct Instance<T: ExportsNestedData> {
     io: <T::Io as SchematicType>::Bundle,
     cell: CellHandle<T>,
 
+    /// Stored terminal view for io purposes.
+    terminal_view: OnceCell<Arc<TerminalView<<T::Io as SchematicType>::Bundle>>>,
     /// Stored nested data for deref purposes.
     nested_data: OnceCell<Arc<NestedView<T::NestedData>>>,
 }
+
+pub struct NestedInstance<T: ExportsNestedData>(Instance<T>);
 
 impl<T: ExportsNestedData> Deref for Instance<T> {
     type Target = NestedView<T::NestedData>;
@@ -1003,17 +1091,18 @@ impl<B: ExportsNestedData> Clone for Instance<B> {
             io: self.io.clone(),
             cell: self.cell.clone(),
 
+            terminal_view: self.terminal_view.clone(),
             nested_data: self.nested_data.clone(),
         }
     }
 }
 
 impl<B: ExportsNestedData> HasNestedView for Instance<B> {
-    type NestedView = Instance<B>;
+    type NestedView = NestedInstance<B>;
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         let mut inst = (*self).clone();
         inst.path = self.path.prepend(parent);
-        inst
+        NestedInstance(inst)
     }
 }
 
@@ -1021,26 +1110,17 @@ impl<T: ExportsNestedData> Instance<T> {
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
-    pub fn io(&self) -> &<T::Io as SchematicType>::Bundle {
-        &self.io
-    }
-
-    /// Tries to access this instance's terminals.
-    ///
-    /// Returns an error if one was thrown during generation.
-    pub fn try_terminals(&self) -> Result<TerminalView<<T::Io as SchematicType>::Bundle>> {
-        self.cell
-            .try_cell()
-            .map(|cell| cell.io.terminal_view(&self.path))
-    }
-
-    /// Tries to access this instance's terminals
-    ///
-    /// # Panics
-    ///
-    /// Panics if an error was thrown during generation.
-    pub fn terminals(&self) -> TerminalView<<T::Io as SchematicType>::Bundle> {
-        self.cell.cell().io.terminal_view(&self.path)
+    pub fn io(&self) -> &TerminalView<<T::Io as SchematicType>::Bundle> {
+        self.terminal_view
+            .get_or_init(|| {
+                Arc::new(HasTerminalView::terminal_view(
+                    self.cell.id,
+                    self.cell.io_data.as_ref(),
+                    self.id,
+                    &self.io,
+                ))
+            })
+            .as_ref()
     }
 
     /// Tries to access the underlying cell data.
@@ -1082,16 +1162,106 @@ impl<T: ExportsNestedData> Instance<T> {
     }
 }
 
+impl<T: ExportsNestedData> Deref for NestedInstance<T> {
+    type Target = NestedView<T::NestedData>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl<B: ExportsNestedData> Clone for NestedInstance<B> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<B: ExportsNestedData> HasNestedView for NestedInstance<B> {
+    type NestedView = NestedInstance<B>;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        let mut inst = (*self).clone();
+        inst.0.path = self.0.path.prepend(parent);
+        inst
+    }
+}
+
+impl<T: ExportsNestedData> NestedInstance<T> {
+    /// The ports of this instance.
+    ///
+    /// Used for node connection purposes.
+    pub fn io(&self) -> NestedView<TerminalView<<T::Io as SchematicType>::Bundle>> {
+        self.0.io().nested_view(self.path())
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_data(&self) -> Result<NestedView<T::NestedData>> {
+        self.0.try_data()
+    }
+
+    /// Tries to access the underlying cell data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn data(&self) -> NestedView<T::NestedData> {
+        self.0.data()
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_block(&self) -> Result<&T> {
+        self.0.try_block()
+    }
+
+    /// Tries to access the underlying block used to create this instance's cell.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn block(&self) -> &T {
+        &self.0.block()
+    }
+
+    pub fn path(&self) -> &InstancePath {
+        &self.0.path
+    }
+}
+
 /// A wrapper around schematic-specific context data.
 #[derive(Debug, Clone)]
 pub struct SchematicContext {
     next_id: CellId,
-    /// Cache from `CellCacheKey` and `PdkCellCacheKey` to `CellId`.
-    pub(crate) id_cache: TypeCache,
-    /// Cache from `CellCacheKey` and `PdkCellCacheKey` to `Result<Cell<B>>`.
+    /// Cache from [`CellCacheKey`] and [`PdkCellCacheKey`] to [`PreGenerateCellData`].
+    ///
+    /// Used to store data that is inexpensive to compute.
+    pub(crate) pre_generate_data: TypeMap,
+    /// Cache from [`CellCacheKey`] and [`PdkCellCacheKey`] to [`Result<Cell<B>>`].
+    ///
+    /// Used to store the cell, which requires the generator to finish running.
     pub(crate) cell_cache: TypeCache,
     /// Map from `CellId` to `RawCell<B>`.
+    ///
+    /// Only populated after the corresponding cell has been generated.
     pub(crate) raw_cells: HashMap<CellId, Arc<dyn Any + Send + Sync>>,
+}
+
+pub(crate) struct PreGenerateCellData<B: Block, PDK: Pdk> {
+    pub(crate) id: CellId,
+    pub(crate) cell_builder: CellBuilderInnerWithoutContents<PDK>,
+    pub(crate) io_data: Arc<<B::Io as SchematicType>::Bundle>,
+}
+
+impl<B: Block, PDK: Pdk> Clone for PreGenerateCellData<B, PDK> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            cell_builder: self.cell_builder.clone(),
+            io_data: self.io_data.clone(),
+        }
+    }
 }
 
 pub(crate) struct CellCacheKey<B, PDK, S> {
@@ -1154,7 +1324,7 @@ impl Default for SchematicContext {
     fn default() -> Self {
         Self {
             next_id: CellId(0),
-            id_cache: Default::default(),
+            pre_generate_data: Default::default(),
             cell_cache: Default::default(),
             raw_cells: HashMap::new(),
         }
@@ -1253,51 +1423,6 @@ impl InstancePath {
 /// Data that can be stored in [`HasSchematicData::Data`](crate::schematic::ExportsNestedData::NestedData).
 pub trait NestedData: HasNestedView + Send + Sync {}
 impl<T: HasNestedView + Send + Sync> NestedData for T {}
-
-pub struct InstanceData<B: ExportsNestedData> {
-    block: Arc<B>,
-    io: Arc<<<B as Block>::Io as SchematicType>::Bundle>,
-    nodes: Arc<<B as ExportsNestedData>::NestedData>,
-    path: InstancePath,
-}
-
-impl<B: ExportsNestedData> Clone for InstanceData<B> {
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block.clone(),
-            io: self.io.clone(),
-            nodes: self.nodes.clone(),
-            path: self.path.clone(),
-        }
-    }
-}
-
-impl<B: ExportsNestedData> HasNestedView for InstanceData<B> {
-    type NestedView = InstanceData<B>;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        let mut data = self.clone();
-        data.path = self.path.prepend(parent);
-        data
-    }
-}
-
-impl<B: ExportsNestedData> InstanceData<B> {
-    pub fn block(&self) -> &B {
-        self.block.as_ref()
-    }
-
-    pub fn terminals(&self) -> TerminalView<<<B as Block>::Io as SchematicType>::Bundle> {
-        self.io.terminal_view(&self.path)
-    }
-
-    pub fn nodes(&self) -> NestedView<<B as ExportsNestedData>::NestedData> {
-        self.nodes.nested_view(&self.path)
-    }
-
-    pub fn path(&self) -> &InstancePath {
-        &self.path
-    }
-}
 
 /// An object that can be nested in the data of a cell.
 ///

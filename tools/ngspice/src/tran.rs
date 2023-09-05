@@ -12,7 +12,7 @@ use substrate::io::{NodePath, TerminalPath};
 use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::{Cell, ExportsNestedData, Instance, InstanceData};
+use substrate::schematic::{Cell, ExportsNestedData, NestedInstance};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, Supports};
 use substrate::type_dispatch::impl_dispatch;
@@ -228,8 +228,8 @@ impl<T> Save<Ngspice, Tran, T> for TranCurrent {
 }
 
 #[impl_dispatch({
-    &Instance<Resistor>;
-    Instance<Resistor>
+    &NestedInstance<Resistor>;
+    NestedInstance<Resistor>
 })]
 impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(

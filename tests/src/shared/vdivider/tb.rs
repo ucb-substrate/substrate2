@@ -11,7 +11,7 @@ use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, InstanceData, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -121,14 +121,8 @@ where
             .expect("failed to run simulation");
 
         VdividerDuplicateSubcktTbOutput {
-            vdd: output
-                .get_data(&sim.tb.data().terminals().vdd)
-                .unwrap()
-                .clone(),
-            out: output
-                .get_data(&sim.tb.data().terminals().out)
-                .unwrap()
-                .clone(),
+            vdd: output.get_data(&sim.tb.data().io().vdd).unwrap().clone(),
+            out: output.get_data(&sim.tb.data().io().out).unwrap().clone(),
         }
     }
 }
@@ -153,10 +147,10 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         Self::Key {
-            current: TranCurrent::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
-            iprobe: TranCurrent::save(ctx, cell.data().iprobe.terminals().p, opts),
-            vdd: TranVoltage::save(ctx, cell.data().dut.terminals().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.data().dut.terminals().out, opts),
+            current: TranCurrent::save(ctx, cell.dut.io().pwr.vdd, opts),
+            iprobe: TranCurrent::save(ctx, cell.iprobe.io().p, opts),
+            vdd: TranVoltage::save(ctx, cell.dut.io().pwr.vdd, opts),
+            out: TranVoltage::save(ctx, cell.dut.io().out, opts),
         }
     }
 }
@@ -273,9 +267,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 
         let expected: Vec<_> = sim
             .tb
-            .data()
-            .data()
-            .into_iter()
+            .iter()
             .map(|inst| {
                 (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
                     .to_f64()
@@ -286,27 +278,18 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
 
         let out = sim
             .tb
-            .data()
-            .data()
             .iter()
-            .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
+            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
             .collect();
 
         let out_nested = sim
             .tb
-            .data()
-            .data()
             .iter()
-            .map(|inst| {
-                output
-                    .get_data(&inst.data().r1.terminals().n)
-                    .unwrap()
-                    .clone()
-            })
+            .map(|inst| output.get_data(&inst.r1.io().n).unwrap().clone())
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.data().terminals().elements[0].vdd)
+            .get_data(&sim.tb.data().io().elements[0].vdd)
             .unwrap()
             .clone();
 
@@ -335,9 +318,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Flattene
 
         let expected: Vec<_> = sim
             .tb
-            .data()
-            .data()
-            .into_iter()
+            .iter()
             .map(|inst| {
                 (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
                     .to_f64()
@@ -348,27 +329,18 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Flattene
 
         let out = sim
             .tb
-            .data()
-            .data()
             .iter()
-            .map(|inst| output.get_data(&inst.terminals().out).unwrap().clone())
+            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
             .collect();
 
         let out_nested = sim
             .tb
-            .data()
-            .data()
             .iter()
-            .map(|inst| {
-                output
-                    .get_data(&inst.data().r1.terminals().n)
-                    .unwrap()
-                    .clone()
-            })
+            .map(|inst| output.get_data(&inst.r1.io().n).unwrap().clone())
             .collect();
 
         let vdd = output
-            .get_data(&sim.tb.data().terminals().elements[0].vdd)
+            .get_data(&sim.tb.data().io().elements[0].vdd)
             .unwrap()
             .clone();
 

@@ -9,8 +9,7 @@ use substrate::pdk::{HasPdkPrimitive, Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::{HasSchemaPrimitive, Schema};
 use substrate::schematic::{
-    CellBuilder, ExportsNestedData, Instance, InstanceData, PdkCellBuilder, Schematic,
-    SchematicData,
+    CellBuilder, ExportsNestedData, Instance, PdkCellBuilder, Schematic, SchematicData,
 };
 
 pub mod flattened;
