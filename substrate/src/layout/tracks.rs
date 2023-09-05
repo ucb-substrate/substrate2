@@ -1,6 +1,5 @@
 //! Routing track management.
 
-use geometry::prelude::Dir;
 use geometry::span::Span;
 use serde::{Deserialize, Serialize};
 
@@ -120,7 +119,7 @@ impl IntoIterator for EnumeratedTracks {
     }
 }
 
-/// A finite set of tracks.
+/// A set of tracks.
 pub trait Tracks {
     /// The track at the given index.
     fn try_track(&self, idx: i64) -> Option<Span>;
@@ -128,7 +127,7 @@ pub trait Tracks {
     /// The range of valid indices, as a tuple `(min, max)`.
     ///
     /// If there is no min/max index, implementers should return `None`.
-    fn range(&self) -> (Option<i64>, Option<i64>);
+    fn try_range(&self) -> (Option<i64>, Option<i64>);
 
     /// The track at the given index, panicking if the index is out of bounds.
     #[inline]
@@ -137,15 +136,31 @@ pub trait Tracks {
     }
 }
 
+/// A finite set of tracks.
+pub trait FiniteTracks {
+    /// The range of valid indices, as a tuple `(min, max)`.
+    ///
+    /// The minimum acceptable index is `min`; the maximum acceptable index is `max-1`,
+    /// which must be greater than or equal to `min`.
+    fn range(&self) -> (i64, i64);
+}
+
 impl Tracks for EnumeratedTracks {
     fn try_track(&self, idx: i64) -> Option<Span> {
         let idx = usize::try_from(idx).ok()?;
         self.tracks.get(idx).copied()
     }
 
-    fn range(&self) -> (Option<i64>, Option<i64>) {
+    fn try_range(&self) -> (Option<i64>, Option<i64>) {
+        let range = <Self as FiniteTracks>::range(self);
+        (Some(range.0), Some(range.1))
+    }
+}
+
+impl FiniteTracks for EnumeratedTracks {
+    fn range(&self) -> (i64, i64) {
         let max = i64::try_from(self.tracks.len()).expect("track list length is too long");
-        (Some(0), Some(max))
+        (0, max)
     }
 }
 
@@ -154,11 +169,10 @@ impl Tracks for UniformTracks {
         Some(self.get(idx))
     }
 
-    fn range(&self) -> (Option<i64>, Option<i64>) {
+    fn try_range(&self) -> (Option<i64>, Option<i64>) {
         (None, None)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -175,7 +189,7 @@ mod tests {
         assert_eq!(tracks.track(0), Span::new(10, 20));
         assert_eq!(tracks.track(1), Span::new(30, 40));
         assert_eq!(tracks.track(2), Span::new(80, 100));
-        assert_eq!(tracks.range(), (Some(0), Some(3)));
+        assert_eq!(tracks.range(), (0, 3));
         assert_eq!(tracks.try_track(-1), None);
         assert_eq!(tracks.try_track(3), None);
     }
@@ -197,7 +211,7 @@ mod tests {
         assert_eq!(tracks.track(0), Span::new(-10, 10));
         assert_eq!(tracks.track(1), Span::new(50, 70));
         assert_eq!(tracks.track(2), Span::new(110, 130));
-        assert_eq!(tracks.range(), (None, None));
+        assert_eq!(tracks.try_range(), (None, None));
     }
 
     #[test]
@@ -209,7 +223,7 @@ mod tests {
         assert_eq!(tracks.track(0), Span::new(5, 25));
         assert_eq!(tracks.track(1), Span::new(65, 85));
         assert_eq!(tracks.track(2), Span::new(125, 145));
-        assert_eq!(tracks.range(), (None, None));
+        assert_eq!(tracks.try_range(), (None, None));
     }
 
     #[test]
