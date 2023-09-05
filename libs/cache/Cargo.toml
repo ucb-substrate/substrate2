@@ -15,7 +15,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 prost = "0.11"
-prost-types = "0.11"
+prost-types = "0.12"
 rusqlite = "0.29"
 fs4 = { version = "0.6", features = ["tokio-async"] }
 thiserror = "1"
@@ -33,7 +33,7 @@ regex = "1.9"
 lazy_static = "1.4"
 
 [build-dependencies]
-tonic-build = "0.9"
+tonic-build = "0.10"
 
 [dev-dependencies]
 crossbeam-channel = "0.5"
