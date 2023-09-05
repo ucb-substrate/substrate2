@@ -33,7 +33,7 @@ regex = "1.9"
 lazy_static = "1.4"
 
 [build-dependencies]
-tonic-build = "0.9"
+tonic-build = "0.10"
 
 [dev-dependencies]
 crossbeam-channel = "0.5"
