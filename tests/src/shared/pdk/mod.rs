@@ -37,6 +37,14 @@ impl Pdk for ExamplePdkB {
     type Corner = ExampleCorner;
 }
 
+pub struct ExamplePdkC;
+
+impl Pdk for ExamplePdkC {
+    type Primitive = ExamplePrimitive;
+    type Layers = ExamplePdkBLayers;
+    type Corner = ExampleCorner;
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ExampleCorner;
 
@@ -93,6 +101,126 @@ impl Block for PmosA {
 
 impl HasPdkPrimitive<PmosA> for ExamplePdkA {
     fn primitive(block: &PmosA) -> Self::Primitive {
+        ExamplePrimitive::Pmos {
+            w: block.w,
+            l: block.l,
+        }
+    }
+}
+
+/// An NMOS in PDK B.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct NmosB {
+    pub w: i64,
+    pub l: i64,
+}
+
+impl Block for NmosB {
+    type Kind = block::PdkPrimitive;
+    type Io = MosIo;
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("nmos_a")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("nmos_a_w{}_l{}", self.w, self.l)
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasPdkPrimitive<NmosB> for ExamplePdkB {
+    fn primitive(block: &NmosB) -> Self::Primitive {
+        ExamplePrimitive::Nmos {
+            w: block.w,
+            l: block.l,
+        }
+    }
+}
+
+/// An PMOS in PDK B.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct PmosB {
+    pub w: i64,
+    pub l: i64,
+}
+
+impl Block for PmosB {
+    type Kind = PdkPrimitive;
+    type Io = MosIo;
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("pmos_a")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("pmos_a_w{}_l{}", self.w, self.l)
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasPdkPrimitive<PmosB> for ExamplePdkB {
+    fn primitive(block: &PmosB) -> Self::Primitive {
+        ExamplePrimitive::Pmos {
+            w: block.w,
+            l: block.l,
+        }
+    }
+}
+
+/// An NMOS in PDK C.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct NmosC {
+    pub w: i64,
+    pub l: i64,
+}
+
+impl Block for NmosC {
+    type Kind = block::PdkPrimitive;
+    type Io = MosIo;
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("nmos_a")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("nmos_a_w{}_l{}", self.w, self.l)
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasPdkPrimitive<NmosC> for ExamplePdkC {
+    fn primitive(block: &NmosC) -> Self::Primitive {
+        ExamplePrimitive::Nmos {
+            w: block.w,
+            l: block.l,
+        }
+    }
+}
+
+/// An PMOS in PDK C.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct PmosC {
+    pub w: i64,
+    pub l: i64,
+}
+
+impl Block for PmosC {
+    type Kind = PdkPrimitive;
+    type Io = MosIo;
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("pmos_a")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("pmos_a_w{}_l{}", self.w, self.l)
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl HasPdkPrimitive<PmosC> for ExamplePdkC {
+    fn primitive(block: &PmosC) -> Self::Primitive {
         ExamplePrimitive::Pmos {
             w: block.w,
             l: block.l,

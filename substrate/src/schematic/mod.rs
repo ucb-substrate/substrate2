@@ -31,7 +31,7 @@ use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, Flatten, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority,
+    Connect, Flatten, HasNameTree, HasTerminalView, Io, NameBuf, Node, NodeContext, NodePriority,
     NodeUf, Port, SchematicBundle, SchematicType, TerminalView,
 };
 use crate::pdk::{Pdk, PdkSchematic, ToSchema};
@@ -785,7 +785,7 @@ impl<PDK: Pdk> PdkCellBuilder<PDK> {
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
     pub fn instantiate<I: PdkSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
-        self.instantiate(block)
+        self.0.instantiate_pdk(block)
     }
 
     /// Create an instance and immediately connect its ports.
@@ -1346,7 +1346,7 @@ impl SchematicContext {
 /// A path to an instance from a top level cell.
 ///
 /// Inexpensive to clone as it only clones an ID and a reference counted pointer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstancePath {
     /// The ID of the top level cell that this path is relative to.
     pub(crate) top: CellId,
@@ -1452,6 +1452,14 @@ impl<T: HasNestedView> HasNestedView for Vec<T> {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         self.iter().map(|elem| elem.nested_view(parent)).collect()
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for Option<T> {
+    type NestedView = Option<NestedView<T>>;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        self.as_ref().map(|inner| inner.nested_view(parent))
     }
 }
 

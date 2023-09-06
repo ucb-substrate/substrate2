@@ -8,7 +8,7 @@ use substrate::io::SchematicType;
 use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::{Schema, Spice};
-use substrate::schematic::{CellBuilder, PdkCellBuilder};
+use substrate::schematic::{CellBuilder, NestedInstance, PdkCellBuilder};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block,
@@ -18,6 +18,7 @@ use substrate::{
     schematic::{conv::RawLib, ExportsNestedData, Schematic},
 };
 
+use crate::shared::buffer::schematic::{InverterMos, InverterMosDataNestedView};
 use crate::shared::{
     buffer::Buffer,
     pdk::ExamplePdkA,
@@ -165,7 +166,7 @@ fn nested_node_naming() {
     let cell = handle.cell();
 
     assert_eq!(
-        cell.bubbled_inv1.pmos.io().g.path(),
+        cell.bubbled_inv1.pmos.as_ref().unwrap().io().g.path(),
         cell.bubbled_pmos_g.path()
     );
 
@@ -189,6 +190,11 @@ fn nested_node_naming() {
     assert_eq!(
         cell.bubbled_pmos_g.path(),
         cell.buffer_chains[0].buffers[0].inv1.pmos_g.path()
+    );
+
+    assert_ne!(
+        cell.bubbled_inv1.pmos.as_ref().unwrap().data().path(),
+        cell.bubbled_inv1.pmos.as_ref().unwrap().path()
     );
 }
 

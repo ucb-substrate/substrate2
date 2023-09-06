@@ -489,7 +489,7 @@ impl<T: HasTerminalView> HasTerminalView for Input<T> {
         instance: InstanceId,
         instance_io: &Self,
     ) -> Self::TerminalView {
-        HasTerminalView::terminal_view(cell, cell_io, instance, instance_io)
+        HasTerminalView::terminal_view(cell, &cell_io.0, instance, &instance_io.0)
     }
 }
 
@@ -573,7 +573,7 @@ impl<T: HasTerminalView> HasTerminalView for Output<T> {
         instance: InstanceId,
         instance_io: &Self,
     ) -> Self::TerminalView {
-        HasTerminalView::terminal_view(cell, cell_io, instance, instance_io)
+        HasTerminalView::terminal_view(cell, &cell_io.0, instance, &instance_io.0)
     }
 }
 
@@ -686,7 +686,7 @@ impl<T: HasTerminalView> HasTerminalView for InOut<T> {
         instance: InstanceId,
         instance_io: &Self,
     ) -> Self::TerminalView {
-        HasTerminalView::terminal_view(cell, cell_io, instance, instance_io)
+        HasTerminalView::terminal_view(cell, &cell_io.0, instance, &instance_io.0)
     }
 }
 

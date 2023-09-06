@@ -284,6 +284,7 @@ impl<PDK: Pdk> Context<PDK> {
             phantom: PhantomData::<(PDK, S)>,
         };
         let block_clone = block.clone();
+        let id = inner.schematic.get_id();
         let PreGenerateCellData {
             id,
             cell_builder,
@@ -292,7 +293,6 @@ impl<PDK: Pdk> Context<PDK> {
             .schematic
             .pre_generate_data
             .get_or_insert(key.clone(), move || {
-                let id = context.inner.write().unwrap().schematic.get_id();
                 let (cell_builder, io_data) =
                     prepare_cell_builder::<_, S, _>(id, context.clone(), block_clone.as_ref());
                 PreGenerateCellData::<T, PDK> {
@@ -323,7 +323,8 @@ impl<PDK: Pdk> Context<PDK> {
                     })
                 },
             ),
-        }
+        };
+        todo!();
     }
 
     /// Generates a schematic for `block` in the background.
@@ -348,6 +349,7 @@ impl<PDK: Pdk> Context<PDK> {
         };
         let context = self.clone();
         let block_clone = block.clone();
+        let id = inner.schematic.get_id();
         let PreGenerateCellData {
             id,
             cell_builder,
@@ -356,7 +358,6 @@ impl<PDK: Pdk> Context<PDK> {
             .schematic
             .pre_generate_data
             .get_or_insert(key.clone(), move || {
-                let id = context.inner.write().unwrap().schematic.get_id();
                 let (cell_builder, io_data) =
                     prepare_pdk_cell_builder(id, context.clone(), block_clone.as_ref());
                 PreGenerateCellData::<T, PDK> {
@@ -387,7 +388,8 @@ impl<PDK: Pdk> Context<PDK> {
                     })
                 },
             ),
-        }
+        };
+        todo!();
     }
 
     /// Generates a PDK schematic for `block` in the background.
