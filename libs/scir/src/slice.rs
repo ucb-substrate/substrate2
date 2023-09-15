@@ -1,9 +1,17 @@
 //! Slices of bus signals.
 
+use arcstr::ArcStr;
 use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
-use crate::{Concat, SignalId};
+use crate::SignalId;
 use serde::{Deserialize, Serialize};
+
+/// A single bit wire or a portion of a bus signal addressed by name.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct NamedSlice {
+    signal: ArcStr,
+    range: Option<SliceRange>,
+}
 
 /// A single bit wire or a portion of a bus signal.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -82,6 +90,42 @@ impl IntoIterator for SliceRange {
         self.start..self.end
     }
 }
+
+impl NamedSlice {
+    #[inline]
+    pub(crate) fn new(signal: ArcStr, range: Option<SliceRange>) -> Self {
+        Self { signal, range }
+    }
+
+    /// The range of indices indexed by this slice.
+    ///
+    /// Returns [`None`] if this slice represents a single bit wire.
+    #[inline]
+    pub fn range(&self) -> Option<SliceRange> {
+        self.range
+    }
+
+    /// The width of this slice.
+    ///
+    /// Returns 1 if this slice represents a single bit wire.
+    #[inline]
+    pub fn width(&self) -> usize {
+        self.range.map(|x| x.width()).unwrap_or(1)
+    }
+
+    /// The name of the signal this slice indexes.
+    #[inline]
+    pub fn signal(&self) -> &ArcStr {
+        &self.signal
+    }
+
+    /// Returns `true` if this signal indexes into a bus.
+    #[inline]
+    pub fn is_bus(&self) -> bool {
+        self.range.is_some()
+    }
+}
+
 impl Slice {
     #[inline]
     pub(crate) fn new(signal: SignalId, range: Option<SliceRange>) -> Self {
@@ -244,6 +288,70 @@ impl IndexOwned<RangeToInclusive<usize>> for SliceRange {
     }
 }
 
+/// A concatenation of multiple slices.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Concat {
+    parts: Vec<Slice>,
+}
+
+impl Concat {
+    /// Creates a new concatenation from the given list of slices.
+    #[inline]
+    pub fn new(parts: Vec<Slice>) -> Self {
+        Self { parts }
+    }
+
+    /// The width of this concatenation.
+    ///
+    /// Equal to the sum of the widths of all constituent slices.
+    pub fn width(&self) -> usize {
+        self.parts.iter().map(Slice::width).sum()
+    }
+
+    /// Iterate over the parts of this concatenation.
+    #[inline]
+    pub fn parts(&self) -> impl Iterator<Item = &Slice> {
+        self.parts.iter()
+    }
+}
+
+impl FromIterator<Slice> for Concat {
+    fn from_iter<T: IntoIterator<Item = Slice>>(iter: T) -> Self {
+        let parts = iter.into_iter().collect();
+        Self { parts }
+    }
+}
+
+impl FromIterator<SliceOne> for Concat {
+    fn from_iter<T: IntoIterator<Item = SliceOne>>(iter: T) -> Self {
+        let parts = iter.into_iter().map(|s| s.into()).collect();
+        Self { parts }
+    }
+}
+
+impl From<Vec<Slice>> for Concat {
+    #[inline]
+    fn from(value: Vec<Slice>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<Slice> for Concat {
+    #[inline]
+    fn from(value: Slice) -> Self {
+        Self { parts: vec![value] }
+    }
+}
+
+impl From<SliceOne> for Concat {
+    #[inline]
+    fn from(value: SliceOne) -> Self {
+        Self {
+            parts: vec![value.into()],
+        }
+    }
+}
+
 impl IndexOwned<usize> for Concat {
     type Output = SliceOne;
 
@@ -277,7 +385,10 @@ where
 
 /// The error type returned when converting
 /// [`Slice`]s to [`SliceOne`]s.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Debug, Default, Hash, Serialize, Deserialize, thiserror::Error,
+)]
+#[error("slice width is not one")]
 pub struct SliceWidthNotOne;
 
 impl TryFrom<Slice> for SliceOne {

@@ -1,8 +1,7 @@
 //! Utilities for writing netlisters for SCIR libraries.
 
-use crate::{
-    BinOp, BlackboxElement, Cell, CellId, CellKind, Expr, InstanceId, Library, SignalInfo, Slice,
-};
+use crate::schema::Schema;
+use crate::{BinOp, Cell, CellId, Expr, InstanceId, Library, SignalInfo, Slice};
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -125,15 +124,11 @@ pub enum NetlistPrimitiveDeviceKind<'a> {
 /// Appropriate newlines will be added after each function call, so newlines added by
 /// implementors may cause formatting issues.
 pub trait SpiceLikeNetlister {
-    type Primitive;
+    type Schema: Schema;
 
     /// Writes a prelude to the beginning of the output stream.
     #[allow(unused_variables)]
-    fn write_prelude<W: Write>(
-        &mut self,
-        out: &mut W,
-        lib: &Library<Self::Primitive>,
-    ) -> Result<()> {
+    fn write_prelude<W: Write>(&mut self, out: &mut W, lib: &Library<Self::Schema>) -> Result<()> {
         Ok(())
     }
     /// Writes an include statement.
@@ -217,11 +212,7 @@ pub trait SpiceLikeNetlister {
     }
     /// Writes a postlude to the end of the output stream.
     #[allow(unused_variables)]
-    fn write_postlude<W: Write>(
-        &mut self,
-        out: &mut W,
-        lib: &Library<Self::Primitive>,
-    ) -> Result<()> {
+    fn write_postlude<W: Write>(&mut self, out: &mut W, lib: &Library<Self::Schema>) -> Result<()> {
         Ok(())
     }
 }
@@ -246,20 +237,20 @@ pub enum NetlistKind {
 }
 
 /// An instance of a netlister.
-pub struct NetlisterInstance<'a, N, P, W> {
+pub struct NetlisterInstance<'a, N, S: Schema, W> {
     netlister: N,
     kind: NetlistKind,
-    lib: &'a Library<P>,
+    lib: &'a Library<S>,
     includes: &'a [Include],
     out: &'a mut W,
 }
 
-impl<'a, N, P, W> NetlisterInstance<'a, N, P, W> {
+impl<'a, N, S: Schema, W> NetlisterInstance<'a, N, S, W> {
     /// Creates a new [`NetlisterInstance`].
     pub fn new(
         netlister: N,
         kind: NetlistKind,
-        lib: &'a Library<P>,
+        lib: &'a Library<S>,
         includes: &'a [Include],
         out: &'a mut W,
     ) -> Self {
@@ -273,7 +264,7 @@ impl<'a, N, P, W> NetlisterInstance<'a, N, P, W> {
     }
 }
 
-impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive, W> {
+impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Schema, W> {
     /// Exports a SCIR library to the output stream using a [`SpiceLikeNetlister`].
     pub fn export(mut self) -> Result<NetlistLibConversion> {
         let lib = self.export_library()?;
@@ -292,8 +283,8 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
         let mut conv = NetlistLibConversion::new();
 
         for (id, cell) in self.lib.cells() {
-            conv.cells
-                .insert(id, self.export_cell(cell, self.lib.is_testbench_top(id))?);
+            // conv.cells
+            //.insert(id, self.export_cell(cell, self.lib.is_testbench_top(id))?);
         }
 
         self.netlister.write_postlude(self.out, self.lib)?;
@@ -330,51 +321,26 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Primitive,
         }
 
         let mut conv = NetlistCellConversion::new();
-        match cell.contents() {
-            CellKind::Blackbox(contents) => {
-                for (i, elem) in contents.elems.iter().enumerate() {
-                    match elem {
-                        BlackboxElement::RawString(s) => {
-                            if i > 0 {
-                                write!(self.out, " {}", s)?
-                            } else {
-                                write!(self.out, "{}", s)?
-                            }
-                        }
-                        BlackboxElement::Slice(s) => self.write_slice(cell, *s, &ground)?,
-                    }
-                }
-                writeln!(self.out)?;
-            }
-            CellKind::Cell(contents) => {
-                for (id, inst) in contents.instances() {
-                    let child = self.lib.cell(inst.child().unwrap_cell());
-                    write!(self.out, "{}", indent)?;
-                    let ports = child
-                        .ports()
-                        .flat_map(|port| {
-                            let port_name = &child.signal(port.signal()).name;
-                            let conn = inst.connection(port_name);
-                            conn.parts()
-                                .map(|part| self.make_slice(cell, *part, &ground))
-                                .collect::<Vec<_>>()
-                        })
-                        .collect::<Result<Vec<_>>>()?
-                        .into_iter();
-                    let name = self.netlister.write_instance(
-                        self.out,
-                        inst.name(),
-                        ports,
-                        child.name(),
-                    )?;
-                    conv.instances.insert(id, name);
-                    writeln!(self.out)?;
-                }
-            }
-            _ => {
-                todo!()
-            }
-        };
+        for (id, inst) in cell.instances.iter() {
+            let child = self.lib.cell(inst.child().unwrap_cell());
+            write!(self.out, "{}", indent)?;
+            let ports = child
+                .ports()
+                .flat_map(|port| {
+                    let port_name = &child.signal(port.signal()).name;
+                    let conn = inst.connection(port_name);
+                    conn.parts()
+                        .map(|part| self.make_slice(cell, *part, &ground))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Result<Vec<_>>>()?
+                .into_iter();
+            let name = self
+                .netlister
+                .write_instance(self.out, inst.name(), ports, child.name())?;
+            conv.instances.insert(*id, name);
+            writeln!(self.out)?;
+        }
 
         if !is_testbench_top {
             writeln!(self.out)?;

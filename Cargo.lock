@@ -2110,6 +2110,7 @@ dependencies = [
  "rust_decimal_macros",
  "serde",
  "test-log",
+ "thiserror",
  "tracing",
  "tracing-subscriber",
  "uniquify",
