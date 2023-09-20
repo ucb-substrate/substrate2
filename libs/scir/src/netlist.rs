@@ -3,7 +3,7 @@
 use crate::schema::Schema;
 use crate::{BinOp, Cell, CellId, ChildId, Expr, InstanceId, Library, SignalInfo, Slice};
 use arcstr::ArcStr;
-use indexmap::IndexMap;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::io::{Result, Write};
 use std::path::PathBuf;
@@ -93,7 +93,7 @@ pub trait HasSpiceLikeNetlist: Schema {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: impl IntoIterator<Item = ArcStr>,
+        connections: impl Iterator<Item = ArcStr>,
         child: &ArcStr,
     ) -> Result<ArcStr>;
     /// Writes a primitive instantiation.
@@ -101,12 +101,12 @@ pub trait HasSpiceLikeNetlist: Schema {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: HashMap<ArcStr, impl IntoIterator<Item = ArcStr>>,
+        connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> Result<ArcStr>;
     /// Writes the parameters of a primitive device immediately following the written ending.
-    fn write_params<W: Write>(&self, out: &mut W, params: &IndexMap<ArcStr, Expr>) -> Result<()> {
-        for (key, value) in params.iter() {
+    fn write_params<W: Write>(&self, out: &mut W, params: &HashMap<ArcStr, Expr>) -> Result<()> {
+        for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
             write!(out, " {key}=")?;
             self.write_expr(out, value)?;
         }
@@ -271,32 +271,30 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                         k.clone(),
                         v.parts()
                             .map(|part| self.make_slice(cell, *part, &ground))
-                            .collect::<Result<Vec<_>>>()?,
+                            .collect::<Result<Vec<_>>>()?
+                            .into_iter(),
                     ))
                 })
                 .collect::<Result<_>>()?;
-            match inst.child() {
+            let name = match inst.child() {
                 ChildId::Cell(child_id) => {
                     let child = self.lib.cell(child_id);
                     let ports = child.ports().flat_map(|port| {
                         let port_name = &child.signal(port.signal()).name;
                         connections.remove(port_name).unwrap()
                     });
-                    let name =
-                        self.schema
-                            .write_instance(self.out, inst.name(), ports, child.name())?;
-                    conv.instances.insert(*id, name);
-                    writeln!(self.out)?;
+                    self.schema
+                        .write_instance(self.out, inst.name(), ports, child.name())?
                 }
                 ChildId::Primitive(child_id) => {
                     let child = self.lib.primitive(child_id);
-                    let name =
-                        self.schema
-                            .write_primitive(self.out, inst.name(), connections, child)?;
-                    conv.instances.insert(*id, name);
-                    writeln!(self.out)?;
+                    self.schema
+                        .write_primitive(self.out, inst.name(), connections, child)?
                 }
-            }
+            };
+            conv.instances.insert(*id, name);
+            self.schema.write_params(self.out, inst.params())?;
+            writeln!(self.out)?;
         }
 
         if !is_testbench_top {

@@ -10,7 +10,7 @@ use arcstr::ArcStr;
 use config::Config;
 use examples::get_snippets;
 use indexmap::IndexMap;
-use scir::TopKind;
+use scir::schema::Schema;
 use substrate::schematic::{CellBuilder, CellBuilderInner, PdkCellBuilder};
 use tracing::{span, Level};
 
@@ -35,7 +35,6 @@ use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::{Pdk, PdkSchematic};
 use crate::schematic::conv::RawLib;
-use crate::schematic::schema::Schema;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderContents, CellCacheKey,
     CellHandle as SchematicCellHandle, CellId, CellInner, InstanceId, InstancePath,
@@ -406,12 +405,10 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn export_pdk_scir<T: PdkSchematic<PDK>>(
         &self,
         block: T,
-    ) -> Result<RawLib<PDK::Primitive>, scir::Issues> {
+    ) -> Result<RawLib<PDK::Schema>, scir::Issues> {
         let cell = self.generate_pdk_schematic(block);
         let cell = cell.cell();
-        self.get_raw_cell(cell.id)
-            .unwrap()
-            .to_scir_lib(TopKind::Cell)
+        self.get_raw_cell(cell.id).unwrap().to_scir_lib()
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -423,36 +420,7 @@ impl<PDK: Pdk> Context<PDK> {
     ) -> Result<RawLib<S::Primitive>, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
-        self.get_raw_cell(cell.id)
-            .unwrap()
-            .to_scir_lib(TopKind::Cell)
-    }
-
-    /// Export the given block and all sub-blocks as a SCIR library.
-    ///
-    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_testbench_scir<S: Schema, T: Schematic<PDK, S> + Block<Io = TestbenchIo>>(
-        &self,
-        block: T,
-    ) -> Result<RawLib<S::Primitive>, scir::Issues> {
-        let cell = self.generate_schematic(block);
-        let cell = cell.cell();
-        self.export_testbench_scir_for_cell(cell)
-    }
-
-    /// Export the given cell and all sub-cells as a SCIR library.
-    ///
-    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn export_testbench_scir_for_cell<
-        S: Schema,
-        T: Schematic<PDK, S> + Block<Io = TestbenchIo>,
-    >(
-        &self,
-        cell: &SchematicCell<T>,
-    ) -> Result<RawLib<S::Primitive>, scir::Issues> {
-        self.get_raw_cell(cell.id)
-            .unwrap()
-            .to_scir_lib(TopKind::Testbench)
+        self.get_raw_cell(cell.id).unwrap().to_scir_lib()
     }
 
     /// Installs a new layer set in the context.

@@ -328,7 +328,6 @@ impl<S: Schema> LibraryBuilder<S> {
 
         let mut cell_names = HashMap::new();
         for (id, cell) in self.cells.iter() {
-            println!("{}", cell.name);
             self.validate_cell1(*id, issues);
             if let Some(id1) = cell_names.insert(cell.name.clone(), id) {
                 let issue = ValidatorIssue::new_and_log(

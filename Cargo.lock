@@ -2106,6 +2106,7 @@ dependencies = [
  "diagnostics",
  "enumify",
  "indexmap 2.0.0",
+ "itertools 0.11.0",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",

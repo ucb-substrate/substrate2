@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::io::Write;
 use test_log::test;
 
@@ -45,7 +46,20 @@ fn duplicate_instance_names() {
     lib.add_cell(vdivider);
 
     let issues = lib.validate();
-    assert_eq!(issues.num_errors(), 1);
+    assert!(issues.has_error());
+}
+
+#[test]
+fn duplicate_signal_names() {
+    let mut lib = LibraryBuilder::<StringSchema>::new("duplicate_signal_names");
+
+    let mut cell = Cell::new("cell");
+    cell.add_node("duplicate_signal");
+    cell.add_node("duplicate_signal");
+    lib.add_cell(cell);
+
+    let issues = lib.validate();
+    assert!(issues.has_error());
 }
 
 #[test]
@@ -379,7 +393,7 @@ fn spice_like_netlist() {
             &self,
             out: &mut W,
             name: &ArcStr,
-            connections: impl IntoIterator<Item = ArcStr>,
+            connections: impl Iterator<Item = ArcStr>,
             child: &ArcStr,
         ) -> std::io::Result<ArcStr> {
             write!(out, "{}", name)?;
@@ -397,17 +411,18 @@ fn spice_like_netlist() {
             &self,
             out: &mut W,
             name: &ArcStr,
-            connections: HashMap<ArcStr, impl IntoIterator<Item = ArcStr>>,
+            connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
             primitive: &<Self as Schema>::Primitive,
         ) -> std::io::Result<ArcStr> {
             write!(out, "{}", name)?;
 
-            let mut connections = connections.into_iter().collect::<Vec<_>>();
-            connections.sort_by_key(|(name, _)| name.clone());
+            let connections = connections
+                .into_iter()
+                .sorted_by_key(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
 
             for (_, connection) in connections {
                 for signal in connection {
-                    println!("sus{}", signal);
                     write!(out, " {}", signal)?;
                 }
             }

@@ -83,7 +83,7 @@ impl ToSchema<Spice> for Sky130Pdk {
     ) -> Option<<Spice as Schema>::Primitive> {
         Some(match primitive {
             Sky130Primitive::Mos { kind, params } => Primitive::Mos {
-                name: kind.open_subckt(),
+                mname: kind.open_subckt(),
                 params: IndexMap::from_iter([
                     (arcstr::literal!("w"), Expr::NumericLiteral(params.w.into())),
                     (arcstr::literal!("l"), Expr::NumericLiteral(params.l.into())),

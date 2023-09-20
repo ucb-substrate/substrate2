@@ -6,6 +6,7 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 
 /// A data format for storing SCIR libraries.
+// TODO: Add method of validating primitive instances.
 pub trait Schema {
     /// A primitive used for storing arbitrary data that is opaque to SCIR.
     type Primitive: Primitive;

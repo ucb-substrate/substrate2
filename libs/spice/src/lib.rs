@@ -4,50 +4,43 @@
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use scir::netlist::{
-    Include, NetlistKind, NetlistLibConversion, NetlistPrimitiveDeviceKind, NetlisterInstance,
-    RenameGround, SpiceLikeNetlister,
+    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
+    RenameGround,
 };
+use scir::schema::Schema;
 use scir::{Expr, Library, SignalInfo};
+use std::collections::HashMap;
 use std::io::prelude::*;
 
 pub mod parser;
 
-#[derive(Debug, Clone)]
-pub enum Primitive {
-    Res2 {
-        value: Expr,
-    },
-    Mos {
-        name: ArcStr,
-        params: IndexMap<ArcStr, Expr>,
-    },
-    RawInstance {
-        cell: ArcStr,
-        ports: Vec<ArcStr>,
-        params: IndexMap<ArcStr, Expr>,
-    },
+/// The SPICE schema.
+pub struct Spice;
+
+impl Schema for Spice {
+    type Primitive = Primitive;
 }
 
-/// A SPICE netlister.
-pub struct Netlister<'a, W>(NetlisterInstance<'a, NetlisterImpl, Primitive, W>);
+/// SPICE primitives.
+#[derive(Debug, Clone)]
+pub enum Primitive {
+    /// A resistor primitive with ports "1" and "2" and value `value`.
+    Res2 { value: Expr },
+    /// A MOS primitive with ports "D", "G", "S", and "B" and name `mname`.
+    Mos { mname: ArcStr },
+    /// A raw instance with associated cell `cell`.
+    RawInstance { cell: ArcStr, ports: Vec<ArcStr> },
+}
 
-struct NetlisterImpl;
-
-impl SpiceLikeNetlister for NetlisterImpl {
-    type Primitive = Primitive;
-
-    fn write_prelude<W: Write>(
-        &mut self,
-        out: &mut W,
-        lib: &Library<Self::Primitive>,
-    ) -> std::io::Result<()> {
+impl HasSpiceLikeNetlist for Spice {
+    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
         writeln!(out, "* {}", lib.name())?;
         writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
         Ok(())
     }
 
     fn write_include<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         include: &scir::netlist::Include,
     ) -> std::io::Result<()> {
@@ -60,7 +53,7 @@ impl SpiceLikeNetlister for NetlisterImpl {
     }
 
     fn write_start_subckt<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         name: &ArcStr,
         ports: &[&SignalInfo],
@@ -78,12 +71,12 @@ impl SpiceLikeNetlister for NetlisterImpl {
         Ok(())
     }
 
-    fn write_end_subckt<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
+    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
         write!(out, ".ENDS {}", name)
     }
 
     fn write_instance<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         name: &ArcStr,
         connections: impl Iterator<Item = ArcStr>,
@@ -102,54 +95,47 @@ impl SpiceLikeNetlister for NetlisterImpl {
     }
 
     fn write_primitive<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         name: &ArcStr,
-        kind: NetlistPrimitiveDeviceKind,
+        mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
-        Ok(match kind {
-            NetlistPrimitiveDeviceKind::Res2 { pos, neg, value } => {
+        Ok(match primitive {
+            Primitive::Res2 { value } => {
                 let name = arcstr::format!("R{}", name);
                 write!(out, "{}", name)?;
-                for port in [pos, neg] {
-                    write!(out, " {}", port)?;
+                for port in ["1", "2"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
                 }
                 write!(out, " ")?;
                 self.write_expr(out, value)?;
                 name
             }
-            NetlistPrimitiveDeviceKind::RawInstance { ports, cell } => {
+            Primitive::Mos { mname } => {
+                let name = arcstr::format!("M{}", name);
+                write!(out, "{}", name)?;
+                for port in ["D", "G", "S", "B"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                write!(out, " {}", mname)?;
+                name
+            }
+            Primitive::RawInstance { cell, ports } => {
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {
-                    write!(out, " {}", port)?;
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
                 }
                 write!(out, " {}", cell)?;
                 name
             }
-            _ => todo!(),
         })
-    }
-}
-
-impl<'a, W: Write> Netlister<'a, W> {
-    /// Create a new SPICE netlister writing to the given output stream.
-    pub fn new(lib: &'a Library<Primitive>, includes: &'a [Include], out: &'a mut W) -> Self {
-        Self(NetlisterInstance::new(
-            NetlisterImpl,
-            if lib.is_testbench() {
-                NetlistKind::Testbench(RenameGround::Yes(ArcStr::from("0")))
-            } else {
-                NetlistKind::Cells
-            },
-            lib,
-            includes,
-            out,
-        ))
-    }
-
-    /// Exports the netlister's library to its output stream.
-    pub fn export(self) -> std::io::Result<NetlistLibConversion> {
-        self.0.export()
     }
 }

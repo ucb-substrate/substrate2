@@ -530,7 +530,7 @@ pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
 
     /// A map of cell name to cell ID.
     ///
-    /// SCIR makes no attempt to prevent duplicate cell names.
+    /// Cell names are only guaranteed to be unique in a validated [`Library`].
     name_map: HashMap<ArcStr, CellId>,
 
     /// A map of the primitives in the library.
@@ -784,9 +784,7 @@ pub struct Cell {
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
     /// A map of instance name to instance ID.
     ///
-    /// SCIR makes no attempt to prevent duplicate signal names.
-    ///
-    /// TODO: Validate signal names when building library.
+    /// Signal names are only guaranteed to be unique in a validated [`Library`].
     signal_name_map: HashMap<ArcStr, SignalId>,
     pub(crate) params: IndexMap<ArcStr, Param>,
     /// The last instance ID assigned.
@@ -796,7 +794,7 @@ pub struct Cell {
     pub(crate) instances: IndexMap<InstanceId, Instance>,
     /// A map of instance name to instance ID.
     ///
-    /// SCIR makes no attempt to prevent duplicate instance names.
+    /// Instance names are only guaranteed to be unique in a validated [`Library`].
     instance_name_map: HashMap<ArcStr, InstanceId>,
 }
 

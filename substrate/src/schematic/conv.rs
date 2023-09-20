@@ -3,7 +3,8 @@
 use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
-use scir::{Cell, CellId as ScirCellId, CellInner, Instance, LibraryBuilder, PrimitiveId, TopKind};
+use scir::schema::Schema;
+use scir::{Cell, CellId as ScirCellId, Instance, LibraryBuilder, PrimitiveId};
 use serde::{Deserialize, Serialize};
 use uniquify::Names;
 
@@ -14,9 +15,9 @@ use super::{CellId, InstanceId, RawCell};
 
 /// An SCIR library with associated conversion metadata.
 #[derive(Debug, Clone)]
-pub struct RawLib<P> {
+pub struct RawLib<S: Schema> {
     /// The SCIR library.
-    pub scir: scir::Library<P>,
+    pub scir: scir::Library<S>,
     /// Associated conversion metadata.
     ///
     /// Can be used to retrieve SCIR objects from their corresponding Substrate IDs.
@@ -70,7 +71,7 @@ impl ScirLibConversionBuilder {
     }
 }
 
-impl<P> RawLib<P> {
+impl<S: Schema> RawLib<S> {
     fn convert_instance_path_inner<'a>(
         &self,
         top: CellId,
@@ -78,8 +79,9 @@ impl<P> RawLib<P> {
     ) -> Option<(Vec<scir::InstanceId>, &ScirCellConversion, scir::CellId)> {
         todo!()
     }
+
     /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SignalPath`].
-    pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SignalPath> {
+    pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SliceOnePath> {
         todo!()
     }
 
@@ -94,7 +96,7 @@ impl<P> RawLib<P> {
     /// Returns [`None`] if the path is invalid. Only flattened instances will
     /// return more than one [`scir::SignalPath`], and unconnected terminals will return
     /// `Some(vec![])`.
-    pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<scir::SignalPath>> {
+    pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<scir::SliceOnePath>> {
         todo!()
     }
 
@@ -106,7 +108,7 @@ impl<P> RawLib<P> {
         id: scir::InstanceId,
         slice: scir::SliceOne,
         instances: &mut Vec<scir::InstanceId>,
-        signals: &mut Vec<scir::SignalPath>,
+        signals: &mut Vec<scir::SliceOnePath>,
     ) {
         // let (signal, index) = slice;
         instances.push(id);
@@ -121,7 +123,7 @@ impl<P> RawLib<P> {
         conv: &ScirCellConversion,
         slice: scir::SliceOne,
         instances: &mut Vec<scir::InstanceId>,
-        signals: &mut Vec<scir::SignalPath>,
+        signals: &mut Vec<scir::SliceOnePath>,
     ) {
         let parent_cell = self.scir.cell(self.conv.cell_mapping[&conv.id]);
         for (_, conv) in conv.instances.iter() {
@@ -185,13 +187,13 @@ pub(crate) enum ScirPrimitiveDeviceConversion {
 }
 
 #[derive(Debug, Clone)]
-struct ScirLibExportContext<P> {
-    lib: LibraryBuilder<P>,
+struct ScirLibExportContext<S: Schema> {
+    lib: LibraryBuilder<S>,
     conv: ScirLibConversionBuilder,
     cell_names: Names<CellId>,
 }
 
-impl<P> ScirLibExportContext<P> {
+impl<S: Schema> ScirLibExportContext<S> {
     fn new(name: impl Into<ArcStr>) -> Self {
         Self {
             lib: LibraryBuilder::new(name),
@@ -237,13 +239,9 @@ impl ScirCellExportContext {
             cell,
         }
     }
-
-    fn whitebox_contents_mut(&mut self) -> &mut CellInner {
-        self.cell.contents_mut().as_mut().unwrap_cell()
-    }
 }
 
-impl<P> RawCell<P> {
+impl<S: Schema> RawCell<S> {
     /// The name associated with the given node.
     ///
     /// # Panics
@@ -253,20 +251,17 @@ impl<P> RawCell<P> {
         let node = self.roots[&node];
         self.node_names[&node].to_string()
     }
-}
-
-impl<P: Clone> RawCell<P> {
     /// Export this cell and all subcells as a SCIR library.
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub(crate) fn to_scir_lib(&self, kind: TopKind) -> Result<RawLib<P>, scir::Issues> {
+    pub(crate) fn to_scir_lib(&self) -> Result<RawLib<S>, scir::Issues> {
         assert!(
             !self.contents.is_primitive(),
             "cannot export a primitive cell as a SCIR library"
         );
         let mut lib_ctx = ScirLibExportContext::new(self.name.clone());
         let scir_id = self.to_scir_cell(&mut lib_ctx);
-        lib_ctx.lib.set_top(scir_id, kind);
+        lib_ctx.lib.set_top(scir_id);
         lib_ctx.conv.set_top(self.id, scir_id);
 
         Ok(RawLib {
@@ -275,7 +270,7 @@ impl<P: Clone> RawCell<P> {
         })
     }
 
-    fn to_scir_cell(&self, lib_ctx: &mut ScirLibExportContext<P>) -> ScirCellId {
+    fn to_scir_cell(&self, lib_ctx: &mut ScirLibExportContext<S>) -> ScirCellId {
         let name = lib_ctx.cell_names.assign_name(self.id, &self.name);
 
         // Create the SCIR cell as a whitebox for now.
@@ -298,7 +293,7 @@ impl<P: Clone> RawCell<P> {
     /// in `cell_ctx`.
     fn export_instances(
         &self,
-        lib_ctx: &mut ScirLibExportContext<P>,
+        lib_ctx: &mut ScirLibExportContext<S>,
         cell_ctx: &mut ScirCellExportContext,
         flatten: FlatExport,
     ) -> ScirCellConversion {
@@ -336,24 +331,6 @@ impl<P: Clone> RawCell<P> {
         }
 
         match self.contents.as_ref() {
-            RawCellKind::Blackbox(ref contents) => {
-                // Unreachable if flatten is `FlatExport::Yes`, so simply
-                // sets the contents of the SCIR cell to the blackbox contents
-                // of the Substrate cell.
-                let transformed = contents
-                    .elems
-                    .iter()
-                    .map(|e| match e {
-                        BlackboxElement::RawString(s) => {
-                            scir::BlackboxElement::RawString(s.clone())
-                        }
-                        BlackboxElement::Node(n) => scir::BlackboxElement::Slice(nodes[n].into()),
-                    })
-                    .collect();
-                cell_ctx
-                    .cell
-                    .set_contents(scir::CellContents::Blackbox(transformed));
-            }
             RawCellKind::Scir(contents) => {
                 if flatten.is_yes() {
                     todo!()
@@ -361,7 +338,7 @@ impl<P: Clone> RawCell<P> {
                     // If the SCIR cell does not need to flattened, merge in the SCIR cell's library
                     // and create a mapping from its associated Substrate cell ID to the ID in the merged
                     // library.
-                    let mapping = lib_ctx.lib.merge(&*contents.lib);
+                    let mapping = lib_ctx.lib.merge((*contents.lib).clone());
                     lib_ctx
                         .conv
                         .cell_mapping

@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::Primitive;
+use crate::{Primitive, Spice};
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use thiserror::Error;
@@ -42,7 +42,7 @@ pub enum ConvError {
 /// Top-level component instantiations are ignored.
 pub struct ScirConverter<'a> {
     ast: &'a Ast,
-    lib: scir::LibraryBuilder<Primitive>,
+    lib: scir::LibraryBuilder<Spice>,
     subckts: HashMap<SubcktName, &'a Subckt>,
     ids: HashMap<SubcktName, scir::CellId>,
 }
@@ -59,7 +59,7 @@ impl<'a> ScirConverter<'a> {
     }
 
     /// Consumes the converter, yielding a SCIR [library](scir::Library)].
-    pub fn convert(mut self) -> ConvResult<scir::Library<Primitive>> {
+    pub fn convert(mut self) -> ConvResult<scir::Library<Spice>> {
         self.map_subckts();
         let subckts = self.subckts.values().copied().collect::<Vec<_>>();
         for subckt in subckts {
@@ -142,7 +142,7 @@ impl<'a> ScirConverter<'a> {
                             .params
                             .iter()
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
-                            .collect::<ConvResult<IndexMap<_, _>>>()?;
+                            .collect::<ConvResult<HashMap<_, _>>>()?;
                         let ports: Vec<_> = (0..inst.ports.len())
                             .into_iter()
                             .map(|i| arcstr::format!("{}", i + 1))
@@ -150,9 +150,9 @@ impl<'a> ScirConverter<'a> {
                         let id = self.lib.add_primitive(Primitive::RawInstance {
                             cell: child,
                             ports: ports.clone(),
-                            params,
                         });
                         let mut sinst = scir::Instance::new(&**inst.name, id);
+                        *sinst.params_mut() = params;
                         for (cport, iport) in ports.iter().zip(inst.ports.iter()) {
                             sinst.connect(cport, node(iport, &mut cell));
                         }

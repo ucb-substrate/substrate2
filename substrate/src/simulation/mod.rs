@@ -15,10 +15,10 @@ use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::corner::SupportsSimulator;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
-use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
+use scir::schema::Schema;
 
 pub mod data;
 pub mod waveform;
@@ -74,7 +74,7 @@ pub struct SimulationContext<S: Simulator + ?Sized> {
     /// The simulator's intended working directory.
     pub work_dir: PathBuf,
     /// The SCIR library to simulate with associated Substrate metadata.
-    pub lib: Arc<RawLib<<S::Schema as Schema>::Primitive>>,
+    pub lib: Arc<RawLib<S::Schema>>,
     /// The executor to which simulation commands should be submitted.
     pub executor: Arc<dyn Executor>,
     /// The cache for storing the results of expensive computations.

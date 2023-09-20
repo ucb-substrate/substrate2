@@ -9,6 +9,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use rust_decimal::Decimal;
+use scir::schema::Schema;
 use substrate::schematic::{PdkCellBuilder, Primitive, SchematicData};
 use type_dispatch::impl_dispatch;
 
@@ -16,7 +17,6 @@ use crate::block::{self, Block, PdkBlock, PdkPrimitive, PdkScir, ScirBlock};
 use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
-use crate::schematic::schema::Schema;
 use crate::schematic::{CellBuilder, ExportsNestedData, ScirCellInner};
 use crate::sealed;
 
@@ -25,8 +25,8 @@ use self::layers::Layers;
 
 /// A process development kit.
 pub trait Pdk: Send + Sync + Any {
-    /// An internal representation of PDK primitives.
-    type Primitive: Primitive;
+    /// The schema for storing PDK schematics.
+    type Schema: Schema;
     /// A set of layers used by the PDK.
     type Layers: Layers;
     /// The type representing a corner in this PDK.
@@ -35,24 +35,12 @@ pub trait Pdk: Send + Sync + Any {
     const LAYOUT_DB_UNITS: Option<Decimal> = None;
 }
 
-/// A PDK whose primitives can be converted to primitives of schema `S`.
-pub trait ToSchema<S: Schema>: Pdk {
-    /// Converts a PDK primitive to a schema primitive.
-    fn convert_primitive(primitive: <Self as Pdk>::Primitive) -> Option<<S as Schema>::Primitive>;
-}
-
-/// A PDK whose primitives can be created from primitives of schema `S`.
-pub trait FromSchema<S: Schema>: Pdk {
-    /// Converts a schema primitive to a PDK primitive.
-    fn convert_primitive(primitive: <S as Schema>::Primitive) -> Option<<Self as Pdk>::Primitive>;
-}
-
 pub trait HasPdkPrimitive<B: Block<Kind = PdkPrimitive>>: Pdk {
-    fn primitive(block: &B) -> Self::Primitive;
+    fn primitive(block: &B) -> <Self::Schema as Schema>::Primitive;
 }
 
 pub trait PdkScirSchematic<PDK: Pdk>: Block<Kind = PdkScir> {
-    fn schematic(&self) -> Result<(scir::Library<PDK::Primitive>, scir::CellId)>;
+    fn schematic(&self) -> Result<(scir::Library<PDK::Schema>, scir::CellId)>;
 }
 
 pub trait PdkSchematic<PDK: Pdk, K = <Self as Block>::Kind>: ExportsNestedData + PdkBlock {
