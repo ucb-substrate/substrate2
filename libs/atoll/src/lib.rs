@@ -140,37 +140,48 @@
 //! * Straps last: performs inter-tile routing first, then adds straps wherever
 //!   possible, without disturbing routed signals.
 //!
+#![warn(missing_docs)]
 
 use grid::Grid;
 use std::collections::{HashMap, HashSet};
-use std::ops::Range;
 use substrate::geometry::prelude::{Dir, Point};
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 
+/// Identifies nets in a routing solver.
 pub type NetId = usize;
 
-pub enum TrackConfig {
-    ConnectedTo(NetId),
-    Obstructed(Vec<Range<i64>>),
-    Available,
-}
-
+/// A column in an Atoll grid.
 pub enum Col {
+    /// A device column.
     Device,
-    Routing { tap: bool },
+    /// A column dedicated to routing.
+    Routing {
+        /// Whether taps should be placed under the routing layers.
+        ///
+        /// Requires allocation of power/ground tracks in the routing column.
+        tap: bool,
+    },
 }
 
+/// A row in an Atoll grid.
 pub enum Row {
+    /// A device row.
     Device,
+    /// A row dedicated to routing.
     Routing,
 }
 
+/// A single Atoll block.
 pub struct Atoll {
+    /// PMOS rows.
     pub pmos: Vec<Row>,
+    /// NMOS rows.
     pub nmos: Vec<Row>,
+    /// Columns (shared between PMOS and NMOS).
     pub cols: Vec<Col>,
 }
 
+/// Identifies a routing layer.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayerId(usize);
 
@@ -181,6 +192,7 @@ impl From<usize> for LayerId {
     }
 }
 
+/// A coordinate identifying a track position in a routing volume.
 pub struct Coordinate {
     /// The lower metal layer.
     pub layer: LayerId,
@@ -202,7 +214,9 @@ pub type EnumeratedRoutingGrid = RoutingGrid<EnumeratedTracks, EnumeratedTracks>
 pub struct RoutingGrid<H, V> {
     /// The lower metal layer.
     pub layer: LayerId,
+    /// The horizontal-traveling tracks.
     pub htracks: H,
+    /// The vertical-traveling tracks.
     pub vtracks: V,
 }
 
@@ -211,10 +225,13 @@ where
     H: FiniteTracks,
     V: FiniteTracks,
 {
+    /// The number of rows in this routing grid.
     pub fn rows(&self) -> usize {
         let (min, max) = self.htracks.range();
         usize::try_from(max - min).unwrap()
     }
+
+    /// The number of columns in this routing grid.
     pub fn cols(&self) -> usize {
         let (min, max) = self.vtracks.range();
         usize::try_from(max - min).unwrap()
@@ -222,6 +239,7 @@ where
 }
 
 impl<T> RoutingGrid<T, T> {
+    /// The tracks traveling in the given direction.
     pub fn tracks(&self, dir: Dir) -> &T {
         match dir {
             Dir::Horiz => &self.htracks,
@@ -230,7 +248,9 @@ impl<T> RoutingGrid<T, T> {
     }
 }
 
+/// A type that contains an x-y coordinate.
 pub trait Xy {
+    /// Returns the coordinate represented by `self`.
     fn xy(&self) -> (i64, i64);
 }
 
@@ -272,13 +292,19 @@ where
     }
 }
 
+/// The state of a routing grid.
 #[derive(Clone, Debug)]
 pub struct GridState<S = PointState> {
+    /// The routing grid.
     pub grid: EnumeratedRoutingGrid,
+    /// The state associated to each point in the routing grid.
     pub states: grid::Grid<S>,
 }
 
 impl<S: Clone> GridState<S> {
+    /// Create a new `GridState` for the given routing grid.
+    ///
+    /// The given `state` is associated to each cell in the routing grid.
     pub fn new(grid: EnumeratedRoutingGrid, state: S) -> Self {
         let rows = grid.rows();
         let cols = grid.cols();
@@ -288,30 +314,35 @@ impl<S: Clone> GridState<S> {
 }
 
 impl<S> GridState<S> {
+    /// The number of rows in this grid.
     pub fn rows(&self) -> i64 {
         i64::try_from(self.states.rows()).unwrap()
     }
+
+    /// The number of columns in this grid.
     pub fn cols(&self) -> i64 {
         i64::try_from(self.states.cols()).unwrap()
     }
+
+    /// Get the state associated to the point with the given `(x, y)` coordinates.
     pub fn get(&self, x: i64, y: i64) -> &S {
         self.states.get(x as usize, y as usize).unwrap()
     }
 }
 
-pub struct GridStack<S = PointState> {
-    pub layers: HashMap<LayerId, GridState<S>>,
-}
-
 /// The state of a point on a routing grid.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PointState {
+    /// The grid point is available for routing.
     Available,
+    /// The grid point is obstructed.
     Obstructed,
+    /// The grid point is occupied by a known net.
     Routed(NetId),
 }
 
 impl PointState {
+    /// Whether or not the given point can be used to route the given net.
     pub fn is_available_for_net(&self, net: NetId) -> bool {
         match self {
             Self::Available => true,
@@ -321,11 +352,20 @@ impl PointState {
     }
 }
 
+/// Allowed track directions on a routing layer.
+///
+/// Adjacent routing layers must have alternating track directions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum RoutingDir {
+    /// Layer should be used for vertical routing.
     Vert,
+    /// Layer should be used for horizontal routing.
     Horiz,
-    Any { track_dir: Dir },
+    /// Layer can be used for either horizontal or vertical routing.
+    Any {
+        /// The direction of the tracks that form the coordinate system for this layer.
+        track_dir: Dir,
+    },
 }
 
 impl RoutingDir {
@@ -362,11 +402,15 @@ pub struct RoutingSlice {
 }
 
 impl RoutingSlice {
+    /// The tracks within this routing slice.
     pub fn tracks(&self) -> &EnumeratedTracks {
         let dir = self.dir.track_dir();
         self.grid.grid.tracks(dir)
     }
 
+    /// Create a new routing slice from the given routing grid.
+    ///
+    /// Tracks will travel in the given direction.
     pub fn new(dir: RoutingDir, grid: EnumeratedRoutingGrid) -> Self {
         Self {
             dir,
@@ -374,33 +418,47 @@ impl RoutingSlice {
         }
     }
 
+    /// The number of rows in this slice.
     #[inline]
     pub fn rows(&self) -> i64 {
         self.grid.rows()
     }
 
+    /// The number of columns in this slice.
     #[inline]
     pub fn cols(&self) -> i64 {
         self.grid.cols()
     }
 
+    /// Whether or not `pos` is a valid coordinate in this slice.
     pub fn is_valid_pos(&self, pos: Pos) -> bool {
         pos.x >= 0 && pos.x < self.grid.cols() && pos.y >= 0 && pos.y < self.grid.rows()
     }
 
+    /// Whether or not the given net can occupy the given coordinate.
     pub fn is_available_for_net(&self, net: NetId, pos: Pos) -> bool {
         self.grid.get(pos.x, pos.y).is_available_for_net(net)
     }
 }
 
+/// A transition crossing layer boundaries.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InterlayerTransition {
+    /// The source position.
     src: Pos,
+    /// The destination position.
     dst: Pos,
+    /// The set of points that must be available when performing this transition.
+    ///
+    /// Upon use of this transition, all points will be marked as occupied.
+    /// `src` and `dst` are always required, and should not be included in this list.
     requires: Vec<Pos>,
 }
 
 impl InterlayerTransition {
+    /// Creates a new interlayer transition from `src` to `dst`.
+    ///
+    /// The set of extra required points will be empty.
     pub fn new(src: Pos, dst: Pos) -> Self {
         Self {
             src,
@@ -425,14 +483,19 @@ impl InterlayerTransition {
     }
 }
 
+/// A position within a routing volume.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Pos {
+    /// The routing layer.
     layer: LayerId,
+    /// The x-coordinate.
     x: i64,
+    /// The y-coordinate.
     y: i64,
 }
 
 impl Pos {
+    /// Create a new [`Pos`].
     pub fn new(layer: impl Into<LayerId>, x: i64, y: i64) -> Self {
         Self {
             layer: layer.into(),
@@ -496,22 +559,30 @@ pub struct RoutingVolume {
     ilts: HashMap<Pos, HashSet<InterlayerTransition>>,
 }
 
+/// Configuration for specifying a routing via.
 pub struct ViaConfig {
-    /// The width of the via in the direction orthogonal to the tracks.
+    /// The width of the via in the direction orthogonal to the tracks of the higher layer.
     od_width: i64,
 }
 
+/// Configuration for specifying a routing conductor.
 pub struct MetalConfig {
+    /// The allowed routing directions for this layer.
     dir: RoutingDir,
+    /// The tracks.
     tracks: EnumeratedTracks,
 }
 
+/// Configuration for specifying a routing volume.
 pub struct RoutingVolumeConfig {
+    /// The bottom routing conductor layer.
     mbot: MetalConfig,
+    /// A list of via and conductor layer pairs.
     layers: Vec<(ViaConfig, MetalConfig)>,
 }
 
 impl RoutingVolume {
+    /// Create a [`RoutingVolume`] from the given configuration.
     pub fn new(cfg: RoutingVolumeConfig) -> Self {
         assert!(cfg.layers.len() >= 2);
 
@@ -648,7 +719,8 @@ impl RoutingVolume {
         &self.slices[&layer]
     }
 
-    pub fn next(&self, pos: Pos, net: NetId) {
+    /// Returns an iterator over the points accessible to `net` starting from `pos`.
+    pub fn next(&self, pos: Pos, net: NetId) -> impl Iterator<Item = Pos> {
         let slice = self.slice(pos.layer);
 
         let mut successors = Vec::new();
@@ -677,6 +749,8 @@ impl RoutingVolume {
                 }
             }
         }
+
+        successors.into_iter()
     }
 
     fn is_available_for_net(&self, net: NetId, pos: Pos) -> bool {
@@ -684,6 +758,7 @@ impl RoutingVolume {
         slice.is_available_for_net(net, pos)
     }
 
+    /// Adds the given interlayer transition to the set of allowed transitions.
     pub fn add_ilt(&mut self, ilt: InterlayerTransition) {
         let entry = self.ilts.entry(ilt.src).or_default();
         entry.insert(ilt);
