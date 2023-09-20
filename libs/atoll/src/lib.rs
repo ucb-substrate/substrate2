@@ -234,10 +234,7 @@ pub trait Xy {
     fn xy(&self) -> (i64, i64);
 }
 
-impl<T> Xy for &T
-where
-    T: Xy,
-{
+impl<T: Xy> Xy for &T {
     fn xy(&self) -> (i64, i64) {
         (*self).xy()
     }
@@ -321,45 +318,6 @@ impl PointState {
             Self::Routed(n) => *n == net,
             Self::Obstructed => false,
         }
-    }
-}
-
-pub struct TwoLayerTrackMap {
-    /// Maps a top-track index to the set of bottom-track indices blocked.
-    pub interferes: HashMap<i64, HashSet<i64>>,
-    /// Maps a bottom-track index to an adjacent top-track index.
-    ///
-    /// We assume that the pitch of the top layer is greater than
-    /// or equal to the pitch of the lower layer.
-    ///
-    /// The transition `L -> H` is available if and only if
-    /// H is in `adj(L)` and for each track T in `interferes(H)`,
-    /// T is available or routed on the same net.
-    pub adjacent: HashMap<i64, HashSet<i64>>,
-}
-
-impl TwoLayerTrackMap {
-    /// For now, we assume that if top track T interferes with bottom track B,
-    /// B is adjacent to T.
-    pub fn insert(&mut self, tt: i64, interferes: impl Into<HashSet<i64>>) {
-        let interferes = interferes.into();
-        let entry = self.interferes.entry(tt).or_default();
-        entry.extend(interferes.iter().copied());
-
-        for &intf in interferes.iter() {
-            let entry = self.adjacent.entry(intf).or_default();
-            entry.insert(tt);
-        }
-
-        todo!()
-    }
-
-    pub fn interferes(&self, tt: i64) -> impl Iterator<Item = i64> + '_ {
-        self.interferes.get(&tt).unwrap().iter().copied()
-    }
-
-    pub fn adj(&self, bt: i64) -> impl Iterator<Item = i64> + '_ {
-        self.adjacent.get(&bt).unwrap().iter().copied()
     }
 }
 
