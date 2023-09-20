@@ -181,3 +181,31 @@ fn test_vdivider_analyses() {
         data.iter().for_each(|vec| assert_eq!(vec.len(), 102));
     }
 }
+
+#[test]
+fn test_vdivider2_analyses() {
+    for path in ["netlist2.ascii.raw", "netlist2.bin.raw"] {
+        println!("Parsing {path}");
+        let path = PathBuf::from(EXAMPLES_PATH).join(path);
+        let data = std::fs::read(path).unwrap();
+        let rawfile = parse(&data).unwrap();
+        println!("Rawfile: {rawfile:?}");
+
+        let analysis = &rawfile.analyses[0];
+        assert_eq!(analysis.num_variables, 4);
+        assert_eq!(analysis.num_points, 104);
+        assert_eq!(analysis.variables.len(), 4);
+
+        let data = analysis.data.as_ref().unwrap_real();
+        assert_eq!(data.len(), 4);
+        data.iter().for_each(|vec| assert_eq!(vec.len(), 104));
+        let var = analysis
+            .variables
+            .iter()
+            .find(|x| x.name == "xinst0_n")
+            .unwrap();
+        let vec = &data[var.idx];
+        vec.iter()
+            .for_each(|f| assert!(approx::relative_eq!(*f, 1.2)));
+    }
+}

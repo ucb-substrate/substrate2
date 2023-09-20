@@ -1583,6 +1583,7 @@ dependencies = [
 name = "nutlex"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "enumify",
  "nom",
  "serde",

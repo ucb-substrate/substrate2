@@ -7,7 +7,7 @@ use nom::character::complete::{line_ending, space0, space1};
 use nom::combinator::opt;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
-use nom::number::complete::le_f64;
+use nom::number::complete::{be_f64, le_f64};
 use nom::sequence::{delimited, tuple};
 use nom::{Err, IResult};
 use serde::{Deserialize, Serialize};
@@ -167,7 +167,8 @@ fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u
         for _ in 0..points {
             for item in out.iter_mut().take(vars) {
                 let val: f64;
-                (input, val) = le_f64(input)?;
+                (input, val) = be_f64(input)?;
+                let bytes = val.to_be_bytes();
                 item.push(val);
             }
         }

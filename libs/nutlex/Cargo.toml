@@ -10,3 +10,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 
 enumify = { version = "0.0.0", path = "../enumify", registry = "substrate" }
+
+[dev-dependencies]
+approx = "0.5"
+
