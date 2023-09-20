@@ -125,6 +125,25 @@ mod tests {
     #[allow(unused)]
     enum GenericsOnlyEnumRef {}
 
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[allow(unused)]
+    #[enumify]
+    enum PartialGenericsEnum<A, B> {
+        Struct {
+            x: A,
+            y: String,
+            z: u64,
+        },
+        Tuple(B, String),
+        AnotherStruct {
+            a: String,
+            b: u64,
+            c: u32,
+            d: Arc<bool>,
+        },
+        Unit,
+    }
+
     fn mt() -> String {
         "".into()
     }
@@ -180,6 +199,27 @@ mod tests {
         assert_eq!(
             go,
             GenericsOnlyEnum::Struct {
+                x: mt(),
+                y: mt(),
+                z: 5
+            }
+        )
+    }
+
+    #[test]
+    fn partial_generics_enum() {
+        let mut go: PartialGenericsEnum<String, String> = PartialGenericsEnum::Struct {
+            x: mt(),
+            y: mt(),
+            z: 5,
+        };
+        assert!(go.is_struct());
+        if let PartialGenericsEnumRef::Struct { z, .. } = go.as_mut() {
+            *z = 5;
+        }
+        assert_eq!(
+            go,
+            PartialGenericsEnum::Struct {
                 x: mt(),
                 y: mt(),
                 z: 5

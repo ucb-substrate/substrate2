@@ -328,6 +328,7 @@ impl<S: Schema> LibraryBuilder<S> {
 
         let mut cell_names = HashMap::new();
         for (id, cell) in self.cells.iter() {
+            println!("{}", cell.name);
             self.validate_cell1(*id, issues);
             if let Some(id1) = cell_names.insert(cell.name.clone(), id) {
                 let issue = ValidatorIssue::new_and_log(
@@ -336,7 +337,7 @@ impl<S: Schema> LibraryBuilder<S> {
                         id2: *id,
                         name: cell.name.clone(),
                     },
-                    Severity::Warning,
+                    Severity::Error,
                 );
                 issues.add(issue);
             }
@@ -380,7 +381,7 @@ impl<S: Schema> LibraryBuilder<S> {
                         cell_id: id,
                         cell_name: cell.name.clone(),
                     },
-                    Severity::Warning,
+                    Severity::Error,
                 ));
             }
             inst_names.insert(instance.name.clone());
@@ -449,6 +450,23 @@ impl<S: Schema> LibraryBuilder<S> {
                         name: cell.signals.get(&port.signal).unwrap().name.clone(),
                         cell_id: id,
                         cell_name: cell.name.clone(),
+                    },
+                    Severity::Error,
+                );
+                issues.add(issue);
+            }
+        }
+
+        let mut signal_names = HashMap::new();
+        for (signal_id, signal) in cell.signals() {
+            if let Some(other) = signal_names.insert(&signal.name, signal_id) {
+                let issue = ValidatorIssue::new_and_log(
+                    Cause::DuplicateSignalNames {
+                        id1: signal_id,
+                        id2: other,
+                        name: signal.name.clone(),
+                        cell_id: id,
+                        cell_name: cell.name().clone(),
                     },
                     Severity::Error,
                 );

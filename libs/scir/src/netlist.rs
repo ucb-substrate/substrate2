@@ -1,7 +1,7 @@
 //! Utilities for writing netlisters for SCIR libraries.
 
 use crate::schema::Schema;
-use crate::{BinOp, Cell, CellId, Expr, InstanceId, Library, SignalInfo, Slice};
+use crate::{BinOp, Cell, CellId, ChildId, Expr, InstanceId, Library, SignalInfo, Slice};
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -67,102 +67,45 @@ impl NetlistCellConversion {
     }
 }
 
-/// An enumeration of primitive devices to netlist.
-#[derive(Debug, Clone)]
-pub enum NetlistPrimitiveDeviceKind<'a> {
-    /// An ideal 2-terminal resistor.
-    Res2 {
-        /// The positive terminal.
-        pos: ArcStr,
-        /// The negative terminal.
-        neg: ArcStr,
-        /// The value of the resistance, in ohms.
-        value: &'a Expr,
-    },
-    /// An ideal 2-terminal capacitor.
-    Cap2 {
-        /// The positive terminal.
-        pos: ArcStr,
-        /// The negative terminal.
-        neg: ArcStr,
-        /// The value of the capacitance, in farads.
-        value: &'a Expr,
-    },
-    /// A 3-terminal resistor.
-    ///
-    /// Typically, at least one of `value` or `model`
-    /// should be specified. However, this is not a strict
-    /// requirement, as some PDKs may elect to convey value and/or
-    /// model information in the parameters.
-    Res3 {
-        /// The positive terminal.
-        pos: ArcStr,
-        /// The negative terminal.
-        neg: ArcStr,
-        /// The substrate/body terminal.
-        sub: ArcStr,
-        /// The resistor value, in ohms.
-        value: Option<&'a Expr>,
-        /// The name of the resistor model to use.
-        ///
-        /// The available resistor models are usually specified by a PDK.
-        model: Option<ArcStr>,
-    },
-    /// A raw instance.
-    ///
-    /// This can be an instance of a subcircuit defined outside a SCIR library.
-    RawInstance {
-        /// The ports of the instance, as an ordered list.
-        ports: Vec<ArcStr>,
-        /// The name of the cell being instantiated.
-        cell: ArcStr,
-    },
-}
-
-/// A SPICE-like netlister.
+/// A schema with a SPICE-like netlist format.
 ///
 /// Appropriate newlines will be added after each function call, so newlines added by
 /// implementors may cause formatting issues.
-pub trait SpiceLikeNetlister {
-    type Schema: Schema;
-
+pub trait HasSpiceLikeNetlist: Schema {
     /// Writes a prelude to the beginning of the output stream.
     #[allow(unused_variables)]
-    fn write_prelude<W: Write>(&mut self, out: &mut W, lib: &Library<Self::Schema>) -> Result<()> {
+    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> Result<()> {
         Ok(())
     }
     /// Writes an include statement.
-    fn write_include<W: Write>(&mut self, out: &mut W, include: &Include) -> Result<()>;
+    fn write_include<W: Write>(&self, out: &mut W, include: &Include) -> Result<()>;
     /// Writes a begin subcircuit statement.
     fn write_start_subckt<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         name: &ArcStr,
         ports: &[&SignalInfo],
     ) -> Result<()>;
     /// Writes an end subcircuit statement.
-    fn write_end_subckt<W: Write>(&mut self, out: &mut W, name: &ArcStr) -> Result<()>;
+    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> Result<()>;
     /// Writes a SCIR instance.
     fn write_instance<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         name: &ArcStr,
-        connections: impl Iterator<Item = ArcStr>,
+        connections: impl IntoIterator<Item = ArcStr>,
         child: &ArcStr,
     ) -> Result<ArcStr>;
     /// Writes a primitive instantiation.
     fn write_primitive<W: Write>(
-        &mut self,
+        &self,
         out: &mut W,
         name: &ArcStr,
-        kind: NetlistPrimitiveDeviceKind,
+        connections: HashMap<ArcStr, impl IntoIterator<Item = ArcStr>>,
+        primitive: &<Self as Schema>::Primitive,
     ) -> Result<ArcStr>;
     /// Writes the parameters of a primitive device immediately following the written ending.
-    fn write_params<W: Write>(
-        &mut self,
-        out: &mut W,
-        params: &IndexMap<ArcStr, Expr>,
-    ) -> Result<()> {
+    fn write_params<W: Write>(&self, out: &mut W, params: &IndexMap<ArcStr, Expr>) -> Result<()> {
         for (key, value) in params.iter() {
             write!(out, " {key}=")?;
             self.write_expr(out, value)?;
@@ -170,14 +113,12 @@ pub trait SpiceLikeNetlister {
         Ok(())
     }
     /// Writes a slice.
-    fn write_slice<W: Write>(
-        &mut self,
-        out: &mut W,
-        slice: Slice,
-        info: &SignalInfo,
-    ) -> Result<()> {
+    fn write_slice<W: Write>(&self, out: &mut W, slice: Slice, info: &SignalInfo) -> Result<()> {
         if let Some(range) = slice.range() {
             for i in range.indices() {
+                if i > range.start() {
+                    write!(out, " ")?;
+                }
                 write!(out, "{}[{}]", &info.name, i)?;
             }
         } else {
@@ -186,7 +127,7 @@ pub trait SpiceLikeNetlister {
         Ok(())
     }
     /// Writes a SCIR expression.
-    fn write_expr<W: Write>(&mut self, out: &mut W, expr: &Expr) -> Result<()> {
+    fn write_expr<W: Write>(&self, out: &mut W, expr: &Expr) -> Result<()> {
         match expr {
             Expr::NumericLiteral(dec) => write!(out, "{}", dec)?,
             // boolean literals have no spectre value
@@ -212,7 +153,7 @@ pub trait SpiceLikeNetlister {
     }
     /// Writes a postlude to the end of the output stream.
     #[allow(unused_variables)]
-    fn write_postlude<W: Write>(&mut self, out: &mut W, lib: &Library<Self::Schema>) -> Result<()> {
+    fn write_postlude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> Result<()> {
         Ok(())
     }
 }
@@ -228,6 +169,7 @@ pub enum RenameGround {
 
 /// The type of netlist to be exported.
 #[derive(Clone, Debug)]
+#[enumify::enumify(no_as_ref, no_as_mut)]
 pub enum NetlistKind {
     /// A testbench netlist that should have its top cell inlined and its ground renamed to
     /// the simulator ground node.
@@ -237,26 +179,26 @@ pub enum NetlistKind {
 }
 
 /// An instance of a netlister.
-pub struct NetlisterInstance<'a, N, S: Schema, W> {
-    netlister: N,
+pub struct NetlisterInstance<'a, S: Schema, W> {
     kind: NetlistKind,
+    schema: &'a S,
     lib: &'a Library<S>,
     includes: &'a [Include],
     out: &'a mut W,
 }
 
-impl<'a, N, S: Schema, W> NetlisterInstance<'a, N, S, W> {
+impl<'a, S: Schema, W> NetlisterInstance<'a, S, W> {
     /// Creates a new [`NetlisterInstance`].
     pub fn new(
-        netlister: N,
         kind: NetlistKind,
+        schema: &'a S,
         lib: &'a Library<S>,
         includes: &'a [Include],
         out: &'a mut W,
     ) -> Self {
         Self {
-            netlister,
             kind,
+            schema,
             lib,
             includes,
             out,
@@ -264,7 +206,7 @@ impl<'a, N, S: Schema, W> NetlisterInstance<'a, N, S, W> {
     }
 }
 
-impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Schema, W> {
+impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
     /// Exports a SCIR library to the output stream using a [`SpiceLikeNetlister`].
     pub fn export(mut self) -> Result<NetlistLibConversion> {
         let lib = self.export_library()?;
@@ -273,9 +215,9 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Schema, W>
     }
 
     fn export_library(&mut self) -> Result<NetlistLibConversion> {
-        self.netlister.write_prelude(self.out, self.lib)?;
+        self.schema.write_prelude(self.out, self.lib)?;
         for include in self.includes {
-            self.netlister.write_include(self.out, include)?;
+            self.schema.write_include(self.out, include)?;
             writeln!(self.out)?;
         }
         writeln!(self.out)?;
@@ -283,19 +225,17 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Schema, W>
         let mut conv = NetlistLibConversion::new();
 
         for (id, cell) in self.lib.cells() {
-            // conv.cells
-            //.insert(id, self.export_cell(cell, self.lib.is_testbench_top(id))?);
+            conv.cells
+                .insert(id, self.export_cell(cell, self.lib.is_top(id))?);
         }
 
-        self.netlister.write_postlude(self.out, self.lib)?;
+        self.schema.write_postlude(self.out, self.lib)?;
         Ok(conv)
     }
 
-    fn export_cell(
-        &mut self,
-        cell: &Cell,
-        is_testbench_top: bool,
-    ) -> Result<NetlistCellConversion> {
+    fn export_cell(&mut self, cell: &Cell, is_top: bool) -> Result<NetlistCellConversion> {
+        let is_testbench_top = is_top && self.kind.is_testbench();
+
         let indent = if is_testbench_top { "" } else { "  " };
 
         let ground = match (is_testbench_top, &self.kind) {
@@ -315,49 +255,56 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Schema, W>
                 .ports()
                 .map(|port| cell.signal(port.signal()))
                 .collect();
-            self.netlister
+            self.schema
                 .write_start_subckt(self.out, cell.name(), &ports)?;
             writeln!(self.out, "\n")?;
         }
 
         let mut conv = NetlistCellConversion::new();
         for (id, inst) in cell.instances.iter() {
-            let child = self.lib.cell(inst.child().unwrap_cell());
             write!(self.out, "{}", indent)?;
-            let ports = child
-                .ports()
-                .flat_map(|port| {
-                    let port_name = &child.signal(port.signal()).name;
-                    let conn = inst.connection(port_name);
-                    conn.parts()
-                        .map(|part| self.make_slice(cell, *part, &ground))
-                        .collect::<Vec<_>>()
+            let mut connections: HashMap<_, _> = inst
+                .connections()
+                .iter()
+                .map(|(k, v)| {
+                    Ok((
+                        k.clone(),
+                        v.parts()
+                            .map(|part| self.make_slice(cell, *part, &ground))
+                            .collect::<Result<Vec<_>>>()?,
+                    ))
                 })
-                .collect::<Result<Vec<_>>>()?
-                .into_iter();
-            let name = self
-                .netlister
-                .write_instance(self.out, inst.name(), ports, child.name())?;
-            conv.instances.insert(*id, name);
-            writeln!(self.out)?;
+                .collect::<Result<_>>()?;
+            match inst.child() {
+                ChildId::Cell(child_id) => {
+                    let child = self.lib.cell(child_id);
+                    let ports = child.ports().flat_map(|port| {
+                        let port_name = &child.signal(port.signal()).name;
+                        connections.remove(port_name).unwrap()
+                    });
+                    let name =
+                        self.schema
+                            .write_instance(self.out, inst.name(), ports, child.name())?;
+                    conv.instances.insert(*id, name);
+                    writeln!(self.out)?;
+                }
+                ChildId::Primitive(child_id) => {
+                    let child = self.lib.primitive(child_id);
+                    let name =
+                        self.schema
+                            .write_primitive(self.out, inst.name(), connections, child)?;
+                    conv.instances.insert(*id, name);
+                    writeln!(self.out)?;
+                }
+            }
         }
 
         if !is_testbench_top {
             writeln!(self.out)?;
-            self.netlister.write_end_subckt(self.out, cell.name())?;
+            self.schema.write_end_subckt(self.out, cell.name())?;
             writeln!(self.out, "\n")?;
         }
         Ok(conv)
-    }
-
-    fn write_slice(
-        &mut self,
-        cell: &Cell,
-        slice: Slice,
-        rename_ground: &Option<(ArcStr, ArcStr)>,
-    ) -> Result<()> {
-        let slice = self.make_slice(cell, slice, rename_ground)?;
-        write!(self.out, " {}", slice)
     }
 
     fn make_slice(
@@ -375,7 +322,7 @@ impl<'a, N: SpiceLikeNetlister, W: Write> NetlisterInstance<'a, N, N::Schema, W>
             }
         }
         let mut buf = Vec::new();
-        self.netlister.write_slice(&mut buf, slice, sig_info)?;
+        self.schema.write_slice(&mut buf, slice, sig_info)?;
         Ok(ArcStr::from(std::str::from_utf8(&buf).expect(
             "slice should only have UTF8-compatible characters",
         )))

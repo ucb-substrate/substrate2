@@ -60,6 +60,7 @@ pub(crate) struct EnumifyInputReceiver {
     vis: syn::Visibility,
     generics: syn::Generics,
     data: darling::ast::Data<EnumifyVariant, ()>,
+    attrs: Vec<syn::Attribute>,
 }
 
 #[derive(Debug, FromVariant)]
@@ -97,7 +98,7 @@ pub(crate) fn field_tokens(
     )
 }
 
-fn unwrap_variant(
+fn extract_variant(
     variant: &EnumifyVariant,
     generic_overrides: Option<&[syn::Ident]>,
 ) -> Option<TokenStream> {
@@ -113,7 +114,9 @@ fn unwrap_variant(
         return None;
     }
     let field = variant.fields.iter().next()?;
-    let method_name = format_ident!("unwrap_{}", name);
+    let unwrap_name = format_ident!("unwrap_{}", name);
+    let get_name = format_ident!("get_{}", name);
+    let into_name = format_ident!("into_{}", name);
 
     let ident = &variant.ident;
     let ty = if let Some(generics) = generic_overrides {
@@ -125,15 +128,35 @@ fn unwrap_variant(
     };
 
     Some(quote! {
-        /// Return the value contained in this variant.
+        /// Returns the value contained in this variant.
         ///
         /// # Panics
         ///
         /// Panics if the enum value is not of the expected variant.
-        pub fn #method_name(self) -> #ty {
+        pub fn #unwrap_name(self) -> #ty {
             match self {
                 Self::#ident(x) => x,
                 _ => panic!("cannot unwrap"),
+            }
+        }
+
+        /// Returns a reference to the value contained in this variant.
+        ///
+        /// Returns [`None`] if the enum value is not of the expected variant.
+        pub fn #get_name(&self) -> Option<& #ty> {
+            match self {
+                Self::#ident(x) => Some(x),
+                _ => None,
+            }
+        }
+
+        /// Returns the value contained in this variant.
+        ///
+        /// Returns [`None`] if the enum value is not of the expected variant.
+        pub fn #into_name(self) -> Option<#ty> {
+            match self {
+                Self::#ident(x) => Some(x),
+                _ => None,
             }
         }
     })
@@ -258,7 +281,7 @@ impl Enumify {
     pub(crate) fn new(args: TokenStream, input: &DeriveInput) -> Result<Self, TokenStream> {
         Ok(Self {
             args: handle_attr_error!(EnumifyArgs::from_list(&handle_attr_error!(
-                NestedMeta::parse_meta_list(args.into())
+                NestedMeta::parse_meta_list(args)
             ))),
             input: handle_error!(EnumifyInputReceiver::from_derive_input(input)),
         })
@@ -269,7 +292,7 @@ impl Enumify {
             ref vis,
             ref generics,
             ref data,
-            ..
+            ref attrs,
         } = self.input;
         let ref_ident = format_ident!("{}Ref", ident);
 
@@ -280,8 +303,8 @@ impl Enumify {
             }
             ast::Data::Enum(ref variants) => {
                 let is = variants.iter().filter_map(is_variant);
-                let ref_enum = (!self.args.generics_only
-                    && !(self.args.no_as_ref && self.args.no_as_mut))
+                let ref_enum = (!(self.args.generics_only
+                    || self.args.no_as_ref && self.args.no_as_mut))
                     .then(|| {
                         let all_fields = variants
                             .iter()
@@ -299,23 +322,40 @@ impl Enumify {
                         let generic_fields: Vec<TokenStream> = all_fields
                             .iter()
                             .zip(generic_idents.iter())
-                            .map(|(EnumifyField { ident, vis, .. }, generic)| {
-                                if let Some(ident) = ident {
-                                    quote! {#vis #ident: #generic}
-                                } else {
-                                    quote! {#vis #generic}
-                                }
-                            })
+                            .map(
+                                |(
+                                    EnumifyField {
+                                        ident, vis, attrs, ..
+                                    },
+                                    generic,
+                                )| {
+                                    if let Some(ident) = ident {
+                                        quote! {
+                                            #(#attrs)*
+                                            #vis #ident: #generic
+                                        }
+                                    } else {
+                                        quote! {
+                                            #(#attrs)* #vis #generic
+                                        }
+                                    }
+                                },
+                            )
                             .collect();
 
                         let mut ctr = 0;
-                        let generic_variants =
-                            variants.iter().map(|EnumifyVariant { fields, ident, .. }| {
+                        let generic_variants = variants.iter().map(
+                            |EnumifyVariant {
+                                 fields,
+                                 ident,
+                                 attrs,
+                             }| {
                                 let generic_fields = &generic_fields[ctr..ctr + fields.len()];
                                 ctr += fields.len();
                                 match fields.style {
                                     Style::Struct => {
                                         quote! {
+                                            #(#attrs)*
                                             #ident {
                                                 #(#generic_fields),*
                                             }
@@ -323,16 +363,19 @@ impl Enumify {
                                     }
                                     Style::Tuple => {
                                         quote! {
+                                            #(#attrs)*
                                             #ident ( #(#generic_fields),* )
                                         }
                                     }
                                     Style::Unit => {
                                         quote! {
+                                            #(#attrs)*
                                             #ident
                                         }
                                     }
                                 }
-                            });
+                            },
+                        );
 
                         let mut ctr = 0;
                         let as_ref_arms = variants
@@ -344,11 +387,12 @@ impl Enumify {
                         let unwraps = variants.iter().filter_map(|variant| {
                             let idents = &generic_idents[ctr..ctr + variant.fields.len()];
                             ctr += variant.fields.len();
-                            unwrap_variant(variant, Some(idents))
+                            extract_variant(variant, Some(idents))
                         });
                         let is = is.clone();
 
                         quote!(
+                            #(#attrs)*
                             #vis enum #ref_ident < #(#generic_idents),* > {
                                 #(#generic_variants),*
                             }
@@ -380,7 +424,7 @@ impl Enumify {
 
                 let unwraps = variants
                     .iter()
-                    .filter_map(|variant| unwrap_variant(variant, None));
+                    .filter_map(|variant| extract_variant(variant, None));
 
                 let (ref_ident, ref_generics, mut_generics) = if self.args.generics_only {
                     (ident, ref_generics(generics), mut_generics(generics))
@@ -398,10 +442,10 @@ impl Enumify {
 
                 let as_ref_arms = variants
                     .iter()
-                    .map(|v| as_ref_variant_match_arm(&ref_ident, v));
+                    .map(|v| as_ref_variant_match_arm(ref_ident, v));
                 let as_mut_arms = variants
                     .iter()
-                    .map(|v| as_mut_variant_match_arm(&ref_ident, v));
+                    .map(|v| as_mut_variant_match_arm(ref_ident, v));
 
                 let as_ref = (!self.args.no_as_ref).then(|| {
                     quote! {
