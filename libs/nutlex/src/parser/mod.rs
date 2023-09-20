@@ -168,7 +168,6 @@ fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u
             for item in out.iter_mut().take(vars) {
                 let val: f64;
                 (input, val) = be_f64(input)?;
-                let bytes = val.to_be_bytes();
                 item.push(val);
             }
         }
