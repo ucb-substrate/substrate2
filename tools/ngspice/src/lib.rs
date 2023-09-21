@@ -449,12 +449,7 @@ pub(crate) fn node_current_path(
     let mut str_path = if save {
         instances.join(".")
     } else {
-        instances
-            .0
-            .into_iter()
-            .map(|inst| inst.substr(1..))
-            .collect::<Vec<_>>()
-            .join(".")
+        instances.0.join(".")
     };
     str_path.push(':');
     match path.tail {
