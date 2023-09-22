@@ -268,7 +268,12 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 .map_err(|_| Error::NgspiceError)?;
 
             let contents = std::fs::read(&output_file)?;
-            let rawfile = nutlex::parse(&contents)?;
+            let rawfile = nutlex::parse(
+                &contents,
+                nutlex::Options {
+                    endianness: nutlex::ByteOrder::LittleEndian,
+                },
+            )?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
 

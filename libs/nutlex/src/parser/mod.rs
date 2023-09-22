@@ -7,10 +7,12 @@ use nom::character::complete::{line_ending, space0, space1};
 use nom::combinator::opt;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
-use nom::number::complete::le_f64;
+use nom::number::complete::{be_f64, le_f64};
 use nom::sequence::{delimited, tuple};
 use nom::{Err, IResult};
 use serde::{Deserialize, Serialize};
+
+use crate::{ByteOrder, Options};
 
 #[cfg(test)]
 mod tests;
@@ -160,14 +162,21 @@ fn variables(input: &[u8]) -> IResult<&[u8], Vec<Variable>> {
     Ok((input, vars))
 }
 
-fn real_data_binary(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
+fn real_data_binary(
+    vars: usize,
+    points: usize,
+    opts: Options,
+) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Binary:"), space0, line_ending))(input)?;
         let mut out = vec![Vec::with_capacity(points); vars];
         for _ in 0..points {
             for item in out.iter_mut().take(vars) {
                 let val: f64;
-                (input, val) = le_f64(input)?;
+                (input, val) = match opts.endianness {
+                    ByteOrder::BigEndian => be_f64(input)?,
+                    ByteOrder::LittleEndian => le_f64(input)?,
+                };
                 item.push(val);
             }
         }
@@ -197,9 +206,14 @@ fn real_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8
     }
 }
 
-fn real_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], AnalysisData> {
+fn real_data(
+    input: &[u8],
+    vars: usize,
+    points: usize,
+    opts: Options,
+) -> IResult<&[u8], AnalysisData> {
     alt((
-        real_data_binary(vars, points),
+        real_data_binary(vars, points, opts),
         real_data_ascii(vars, points),
     ))(input)
 }
@@ -207,6 +221,7 @@ fn real_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], Analysi
 fn complex_data_binary(
     vars: usize,
     points: usize,
+    opts: Options,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
         let (mut input, _) = tuple((tag_no_case("Binary:"), space0, line_ending))(input)?;
@@ -215,10 +230,16 @@ fn complex_data_binary(
         for _ in 0..points {
             for item in out.iter_mut().take(vars) {
                 let val: f64;
-                (input, val) = le_f64(input)?;
+                (input, val) = match opts.endianness {
+                    ByteOrder::BigEndian => be_f64(input)?,
+                    ByteOrder::LittleEndian => le_f64(input)?,
+                };
                 item.real.push(val);
                 let val: f64;
-                (input, val) = le_f64(input)?;
+                (input, val) = match opts.endianness {
+                    ByteOrder::BigEndian => be_f64(input)?,
+                    ByteOrder::LittleEndian => le_f64(input)?,
+                };
                 item.imag.push(val);
             }
         }
@@ -255,46 +276,53 @@ fn complex_data_ascii(
     }
 }
 
-fn complex_data(input: &[u8], vars: usize, points: usize) -> IResult<&[u8], AnalysisData> {
+fn complex_data(
+    input: &[u8],
+    vars: usize,
+    points: usize,
+    opts: Options,
+) -> IResult<&[u8], AnalysisData> {
     alt((
-        complex_data_binary(vars, points),
+        complex_data_binary(vars, points, opts),
         complex_data_ascii(vars, points),
     ))(input)
 }
 
-fn analysis(input: &[u8]) -> IResult<&[u8], Analysis> {
-    let (input, _) = take_while(is_space_or_line)(input)?;
-    let (input, title) = opt(header("Title:"))(input)?;
-    let (input, date) = opt(header("Date:"))(input)?;
-    let (input, plotname) = header("Plotname:")(input)?;
-    let (input, flags) = header("Flags:")(input)?;
-    let (input, num_variables) = header("No. Variables:")(input)?;
-    let num_variables = parse_usize_str(num_variables)?;
-    let (input, num_points) = header("No. Points:")(input)?;
-    let num_points = parse_usize_str(num_points)?;
-    let (input, variables) = variables(input)?;
+fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
+    move |input: &[u8]| -> IResult<&[u8], Analysis> {
+        let (input, _) = take_while(is_space_or_line)(input)?;
+        let (input, title) = opt(header("Title:"))(input)?;
+        let (input, date) = opt(header("Date:"))(input)?;
+        let (input, plotname) = header("Plotname:")(input)?;
+        let (input, flags) = header("Flags:")(input)?;
+        let (input, num_variables) = header("No. Variables:")(input)?;
+        let num_variables = parse_usize_str(num_variables)?;
+        let (input, num_points) = header("No. Points:")(input)?;
+        let num_points = parse_usize_str(num_points)?;
+        let (input, variables) = variables(input)?;
 
-    let (input, data) = if flags.contains("complex") {
-        complex_data(input, num_variables, num_points)?
-    } else {
-        real_data(input, num_variables, num_points)?
-    };
+        let (input, data) = if flags.contains("complex") {
+            complex_data(input, num_variables, num_points, opts)?
+        } else {
+            real_data(input, num_variables, num_points, opts)?
+        };
 
-    Ok((
-        input,
-        Analysis {
-            title,
-            date,
-            plotname,
-            flags,
-            num_variables,
-            num_points,
-            variables,
-            data,
-        },
-    ))
+        Ok((
+            input,
+            Analysis {
+                title,
+                date,
+                plotname,
+                flags,
+                num_variables,
+                num_points,
+                variables,
+                data,
+            },
+        ))
+    }
 }
 
-pub(crate) fn analyses(input: &[u8]) -> IResult<&[u8], Vec<Analysis>> {
-    many0(analysis)(input)
+pub(crate) fn analyses(input: &[u8], opts: Options) -> IResult<&[u8], Vec<Analysis>> {
+    many0(analysis(opts))(input)
 }
