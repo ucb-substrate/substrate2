@@ -33,7 +33,7 @@ fn test_variable() {
 fn test_binary_analysis() {
     let path = PathBuf::from(EXAMPLES_PATH).join("rawspice_binary.raw");
     let data = std::fs::read(path).unwrap();
-    let (_, analysis) = analysis(&data).unwrap();
+    let (_, analysis) = analysis(Options::default())(&data).unwrap();
     println!("{analysis:?}");
 
     assert_eq!(analysis.num_variables, 4);
@@ -50,7 +50,7 @@ fn test_binary_analysis() {
 fn test_binary_analyses() {
     let path = PathBuf::from(EXAMPLES_PATH).join("rawspice_binary.raw");
     let data = std::fs::read(path).unwrap();
-    let (_, mut analyses) = analyses(&data).unwrap();
+    let (_, mut analyses) = analyses(&data, Options::default()).unwrap();
     println!("{analyses:?}");
 
     assert_eq!(analyses.len(), 3);
@@ -82,7 +82,7 @@ fn test_binary_analyses() {
 fn test_ascii_analysis() {
     let path = PathBuf::from(EXAMPLES_PATH).join("rawspice_ascii.raw");
     let data = std::fs::read(path).unwrap();
-    let (_, analysis) = analysis(&data).unwrap();
+    let (_, analysis) = analysis(Options::default())(&data).unwrap();
     println!("{analysis:?}");
 
     assert_eq!(analysis.num_variables, 4);
@@ -99,7 +99,7 @@ fn test_ascii_analysis() {
 fn test_ascii_analyses() {
     let path = PathBuf::from(EXAMPLES_PATH).join("rawspice_ascii.raw");
     let data = std::fs::read(path).unwrap();
-    let (_, mut analyses) = analyses(&data).unwrap();
+    let (_, mut analyses) = analyses(&data, Options::default()).unwrap();
     println!("{analyses:?}");
 
     assert_eq!(analyses.len(), 4);
@@ -139,7 +139,7 @@ fn test_vdivider_analyses() {
     for path in ["netlist.ascii.raw", "netlist.bin.raw"] {
         let path = PathBuf::from(EXAMPLES_PATH).join(path);
         let data = std::fs::read(path).unwrap();
-        let rawfile = parse(&data).unwrap();
+        let rawfile = parse(&data, Options::default()).unwrap();
 
         let analysis = &rawfile.analyses[0];
         assert_eq!(analysis.num_variables, 5);
@@ -188,7 +188,7 @@ fn test_vdivider2_analyses() {
         println!("Parsing {path}");
         let path = PathBuf::from(EXAMPLES_PATH).join(path);
         let data = std::fs::read(path).unwrap();
-        let rawfile = parse(&data).unwrap();
+        let rawfile = parse(&data, Options::default()).unwrap();
         println!("Rawfile: {rawfile:?}");
 
         let analysis = &rawfile.analyses[0];
@@ -208,4 +208,42 @@ fn test_vdivider2_analyses() {
         vec.iter()
             .for_each(|f| assert!(approx::relative_eq!(*f, 1.2)));
     }
+}
+
+#[test]
+fn test_ngspice_analyses() {
+    let path = "ngspice.bin.raw";
+    println!("Parsing {path}");
+    let path = PathBuf::from(EXAMPLES_PATH).join(path);
+    let data = std::fs::read(path).unwrap();
+    let rawfile = parse(
+        &data,
+        Options {
+            endianness: ByteOrder::LittleEndian,
+        },
+    )
+    .unwrap();
+    println!("Rawfile: {rawfile:?}");
+
+    let analysis = &rawfile.analyses[0];
+    assert_eq!(analysis.num_variables, 6);
+    assert_eq!(analysis.num_points, 59);
+    assert_eq!(analysis.variables.len(), 6);
+
+    let data = analysis.data.as_ref().unwrap_real();
+    assert_eq!(data.len(), 6);
+    data.iter().for_each(|vec| assert_eq!(vec.len(), 59));
+    let var = analysis
+        .variables
+        .iter()
+        .find(|x| x.name == "v(xinst0_n)")
+        .unwrap();
+    let vec = &data[var.idx];
+    let expected = 0.6;
+    vec.iter().for_each(|f| {
+        assert!(
+            approx::relative_eq!(*f, expected),
+            "expected {expected}, found {f}"
+        )
+    });
 }
