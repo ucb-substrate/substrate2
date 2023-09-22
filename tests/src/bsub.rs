@@ -18,7 +18,7 @@ fn can_submit_with_bsub() {
     cmd.arg("-c")
         .arg(format!("echo \"Hello, world!\" > {file:?}"));
 
-    let bsub = LsfExecutor::default();
+    let bsub = LsfExecutor::builder().queue("bora").build().unwrap();
     bsub.execute(cmd, Default::default()).expect("bsub failed");
 
     // Wait for filesystem to sync.
