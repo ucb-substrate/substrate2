@@ -14,7 +14,7 @@ serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 serde_json = "1"
 serde_yaml = "0.9"
-toml = "0.7"
+toml = "0.8"
 tempfile = { version = "3", optional = true }
 arcstr = { version = "1", features = ["serde"] }
 textwrap = "0.16"

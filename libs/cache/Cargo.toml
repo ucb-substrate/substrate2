@@ -19,7 +19,7 @@ prost-types = "0.12"
 rusqlite = "0.29"
 fs4 = { version = "0.6", features = ["tokio-async"] }
 thiserror = "1"
-toml = "0.7"
+toml = "0.8"
 clap = { version = "4", features = ["derive"] }
 tokio-rusqlite = "0.4"
 sha2 = "0.10"
