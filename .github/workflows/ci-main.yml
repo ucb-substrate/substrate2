@@ -18,11 +18,11 @@ jobs:
     runs-on: ubuntu-22.04
     environment: main
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: substrate
       - name: Clone `release-please`
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: rohanku/release-please
           path: release-please
@@ -51,7 +51,7 @@ jobs:
     environment: main
     needs: [ release-please, check-workspace ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: substrate
       - name: Install Protoc
@@ -64,7 +64,7 @@ jobs:
         with:
           toolchain: stable
       - name: Clone `cargo-workspaces`
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: rohanku/cargo-workspaces
           path: cargo-workspaces
@@ -92,7 +92,7 @@ jobs:
     environment: main
     needs: [ check-workspace ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: just build
         working-directory: docs/api
@@ -106,7 +106,7 @@ jobs:
     environment: main
     needs: [ check-workspace ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - uses: actions/setup-node@v3
         with:

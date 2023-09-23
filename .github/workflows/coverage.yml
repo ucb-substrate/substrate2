@@ -11,7 +11,7 @@ jobs:
     name: coverage
     runs-on: [bwrc, nfs]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run tests
         run: cargo +nightly test --verbose --locked --all-features
         env:

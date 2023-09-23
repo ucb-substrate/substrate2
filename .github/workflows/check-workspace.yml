@@ -11,7 +11,7 @@ jobs:
     name: lint
     runs-on: bwrc
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check formatting
         run: |
           cargo fmt --check
@@ -26,7 +26,7 @@ jobs:
     name: check-docs
     runs-on: bwrc
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features
@@ -37,7 +37,7 @@ jobs:
     name: test
     runs-on: [bwrc, nfs]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Test
         run: cargo test --locked --all-features
       - name: Test examples
@@ -47,7 +47,7 @@ jobs:
     name: check-docs-site
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v3
         with:
           node-version: 18
