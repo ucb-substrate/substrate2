@@ -46,11 +46,6 @@ impl BlockKind for PdkPrimitive {
     fn sealed(_: Token) {}
 }
 
-pub struct Opaque;
-impl BlockKind for Opaque {
-    fn sealed(_: Token) {}
-}
-
 /// A block that can be instantiated by Substrate.
 ///
 /// # Examples

@@ -2232,6 +2232,7 @@ dependencies = [
  "ngspice",
  "rust_decimal",
  "rust_decimal_macros",
+ "scir",
  "serde",
  "spectre",
  "substrate",

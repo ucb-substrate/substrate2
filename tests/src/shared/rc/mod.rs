@@ -10,7 +10,7 @@ use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+use substrate::schematic::{CellBuilder, CellSchematic, ExportsNestedData, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::Testbench;
 
@@ -33,7 +33,7 @@ impl ExportsNestedData for RcTb {
     type NestedData = Node;
 }
 
-impl<PDK: Pdk> Schematic<PDK, Spectre> for RcTb {
+impl<PDK: Pdk> CellSchematic<PDK, Spectre> for RcTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,

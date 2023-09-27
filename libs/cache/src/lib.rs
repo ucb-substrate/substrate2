@@ -5,6 +5,7 @@
 //! several cache servers.
 #![warn(missing_docs)]
 
+use std::marker::PhantomData;
 use std::ops::Deref;
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
@@ -229,26 +230,48 @@ impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for A
 
 /// A handle to a cache entry that might still be generating.
 #[derive(Debug)]
-pub struct CacheHandle<V>(Arc<OnceCell<ArcResult<V>>>);
+pub struct CacheHandle<V> {
+    data: Arc<OnceCell<ArcResult<V>>>,
+    /// For waiting on this handle without having access to the type.
+    wait: Arc<OnceCell<ArcResult<()>>>,
+}
+
+impl<V> Default for CacheHandle<V> {
+    fn default() -> Self {
+        Self {
+            data: Default::default(),
+            wait: Default::default(),
+        }
+    }
+}
 
 impl<V> Clone for CacheHandle<V> {
     fn clone(&self) -> Self {
-        CacheHandle(self.0.clone())
+        Self {
+            data: self.data.clone(),
+            wait: self.wait.clone(),
+        }
     }
 }
 
 impl<V> CacheHandle<V> {
     /// Creates an empty cache handle.
     pub(crate) fn empty() -> Self {
-        Self(Arc::new(OnceCell::new()))
+        Self::default()
     }
 }
 
 impl<V: Send + Sync + Any> CacheHandle<V> {
+    /// Creates a new cache handle, generating its value immediately.
+    pub(crate) fn new_blocking(generate_fn: impl RawGenerateFn<V>) -> Self {
+        let handle = Self::empty();
+        handle.set(run_generator(generate_fn));
+        handle
+    }
     /// Creates a new cache handle, spawning a thread to generate its value using the provided
     /// function.
     pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
-        let handle = Self(Arc::new(OnceCell::new()));
+        let handle = Self::empty();
 
         let handle_clone = handle.clone();
         thread::spawn(move || {
@@ -264,14 +287,14 @@ impl<V> CacheHandle<V> {
     ///
     /// Returns an error if one was returned by the generator.
     pub fn try_get(&self) -> ArcResult<&V> {
-        self.0.wait().as_ref().map_err(|e| e.clone())
+        self.data.wait().as_ref().map_err(|e| e.clone())
     }
 
     /// Checks whether the underlying entry is ready.
     ///
     /// Returns the entry if available, otherwise returns [`None`].
-    pub fn poll(&self) -> Option<&ArcResult<V>> {
-        self.0.get()
+    pub fn poll(&self) -> Option<ArcResult<&V>> {
+        Some(self.data.get()?.as_ref().map_err(|e| e.clone()))
     }
 
     /// Blocks on the cache entry, returning its output.
@@ -289,7 +312,10 @@ impl<V> CacheHandle<V> {
     ///
     /// Panics if the cache handle has already been set.
     pub(crate) fn set(&self, value: ArcResult<V>) {
-        if self.0.set(value).is_err() {
+        let stripped_value = value.as_ref().map(|_| ()).map_err(|e| e.clone());
+        let res1 = self.data.set(value);
+        let res2 = self.wait.set(stripped_value);
+        if res1.is_err() || res2.is_err() {
             tracing::error!("failed to set cache handle value");
             panic!("failed to set cache handle value");
         }
@@ -340,6 +366,160 @@ impl<V: Debug, E> CacheHandle<std::result::Result<V, E>> {
     /// if the generator did not return an error.
     pub fn unwrap_err_inner(&self) -> &E {
         self.get().as_ref().unwrap_err()
+    }
+}
+
+/// A handle to a a separate value associated with an existing [`CacheHandle`].
+#[derive(Debug)]
+pub struct SecondaryCacheHandle<V> {
+    data: Arc<OnceCell<V>>,
+    /// The `wait` field of an existing [`CacheHandle`].
+    wait: Arc<OnceCell<ArcResult<()>>>,
+}
+
+impl<V> Clone for SecondaryCacheHandle<V> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            wait: self.wait.clone(),
+        }
+    }
+}
+
+impl<V> SecondaryCacheHandle<V> {
+    pub fn builder() -> SecondaryCacheHandleBuilder<V> {
+        SecondaryCacheHandleBuilder::new()
+    }
+}
+
+impl<V> SecondaryCacheHandle<V> {
+    /// Blocks on the cache entry, returning the result once it is ready.
+    ///
+    /// Returns an error if one was returned by the generator.
+    pub fn try_get(&self) -> ArcResult<&V> {
+        self.wait
+            .wait()
+            .as_ref()
+            .map_err(|e| e.clone())
+            .and_then(|_| self.data.get().ok_or(Arc::new(Error::SecondaryValueUnset)))
+    }
+
+    /// Checks whether the underlying entry is ready.
+    ///
+    /// Returns the entry if available, otherwise returns [`None`].
+    pub fn poll(&self) -> Option<ArcResult<&V>> {
+        Some(
+            self.wait
+                .get()?
+                .as_ref()
+                .map_err(|e| e.clone())
+                .and_then(|_| self.data.get().ok_or(Arc::new(Error::SecondaryValueUnset))),
+        )
+    }
+
+    /// Blocks on the cache entry, returning its output.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the generator failed to run or an internal error was thrown by the cache.
+    pub fn get(&self) -> &V {
+        self.try_get().unwrap()
+    }
+}
+
+impl<V: Debug> SecondaryCacheHandle<V> {
+    /// Blocks on the cache entry, returning the error thrown by the cache.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no error was thrown by the cache.
+    pub fn get_err(&self) -> Arc<error::Error> {
+        self.try_get().unwrap_err()
+    }
+}
+
+impl<V, E> SecondaryCacheHandle<std::result::Result<V, E>> {
+    /// Blocks on the cache entry, returning the inner result.
+    ///
+    /// Returns an error if the generator panicked or threw an error, or if the cache threw an
+    /// error.
+    pub fn try_inner(&self) -> std::result::Result<&V, TryInnerError<E>> {
+        Ok(self
+            .try_get()
+            .map_err(|e| TryInnerError::CacheError(e))?
+            .as_ref()?)
+    }
+}
+
+impl<V, E: Debug> SecondaryCacheHandle<std::result::Result<V, E>> {
+    /// Blocks on the cache entry, returning its output.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the generator panicked or threw an error, or if an internal error was thrown by the cache.
+    pub fn unwrap_inner(&self) -> &V {
+        self.get().as_ref().unwrap()
+    }
+}
+
+impl<V: Debug, E> SecondaryCacheHandle<std::result::Result<V, E>> {
+    /// Blocks on the cache entry, returning the error returned by the generator.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the generator panicked or an internal error was thrown by the cache. Also panics
+    /// if the generator did not return an error.
+    pub fn unwrap_err_inner(&self) -> &E {
+        self.get().as_ref().unwrap_err()
+    }
+}
+
+pub struct SecondaryCacheHandleBuilder<V> {
+    data: Arc<OnceCell<V>>,
+    /// The `wait` field of an existing [`CacheHandle`].
+    wait: Option<Arc<OnceCell<ArcResult<()>>>>,
+}
+
+impl<V> Clone for SecondaryCacheHandleBuilder<V> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            wait: self.wait.clone(),
+        }
+    }
+}
+
+impl<V> Default for SecondaryCacheHandleBuilder<V> {
+    fn default() -> Self {
+        Self {
+            data: Default::default(),
+            wait: Default::default(),
+        }
+    }
+}
+
+impl<V> SecondaryCacheHandleBuilder<V> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn bind_handle<B>(&mut self, handle: &CacheHandle<B>) -> &mut Self {
+        self.wait = Some(handle.wait.clone());
+        self
+    }
+
+    pub fn set(&self, value: V) -> std::result::Result<(), V> {
+        self.data.set(value)
+    }
+
+    pub fn build(&mut self) -> SecondaryCacheHandle<V> {
+        SecondaryCacheHandle {
+            data: self.data.clone(),
+            wait: self
+                .wait
+                .clone()
+                .expect("no associated cache handle specified"),
+        }
     }
 }
 

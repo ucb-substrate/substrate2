@@ -5,28 +5,29 @@ pub mod primitives;
 pub mod schema;
 
 use cache::error::TryInnerError;
-use cache::mem::{TypeCache, TypeMap};
+use cache::mem::TypeCache;
 use cache::CacheHandle;
 pub use codegen::{Schematic, SchematicData};
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
+use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
 use std::thread;
 
 use arcstr::ArcStr;
+use enumify::enumify;
 use once_cell::sync::OnceCell;
-use scir::schema::{Schema, ToSchema};
+use scir::schema::ToSchema;
 use scir::Library;
 use substrate::pdk::PdkScirSchematic;
 use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block, Opaque, PdkPrimitive, ScirBlock};
+use crate::block::{self, Block, PdkPrimitive, ScirBlock};
 use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
@@ -35,32 +36,14 @@ use crate::io::{
     NodeUf, Port, SchematicBundle, SchematicType, TerminalView,
 };
 use crate::pdk::{Pdk, PdkSchematic};
-use crate::schematic::conv::RawLib;
-
-pub trait Primitive: Clone + Send + Sync + Any {}
-
-impl<T: Clone + Send + Sync + Any> Primitive for T {}
+use crate::schematic::schema::Schema;
+use crate::sealed;
+use crate::sealed::Token;
 
 /// A block with a schematic specified using SCIR.
 pub trait ScirSchematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ScirBlock {
     /// Returns the library containing the SCIR cell and its ID.
     fn schematic(&self) -> Result<(Library<S>, scir::CellId)>;
-}
-
-impl<
-        PDK: Pdk<Schema = impl ToSchema<S>>,
-        S: Schema,
-        B: Block<Kind = block::PdkScir> + PdkScirSchematic<PDK>,
-    > ScirSchematic<PDK, S, block::PdkScir> for B
-{
-    fn schematic(&self) -> Result<(Library<S>, scir::CellId)> {
-        let (lib, cell) = PdkScirSchematic::schematic(self)?;
-        Ok((
-            lib.convert_schema::<S>()
-                .ok_or(Error::UnsupportedPrimitive)?,
-            cell,
-        ))
-    }
 }
 
 /// A block that exports nodes from its schematic.
@@ -75,7 +58,7 @@ pub trait ExportsNestedData<K = <Self as Block>::Kind>: Block {
 }
 
 /// A block that has a schematic associated with the given PDK and schema.
-pub trait Schematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNestedData {
+pub trait CellSchematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNestedData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
@@ -84,55 +67,82 @@ pub trait Schematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNest
     ) -> Result<Self::NestedData>;
 }
 
+/// A block that has a schematic associated with the given PDK and schema.
+pub trait Schematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNestedData {
+    /// Generates the block's schematic.
+    #[doc(hidden)]
+    fn schematic(
+        block: Arc<Self>,
+        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
+        cell: CellBuilder<PDK, S>,
+        _: sealed::Token,
+    ) -> Result<(RawCell<S>, Cell<Self>)>;
+}
+
 impl<B: Block<Kind = block::Scir>> ExportsNestedData<block::Scir> for B {
     type NestedData = ();
 }
 
-#[impl_dispatch({block::Scir; block::PdkScir})]
+impl<PDK: Pdk, S: Schema, B: Block<Kind = block::Scir> + ScirSchematic<PDK, S, block::Scir>>
+    Schematic<PDK, S, block::Scir> for B
+{
+    fn schematic(
+        block: Arc<Self>,
+        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
+        mut cell: CellBuilder<PDK, S>,
+        _: Token,
+    ) -> Result<(RawCell<S>, Cell<Self>)> {
+        let (lib, id) = ScirSchematic::schematic(block.as_ref())?;
+        cell.0.set_scir(ScirCellInner { lib, cell: id });
+        let id = cell.0.metadata.id;
+        Ok((cell.0.finish(), Cell::new(id, io, block, Arc::new(()))))
+    }
+}
+
+#[impl_dispatch({block::PdkPrimitive; block::PdkScir; block::PdkCell})]
 impl<
         T,
-        PDK: Pdk,
+        PDK: Pdk<Schema = impl ToSchema<S>>,
         S: Schema,
-        B: Block<Kind = T> + ExportsNestedData<NestedData = ()> + ScirSchematic<PDK, S>,
+        B: Block<Kind = T> + PdkSchematic<PDK, T>,
     > Schematic<PDK, S, T> for B
 {
     fn schematic(
-        &self,
-        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::NestedData> {
-        let (lib, id) = ScirSchematic::schematic(self)?;
-        cell.0.set_scir(ScirCellInner {
-            lib: Arc::new(lib),
-            cell: id,
-        });
-        Ok(())
+        block: Arc<Self>,
+        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
+        mut cell: CellBuilder<PDK, S>,
+        _: Token,
+    ) -> Result<(RawCell<S>, Cell<Self>)> {
+        let handle = cell.ctx().generate_pdk_schematic_inner(block.clone());
+        cell.0.set_pdk_id(handle.id);
+        let id = cell.0.metadata.id;
+        Ok((
+            cell.0.finish(),
+            Cell::new(id, io, block, handle.try_cell()?.nodes.clone()),
+        ))
     }
 }
 
-#[impl_dispatch({PdkPrimitive; block::PdkCell})]
-impl<T, PDK: ToSchema<S>, S: Schema, B: PdkSchematic<PDK, T> + Block<Kind = T>> Schematic<PDK, S, T>
-    for B
+impl<PDK: Pdk, S: Schema, B: Block<Kind = block::Cell> + CellSchematic<PDK, S, block::Cell>>
+    Schematic<PDK, S, block::Cell> for B
 {
     fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::NestedData> {
-        cell.set_pdk_schematic(io, self)
+        block: Arc<Self>,
+        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
+        mut cell: CellBuilder<PDK, S>,
+        _: Token,
+    ) -> Result<(RawCell<S>, Cell<Self>)> {
+        let data = CellSchematic::schematic(block.as_ref(), io.as_ref(), &mut cell);
+        data.map(|data| {
+            let id = cell.0.metadata.id;
+            (cell.0.finish(), Cell::new(id, io, block, Arc::new(data)))
+        })
     }
-}
-
-/// A builder for creating a schematic cell.
-pub(crate) struct CellBuilderInner<PDK: Pdk, S: Schema> {
-    pub(crate) metadata: CellBuilderMetadata<PDK>,
-    pub(crate) instances: Vec<Receiver<RawInstance>>,
-    pub(crate) contents: RawLib<S>,
 }
 
 pub(crate) struct CellBuilderMetadata<PDK: Pdk> {
     /// The current global context.
-    pub ctx: Context<PDK>,
+    pub(crate) ctx: Context<PDK>,
     pub(crate) id: CellId,
     pub(crate) cell_name: ArcStr,
     pub(crate) flatten: bool,
@@ -155,241 +165,38 @@ impl<PDK: Pdk> Clone for CellBuilderMetadata<PDK> {
             id: self.id,
             cell_name: self.cell_name.clone(),
             flatten: self.flatten,
-            /// The root instance path that all nested paths should be relative to.
             root: self.root.clone(),
             node_ctx: self.node_ctx.clone(),
             node_names: self.node_names.clone(),
-            /// Outward-facing ports of this cell.
-            ///
-            /// Directions are as viewed by a parent cell instantiating this cell; these
-            /// are the wrong directions to use when looking at connections to this
-            /// cell's IO from *within* the cell.
             ports: self.ports.clone(),
         }
     }
+}
+
+/// A builder for creating a schematic cell.
+pub(crate) struct CellBuilderInner<PDK: Pdk, S: Schema> {
+    pub(crate) metadata: CellBuilderMetadata<PDK>,
+    pub(crate) contents: RawCellContents<S>,
 }
 
 impl<PDK: Pdk, S: Schema> CellBuilderInner<PDK, S> {
-    fn clone_without_contents(&self) -> CellBuilderMetadata<PDK> {
-        CellBuilderMetadata {
-            ctx: self.ctx.clone(),
-            id: self.id,
-            cell_name: self.cell_name.clone(),
-            flatten: self.flatten,
-            /// The root instance path that all nested paths should be relative to.
-            root: self.root.clone(),
-            node_ctx: self.node_ctx.clone(),
-            node_names: self.node_names.clone(),
-            /// Outward-facing ports of this cell.
-            ///
-            /// Directions are as viewed by a parent cell instantiating this cell; these
-            /// are the wrong directions to use when looking at connections to this
-            /// cell's IO from *within* the cell.
-            ports: self.ports.clone(),
-        }
-    }
-}
-
-impl<PDK: Pdk, P> From<CellBuilderInner<PDK, P>> for CellBuilderMetadata<PDK> {
-    fn from(value: CellBuilderInner<PDK, P>) -> Self {
-        Self {
-            ctx: value.ctx,
-            id: value.id,
-            cell_name: value.cell_name,
-            flatten: value.flatten,
-            /// The root instance path that all nested paths should be relative to.
-            root: value.root,
-            node_ctx: value.node_ctx,
-            node_names: value.node_names,
-            /// Outward-facing ports of this cell.
-            ///
-            /// Directions are as viewed by a parent cell instantiating this cell; these
-            /// are the wrong directions to use when looking at connections to this
-            /// cell's IO from *within* the cell.
-            ports: value.ports,
-        }
-    }
-}
-
-impl<PDK: Pdk, P> From<CellBuilderMetadata<PDK>> for CellBuilderInner<PDK, P> {
-    fn from(value: CellBuilderMetadata<PDK>) -> Self {
-        Self {
-            ctx: value.ctx,
-            id: value.id,
-            cell_name: value.cell_name,
-            flatten: value.flatten,
-            /// The root instance path that all nested paths should be relative to.
-            root: value.root,
-            node_ctx: value.node_ctx,
-            node_names: value.node_names,
-            /// Outward-facing ports of this cell.
-            ///
-            /// Directions are as viewed by a parent cell instantiating this cell; these
-            /// are the wrong directions to use when looking at connections to this
-            /// cell's IO from *within* the cell.
-            ports: value.ports,
-            contents: CellBuilderContents::Cell(CellInner {
-                next_instance_id: InstanceId(0),
-                instances: Vec::new(),
-            }),
-        }
-    }
-}
-
-pub struct CellBuilder<PDK: Pdk, S: Schema>(pub(crate) CellBuilderInner<PDK, S>);
-pub struct PdkCellBuilder<PDK: Pdk>(pub(crate) CellBuilderInner<PDK, PDK::Schema>);
-
-pub(crate) type CellBuilderContents<P> = RawCellKind<CellInner<P>, ScirCellInner<P>, P>;
-
-impl<P: Primitive> CellBuilderContents<P> {
-    fn convert_primitives<C>(
-        self,
-        convert_fn: fn(P) -> Option<C>,
-    ) -> Option<CellBuilderContents<C>> {
-        Some(match self {
-            Self::Cell(c) => CellBuilderContents::Cell(c.convert_primitives(convert_fn)?),
-            Self::Scir(c) => CellBuilderContents::Scir(c.convert_primitives(convert_fn)?),
-            Self::Primitive(c) => CellBuilderContents::Primitive(convert_fn(c)?),
-            Self::Blackbox(c) => CellBuilderContents::Blackbox(c),
-        })
-    }
-}
-
-pub(crate) struct CellInner<P> {
-    pub(crate) next_instance_id: InstanceId,
-    pub(crate) instances: Vec<Receiver<Option<RawInstance<P>>>>,
-}
-
-impl<P: Primitive> CellInner<P> {
-    fn convert_primitives<C>(self, convert_fn: fn(P) -> Option<C>) -> Option<CellInner<C>> {
-        Some(CellInner {
-            next_instance_id: self.next_instance_id,
-            instances: self
-                .instances
-                .into_iter()
-                .map(|instance| {
-                    instance
-                        .recv()
-                        .unwrap()
-                        .unwrap()
-                        .convert_primitives(convert_fn)
-                })
-                .collect::<Option<Vec<_>>>()?
-                .into_iter()
-                .map(|instance| {
-                    let (send, recv) = mpsc::channel();
-                    send.send(Some(instance)).unwrap();
-                    recv
-                })
-                .collect(),
-        })
-    }
-}
-
-/// The contents of a blackbox cell.
-#[derive(Debug, Default, Clone)]
-pub struct BlackboxContents {
-    /// The list of [`BlackboxElement`]s comprising this cell.
-    ///
-    /// During netlisting, each blackbox element will be
-    /// injected into the final netlist.
-    /// Netlister implementations should add spaces before each element
-    /// in the list, except for the first element.
-    pub elems: Vec<BlackboxElement>,
-}
-
-/// An element in the contents of a blackbox cell.
-#[derive(Debug, Clone)]
-pub enum BlackboxElement {
-    /// A reference to a [`Node`].
-    Node(Node),
-    /// A raw, opaque [`String`].
-    RawString(String),
-}
-
-impl BlackboxContents {
-    /// Creates a new, empty [`BlackboxContents`].
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    /// Adds the given element to the list of blackbox elements.
-    pub fn push(&mut self, elem: impl Into<BlackboxElement>) {
-        self.elems.push(elem.into());
-    }
-}
-
-impl FromIterator<BlackboxElement> for BlackboxContents {
-    fn from_iter<T: IntoIterator<Item = BlackboxElement>>(iter: T) -> Self {
-        Self {
-            elems: iter.into_iter().collect(),
-        }
-    }
-}
-
-impl From<String> for BlackboxElement {
-    #[inline]
-    fn from(value: String) -> Self {
-        Self::RawString(value)
-    }
-}
-
-impl From<&str> for BlackboxElement {
-    #[inline]
-    fn from(value: &str) -> Self {
-        Self::RawString(value.to_string())
-    }
-}
-
-impl From<Node> for BlackboxElement {
-    #[inline]
-    fn from(value: Node) -> Self {
-        Self::Node(value)
-    }
-}
-
-impl From<&Node> for BlackboxElement {
-    #[inline]
-    fn from(value: &Node) -> Self {
-        Self::Node(*value)
-    }
-}
-
-impl From<String> for BlackboxContents {
-    fn from(value: String) -> Self {
-        Self {
-            elems: vec![BlackboxElement::RawString(value)],
-        }
-    }
-}
-
-impl From<&str> for BlackboxContents {
-    fn from(value: &str) -> Self {
-        Self {
-            elems: vec![BlackboxElement::RawString(value.to_string())],
-        }
-    }
-}
-
-impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
-    pub(crate) fn finish(self) -> RawCell<P> {
-        let mut roots = HashMap::with_capacity(self.node_names.len());
-        let mut uf = self.node_ctx.into_uf();
-        for &node in self.node_names.keys() {
+    pub(crate) fn finish(self) -> RawCell<S> {
+        let mut roots = HashMap::with_capacity(self.metadata.node_names.len());
+        let mut uf = self.metadata.node_ctx.into_uf();
+        for &node in self.metadata.node_names.keys() {
             let root = uf.probe_value(node).unwrap().source;
             roots.insert(node, root);
         }
 
         RawCell {
-            id: self.id,
-            name: self.cell_name,
-            node_names: self.node_names,
-            ports: self.ports,
+            id: self.metadata.id,
+            name: self.metadata.cell_name,
+            node_names: self.metadata.node_names,
+            ports: self.metadata.ports,
+            flatten: self.metadata.flatten,
             uf,
             roots,
-            contents: self.contents.into(),
-            flatten: self.flatten,
+            contents: self.contents,
         }
     }
 
@@ -400,7 +207,7 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
         name: impl Into<ArcStr>,
         ty: TY,
     ) -> <TY as SchematicType>::Bundle {
-        let (nodes, data) = self.node_ctx.instantiate_undirected(
+        let (nodes, data) = self.metadata.node_ctx.instantiate_undirected(
             &ty,
             NodePriority::Named,
             SourceInfo::from_caller(),
@@ -409,7 +216,9 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
         let names = ty.flat_names(Some(name.into().into()));
         assert_eq!(nodes.len(), names.len());
 
-        self.node_names.extend(nodes.iter().copied().zip(names));
+        self.metadata
+            .node_names
+            .extend(nodes.iter().copied().zip(names));
 
         data
     }
@@ -427,7 +236,7 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
         s1f.into_iter().zip(s2f).for_each(|(a, b)| {
             // FIXME: proper error handling mechanism (collect all errors into
             // context and emit later)
-            let res = self.node_ctx.connect(a, b);
+            let res = self.metadata.node_ctx.connect(a, b);
             if let Err(err) = res {
                 tracing::warn!(?err, "connection failed");
             }
@@ -435,23 +244,23 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
     }
 
     /// Marks this cell as a SCIR cell.
-    pub(crate) fn set_scir(&mut self, scir: ScirCellInner<P>) {
-        self.contents = CellBuilderContents::Scir(scir);
+    pub(crate) fn set_scir(&mut self, scir: ScirCellInner<S>) {
+        self.contents = RawCellContents::Scir(scir);
     }
 
     /// Marks this cell as a primitive.
-    pub(crate) fn set_primitive(&mut self, primitive: P) {
-        self.contents = CellBuilderContents::Primitive(primitive);
+    pub(crate) fn set_primitive(&mut self, primitive: <S as Schema>::Primitive) {
+        self.contents = RawCellContents::Primitive(primitive);
     }
 
-    /// Marks this cell as a blackbox containing the given content.
-    pub(crate) fn set_blackbox(&mut self, contents: impl Into<BlackboxContents>) {
-        self.contents = CellBuilderContents::Blackbox(contents.into());
+    /// Marks this cell as a PDK-specific cell with the given ID.
+    pub(crate) fn set_pdk_id(&mut self, id: CellId) {
+        self.contents = RawCellContents::PdkId(id);
     }
 
     /// Gets the global context.
     pub(crate) fn ctx(&self) -> &Context<PDK> {
-        &self.ctx
+        &self.metadata.ctx
     }
 
     /// Starts generating a block in a new thread and returns a handle to its cell.
@@ -462,11 +271,8 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
     /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
-    fn generate<S: Schema<Primitive = P>, I: Schematic<PDK, S>>(
-        &mut self,
-        block: I,
-    ) -> CellHandle<I> {
-        self.ctx.generate_schematic(block)
+    fn generate<I: Schematic<PDK, S>>(&mut self, block: I) -> CellHandle<I> {
+        self.ctx().generate_schematic(block)
     }
 
     /// Generates a cell corresponding to `block` and returns a handle to it.
@@ -475,11 +281,8 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
     ///
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
-    fn generate_blocking<S: Schema<Primitive = P>, I: Schematic<PDK, S>>(
-        &mut self,
-        block: I,
-    ) -> Result<CellHandle<I>> {
-        let cell = self.ctx.generate_schematic(block);
+    fn generate_blocking<I: Schematic<PDK, S>>(&mut self, block: I) -> Result<CellHandle<I>> {
+        let cell = self.ctx().generate_schematic(block);
         cell.try_cell()?;
         Ok(cell)
     }
@@ -497,10 +300,7 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
-    fn add<S: Schema<Primitive = P>, I: Schematic<PDK, S>>(
-        &mut self,
-        cell: CellHandle<I>,
-    ) -> Instance<I> {
+    fn add<I: Schematic<PDK, S>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
         self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
@@ -520,16 +320,13 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
     ///
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
-    fn instantiate<S: Schema<Primitive = P>, I: Schematic<PDK, S>>(
-        &mut self,
-        block: I,
-    ) -> Instance<I> {
-        let cell = self.ctx.generate_schematic(block);
+    fn instantiate<I: Schematic<PDK, S>>(&mut self, block: I) -> Instance<I> {
+        let cell = self.ctx().generate_schematic(block);
         self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Create an instance and immediately connect its ports.
-    fn instantiate_connected<S: Schema<Primitive = P>, I, C>(&mut self, block: I, io: C)
+    fn instantiate_connected<I, C>(&mut self, block: I, io: C)
     where
         I: Schematic<PDK, S>,
         C: SchematicBundle,
@@ -549,7 +346,8 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
         let cell_contents = self.contents.as_mut().unwrap_cell();
 
         let (nodes, io_data) =
-            self.node_ctx
+            self.metadata
+                .node_ctx
                 .instantiate_directed(&io, NodePriority::Auto, source_info);
 
         let names = io.flat_names(Some(
@@ -557,14 +355,17 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
         ));
         assert_eq!(nodes.len(), names.len());
 
-        self.node_names.extend(nodes.iter().copied().zip(names));
+        self.metadata
+            .node_names
+            .extend(nodes.iter().copied().zip(names));
 
         cell_contents.next_instance_id.increment();
 
         let inst = Instance {
             id: cell_contents.next_instance_id,
-            parent: self.root.clone(),
+            parent: self.metadata.root.clone(),
             path: self
+                .metadata
                 .root
                 .append_segment(cell_contents.next_instance_id, cell.id),
             cell: cell.clone(),
@@ -574,25 +375,12 @@ impl<PDK: Pdk, P: Primitive> CellBuilderInner<PDK, P> {
             nested_data: OnceCell::new(),
         };
 
-        let (send, recv) = mpsc::channel();
-
-        cell_contents.instances.push(recv);
-
-        let context = self.ctx.clone();
-
-        thread::spawn(move || {
-            if let Ok(cell) = cell.try_cell() {
-                let child = context.get_raw_cell(cell.id).unwrap();
-                let raw = RawInstance {
-                    id: inst.id,
-                    name: arcstr::literal!("unnamed"),
-                    child,
-                    connections: nodes,
-                };
-                send.send(Some(raw)).unwrap();
-            } else {
-                send.send(None).unwrap();
-            }
+        cell_contents.instances.push(RawInstance {
+            id: inst.id,
+            name: arcstr::literal!("unnamed"),
+            child: cell.id,
+            connections: nodes,
+            kind: RawInstanceKind::Pdk,
         });
 
         inst
@@ -609,7 +397,7 @@ impl<PDK: Pdk<Schema = S>, S: Schema> CellBuilderInner<PDK, S> {
     /// error recovery and other checks are not possible when using
     /// [`instantiate`](CellBuilder::instantiate).
     fn generate_pdk<I: PdkSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
-        self.ctx.generate_pdk_schematic(block)
+        self.ctx().generate_pdk_schematic(block)
     }
 
     /// Generates a cell corresponding to `block` and returns a handle to it.
@@ -619,7 +407,7 @@ impl<PDK: Pdk<Schema = S>, S: Schema> CellBuilderInner<PDK, S> {
     /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
     /// [`CellBuilder::add`] before it can be connected as an instance.
     fn generate_pdk_blocking<I: PdkSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
-        let cell = self.ctx.generate_pdk_schematic(block);
+        let cell = self.ctx().generate_pdk_schematic(block);
         cell.try_cell()?;
         Ok(cell)
     }
@@ -658,7 +446,7 @@ impl<PDK: Pdk<Schema = S>, S: Schema> CellBuilderInner<PDK, S> {
     /// The spawned thread may panic after this function returns if cell generation fails.
     #[track_caller]
     fn instantiate_pdk<I: PdkSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
-        let cell = self.ctx.generate_pdk_schematic(block);
+        let cell = self.ctx().generate_pdk_schematic(block);
         self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
@@ -674,104 +462,10 @@ impl<PDK: Pdk<Schema = S>, S: Schema> CellBuilderInner<PDK, S> {
     }
 }
 
-impl<PDK: Pdk> PdkCellBuilder<PDK> {
-    /// Create a new signal with the given name and hardware type.
-    #[track_caller]
-    pub fn signal<TY: SchematicType>(
-        &mut self,
-        name: impl Into<ArcStr>,
-        ty: TY,
-    ) -> <TY as SchematicType>::Bundle {
-        self.0.signal(name, ty)
-    }
-
-    /// Connect all signals in the given data instances.
-    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
-    where
-        D1: Flatten<Node>,
-        D2: Flatten<Node>,
-        D1: Connect<D2>,
-    {
-        self.0.connect(s1, s2)
-    }
-
-    /// Gets the global context.
-    pub fn ctx(&self) -> &Context<PDK> {
-        self.0.ctx()
-    }
-
-    /// Starts generating a block in a new thread and returns a handle to its cell.
-    ///
-    /// Can be used to check data stored in the cell or other generated results before adding the
-    /// cell to the current schematic with [`CellBuilder::add`].
-    ///
-    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
-    /// error recovery and other checks are not possible when using
-    /// [`instantiate`](CellBuilder::instantiate).
-    pub fn generate<I: PdkSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
-        self.0.generate_pdk(block)
-    }
-
-    /// Generates a cell corresponding to `block` and returns a handle to it.
-    ///
-    /// Blocks on generation. Useful for handling errors thrown by the generation of a cell immediately.
-    ///
-    /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
-    /// [`CellBuilder::add`] before it can be connected as an instance.
-    pub fn generate_blocking<I: PdkSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
-        self.0.generate_pdk_blocking(block)
-    }
-
-    /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
-    ///
-    /// Does not block on generation. Spawns a thread that waits on the generation of
-    /// the underlying cell and panics if generation fails. If error recovery is desired,
-    /// check errors before calling this function using [`CellHandle::try_cell`].
-    ///
-    /// # Panics
-    ///
-    /// Immediately panics if this cell has been marked as a blackbox.
-    /// A blackbox cell cannot contain instances or primitive devices.
-    ///
-    /// The spawned thread may panic after this function returns if cell generation fails.
-    #[track_caller]
-    pub fn add<I: PdkSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
-        self.0.add_pdk(cell)
-    }
-
-    /// Instantiate a schematic view of the given block.
-    ///
-    /// This function generates and adds the cell to the schematic. If checks need to be done on
-    /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
-    /// [`CellBuilder::add`].
-    ///
-    /// Spawns a thread that generates the underlying cell and panics if the generator fails. If error
-    /// recovery is desired, use the generate and add workflow mentioned above.
-    ///
-    /// # Panics
-    ///
-    /// Immediately panics if this cell has been marked as a blackbox.
-    /// A blackbox cell cannot contain instances or primitive devices.
-    ///
-    /// The spawned thread may panic after this function returns if cell generation fails.
-    #[track_caller]
-    pub fn instantiate<I: PdkSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
-        self.0.instantiate_pdk(block)
-    }
-
-    /// Create an instance and immediately connect its ports.
-    pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
-    where
-        I: PdkSchematic<PDK>,
-        C: SchematicBundle,
-        <I::Io as SchematicType>::Bundle: Connect<C>,
-    {
-        self.0.instantiate_pdk_connected(block, io)
-    }
-}
+pub struct CellBuilder<PDK: Pdk, S: Schema>(pub(crate) CellBuilderInner<PDK, S>);
 
 impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
-    pub(crate) fn new(inner: CellBuilderInner<PDK, S::Primitive>) -> Self {
+    pub(crate) fn new(inner: CellBuilderInner<PDK, S>) -> Self {
         Self(inner)
     }
     /// Create a new signal with the given name and hardware type.
@@ -869,42 +563,101 @@ impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
     }
 }
 
-impl<PDK: Pdk<Schema = impl ToSchema<S>>, S: Schema> CellBuilder<PDK, S> {
-    fn set_pdk_schematic<I: PdkSchematic<PDK>>(
+pub struct PdkCellBuilder<PDK: Pdk>(pub(crate) CellBuilderInner<PDK, PDK::Schema>);
+
+impl<PDK: Pdk> PdkCellBuilder<PDK> {
+    /// Create a new signal with the given name and hardware type.
+    #[track_caller]
+    pub fn signal<TY: SchematicType>(
         &mut self,
-        io: &<<I as Block>::Io as SchematicType>::Bundle,
-        block: &I,
-    ) -> Result<I::NestedData>
+        name: impl Into<ArcStr>,
+        ty: TY,
+    ) -> <TY as SchematicType>::Bundle {
+        self.0.signal(name, ty)
+    }
+
+    /// Connect all signals in the given data instances.
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        PDK: ToSchema<S>,
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
+        D1: Connect<D2>,
     {
-        let mut pdk_builder = PdkCellBuilder(self.0.clone_without_contents().into());
-        let data = PdkSchematic::schematic(block, io, &mut pdk_builder)?;
-        let CellBuilderInner {
-            ctx,
-            id,
-            cell_name,
-            flatten,
-            root,
-            node_ctx,
-            node_names,
-            ports,
-            contents,
-        } = pdk_builder.0;
-        *self = CellBuilder::new(CellBuilderInner {
-            ctx,
-            id,
-            cell_name,
-            flatten,
-            root,
-            node_ctx,
-            node_names,
-            ports,
-            contents: contents
-                .convert_primitives(PDK::convert_primitive)
-                .ok_or(Error::UnsupportedPrimitive)?,
-        });
-        Ok(data)
+        self.0.connect(s1, s2)
+    }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &Context<PDK> {
+        self.0.ctx()
+    }
+
+    /// Starts generating a block in a new thread and returns a handle to its cell.
+    ///
+    /// Can be used to check data stored in the cell or other generated results before adding the
+    /// cell to the current schematic with [`CellBuilder::add`].
+    ///
+    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
+    /// error recovery and other checks are not possible when using
+    /// [`instantiate`](CellBuilder::instantiate).
+    pub fn generate<I: PdkSchematic<PDK>>(&mut self, block: I) -> CellHandle<I> {
+        self.0.generate_pdk(block)
+    }
+
+    /// Generates a cell corresponding to `block` and returns a handle to it.
+    ///
+    /// Blocks on generation. Useful for handling errors thrown by the generation of a cell immediately.
+    ///
+    /// As with [`CellBuilder::generate`], the resulting handle must be added to the schematic with
+    /// [`CellBuilder::add`] before it can be connected as an instance.
+    pub fn generate_blocking<I: PdkSchematic<PDK>>(&mut self, block: I) -> Result<CellHandle<I>> {
+        self.0.generate_pdk_blocking(block)
+    }
+
+    /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
+    ///
+    /// Does not block on generation. Spawns a thread that waits on the generation of
+    /// the underlying cell and panics if generation fails. If error recovery is desired,
+    /// check errors before calling this function using [`CellHandle::try_cell`].
+    ///
+    /// # Panics
+    ///
+    /// Immediately panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    ///
+    /// The spawned thread may panic after this function returns if cell generation fails.
+    #[track_caller]
+    pub fn add<I: PdkSchematic<PDK>>(&mut self, cell: CellHandle<I>) -> Instance<I> {
+        self.0.add_pdk(cell)
+    }
+
+    /// Instantiate a schematic view of the given block.
+    ///
+    /// This function generates and adds the cell to the schematic. If checks need to be done on
+    /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
+    /// [`CellBuilder::add`].
+    ///
+    /// Spawns a thread that generates the underlying cell and panics if the generator fails. If error
+    /// recovery is desired, use the generate and add workflow mentioned above.
+    ///
+    /// # Panics
+    ///
+    /// Immediately panics if this cell has been marked as a blackbox.
+    /// A blackbox cell cannot contain instances or primitive devices.
+    ///
+    /// The spawned thread may panic after this function returns if cell generation fails.
+    #[track_caller]
+    pub fn instantiate<I: PdkSchematic<PDK>>(&mut self, block: I) -> Instance<I> {
+        self.0.instantiate_pdk(block)
+    }
+
+    /// Create an instance and immediately connect its ports.
+    pub fn instantiate_connected<I, C>(&mut self, block: I, io: C)
+    where
+        I: PdkSchematic<PDK>,
+        C: SchematicBundle,
+        <I::Io as SchematicType>::Bundle: Connect<C>,
+    {
+        self.0.instantiate_pdk_connected(block, io)
     }
 }
 
@@ -928,11 +681,13 @@ impl<T: ExportsNestedData> Deref for Cell<T> {
     type Target = NestedView<T::NestedData>;
 
     fn deref(&self) -> &Self::Target {
+        println!("{:?}", self.id);
         self.nested_data
             .get_or_init(|| Arc::new(self.data()))
             .as_ref()
     }
 }
+
 impl<T: ExportsNestedData> Clone for Cell<T> {
     fn clone(&self) -> Self {
         Self {
@@ -952,13 +707,13 @@ impl<T: ExportsNestedData> Cell<T> {
         id: CellId,
         io: Arc<<T::Io as SchematicType>::Bundle>,
         block: Arc<T>,
-        data: T::NestedData,
+        data: Arc<T::NestedData>,
     ) -> Self {
         Self {
             id,
             io,
             block,
-            nodes: Arc::new(data),
+            nodes: data,
             path: InstancePath::new(id),
             nested_data: OnceCell::new(),
         }
@@ -1041,8 +796,6 @@ pub struct Instance<T: ExportsNestedData> {
     nested_data: OnceCell<Arc<NestedView<T::NestedData>>>,
 }
 
-pub struct NestedInstance<T: ExportsNestedData>(Instance<T>);
-
 impl<T: ExportsNestedData> Deref for Instance<T> {
     type Target = NestedView<T::NestedData>;
 
@@ -1071,8 +824,17 @@ impl<B: ExportsNestedData> Clone for Instance<B> {
 impl<B: ExportsNestedData> HasNestedView for Instance<B> {
     type NestedView = NestedInstance<B>;
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        println!(
+            "nesting instance {:?} {:?} {:?}",
+            Block::name(self.block()),
+            parent.top,
+            parent.bot
+        );
         let mut inst = (*self).clone();
         inst.path = self.path.prepend(parent);
+        inst.parent = self.parent.prepend(parent);
+        inst.nested_data = OnceCell::new();
+        inst.terminal_view = OnceCell::new();
         NestedInstance(inst)
     }
 }
@@ -1133,6 +895,8 @@ impl<T: ExportsNestedData> Instance<T> {
     }
 }
 
+pub struct NestedInstance<T: ExportsNestedData>(Instance<T>);
+
 impl<T: ExportsNestedData> Deref for NestedInstance<T> {
     type Target = NestedView<T::NestedData>;
 
@@ -1152,6 +916,9 @@ impl<B: ExportsNestedData> HasNestedView for NestedInstance<B> {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         let mut inst = (*self).clone();
         inst.0.path = self.0.path.prepend(parent);
+        inst.0.parent = self.0.parent.prepend(parent);
+        inst.0.nested_data = OnceCell::new();
+        inst.0.terminal_view = OnceCell::new();
         inst
     }
 }
@@ -1161,7 +928,7 @@ impl<T: ExportsNestedData> NestedInstance<T> {
     ///
     /// Used for node connection purposes.
     pub fn io(&self) -> NestedView<TerminalView<<T::Io as SchematicType>::Bundle>> {
-        self.0.io().nested_view(self.path())
+        self.0.io().nested_view(&self.0.parent)
     }
 
     /// Tries to access the underlying cell data.
@@ -1202,37 +969,49 @@ impl<T: ExportsNestedData> NestedInstance<T> {
 }
 
 /// A wrapper around schematic-specific context data.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
 pub struct SchematicContext {
-    next_id: CellId,
-    /// Cache from [`CellCacheKey`] and [`PdkCellCacheKey`] to [`PreGenerateCellData`].
-    ///
-    /// Used to store data that is inexpensive to compute.
-    pub(crate) pre_generate_data: TypeMap,
-    /// Cache from [`CellCacheKey`] and [`PdkCellCacheKey`] to [`Result<Cell<B>>`].
-    ///
-    /// Used to store the cell, which requires the generator to finish running.
+    pub(crate) next_id: CellId,
+    /// Cache from [`CellCacheKey`] and [`PdkCellCacheKey`] to
+    /// [`CellMetadata`] and  [`CellData`].
     pub(crate) cell_cache: TypeCache,
-    /// Map from `CellId` to `RawCell<B>`.
-    ///
-    /// Only populated after the corresponding cell has been generated.
-    pub(crate) raw_cells: HashMap<CellId, Arc<dyn Any + Send + Sync>>,
+    /// Map from `CellId` to `(CellHandle, Box<SecondaryCacheHandle<Arc<RawCell<S>>>>)`.
+    pub(crate) id_to_cell: HashMap<CellId, Box<dyn Any + Send + Sync>>,
 }
 
-pub(crate) struct PreGenerateCellData<B: Block, PDK: Pdk> {
+pub(crate) struct SchemaWrapper<S, T>(PhantomData<S>, T);
+
+impl SchematicContext {
+    #[allow(dead_code)]
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn get_id(&mut self) -> CellId {
+        self.next_id.increment();
+        self.next_id
+    }
+}
+
+/// Cell metadata that can be generated quickly.
+pub(crate) struct CellMetadata<B: Block> {
     pub(crate) id: CellId,
-    pub(crate) cell_builder: CellBuilderMetadata<PDK>,
     pub(crate) io_data: Arc<<B::Io as SchematicType>::Bundle>,
 }
 
-impl<B: Block, PDK: Pdk> Clone for PreGenerateCellData<B, PDK> {
+impl<B: Block> Clone for CellMetadata<B> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
-            cell_builder: self.cell_builder.clone(),
             io_data: self.io_data.clone(),
         }
     }
+}
+
+/// Cell data that must run a user specified generator.
+pub(crate) struct CellData<B: ExportsNestedData, S: Schema> {
+    cell: Cell<B>,
+    raw: RawCell<S>,
 }
 
 pub(crate) struct CellCacheKey<B, PDK, S> {
@@ -1291,29 +1070,6 @@ impl<B: Hash, PDK> Hash for PdkCellCacheKey<B, PDK> {
     }
 }
 
-impl Default for SchematicContext {
-    fn default() -> Self {
-        Self {
-            next_id: CellId(0),
-            pre_generate_data: Default::default(),
-            cell_cache: Default::default(),
-            raw_cells: HashMap::new(),
-        }
-    }
-}
-
-impl SchematicContext {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
-    pub(crate) fn get_id(&mut self) -> CellId {
-        self.next_id.increment();
-        self.next_id
-    }
-}
-
 /// A path to an instance from a top level cell.
 ///
 /// Inexpensive to clone as it only clones an ID and a reference counted pointer.
@@ -1359,6 +1115,10 @@ impl InstancePath {
     }
 
     pub(crate) fn prepend(&self, other: &Self) -> Self {
+        println!(
+            "{:?} {:?} {:?} {:?}",
+            self.top, self.bot, other.top, other.bot
+        );
         if let Some(bot) = other.bot {
             assert_eq!(
                 bot, self.top,
@@ -1406,6 +1166,15 @@ pub trait HasNestedView {
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView;
 }
 
+/// The associated nested view of an object.
+pub type NestedView<T> = <T as HasNestedView>::NestedView;
+
+impl HasNestedView for () {
+    type NestedView = ();
+
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView {}
+}
+
 impl<T> HasNestedView for &T
 where
     T: HasNestedView,
@@ -1434,13 +1203,13 @@ impl<T: HasNestedView> HasNestedView for Option<T> {
     }
 }
 
-/// The associated nested view of an object.
-pub type NestedView<T> = <T as HasNestedView>::NestedView;
-
-impl HasNestedView for () {
-    type NestedView = ();
-
-    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView {}
+/// Defines at runtime whether this instance is associated with a [`PdkCell`]
+/// or a [`Cell`].
+#[derive(Copy, Clone, Debug)]
+#[enumify(no_as_ref, no_as_mut)]
+pub(crate) enum RawInstanceKind {
+    Pdk,
+    Schema,
 }
 
 /// A raw (weakly-typed) instance of a cell.
@@ -1451,143 +1220,90 @@ pub(crate) struct RawInstance {
     name: ArcStr,
     child: CellId,
     connections: Vec<Node>,
-}
-
-impl<P: Primitive> RawInstance<P> {
-    fn convert_primitives<C>(self, convert_fn: fn(P) -> Option<C>) -> Option<RawInstance<C>> {
-        let RawInstance {
-            id,
-            name,
-            child,
-            connections,
-        } = self;
-        Some(RawInstance {
-            id,
-            name,
-            child: Arc::new((*child).clone().convert_primitives(convert_fn)?),
-            connections,
-        })
-    }
+    kind: RawInstanceKind,
 }
 
 /// A raw (weakly-typed) cell.
+///
+/// Only public for the sake of making the [`Schematic`] trait public,
+/// should not have any public methods.
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub(crate) struct RawCell<S: Schema> {
+#[doc(hidden)]
+pub struct RawCell<S: Schema> {
     id: CellId,
     name: ArcStr,
     ports: Vec<Port>,
     uf: NodeUf,
     node_names: HashMap<Node, NameBuf>,
     roots: HashMap<Node, Node>,
-    contents: RawCellContents<S::Primitive>,
+    contents: RawCellContents<S>,
     /// Whether this cell should be flattened when being exported.
     flatten: bool,
 }
 
-impl<P: Primitive> RawCell<P> {
-    fn convert_primitives<C>(self, convert_fn: fn(P) -> Option<C>) -> Option<RawCell<C>> {
-        let RawCell {
-            id,
-            name,
-            ports,
-            uf,
-            node_names,
-            roots,
-            contents,
-            flatten,
-        } = self;
-        Some(RawCell {
-            id,
-            name,
-            ports,
-            uf,
-            node_names,
-            roots,
-            contents: contents.convert_primitives(convert_fn)?,
-            flatten,
-        })
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("RawCell");
+        let _ = builder.field("id", &self.id);
+        let _ = builder.field("name", &self.name);
+        let _ = builder.field("ports", &self.ports);
+        let _ = builder.field("uf", &self.uf);
+        let _ = builder.field("node_names", &self.node_names);
+        let _ = builder.field("roots", &self.roots);
+        let _ = builder.field("contents", &self.contents);
+        let _ = builder.field("flatten", &self.flatten);
+        builder.finish()
     }
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContents<P> = RawCellKind<RawCellInner<P>, ScirCellInner<P>, P>;
-
-impl<P> From<CellBuilderContents<P>> for RawCellContents<P> {
-    fn from(value: CellBuilderContents<P>) -> Self {
-        match value {
-            CellBuilderContents::Cell(CellInner { instances, .. }) => {
-                RawCellContents::Cell(RawCellInner {
-                    instances: instances
-                        .into_iter()
-                        .map(|instance| instance.recv().unwrap().unwrap())
-                        .collect::<Vec<_>>(),
-                })
-            }
-            CellBuilderContents::Scir(s) => RawCellContents::Scir(s),
-            CellBuilderContents::Primitive(p) => RawCellContents::Primitive(p),
-            CellBuilderContents::Blackbox(b) => RawCellContents::Blackbox(b),
-        }
-    }
-}
-
-impl<P: Primitive> RawCellContents<P> {
-    fn convert_primitives<C>(self, convert_fn: fn(P) -> Option<C>) -> Option<RawCellContents<C>> {
-        Some(match self {
-            Self::Cell(c) => RawCellContents::Cell(c.convert_primitives(convert_fn)?),
-            Self::Scir(c) => RawCellContents::Scir(c.convert_primitives(convert_fn)?),
-            Self::Primitive(c) => RawCellContents::Primitive(convert_fn(c)?),
-            Self::Blackbox(c) => RawCellContents::Blackbox(c),
-        })
-    }
-}
+pub(crate) type RawCellContents<S> =
+    RawCellKind<RawCellInner, CellId, ScirCellInner<S>, <S as Schema>::Primitive>;
 
 /// An enumeration of raw cell kinds.
 ///
 /// Can be used to store data associated with each kind of raw cell.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[enumify::enumify]
-pub(crate) enum RawCellKind<C, S, P> {
+pub(crate) enum RawCellKind<C, I, S, P> {
     Cell(C),
+    /// Points to a RawCell in the PDK schema.
+    PdkId(I),
     Scir(S),
     Primitive(P),
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct RawCellInner<P> {
-    instances: Vec<RawInstance<P>>,
+pub(crate) struct RawCellInner {
+    pub(crate) next_instance_id: InstanceId,
+    pub(crate) instances: Vec<RawInstance>,
 }
 
-impl<P: Primitive> RawCellInner<P> {
-    fn convert_primitives<C>(self, convert_fn: fn(P) -> Option<C>) -> Option<RawCellInner<C>> {
-        Some(RawCellInner {
-            instances: self
-                .instances
-                .into_iter()
-                .map(move |inst| inst.convert_primitives(convert_fn))
-                .collect::<Option<Vec<_>>>()?,
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct ScirCellInner<P> {
-    pub(crate) lib: Arc<scir::Library<P>>,
+pub(crate) struct ScirCellInner<S: Schema> {
+    pub(crate) lib: scir::Library<S>,
     pub(crate) cell: scir::CellId,
 }
 
-impl<P: Primitive> ScirCellInner<P> {
-    fn convert_primitives<C>(self, convert_fn: fn(P) -> Option<C>) -> Option<ScirCellInner<C>> {
-        let ScirCellInner { lib, cell } = self;
-        Some(ScirCellInner {
-            lib: Arc::new((*lib).clone().convert_primitives(convert_fn)?),
-            cell,
-        })
+impl<S: Schema<Primitive = impl Clone>> Clone for ScirCellInner<S> {
+    fn clone(&self) -> Self {
+        Self {
+            lib: self.lib.clone(),
+            cell: self.cell,
+        }
+    }
+}
+
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirCellInner<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("ScirCellInner");
+        let _ = builder.field("lib", &self.lib);
+        let _ = builder.field("cell", &self.cell);
+        builder.finish()
     }
 }
 
 /// A context-wide unique identifier for a cell.
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(u64);
 
 impl CellId {

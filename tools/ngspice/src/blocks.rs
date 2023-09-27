@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use substrate::block::{self, Block};
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::schema::HasSchemaPrimitive;
+use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -51,8 +51,8 @@ impl Vsource {
     }
 }
 
-impl HasSchemaPrimitive<Vsource> for Ngspice {
-    fn primitive(block: &Vsource) -> Self::Primitive {
-        NgspicePrimitive::Vsource(block.clone())
+impl SchemaPrimitiveWrapper<Ngspice> for Vsource {
+    fn primitive(&self) -> <Ngspice as Schema>::Primitive {
+        NgspicePrimitive::Vsource(self.clone())
     }
 }

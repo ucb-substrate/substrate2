@@ -11,15 +11,17 @@ use ngspice::{Ngspice, NgspicePrimitive};
 use rust_decimal_macros::dec;
 use spectre::{Spectre, SpectrePrimitive};
 use substrate::pdk::corner::SupportsSimulator;
-use substrate::pdk::{FromSchema, Pdk, ToSchema};
-use substrate::schematic::schema::{Schema, Spice};
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
 use substrate::scir::Expr;
 use substrate::spice;
 
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
 use corner::*;
-use substrate::spice::Primitive;
+use scir::schema::{FromSchema, ToSchema};
+use scir::Instance;
+use substrate::spice::{Primitive, Spice};
 
 pub mod corner;
 pub mod layers;
@@ -36,6 +38,57 @@ pub enum Sky130Primitive {
         kind: MosKind,
         params: MosParams,
     },
+}
+
+impl scir::schema::Schema for Sky130Pdk {
+    type Primitive = Sky130Primitive;
+}
+
+impl FromSchema<Spice> for Sky130Pdk {
+    type Error = ();
+
+    fn recover_primitive(
+        primitive: <Spice as scir::schema::Schema>::Primitive,
+    ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
+        todo!()
+    }
+
+    fn recover_instance(
+        instance: &mut Instance,
+        primitive: &<Spice as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+}
+
+impl ToSchema<Ngspice> for Sky130Pdk {
+    type Error = ();
+    fn convert_primitive(
+        primitive: <Self as scir::schema::Schema>::Primitive,
+    ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
+        todo!()
+    }
+    fn convert_instance(
+        instance: &mut Instance,
+        primitive: &<Self as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+}
+
+impl ToSchema<Spectre> for Sky130Pdk {
+    type Error = ();
+    fn convert_primitive(
+        primitive: <Self as scir::schema::Schema>::Primitive,
+    ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
+        todo!()
+    }
+    fn convert_instance(
+        instance: &mut Instance,
+        primitive: &<Self as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
 }
 
 /// The Sky 130 PDK.
@@ -71,103 +124,10 @@ impl Sky130Pdk {
 }
 
 impl Pdk for Sky130Pdk {
-    type Primitive = Sky130Primitive;
+    type Schema = Sky130Pdk;
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
     const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
-}
-
-impl ToSchema<Spice> for Sky130Pdk {
-    fn convert_primitive(
-        primitive: <Self as Pdk>::Primitive,
-    ) -> Option<<Spice as Schema>::Primitive> {
-        Some(match primitive {
-            Sky130Primitive::Mos { kind, params } => Primitive::Mos {
-                mname: kind.open_subckt(),
-                params: IndexMap::from_iter([
-                    (arcstr::literal!("w"), Expr::NumericLiteral(params.w.into())),
-                    (arcstr::literal!("l"), Expr::NumericLiteral(params.l.into())),
-                    (
-                        arcstr::literal!("nf"),
-                        Expr::NumericLiteral(params.nf.into()),
-                    ),
-                ]),
-            },
-            Sky130Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            } => Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            },
-        })
-    }
-}
-
-impl ToSchema<Ngspice> for Sky130Pdk {
-    fn convert_primitive(
-        primitive: <Self as Pdk>::Primitive,
-    ) -> Option<<Ngspice as Schema>::Primitive> {
-        Some(NgspicePrimitive::Spice(
-            <Sky130Pdk as ToSchema<Spice>>::convert_primitive(primitive)?,
-        ))
-    }
-}
-
-impl ToSchema<Spectre> for Sky130Pdk {
-    fn convert_primitive(
-        primitive: <Self as Pdk>::Primitive,
-    ) -> Option<<Spectre as Schema>::Primitive> {
-        Some(match primitive {
-            Sky130Primitive::Mos { kind, params } => SpectrePrimitive::RawInstance {
-                cell: kind.commercial_subckt(),
-                ports: vec![
-                    arcstr::literal!("d"),
-                    arcstr::literal!("g"),
-                    arcstr::literal!("s"),
-                    arcstr::literal!("b"),
-                ],
-                params: IndexMap::from_iter([
-                    (arcstr::literal!("w"), Expr::NumericLiteral(params.w.into())),
-                    (arcstr::literal!("l"), Expr::NumericLiteral(params.l.into())),
-                    (
-                        arcstr::literal!("nf"),
-                        Expr::NumericLiteral(params.nf.into()),
-                    ),
-                ]),
-            },
-            Sky130Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            } => SpectrePrimitive::RawInstance {
-                cell,
-                ports,
-                params,
-            },
-        })
-    }
-}
-
-impl FromSchema<Spice> for Sky130Pdk {
-    fn convert_primitive(
-        primitive: <Spice as Schema>::Primitive,
-    ) -> Option<<Self as Pdk>::Primitive> {
-        Some(match primitive {
-            spice::Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            } => Sky130Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            },
-            _ => todo!(),
-        })
-    }
 }
 
 impl SupportsSimulator<Spectre> for Sky130Pdk {

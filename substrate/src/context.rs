@@ -2,15 +2,17 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use arcstr::ArcStr;
+use cache::SecondaryCacheHandle;
 use config::Config;
 use examples::get_snippets;
 use indexmap::IndexMap;
-use scir::schema::Schema;
 use substrate::schematic::{CellBuilder, CellBuilderInner, PdkCellBuilder};
 use tracing::{span, Level};
 
@@ -35,12 +37,14 @@ use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::{Pdk, PdkSchematic};
 use crate::schematic::conv::RawLib;
+use crate::schematic::schema::Schema;
 use crate::schematic::{
-    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderContents, CellCacheKey,
-    CellHandle as SchematicCellHandle, CellId, CellInner, InstanceId, InstancePath,
-    PdkCellCacheKey, PreGenerateCellData, Primitive, RawCell as SchematicRawCell, Schematic,
-    SchematicContext,
+    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderMetadata, CellCacheKey,
+    CellHandle as SchematicCellHandle, CellId, CellMetadata, ExportsNestedData, InstanceId,
+    InstancePath, PdkCellCacheKey, RawCell as SchematicRawCell, RawCellContents, RawCellInner,
+    Schematic, SchematicContext,
 };
+use crate::sealed;
 use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 
@@ -272,58 +276,104 @@ impl<PDK: Pdk> Context<PDK> {
         Ok(imported)
     }
 
-    fn generate_schematic_inner<S: Schema, T: Schematic<PDK, S>>(
+    fn generate_inner<
+        K: Send + Sync + Any + Hash + Eq,
+        S: Schema,
+        B: ExportsNestedData,
+        C: Send + Sync + Any,
+    >(
         &self,
-        block: Arc<T>,
-    ) -> SchematicCellHandle<T> {
+        block: Arc<B>,
+        key: K,
+        prepare_cell_builder_fn: impl FnOnce(CellId, Self, &B) -> (C, <<B as Block>::Io as SchematicType>::Bundle)
+            + Send
+            + Sync
+            + Any,
+        run_schematic_fn: impl FnOnce(
+                Arc<B>,
+                Arc<<<B as Block>::Io as SchematicType>::Bundle>,
+                C,
+            ) -> Result<(SchematicRawCell<S>, SchematicCell<B>)>
+            + Send
+            + Sync
+            + Any,
+    ) -> SchematicCellHandle<B> {
+        let block_clone1 = block.clone();
+        let block_clone2 = block.clone();
         let mut inner = self.inner.write().unwrap();
         let context = self.clone();
-        let key = CellCacheKey {
-            block: block.clone(),
-            phantom: PhantomData::<(PDK, S)>,
-        };
-        let block_clone = block.clone();
-        let id = inner.schematic.get_id();
-        let PreGenerateCellData {
-            id,
-            cell_builder,
-            io_data,
-        } = inner
-            .schematic
-            .pre_generate_data
-            .get_or_insert(key.clone(), move || {
+        let SchematicContext {
+            next_id,
+            cell_cache,
+            ..
+        } = &mut inner.schematic;
+        let mut raw_cell = SecondaryCacheHandle::builder();
+        let mut raw_cell_clone = raw_cell.clone();
+        let (metadata, cell) = cell_cache.generate_partial_blocking(
+            key,
+            |key| {
+                next_id.increment();
                 let (cell_builder, io_data) =
-                    prepare_cell_builder::<_, S, _>(id, context.clone(), block_clone.as_ref());
-                PreGenerateCellData::<T, PDK> {
-                    id,
-                    cell_builder: cell_builder.0.into(),
-                    io_data: Arc::new(io_data),
-                }
-            });
-        let context = self.clone();
+                    prepare_cell_builder_fn(*next_id, context, block_clone1.as_ref());
+                let io_data = Arc::new(io_data);
+                (
+                    CellMetadata::<B> {
+                        id: *next_id,
+                        io_data: io_data.clone(),
+                    },
+                    (*next_id, cell_builder, io_data),
+                )
+            },
+            move |key, (id, mut cell_builder, io_data)| {
+                let res = run_schematic_fn(block_clone2, io_data, cell_builder);
+                res.map(|(raw_cell, cell)| {
+                    raw_cell_clone
+                        .set(Arc::new(raw_cell))
+                        .map_err(|_| ())
+                        .unwrap();
+                    cell
+                })
+            },
+        );
+        raw_cell.bind_handle(&cell);
+
+        let metadata = (*metadata).clone();
+
+        inner
+            .schematic
+            .id_to_cell
+            .insert(metadata.id, Box::new(raw_cell.build()));
+
         SchematicCellHandle {
-            id,
-            block: block.clone(),
-            io_data: Clone::clone(&io_data),
-            cell: inner.schematic.cell_cache.generate(
-                key,
-                move |CellCacheKey { block, .. }| {
-                    let mut cell_builder = CellBuilder(cell_builder.into());
-                    let data = block.schematic(&io_data, &mut cell_builder);
-                    data.map(|data| {
-                        context
-                            .inner
-                            .write()
-                            .unwrap()
-                            .schematic
-                            .raw_cells
-                            .insert(id, Arc::new(cell_builder.0.finish()));
-                        SchematicCell::new(id, io_data, block.clone(), data)
-                    })
-                },
-            ),
-        };
-        todo!();
+            id: metadata.id,
+            block,
+            io_data: metadata.io_data.clone(),
+            cell,
+        }
+    }
+
+    /// Steps to create schematic:
+    /// - Check if block has already been generated
+    /// - If not:
+    ///     - Create io_data, returning it immediately
+    ///     - Use io_data and the cell_builder associated with it to
+    ///       generate cell in background
+    /// - If yes:
+    ///     - Retrieve created cell ID, io_data, and handle to cell
+    ///     - being generated and return immediately
+    fn generate_schematic_inner<S: Schema, B: Schematic<PDK, S>>(
+        &self,
+        block: Arc<B>,
+    ) -> SchematicCellHandle<B> {
+        self.generate_inner(
+            block.clone(),
+            CellCacheKey {
+                block,
+                phantom: PhantomData::<(PDK, S)>,
+            },
+            prepare_cell_builder,
+            |a, b, c| B::schematic(a, b, c, sealed::Token),
+        )
     }
 
     /// Generates a schematic for `block` in the background.
@@ -337,58 +387,19 @@ impl<PDK: Pdk> Context<PDK> {
         self.generate_schematic_inner(block)
     }
 
-    fn generate_pdk_schematic_inner<T: PdkSchematic<PDK>>(
+    pub(crate) fn generate_pdk_schematic_inner<B: PdkSchematic<PDK>>(
         &self,
-        block: Arc<T>,
-    ) -> SchematicCellHandle<T> {
-        let mut inner = self.inner.write().unwrap();
-        let key = PdkCellCacheKey {
-            block: block.clone(),
-            phantom: PhantomData::<PDK>,
-        };
-        let context = self.clone();
-        let block_clone = block.clone();
-        let id = inner.schematic.get_id();
-        let PreGenerateCellData {
-            id,
-            cell_builder,
-            io_data,
-        } = inner
-            .schematic
-            .pre_generate_data
-            .get_or_insert(key.clone(), move || {
-                let (cell_builder, io_data) =
-                    prepare_pdk_cell_builder(id, context.clone(), block_clone.as_ref());
-                PreGenerateCellData::<T, PDK> {
-                    id,
-                    cell_builder: cell_builder.0.into(),
-                    io_data: Arc::new(io_data),
-                }
-            });
-        let context = self.clone();
-        SchematicCellHandle {
-            id,
-            block: block.clone(),
-            io_data: io_data.clone(),
-            cell: inner.schematic.cell_cache.generate(
-                key,
-                move |PdkCellCacheKey { block, .. }| {
-                    let mut cell_builder = PdkCellBuilder(cell_builder.into());
-                    let data = block.schematic(&io_data, &mut cell_builder);
-                    data.map(|data| {
-                        context
-                            .inner
-                            .write()
-                            .unwrap()
-                            .schematic
-                            .raw_cells
-                            .insert(id, Arc::new(cell_builder.0.finish()));
-                        SchematicCell::new(id, io_data, block.clone(), data)
-                    })
-                },
-            ),
-        };
-        todo!();
+        block: Arc<B>,
+    ) -> SchematicCellHandle<B> {
+        self.generate_inner(
+            block.clone(),
+            PdkCellCacheKey {
+                block,
+                phantom: PhantomData::<PDK>,
+            },
+            prepare_pdk_cell_builder,
+            |a, b, c| B::schematic(a, b, c, sealed::Token),
+        )
     }
 
     /// Generates a PDK schematic for `block` in the background.
@@ -417,7 +428,7 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn export_scir<S: Schema, T: Schematic<PDK, S>>(
         &self,
         block: T,
-    ) -> Result<RawLib<S::Primitive>, scir::Issues> {
+    ) -> Result<RawLib<S>, scir::Issues> {
         let cell = self.generate_schematic(block);
         let cell = cell.cell();
         self.get_raw_cell(cell.id).unwrap().to_scir_lib()
@@ -451,22 +462,23 @@ impl<PDK: Pdk> Context<PDK> {
         let cell = self.generate_schematic_inner(block.clone());
         // TODO: Handle errors.
         let cell = cell.cell();
-        let lib = self.export_testbench_scir_for_cell(cell)?;
-        let ctx = SimulationContext {
-            lib: Arc::new(lib),
-            work_dir: work_dir.into(),
-            executor: self.executor.clone(),
-            cache: self.cache.clone(),
-        };
-        let controller = SimController {
-            pdk: self.pdk.clone(),
-            tb: (*cell).clone(),
-            simulator,
-            ctx,
-        };
+        todo!();
+        // let lib = self.export_testbench_scir_for_cell(cell)?;
+        // let ctx = SimulationContext {
+        //     lib: Arc::new(lib),
+        //     work_dir: work_dir.into(),
+        //     executor: self.executor.clone(),
+        //     cache: self.cache.clone(),
+        // };
+        // let controller = SimController {
+        //     pdk: self.pdk.clone(),
+        //     tb: (*cell).clone(),
+        //     simulator,
+        //     ctx,
+        // };
 
-        // TODO caching
-        Ok(block.run(controller))
+        // // TODO caching
+        // Ok(block.run(controller))
     }
 
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {
@@ -474,17 +486,20 @@ impl<PDK: Pdk> Context<PDK> {
         arc.downcast().unwrap()
     }
 
-    pub(crate) fn get_raw_cell<P: Primitive>(
-        &self,
-        id: CellId,
-    ) -> Option<Arc<SchematicRawCell<P>>> {
+    pub(crate) fn get_raw_cell<S: Schema>(&self, id: CellId) -> Option<Arc<SchematicRawCell<S>>> {
         self.inner
             .read()
             .unwrap()
             .schematic
-            .raw_cells
+            .id_to_cell
             .get(&id)
-            .and_then(|cell| cell.clone().downcast().ok())
+            .and_then(|cell| {
+                Some(
+                    cell.downcast_ref::<SecondaryCacheHandle<Arc<SchematicRawCell<S>>>>()?
+                        .get()
+                        .clone(),
+                )
+            })
     }
 }
 
@@ -499,12 +514,12 @@ impl ContextInner {
     }
 }
 
-fn prepare_cell_builder<PDK: Pdk, S: Schema, T: Block>(
-    id: crate::schematic::CellId,
+fn prepare_cell_builder_metadata<PDK: Pdk, T: Block>(
+    id: CellId,
     context: Context<PDK>,
     block: &T,
 ) -> (
-    SchematicCellBuilder<PDK, S>,
+    CellBuilderMetadata<PDK>,
     <<T as Block>::Io as SchematicType>::Bundle,
 ) {
     let mut node_ctx = NodeContext::new();
@@ -531,19 +546,37 @@ fn prepare_cell_builder<PDK: Pdk, S: Schema, T: Block>(
         .collect();
 
     let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
-    let cell_builder = SchematicCellBuilder::new(CellBuilderInner {
-        id,
-        root: InstancePath::new(id),
-        cell_name,
-        ctx: context,
-        node_ctx,
-        node_names,
-        ports,
-        contents: CellBuilderContents::Cell(CellInner {
+
+    (
+        CellBuilderMetadata {
+            id,
+            root: InstancePath::new(id),
+            cell_name,
+            ctx: context,
+            node_ctx,
+            node_names,
+            ports,
+            flatten: false,
+        },
+        io_data,
+    )
+}
+
+fn prepare_cell_builder<PDK: Pdk, S: Schema, T: Block>(
+    id: crate::schematic::CellId,
+    context: Context<PDK>,
+    block: &T,
+) -> (
+    SchematicCellBuilder<PDK, S>,
+    <<T as Block>::Io as SchematicType>::Bundle,
+) {
+    let (metadata, io_data) = prepare_cell_builder_metadata(id, context, block);
+    let cell_builder = SchematicCellBuilder(CellBuilderInner {
+        metadata,
+        contents: RawCellContents::Cell(RawCellInner {
             next_instance_id: InstanceId(0),
             instances: Vec::new(),
         }),
-        flatten: false,
     });
 
     (cell_builder, io_data)
@@ -557,43 +590,13 @@ fn prepare_pdk_cell_builder<PDK: Pdk, T: Block>(
     PdkCellBuilder<PDK>,
     <<T as Block>::Io as SchematicType>::Bundle,
 ) {
-    let mut node_ctx = NodeContext::new();
-    // outward-facing IO (to other enclosing blocks)
-    let io_outward = block.io();
-    // inward-facing IO (this block's IO ports as viewed by the interior of the
-    // block)
-    let io_internal = Flipped(io_outward.clone());
-    // FIXME: the cell's IO should not be attributed to this call site
-    let (nodes, io_data) =
-        node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
-    let cell_name = block.name();
-
-    let names = io_outward.flat_names(None);
-    let outward_dirs = io_outward.flatten_vec();
-    assert_eq!(nodes.len(), names.len());
-    assert_eq!(nodes.len(), outward_dirs.len());
-
-    let ports = nodes
-        .iter()
-        .copied()
-        .zip(outward_dirs)
-        .map(|(node, direction)| Port::new(node, direction))
-        .collect();
-
-    let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
+    let (metadata, io_data) = prepare_cell_builder_metadata(id, context, block);
     let cell_builder = PdkCellBuilder(CellBuilderInner {
-        id,
-        root: InstancePath::new(id),
-        cell_name,
-        ctx: context,
-        node_ctx,
-        node_names,
-        ports,
-        contents: CellBuilderContents::Cell(CellInner {
+        metadata,
+        contents: RawCellContents::Cell(RawCellInner {
             next_instance_id: InstanceId(0),
             instances: Vec::new(),
         }),
-        flatten: false,
     });
 
     (cell_builder, io_data)

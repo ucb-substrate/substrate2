@@ -17,16 +17,16 @@ use error::*;
 use indexmap::IndexMap;
 use nutlex::parser::Data;
 use scir::netlist::{Include, NetlistLibConversion};
-use scir::{Expr, Library, SignalPathTail};
+use scir::{Expr, Library, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
-use substrate::pdk::{Pdk, ToSchema};
+use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{RawInstance, Resistor};
-use substrate::schematic::schema::{HasSchemaPrimitive, Schema, Spice};
+use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::spice::{Netlister, Primitive};
+use substrate::spice::Primitive;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -47,7 +47,7 @@ pub enum SaveStmt {
     /// A raw string to follow ".save".
     Raw(ArcStr),
     /// A SCIR signal path representing a node whose voltage should be saved.
-    ScirVoltage(scir::SignalPath),
+    ScirVoltage(SliceOnePath),
     /// A SCIR signal path representing a resistor whose current should be saved.
     ResistorCurrent(scir::InstancePath),
 }
@@ -66,7 +66,7 @@ impl SaveStmt {
 
     pub(crate) fn to_save_string(
         &self,
-        lib: &Library<NgspicePrimitive>,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
@@ -83,7 +83,7 @@ impl SaveStmt {
 
     pub(crate) fn to_data_string(
         &self,
-        lib: &Library<NgspicePrimitive>,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
@@ -102,7 +102,7 @@ pub enum ProbeStmt {
     /// A raw string to follow ".probe".
     Raw(ArcStr),
     /// A SCIR signal path representing a terminal whose current should be saved.
-    ScirCurrent(scir::SignalPath),
+    ScirCurrent(SliceOnePath),
 }
 
 impl<T: Into<ArcStr>> From<T> for ProbeStmt {
@@ -119,7 +119,7 @@ impl ProbeStmt {
 
     pub(crate) fn to_probe_string(
         &self,
-        lib: &Library<NgspicePrimitive>,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
@@ -132,7 +132,7 @@ impl ProbeStmt {
 
     pub(crate) fn to_data_string(
         &self,
-        lib: &Library<NgspicePrimitive>,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
@@ -157,7 +157,7 @@ impl SavedData {
     pub(crate) fn netlist<W: Write>(
         &self,
         out: &mut W,
-        lib: &Library<NgspicePrimitive>,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> std::io::Result<()> {
         match self {
@@ -168,7 +168,7 @@ impl SavedData {
 
     pub(crate) fn to_data_string(
         &self,
-        lib: &Library<NgspicePrimitive>,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
@@ -338,7 +338,7 @@ impl Ngspice {
         std::fs::create_dir_all(&ctx.work_dir)?;
         let netlist = ctx.work_dir.join("netlist.spice");
         let mut f = std::fs::File::create(&netlist)?;
-        let mut w = Vec::new();
+        // let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
@@ -348,98 +348,98 @@ impl Ngspice {
         includes.sort();
         saves.sort();
 
-        let netlister = Netlister::new(todo!(), todo!(), &mut w);
-        let conv = netlister.export()?;
+        todo!();
+        // let netlister = Netlister::new(todo!(), todo!(), &mut w);
+        // let conv = netlister.export()?;
 
-        writeln!(w)?;
-        for save in saves {
-            save.netlist(&mut w, &ctx.lib.scir, &conv)?;
-            writeln!(w)?;
-        }
+        // writeln!(w)?;
+        // for save in saves {
+        //     save.netlist(&mut w, &ctx.lib.scir, &conv)?;
+        //     writeln!(w)?;
+        // }
 
-        writeln!(w)?;
-        for an in input.iter() {
-            an.netlist(&mut w)?;
-            writeln!(w)?;
-        }
-        f.write_all(&w)?;
+        // writeln!(w)?;
+        // for an in input.iter() {
+        //     an.netlist(&mut w)?;
+        //     writeln!(w)?;
+        // }
+        // f.write_all(&w)?;
 
-        let output_file = ctx.work_dir.join("data.raw");
-        let log = ctx.work_dir.join("ngspice.log");
-        let err_log = ctx.work_dir.join("ngspice.err");
-        let run_script = ctx.work_dir.join("simulate.sh");
-        let work_dir = ctx.work_dir.clone();
-        let executor = ctx.executor.clone();
+        // let output_file = ctx.work_dir.join("data.raw");
+        // let log = ctx.work_dir.join("ngspice.log");
+        // let err_log = ctx.work_dir.join("ngspice.err");
+        // let run_script = ctx.work_dir.join("simulate.sh");
+        // let work_dir = ctx.work_dir.clone();
+        // let executor = ctx.executor.clone();
 
-        let raw_outputs = ctx
-            .cache
-            .get_with_state(
-                "ngspice.simulation.outputs",
-                CachedSim {
-                    simulation_netlist: w,
-                },
-                CachedSimState {
-                    input,
-                    netlist,
-                    output_file,
-                    log,
-                    err_log,
-                    run_script,
-                    work_dir,
-                    executor,
-                },
-            )
-            .try_inner()
-            .map_err(|e| match e {
-                TryInnerError::CacheError(e) => Error::Caching(e),
-                TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
-            })?
-            .clone();
+        // let raw_outputs = ctx
+        //     .cache
+        //     .get_with_state(
+        //         "ngspice.simulation.outputs",
+        //         CachedSim {
+        //             simulation_netlist: w,
+        //         },
+        //         CachedSimState {
+        //             input,
+        //             netlist,
+        //             output_file,
+        //             log,
+        //             err_log,
+        //             run_script,
+        //             work_dir,
+        //             executor,
+        //         },
+        //     )
+        //     .try_inner()
+        //     .map_err(|e| match e {
+        //         TryInnerError::CacheError(e) => Error::Caching(e),
+        //         TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
+        //     })?
+        //     .clone();
 
-        let conv = Arc::new(conv);
-        let outputs = raw_outputs
-            .into_iter()
-            .map(|mut raw_values| {
-                TranOutput {
-                    lib: ctx.lib.clone(),
-                    conv: conv.clone(),
-                    time: Arc::new(raw_values.remove("time").unwrap()),
-                    raw_values: raw_values
-                        .into_iter()
-                        .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
-                        .collect(),
-                    saved_values: options
-                        .saves
-                        .iter()
-                        .map(|(k, v)| (*v, k.to_data_string(&ctx.lib.scir, &conv)))
-                        .collect(),
-                }
-                .into()
-            })
-            .collect();
+        // let conv = Arc::new(conv);
+        // let outputs = raw_outputs
+        //     .into_iter()
+        //     .map(|mut raw_values| {
+        //         TranOutput {
+        //             lib: ctx.lib.clone(),
+        //             conv: conv.clone(),
+        //             time: Arc::new(raw_values.remove("time").unwrap()),
+        //             raw_values: raw_values
+        //                 .into_iter()
+        //                 .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+        //                 .collect(),
+        //             saved_values: options
+        //                 .saves
+        //                 .iter()
+        //                 .map(|(k, v)| (*v, k.to_data_string(&ctx.lib.scir, &conv)))
+        //                 .collect(),
+        //         }
+        //         .into()
+        //     })
+        //     .collect();
 
-        Ok(outputs)
+        // Ok(outputs)
     }
 }
 
-impl Schema for Ngspice {
+impl scir::schema::Schema for Ngspice {
     type Primitive = NgspicePrimitive;
 }
 
-impl HasSchemaPrimitive<RawInstance> for Ngspice {
-    fn primitive(block: &RawInstance) -> Self::Primitive {
+impl SchemaPrimitiveWrapper<Ngspice> for RawInstance {
+    fn primitive(&self) -> <Ngspice as Schema>::Primitive {
         NgspicePrimitive::Spice(Primitive::RawInstance {
-            cell: block.cell.clone(),
-            ports: block.ports.clone(),
-            params: block.params.clone(),
+            cell: self.cell.clone(),
+            ports: self.ports.clone(),
         })
     }
 }
 
-impl HasSchemaPrimitive<Resistor> for Ngspice {
-    fn primitive(block: &Resistor) -> Self::Primitive {
+impl SchemaPrimitiveWrapper<Ngspice> for Resistor {
+    fn primitive(&self) -> <Ngspice as Schema>::Primitive {
         NgspicePrimitive::Spice(Primitive::Res2 {
-            value: Expr::NumericLiteral(block.value()),
+            value: Expr::NumericLiteral(self.value()),
         })
     }
 }
@@ -462,82 +462,28 @@ impl Simulator for Ngspice {
 }
 
 pub(crate) fn instance_path(
-    lib: &Library<NgspicePrimitive>,
+    lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
     path: &scir::InstancePath,
 ) -> String {
-    lib.convert_instance_path(conv, path).0.join(".")
+    todo!()
 }
 
 pub(crate) fn node_voltage_path(
-    lib: &Library<NgspicePrimitive>,
+    lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
-    path: &scir::SignalPath,
+    path: &SliceOnePath,
 ) -> String {
-    let scir::NamedSignalPath {
-        mut instances,
-        signal,
-        index,
-    } = lib.convert_signal_path(conv, path);
-    instances.push(signal);
-    let mut str_path = instances.join(".");
-    if let Some(index) = index {
-        str_path.push_str(&format!("[{}]", index));
-    }
-    str_path
+    todo!()
 }
 
 pub(crate) fn node_current_path(
-    lib: &Library<NgspicePrimitive>,
+    lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
-    path: &scir::SignalPath,
+    path: &SliceOnePath,
     save: bool,
 ) -> String {
-    let scir::NamedSignalPath {
-        instances,
-        signal,
-        index,
-    } = lib.convert_signal_path(conv, path);
-    assert_eq!(
-        instances.len(),
-        1,
-        "ngspice only supports saving currents of top level instance terminals"
-    );
-    let mut str_path = if save {
-        instances.join(".")
-    } else {
-        instances
-            .0
-            .into_iter()
-            .map(|inst| inst.substr(1..))
-            .collect::<Vec<_>>()
-            .join(".")
-    };
-    str_path.push(':');
-    match path.tail {
-        SignalPathTail::Scir { cell, slice } => {
-            let cell = lib.cell(cell);
-            if save {
-                let signal = cell.signal(slice.signal());
-                let idx = signal.port.expect("signal is not a valid terminal");
-                str_path.push_str(&format!("{}", idx + slice.index().unwrap_or_default() + 1));
-            } else {
-                str_path.push_str(&signal);
-                if let Some(index) = index {
-                    str_path.push_str(&format!("[{}]", index));
-                }
-            }
-        }
-        _ => {
-            // FIXME: This doesn't work since the port index is required for saving,
-            // but the name is required for recovering.
-            str_path.push_str(&signal);
-            if let Some(index) = index {
-                str_path.push_str(&format!("[{}]", index));
-            }
-        }
-    }
-    str_path
+    todo!();
 }
 
 /// Inputs directly supported by ngspice.

@@ -3,7 +3,7 @@ use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
 use substrate::block::{self, Block};
 use substrate::io::{InOut, Input, Io, Output, SchematicType, Signal};
-use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkCellSchematic, PdkSchematic};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PdkCellBuilder, Schematic};
 
@@ -31,7 +31,7 @@ impl ExportsNestedData for Inverter {
     type NestedData = ();
 }
 
-impl PdkSchematic<Sky130Pdk> for Inverter {
+impl PdkCellSchematic<Sky130Pdk> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,

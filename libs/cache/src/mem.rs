@@ -16,10 +16,10 @@ use crate::{
     GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct TypeMapInner<T> {
     /// Effectively a map from `T -> HashMap<K, V>`.
-    entries: HashMap<T, Arc<Mutex<dyn Any + Send + Sync>>>,
+    entries: HashMap<T, Box<dyn Any + Send + Sync>>,
 }
 
 impl<T> Default for TypeMapInner<T> {
@@ -30,69 +30,150 @@ impl<T> Default for TypeMapInner<T> {
     }
 }
 
+impl<T> TypeMapInner<T> {
+    fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl<T: Hash + PartialEq + Eq> TypeMapInner<T> {
-    fn get_or_insert<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any + Clone>(
+    fn get_or_insert<K: Hash + Eq + Any + Send + Sync, V: Any + Send + Sync>(
         &mut self,
         namespace: T,
         key: K,
         f: impl FnOnce() -> V,
-    ) -> V {
+    ) -> &V {
         let entry = self
             .entries
             .entry(namespace)
-            .or_insert(Arc::new(Mutex::<HashMap<K, V>>::default()));
+            .or_insert_with(|| Box::new(HashMap::<K, V>::default()));
 
-        let mut entry_locked = entry.lock().unwrap();
-
-        let entry = entry_locked
+        entry
             .downcast_mut::<HashMap<K, V>>()
             .unwrap()
-            .entry(key);
+            .entry(key)
+            .or_insert_with(|| f())
+    }
+}
 
-        match entry {
-            Entry::Occupied(o) => o.get().clone(),
-            Entry::Vacant(v) => v.insert(f()).clone(),
+#[derive(Debug)]
+struct TypeCacheInner<T> {
+    /// A map from key type to another map from key to value handle.
+    ///
+    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, (V1, Arc<OnceCell<Result<V2, E>>)>`.
+    partial_blocking_map: TypeMapInner<T>,
+    /// A map from key type to another map from key to value handle.
+    ///
+    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
+    map: TypeMapInner<T>,
+}
+
+impl<T> Default for TypeCacheInner<T> {
+    fn default() -> Self {
+        Self {
+            partial_blocking_map: TypeMapInner::default(),
+            map: TypeMapInner::default(),
         }
     }
 }
 
-/// An in-memory map based on hashable types.
-#[derive(Default, Debug, Clone)]
-pub struct TypeMap {
-    /// A map from key type to another map from key to value.
-    ///
-    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    entries: TypeMapInner<TypeId>,
+impl<T> TypeCacheInner<T> {
+    fn new() -> Self {
+        Self::default()
+    }
 }
 
-impl TypeMap {
-    pub fn get_or_insert<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any + Clone>(
+impl<T: Hash + PartialEq + Eq> TypeCacheInner<T> {
+    fn generate_blocking<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
+        namespace: T,
         key: K,
-        f: impl FnOnce() -> V,
-    ) -> V {
-        self.entries.get_or_insert(TypeId::of::<K>(), key, f)
+        generate_fn: impl GenerateFn<K, V>,
+    ) -> &V {
+        let key = Arc::new(key);
+        self.map
+            .get_or_insert(namespace, key.clone(), move || {
+                CacheHandle::new_blocking(move || generate_fn(key.as_ref()))
+            })
+            .get()
+    }
+
+    fn generate_partial_blocking<
+        K: Hash + Eq + Any + Send + Sync,
+        V1: Send + Sync + Any,
+        V2: Send + Sync + Any,
+        S: Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: T,
+        key: K,
+        blocking_generate_fn: impl FnOnce(&K) -> (V1, S),
+        generate_fn: impl GenerateWithStateFn<K, S, V2>,
+    ) -> (&V1, CacheHandle<V2>) {
+        let key = Arc::new(key);
+        let (v1, handle) =
+            self.partial_blocking_map
+                .get_or_insert(namespace, key.clone(), move || {
+                    let (v1, s) = blocking_generate_fn(key.as_ref());
+                    (v1, CacheHandle::new(move || generate_fn(key.as_ref(), s)))
+                });
+        (v1, handle.clone())
+    }
+
+    fn generate<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
+        &mut self,
+        namespace: T,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) -> CacheHandle<V> {
+        let key = Arc::new(key);
+        self.map
+            .get_or_insert(namespace, key.clone(), move || {
+                CacheHandle::new(move || generate_fn(key.as_ref()))
+            })
+            .clone()
     }
 }
 
 /// An in-memory cache based on hashable types.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct TypeCache {
-    /// A map from key type to another map from key to value handle.
-    ///
-    /// Effectively, the type of this map is `TypeId::of::<K>() -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells: TypeMapInner<TypeId>,
-    /// A map from key and state types to another map from key to value handle.
-    ///
-    /// Effectively, the type of this map is
-    /// `(TypeId::of::<K>(), TypeId::of::<S>()) -> HashMap<Arc<K>, Arc<OnceCell<Result<V, E>>>`.
-    cells_with_state: TypeMapInner<(TypeId, TypeId)>,
+    inner: TypeCacheInner<TypeId>,
+    inner_with_state: TypeCacheInner<(TypeId, TypeId)>,
 }
 
 impl TypeCache {
     /// Creates a new cache.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn generate_blocking<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
+        &mut self,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) -> &V {
+        self.inner
+            .generate_blocking(TypeId::of::<K>(), key, generate_fn)
+    }
+
+    pub fn generate_partial_blocking<
+        K: Hash + Eq + Any + Send + Sync,
+        V1: Send + Sync + Any,
+        V2: Send + Sync + Any,
+        S: Send + Sync + Any,
+    >(
+        &mut self,
+        key: K,
+        blocking_generate_fn: impl FnOnce(&K) -> (V1, S),
+        generate_fn: impl GenerateWithStateFn<K, S, V2>,
+    ) -> (&V1, CacheHandle<V2>) {
+        self.inner.generate_partial_blocking(
+            TypeId::of::<K>(),
+            key,
+            blocking_generate_fn,
+            generate_fn,
+        )
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -131,11 +212,24 @@ impl TypeCache {
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        let key = Arc::new(key);
-        self.cells
-            .get_or_insert(TypeId::of::<K>(), key.clone(), move || {
-                CacheHandle::new(move || generate_fn(key.as_ref()))
-            })
+        self.inner.generate(TypeId::of::<K>(), key, generate_fn)
+    }
+
+    pub fn generate_with_state_blocking<
+        K: Hash + Eq + Any + Send + Sync,
+        V: Send + Sync + Any,
+        S: Send + Sync + Any,
+    >(
+        &mut self,
+        key: K,
+        state: S,
+        generate_fn: impl GenerateWithStateFn<K, S, V>,
+    ) -> &V {
+        self.inner_with_state.generate_blocking(
+            (TypeId::of::<K>(), TypeId::of::<S>()),
+            key,
+            move |key| generate_fn(key, state),
+        )
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -187,12 +281,17 @@ impl TypeCache {
         state: S,
         generate_fn: impl GenerateWithStateFn<K, S, V>,
     ) -> CacheHandle<V> {
-        let key = Arc::new(key);
-        self.cells_with_state.get_or_insert(
-            (TypeId::of::<K>(), TypeId::of::<S>()),
-            key.clone(),
-            move || CacheHandle::new(move || generate_fn(key.as_ref(), state)),
-        )
+        self.inner_with_state
+            .generate((TypeId::of::<K>(), TypeId::of::<S>()), key, move |key| {
+                generate_fn(key, state)
+            })
+    }
+
+    pub fn get_blocking<K: Cacheable>(
+        &mut self,
+        key: K,
+    ) -> &std::result::Result<K::Output, K::Error> {
+        self.generate_blocking(key, |key| key.generate())
     }
 
     /// Gets a handle to a cacheable object from the cache, generating the object in the background
@@ -240,6 +339,14 @@ impl TypeCache {
         key: K,
     ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
         self.generate(key, |key| key.generate())
+    }
+
+    pub fn get_with_state_blocking<S: Send + Sync + Any, K: CacheableWithState<S>>(
+        &mut self,
+        key: K,
+        state: S,
+    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
+        self.generate_with_state(key, state, |key, state| key.generate_with_state(state))
     }
 
     /// Gets a handle to a cacheable object from the cache, generating the object in the background

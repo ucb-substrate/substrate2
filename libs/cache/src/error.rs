@@ -38,6 +38,9 @@ pub enum Error {
     /// The user-provided generator panicked.
     #[error("generator panicked")]
     Panic,
+    /// The secondary value was not set during the user-provided generator.
+    #[error("secondary value was not set")]
+    SecondaryValueUnset,
     /// Exponential backoff for polling the server failed.
     #[error(transparent)]
     Backoff(#[from] Box<backoff::Error<Error>>),

@@ -8,7 +8,7 @@ use substrate::block;
 use substrate::block::{Block, PdkPrimitive};
 use substrate::context::Context;
 use substrate::io::MosIo;
-use substrate::pdk::{HasPdkPrimitive, Pdk};
+use substrate::pdk::{Pdk, PdkPrimitiveSchematic};
 use substrate::schematic::{ExportsNestedData, Schematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
@@ -21,18 +21,28 @@ pub enum ExamplePrimitive {
     Nmos { w: i64, l: i64 },
 }
 
+pub struct ExampleSchema;
+
+impl scir::schema::Schema for ExampleSchema {
+    type Primitive = ExamplePrimitive;
+}
+
 pub struct ExamplePdkA;
 
 impl Pdk for ExamplePdkA {
-    type Primitive = ExamplePrimitive;
+    type Schema = ExampleSchema;
     type Layers = ExamplePdkALayers;
     type Corner = ExampleCorner;
 }
 
 pub struct ExamplePdkB;
 
-impl Pdk for ExamplePdkB {
+impl scir::schema::Schema for ExamplePdkB {
     type Primitive = ExamplePrimitive;
+}
+
+impl Pdk for ExamplePdkB {
+    type Schema = ExampleSchema;
     type Layers = ExamplePdkBLayers;
     type Corner = ExampleCorner;
 }
@@ -40,7 +50,7 @@ impl Pdk for ExamplePdkB {
 pub struct ExamplePdkC;
 
 impl Pdk for ExamplePdkC {
-    type Primitive = ExamplePrimitive;
+    type Schema = ExampleSchema;
     type Layers = ExamplePdkBLayers;
     type Corner = ExampleCorner;
 }
@@ -69,8 +79,8 @@ impl Block for NmosA {
     }
 }
 
-impl HasPdkPrimitive<NmosA> for ExamplePdkA {
-    fn primitive(block: &NmosA) -> Self::Primitive {
+impl PdkPrimitiveSchematic<ExamplePdkA> for NmosA {
+    fn primitive(block: &NmosA) -> ExamplePrimitive {
         ExamplePrimitive::Nmos {
             w: block.w,
             l: block.l,
@@ -99,8 +109,8 @@ impl Block for PmosA {
     }
 }
 
-impl HasPdkPrimitive<PmosA> for ExamplePdkA {
-    fn primitive(block: &PmosA) -> Self::Primitive {
+impl PdkPrimitiveSchematic<ExamplePdkA> for PmosA {
+    fn primitive(block: &PmosA) -> ExamplePrimitive {
         ExamplePrimitive::Pmos {
             w: block.w,
             l: block.l,
@@ -129,8 +139,8 @@ impl Block for NmosB {
     }
 }
 
-impl HasPdkPrimitive<NmosB> for ExamplePdkB {
-    fn primitive(block: &NmosB) -> Self::Primitive {
+impl PdkPrimitiveSchematic<ExamplePdkB> for NmosB {
+    fn primitive(block: &NmosB) -> ExamplePrimitive {
         ExamplePrimitive::Nmos {
             w: block.w,
             l: block.l,
@@ -159,8 +169,8 @@ impl Block for PmosB {
     }
 }
 
-impl HasPdkPrimitive<PmosB> for ExamplePdkB {
-    fn primitive(block: &PmosB) -> Self::Primitive {
+impl PdkPrimitiveSchematic<ExamplePdkB> for PmosB {
+    fn primitive(block: &PmosB) -> ExamplePrimitive {
         ExamplePrimitive::Pmos {
             w: block.w,
             l: block.l,
@@ -189,8 +199,8 @@ impl Block for NmosC {
     }
 }
 
-impl HasPdkPrimitive<NmosC> for ExamplePdkC {
-    fn primitive(block: &NmosC) -> Self::Primitive {
+impl PdkPrimitiveSchematic<ExamplePdkC> for NmosC {
+    fn primitive(block: &NmosC) -> ExamplePrimitive {
         ExamplePrimitive::Nmos {
             w: block.w,
             l: block.l,
@@ -219,8 +229,8 @@ impl Block for PmosC {
     }
 }
 
-impl HasPdkPrimitive<PmosC> for ExamplePdkC {
-    fn primitive(block: &PmosC) -> Self::Primitive {
+impl PdkPrimitiveSchematic<ExamplePdkC> for PmosC {
+    fn primitive(block: &PmosC) -> ExamplePrimitive {
         ExamplePrimitive::Pmos {
             w: block.w,
             l: block.l,

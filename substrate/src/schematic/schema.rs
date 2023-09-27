@@ -1,34 +1,52 @@
 //! Traits and types for specifying formats for storing Substrate schematics.
-use scir::schema::Schema;
 use scir::Expr;
 use std::any::Any;
-use substrate::schematic::Primitive;
+use std::sync::Arc;
 
 use crate::block::{Block, SchemaPrimitive};
 use crate::error::Result;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
 use crate::schematic::primitives::Resistor;
-use crate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+use crate::schematic::{Cell, CellBuilder, ExportsNestedData, RawCell, Schematic};
+use crate::sealed::Token;
+
+pub trait Schema:
+    scir::schema::Schema<Primitive = <Self as Schema>::Primitive> + Send + Sync + Any
+{
+    type Primitive: Primitive;
+}
+
+impl<T: scir::schema::Schema<Primitive = impl Primitive> + Send + Sync + Any> Schema for T {
+    type Primitive = <T as scir::schema::Schema>::Primitive;
+}
+
+pub trait Primitive: Clone + Send + Sync + Any {}
+
+impl<T: Clone + Send + Sync + Any> Primitive for T {}
 
 /// A schema that has a primitive associated with a certain block.
-pub trait HasSchemaPrimitive<B: Block<Kind = SchemaPrimitive>>: Schema {
+pub trait SchemaPrimitiveWrapper<S: Schema>: Block<Kind = SchemaPrimitive> {
     /// Returns the schema primitive corresponding to `block`.
-    fn primitive(block: &B) -> Self::Primitive;
+    fn primitive(&self) -> <S as Schema>::Primitive;
 }
 
 impl<B: Block<Kind = SchemaPrimitive>> ExportsNestedData<SchemaPrimitive> for B {
     type NestedData = ();
 }
-impl<PDK: Pdk, S: HasSchemaPrimitive<B>, B: Block<Kind = SchemaPrimitive>>
+
+impl<PDK: Pdk, S: Schema, B: Block<Kind = SchemaPrimitive> + SchemaPrimitiveWrapper<S>>
     Schematic<PDK, S, SchemaPrimitive> for B
 {
     fn schematic(
-        &self,
-        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
-    ) -> Result<Self::NestedData> {
-        cell.0.set_primitive(S::primitive(self));
-        Ok(())
+        block: Arc<Self>,
+        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
+        mut cell: CellBuilder<PDK, S>,
+        _: Token,
+    ) -> Result<(RawCell<S>, Cell<Self>)> {
+        cell.0
+            .set_primitive(SchemaPrimitiveWrapper::primitive(block.as_ref()));
+        let id = cell.0.metadata.id;
+        Ok((cell.0.finish(), Cell::new(id, io, block, Arc::new(()))))
     }
 }

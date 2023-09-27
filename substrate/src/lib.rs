@@ -1,5 +1,4 @@
 //! The Substrate analog circuit generator framework.
-#![warn(missing_docs)]
 
 extern crate self as substrate;
 

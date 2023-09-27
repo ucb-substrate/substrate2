@@ -4,6 +4,7 @@ use crate::{node_voltage_path, ErrPreset, SimSignal, Spectre, SpectrePrimitive};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
+use scir::SliceOnePath;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -33,7 +34,7 @@ pub struct Tran {
 /// The result of a transient analysis.
 #[derive(Debug, Clone)]
 pub struct TranOutput {
-    pub(crate) lib: Arc<RawLib<SpectrePrimitive>>,
+    pub(crate) lib: Arc<RawLib<Spectre>>,
     pub(crate) conv: Arc<NetlistLibConversion>,
     /// The time points of the transient simulation.
     pub time: Arc<Vec<f64>>,
@@ -143,10 +144,10 @@ impl<T> Save<Spectre, Tran, T> for TranVoltage {
     }
 }
 
-impl Save<Spectre, Tran, &scir::SignalPath> for TranVoltage {
+impl Save<Spectre, Tran, &SliceOnePath> for TranVoltage {
     fn save(
         _ctx: &SimulationContext<Spectre>,
-        to_save: &scir::SignalPath,
+        to_save: &SliceOnePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         opts.save_tran_voltage(SimSignal::ScirVoltage(to_save.clone()))
@@ -163,7 +164,7 @@ impl Save<Spectre, Tran, &NodePath> for TranVoltage {
     }
 }
 
-#[impl_dispatch({scir::SignalPath; NodePath})]
+#[impl_dispatch({SliceOnePath; NodePath})]
 impl<T> Save<Spectre, Tran, T> for TranVoltage {
     fn save(
         ctx: &SimulationContext<Spectre>,
@@ -225,10 +226,10 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
     }
 }
 
-impl Save<Spectre, Tran, &scir::SignalPath> for TranCurrent {
+impl Save<Spectre, Tran, &SliceOnePath> for TranCurrent {
     fn save(
         _ctx: &SimulationContext<Spectre>,
-        to_save: &scir::SignalPath,
+        to_save: &SliceOnePath,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         opts.save_tran_current(SimSignal::ScirCurrent(to_save.clone()))
@@ -252,7 +253,7 @@ impl Save<Spectre, Tran, &TerminalPath> for TranCurrent {
     }
 }
 
-#[impl_dispatch({scir::SignalPath; TerminalPath})]
+#[impl_dispatch({SliceOnePath; TerminalPath})]
 impl<T> Save<Spectre, Tran, T> for TranCurrent {
     fn save(
         ctx: &SimulationContext<Spectre>,
@@ -269,13 +270,14 @@ impl HasSimData<str, Vec<f64>> for TranOutput {
     }
 }
 
-impl HasSimData<scir::SignalPath, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &scir::SignalPath) -> Option<&Vec<f64>> {
-        self.get_data(&*node_voltage_path(
-            &self.lib.scir,
-            &self.conv,
-            &self.lib.scir.simplify_path(k.clone()),
-        ))
+impl HasSimData<SliceOnePath, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &SliceOnePath) -> Option<&Vec<f64>> {
+        todo!()
+        // self.get_data(&*node_voltage_path(
+        //     &self.lib.scir,
+        //     &self.conv,
+        //     &self.lib.scir.simplify_path(k.clone()),
+        // ))
     }
 }
 

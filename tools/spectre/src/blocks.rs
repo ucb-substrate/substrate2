@@ -2,12 +2,13 @@
 
 use indexmap::IndexMap;
 use rust_decimal::Decimal;
+use scir::schema::Schema;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use substrate::block::{Block, SchemaPrimitive};
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::schema::HasSchemaPrimitive;
+use substrate::schematic::schema::SchemaPrimitiveWrapper;
 use substrate::schematic::Schematic;
 
 use crate::{Spectre, SpectrePrimitive};
@@ -69,11 +70,11 @@ impl Block for Vsource {
     }
 }
 
-impl HasSchemaPrimitive<Vsource> for Spectre {
-    fn primitive(block: &Vsource) -> Self::Primitive {
+impl SchemaPrimitiveWrapper<Spectre> for Vsource {
+    fn primitive(&self) -> <Spectre as Schema>::Primitive {
         use arcstr::literal;
         let mut params = IndexMap::new();
-        match block {
+        match self {
             Vsource::Dc(dc) => {
                 params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));
                 params.insert(literal!("dc"), Expr::NumericLiteral(*dc));
@@ -129,8 +130,8 @@ impl Block for Iprobe {
     }
 }
 
-impl HasSchemaPrimitive<Iprobe> for Spectre {
-    fn primitive(block: &Iprobe) -> Self::Primitive {
+impl SchemaPrimitiveWrapper<Spectre> for Iprobe {
+    fn primitive(&self) -> <Spectre as Schema>::Primitive {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],

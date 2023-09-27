@@ -101,10 +101,10 @@ macro_rules! define_mosfets {
             }
         }
 
-        impl substrate::pdk::HasPdkPrimitive<$typ> for crate::Sky130Pdk {
+        impl substrate::pdk::PdkPrimitiveSchematic<crate::Sky130Pdk> for $typ {
             fn primitive(
                 block: &$typ
-            ) -> Self::Primitive {
+            ) -> <crate::Sky130Pdk as substrate::schematic::schema::Schema>::Primitive {
                 crate::Sky130Primitive::Mos {
                     kind: MosKind::$typ,
                     params: block.params.clone(),

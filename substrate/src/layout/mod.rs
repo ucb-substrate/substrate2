@@ -98,7 +98,7 @@ where
 /// Layout-specific context data.
 ///
 /// Stores generated layout cells as well as state used for assigning unique cell IDs.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct LayoutContext {
     next_id: CellId,
     pub(crate) cell_cache: TypeCache,

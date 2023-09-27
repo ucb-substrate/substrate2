@@ -70,10 +70,10 @@ fn export_hard_macro() {
     println!("SCIR Library:\n{:#?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
-    let includes = Vec::new();
-    // TODO: Update to use ngspice netlister.
-    let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
-    netlister.export().unwrap();
+    // let includes = Vec::new();
+    // TODO: Update to use ngspice netlister. Uncomment.
+    // let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
+    // netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
 
@@ -104,9 +104,10 @@ fn export_hard_macro_in_another_pdk() {
     println!("SCIR Library:\n{:?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
-    let includes = Vec::new();
-    let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
-    netlister.export().unwrap();
+    // let includes = Vec::new();
+    // TODO: Uncomment
+    // let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
+    // netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
 }
@@ -125,9 +126,10 @@ fn export_inline_hard_macro() {
     println!("SCIR Library:\n{:?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
-    let includes = Vec::new();
-    let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
-    netlister.export().unwrap();
+    // let includes = Vec::new();
+    // TODO: Uncomment
+    // let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
+    // netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use substrate::block::{Block, PdkCell};
 use substrate::io::{MosIo, NestedTerminal, SchematicType, Terminal, TerminalView};
-use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkCellSchematic, PdkSchematic};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, InstancePath, NestedInstance, PdkCellBuilder};
 use substrate::type_dispatch::impl_dispatch;
@@ -72,7 +72,7 @@ impl ExportsNestedData for InverterMos {
     type NestedData = InverterMosData;
 }
 
-impl PdkSchematic<ExamplePdkA> for InverterMos {
+impl PdkCellSchematic<ExamplePdkA> for InverterMos {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -93,7 +93,7 @@ impl PdkSchematic<ExamplePdkA> for InverterMos {
     }
 }
 
-impl PdkSchematic<ExamplePdkB> for InverterMos {
+impl PdkCellSchematic<ExamplePdkB> for InverterMos {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -125,7 +125,7 @@ impl ExportsNestedData for Inverter {
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> PdkSchematic<PDK> for Inverter {
+impl<PDK> PdkCellSchematic<PDK> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -151,7 +151,7 @@ impl<PDK> PdkSchematic<PDK> for Inverter {
     }
 }
 
-impl PdkSchematic<ExamplePdkC> for Inverter {
+impl PdkCellSchematic<ExamplePdkC> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -188,7 +188,7 @@ impl ExportsNestedData for Buffer {
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB; ExamplePdkC})]
-impl<PDK> PdkSchematic<PDK> for Buffer {
+impl<PDK> PdkCellSchematic<PDK> for Buffer {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -228,7 +228,7 @@ impl ExportsNestedData for BufferN {
     type NestedData = BufferNData;
 }
 
-impl<PDK: Pdk> PdkSchematic<PDK> for BufferN
+impl<PDK: Pdk> PdkCellSchematic<PDK> for BufferN
 where
     Buffer: PdkSchematic<PDK>,
 {
@@ -271,7 +271,7 @@ impl ExportsNestedData for BufferNxM {
     type NestedData = BufferNxMData;
 }
 
-impl<PDK: Pdk> PdkSchematic<PDK> for BufferNxM
+impl<PDK: Pdk> PdkCellSchematic<PDK> for BufferNxM
 where
     BufferN: PdkSchematic<PDK>,
 {

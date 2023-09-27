@@ -4,6 +4,7 @@ use crate::{node_voltage_path, Ngspice, NgspicePrimitive, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
+use scir::SliceOnePath;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -33,7 +34,7 @@ pub struct Tran {
 /// The result of a transient analysis.
 #[derive(Debug, Clone)]
 pub struct TranOutput {
-    pub(crate) lib: Arc<RawLib<NgspicePrimitive>>,
+    pub(crate) lib: Arc<RawLib<Ngspice>>,
     pub(crate) conv: Arc<NetlistLibConversion>,
     /// The time points of the transient simulation.
     pub time: Arc<Vec<f64>>,
@@ -143,10 +144,10 @@ impl<T> Save<Ngspice, Tran, T> for TranVoltage {
     }
 }
 
-impl Save<Ngspice, Tran, &scir::SignalPath> for TranVoltage {
+impl Save<Ngspice, Tran, &SliceOnePath> for TranVoltage {
     fn save(
         _ctx: &SimulationContext<Ngspice>,
-        to_save: &scir::SignalPath,
+        to_save: &SliceOnePath,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         opts.save_tran_voltage(SaveStmt::ScirVoltage(to_save.clone()))
@@ -163,7 +164,7 @@ impl Save<Ngspice, Tran, &NodePath> for TranVoltage {
     }
 }
 
-#[impl_dispatch({scir::SignalPath; NodePath})]
+#[impl_dispatch({SliceOnePath; NodePath})]
 impl<T> Save<Ngspice, Tran, T> for TranVoltage {
     fn save(
         ctx: &SimulationContext<Ngspice>,
@@ -237,16 +238,17 @@ impl<T> Save<Ngspice, Tran, T> for TranCurrent {
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
-        opts.save_tran_current(SaveStmt::ResistorCurrent(
-            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-        ))
+        todo!()
+        // opts.save_tran_current(SaveStmt::ResistorCurrent(
+        //     ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+        // ))
     }
 }
 
-impl Save<Ngspice, Tran, &scir::SignalPath> for TranCurrent {
+impl Save<Ngspice, Tran, &SliceOnePath> for TranCurrent {
     fn save(
         _ctx: &SimulationContext<Ngspice>,
-        to_save: &scir::SignalPath,
+        to_save: &SliceOnePath,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
         opts.probe_tran_current(ProbeStmt::ScirCurrent(to_save.clone()))
@@ -270,7 +272,7 @@ impl Save<Ngspice, Tran, &TerminalPath> for TranCurrent {
     }
 }
 
-#[impl_dispatch({scir::SignalPath; TerminalPath})]
+#[impl_dispatch({SliceOnePath; TerminalPath})]
 impl<T> Save<Ngspice, Tran, T> for TranCurrent {
     fn save(
         ctx: &SimulationContext<Ngspice>,
@@ -287,8 +289,8 @@ impl HasSimData<str, Vec<f64>> for TranOutput {
     }
 }
 
-impl HasSimData<scir::SignalPath, Vec<f64>> for TranOutput {
-    fn get_data(&self, k: &scir::SignalPath) -> Option<&Vec<f64>> {
+impl HasSimData<SliceOnePath, Vec<f64>> for TranOutput {
+    fn get_data(&self, k: &SliceOnePath) -> Option<&Vec<f64>> {
         self.get_data(&*node_voltage_path(
             &self.lib.scir,
             &self.conv,

@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
+use spice::Spice;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -11,6 +12,7 @@ use crate::arcstr;
 use crate::arcstr::ArcStr;
 use crate::block::{Block, SchemaPrimitive};
 use crate::io::{Array, InOut, Signal, TwoTerminalIo};
+use crate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
 
 /// An instance with a pre-defined cell.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +108,14 @@ impl Block for Resistor {
 
     fn io(&self) -> Self::Io {
         Default::default()
+    }
+}
+
+impl SchemaPrimitiveWrapper<Spice> for Resistor {
+    fn primitive(&self) -> <Spice as Schema>::Primitive {
+        spice::Primitive::Res2 {
+            value: self.value.into(),
+        }
     }
 }
 

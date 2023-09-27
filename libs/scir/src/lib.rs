@@ -508,7 +508,6 @@ impl Display for ChildId {
 }
 
 /// A library of SCIR cells with primitive type P.
-#[derive(Debug)]
 pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
     /// The current cell ID counter.
     ///
@@ -554,11 +553,33 @@ impl<S: Schema<Primitive = impl Clone>> Clone for LibraryBuilder<S> {
     }
 }
 
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for LibraryBuilder<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("LibraryBuilder");
+        let _ = builder.field("cell_id", &self.cell_id);
+        let _ = builder.field("primitive_id", &self.primitive_id);
+        let _ = builder.field("name", &self.name);
+        let _ = builder.field("cells", &self.cells);
+        let _ = builder.field("name_map", &self.name_map);
+        let _ = builder.field("primitives", &self.primitives);
+        let _ = builder.field("top", &self.top);
+        builder.finish()
+    }
+}
+
 /// A SCIR library that is guaranteed to be valid (with the exception of primitives,
 /// which are opaque to SCIR).
 ///
 /// The contents of the library cannot be mutated.
 pub struct Library<S: Schema + ?Sized = NoSchema>(LibraryBuilder<S>);
+
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for Library<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("Library");
+        let _ = builder.field("0", &self.0);
+        builder.finish()
+    }
+}
 
 impl<S: Schema> Clone for Library<S>
 where
@@ -577,12 +598,19 @@ impl<S: Schema> Deref for Library<S> {
 }
 
 impl<S: Schema> Library<S> {
-    /// Converts a [`Library<S>`] into a [`Library<C>`].
-    pub fn convert_schema<C: Schema>(self) -> Result<Library<C>, S::Error>
+    /// Converts a [`Library<S>`] into a [`LibraryBuilder<C>`].
+    ///
+    /// A [`LibraryBuilder`] is created to indicate that validation must be done again
+    /// to ensure errors were not introduced during the conversion.
+    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, S::Error>
     where
         S: ToSchema<C>,
     {
-        Ok(Library(self.0.convert_schema()?))
+        Ok(self.0.convert_schema()?)
+    }
+
+    pub fn into_builder(self) -> LibraryBuilder<S> {
+        self.0
     }
 }
 

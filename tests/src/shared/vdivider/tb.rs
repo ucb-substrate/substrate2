@@ -11,7 +11,7 @@ use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
+    Cell, CellBuilder, CellSchematic, ExportsNestedData, Instance, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -33,7 +33,7 @@ impl ExportsNestedData for VdividerTb {
     type NestedData = VdividerTbData;
 }
 
-impl<PDK: Pdk> Schematic<PDK, Spectre> for VdividerTb {
+impl<PDK: Pdk> CellSchematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -71,7 +71,7 @@ impl ExportsNestedData for VdividerDuplicateSubcktTb {
     type NestedData = Instance<VdividerDuplicateSubckt>;
 }
 
-impl<PDK> Schematic<PDK, Spectre> for VdividerDuplicateSubcktTb
+impl<PDK> CellSchematic<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
     PDK: Pdk,
     VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
@@ -181,7 +181,7 @@ impl ExportsNestedData for VdividerArrayTb {
     type NestedData = Instance<VdividerArray>;
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -216,7 +216,9 @@ impl ExportsNestedData for FlattenedVdividerArrayTb {
     type NestedData = Instance<super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> Schematic<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: Pdk + SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre>
+    for FlattenedVdividerArrayTb
+{
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,

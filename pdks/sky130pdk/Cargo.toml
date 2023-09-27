@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }
+scir = { version = "0.5.0", registry = "substrate", path = "../../libs/scir" }
 spectre = { version = "0.6.1", registry = "substrate", path = "../../tools/spectre" }
 ngspice = { version = "0.0.0", registry = "substrate", path = "../../tools/ngspice" }
 

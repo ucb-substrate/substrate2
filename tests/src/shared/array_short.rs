@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
 
-use substrate::pdk::{Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkCellSchematic, PdkSchematic};
 use substrate::schematic::schema::Schema;
 use substrate::{block, block::Block, schematic::Schematic};
 
@@ -41,7 +41,7 @@ impl ExportsNestedData for ArrayShort {
     type NestedData = ();
 }
 
-impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
+impl<PDK: Pdk> PdkCellSchematic<PDK> for ArrayShort {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -58,7 +58,6 @@ impl<PDK: Pdk> PdkSchematic<PDK> for ArrayShort {
 mod tests {
     use super::*;
     use crate::shared::pdk::sky130_open_ctx;
-    use substrate::schematic::schema::Spice;
     use test_log::test;
 
     #[test]

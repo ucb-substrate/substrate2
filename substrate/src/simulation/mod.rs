@@ -15,10 +15,10 @@ use crate::io::{SchematicType, TestbenchIo};
 use crate::pdk::corner::SupportsSimulator;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
+use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
-use scir::schema::Schema;
 
 pub mod data;
 pub mod waveform;

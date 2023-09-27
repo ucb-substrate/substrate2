@@ -200,7 +200,7 @@ fn spectre_can_include_sections() {
         type NestedData = InstanceData<LibIncludeResistor>;
     }
 
-    impl Schematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
+    impl CellSchematic<Sky130CommercialPdk, Spectre> for LibIncludeTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -286,7 +286,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
         type NestedData = ();
     }
 
-    impl Schematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
+    impl CellSchematic<Sky130CommercialPdk, Spectre> for VirtualResistor {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -314,7 +314,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
         type NestedData = InstanceData<VirtualResistor>;
     }
 
-    impl Schematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
+    impl CellSchematic<Sky130CommercialPdk, Spectre> for VirtualResistorTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,

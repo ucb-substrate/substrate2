@@ -5,11 +5,12 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};
-use substrate::pdk::{HasPdkPrimitive, Pdk, PdkSchematic, ToSchema};
+use substrate::pdk::{Pdk, PdkPrimitiveSchematic, PdkSchematic};
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::schema::{HasSchemaPrimitive, Schema};
+use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
 use substrate::schematic::{
-    CellBuilder, ExportsNestedData, Instance, PdkCellBuilder, Schematic, SchematicData,
+    CellBuilder, CellSchematic, ExportsNestedData, Instance, PdkCellBuilder, Schematic,
+    SchematicData,
 };
 
 pub mod flattened;
@@ -110,7 +111,10 @@ impl ExportsNestedData for VdividerArray {
     type NestedData = Vec<Instance<Vdivider>>;
 }
 
-impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for Vdivider {
+impl<PDK: Pdk, S: Schema> CellSchematic<PDK, S> for Vdivider
+where
+    Resistor: SchemaPrimitiveWrapper<S>,
+{
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -127,7 +131,10 @@ impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for Vdivider {
     }
 }
 
-impl<PDK: Pdk, S: HasSchemaPrimitive<Resistor>> Schematic<PDK, S> for VdividerArray {
+impl<PDK: Pdk, S: Schema> CellSchematic<PDK, S> for VdividerArray
+where
+    Resistor: SchemaPrimitiveWrapper<S>,
+{
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
