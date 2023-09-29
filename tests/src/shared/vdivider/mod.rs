@@ -5,7 +5,7 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};
-use substrate::pdk::{Pdk, PdkPrimitiveSchematic, PdkSchematic};
+use substrate::pdk::{Pdk, PdkPrimitiveSchematic, PdkSchematic, SupportsSchema};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
 use substrate::schematic::{
@@ -111,7 +111,7 @@ impl ExportsNestedData for VdividerArray {
     type NestedData = Vec<Instance<Vdivider>>;
 }
 
-impl<PDK: Pdk, S: Schema> CellSchematic<PDK, S> for Vdivider
+impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for Vdivider
 where
     Resistor: SchemaPrimitiveWrapper<S>,
 {
@@ -131,7 +131,7 @@ where
     }
 }
 
-impl<PDK: Pdk, S: Schema> CellSchematic<PDK, S> for VdividerArray
+impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for VdividerArray
 where
     Resistor: SchemaPrimitiveWrapper<S>,
 {

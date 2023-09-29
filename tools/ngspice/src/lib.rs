@@ -17,6 +17,7 @@ use error::*;
 use indexmap::IndexMap;
 use nutlex::parser::Data;
 use scir::netlist::{Include, NetlistLibConversion};
+use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{Expr, Library, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
@@ -425,6 +426,23 @@ impl Ngspice {
 
 impl scir::schema::Schema for Ngspice {
     type Primitive = NgspicePrimitive;
+}
+
+impl FromSchema<NoSchema> for Ngspice {
+    type Error = NoSchemaError;
+
+    fn recover_primitive(
+        primitive: <NoSchema as Schema>::Primitive,
+    ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
+        Err(NoSchemaError)
+    }
+
+    fn recover_instance(
+        instance: &mut scir::Instance,
+        primitive: &<NoSchema as Schema>::Primitive,
+    ) -> std::result::Result<(), Self::Error> {
+        Err(NoSchemaError)
+    }
 }
 
 impl SchemaPrimitiveWrapper<Ngspice> for RawInstance {

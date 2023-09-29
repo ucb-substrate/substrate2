@@ -7,7 +7,7 @@ use substrate::block::{self, Block};
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::SupportsSimulator;
-use substrate::pdk::Pdk;
+use substrate::pdk::{Pdk, SupportsSchema};
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, CellSchematic, ExportsNestedData, Schematic};
@@ -33,7 +33,7 @@ impl ExportsNestedData for RcTb {
     type NestedData = Node;
 }
 
-impl<PDK: Pdk> CellSchematic<PDK, Spectre> for RcTb {
+impl<PDK: SupportsSchema<Spectre>> CellSchematic<PDK, Spectre> for RcTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -53,7 +53,7 @@ impl<PDK: Pdk> CellSchematic<PDK, Spectre> for RcTb {
     }
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
+impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
     type Output = (f64, f64);
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let mut opts = Options::default();

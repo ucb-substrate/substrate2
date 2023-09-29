@@ -7,8 +7,8 @@ use scir::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
     RenameGround,
 };
-use scir::schema::Schema;
-use scir::{Expr, Library, SignalInfo};
+use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
+use scir::{Expr, Instance, Library, SignalInfo};
 use std::collections::HashMap;
 use std::io::prelude::*;
 
@@ -19,6 +19,23 @@ pub struct Spice;
 
 impl Schema for Spice {
     type Primitive = Primitive;
+}
+
+impl FromSchema<NoSchema> for Spice {
+    type Error = NoSchemaError;
+
+    fn recover_primitive(
+        primitive: <NoSchema as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Err(NoSchemaError)
+    }
+
+    fn recover_instance(
+        instance: &mut Instance,
+        primitive: &<NoSchema as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Err(NoSchemaError)
+    }
 }
 
 /// SPICE primitives.

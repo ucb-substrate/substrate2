@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::anyhow;
 use arcstr::ArcStr;
+use emptypdk::EmptyPdk;
 use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
@@ -29,7 +30,7 @@ use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
 #[test]
 fn can_generate_vdivider_schematic() {
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(EmptyPdk);
     let vdivider = Vdivider {
         r1: Resistor::new(300),
         r2: Resistor::new(100),
@@ -59,7 +60,7 @@ fn can_generate_vdivider_schematic() {
 
 #[test]
 fn can_generate_flattened_vdivider_schematic() {
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(EmptyPdk);
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
     let RawLib { scir, conv: _ } = ctx.export_scir::<Spice, _>(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
@@ -86,7 +87,7 @@ fn can_generate_flattened_vdivider_schematic() {
 
 #[test]
 fn can_generate_flattened_vdivider_array_schematic() {
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = Context::new(EmptyPdk);
     let vdiv1 = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
     let vdiv2 = crate::shared::vdivider::flattened::Vdivider::new(600, 800);
     let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);

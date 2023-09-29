@@ -54,6 +54,23 @@ pub trait FromSchema<S: Schema>: Schema {
     ) -> Result<(), Self::Error>;
 }
 
+impl<S: Schema> FromSchema<S> for S {
+    type Error = ();
+
+    fn recover_primitive(
+        primitive: <S as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn recover_instance(
+        _instance: &mut Instance,
+        _primitive: &<S as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
 impl<S1: Schema, S2: FromSchema<S1>> ToSchema<S2> for S1 {
     type Error = <S2 as FromSchema<S1>>::Error;
 
@@ -71,10 +88,6 @@ impl<S1: Schema, S2: FromSchema<S1>> ToSchema<S2> for S1 {
     }
 }
 
-/// A schema with primitives stored as serialized bytes.
-///
-/// Useful for stripping types or converting between schemas for libraries
-/// without associated primitive.
 pub struct NoSchema;
 
 /// An error converting to/from [`NoSchema`].
@@ -93,23 +106,6 @@ pub struct NoPrimitive(());
 
 impl Schema for NoSchema {
     type Primitive = NoPrimitive;
-}
-
-impl<S: Schema> FromSchema<NoSchema> for S {
-    type Error = NoSchemaError;
-
-    fn recover_primitive(
-        _primitive: <NoSchema as Schema>::Primitive,
-    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
-        Err(NoSchemaError)
-    }
-
-    fn recover_instance(
-        _instance: &mut Instance,
-        _primitive: &<NoSchema as Schema>::Primitive,
-    ) -> Result<(), Self::Error> {
-        Err(NoSchemaError)
-    }
 }
 
 /// A schema with arbitrary string primitives.

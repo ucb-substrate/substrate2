@@ -638,6 +638,8 @@ impl Display for Issues {
     }
 }
 
+impl std::error::Error for Issues {}
+
 impl Issues {
     /// Returns `true` if there are warnings.
     pub fn has_warning(&self) -> bool {

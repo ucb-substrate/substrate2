@@ -1,9 +1,11 @@
 use indexmap::IndexMap;
 use ngspice::Ngspice;
+use scir::schema::FromSchema;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
+use spice::Spice;
 use substrate::block;
 use substrate::block::{Block, PdkPrimitive};
 use substrate::context::Context;

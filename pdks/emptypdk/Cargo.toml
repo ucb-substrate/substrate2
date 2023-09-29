@@ -1,0 +1,14 @@
+[package]
+name = "emptypdk"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }
+scir = { version = "0.5.0", registry = "substrate", path = "../../libs/scir" }
+
+rust_decimal = "1.31"
+rust_decimal_macros = "1.31"
+serde = { version = "1", features = ["derive"] }

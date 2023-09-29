@@ -6,7 +6,7 @@ pub mod schema;
 
 use cache::error::TryInnerError;
 use cache::mem::TypeCache;
-use cache::CacheHandle;
+use cache::{CacheHandle, SecondaryCacheHandle};
 pub use codegen::{Schematic, SchematicData};
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ use enumify::enumify;
 use once_cell::sync::OnceCell;
 use scir::schema::ToSchema;
 use scir::Library;
-use substrate::pdk::PdkScirSchematic;
+use substrate::pdk::{PdkScirSchematic, SupportsSchema};
 use type_dispatch::impl_dispatch;
 
 use crate::block::{self, Block, PdkPrimitive, ScirBlock};
@@ -58,7 +58,9 @@ pub trait ExportsNestedData<K = <Self as Block>::Kind>: Block {
 }
 
 /// A block that has a schematic associated with the given PDK and schema.
-pub trait CellSchematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNestedData {
+pub trait CellSchematic<PDK: SupportsSchema<S>, S: Schema, K = <Self as Block>::Kind>:
+    ExportsNestedData
+{
     /// Generates the block's schematic.
     fn schematic(
         &self,
@@ -68,7 +70,9 @@ pub trait CellSchematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: Exports
 }
 
 /// A block that has a schematic associated with the given PDK and schema.
-pub trait Schematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNestedData {
+pub trait Schematic<PDK: SupportsSchema<S>, S: Schema, K = <Self as Block>::Kind>:
+    ExportsNestedData
+{
     /// Generates the block's schematic.
     #[doc(hidden)]
     fn schematic(
@@ -76,22 +80,25 @@ pub trait Schematic<PDK: Pdk, S: Schema, K = <Self as Block>::Kind>: ExportsNest
         io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
         cell: CellBuilder<PDK, S>,
         _: sealed::Token,
-    ) -> Result<(RawCell<S>, Cell<Self>)>;
+    ) -> Result<(RawCell<PDK, S>, Cell<Self>)>;
 }
 
 impl<B: Block<Kind = block::Scir>> ExportsNestedData<block::Scir> for B {
     type NestedData = ();
 }
 
-impl<PDK: Pdk, S: Schema, B: Block<Kind = block::Scir> + ScirSchematic<PDK, S, block::Scir>>
-    Schematic<PDK, S, block::Scir> for B
+impl<
+        PDK: SupportsSchema<S>,
+        S: Schema,
+        B: Block<Kind = block::Scir> + ScirSchematic<PDK, S, block::Scir>,
+    > Schematic<PDK, S, block::Scir> for B
 {
     fn schematic(
         block: Arc<Self>,
         io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
         mut cell: CellBuilder<PDK, S>,
         _: Token,
-    ) -> Result<(RawCell<S>, Cell<Self>)> {
+    ) -> Result<(RawCell<PDK, S>, Cell<Self>)> {
         let (lib, id) = ScirSchematic::schematic(block.as_ref())?;
         cell.0.set_scir(ScirCellInner { lib, cell: id });
         let id = cell.0.metadata.id;
@@ -100,21 +107,17 @@ impl<PDK: Pdk, S: Schema, B: Block<Kind = block::Scir> + ScirSchematic<PDK, S, b
 }
 
 #[impl_dispatch({block::PdkPrimitive; block::PdkScir; block::PdkCell})]
-impl<
-        T,
-        PDK: Pdk<Schema = impl ToSchema<S>>,
-        S: Schema,
-        B: Block<Kind = T> + PdkSchematic<PDK, T>,
-    > Schematic<PDK, S, T> for B
+impl<T, PDK: SupportsSchema<S>, S: Schema, B: Block<Kind = T> + PdkSchematic<PDK, T>>
+    Schematic<PDK, S, T> for B
 {
     fn schematic(
         block: Arc<Self>,
         io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
         mut cell: CellBuilder<PDK, S>,
         _: Token,
-    ) -> Result<(RawCell<S>, Cell<Self>)> {
-        let handle = cell.ctx().generate_pdk_schematic_inner(block.clone());
-        cell.0.set_pdk_id(handle.id);
+    ) -> Result<(RawCell<PDK, S>, Cell<Self>)> {
+        let (raw_cell, handle) = cell.ctx().generate_pdk_schematic_inner(block.clone());
+        cell.0.set_pdk(raw_cell);
         let id = cell.0.metadata.id;
         Ok((
             cell.0.finish(),
@@ -123,15 +126,18 @@ impl<
     }
 }
 
-impl<PDK: Pdk, S: Schema, B: Block<Kind = block::Cell> + CellSchematic<PDK, S, block::Cell>>
-    Schematic<PDK, S, block::Cell> for B
+impl<
+        PDK: SupportsSchema<S>,
+        S: Schema,
+        B: Block<Kind = block::Cell> + CellSchematic<PDK, S, block::Cell>,
+    > Schematic<PDK, S, block::Cell> for B
 {
     fn schematic(
         block: Arc<Self>,
         io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
         mut cell: CellBuilder<PDK, S>,
         _: Token,
-    ) -> Result<(RawCell<S>, Cell<Self>)> {
+    ) -> Result<(RawCell<PDK, S>, Cell<Self>)> {
         let data = CellSchematic::schematic(block.as_ref(), io.as_ref(), &mut cell);
         data.map(|data| {
             let id = cell.0.metadata.id;
@@ -176,11 +182,11 @@ impl<PDK: Pdk> Clone for CellBuilderMetadata<PDK> {
 /// A builder for creating a schematic cell.
 pub(crate) struct CellBuilderInner<PDK: Pdk, S: Schema> {
     pub(crate) metadata: CellBuilderMetadata<PDK>,
-    pub(crate) contents: RawCellContents<S>,
+    pub(crate) contents: RawCellContents<PDK, S>,
 }
 
-impl<PDK: Pdk, S: Schema> CellBuilderInner<PDK, S> {
-    pub(crate) fn finish(self) -> RawCell<S> {
+impl<PDK: SupportsSchema<S>, S: Schema> CellBuilderInner<PDK, S> {
+    pub(crate) fn finish(self) -> RawCell<PDK, S> {
         let mut roots = HashMap::with_capacity(self.metadata.node_names.len());
         let mut uf = self.metadata.node_ctx.into_uf();
         for &node in self.metadata.node_names.keys() {
@@ -254,8 +260,11 @@ impl<PDK: Pdk, S: Schema> CellBuilderInner<PDK, S> {
     }
 
     /// Marks this cell as a PDK-specific cell with the given ID.
-    pub(crate) fn set_pdk_id(&mut self, id: CellId) {
-        self.contents = RawCellContents::PdkId(id);
+    pub(crate) fn set_pdk(
+        &mut self,
+        raw_cell: SecondaryCacheHandle<Arc<RawCell<PDK, PDK::Schema>>>,
+    ) {
+        self.contents = RawCellContents::PdkId(raw_cell);
     }
 
     /// Gets the global context.
@@ -464,7 +473,7 @@ impl<PDK: Pdk<Schema = S>, S: Schema> CellBuilderInner<PDK, S> {
 
 pub struct CellBuilder<PDK: Pdk, S: Schema>(pub(crate) CellBuilderInner<PDK, S>);
 
-impl<PDK: Pdk, S: Schema> CellBuilder<PDK, S> {
+impl<PDK: SupportsSchema<S>, S: Schema> CellBuilder<PDK, S> {
     pub(crate) fn new(inner: CellBuilderInner<PDK, S>) -> Self {
         Self(inner)
     }
@@ -663,7 +672,6 @@ impl<PDK: Pdk> PdkCellBuilder<PDK> {
 
 /// A schematic cell.
 pub struct Cell<T: ExportsNestedData> {
-    pub(crate) id: CellId,
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
@@ -681,7 +689,6 @@ impl<T: ExportsNestedData> Deref for Cell<T> {
     type Target = NestedView<T::NestedData>;
 
     fn deref(&self) -> &Self::Target {
-        println!("{:?}", self.id);
         self.nested_data
             .get_or_init(|| Arc::new(self.data()))
             .as_ref()
@@ -691,7 +698,6 @@ impl<T: ExportsNestedData> Deref for Cell<T> {
 impl<T: ExportsNestedData> Clone for Cell<T> {
     fn clone(&self) -> Self {
         Self {
-            id: self.id,
             block: self.block.clone(),
             nodes: self.nodes.clone(),
             io: self.io.clone(),
@@ -710,7 +716,6 @@ impl<T: ExportsNestedData> Cell<T> {
         data: Arc<T::NestedData>,
     ) -> Self {
         Self {
-            id,
             io,
             block,
             nodes: data,
@@ -1009,9 +1014,9 @@ impl<B: Block> Clone for CellMetadata<B> {
 }
 
 /// Cell data that must run a user specified generator.
-pub(crate) struct CellData<B: ExportsNestedData, S: Schema> {
+pub(crate) struct CellData<B: ExportsNestedData, PDK: Pdk, S: Schema> {
     cell: Cell<B>,
-    raw: RawCell<S>,
+    raw: RawCell<PDK, S>,
 }
 
 pub(crate) struct CellCacheKey<B, PDK, S> {
@@ -1229,19 +1234,22 @@ pub(crate) struct RawInstance {
 /// should not have any public methods.
 #[allow(dead_code)]
 #[doc(hidden)]
-pub struct RawCell<S: Schema> {
+pub struct RawCell<PDK: Pdk, S: Schema> {
     id: CellId,
-    name: ArcStr,
+    pub(crate) name: ArcStr,
     ports: Vec<Port>,
     uf: NodeUf,
     node_names: HashMap<Node, NameBuf>,
     roots: HashMap<Node, Node>,
-    contents: RawCellContents<S>,
+    contents: RawCellContents<PDK, S>,
     /// Whether this cell should be flattened when being exported.
     flatten: bool,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<S> {
+impl<PDK: Pdk, S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<PDK, S>
+where
+    <<PDK as Pdk>::Schema as Schema>::Primitive: std::fmt::Debug,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("RawCell");
         let _ = builder.field("id", &self.id);
@@ -1257,8 +1265,12 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<S>
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContents<S> =
-    RawCellKind<RawCellInner, CellId, ScirCellInner<S>, <S as Schema>::Primitive>;
+pub(crate) type RawCellContents<PDK, S> = RawCellKind<
+    RawCellInner,
+    SecondaryCacheHandle<Arc<RawCell<PDK, <PDK as Pdk>::Schema>>>,
+    ScirCellInner<S>,
+    <S as Schema>::Primitive,
+>;
 
 /// An enumeration of raw cell kinds.
 ///

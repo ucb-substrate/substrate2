@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use substrate::block;
 use substrate::block::Block;
 use substrate::io::SchematicType;
-use substrate::pdk::{Pdk, PdkSchematic};
+use substrate::pdk::{Pdk, PdkSchematic, SupportsSchema};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData};
 
@@ -63,7 +63,7 @@ pub struct VdividerData {
     pub r2: Instance<Resistor>,
 }
 
-impl<PDK: Pdk, S: Schema> CellSchematic<PDK, S> for Vdivider
+impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for Vdivider
 where
     Resistor: SchemaPrimitiveWrapper<S>,
 {
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<PDK: Pdk, S: Schema> CellSchematic<PDK, S> for VdividerArray
+impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for VdividerArray
 where
     Vdivider: Schematic<PDK, S>,
 {

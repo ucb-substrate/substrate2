@@ -3,6 +3,7 @@
 use rust_decimal::Decimal;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use substrate::pdk::SupportsSchema;
 
 use crate::simulation::Simulator;
 
@@ -41,7 +42,7 @@ pub trait Corner: Clone + Serialize + DeserializeOwned {}
 impl<T: Clone + Serialize + DeserializeOwned> Corner for T {}
 
 /// A PDK compatible with simulator `S`.
-pub trait SupportsSimulator<S: Simulator>: Pdk {
+pub trait SupportsSimulator<S: Simulator>: SupportsSchema<S::Schema> {
     /// Install the given process corner in the given simulator.
     ///
     /// A typical corner installation involves telling the simulator to include

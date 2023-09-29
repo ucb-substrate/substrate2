@@ -2,6 +2,7 @@
 use scir::Expr;
 use std::any::Any;
 use std::sync::Arc;
+use substrate::pdk::SupportsSchema;
 
 use crate::block::{Block, SchemaPrimitive};
 use crate::error::Result;
@@ -35,15 +36,18 @@ impl<B: Block<Kind = SchemaPrimitive>> ExportsNestedData<SchemaPrimitive> for B 
     type NestedData = ();
 }
 
-impl<PDK: Pdk, S: Schema, B: Block<Kind = SchemaPrimitive> + SchemaPrimitiveWrapper<S>>
-    Schematic<PDK, S, SchemaPrimitive> for B
+impl<
+        PDK: SupportsSchema<S>,
+        S: Schema,
+        B: Block<Kind = SchemaPrimitive> + SchemaPrimitiveWrapper<S>,
+    > Schematic<PDK, S, SchemaPrimitive> for B
 {
     fn schematic(
         block: Arc<Self>,
         io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
         mut cell: CellBuilder<PDK, S>,
         _: Token,
-    ) -> Result<(RawCell<S>, Cell<Self>)> {
+    ) -> Result<(RawCell<PDK, S>, Cell<Self>)> {
         cell.0
             .set_primitive(SchemaPrimitiveWrapper::primitive(block.as_ref()));
         let id = cell.0.metadata.id;

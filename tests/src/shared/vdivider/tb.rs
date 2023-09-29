@@ -8,7 +8,7 @@ use substrate::block::{self, Block};
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::SupportsSimulator;
-use substrate::pdk::Pdk;
+use substrate::pdk::{Pdk, SupportsSchema};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
     Cell, CellBuilder, CellSchematic, ExportsNestedData, Instance, Schematic, SchematicData,
@@ -33,7 +33,7 @@ impl ExportsNestedData for VdividerTb {
     type NestedData = VdividerTbData;
 }
 
-impl<PDK: Pdk> CellSchematic<PDK, Spectre> for VdividerTb {
+impl<PDK: SupportsSchema<Spectre>> CellSchematic<PDK, Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -73,7 +73,7 @@ impl ExportsNestedData for VdividerDuplicateSubcktTb {
 
 impl<PDK> CellSchematic<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
-    PDK: Pdk,
+    PDK: SupportsSimulator<Spectre>,
     VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
 {
     fn schematic(
@@ -104,7 +104,7 @@ pub struct VdividerDuplicateSubcktTbOutput {
 
 impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
-    PDK: Pdk + SupportsSimulator<Spectre>,
+    PDK: SupportsSimulator<Spectre>,
     VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
 {
     type Output = VdividerDuplicateSubcktTbOutput;
@@ -155,7 +155,7 @@ impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
     }
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
+impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
     type Output = VdividerTbOutput;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let tran: VdividerTbTranOutput = sim
@@ -181,7 +181,7 @@ impl ExportsNestedData for VdividerArrayTb {
     type NestedData = Instance<VdividerArray>;
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre> for VdividerArrayTb {
+impl<PDK: SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -216,9 +216,7 @@ impl ExportsNestedData for FlattenedVdividerArrayTb {
     type NestedData = Instance<super::flattened::VdividerArray>;
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre>
-    for FlattenedVdividerArrayTb
-{
+impl<PDK: SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
@@ -304,7 +302,7 @@ impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for Vdivider
     }
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
     type Output = VdividerArrayTbData;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
         let output = sim

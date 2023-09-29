@@ -17,6 +17,7 @@ use error::*;
 use indexmap::{IndexMap, IndexSet};
 use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
+use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{Expr, Library, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
@@ -408,6 +409,23 @@ impl Spectre {
 
 impl scir::schema::Schema for Spectre {
     type Primitive = SpectrePrimitive;
+}
+
+impl FromSchema<NoSchema> for Spectre {
+    type Error = NoSchemaError;
+
+    fn recover_primitive(
+        primitive: <NoSchema as Schema>::Primitive,
+    ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
+        Err(NoSchemaError)
+    }
+
+    fn recover_instance(
+        instance: &mut scir::Instance,
+        primitive: &<NoSchema as Schema>::Primitive,
+    ) -> std::result::Result<(), Self::Error> {
+        Err(NoSchemaError)
+    }
 }
 
 impl SchemaPrimitiveWrapper<Spectre> for Resistor {

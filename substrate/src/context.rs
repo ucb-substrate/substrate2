@@ -13,6 +13,7 @@ use cache::SecondaryCacheHandle;
 use config::Config;
 use examples::get_snippets;
 use indexmap::IndexMap;
+use substrate::pdk::SupportsSchema;
 use substrate::schematic::{CellBuilder, CellBuilderInner, PdkCellBuilder};
 use tracing::{span, Level};
 
@@ -36,7 +37,7 @@ use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::{Pdk, PdkSchematic};
-use crate::schematic::conv::RawLib;
+use crate::schematic::conv::{ConvError, RawLib, ScirLibExportContext};
 use crate::schematic::schema::Schema;
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellBuilderMetadata, CellCacheKey,
@@ -293,11 +294,14 @@ impl<PDK: Pdk> Context<PDK> {
                 Arc<B>,
                 Arc<<<B as Block>::Io as SchematicType>::Bundle>,
                 C,
-            ) -> Result<(SchematicRawCell<S>, SchematicCell<B>)>
+            ) -> Result<(SchematicRawCell<PDK, S>, SchematicCell<B>)>
             + Send
             + Sync
             + Any,
-    ) -> SchematicCellHandle<B> {
+    ) -> (
+        SecondaryCacheHandle<Arc<SchematicRawCell<PDK, S>>>,
+        SchematicCellHandle<B>,
+    ) {
         let block_clone1 = block.clone();
         let block_clone2 = block.clone();
         let mut inner = self.inner.write().unwrap();
@@ -337,19 +341,15 @@ impl<PDK: Pdk> Context<PDK> {
         );
         raw_cell.bind_handle(&cell);
 
-        let metadata = (*metadata).clone();
-
-        inner
-            .schematic
-            .id_to_cell
-            .insert(metadata.id, Box::new(raw_cell.build()));
-
-        SchematicCellHandle {
-            id: metadata.id,
-            block,
-            io_data: metadata.io_data.clone(),
-            cell,
-        }
+        (
+            raw_cell.build(),
+            SchematicCellHandle {
+                id: metadata.id,
+                block,
+                io_data: metadata.io_data.clone(),
+                cell,
+            },
+        )
     }
 
     /// Steps to create schematic:
@@ -364,7 +364,13 @@ impl<PDK: Pdk> Context<PDK> {
     fn generate_schematic_inner<S: Schema, B: Schematic<PDK, S>>(
         &self,
         block: Arc<B>,
-    ) -> SchematicCellHandle<B> {
+    ) -> (
+        SecondaryCacheHandle<Arc<SchematicRawCell<PDK, S>>>,
+        SchematicCellHandle<B>,
+    )
+    where
+        PDK: SupportsSchema<S>,
+    {
         self.generate_inner(
             block.clone(),
             CellCacheKey {
@@ -382,15 +388,21 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn generate_schematic<S: Schema, T: Schematic<PDK, S>>(
         &self,
         block: T,
-    ) -> SchematicCellHandle<T> {
+    ) -> SchematicCellHandle<T>
+    where
+        PDK: SupportsSchema<S>,
+    {
         let block = Arc::new(block);
-        self.generate_schematic_inner(block)
+        self.generate_schematic_inner(block).1
     }
 
     pub(crate) fn generate_pdk_schematic_inner<B: PdkSchematic<PDK>>(
         &self,
         block: Arc<B>,
-    ) -> SchematicCellHandle<B> {
+    ) -> (
+        SecondaryCacheHandle<Arc<SchematicRawCell<PDK, PDK::Schema>>>,
+        SchematicCellHandle<B>,
+    ) {
         self.generate_inner(
             block.clone(),
             PdkCellCacheKey {
@@ -405,9 +417,9 @@ impl<PDK: Pdk> Context<PDK> {
     /// Generates a PDK schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_pdk_schematic<T: PdkSchematic<PDK>>(&self, block: T) -> SchematicCellHandle<T> {
+    pub fn generate_pdk_schematic<B: PdkSchematic<PDK>>(&self, block: B) -> SchematicCellHandle<B> {
         let block = Arc::new(block);
-        self.generate_pdk_schematic_inner(block)
+        self.generate_pdk_schematic_inner(block).1
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -418,8 +430,9 @@ impl<PDK: Pdk> Context<PDK> {
         block: T,
     ) -> Result<RawLib<PDK::Schema>, scir::Issues> {
         let cell = self.generate_pdk_schematic(block);
-        let cell = cell.cell();
-        self.get_raw_cell(cell.id).unwrap().to_scir_lib()
+        // cell.try_cell()?;
+        todo!()
+        // self.get_raw_cell(cell.id).unwrap().to_scir_lib()
     }
 
     /// Export the given block and all sub-blocks as a SCIR library.
@@ -428,10 +441,15 @@ impl<PDK: Pdk> Context<PDK> {
     pub fn export_scir<S: Schema, T: Schematic<PDK, S>>(
         &self,
         block: T,
-    ) -> Result<RawLib<S>, scir::Issues> {
-        let cell = self.generate_schematic(block);
-        let cell = cell.cell();
-        self.get_raw_cell(cell.id).unwrap().to_scir_lib()
+    ) -> Result<RawLib<S>, ConvError>
+    where
+        PDK: SupportsSchema<S>,
+    {
+        let (raw_cell, _) = self.generate_schematic_inner(Arc::new(block));
+        let raw_cell = raw_cell.get();
+        let ctx = ScirLibExportContext::<PDK, S>::new(raw_cell.name.clone());
+        ctx.cell_to_scir_lib(raw_cell.as_ref())
+        // self.get_raw_cell(cell.id).unwrap().to_scir_lib()
     }
 
     /// Installs a new layer set in the context.
@@ -454,12 +472,13 @@ impl<PDK: Pdk> Context<PDK> {
     /// Simulate the given testbench.
     pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
     where
+        PDK: SupportsSchema<S::Schema>,
         S: Simulator,
         T: Testbench<PDK, S>,
     {
         let simulator = self.get_simulator::<S>();
         let block = Arc::new(block);
-        let cell = self.generate_schematic_inner(block.clone());
+        let (_, cell) = self.generate_schematic_inner(block.clone());
         // TODO: Handle errors.
         let cell = cell.cell();
         todo!();
@@ -486,7 +505,10 @@ impl<PDK: Pdk> Context<PDK> {
         arc.downcast().unwrap()
     }
 
-    pub(crate) fn get_raw_cell<S: Schema>(&self, id: CellId) -> Option<Arc<SchematicRawCell<S>>> {
+    pub(crate) fn get_raw_cell<S: Schema>(
+        &self,
+        id: CellId,
+    ) -> Option<Arc<SchematicRawCell<PDK, S>>> {
         self.inner
             .read()
             .unwrap()
@@ -495,7 +517,7 @@ impl<PDK: Pdk> Context<PDK> {
             .get(&id)
             .and_then(|cell| {
                 Some(
-                    cell.downcast_ref::<SecondaryCacheHandle<Arc<SchematicRawCell<S>>>>()?
+                    cell.downcast_ref::<SecondaryCacheHandle<Arc<SchematicRawCell<PDK, S>>>>()?
                         .get()
                         .clone(),
                 )
