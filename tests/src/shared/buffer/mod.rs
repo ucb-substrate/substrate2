@@ -34,7 +34,7 @@ impl Inverter {
 }
 
 impl Block for Inverter {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
@@ -62,7 +62,7 @@ impl Buffer {
 }
 
 impl Block for Buffer {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
@@ -119,7 +119,7 @@ impl BufferN {
 }
 
 impl Block for BufferN {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = BufferNIo;
 
     fn id() -> arcstr::ArcStr {
@@ -159,7 +159,7 @@ impl BufferNxM {
 }
 
 impl Block for BufferNxM {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = BufferNxMIo;
 
     fn id() -> arcstr::ArcStr {

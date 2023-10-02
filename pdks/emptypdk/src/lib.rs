@@ -12,7 +12,6 @@ pub struct NoLayers;
 pub struct NoCorner;
 
 impl Pdk for EmptyPdk {
-    type Schema = NoSchema;
     type Layers = NoLayers;
     type Corner = NoCorner;
     const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = None;

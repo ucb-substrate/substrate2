@@ -5,11 +5,10 @@ use rust_decimal::Decimal;
 use scir::schema::Schema;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
-use substrate::block::{Block, SchemaPrimitive};
+use substrate::block::{self, Block};
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::schema::SchemaPrimitiveWrapper;
-use substrate::schematic::Schematic;
+use substrate::schematic::{PrimitiveSchematic, Schematic};
 
 use crate::{Spectre, SpectrePrimitive};
 
@@ -55,7 +54,7 @@ impl Vsource {
 
 impl Block for Vsource {
     type Io = TwoTerminalIo;
-    type Kind = SchemaPrimitive;
+    type Kind = block::Primitive;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
@@ -70,8 +69,8 @@ impl Block for Vsource {
     }
 }
 
-impl SchemaPrimitiveWrapper<Spectre> for Vsource {
-    fn primitive(&self) -> <Spectre as Schema>::Primitive {
+impl PrimitiveSchematic<Spectre> for Vsource {
+    fn schematic(&self) -> <Spectre as Schema>::Primitive {
         use arcstr::literal;
         let mut params = IndexMap::new();
         match self {
@@ -115,7 +114,7 @@ pub struct Iprobe;
 
 impl Block for Iprobe {
     type Io = TwoTerminalIo;
-    type Kind = SchemaPrimitive;
+    type Kind = block::Primitive;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("iprobe")
@@ -130,8 +129,8 @@ impl Block for Iprobe {
     }
 }
 
-impl SchemaPrimitiveWrapper<Spectre> for Iprobe {
-    fn primitive(&self) -> <Spectre as Schema>::Primitive {
+impl PrimitiveSchematic<Spectre> for Iprobe {
+    fn schematic(&self) -> <Spectre as Schema>::Primitive {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],

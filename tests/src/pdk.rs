@@ -1,5 +1,5 @@
 use substrate::{
-    context::Context,
+    context::PdkContext,
     pdk::layers::{GdsLayerSpec, Layer},
     schematic::conv::RawLib,
 };
@@ -8,7 +8,7 @@ use crate::shared::pdk::{ExamplePdkA, NmosA};
 
 #[test]
 fn pdk_layers() {
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
 
     assert_eq!(
         ctx.layers.met1a.drawing.info().gds,
@@ -23,8 +23,10 @@ fn pdk_layers() {
 
 #[test]
 fn export_nmos_a() {
-    let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(NmosA { w: 1_200, l: 150 }).unwrap();
+    let ctx = PdkContext::new(ExamplePdkA);
+    let RawLib { scir, conv: _ } = ctx
+        .export_scir::<ExamplePdkA, _>(NmosA { w: 1_200, l: 150 })
+        .unwrap();
     assert_eq!(scir.cells().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);

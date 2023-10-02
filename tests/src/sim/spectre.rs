@@ -14,7 +14,7 @@ use spectre::tran::{Tran, TranCurrent};
 use spectre::{Options, Spectre, SpectrePrimitive};
 use substrate::block::{self, Block};
 use substrate::cache::Cache;
-use substrate::context::Context;
+use substrate::context::PdkContext;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::io::{ArrayData, Flatten, InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
@@ -153,7 +153,7 @@ fn spectre_caches_simulations() {
 
     let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
         .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
-    let ctx = Context::builder()
+    let ctx = PdkContext::builder()
         .pdk(Sky130CommercialPdk::new(pdk_root))
         .with_simulator(Spectre::default())
         .cache(Cache::new(MultiCache::builder().build()))

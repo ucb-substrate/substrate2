@@ -27,7 +27,7 @@ use crate::io::LayoutType;
 use crate::pdk::{HasLayout, Pdk};
 use crate::sealed;
 use crate::{block::Block, error::Error};
-use crate::{context::Context, error::Result};
+use crate::{context::PdkContext, error::Result};
 
 use self::element::{CellId, Element, RawCell, RawInstance, Shape};
 
@@ -401,11 +401,11 @@ pub struct CellBuilder<PDK: Pdk, T> {
     phantom: PhantomData<T>,
     container: Container<PDK>,
     /// The current global context.
-    pub ctx: Context<PDK>,
+    pub ctx: PdkContext<PDK>,
 }
 
 impl<PDK: Pdk, T> CellBuilder<PDK, T> {
-    pub(crate) fn new(ctx: Context<PDK>) -> Self {
+    pub(crate) fn new(ctx: PdkContext<PDK>) -> Self {
         Self {
             phantom: PhantomData,
             container: Container::new(),
@@ -470,7 +470,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     }
 
     /// Gets the global context.
-    pub fn ctx(&self) -> &Context<PDK> {
+    pub fn ctx(&self) -> &PdkContext<PDK> {
         &self.ctx
     }
 }

@@ -19,7 +19,6 @@ use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
-use substrate::pdk::SupportsSchema;
 
 pub mod data;
 pub mod waveform;
@@ -129,9 +128,7 @@ pub trait SetInitialCondition<K, V, S: Simulator> {
     fn set_initial_condition(&mut self, key: K, value: V, ctx: &SimulationContext<S>);
 }
 
-impl<PDK: SupportsSchema<S::Schema> + SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>>
-    SimController<PDK, S, T>
-{
+impl<PDK: SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
     /// Run the given analysis, returning the default output.
     ///
     /// Note that providing [`None`] for `corner` will result in model files not being included,
@@ -177,8 +174,8 @@ impl<PDK: SupportsSchema<S::Schema> + SupportsSimulator<S>, S: Simulator, T: Tes
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<PDK: SupportsSchema<S::Schema>, S: Simulator>:
-    Schematic<PDK, S::Schema> + Block<Io = TestbenchIo>
+pub trait Testbench<PDK: Pdk, S: Simulator>:
+    Schematic<S::Schema> + Block<Io = TestbenchIo>
 {
     /// The output produced by this testbench.
     type Output: Any + Serialize + DeserializeOwned;

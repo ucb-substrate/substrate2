@@ -1,11 +1,11 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use substrate::block::{Block, PdkCell};
+use substrate::block::Block;
 use substrate::io::{MosIo, NestedTerminal, SchematicType, Terminal, TerminalView};
-use substrate::pdk::{Pdk, PdkCellSchematic, PdkSchematic};
+use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, InstancePath, NestedInstance, PdkCellBuilder};
+use substrate::schematic::{CellBuilder, InstancePath, NestedInstance};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     io::Signal,
@@ -19,7 +19,7 @@ use crate::shared::pdk::{
 use super::{BufferN, Inverter};
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "MosIo", kind = "PdkCell")]
+#[substrate(io = "MosIo", kind = "Cell")]
 pub enum InverterMos {
     Nmos,
     Pmos,
@@ -72,11 +72,11 @@ impl ExportsNestedData for InverterMos {
     type NestedData = InverterMosData;
 }
 
-impl PdkCellSchematic<ExamplePdkA> for InverterMos {
+impl Schematic<ExamplePdkA> for InverterMos {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<ExamplePdkA>,
+        cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         match self {
             Self::Pmos => {
@@ -93,11 +93,11 @@ impl PdkCellSchematic<ExamplePdkA> for InverterMos {
     }
 }
 
-impl PdkCellSchematic<ExamplePdkB> for InverterMos {
+impl Schematic<ExamplePdkB> for InverterMos {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<ExamplePdkB>,
+        cell: &mut CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::NestedData> {
         match self {
             Self::Pmos => {
@@ -125,11 +125,11 @@ impl ExportsNestedData for Inverter {
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> PdkCellSchematic<PDK> for Inverter {
+impl<PDK> Schematic<PDK> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(InverterMos::Nmos);
         let nmos = nmos.io();
@@ -151,11 +151,11 @@ impl<PDK> PdkCellSchematic<PDK> for Inverter {
     }
 }
 
-impl PdkCellSchematic<ExamplePdkC> for Inverter {
+impl Schematic<ExamplePdkC> for Inverter {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<ExamplePdkC>,
+        cell: &mut CellBuilder<ExamplePdkC>,
     ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(NmosC { w: 50, l: 50 });
         let nmos = nmos.io();
@@ -188,11 +188,11 @@ impl ExportsNestedData for Buffer {
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB; ExamplePdkC})]
-impl<PDK> PdkCellSchematic<PDK> for Buffer {
+impl<PDK> Schematic<PDK> for Buffer {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
         let inv1 = cell.instantiate(Inverter::new(self.strength));
         let inv1_io = inv1.io();
@@ -228,14 +228,14 @@ impl ExportsNestedData for BufferN {
     type NestedData = BufferNData;
 }
 
-impl<PDK: Pdk> PdkCellSchematic<PDK> for BufferN
+impl<S: Schema> Schematic<S> for BufferN
 where
-    Buffer: PdkSchematic<PDK>,
+    Buffer: Schematic<S>,
 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut buffers = Vec::new();
         for _ in 0..self.n {
@@ -271,14 +271,14 @@ impl ExportsNestedData for BufferNxM {
     type NestedData = BufferNxMData;
 }
 
-impl<PDK: Pdk> PdkCellSchematic<PDK> for BufferNxM
+impl<S: Schema> Schematic<S> for BufferNxM
 where
-    BufferN: PdkSchematic<PDK>,
+    BufferN: Schematic<S>,
 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut buffer_chains = Vec::new();
         for i in 0..self.n {

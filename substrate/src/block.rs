@@ -21,28 +21,13 @@ impl BlockKind for Cell {
     fn sealed(_: Token) {}
 }
 
-pub struct PdkCell;
-impl BlockKind for PdkCell {
-    fn sealed(_: Token) {}
-}
-
 pub struct Scir;
 impl BlockKind for Scir {
     fn sealed(_: Token) {}
 }
 
-pub struct PdkScir;
-impl BlockKind for PdkScir {
-    fn sealed(_: Token) {}
-}
-
-pub struct SchemaPrimitive;
-impl BlockKind for SchemaPrimitive {
-    fn sealed(_: Token) {}
-}
-
-pub struct PdkPrimitive;
-impl BlockKind for PdkPrimitive {
+pub struct Primitive;
+impl BlockKind for Primitive {
     fn sealed(_: Token) {}
 }
 
@@ -71,31 +56,4 @@ pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
 
     /// Returns a fully-specified instance of this cell's `Io`.
     fn io(&self) -> Self::Io;
-}
-
-pub trait PdkBlock<K = <Self as Block>::Kind>: Block {
-    #[doc(hidden)]
-    fn sealed(_: sealed::Token);
-}
-
-impl<B: Block<Kind = PdkPrimitive>> PdkBlock<PdkPrimitive> for B {
-    fn sealed(_: Token) {}
-}
-impl<B: Block<Kind = PdkCell>> PdkBlock<PdkCell> for B {
-    fn sealed(_: Token) {}
-}
-impl<B: Block<Kind = PdkScir>> PdkBlock<PdkScir> for B {
-    fn sealed(_: Token) {}
-}
-
-pub trait ScirBlock<K = <Self as Block>::Kind>: Block {
-    #[doc(hidden)]
-    fn sealed(_: sealed::Token);
-}
-
-impl<B: Block<Kind = Scir>> ScirBlock<Scir> for B {
-    fn sealed(_: Token) {}
-}
-impl<B: Block<Kind = PdkScir>> ScirBlock<PdkScir> for B {
-    fn sealed(_: Token) {}
 }

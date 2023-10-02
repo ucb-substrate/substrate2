@@ -2,9 +2,8 @@
 use scir::Expr;
 use std::any::Any;
 use std::sync::Arc;
-use substrate::pdk::SupportsSchema;
 
-use crate::block::{Block, SchemaPrimitive};
+use crate::block::Block;
 use crate::error::Result;
 use crate::io::SchematicType;
 use crate::pdk::Pdk;
@@ -26,31 +25,6 @@ pub trait Primitive: Clone + Send + Sync + Any {}
 
 impl<T: Clone + Send + Sync + Any> Primitive for T {}
 
-/// A schema that has a primitive associated with a certain block.
-pub trait SchemaPrimitiveWrapper<S: Schema>: Block<Kind = SchemaPrimitive> {
-    /// Returns the schema primitive corresponding to `block`.
-    fn primitive(&self) -> <S as Schema>::Primitive;
-}
+pub trait ToSchema<S: Schema>: Schema + scir::schema::ToSchema<S> {}
 
-impl<B: Block<Kind = SchemaPrimitive>> ExportsNestedData<SchemaPrimitive> for B {
-    type NestedData = ();
-}
-
-impl<
-        PDK: SupportsSchema<S>,
-        S: Schema,
-        B: Block<Kind = SchemaPrimitive> + SchemaPrimitiveWrapper<S>,
-    > Schematic<PDK, S, SchemaPrimitive> for B
-{
-    fn schematic(
-        block: Arc<Self>,
-        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
-        mut cell: CellBuilder<PDK, S>,
-        _: Token,
-    ) -> Result<(RawCell<PDK, S>, Cell<Self>)> {
-        cell.0
-            .set_primitive(SchemaPrimitiveWrapper::primitive(block.as_ref()));
-        let id = cell.0.metadata.id;
-        Ok((cell.0.finish(), Cell::new(id, io, block, Arc::new(()))))
-    }
-}
+impl<S1: Schema, S2: Schema + scir::schema::ToSchema<S1>> ToSchema<S1> for S2 {}

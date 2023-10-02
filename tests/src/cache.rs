@@ -4,13 +4,13 @@ use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
-use substrate::pdk::{Pdk, PdkCellSchematic, PdkSchematic};
+use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, HasNestedView, InstancePath, PdkCellBuilder};
+use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
     block,
     block::Block,
-    context::Context,
+    context::PdkContext,
     schematic::{ExportsNestedData, Schematic},
 };
 
@@ -38,7 +38,7 @@ impl Cacheable for CachedDesignScript {
 pub struct CacheBlock(u64);
 
 impl Block for CacheBlock {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -71,11 +71,11 @@ impl ExportsNestedData for CacheBlock {
     type NestedData = CacheBlockData;
 }
 
-impl PdkCellSchematic<ExamplePdkA> for CacheBlock {
+impl Schematic<ExamplePdkA> for CacheBlock {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<ExamplePdkA>,
+        cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let design = *cell
             .ctx()
@@ -89,12 +89,12 @@ impl PdkCellSchematic<ExamplePdkA> for CacheBlock {
 
 #[test]
 fn caching_works() {
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
     for i in 0..5 {
         // Generates 5 different blocks that share the same design script.
         //
         // Should only run the design script once even though 5 schematics are generated.
-        let handle = ctx.generate_pdk_schematic(CacheBlock(i));
+        let handle = ctx.generate_schematic::<ExamplePdkA, _>(CacheBlock(i));
         assert_eq!(handle.cell().design, 25);
     }
     assert_eq!(*RUNS.lock().unwrap(), 1);

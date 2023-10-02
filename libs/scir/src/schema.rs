@@ -114,3 +114,19 @@ pub struct StringSchema;
 impl Schema for StringSchema {
     type Primitive = ArcStr;
 }
+
+impl FromSchema<NoSchema> for StringSchema {
+    type Error = NoSchemaError;
+
+    fn recover_primitive(
+        primitive: <NoSchema as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Err(NoSchemaError)
+    }
+    fn recover_instance(
+        instance: &mut Instance,
+        primitive: &<NoSchema as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Err(NoSchemaError)
+    }
+}

@@ -3,7 +3,7 @@ use geometry::side::Sides;
 use geometry::{prelude::Bbox, rect::Rect};
 use serde::{Deserialize, Serialize};
 use substrate::block::{self, Block};
-use substrate::context::Context;
+use substrate::context::PdkContext;
 use substrate::geometry::transform::{Transform, TransformMut, Translate, TranslateMut};
 use substrate::layout::element::Shape;
 use substrate::layout::tiling::{GridTile, GridTiler, Tile};
@@ -83,7 +83,7 @@ fn layout_generation_and_data_propagation_work() {
 
     let block = Buffer::new(5);
 
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
     let handle = ctx.generate_layout(block);
     let cell = handle.cell();
 
@@ -116,7 +116,7 @@ fn layout_generation_and_data_propagation_work() {
     ctx.write_layout(block, get_path(test_name, "layout_pdk_a.gds"))
         .expect("failed to write layout");
 
-    let ctx = Context::new(ExamplePdkB);
+    let ctx = PdkContext::new(ExamplePdkB);
     let handle = ctx.generate_layout(Buffer::new(5));
     let cell = handle.cell();
 
@@ -142,7 +142,7 @@ fn nested_transform_views_work() {
 
     let block = BufferN::new(5, 10);
 
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
     ctx.write_layout(block, get_path(test_name, "layout.gds"))
         .expect("failed to write layout");
 
@@ -161,7 +161,7 @@ fn cell_builder_supports_bbox() {
 
     let block = BufferNxM::new(5, 10, 6);
 
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
     ctx.write_layout(block, get_path(test_name, "layout.gds"))
         .expect("failed to write layout");
 
@@ -175,7 +175,7 @@ fn cell_builder_supports_bbox() {
 fn grid_tiler_works_with_various_spans() {
     let test_name = "grid_tiler_works_with_various_spans";
 
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
     ctx.write_layout(GridTilerExample, get_path(test_name, "layout.gds"))
         .expect("failed to write layout");
 }

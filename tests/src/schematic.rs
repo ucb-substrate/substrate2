@@ -7,15 +7,15 @@ use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
 use substrate::io::SchematicType;
-use substrate::pdk::{Pdk, PdkCellSchematic};
+use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, NestedInstance, PdkCellBuilder};
+use substrate::schematic::{CellBuilder, NestedInstance};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block,
     block::Block,
-    context::Context,
+    context::PdkContext,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
     schematic::{conv::RawLib, ExportsNestedData, Schematic},
 };
@@ -30,7 +30,7 @@ use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
 #[test]
 fn can_generate_vdivider_schematic() {
-    let ctx = Context::new(EmptyPdk);
+    let ctx = PdkContext::new(EmptyPdk);
     let vdivider = Vdivider {
         r1: Resistor::new(300),
         r2: Resistor::new(100),
@@ -60,7 +60,7 @@ fn can_generate_vdivider_schematic() {
 
 #[test]
 fn can_generate_flattened_vdivider_schematic() {
-    let ctx = Context::new(EmptyPdk);
+    let ctx = PdkContext::new(EmptyPdk);
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
     let RawLib { scir, conv: _ } = ctx.export_scir::<Spice, _>(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
@@ -87,7 +87,7 @@ fn can_generate_flattened_vdivider_schematic() {
 
 #[test]
 fn can_generate_flattened_vdivider_array_schematic() {
-    let ctx = Context::new(EmptyPdk);
+    let ctx = PdkContext::new(EmptyPdk);
     let vdiv1 = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
     let vdiv2 = crate::shared::vdivider::flattened::Vdivider::new(600, 800);
     let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);
@@ -145,8 +145,8 @@ fn nested_io_naming() {
 
 #[test]
 fn internal_signal_names_preserved() {
-    let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_pdk_scir(Buffer::new(5)).unwrap();
+    let ctx = PdkContext::new(ExamplePdkA);
+    let RawLib { scir, conv: _ } = ctx.export_scir::<ExamplePdkA, _>(Buffer::new(5)).unwrap();
     assert_eq!(scir.cells().count(), 4);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
@@ -166,8 +166,8 @@ fn internal_signal_names_preserved() {
 
 #[test]
 fn nested_node_naming() {
-    let ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_pdk_schematic(BufferNxM::new(5, 5, 5));
+    let ctx = PdkContext::new(ExamplePdkA);
+    let handle = ctx.generate_schematic::<ExamplePdkA, _>(BufferNxM::new(5, 5, 5));
     let cell = handle.cell();
 
     println!("{:?}", cell.bubbled_inv1.path());
@@ -214,7 +214,7 @@ fn nested_node_naming() {
 pub struct Block1;
 
 impl Block for Block1 {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -235,11 +235,11 @@ impl ExportsNestedData for Block1 {
 }
 
 #[impl_dispatch({ExamplePdkA; ExamplePdkB})]
-impl<PDK> PdkCellSchematic<PDK> for Block1 {
+impl<PDK> Schematic<PDK> for Block1 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
+        cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
         Err(substrate::error::Error::Anyhow(
             anyhow!("failed to generate block 1").into(),
@@ -251,7 +251,7 @@ impl<PDK> PdkCellSchematic<PDK> for Block1 {
 pub struct Block2;
 
 impl Block for Block2 {
-    type Kind = block::PdkCell;
+    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -271,24 +271,24 @@ impl ExportsNestedData for Block2 {
     type NestedData = ();
 }
 
-impl PdkCellSchematic<ExamplePdkA> for Block2 {
+impl Schematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<ExamplePdkA>,
+        cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate(Block1);
-        handle.try_cell()?;
+        handle.cell.try_cell()?;
         let _inst = cell.add(handle);
         Ok(())
     }
 }
 
-impl PdkCellSchematic<ExamplePdkB> for Block2 {
+impl Schematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<ExamplePdkB>,
+        cell: &mut CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate_blocking(Block1)?;
         let _inst = cell.add(handle);
@@ -298,11 +298,11 @@ impl PdkCellSchematic<ExamplePdkB> for Block2 {
 
 #[test]
 fn error_propagation_works() {
-    let ctx = Context::new(ExamplePdkA);
-    let handle = ctx.generate_pdk_schematic(Block2);
-    assert!(handle.try_cell().is_err());
+    let ctx = PdkContext::new(ExamplePdkA);
+    let handle = ctx.generate_schematic::<ExamplePdkA, _>(Block2);
+    assert!(handle.cell.try_cell().is_err());
 
-    let ctx = Context::new(ExamplePdkB);
-    let handle = ctx.generate_pdk_schematic(Block2);
-    assert!(handle.try_cell().is_err());
+    let ctx = PdkContext::new(ExamplePdkB);
+    let handle = ctx.generate_schematic::<ExamplePdkB, _>(Block2);
+    assert!(handle.cell.try_cell().is_err());
 }

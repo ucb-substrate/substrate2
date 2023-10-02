@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 use spice::Spice;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use substrate::schematic::PrimitiveSchematic;
 
-use crate::arcstr;
 use crate::arcstr::ArcStr;
-use crate::block::{Block, SchemaPrimitive};
+use crate::block::Block;
 use crate::io::{Array, InOut, Signal, TwoTerminalIo};
-use crate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
+use crate::schematic::schema::Schema;
+use crate::{arcstr, block};
 
 /// An instance with a pre-defined cell.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,7 +58,7 @@ impl RawInstance {
     }
 }
 impl Block for RawInstance {
-    type Kind = SchemaPrimitive;
+    type Kind = block::Primitive;
     type Io = InOut<Array<Signal>>;
 
     fn id() -> ArcStr {
@@ -95,7 +96,7 @@ impl Resistor {
     }
 }
 impl Block for Resistor {
-    type Kind = SchemaPrimitive;
+    type Kind = block::Primitive;
     type Io = TwoTerminalIo;
 
     fn id() -> ArcStr {
@@ -111,8 +112,8 @@ impl Block for Resistor {
     }
 }
 
-impl SchemaPrimitiveWrapper<Spice> for Resistor {
-    fn primitive(&self) -> <Spice as Schema>::Primitive {
+impl PrimitiveSchematic<Spice> for Resistor {
+    fn schematic(&self) -> <Spice as Schema>::Primitive {
         spice::Primitive::Res2 {
             value: self.value.into(),
         }
@@ -141,7 +142,7 @@ impl Capacitor {
     }
 }
 impl Block for Capacitor {
-    type Kind = SchemaPrimitive;
+    type Kind = block::Primitive;
     type Io = TwoTerminalIo;
 
     fn id() -> ArcStr {

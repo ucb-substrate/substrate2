@@ -25,7 +25,8 @@ use substrate::execute::Executor;
 use substrate::io::SchematicType;
 use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{RawInstance, Resistor};
-use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::PrimitiveSchematic;
 use substrate::simulation::{SimulationContext, Simulator};
 use substrate::spice::Primitive;
 use templates::{write_run_script, RunScriptContext};
@@ -445,8 +446,8 @@ impl FromSchema<NoSchema> for Ngspice {
     }
 }
 
-impl SchemaPrimitiveWrapper<Ngspice> for RawInstance {
-    fn primitive(&self) -> <Ngspice as Schema>::Primitive {
+impl PrimitiveSchematic<Ngspice> for RawInstance {
+    fn schematic(&self) -> <Ngspice as Schema>::Primitive {
         NgspicePrimitive::Spice(Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
@@ -454,8 +455,8 @@ impl SchemaPrimitiveWrapper<Ngspice> for RawInstance {
     }
 }
 
-impl SchemaPrimitiveWrapper<Ngspice> for Resistor {
-    fn primitive(&self) -> <Ngspice as Schema>::Primitive {
+impl PrimitiveSchematic<Ngspice> for Resistor {
+    fn schematic(&self) -> <Ngspice as Schema>::Primitive {
         NgspicePrimitive::Spice(Primitive::Res2 {
             value: Expr::NumericLiteral(self.value()),
         })

@@ -7,10 +7,10 @@ use substrate::block::{self, Block};
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::SupportsSimulator;
-use substrate::pdk::{Pdk, SupportsSchema};
+use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, CellSchematic, ExportsNestedData, Schematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::Testbench;
 
@@ -33,11 +33,11 @@ impl ExportsNestedData for RcTb {
     type NestedData = Node;
 }
 
-impl<PDK: SupportsSchema<Spectre>> CellSchematic<PDK, Spectre> for RcTb {
+impl Schematic<Spectre> for RcTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Spectre>,
+        cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vout = cell.signal("vout", Signal);
 

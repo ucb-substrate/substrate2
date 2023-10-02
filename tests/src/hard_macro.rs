@@ -10,7 +10,7 @@ use substrate::{layout::Layout, schematic::Schematic};
 use test_log::test;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic, Layout)]
-#[substrate(io = "BufferIo", kind = "PdkScir", flatten)]
+#[substrate(io = "BufferIo", kind = "Scir", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/buffer.spice\")",
     name = "buffer",
@@ -26,7 +26,7 @@ use test_log::test;
 pub struct BufferHardMacro;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
-#[substrate(io = "BufferIo", kind = "PdkScir")]
+#[substrate(io = "BufferIo", kind = "Scir")]
 #[substrate(schematic(
     source = "r#\"
         * CMOS buffer
@@ -48,11 +48,7 @@ pub struct BufferHardMacro;
 pub struct BufferInlineHardMacro;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
-#[substrate(
-    io = "crate::shared::vdivider::VdividerFlatIo",
-    kind = "PdkScir",
-    flatten
-)]
+#[substrate(io = "crate::shared::vdivider::VdividerFlatIo", kind = "Scir", flatten)]
 #[substrate(schematic(
     source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
     name = "vdivider",
@@ -66,7 +62,7 @@ fn export_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
-    let lib = ctx.export_scir::<Spectre, _>(BufferHardMacro).unwrap();
+    let lib = ctx.export_scir::<Sky130Pdk, _>(BufferHardMacro).unwrap();
     println!("SCIR Library:\n{:#?}", lib.scir);
 
     let mut buf: Vec<u8> = Vec::new();
@@ -119,7 +115,7 @@ fn export_inline_hard_macro() {
     let ctx = sky130_open_ctx();
     // TODO: Update to use ngspice netlister.
     let lib = ctx
-        .export_scir::<Spectre, _>(BufferInlineHardMacro)
+        .export_scir::<Sky130Pdk, _>(BufferInlineHardMacro)
         .unwrap();
     assert_eq!(lib.scir.cells().count(), 3);
 

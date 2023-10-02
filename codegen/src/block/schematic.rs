@@ -278,12 +278,10 @@ impl ToTokens for HasSchematicInputReceiver {
             };
 
             quote! {
-                impl #imp #substrate::pdk::PdkScirSchematic<#pdk> for #ident #ty #wher {
+                impl #imp #substrate::schematic::ScirSchematic<#pdk> for #ident #ty #wher {
                     fn schematic(
                         &self
-                    ) -> #substrate::error::Result<(#substrate::scir::Library<<#pdk as #substrate::pdk::Pdk>::Schema>, #substrate::scir::CellId)> {
-                        use #substrate::pdk::Pdk;
-
+                    ) -> #substrate::error::Result<(#substrate::scir::Library<#pdk>, #substrate::scir::CellId)> {
                         let source = {
                             #source
                         };
@@ -292,7 +290,7 @@ impl ToTokens for HasSchematicInputReceiver {
 
                         Ok((
                             // TODO: More descriptive error.
-                            lib.convert_schema::<<#pdk as #substrate::pdk::Pdk>::Schema>()
+                            lib.convert_schema::<#pdk>()
                                 .map_err(|_| #substrate::error::Error::UnsupportedPrimitive)?.build().unwrap(),
                             cell_id
                         ))

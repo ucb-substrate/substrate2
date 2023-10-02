@@ -88,7 +88,7 @@ macro_rules! define_mosfets {
 
         impl Block for $typ {
             type Io = MosIo;
-            type Kind = substrate::block::PdkPrimitive;
+            type Kind = substrate::block::Primitive;
 
             fn id() -> substrate::arcstr::ArcStr {
                 arcstr::literal!(stringify!($name))
@@ -101,13 +101,13 @@ macro_rules! define_mosfets {
             }
         }
 
-        impl substrate::pdk::PdkPrimitiveSchematic<crate::Sky130Pdk> for $typ {
-            fn primitive(
-                block: &$typ
+        impl substrate::schematic::PrimitiveSchematic<crate::Sky130Pdk> for $typ {
+            fn schematic(
+                &self
             ) -> <crate::Sky130Pdk as substrate::schematic::schema::Schema>::Primitive {
                 crate::Sky130Primitive::Mos {
                     kind: MosKind::$typ,
-                    params: block.params.clone(),
+                    params: self.params.clone(),
                 }
             }
         }

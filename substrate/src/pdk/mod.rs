@@ -3,17 +3,15 @@
 pub mod corner;
 mod data;
 pub mod layers;
-pub mod primitives;
 
 use std::any::Any;
 use std::sync::Arc;
 
 use rust_decimal::Decimal;
-use scir::schema::ToSchema;
-use substrate::schematic::{Instance, PdkCellBuilder, SchematicData};
+use substrate::schematic::{Instance, SchematicData};
 use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block, PdkBlock, PdkPrimitive, PdkScir, ScirBlock};
+use crate::block::{self, Block};
 use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
@@ -27,8 +25,6 @@ use self::layers::Layers;
 
 /// A process development kit.
 pub trait Pdk: Send + Sync + Any {
-    /// The schema for storing PDK schematics.
-    type Schema: Schema;
     /// A set of layers used by the PDK.
     type Layers: Layers;
     /// The type representing a corner in this PDK.
@@ -42,129 +38,6 @@ pub type PdkLayers<PDK> = <PDK as Pdk>::Layers;
 
 /// The type of a PDK's corners.
 pub type PdkCorner<PDK> = <PDK as Pdk>::Corner;
-
-pub trait SupportsSchema<S: Schema>: Pdk {
-    /// The conversion error type.
-    type Error;
-
-    /// Converts a primitive of the original schema to a primitive of the other.
-    fn convert_primitive(
-        primitive: <Self::Schema as Schema>::Primitive,
-    ) -> Result<<S as Schema>::Primitive, Self::Error>;
-
-    /// Converts an instance from the original schema to a new instance
-    /// based on its associated primitive.
-    fn convert_instance(
-        instance: &mut scir::Instance,
-        primitive: &<Self::Schema as Schema>::Primitive,
-    ) -> Result<(), Self::Error>;
-}
-
-impl<PDK: Pdk<Schema = impl ToSchema<S> + Schema>, S: Schema<Primitive = impl Primitive>>
-    SupportsSchema<S> for PDK
-{
-    type Error = <Self::Schema as ToSchema<S>>::Error;
-
-    fn convert_primitive(
-        primitive: <Self::Schema as Schema>::Primitive,
-    ) -> Result<<S as Schema>::Primitive, Self::Error> {
-        <PDK::Schema as ToSchema<S>>::convert_primitive(primitive)
-    }
-
-    fn convert_instance(
-        instance: &mut scir::Instance,
-        primitive: &<Self::Schema as Schema>::Primitive,
-    ) -> Result<(), Self::Error> {
-        <PDK::Schema as ToSchema<S>>::convert_instance(instance, primitive)
-    }
-}
-
-pub trait PdkPrimitiveSchematic<PDK: Pdk>: Block<Kind = PdkPrimitive> {
-    fn primitive(block: &Self) -> <PDK::Schema as Schema>::Primitive;
-}
-
-pub trait PdkScirSchematic<PDK: Pdk>: Block<Kind = PdkScir> {
-    fn schematic(&self) -> Result<(scir::Library<PDK::Schema>, scir::CellId)>;
-}
-
-pub trait PdkCellSchematic<PDK: Pdk, K = <Self as Block>::Kind>:
-    ExportsNestedData + PdkBlock
-{
-    /// Generates the block's schematic.
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut PdkCellBuilder<PDK>,
-    ) -> Result<Self::NestedData>;
-}
-
-pub trait PdkSchematic<PDK: Pdk, K = <Self as Block>::Kind>: ExportsNestedData + PdkBlock {
-    /// Generates the block's schematic.
-    #[doc(hidden)]
-    fn schematic(
-        block: Arc<Self>,
-        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
-        cell: PdkCellBuilder<PDK>,
-        _: sealed::Token,
-    ) -> Result<(RawCell<PDK, PDK::Schema>, Cell<Self>)>;
-}
-
-impl<B: Block<Kind = PdkPrimitive>> ExportsNestedData<PdkPrimitive> for B {
-    type NestedData = ();
-}
-
-impl<PDK: Pdk, B: Block<Kind = PdkPrimitive> + PdkPrimitiveSchematic<PDK>>
-    PdkSchematic<PDK, PdkPrimitive> for B
-{
-    fn schematic(
-        block: Arc<Self>,
-        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
-        mut cell: PdkCellBuilder<PDK>,
-        _: Token,
-    ) -> Result<(RawCell<PDK, PDK::Schema>, Cell<Self>)> {
-        cell.0
-            .set_primitive(PdkPrimitiveSchematic::primitive(block.as_ref()));
-        let id = cell.0.metadata.id;
-        Ok((cell.0.finish(), Cell::new(id, io, block, Arc::new(()))))
-    }
-}
-
-impl<B: Block<Kind = block::PdkScir>> ExportsNestedData<block::PdkScir> for B {
-    type NestedData = ();
-}
-
-impl<PDK: Pdk, B: Block<Kind = block::PdkScir> + PdkScirSchematic<PDK>>
-    PdkSchematic<PDK, block::PdkScir> for B
-{
-    fn schematic(
-        block: Arc<Self>,
-        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
-        mut cell: PdkCellBuilder<PDK>,
-        _: Token,
-    ) -> Result<(RawCell<PDK, PDK::Schema>, Cell<Self>)> {
-        let (lib, id) = PdkScirSchematic::schematic(block.as_ref())?;
-        cell.0.set_scir(ScirCellInner { lib, cell: id });
-        let id = cell.0.metadata.id;
-        Ok((cell.0.finish(), Cell::new(id, io, block, Arc::new(()))))
-    }
-}
-
-impl<PDK: Pdk, B: Block<Kind = block::PdkCell> + PdkCellSchematic<PDK>>
-    PdkSchematic<PDK, block::PdkCell> for B
-{
-    fn schematic(
-        block: Arc<Self>,
-        io: Arc<<<Self as Block>::Io as SchematicType>::Bundle>,
-        mut cell: PdkCellBuilder<PDK>,
-        _: Token,
-    ) -> Result<(RawCell<PDK, PDK::Schema>, Cell<Self>)> {
-        let data = PdkCellSchematic::schematic(block.as_ref(), io.as_ref(), &mut cell);
-        data.map(|data| {
-            let id = cell.0.metadata.id;
-            (cell.0.finish(), Cell::new(id, io, block, Arc::new(data)))
-        })
-    }
-}
 
 /// A PDK that has a layout for block `B`.
 ///

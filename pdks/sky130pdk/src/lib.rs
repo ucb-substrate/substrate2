@@ -124,7 +124,6 @@ impl Sky130Pdk {
 }
 
 impl Pdk for Sky130Pdk {
-    type Schema = Sky130Pdk;
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
     const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));

@@ -10,13 +10,13 @@ use spectre::tran::Tran;
 use spectre::{Options, Spectre};
 use substrate::block;
 use substrate::block::Block;
-use substrate::context::Context;
+use substrate::context::PdkContext;
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, CellSchematic, ExportsNestedData, Schematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::Testbench;
@@ -41,13 +41,14 @@ impl ExportsNestedData for InverterTb {
     type NestedData = Node;
 }
 
-impl CellSchematic<Sky130Pdk, Spectre> for InverterTb {
+impl Schematic<Spectre> for InverterTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<Sky130Pdk, Spectre>,
+        cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
-        let inv = cell.instantiate(self.dut);
+        let mut sub_cell = cell.sub_builder::<Sky130Pdk>();
+        let inv = sub_cell.instantiate(self.dut);
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
@@ -135,7 +136,7 @@ pub struct InverterDesign {
 }
 
 impl InverterDesign {
-    pub fn run(&self, ctx: &mut Context<Sky130Pdk>, work_dir: impl AsRef<Path>) -> Inverter {
+    pub fn run(&self, ctx: &mut PdkContext<Sky130Pdk>, work_dir: impl AsRef<Path>) -> Inverter {
         let work_dir = work_dir.as_ref();
         let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
 

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use substrate::block::{self, Block};
-use substrate::context::Context;
+use substrate::context::PdkContext;
 use substrate::geometry::prelude::*;
 use substrate::io::{
     CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
@@ -535,7 +535,7 @@ pub struct BufferNData {
 
 fn generate_layout() {
     // begin-code-snippet generate
-    let ctx = Context::new(ExamplePdk);
+    let ctx = PdkContext::new(ExamplePdk);
     let handle = ctx.generate_layout(Buffer::new(5));
     let cell: &Cell<Buffer> = handle.cell();
 

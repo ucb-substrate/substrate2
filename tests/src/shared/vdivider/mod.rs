@@ -5,12 +5,11 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};
-use substrate::pdk::{Pdk, PdkPrimitiveSchematic, PdkSchematic, SupportsSchema};
+use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
+use substrate::schematic::schema::{Primitive, Schema};
 use substrate::schematic::{
-    CellBuilder, CellSchematic, ExportsNestedData, Instance, PdkCellBuilder, Schematic,
-    SchematicData,
+    CellBuilder, ExportsNestedData, Instance, PrimitiveSchematic, Schematic, SchematicData,
 };
 
 pub mod flattened;
@@ -111,14 +110,14 @@ impl ExportsNestedData for VdividerArray {
     type NestedData = Vec<Instance<Vdivider>>;
 }
 
-impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for Vdivider
+impl<S: Schema> Schematic<S> for Vdivider
 where
-    Resistor: SchemaPrimitiveWrapper<S>,
+    Resistor: PrimitiveSchematic<S>,
 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
+        cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
@@ -131,14 +130,14 @@ where
     }
 }
 
-impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for VdividerArray
+impl<S: Schema> Schematic<S> for VdividerArray
 where
-    Resistor: SchemaPrimitiveWrapper<S>,
+    Resistor: PrimitiveSchematic<S>,
 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
+        cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut vdividers = Vec::new();
 

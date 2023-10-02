@@ -1,6 +1,7 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use sky130pdk::Sky130Pdk;
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::tran::{Tran, TranCurrent, TranVoltage};
 use spectre::{Options, Spectre, SpectrePrimitive};
@@ -8,10 +9,10 @@ use substrate::block::{self, Block};
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::SupportsSimulator;
-use substrate::pdk::{Pdk, SupportsSchema};
+use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    Cell, CellBuilder, CellSchematic, ExportsNestedData, Instance, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -33,11 +34,11 @@ impl ExportsNestedData for VdividerTb {
     type NestedData = VdividerTbData;
 }
 
-impl<PDK: SupportsSchema<Spectre>> CellSchematic<PDK, Spectre> for VdividerTb {
+impl Schematic<Spectre> for VdividerTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Spectre>,
+        cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd_a = cell.signal("vdd_a", Signal);
         let vdd = cell.signal("vdd", Signal);
@@ -71,19 +72,17 @@ impl ExportsNestedData for VdividerDuplicateSubcktTb {
     type NestedData = Instance<VdividerDuplicateSubckt>;
 }
 
-impl<PDK> CellSchematic<PDK, Spectre> for VdividerDuplicateSubcktTb
-where
-    PDK: SupportsSimulator<Spectre>,
-    VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
-{
+impl Schematic<Spectre> for VdividerDuplicateSubcktTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Spectre>,
+        cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
-        let dut = cell.instantiate(VdividerDuplicateSubckt);
+        let dut = cell
+            .sub_builder::<Sky130Pdk>()
+            .instantiate(VdividerDuplicateSubckt);
 
         cell.connect(dut.io().vdd, vdd);
         cell.connect(dut.io().vss, io.vss);
@@ -105,7 +104,6 @@ pub struct VdividerDuplicateSubcktTbOutput {
 impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
 where
     PDK: SupportsSimulator<Spectre>,
-    VdividerDuplicateSubckt: Schematic<PDK, Spectre>,
 {
     type Output = VdividerDuplicateSubcktTbOutput;
     fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
@@ -181,11 +179,11 @@ impl ExportsNestedData for VdividerArrayTb {
     type NestedData = Instance<VdividerArray>;
 }
 
-impl<PDK: SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre> for VdividerArrayTb {
+impl Schematic<Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Spectre>,
+        cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(VdividerArray {
@@ -216,11 +214,11 @@ impl ExportsNestedData for FlattenedVdividerArrayTb {
     type NestedData = Instance<super::flattened::VdividerArray>;
 }
 
-impl<PDK: SupportsSimulator<Spectre>> CellSchematic<PDK, Spectre> for FlattenedVdividerArrayTb {
+impl Schematic<Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Spectre>,
+        cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let dut = cell.instantiate(super::flattened::VdividerArray {

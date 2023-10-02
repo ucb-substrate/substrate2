@@ -24,7 +24,8 @@ use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
-use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::PrimitiveSchematic;
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -428,8 +429,8 @@ impl FromSchema<NoSchema> for Spectre {
     }
 }
 
-impl SchemaPrimitiveWrapper<Spectre> for Resistor {
-    fn primitive(&self) -> <Spectre as Schema>::Primitive {
+impl PrimitiveSchematic<Spectre> for Resistor {
+    fn schematic(&self) -> <Spectre as Schema>::Primitive {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("resistor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
@@ -441,8 +442,8 @@ impl SchemaPrimitiveWrapper<Spectre> for Resistor {
     }
 }
 
-impl SchemaPrimitiveWrapper<Spectre> for Capacitor {
-    fn primitive(&self) -> <Spectre as Schema>::Primitive {
+impl PrimitiveSchematic<Spectre> for Capacitor {
+    fn schematic(&self) -> <Spectre as Schema>::Primitive {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
@@ -454,8 +455,8 @@ impl SchemaPrimitiveWrapper<Spectre> for Capacitor {
     }
 }
 
-impl SchemaPrimitiveWrapper<Spectre> for RawInstance {
-    fn primitive(&self) -> <Spectre as Schema>::Primitive {
+impl PrimitiveSchematic<Spectre> for RawInstance {
+    fn schematic(&self) -> <Spectre as Schema>::Primitive {
         SpectrePrimitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),

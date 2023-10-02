@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use substrate::block::{self, Block};
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
-use substrate::schematic::schema::{Schema, SchemaPrimitiveWrapper};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::PrimitiveSchematic;
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -31,7 +32,7 @@ pub struct Pulse {
 
 /// A voltage source.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo", kind = "SchemaPrimitive")]
+#[substrate(io = "TwoTerminalIo", kind = "Primitive")]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
@@ -51,8 +52,8 @@ impl Vsource {
     }
 }
 
-impl SchemaPrimitiveWrapper<Ngspice> for Vsource {
-    fn primitive(&self) -> <Ngspice as Schema>::Primitive {
+impl PrimitiveSchematic<Ngspice> for Vsource {
+    fn schematic(&self) -> <Ngspice as Schema>::Primitive {
         NgspicePrimitive::Vsource(self.clone())
     }
 }

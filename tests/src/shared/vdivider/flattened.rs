@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use substrate::block;
 use substrate::block::Block;
 use substrate::io::SchematicType;
-use substrate::pdk::{Pdk, PdkSchematic, SupportsSchema};
+use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData};
 
@@ -63,14 +63,14 @@ pub struct VdividerData {
     pub r2: Instance<Resistor>,
 }
 
-impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for Vdivider
+impl<S: Schema> Schematic<S> for Vdivider
 where
-    Resistor: SchemaPrimitiveWrapper<S>,
+    Resistor: PrimitiveSchematic<S>,
 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
+        cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
@@ -83,14 +83,14 @@ where
     }
 }
 
-impl<PDK: SupportsSchema<S>, S: Schema> CellSchematic<PDK, S> for VdividerArray
+impl<S: Schema> Schematic<S> for VdividerArray
 where
-    Vdivider: Schematic<PDK, S>,
+    Vdivider: Schematic<S>,
 {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, S>,
+        cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut vdividers = Vec::new();
 
