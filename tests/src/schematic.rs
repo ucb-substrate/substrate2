@@ -53,9 +53,7 @@ fn can_generate_vdivider_schematic() {
     assert!(port_names.contains("pwr_vss"));
     assert!(port_names.contains("out"));
     assert_eq!(vdiv.ports().count(), 3);
-    // TODO: uncomment
-    // let contents = vdiv.contents().as_ref().unwrap_cell();
-    // assert_eq!(contents.instances().count(), 2);
+    assert_eq!(vdiv.instances().count(), 2);
 }
 
 #[test]

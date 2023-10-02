@@ -1225,7 +1225,7 @@ impl<S: Schema> RawCellContents<S> {
     }
 }
 
-trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
+pub(crate) trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
     fn convert_primitive(&self) -> Result<<S as Schema>::Primitive>;
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()>;
 }
@@ -1278,7 +1278,7 @@ impl<S: Schema> Clone for ConvertedPrimitive<S> {
 ///
 /// Can be used to store data associated with each kind of raw cell.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[enumify::enumify]
+#[enumify::enumify(generics_only)]
 pub(crate) enum RawCellKind<C, S, P, CP> {
     Cell(C),
     Scir(S),

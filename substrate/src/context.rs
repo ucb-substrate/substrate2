@@ -307,7 +307,10 @@ impl Context {
         &self,
         block: T,
     ) -> Result<RawLib<S>, ConvError> {
-        todo!()
+        let cell = self.generate_schematic(block);
+        // TODO: Handle errors.
+        let (raw, _) = cell.handle.unwrap_inner();
+        raw.to_scir_lib()
     }
 }
 

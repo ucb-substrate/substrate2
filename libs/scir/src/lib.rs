@@ -1509,6 +1509,12 @@ impl Cell {
         self.instances.insert(id, instance);
         id
     }
+
+    /// Iterate over the instances of this cell.
+    #[inline]
+    pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance)> {
+        self.instances.iter().map(|x| (*x.0, x.1))
+    }
 }
 
 impl Instance {
