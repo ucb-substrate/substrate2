@@ -47,6 +47,11 @@ pub enum Primitive {
     Mos { mname: ArcStr },
     /// A raw instance with associated cell `cell`.
     RawInstance { cell: ArcStr, ports: Vec<ArcStr> },
+    ExternalModule {
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        contents: ArcStr,
+    },
 }
 
 impl HasSpiceLikeNetlist for Spice {
@@ -111,7 +116,34 @@ impl HasSpiceLikeNetlist for Spice {
         Ok(name)
     }
 
-    fn write_primitive<W: Write>(
+    fn write_primitive_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<()> {
+        match primitive {
+            Primitive::ExternalModule {
+                cell,
+                ports,
+                contents,
+            } => {
+                write!(out, ".SUBCKT {}", cell)?;
+                for port in ports {
+                    write!(out, " {}", port)?;
+                }
+                writeln!(out, "\n")?;
+
+                writeln!(out, "{}", contents)?;
+
+                self.write_end_subckt(out, cell)?;
+                writeln!(out)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
         name: &ArcStr,
@@ -142,7 +174,8 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {}", mname)?;
                 name
             }
-            Primitive::RawInstance { cell, ports } => {
+            Primitive::RawInstance { cell, ports }
+            | Primitive::ExternalModule { cell, ports, .. } => {
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {

@@ -42,7 +42,7 @@ pub enum SpectrePrimitive {
     RawInstance {
         cell: ArcStr,
         ports: Vec<ArcStr>,
-        params: IndexMap<ArcStr, Expr>,
+        params: HashMap<ArcStr, Expr>,
     },
 }
 
@@ -434,7 +434,7 @@ impl PrimitiveSchematic<Spectre> for Resistor {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("resistor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
-            params: IndexMap::from_iter([(
+            params: HashMap::from_iter([(
                 arcstr::literal!("r"),
                 Expr::NumericLiteral(self.value()),
             )]),
@@ -447,7 +447,7 @@ impl PrimitiveSchematic<Spectre> for Capacitor {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
-            params: IndexMap::from_iter([(
+            params: HashMap::from_iter([(
                 arcstr::literal!("c"),
                 Expr::NumericLiteral(self.value()),
             )]),

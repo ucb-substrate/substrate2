@@ -96,8 +96,18 @@ pub trait HasSpiceLikeNetlist: Schema {
         connections: impl Iterator<Item = ArcStr>,
         child: &ArcStr,
     ) -> Result<ArcStr>;
+    /// Writes a primitive subcircuit.
+    ///
+    /// Should include a newline after if needed.
+    fn write_primitive_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> Result<()> {
+        Ok(())
+    }
     /// Writes a primitive instantiation.
-    fn write_primitive<W: Write>(
+    fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
         name: &ArcStr,
@@ -229,6 +239,10 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                 .insert(id, self.export_cell(cell, self.lib.is_top(id))?);
         }
 
+        for (id, prim) in self.lib.primitives() {
+            self.schema.write_primitive_subckt(self.out, prim)?;
+        }
+
         self.schema.write_postlude(self.out, self.lib)?;
         Ok(conv)
     }
@@ -289,7 +303,7 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                 ChildId::Primitive(child_id) => {
                     let child = self.lib.primitive(child_id);
                     self.schema
-                        .write_primitive(self.out, inst.name(), connections, child)?
+                        .write_primitive_inst(self.out, inst.name(), connections, child)?
                 }
             };
             conv.instances.insert(*id, name);

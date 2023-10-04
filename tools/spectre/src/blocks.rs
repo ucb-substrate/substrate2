@@ -5,6 +5,7 @@ use rust_decimal::Decimal;
 use scir::schema::Schema;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use substrate::block::{self, Block};
 use substrate::io::TwoTerminalIo;
 use substrate::pdk::Pdk;
@@ -72,7 +73,7 @@ impl Block for Vsource {
 impl PrimitiveSchematic<Spectre> for Vsource {
     fn schematic(&self) -> <Spectre as Schema>::Primitive {
         use arcstr::literal;
-        let mut params = IndexMap::new();
+        let mut params = HashMap::new();
         match self {
             Vsource::Dc(dc) => {
                 params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));
@@ -134,7 +135,7 @@ impl PrimitiveSchematic<Spectre> for Iprobe {
         SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],
-            params: IndexMap::new(),
+            params: HashMap::new(),
         }
     }
 }

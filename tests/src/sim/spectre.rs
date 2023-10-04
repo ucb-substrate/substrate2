@@ -295,7 +295,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             let res1 = cell.instantiate_connected(ScirResistor, io);
             let res = cell.instantiate_connected(Resistor::new(dec!(200)), io);
             cell.instantiate_connected(
-                RawInstance::from_params(
+                RawInstance::with_params(
                     arcstr::literal!("resistor"),
                     vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
                     IndexMap::from_iter([(arcstr::literal!("r"), NumericLiteral(dec!(300)))]),

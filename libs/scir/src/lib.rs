@@ -36,7 +36,6 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
-pub mod blackbox;
 pub mod merge;
 pub mod netlist;
 pub mod schema;

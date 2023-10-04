@@ -27,16 +27,10 @@ fn export_nmos_a() {
     let RawLib { scir, conv: _ } = ctx
         .export_scir::<ExamplePdkA, _>(NmosA { w: 1_200, l: 150 })
         .unwrap();
-    assert_eq!(scir.cells().count(), 1);
+    assert_eq!(scir.primitives().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
     println!("Issues = {:#?}", issues);
     assert_eq!(issues.num_errors(), 0);
     assert_eq!(issues.num_warnings(), 0);
-
-    let mos = scir.cell_named("nmos_a_w1200_l150");
-    assert_eq!(mos.ports().count(), 4);
-    // TODO: Uncomment
-    // let contents = mos.contents().as_ref().unwrap_cell();
-    // assert_eq!(contents.instances().count(), 1);
 }

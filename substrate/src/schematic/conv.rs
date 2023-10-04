@@ -92,7 +92,7 @@ pub struct ScirLibConversion {
     pub(crate) primitive_mapping: HashMap<CellId, PrimitiveId>,
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
-    pub(crate) top: scir::CellId,
+    pub(crate) top: Option<scir::CellId>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -114,7 +114,7 @@ impl ScirLibConversionBuilder {
             cell_mapping: self.cell_mapping,
             primitive_mapping: self.primitive_mapping,
             cells: self.cells,
-            top: self.top.unwrap(),
+            top: self.top,
         }
     }
 
@@ -335,18 +335,16 @@ impl<S: Schema> RawCell<S> {
     pub(crate) fn to_scir_lib(&self) -> Result<RawLib<S>, ConvError> {
         let mut lib_ctx = ScirLibExportContext::new(&self.name);
         let scir_id = self.to_scir_cell(&mut lib_ctx)?;
-        match scir_id {
-            ChildId::Primitive(_) => Err(ConvError::PrimitiveTop),
-            ChildId::Cell(scir_id) => {
-                lib_ctx.lib.set_top(scir_id);
-                lib_ctx.conv.set_top(self.id, scir_id);
 
-                Ok(RawLib {
-                    scir: lib_ctx.lib.build()?,
-                    conv: lib_ctx.conv.build(),
-                })
-            }
+        if let ChildId::Cell(scir_id) = scir_id {
+            lib_ctx.lib.set_top(scir_id);
+            lib_ctx.conv.set_top(self.id, scir_id);
         }
+
+        Ok(RawLib {
+            scir: lib_ctx.lib.build()?,
+            conv: lib_ctx.conv.build(),
+        })
     }
 
     fn to_scir_cell(&self, lib_ctx: &mut ScirLibExportContext<S>) -> Result<ChildId, ConvError> {
@@ -525,6 +523,14 @@ impl<S: Schema> RawCell<S> {
                             let scir_port_name = instance.child.node_name(port.node());
                             sinst.connect(scir_port_name, nodes[&conn]);
                         }
+
+                        if let RawCellContents::ConvertedPrimitive(p) = &instance.child.contents {
+                            <ConvertedPrimitive<S> as ConvertPrimitive<S>>::convert_instance(
+                                p, &mut sinst,
+                            )
+                            .map_err(|_| ConvError::UnsupportedPrimitive)?;
+                        }
+
                         let id = cell_ctx.cell.add_instance(sinst);
                         conv.instances.insert(
                             instance.id,
@@ -555,9 +561,6 @@ pub enum ConvError {
     /// An error in validating the converted SCIR library.
     #[error("error in converted SCIR library")]
     Scir(#[from] scir::Issues),
-    /// An error thrown when a primitive cell is exported as a SCIR library.
-    #[error("cannot export a primitive cell as a SCIR top cell")]
-    PrimitiveTop,
     #[error("unsupported primitive")]
     UnsupportedPrimitive,
 }

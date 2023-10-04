@@ -23,7 +23,7 @@ pub struct RawInstance {
     /// The name of the ports of the underlying cell.
     pub ports: Vec<ArcStr>,
     /// The parameters to pass to the instance.
-    pub params: IndexMap<ArcStr, Expr>,
+    pub params: HashMap<ArcStr, Expr>,
 }
 
 impl Hash for RawInstance {
@@ -36,10 +36,10 @@ impl Hash for RawInstance {
 impl RawInstance {
     /// Create a new raw instance with the given parameters.
     #[inline]
-    pub fn from_params(
+    pub fn with_params(
         cell: ArcStr,
         ports: Vec<ArcStr>,
-        params: impl Into<IndexMap<ArcStr, Expr>>,
+        params: impl Into<HashMap<ArcStr, Expr>>,
     ) -> Self {
         Self {
             cell,
@@ -53,7 +53,7 @@ impl RawInstance {
         Self {
             cell,
             ports,
-            params: IndexMap::new(),
+            params: HashMap::new(),
         }
     }
 }
