@@ -3,11 +3,13 @@
 //! Includes both open source and commercial PDK flavors.
 #![warn(missing_docs)]
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
 use indexmap::IndexMap;
 use ngspice::{Ngspice, NgspicePrimitive};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::{Spectre, SpectrePrimitive};
 use substrate::pdk::corner::SupportsSimulator;
@@ -21,7 +23,7 @@ use crate::mos::{MosKind, MosParams};
 use corner::*;
 use scir::schema::{FromSchema, ToSchema};
 use scir::Instance;
-use substrate::spice::{Primitive, Spice};
+use substrate::spice::{Primitive, PrimitiveKind, Spice};
 
 pub mod corner;
 pub mod layers;
@@ -50,14 +52,87 @@ impl FromSchema<Spice> for Sky130Pdk {
     fn recover_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
-        todo!()
+        Ok(match &primitive.kind {
+            PrimitiveKind::RawInstance { cell, .. } => Sky130Primitive::Mos {
+                kind: MosKind::try_from_str(cell).ok_or(())?,
+                params: MosParams {
+                    w: i64::try_from(
+                        *primitive
+                            .params
+                            .get("w")
+                            .and_then(|expr| expr.get_numeric_literal())
+                            .ok_or(())?,
+                    )
+                    .map_err(|_| ())?,
+                    l: i64::try_from(
+                        *primitive
+                            .params
+                            .get("l")
+                            .and_then(|expr| expr.get_numeric_literal())
+                            .ok_or(())?,
+                    )
+                    .map_err(|_| ())?,
+                    nf: i64::try_from(
+                        primitive
+                            .params
+                            .get("nf")
+                            .and_then(|expr| expr.get_numeric_literal())
+                            .copied()
+                            .unwrap_or(dec!(1)),
+                    )
+                    .map_err(|_| ())?,
+                },
+            },
+            _ => todo!(),
+        })
     }
 
     fn recover_instance(
         instance: &mut Instance,
         primitive: &<Spice as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        todo!()
+        println!("{}", instance.name());
+        match &primitive.kind {
+            PrimitiveKind::RawInstance { cell, ports, .. } => {
+                if MosKind::try_from_str(cell).is_some() {
+                    let connections = instance.connections_mut();
+                    for (port, mapped_port) in ports.iter().zip(["D", "G", "S", "B"]) {
+                        let concat = connections.remove(port).unwrap();
+                        connections.insert(mapped_port.into(), concat);
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+        Ok(())
+    }
+}
+
+impl ToSchema<Spice> for Sky130Pdk {
+    type Error = ();
+    fn convert_primitive(
+        primitive: <Self as scir::schema::Schema>::Primitive,
+    ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
+        Ok(match primitive {
+            Sky130Primitive::Mos { kind, params } => Primitive {
+                kind: PrimitiveKind::RawInstance {
+                    cell: kind.open_subckt(),
+                    ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+                },
+                params: HashMap::from_iter([
+                    (arcstr::literal!("w"), Decimal::from(params.w).into()),
+                    (arcstr::literal!("l"), Decimal::from(params.l).into()),
+                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                ]),
+            },
+            _ => todo!(),
+        })
+    }
+    fn convert_instance(
+        instance: &mut Instance,
+        primitive: &<Self as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 
@@ -66,13 +141,15 @@ impl ToSchema<Ngspice> for Sky130Pdk {
     fn convert_primitive(
         primitive: <Self as scir::schema::Schema>::Primitive,
     ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
-        todo!()
+        Ok(NgspicePrimitive::Spice(
+            <Self as ToSchema<Spice>>::convert_primitive(primitive)?,
+        ))
     }
     fn convert_instance(
         instance: &mut Instance,
         primitive: &<Self as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -81,13 +158,24 @@ impl ToSchema<Spectre> for Sky130Pdk {
     fn convert_primitive(
         primitive: <Self as scir::schema::Schema>::Primitive,
     ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
-        todo!()
+        Ok(match primitive {
+            Sky130Primitive::Mos { kind, params } => SpectrePrimitive::RawInstance {
+                cell: kind.commercial_subckt(),
+                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+                params: HashMap::from_iter([
+                    (arcstr::literal!("w"), Decimal::from(params.w).into()),
+                    (arcstr::literal!("l"), Decimal::from(params.l).into()),
+                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                ]),
+            },
+            _ => todo!(),
+        })
     }
     fn convert_instance(
         instance: &mut Instance,
         primitive: &<Self as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        todo!()
+        Ok(())
     }
 }
 

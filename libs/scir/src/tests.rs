@@ -407,7 +407,7 @@ fn spice_like_netlist() {
             Ok(name.clone())
         }
 
-        fn write_primitive<W: Write>(
+        fn write_primitive_inst<W: Write>(
             &self,
             out: &mut W,
             name: &ArcStr,

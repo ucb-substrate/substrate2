@@ -5,13 +5,13 @@ pub mod conv;
 mod tests;
 
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
 use crate::{Primitive, Spice};
 use arcstr::ArcStr;
-use indexmap::IndexMap;
 use nom::bytes::complete::{take_till, take_while};
 use nom::error::ErrorKind;
 use nom::{IResult, InputTakeAtPosition};
@@ -373,7 +373,7 @@ pub struct Mos {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Params {
     /// A map of key-value pairs.
-    values: IndexMap<Substr, Substr>,
+    values: HashMap<Substr, Substr>,
 }
 
 #[inline]

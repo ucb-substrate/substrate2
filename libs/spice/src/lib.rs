@@ -2,7 +2,7 @@
 #![warn(missing_docs)]
 
 use arcstr::ArcStr;
-use indexmap::IndexMap;
+use itertools::Itertools;
 use scir::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
     RenameGround,
@@ -40,7 +40,13 @@ impl FromSchema<NoSchema> for Spice {
 
 /// SPICE primitives.
 #[derive(Debug, Clone)]
-pub enum Primitive {
+pub struct Primitive {
+    pub kind: PrimitiveKind,
+    pub params: HashMap<ArcStr, Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub enum PrimitiveKind {
     /// A resistor primitive with ports "1" and "2" and value `value`.
     Res2 { value: Expr },
     /// A MOS primitive with ports "D", "G", "S", and "B" and name `mname`.
@@ -121,8 +127,8 @@ impl HasSpiceLikeNetlist for Spice {
         out: &mut W,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<()> {
-        match primitive {
-            Primitive::ExternalModule {
+        match &primitive.kind {
+            PrimitiveKind::ExternalModule {
                 cell,
                 ports,
                 contents,
@@ -150,11 +156,11 @@ impl HasSpiceLikeNetlist for Spice {
         mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
-        Ok(match primitive {
-            Primitive::Res2 { value } => {
+        let name = match &primitive.kind {
+            PrimitiveKind::Res2 { value } => {
                 let name = arcstr::format!("R{}", name);
                 write!(out, "{}", name)?;
-                for port in ["1", "2"] {
+                for port in ["p", "n"] {
                     for part in connections.remove(port).unwrap() {
                         write!(out, " {}", part)?;
                     }
@@ -163,7 +169,7 @@ impl HasSpiceLikeNetlist for Spice {
                 self.write_expr(out, value)?;
                 name
             }
-            Primitive::Mos { mname } => {
+            PrimitiveKind::Mos { mname } => {
                 let name = arcstr::format!("M{}", name);
                 write!(out, "{}", name)?;
                 for port in ["D", "G", "S", "B"] {
@@ -174,8 +180,8 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {}", mname)?;
                 name
             }
-            Primitive::RawInstance { cell, ports }
-            | Primitive::ExternalModule { cell, ports, .. } => {
+            PrimitiveKind::RawInstance { cell, ports }
+            | PrimitiveKind::ExternalModule { cell, ports, .. } => {
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {
@@ -186,6 +192,11 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {}", cell)?;
                 name
             }
-        })
+        };
+        for (key, value) in primitive.params.iter().sorted_by_key(|(key, _)| *key) {
+            write!(out, " {key}=")?;
+            self.write_expr(out, value)?;
+        }
+        Ok(name)
     }
 }

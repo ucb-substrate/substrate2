@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 
 use ngspice::Ngspice;
+use scir::netlist::{NetlistKind, NetlisterInstance};
 use spectre::Spectre;
+use spice::Spice;
 use substrate::block::{self, Block};
 use substrate::{layout::Layout, schematic::Schematic};
 use test_log::test;
@@ -63,17 +65,17 @@ fn export_hard_macro() {
 
     let ctx = sky130_open_ctx();
     let lib = ctx.export_scir::<Sky130Pdk, _>(BufferHardMacro).unwrap();
+    assert_eq!(lib.scir.cells().count(), 3);
+
     println!("SCIR Library:\n{:#?}", lib.scir);
 
+    let spice_lib = lib.scir.convert_schema::<Spice>().unwrap().build().unwrap();
+
     let mut buf: Vec<u8> = Vec::new();
-    // let includes = Vec::new();
-    // TODO: Update to use ngspice netlister. Uncomment.
-    // let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
-    // netlister.export().unwrap();
+    let netlister = NetlisterInstance::new(NetlistKind::Cells, &Spice, &spice_lib, &[], &mut buf);
+    netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
-
-    assert_eq!(lib.scir.cells().count(), 4);
 }
 
 #[test]
@@ -90,20 +92,26 @@ fn export_hard_macro_gds() {
 
 #[test]
 #[cfg(feature = "spectre")]
-fn export_hard_macro_in_another_pdk() {
+fn export_hard_macro_to_spectre() {
     use crate::shared::pdk::sky130_commercial_ctx;
 
     let ctx = sky130_commercial_ctx();
-    let lib = ctx.export_scir::<Spectre, _>(BufferHardMacro).unwrap();
+    let lib = ctx.export_scir::<Sky130Pdk, _>(BufferHardMacro).unwrap();
     assert_eq!(lib.scir.cells().count(), 3);
 
     println!("SCIR Library:\n{:?}", lib.scir);
 
+    let spectre_lib = lib
+        .scir
+        .convert_schema::<Spectre>()
+        .unwrap()
+        .build()
+        .unwrap();
+
     let mut buf: Vec<u8> = Vec::new();
-    // let includes = Vec::new();
-    // TODO: Uncomment
-    // let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
-    // netlister.export().unwrap();
+    let netlister =
+        NetlisterInstance::new(NetlistKind::Cells, &Spectre {}, &spectre_lib, &[], &mut buf);
+    netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
 }
@@ -113,19 +121,18 @@ fn export_inline_hard_macro() {
     use crate::shared::pdk::sky130_open_ctx;
 
     let ctx = sky130_open_ctx();
-    // TODO: Update to use ngspice netlister.
     let lib = ctx
         .export_scir::<Sky130Pdk, _>(BufferInlineHardMacro)
         .unwrap();
-    assert_eq!(lib.scir.cells().count(), 3);
+    assert_eq!(lib.scir.cells().count(), 2);
 
     println!("SCIR Library:\n{:?}", lib.scir);
 
+    let spice_lib = lib.scir.convert_schema::<Spice>().unwrap().build().unwrap();
+
     let mut buf: Vec<u8> = Vec::new();
-    // let includes = Vec::new();
-    // TODO: Uncomment
-    // let netlister = spectre::netlist::Netlister::new(&lib.scir, &includes, &mut buf);
-    // netlister.export().unwrap();
+    let netlister = NetlisterInstance::new(NetlistKind::Cells, &Spice, &spice_lib, &[], &mut buf);
+    netlister.export().unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("Netlist:\n{}", string);
 }

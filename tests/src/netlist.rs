@@ -6,7 +6,7 @@ use scir::netlist::{NetlistKind, NetlisterInstance};
 use scir::schema::StringSchema;
 use scir::*;
 use spectre::{Spectre, SpectrePrimitive};
-use spice::{Primitive, Spice};
+use spice::{Primitive, PrimitiveKind, Spice};
 use std::collections::HashMap;
 use substrate::schematic::schema::Schema;
 
@@ -18,15 +18,18 @@ pub(crate) trait HasRes2: Schema {
 
 impl HasRes2 for Spice {
     fn resistor(value: usize) -> Primitive {
-        Primitive::Res2 {
-            value: Expr::NumericLiteral(Decimal::from(value)),
+        Primitive {
+            kind: PrimitiveKind::Res2 {
+                value: Expr::NumericLiteral(Decimal::from(value)),
+            },
+            params: HashMap::new(),
         }
     }
     fn pos() -> &'static str {
-        "1"
+        "p"
     }
     fn neg() -> &'static str {
-        "2"
+        "n"
     }
 }
 
@@ -86,11 +89,13 @@ pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library<Spice> {
     let mut lib = LibraryBuilder::new("vdivider");
-    // TODO: uncomment
-    let wrapper = lib.add_primitive(Primitive::ExternalModule {
-        cell: "resistor_wrapper".into(),
-        ports: vec!["pos".into(), "neg".into()],
-        contents: "Rblackbox pos neg 3300".into(),
+    let wrapper = lib.add_primitive(Primitive {
+        kind: PrimitiveKind::ExternalModule {
+            cell: "resistor_wrapper".into(),
+            ports: vec!["pos".into(), "neg".into()],
+            contents: "Rblackbox pos neg 3300".into(),
+        },
+        params: HashMap::new(),
     });
 
     let mut vdivider = Cell::new("vdivider");

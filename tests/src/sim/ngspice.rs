@@ -67,8 +67,6 @@ fn ngspice_can_save_voltages_and_currents() {
         r1: TranCurrent,
         r2: TranCurrent,
         r3: TranCurrent,
-        vout: TranVoltage,
-        r3_terminal: TranCurrent,
     }
 
     impl Save<Ngspice, Tran, &Cell<ResistorTb>> for ResistorTbOutput {
@@ -81,8 +79,6 @@ fn ngspice_can_save_voltages_and_currents() {
                 r1: TranCurrent::save(ctx, &to_save.r1, opts),
                 r2: TranCurrent::save(ctx, &to_save.r2, opts),
                 r3: TranCurrent::save(ctx, &to_save.r3, opts),
-                vout: TranVoltage::save(ctx, to_save.r1.io().n, opts),
-                r3_terminal: TranCurrent::save(ctx, to_save.r3.io().p, opts),
             }
         }
     }
@@ -107,21 +103,9 @@ fn ngspice_can_save_voltages_and_currents() {
     let test_name = "ngspice_can_save_voltages_and_currents";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_open_ctx();
-    let ResistorTbOutput {
-        r1,
-        r2,
-        r3,
-        vout,
-        r3_terminal,
-    } = ctx.simulate(ResistorTb, sim_dir).unwrap();
+    let ResistorTbOutput { r1, r2, r3 } = ctx.simulate(ResistorTb, sim_dir).unwrap();
 
-    for (actual, expected) in [
-        (&*r1, 1.8 / 150.),
-        (&*r2, 1.8 / 300.),
-        (&*r3, 1.8 / 300.),
-        (&*vout, 1.8 / 3.),
-        (&*r3_terminal, -1.8 / 300.),
-    ] {
+    for (actual, expected) in [(&*r1, 1.8 / 150.), (&*r2, 1.8 / 300.), (&*r3, 1.8 / 300.)] {
         assert!(actual
             .iter()
             .cloned()

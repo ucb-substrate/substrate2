@@ -34,6 +34,7 @@ use crate::io::{
     NodeUf, Port, SchematicBundle, SchematicType, TerminalView,
 };
 use crate::pdk::Pdk;
+use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{Schema, ToSchema};
 use crate::sealed;
 use crate::sealed::Token;
@@ -159,6 +160,11 @@ impl<S: Schema> CellBuilder<S> {
             roots,
             contents: self.contents.build(),
         }
+    }
+
+    /// Marks this cell to be flattened.
+    pub fn flatten(&mut self) {
+        self.flatten = true;
     }
 
     /// Create a new signal with the given name and hardware type.
@@ -1204,7 +1210,8 @@ impl<S: Schema> RawCellContents<S> {
                     .lib
                     .convert_schema()
                     .map_err(|_| Error::UnsupportedPrimitive)?
-                    .build()?,
+                    .build()
+                    .map_err(|e| ConvError::from(e))?,
                 cell: s.cell,
             }),
             RawCellContents::Primitive(p) => {

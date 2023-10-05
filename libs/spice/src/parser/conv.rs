@@ -6,9 +6,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{Primitive, Spice};
+use crate::{Primitive, PrimitiveKind, Spice};
 use arcstr::ArcStr;
-use indexmap::IndexMap;
 use thiserror::Error;
 
 use super::{Ast, Component, Elem, Subckt, Substr};
@@ -110,10 +109,13 @@ impl<'a> ScirConverter<'a> {
             match component {
                 Component::Mos(_mos) => todo!(),
                 Component::Res(res) => {
-                    let id = self.lib.add_primitive(Primitive::Res2 {
-                        value: str_as_numeric_lit(&res.value)?,
+                    let id = self.lib.add_primitive(Primitive {
+                        kind: PrimitiveKind::Res2 {
+                            value: str_as_numeric_lit(&res.value)?,
+                        },
+                        params: HashMap::new(),
                     });
-                    let mut sinst = scir::Instance::new(&**res.name, id);
+                    let mut sinst = scir::Instance::new(&res.name[1..], id);
                     sinst.connect("1", node(&res.pos, &mut cell));
                     sinst.connect("2", node(&res.neg, &mut cell));
                     cell.add_instance(sinst);
@@ -121,7 +123,7 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     if let Some(subckt) = self.subckts.get(&inst.child) {
                         let id = self.convert_subckt(subckt)?;
-                        let mut sinst = scir::Instance::new(inst.name.as_str(), id);
+                        let mut sinst = scir::Instance::new(&inst.name[1..], id);
                         let subckt = self
                             .subckts
                             .get(&inst.child)
@@ -129,10 +131,6 @@ impl<'a> ScirConverter<'a> {
 
                         for (cport, iport) in subckt.ports.iter().zip(inst.ports.iter()) {
                             sinst.connect(cport.as_str(), node(iport, &mut cell));
-                        }
-
-                        for (k, v) in inst.params.iter() {
-                            sinst.set_param(k.as_str(), str_as_numeric_lit(v)?);
                         }
 
                         cell.add_instance(sinst);
@@ -147,12 +145,14 @@ impl<'a> ScirConverter<'a> {
                             .into_iter()
                             .map(|i| arcstr::format!("{}", i + 1))
                             .collect();
-                        let id = self.lib.add_primitive(Primitive::RawInstance {
-                            cell: child,
-                            ports: ports.clone(),
+                        let id = self.lib.add_primitive(Primitive {
+                            kind: PrimitiveKind::RawInstance {
+                                cell: child,
+                                ports: ports.clone(),
+                            },
+                            params,
                         });
-                        let mut sinst = scir::Instance::new(&**inst.name, id);
-                        *sinst.params_mut() = params;
+                        let mut sinst = scir::Instance::new(&inst.name[1..], id);
                         for (cport, iport) in ports.iter().zip(inst.ports.iter()) {
                             sinst.connect(cport, node(iport, &mut cell));
                         }

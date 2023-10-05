@@ -3,6 +3,7 @@
 
 use crate::{Spectre, SpectrePrimitive};
 use arcstr::ArcStr;
+use itertools::Itertools;
 use scir::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
     RenameGround,
@@ -95,7 +96,10 @@ impl HasSpiceLikeNetlist for Spectre {
                     .iter()
                     .flat_map(|port| connections.remove(port).unwrap());
                 self.write_instance(out, name, connections, cell)?;
-                self.write_params(out, params)?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}=")?;
+                    self.write_expr(out, value)?;
+                }
             }
         }
 

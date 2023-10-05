@@ -238,10 +238,10 @@ impl<T> Save<Ngspice, Tran, T> for TranCurrent {
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
-        todo!()
-        // opts.save_tran_current(SaveStmt::ResistorCurrent(
-        //     ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-        // ))
+        println!("{:?}", to_save.path());
+        opts.save_tran_current(SaveStmt::ResistorCurrent(
+            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
+        ))
     }
 }
 

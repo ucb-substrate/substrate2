@@ -1,7 +1,7 @@
 //! Spectre plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
@@ -14,7 +14,6 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
-use indexmap::{IndexMap, IndexSet};
 use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistLibConversion};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
@@ -111,9 +110,9 @@ pub struct Spectre {}
 /// A single simulation contains zero or more analyses.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    includes: IndexSet<Include>,
-    saves: IndexMap<SimSignal, u64>,
-    ics: IndexMap<SimSignal, Decimal>,
+    includes: HashSet<Include>,
+    saves: HashMap<SimSignal, u64>,
+    ics: HashMap<SimSignal, Decimal>,
     next_save_key: u64,
 }
 
@@ -322,7 +321,7 @@ impl Spectre {
 
         // let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         // let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
-        // let ics = options
+        // let mut ics = options
         //     .ics
         //     .iter()
         //     .map(|(k, v)| (k.clone(), *v))
@@ -332,6 +331,7 @@ impl Spectre {
         // // the order of includes may change even if the contents of the set did not change.
         // includes.sort();
         // saves.sort();
+        // ics.sort();
 
         // let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
         // let conv = netlister.export()?;

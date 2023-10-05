@@ -114,14 +114,6 @@ pub trait HasSpiceLikeNetlist: Schema {
         connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> Result<ArcStr>;
-    /// Writes the parameters of a primitive device immediately following the written ending.
-    fn write_params<W: Write>(&self, out: &mut W, params: &HashMap<ArcStr, Expr>) -> Result<()> {
-        for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
-            write!(out, " {key}=")?;
-            self.write_expr(out, value)?;
-        }
-        Ok(())
-    }
     /// Writes a slice.
     fn write_slice<W: Write>(&self, out: &mut W, slice: Slice, info: &SignalInfo) -> Result<()> {
         if let Some(range) = slice.range() {
@@ -307,7 +299,6 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                 }
             };
             conv.instances.insert(*id, name);
-            self.schema.write_params(self.out, inst.params())?;
             writeln!(self.out)?;
         }
 

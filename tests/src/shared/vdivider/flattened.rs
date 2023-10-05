@@ -72,6 +72,8 @@ where
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
+        cell.flatten();
+
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
 

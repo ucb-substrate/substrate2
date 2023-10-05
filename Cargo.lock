@@ -2304,7 +2304,7 @@ version = "0.6.1"
 dependencies = [
  "arcstr",
  "cache",
- "indexmap 2.0.0",
+ "itertools 0.11.0",
  "lazy_static",
  "nutlex",
  "rust_decimal",
@@ -2322,7 +2322,7 @@ name = "spice"
 version = "0.4.0"
 dependencies = [
  "arcstr",
- "indexmap 2.0.0",
+ "itertools 0.11.0",
  "nom",
  "scir",
  "thiserror",

@@ -65,6 +65,16 @@ macro_rules! define_mosfets {
                     ),*
                 }
             }
+
+            pub(crate) fn try_from_str(kind: &str) -> Option<Self> {
+                println!("{}", kind);
+                match kind {
+                    $(
+                        stringify!($opensubckt) | stringify!($comsubckt) => Some(MosKind::$typ),
+                    )*
+                    _ => None,
+                }
+            }
         }
         $(
         #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]

@@ -559,44 +559,6 @@ impl<S: Schema> LibraryBuilder<S> {
                             issues.add(issue);
                         }
                     }
-
-                    // Check for missing params.
-                    let mut child_params = HashSet::with_capacity(child.params.len());
-                    for (name, param) in child.params.iter() {
-                        child_params.insert(name.clone());
-                        if instance.params.get(name).is_none() && !param.has_default() {
-                            let issue = ValidatorIssue::new_and_log(
-                                Cause::MissingParam {
-                                    child_cell_id: instance.child.unwrap_cell(),
-                                    child_cell_name: child.name.clone(),
-                                    param: name.clone(),
-                                    parent_cell_name: cell.name.clone(),
-                                    parent_cell_id: id,
-                                    instance_name: instance.name.clone(),
-                                },
-                                Severity::Error,
-                            );
-                            issues.add(issue);
-                        }
-                    }
-
-                    // Check for extra params.
-                    for param in instance.params.keys() {
-                        if !child_params.contains(param) {
-                            let issue = ValidatorIssue::new_and_log(
-                                Cause::ExtraParam {
-                                    child_cell_id: instance.child.unwrap_cell(),
-                                    child_cell_name: child.name.clone(),
-                                    param: param.clone(),
-                                    parent_cell_name: cell.name.clone(),
-                                    parent_cell_id: id,
-                                    instance_name: instance.name.clone(),
-                                },
-                                Severity::Warning,
-                            );
-                            issues.add(issue);
-                        }
-                    }
                 }
                 ChildId::Primitive(p) => {
                     if self.try_primitive(p).is_none() {

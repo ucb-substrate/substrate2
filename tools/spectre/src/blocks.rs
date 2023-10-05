@@ -1,6 +1,5 @@
 //! Spectre-specific blocks for use in testbenches.
 
-use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use scir::schema::Schema;
 use scir::Expr;

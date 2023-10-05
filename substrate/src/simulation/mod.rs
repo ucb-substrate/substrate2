@@ -118,7 +118,7 @@ pub struct SimController<PDK, S: Simulator, T: ExportsNestedData> {
     /// The current PDK.
     pub pdk: Arc<PDK>,
     /// The current testbench cell.
-    pub tb: Cell<T>,
+    pub tb: Arc<Cell<T>>,
     pub(crate) ctx: SimulationContext<S>,
 }
 

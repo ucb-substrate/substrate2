@@ -41,6 +41,7 @@ pub mod netlist;
 pub mod schema;
 mod slice;
 
+use crate::netlist::NetlistLibConversion;
 use crate::schema::{NoSchema, NoSchemaError, Schema, ToSchema};
 use crate::slice::{Concat, NamedSlice, NamedSliceOne};
 use crate::validation::ValidatorIssue;
@@ -54,6 +55,7 @@ pub(crate) mod tests;
 
 /// An expression, often used in parameter assignments.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[enumify::enumify(no_as_ref, no_as_mut)]
 pub enum Expr {
     /// A numeric literal.
     NumericLiteral(Decimal),
@@ -289,6 +291,12 @@ impl Deref for InstancePath {
 
     fn deref(&self) -> &Self::Target {
         &self.elems
+    }
+}
+
+impl DerefMut for InstancePath {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.elems
     }
 }
 
@@ -771,9 +779,6 @@ pub struct Instance {
     /// The ports are the ports of the **child** cell.
     /// The signal identifiers are signals of the **parent** cell.
     connections: HashMap<ArcStr, Concat>,
-
-    /// A map mapping parameter names to expressions indicating their values.
-    params: HashMap<ArcStr, Expr>,
 }
 
 /// The ID of an instance's child.
@@ -815,7 +820,6 @@ pub struct Cell {
     ///
     /// Signal names are only guaranteed to be unique in a validated [`Library`].
     signal_name_map: HashMap<ArcStr, SignalId>,
-    pub(crate) params: IndexMap<ArcStr, Param>,
     /// The last instance ID assigned.
     ///
     /// Initialized to 0 upon cell creation.
@@ -1109,12 +1113,19 @@ impl<S: Schema> LibraryBuilder<S> {
         }
     }
 
-    fn convert_annotated_instance_path(&self, path: AnnotatedInstancePath) -> NamedPath {
+    fn convert_annotated_instance_path(
+        &self,
+        conv: Option<&NetlistLibConversion>,
+        path: AnnotatedInstancePath,
+    ) -> NamedPath {
         let mut named_path = NamedPath::new();
 
-        let top = self
-            .convert_instance_path_cell(&path.top)
-            .map(|(_, cell)| cell);
+        let (top_id, top) = if let Some((top_id, top)) = self.convert_instance_path_cell(&path.top)
+        {
+            (Some(top_id), Some(top))
+        } else {
+            (None, None)
+        };
 
         for (i, instance) in path.instances.iter().enumerate() {
             match &instance.elem {
@@ -1127,7 +1138,23 @@ impl<S: Schema> LibraryBuilder<S> {
                     .unwrap()
                     .instance(*id);
 
-                    named_path.push(inst.name().clone());
+                    let name = conv
+                        .and_then(|conv| {
+                            Some(
+                                conv.cells
+                                    .get(&if i == 0 {
+                                        top_id?
+                                    } else {
+                                        path.instances[i - 1].child.unwrap().unwrap_cell()
+                                    })
+                                    .unwrap()
+                                    .instances
+                                    .get(id)?
+                                    .clone(),
+                            )
+                        })
+                        .unwrap_or(inst.name().clone());
+                    named_path.push(name);
                 }
                 InstancePathElement::Name(name) => {
                     named_path.push(name.clone());
@@ -1146,7 +1173,22 @@ impl<S: Schema> LibraryBuilder<S> {
     pub fn convert_instance_path(&self, path: InstancePath) -> NamedPath {
         let annotated_path = self.annotate_instance_path(path);
 
-        self.convert_annotated_instance_path(annotated_path)
+        self.convert_annotated_instance_path(None, annotated_path)
+    }
+
+    /// Converts an [`InstancePath`] to a [`NamedPath`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the path contains instance or cell IDs that do not exist.
+    pub fn convert_instance_path_with_conv(
+        &self,
+        conv: &NetlistLibConversion,
+        path: InstancePath,
+    ) -> NamedPath {
+        let annotated_path = self.annotate_instance_path(path);
+
+        self.convert_annotated_instance_path(Some(conv), annotated_path)
     }
 
     /// Converts a [`SliceOnePath`] to a [`NamedPath`].
@@ -1169,7 +1211,7 @@ impl<S: Schema> LibraryBuilder<S> {
             SignalPathTail::Name(name) => bot.signal_named(name.signal()),
         };
 
-        let mut name_path = self.convert_annotated_instance_path(annotated_path);
+        let mut name_path = self.convert_annotated_instance_path(None, annotated_path);
         name_path.push(index_fmt(&signal_info.name, tail.index()));
 
         name_path
@@ -1341,7 +1383,6 @@ impl Cell {
             ports: IndexMap::new(),
             signals: HashMap::new(),
             signal_name_map: HashMap::new(),
-            params: IndexMap::new(),
             instance_id: 0,
             instances: IndexMap::new(),
             instance_name_map: HashMap::new(),
@@ -1393,12 +1434,6 @@ impl Cell {
         self.port_idx += info.width.unwrap_or(1);
         self.ports
             .insert(info.name.clone(), Port { signal, direction });
-    }
-
-    /// Add the given parameter to the cell.
-    #[inline]
-    pub fn add_param(&mut self, name: impl Into<ArcStr>, param: Param) {
-        self.params.insert(name.into(), param);
     }
 
     /// The name of the cell.
@@ -1523,7 +1558,6 @@ impl Instance {
             child: child.into(),
             name: name.into(),
             connections: HashMap::new(),
-            params: HashMap::new(),
         }
     }
 
@@ -1531,12 +1565,6 @@ impl Instance {
     #[inline]
     pub fn connect(&mut self, name: impl Into<ArcStr>, conn: impl Into<Concat>) {
         self.connections.insert(name.into(), conn.into());
-    }
-
-    /// Set the value of the given parameter.
-    #[inline]
-    pub fn set_param(&mut self, param: impl Into<ArcStr>, value: Expr) {
-        self.params.insert(param.into(), value);
     }
 
     /// The ID of the child cell.
@@ -1586,18 +1614,6 @@ impl Instance {
             .drain()
             .map(|(k, v)| (map_fn(k), v))
             .collect();
-    }
-
-    /// Returns a reference to this instance's parameter map.
-    #[inline]
-    pub fn params(&self) -> &HashMap<ArcStr, Expr> {
-        &self.params
-    }
-
-    /// Returns a mutable reference to this instance's connection map.
-    #[inline]
-    pub fn params_mut(&mut self) -> &mut HashMap<ArcStr, Expr> {
-        &mut self.params
     }
 }
 

@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use scir::Expr;
 use serde::{Deserialize, Serialize};
-use spice::Spice;
+use spice::{PrimitiveKind, Spice};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use substrate::schematic::PrimitiveSchematic;
@@ -114,8 +114,11 @@ impl Block for Resistor {
 
 impl PrimitiveSchematic<Spice> for Resistor {
     fn schematic(&self) -> <Spice as Schema>::Primitive {
-        spice::Primitive::Res2 {
-            value: self.value.into(),
+        spice::Primitive {
+            kind: PrimitiveKind::Res2 {
+                value: self.value.into(),
+            },
+            params: HashMap::new(),
         }
     }
 }

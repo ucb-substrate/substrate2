@@ -16,9 +16,12 @@ use cache::CacheableWithState;
 use error::*;
 use indexmap::IndexMap;
 use nutlex::parser::Data;
-use scir::netlist::{Include, NetlistLibConversion};
+use scir::netlist::{
+    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
+    RenameGround,
+};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Expr, Library, SignalPathTail, SliceOnePath};
+use scir::{Expr, Library, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
@@ -28,7 +31,7 @@ use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::PrimitiveSchematic;
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::spice::Primitive;
+use substrate::spice::{Primitive, PrimitiveKind, Spice};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -78,7 +81,11 @@ impl SaveStmt {
                 node_voltage_path(lib, conv, &lib.simplify_path(scir.clone()),)
             ),
             SaveStmt::ResistorCurrent(scir) => {
-                arcstr::format!("@R.{}.R0[i]", instance_path(lib, conv, scir))
+                arcstr::format!(
+                    "@{}{}[i]",
+                    if scir.len() == 1 { "" } else { "R." },
+                    instance_path(lib, conv, scir)
+                )
             }
         }
     }
@@ -340,7 +347,7 @@ impl Ngspice {
         std::fs::create_dir_all(&ctx.work_dir)?;
         let netlist = ctx.work_dir.join("netlist.spice");
         let mut f = std::fs::File::create(&netlist)?;
-        // let mut w = Vec::new();
+        let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
@@ -350,78 +357,83 @@ impl Ngspice {
         includes.sort();
         saves.sort();
 
-        todo!();
-        // let netlister = Netlister::new(todo!(), todo!(), &mut w);
-        // let conv = netlister.export()?;
+        let netlister = NetlisterInstance::new(
+            NetlistKind::Testbench(RenameGround::Yes(arcstr::literal!("0"))),
+            self,
+            &ctx.lib.scir,
+            &includes,
+            &mut w,
+        );
+        let conv = netlister.export()?;
 
-        // writeln!(w)?;
-        // for save in saves {
-        //     save.netlist(&mut w, &ctx.lib.scir, &conv)?;
-        //     writeln!(w)?;
-        // }
+        writeln!(w)?;
+        for save in saves {
+            save.netlist(&mut w, &ctx.lib.scir, &conv)?;
+            writeln!(w)?;
+        }
 
-        // writeln!(w)?;
-        // for an in input.iter() {
-        //     an.netlist(&mut w)?;
-        //     writeln!(w)?;
-        // }
-        // f.write_all(&w)?;
+        writeln!(w)?;
+        for an in input.iter() {
+            an.netlist(&mut w)?;
+            writeln!(w)?;
+        }
+        f.write_all(&w)?;
 
-        // let output_file = ctx.work_dir.join("data.raw");
-        // let log = ctx.work_dir.join("ngspice.log");
-        // let err_log = ctx.work_dir.join("ngspice.err");
-        // let run_script = ctx.work_dir.join("simulate.sh");
-        // let work_dir = ctx.work_dir.clone();
-        // let executor = ctx.executor.clone();
+        let output_file = ctx.work_dir.join("data.raw");
+        let log = ctx.work_dir.join("ngspice.log");
+        let err_log = ctx.work_dir.join("ngspice.err");
+        let run_script = ctx.work_dir.join("simulate.sh");
+        let work_dir = ctx.work_dir.clone();
+        let executor = ctx.executor.clone();
 
-        // let raw_outputs = ctx
-        //     .cache
-        //     .get_with_state(
-        //         "ngspice.simulation.outputs",
-        //         CachedSim {
-        //             simulation_netlist: w,
-        //         },
-        //         CachedSimState {
-        //             input,
-        //             netlist,
-        //             output_file,
-        //             log,
-        //             err_log,
-        //             run_script,
-        //             work_dir,
-        //             executor,
-        //         },
-        //     )
-        //     .try_inner()
-        //     .map_err(|e| match e {
-        //         TryInnerError::CacheError(e) => Error::Caching(e),
-        //         TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
-        //     })?
-        //     .clone();
+        let raw_outputs = ctx
+            .cache
+            .get_with_state(
+                "ngspice.simulation.outputs",
+                CachedSim {
+                    simulation_netlist: w,
+                },
+                CachedSimState {
+                    input,
+                    netlist,
+                    output_file,
+                    log,
+                    err_log,
+                    run_script,
+                    work_dir,
+                    executor,
+                },
+            )
+            .try_inner()
+            .map_err(|e| match e {
+                TryInnerError::CacheError(e) => Error::Caching(e),
+                TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
+            })?
+            .clone();
 
-        // let conv = Arc::new(conv);
-        // let outputs = raw_outputs
-        //     .into_iter()
-        //     .map(|mut raw_values| {
-        //         TranOutput {
-        //             lib: ctx.lib.clone(),
-        //             conv: conv.clone(),
-        //             time: Arc::new(raw_values.remove("time").unwrap()),
-        //             raw_values: raw_values
-        //                 .into_iter()
-        //                 .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
-        //                 .collect(),
-        //             saved_values: options
-        //                 .saves
-        //                 .iter()
-        //                 .map(|(k, v)| (*v, k.to_data_string(&ctx.lib.scir, &conv)))
-        //                 .collect(),
-        //         }
-        //         .into()
-        //     })
-        //     .collect();
+        let conv = Arc::new(conv);
+        let outputs = raw_outputs
+            .into_iter()
+            .map(|mut raw_values| {
+                TranOutput {
+                    lib: ctx.lib.clone(),
+                    conv: conv.clone(),
+                    time: Arc::new(raw_values.remove("time").unwrap()),
+                    raw_values: raw_values
+                        .into_iter()
+                        .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                        .collect(),
+                    saved_values: options
+                        .saves
+                        .iter()
+                        .map(|(k, v)| (*v, k.to_data_string(&ctx.lib.scir, &conv)))
+                        .collect(),
+                }
+                .into()
+            })
+            .collect();
 
-        // Ok(outputs)
+        Ok(outputs)
     }
 }
 
@@ -448,17 +460,23 @@ impl FromSchema<NoSchema> for Ngspice {
 
 impl PrimitiveSchematic<Ngspice> for RawInstance {
     fn schematic(&self) -> <Ngspice as Schema>::Primitive {
-        NgspicePrimitive::Spice(Primitive::RawInstance {
-            cell: self.cell.clone(),
-            ports: self.ports.clone(),
+        NgspicePrimitive::Spice(Primitive {
+            kind: PrimitiveKind::RawInstance {
+                cell: self.cell.clone(),
+                ports: self.ports.clone(),
+            },
+            params: self.params.clone(),
         })
     }
 }
 
 impl PrimitiveSchematic<Ngspice> for Resistor {
     fn schematic(&self) -> <Ngspice as Schema>::Primitive {
-        NgspicePrimitive::Spice(Primitive::Res2 {
-            value: Expr::NumericLiteral(self.value()),
+        NgspicePrimitive::Spice(Primitive {
+            kind: PrimitiveKind::Res2 {
+                value: Expr::NumericLiteral(self.value()),
+            },
+            params: HashMap::new(),
         })
     }
 }
@@ -485,7 +503,8 @@ pub(crate) fn instance_path(
     conv: &NetlistLibConversion,
     path: &scir::InstancePath,
 ) -> String {
-    todo!()
+    lib.convert_instance_path_with_conv(conv, path.clone())
+        .join(".")
 }
 
 pub(crate) fn node_voltage_path(
@@ -555,5 +574,98 @@ impl Tran {
             write!(out, "{start}")?;
         }
         Ok(())
+    }
+}
+
+impl HasSpiceLikeNetlist for Ngspice {
+    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
+        writeln!(out, "* {}", lib.name())?;
+        writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
+        Ok(())
+    }
+
+    fn write_include<W: Write>(
+        &self,
+        out: &mut W,
+        include: &scir::netlist::Include,
+    ) -> std::io::Result<()> {
+        Spice.write_include(out, include)
+    }
+
+    fn write_start_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        ports: &[&SignalInfo],
+    ) -> std::io::Result<()> {
+        Spice.write_start_subckt(out, name, ports)
+    }
+
+    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
+        Spice.write_end_subckt(out, name)
+    }
+
+    fn write_instance<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        connections: impl Iterator<Item = ArcStr>,
+        child: &ArcStr,
+    ) -> std::io::Result<ArcStr> {
+        Spice.write_instance(out, name, connections, child)
+    }
+
+    fn write_primitive_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<()> {
+        if let NgspicePrimitive::Spice(spice_primitive) = primitive {
+            Spice.write_primitive_subckt(out, spice_primitive)?;
+        }
+        Ok(())
+    }
+
+    fn write_primitive_inst<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<ArcStr> {
+        match primitive {
+            NgspicePrimitive::Spice(spice_primitive) => {
+                Spice.write_primitive_inst(out, name, connections, spice_primitive)
+            }
+            NgspicePrimitive::Vsource(vsource) => {
+                let name = arcstr::format!("V{}", name);
+                write!(out, "{}", name)?;
+                for port in ["p", "n"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                match vsource {
+                    Vsource::Dc(dc) => {
+                        write!(out, " DC {}", dc)?;
+                    }
+                    Vsource::Pulse(pulse) => {
+                        write!(
+                            out,
+                            "PULSE({} {} {} {} {} {} {} {})",
+                            pulse.val0,
+                            pulse.val1,
+                            pulse.delay.unwrap_or_default(),
+                            pulse.rise.unwrap_or_default(),
+                            pulse.fall.unwrap_or_default(),
+                            pulse.width.unwrap_or_default(),
+                            pulse.period.unwrap_or_default(),
+                            pulse.num_pulses.unwrap_or_default(),
+                        )?;
+                    }
+                }
+                Ok(name)
+            }
+        }
     }
 }

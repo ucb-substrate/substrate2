@@ -259,12 +259,11 @@ impl Context {
         }
     }
 
-    // Can only generate with one layer of indirection (cannot arbitrarily convert).
-    pub fn generate_cross_schematic<S1: ToSchema<S2>, S2: Schema, B: Schematic<S1>>(
+    fn generate_cross_schematic_inner<S1: ToSchema<S2>, S2: Schema, B: Schematic<S1>>(
         &self,
-        block: B,
+        block: Arc<B>,
     ) -> SchemaCellHandle<S2, B> {
-        let handle = self.generate_schematic(block);
+        let handle = self.generate_schematic_inner(block);
         let mut inner = self.inner.write().unwrap();
         SchemaCellHandle {
             handle: inner.schematic.cell_cache.generate(
@@ -287,6 +286,14 @@ impl Context {
             ),
             cell: handle.cell,
         }
+    }
+
+    // Can only generate with one layer of indirection (cannot arbitrarily convert).
+    pub fn generate_cross_schematic<S1: ToSchema<S2>, S2: Schema, B: Schematic<S1>>(
+        &self,
+        block: B,
+    ) -> SchemaCellHandle<S2, B> {
+        self.generate_cross_schematic_inner(Arc::new(block))
     }
 
     /// Generates a schematic for `block` in the background.
@@ -432,33 +439,35 @@ impl<PDK: Pdk> PdkContext<PDK> {
     }
 
     /// Simulate the given testbench.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    pub fn simulate<S1, S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
     where
+        S1: ToSchema<<S as Simulator>::Schema>,
         S: Simulator,
-        T: Testbench<PDK, S>,
+        T: Testbench<PDK, S> + Schematic<S1>,
     {
         let simulator = self.get_simulator::<S>();
         let block = Arc::new(block);
-        let cell = self.ctx.generate_schematic_inner(block.clone());
+        let cell = self
+            .ctx
+            .generate_cross_schematic_inner::<S1, <S as Simulator>::Schema, _>(block.clone());
         // TODO: Handle errors.
-        let cell = cell.cell.cell();
-        todo!();
-        // let lib = self.export_testbench_scir_for_cell(cell)?;
-        // let ctx = SimulationContext {
-        //     lib: Arc::new(lib),
-        //     work_dir: work_dir.into(),
-        //     executor: self.executor.clone(),
-        //     cache: self.cache.clone(),
-        // };
-        // let controller = SimController {
-        //     pdk: self.pdk.clone(),
-        //     tb: (*cell).clone(),
-        //     simulator,
-        //     ctx,
-        // };
+        let (raw_cell, cell) = cell.handle.unwrap_inner();
+        let lib = raw_cell.to_scir_lib()?;
+        let ctx = SimulationContext {
+            lib: Arc::new(lib),
+            work_dir: work_dir.into(),
+            executor: self.executor.clone(),
+            cache: self.cache.clone(),
+        };
+        let controller = SimController {
+            pdk: self.pdk.clone(),
+            tb: cell.clone(),
+            simulator,
+            ctx,
+        };
 
-        // // TODO caching
-        // Ok(block.run(controller))
+        // TODO caching
+        Ok(block.run(controller))
     }
 
     fn get_simulator<S: Simulator>(&self) -> Arc<S> {
