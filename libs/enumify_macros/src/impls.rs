@@ -98,7 +98,7 @@ pub(crate) fn field_tokens(
     )
 }
 
-fn extract_variant(
+fn generate_single_tuple_variant_methods(
     variant: &EnumifyVariant,
     generic_overrides: Option<&[syn::Ident]>,
 ) -> Option<TokenStream> {
@@ -160,7 +160,7 @@ fn extract_variant(
     })
 }
 
-fn is_variant(variant: &EnumifyVariant) -> Option<TokenStream> {
+fn generate_is_method(variant: &EnumifyVariant) -> Option<TokenStream> {
     let name = syn::Ident::new(
         &variant.ident.to_string().to_case(Case::Snake),
         variant.ident.span(),
@@ -184,6 +184,12 @@ fn is_variant(variant: &EnumifyVariant) -> Option<TokenStream> {
             }
         }
     })
+}
+
+pub(crate) fn generate_is_method_for_variants(
+    variants: &[EnumifyVariant],
+) -> impl Iterator<Item = TokenStream> + '_ {
+    variants.iter().filter_map(generate_is_method)
 }
 
 fn ref_generics(generics: &Generics) -> TokenStream {
@@ -284,208 +290,223 @@ impl Enumify {
             input: handle_error!(EnumifyInputReceiver::from_derive_input(input)),
         })
     }
-    pub(crate) fn expand(&self, tokens: &mut TokenStream) {
+    /// Returns `true` if the provided arguments indicate that an auxiliary reference enum is required.
+    pub(crate) fn ref_enum_required(&self) -> bool {
+        // Required to implement `as_ref` and `as_mut` if the target is not already fully generic.
+        !self.args.generics_only && (!self.args.no_as_ref || !self.args.no_as_mut)
+    }
+
+    pub(crate) fn ref_enum_ident(&self) -> syn::Ident {
+        format_ident!("{}Ref", self.input.ident)
+    }
+
+    pub(crate) fn expand_ref_enum(&self, variants: &[EnumifyVariant]) -> TokenStream {
+        let all_fields = variants
+            .iter()
+            .flat_map(|variant| variant.fields.iter())
+            .collect::<Vec<_>>();
+        let generic_idents: Vec<syn::Ident> = (0..all_fields.len())
+            .map(|i| format_ident!("V{}", i))
+            .collect();
+        let ref_generics = quote! {
+            < #(& #generic_idents),* >
+        };
+        let mut_generics = quote! {
+            < #(&mut #generic_idents),* >
+        };
+        let generic_fields: Vec<TokenStream> = all_fields
+            .iter()
+            .zip(generic_idents.iter())
+            .map(
+                |(
+                    EnumifyField {
+                        ident, vis, attrs, ..
+                    },
+                    generic,
+                )| {
+                    if let Some(ident) = ident {
+                        quote! {
+                        #(#attrs)*
+                        #vis #ident: #generic
+                        }
+                    } else {
+                        quote! {
+                        #(#attrs)* #vis #generic
+                        }
+                    }
+                },
+            )
+            .collect();
+
+        let mut ctr = 0;
+        let generic_variants = variants.iter().map(
+            |EnumifyVariant {
+                 fields,
+                 ident,
+                 attrs,
+             }| {
+                let generic_fields = &generic_fields[ctr..ctr + fields.len()];
+                ctr += fields.len();
+                match fields.style {
+                    Style::Struct => {
+                        quote! {
+                        #(#attrs)*
+                        #ident {
+                        #(#generic_fields),*
+                        }
+                        }
+                    }
+                    Style::Tuple => {
+                        quote! {
+                        #(#attrs)*
+                        #ident ( #(#generic_fields),* )
+                        }
+                    }
+                    Style::Unit => {
+                        quote! {
+                        #(#attrs)*
+                        #ident
+                        }
+                    }
+                }
+            },
+        );
+
+        let mut ctr = 0;
+        let ref_ident = self.ref_enum_ident();
+        let as_ref_arms = variants
+            .iter()
+            .map(|v| as_ref_variant_match_arm(&ref_ident, v));
+        let as_mut_arms = variants
+            .iter()
+            .map(|v| as_mut_variant_match_arm(&ref_ident, v));
+        let unwraps = variants.iter().filter_map(|variant| {
+            let idents = &generic_idents[ctr..ctr + variant.fields.len()];
+            ctr += variant.fields.len();
+            generate_single_tuple_variant_methods(variant, Some(idents))
+        });
+
+        let EnumifyInputReceiver { attrs, vis, .. } = &self.input;
+        let is = generate_is_method_for_variants(variants);
+
+        quote!(
+            #(#attrs)*
+            #vis enum #ref_ident < #(#generic_idents),* > {
+                #(#generic_variants),*
+            }
+
+            impl < #(#generic_idents),* > #ref_ident < #(#generic_idents),* > {
+                #(#unwraps)*
+                #(#is)*
+
+                /// Converts generic types to references.
+                ///
+                /// For example, transforms the type parameter `T` to `&T`.
+                pub fn as_ref(&self) -> #ref_ident #ref_generics {
+                    match *self {
+                        #(#as_ref_arms)*
+                    }
+                }
+
+                /// Converts generic types to mutable references.
+                ///
+                /// For example, transforms the type parameter `T` to `&mut T`.
+                pub fn as_mut(&mut self) -> #ref_ident #mut_generics {
+                    match *self {
+                        #(#as_mut_arms)*
+                    }
+                }
+            }
+        )
+    }
+
+    pub(crate) fn expand_enum(&self, tokens: &mut TokenStream, variants: &[EnumifyVariant]) {
         let EnumifyInputReceiver {
             ref ident,
-            ref vis,
             ref generics,
-            ref data,
-            ref attrs,
+            ..
         } = self.input;
-        let ref_ident = format_ident!("{}Ref", ident);
-
         let (imp, ty, wher) = generics.split_for_impl();
-        let expanded = match data {
+
+        let ref_ident = self.ref_enum_ident();
+
+        let ref_enum = self
+            .ref_enum_required()
+            .then(|| self.expand_ref_enum(variants));
+
+        let unwraps = variants
+            .iter()
+            .filter_map(|variant| generate_single_tuple_variant_methods(variant, None));
+
+        let (ref_ident, ref_generics, mut_generics) = if self.args.generics_only {
+            (ident, ref_generics(generics), mut_generics(generics))
+        } else {
+            let field_types = variants
+                .iter()
+                .flat_map(|variant| variant.fields.iter().map(|field| &field.ty));
+            let field_types_clone = field_types.clone();
+            (
+                &ref_ident,
+                quote! { < #(& #field_types),* >},
+                quote! { < #(&mut #field_types_clone),* >},
+            )
+        };
+
+        let is = generate_is_method_for_variants(variants);
+
+        let as_ref_arms = variants
+            .iter()
+            .map(|v| as_ref_variant_match_arm(ref_ident, v));
+        let as_mut_arms = variants
+            .iter()
+            .map(|v| as_mut_variant_match_arm(ref_ident, v));
+
+        let as_ref = (!self.args.no_as_ref).then(|| {
+            quote! {
+                /// Converts types to references.
+                ///
+                /// For example, transforms a variant field with type `T` to `&T`.
+                pub fn as_ref(&self) -> #ref_ident #ref_generics {
+                    match *self {
+                        #(#as_ref_arms)*
+                    }
+                }
+            }
+        });
+
+        let as_mut = (!self.args.no_as_mut).then(|| {
+            quote! {
+                /// Converts types to mutable references.
+                ///
+                /// For example, transforms a variant field with type `T` to `&mut T`.
+                pub fn as_mut(&mut self) -> #ref_ident #mut_generics {
+                    match *self {
+                        #(#as_mut_arms)*
+                    }
+                }
+            }
+        });
+
+        tokens.extend(quote! {
+            #ref_enum
+
+            impl #imp #ident #ty #wher {
+                #(#unwraps)*
+                #(#is)*
+                #as_ref
+                #as_mut
+            }
+        });
+    }
+    pub(crate) fn expand(&self, tokens: &mut TokenStream) {
+        let EnumifyInputReceiver { ref data, .. } = self.input;
+        match data {
             ast::Data::Struct(ref _fields) => {
                 panic!("enumify does not support structs");
             }
             ast::Data::Enum(ref variants) => {
-                let is = variants.iter().filter_map(is_variant);
-                let ref_enum = (!(self.args.generics_only
-                    || self.args.no_as_ref && self.args.no_as_mut))
-                    .then(|| {
-                        let all_fields = variants
-                            .iter()
-                            .flat_map(|variant| variant.fields.iter())
-                            .collect::<Vec<_>>();
-                        let generic_idents: Vec<syn::Ident> = (0..all_fields.len())
-                            .map(|i| format_ident!("V{}", i))
-                            .collect();
-                        let ref_generics = quote! {
-                            < #(& #generic_idents),* >
-                        };
-                        let mut_generics = quote! {
-                            < #(&mut #generic_idents),* >
-                        };
-                        let generic_fields: Vec<TokenStream> = all_fields
-                            .iter()
-                            .zip(generic_idents.iter())
-                            .map(
-                                |(
-                                    EnumifyField {
-                                        ident, vis, attrs, ..
-                                    },
-                                    generic,
-                                )| {
-                                    if let Some(ident) = ident {
-                                        quote! {
-                                            #(#attrs)*
-                                            #vis #ident: #generic
-                                        }
-                                    } else {
-                                        quote! {
-                                            #(#attrs)* #vis #generic
-                                        }
-                                    }
-                                },
-                            )
-                            .collect();
-
-                        let mut ctr = 0;
-                        let generic_variants = variants.iter().map(
-                            |EnumifyVariant {
-                                 fields,
-                                 ident,
-                                 attrs,
-                             }| {
-                                let generic_fields = &generic_fields[ctr..ctr + fields.len()];
-                                ctr += fields.len();
-                                match fields.style {
-                                    Style::Struct => {
-                                        quote! {
-                                            #(#attrs)*
-                                            #ident {
-                                                #(#generic_fields),*
-                                            }
-                                        }
-                                    }
-                                    Style::Tuple => {
-                                        quote! {
-                                            #(#attrs)*
-                                            #ident ( #(#generic_fields),* )
-                                        }
-                                    }
-                                    Style::Unit => {
-                                        quote! {
-                                            #(#attrs)*
-                                            #ident
-                                        }
-                                    }
-                                }
-                            },
-                        );
-
-                        let mut ctr = 0;
-                        let as_ref_arms = variants
-                            .iter()
-                            .map(|v| as_ref_variant_match_arm(&ref_ident, v));
-                        let as_mut_arms = variants
-                            .iter()
-                            .map(|v| as_mut_variant_match_arm(&ref_ident, v));
-                        let unwraps = variants.iter().filter_map(|variant| {
-                            let idents = &generic_idents[ctr..ctr + variant.fields.len()];
-                            ctr += variant.fields.len();
-                            extract_variant(variant, Some(idents))
-                        });
-                        let is = is.clone();
-
-                        quote!(
-                            #(#attrs)*
-                            #vis enum #ref_ident < #(#generic_idents),* > {
-                                #(#generic_variants),*
-                            }
-
-                            impl < #(#generic_idents),* > #ref_ident < #(#generic_idents),* > {
-                                #(#unwraps)*
-                                #(#is)*
-
-                                /// Converts generic types to references.
-                                ///
-                                /// For example, transforms the type parameter `T` to `&T`.
-                                pub fn as_ref(&self) -> #ref_ident #ref_generics {
-                                    match *self {
-                                        #(#as_ref_arms)*
-                                    }
-                                }
-
-                                /// Converts generic types to mutable references.
-                                ///
-                                /// For example, transforms the type parameter `T` to `&mut T`.
-                                pub fn as_mut(&mut self) -> #ref_ident #mut_generics {
-                                    match *self {
-                                        #(#as_mut_arms)*
-                                    }
-                                }
-                            }
-                        )
-                    });
-
-                let unwraps = variants
-                    .iter()
-                    .filter_map(|variant| extract_variant(variant, None));
-
-                let (ref_ident, ref_generics, mut_generics) = if self.args.generics_only {
-                    (ident, ref_generics(generics), mut_generics(generics))
-                } else {
-                    let field_types = variants
-                        .iter()
-                        .flat_map(|variant| variant.fields.iter().map(|field| &field.ty));
-                    let field_types_clone = field_types.clone();
-                    (
-                        &ref_ident,
-                        quote! { < #(& #field_types),* >},
-                        quote! { < #(&mut #field_types_clone),* >},
-                    )
-                };
-
-                let as_ref_arms = variants
-                    .iter()
-                    .map(|v| as_ref_variant_match_arm(ref_ident, v));
-                let as_mut_arms = variants
-                    .iter()
-                    .map(|v| as_mut_variant_match_arm(ref_ident, v));
-
-                let as_ref = (!self.args.no_as_ref).then(|| {
-                    quote! {
-                        /// Converts types to references.
-                        ///
-                        /// For example, transforms a variant field with type `T` to `&T`.
-                        pub fn as_ref(&self) -> #ref_ident #ref_generics {
-                            match *self {
-                                #(#as_ref_arms)*
-                            }
-                        }
-                    }
-                });
-
-                let as_mut = (!self.args.no_as_mut).then(|| {
-                    quote! {
-                        /// Converts types to mutable references.
-                        ///
-                        /// For example, transforms a variant field with type `T` to `&mut T`.
-                        pub fn as_mut(&mut self) -> #ref_ident #mut_generics {
-                            match *self {
-                                #(#as_mut_arms)*
-                            }
-                        }
-                    }
-                });
-
-                quote! {
-                    #ref_enum
-
-                    impl #imp #ident #ty #wher {
-                        #(#unwraps)*
-                        #(#is)*
-                        #as_ref
-                        #as_mut
-                    }
-                }
+                self.expand_enum(tokens, variants);
             }
         };
-
-        tokens.extend(quote! {
-            #expanded
-        });
     }
 }
