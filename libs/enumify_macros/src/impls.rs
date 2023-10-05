@@ -102,7 +102,7 @@ fn extract_variant(
     variant: &EnumifyVariant,
     generic_overrides: Option<&[syn::Ident]>,
 ) -> Option<TokenStream> {
-    if variant.fields.style != Style::Tuple || variant.fields.fields.len() != 1 {
+    if variant.fields.style != Style::Tuple || variant.fields.len() != 1 {
         return None;
     }
 
@@ -110,9 +110,7 @@ fn extract_variant(
         &variant.ident.to_string().to_case(Case::Snake),
         variant.ident.span(),
     );
-    if variant.fields.len() != 1 {
-        return None;
-    }
+
     let field = variant.fields.iter().next()?;
     let unwrap_name = format_ident!("unwrap_{}", name);
     let get_name = format_ident!("get_{}", name);
@@ -178,7 +176,7 @@ fn is_variant(variant: &EnumifyVariant) -> Option<TokenStream> {
     };
 
     Some(quote! {
-        /// Return true if this value is the expected variant.
+        /// Returns true if this value is the expected variant.
         pub fn #method_name(&self) -> bool {
             match self {
                 Self::#ident #match_arm => true,
@@ -449,9 +447,9 @@ impl Enumify {
 
                 let as_ref = (!self.args.no_as_ref).then(|| {
                     quote! {
-                        /// Converts generic types to references.
+                        /// Converts types to references.
                         ///
-                        /// For example, transforms the type parameter `T` to `&T`.
+                        /// For example, transforms a variant field with type `T` to `&T`.
                         pub fn as_ref(&self) -> #ref_ident #ref_generics {
                             match *self {
                                 #(#as_ref_arms)*
@@ -462,9 +460,9 @@ impl Enumify {
 
                 let as_mut = (!self.args.no_as_mut).then(|| {
                     quote! {
-                        /// Converts generic types to mutable references.
+                        /// Converts types to mutable references.
                         ///
-                        /// For example, transforms the type parameter `T` to `&mut T`.
+                        /// For example, transforms a variant field with type `T` to `&mut T`.
                         pub fn as_mut(&mut self) -> #ref_ident #mut_generics {
                             match *self {
                                 #(#as_mut_arms)*

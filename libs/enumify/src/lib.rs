@@ -27,54 +27,7 @@
 //! assert_eq!(**inner, 123);
 //! ```
 //!
-//! If you do not need `as_ref` or `as_mut` implementations and would like to avoid
-//! creating auxiliary structs, you can write the following:
-//!
-//! ```
-//! # use std::sync::Arc;
-//! #[derive(Clone, Copy)]
-//! #[enumify::enumify(no_as_ref, no_as_mut)]
-//! pub enum Number {
-//!   Float(f64),
-//!   Int(u64),
-//! }
-//!
-//! let x = Number::Int(123);
-//! let inner: u64 = x.unwrap_int();
-//! assert_eq!(inner, 123);
-//! assert!(x.is_int());
-//! ```
-//!
-//! If you want to create a general purpose enum like a [`Result`] where `as_ref` and
-//! `as_mut` implementations do not require creating a new struct, you can write this:
-//!
-//! ```
-//! # use std::sync::Arc;
-//!
-//! #[enumify::enumify(generics_only)]
-//! pub enum Number<F, I> {
-//!   Float(F),
-//!   Int(I),
-//! }
-//!
-//! pub type ArcNumber = Number<Arc<f64>, Arc<u64>>;
-//! pub type BoxNumber = Number<Box<f64>, Box<u64>>;
-//!
-//! let x = ArcNumber::Int(Arc::new(123));
-//! let inner: &Arc<u64> = x.as_ref().unwrap_int();
-//! assert_eq!(**inner, 123);
-//!
-//! let x = BoxNumber::Int(Box::new(123));
-//! let inner: &Box<u64> = x.as_ref().unwrap_int();
-//! assert_eq!(**inner, 123);
-//! ```
-//!
-//! By default, the enumify macro adds the following methods:
-//! * `as_ref`, which converts `&MyEnum<T, U>` to `MyEnum<&T, &U>`
-//! * `as_mut`, which converts `&mut MyEnum<T, U>` to `MyEnum<&mut T, &mut U>`
-//! * `unwrap_{variant}`, which asserts that an enum value is a particular variant, and returns the
-//!    inner value. Only generated for tuple enum variants with a single field.
-//! * `is_{variant}`, which returns `true` if the enum value is the given variant.
+//! See the [`enumify`] macro for more details.
 
 pub use enumify_macros::*;
 
