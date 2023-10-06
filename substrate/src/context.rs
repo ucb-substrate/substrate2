@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use arcstr::ArcStr;
-use cache::{CacheHandle, MappedCacheHandle, SecondaryCacheHandle};
+use cache::CacheHandle;
 use config::Config;
 use examples::get_snippets;
 use indexmap::IndexMap;
@@ -249,7 +249,7 @@ impl Context {
                 id: metadata.id,
                 block,
                 io_data: metadata.io_data.clone(),
-                cell: MappedCacheHandle::new(handle, |res| {
+                cell: handle.map(|res| {
                     Ok(res?
                         .as_ref()
                         .map_err(|e| e.clone())

@@ -10,8 +10,8 @@ use std::{
 
 use crate::{
     error::ArcResult, mem::NamespaceCache, persistent::client::Client, run_generator, CacheHandle,
-    Cacheable, CacheableWithState, GenerateFn, GenerateResultFn, GenerateResultWithStateFn,
-    GenerateWithStateFn, Namespace,
+    CacheHandleInner, CacheValueHolder, Cacheable, CacheableWithState, GenerateFn,
+    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -36,9 +36,9 @@ pub struct MultiCacheBuilder {
 type OptionGenerateHandle<V> = GenerateHandle<V, Option<V>>;
 
 struct GenerateHandle<V, R> {
-    has_value_r: Receiver<Option<CacheHandle<V>>>,
+    has_value_r: Receiver<Option<CacheHandleInner<V>>>,
     value_s: Sender<R>,
-    handle: CacheHandle<V>,
+    handle: CacheHandleInner<V>,
 }
 
 /// A generate function dispatched to cache provider `C` in order to retrieve a cache handle to a
@@ -47,7 +47,13 @@ struct GenerateHandle<V, R> {
 /// The receiver can then be used to recover value that the [`MultiCache`] gets, potentially from
 /// other caches.
 trait MultiGenerateFn<C, K, V, R>:
-    Fn(&mut C, Namespace, Arc<K>, Sender<Option<CacheHandle<V>>>, Receiver<R>) -> CacheHandle<V>
+    Fn(
+    &mut C,
+    Namespace,
+    Arc<K>,
+    Sender<Option<CacheHandleInner<V>>>,
+    Receiver<R>,
+) -> CacheHandleInner<V>
 {
 }
 impl<
@@ -59,9 +65,9 @@ impl<
             &mut C,
             Namespace,
             Arc<K>,
-            Sender<Option<CacheHandle<V>>>,
+            Sender<Option<CacheHandleInner<V>>>,
             Receiver<R>,
-        ) -> CacheHandle<V>,
+        ) -> CacheHandleInner<V>,
     > MultiGenerateFn<C, K, V, R> for T
 {
 }
@@ -127,27 +133,7 @@ impl MultiCache {
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        let namespace = namespace.into();
-        self.generate_inner(
-            namespace,
-            key,
-            generate_fn,
-            |cache, namespace, key, has_value_s, value_r| {
-                cache.generate(namespace, key, move |_| {
-                    let _ = has_value_s.send(None);
-                    value_r.recv().unwrap()
-                })
-            },
-            |cache, namespace, key, has_value_s, value_r| {
-                cache.generate(namespace, key, move |_| {
-                    let _ = has_value_s.send(None);
-                    // Panics if no value is provided. Clients do not cache generator panics.
-                    value_r.recv().unwrap().unwrap()
-                })
-            },
-            MultiCache::recover_value,
-            MultiCache::send_value_to_providers,
-        )
+        CacheHandle::from_inner(Arc::new(self.generate_inner(namespace, key, generate_fn)))
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -192,27 +178,11 @@ impl MultiCache {
         key: K,
         generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<Result<V, E>> {
-        let namespace = namespace.into();
-        self.generate_inner(
+        CacheHandle::from_inner(Arc::new(self.generate_result_inner(
             namespace,
             key,
             generate_fn,
-            |cache, namespace, key, has_value_s, value_r| {
-                cache.generate_result(namespace, key, move |_| {
-                    let _ = has_value_s.send(None);
-                    value_r.recv().unwrap()
-                })
-            },
-            |cache, namespace, key, has_value_s, value_r| {
-                cache.generate_result(namespace, key, move |_| {
-                    let _ = has_value_s.send(None);
-                    // Panics if no value is provided. Clients do not cache generator panics.
-                    value_r.recv().unwrap().unwrap()
-                })
-            },
-            MultiCache::recover_result,
-            MultiCache::send_result_to_providers,
-        )
+        )))
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -344,8 +314,73 @@ impl MultiCache {
         }
     }
 
+    fn generate_inner<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: impl Into<Namespace>,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) -> CacheHandleInner<V> {
+        let namespace = namespace.into();
+        self.generate_inner_dispatch(
+            namespace,
+            key,
+            generate_fn,
+            |cache, namespace, key, has_value_s, value_r| {
+                cache.generate_inner(namespace, key, move |_| {
+                    let _ = has_value_s.send(None);
+                    value_r.recv().unwrap()
+                })
+            },
+            |cache, namespace, key, has_value_s, value_r| {
+                cache.generate_inner(namespace, key, move |_| {
+                    let _ = has_value_s.send(None);
+                    // Panics if no value is provided. Clients do not cache generator panics.
+                    value_r.recv().unwrap().unwrap()
+                })
+            },
+            MultiCache::recover_value,
+            MultiCache::send_value_to_providers,
+        )
+    }
+
+    fn generate_result_inner<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: impl Into<Namespace>,
+        key: K,
+        generate_fn: impl GenerateResultFn<K, V, E>,
+    ) -> CacheHandleInner<Result<V, E>> {
+        let namespace = namespace.into();
+        self.generate_inner_dispatch(
+            namespace,
+            key,
+            generate_fn,
+            |cache, namespace, key, has_value_s, value_r| {
+                cache.generate_result_inner(namespace, key, move |_| {
+                    let _ = has_value_s.send(None);
+                    value_r.recv().unwrap()
+                })
+            },
+            |cache, namespace, key, has_value_s, value_r| {
+                cache.generate_result_inner(namespace, key, move |_| {
+                    let _ = has_value_s.send(None);
+                    // Panics if no value is provided. Clients do not cache generator panics.
+                    value_r.recv().unwrap().unwrap()
+                })
+            },
+            MultiCache::recover_result,
+            MultiCache::send_result_to_providers,
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
-    fn generate_inner<K: Send + Sync + Any, V: Send + Sync + Any>(
+    fn generate_inner_dispatch<K: Send + Sync + Any, V: Send + Sync + Any>(
         &mut self,
         namespace: Namespace,
         key: K,
@@ -354,10 +389,10 @@ impl MultiCache {
         client_generate: impl MultiGenerateFn<Client, K, V, Option<V>>,
         recover_value: impl FnOnce(ArcResult<&V>) -> Option<V> + Send + Any,
         send_value_to_providers: impl Fn(&V, &mut [GenerateHandle<V, Option<V>>]) + Send + Any,
-    ) -> CacheHandle<V> {
+    ) -> CacheHandleInner<V> {
         let key = Arc::new(key);
 
-        let mut handle = CacheHandle::empty();
+        let mut handle = CacheHandleInner::default();
         let mut mem_handle = None;
         let mut client_handles = Vec::new();
 

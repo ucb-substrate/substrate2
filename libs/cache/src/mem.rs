@@ -5,15 +5,16 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
     hash::Hash,
-    sync::{Arc, Mutex},
+    sync::Arc,
     thread,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    error::ArcResult, run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn,
-    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
+    error::ArcResult, run_generator, CacheHandle, CacheHandleInner, CacheValueHolder, Cacheable,
+    CacheableWithState, GenerateFn, GenerateResultFn, GenerateResultWithStateFn,
+    GenerateWithStateFn, Namespace,
 };
 
 #[derive(Debug)]
@@ -30,12 +31,6 @@ impl<T> Default for TypeMapInner<T> {
     }
 }
 
-impl<T> TypeMapInner<T> {
-    fn new() -> Self {
-        Self::default()
-    }
-}
-
 impl<T: Hash + PartialEq + Eq> TypeMapInner<T> {
     fn get_or_insert<K: Hash + Eq + Any + Send + Sync, V: Any + Send + Sync>(
         &mut self,
@@ -46,13 +41,13 @@ impl<T: Hash + PartialEq + Eq> TypeMapInner<T> {
         let entry = self
             .entries
             .entry(namespace)
-            .or_insert_with(|| Box::new(HashMap::<K, V>::default()));
+            .or_insert_with(|| Box::<HashMap<K, V>>::default());
 
         entry
             .downcast_mut::<HashMap<K, V>>()
             .unwrap()
             .entry(key)
-            .or_insert_with(|| f())
+            .or_insert_with(f)
     }
 }
 
@@ -74,12 +69,6 @@ impl<T> Default for TypeCacheInner<T> {
             partial_blocking_map: TypeMapInner::default(),
             map: TypeMapInner::default(),
         }
-    }
-}
-
-impl<T> TypeCacheInner<T> {
-    fn new() -> Self {
-        Self::default()
     }
 }
 
@@ -148,6 +137,7 @@ impl TypeCache {
         Self::default()
     }
 
+    /// The blocking equivalent of [`TypeCache::generate`].
     pub fn generate_blocking<K: Hash + Eq + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         key: K,
@@ -157,6 +147,8 @@ impl TypeCache {
             .generate_blocking(TypeId::of::<K>(), key, generate_fn)
     }
 
+    /// Blocks on generating a portion `V1` of the cached value as in [`TypeCache::generate_blocking`],
+    /// then generates the remainder `V2` in the background as in [`TypeCache::generate`].
     pub fn generate_partial_blocking<
         K: Hash + Eq + Any + Send + Sync,
         V1: Send + Sync + Any,
@@ -215,6 +207,7 @@ impl TypeCache {
         self.inner.generate(TypeId::of::<K>(), key, generate_fn)
     }
 
+    /// The blocking equivalent of [`TypeCache::generate_with_state`].
     pub fn generate_with_state_blocking<
         K: Hash + Eq + Any + Send + Sync,
         V: Send + Sync + Any,
@@ -287,6 +280,7 @@ impl TypeCache {
             })
     }
 
+    /// The blocking equivalent of [`TypeCache::get`].
     pub fn get_blocking<K: Cacheable>(
         &mut self,
         key: K,
@@ -341,6 +335,7 @@ impl TypeCache {
         self.generate(key, |key| key.generate())
     }
 
+    /// The blocking equivalent of [`TypeCache::get_with_state`].
     pub fn get_with_state_blocking<S: Send + Sync + Any, K: CacheableWithState<S>>(
         &mut self,
         key: K,
@@ -415,7 +410,7 @@ impl TypeCache {
 
 /// Maps from a key to a handle on a value that may be set to [`None`] if the generator returns an
 /// uncacheable result. In this case, the result must be regenerated each time.
-type NamespaceEntryMap = HashMap<Vec<u8>, CacheHandle<Option<Vec<u8>>>>;
+type NamespaceEntryMap = HashMap<Vec<u8>, CacheHandleInner<Option<Vec<u8>>>>;
 
 /// Serializes the provided value to bytes, returning [`None`] if the value should not be cached.
 trait SerializeValueFn<V>: FnOnce(&V) -> Option<Vec<u8>> + Send + Any {}
@@ -492,14 +487,7 @@ impl NamespaceCache {
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
-        let namespace = namespace.into();
-        self.generate_inner(
-            namespace,
-            key,
-            generate_fn,
-            |value| Some(flexbuffers::to_vec(value).unwrap()),
-            |value| flexbuffers::from_slice(value).map_err(|e| Arc::new(e.into())),
-        )
+        CacheHandle::from_inner(Arc::new(self.generate_inner(namespace, key, generate_fn)))
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -597,23 +585,11 @@ impl NamespaceCache {
         key: K,
         generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
-        let namespace = namespace.into();
-        self.generate_inner(
+        CacheHandle::from_inner(Arc::new(self.generate_result_inner(
             namespace,
             key,
             generate_fn,
-            |value| {
-                value
-                    .as_ref()
-                    .ok()
-                    .map(|value| flexbuffers::to_vec(value).unwrap())
-            },
-            |value| {
-                flexbuffers::from_slice(value)
-                    .map(|value| Ok(value))
-                    .map_err(|e| Arc::new(e.into()))
-            },
-        )
+        )))
     }
 
     /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
@@ -894,15 +870,62 @@ impl NamespaceCache {
         })
     }
 
-    fn generate_inner<K: Serialize + Any + Send + Sync, V: Send + Sync + Any>(
+    pub(crate) fn generate_inner<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: impl Into<Namespace>,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) -> CacheHandleInner<V> {
+        let namespace = namespace.into();
+        self.generate_inner_dispatch(
+            namespace,
+            key,
+            generate_fn,
+            |value| Some(flexbuffers::to_vec(value).unwrap()),
+            |value| flexbuffers::from_slice(value).map_err(|e| Arc::new(e.into())),
+        )
+    }
+    pub(crate) fn generate_result_inner<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+    >(
+        &mut self,
+        namespace: impl Into<Namespace>,
+        key: K,
+        generate_fn: impl GenerateResultFn<K, V, E>,
+    ) -> CacheHandleInner<std::result::Result<V, E>> {
+        let namespace = namespace.into();
+        self.generate_inner_dispatch(
+            namespace,
+            key,
+            generate_fn,
+            |value| {
+                value
+                    .as_ref()
+                    .ok()
+                    .map(|value| flexbuffers::to_vec(value).unwrap())
+            },
+            |value| {
+                flexbuffers::from_slice(value)
+                    .map(|value| Ok(value))
+                    .map_err(|e| Arc::new(e.into()))
+            },
+        )
+    }
+
+    fn generate_inner_dispatch<K: Serialize + Any + Send + Sync, V: Send + Sync + Any>(
         &mut self,
         namespace: Namespace,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
         serialize_value: impl SerializeValueFn<V>,
         deserialize_value: impl DeserializeValueFn<V>,
-    ) -> CacheHandle<V> {
-        let handle = CacheHandle::empty();
+    ) -> CacheHandleInner<V> {
+        let handle = CacheHandleInner::default();
         let hash = crate::hash(&flexbuffers::to_vec(&key).unwrap());
 
         let (in_progress, entry) = match self
@@ -911,7 +934,7 @@ impl NamespaceCache {
             .or_insert(HashMap::new())
             .entry(hash)
         {
-            Entry::Vacant(v) => (false, v.insert(CacheHandle::empty()).clone()),
+            Entry::Vacant(v) => (false, v.insert(CacheHandleInner::default()).clone()),
             Entry::Occupied(o) => (true, o.get().clone()),
         }
         .clone();

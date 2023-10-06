@@ -6,7 +6,7 @@ pub mod schema;
 
 use cache::error::TryInnerError;
 use cache::mem::TypeCache;
-use cache::{CacheHandle, MappedCacheHandle, SecondaryCacheHandle};
+use cache::CacheHandle;
 pub use codegen::{Schematic, SchematicData};
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -338,7 +338,7 @@ impl<S: Schema> CellBuilder<S> {
             id: inst.id,
             name: arcstr::literal!("unnamed"),
             connections: nodes,
-            child: MappedCacheHandle::new(cell.handle, |handle| match handle {
+            child: cell.handle.map(|handle| match handle {
                 Ok(Ok((raw, cell))) => Ok(raw.clone()),
                 _ => panic!(),
             }),
@@ -497,7 +497,7 @@ impl<'a, S: Schema, S2: ToSchema<S>> SubCellBuilder<'a, S, S2> {
             id: inst.id,
             name: arcstr::literal!("unnamed"),
             connections: nodes,
-            child: MappedCacheHandle::new(cell.handle, |handle| match handle {
+            child: cell.handle.map(|handle| match handle {
                 Ok(Ok((raw, cell))) => Ok(raw.clone()),
                 _ => panic!(),
             }),
@@ -577,21 +577,12 @@ impl<T: ExportsNestedData> Cell<T> {
     }
 }
 
-struct RawCellHandle<S: Schema>(SecondaryCacheHandle<Arc<RawCell<S>>>);
-
-impl<S: Schema> Deref for RawCellHandle<S> {
-    type Target = SecondaryCacheHandle<Arc<RawCell<S>>>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 /// A handle to a schematic cell that is being generated.
 pub struct CellHandle<T: ExportsNestedData> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<T>,
     pub(crate) io_data: Arc<<T::Io as SchematicType>::Bundle>,
-    pub(crate) cell: MappedCacheHandle<Result<Arc<Cell<T>>>>,
+    pub(crate) cell: CacheHandle<Result<Arc<Cell<T>>>>,
 }
 
 impl<T: ExportsNestedData> Clone for CellHandle<T> {
@@ -1059,7 +1050,7 @@ pub(crate) struct RawInstanceBuilder<S: Schema> {
     id: InstanceId,
     name: ArcStr,
     connections: Vec<Node>,
-    child: MappedCacheHandle<Arc<RawCell<S>>>,
+    child: CacheHandle<Arc<RawCell<S>>>,
 }
 
 impl<S: Schema> RawInstanceBuilder<S> {

@@ -1,5 +1,6 @@
 //! Caching utilities.
 
+use std::fmt::Formatter;
 use std::{
     any::Any,
     sync::{Arc, Mutex},
@@ -14,10 +15,18 @@ pub struct Cache {
     inner: Arc<Mutex<CacheInner>>,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct CacheInner {
     type_cache: TypeCache,
     cache: MultiCache,
+}
+
+impl std::fmt::Debug for CacheInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("RawCell");
+        let _ = builder.field("type_cache", &self.type_cache);
+        builder.finish()
+    }
 }
 
 impl Cache {

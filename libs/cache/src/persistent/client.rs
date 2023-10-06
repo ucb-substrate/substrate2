@@ -25,8 +25,8 @@ use crate::{
         local::{self, local_cache_client},
         remote::{self, remote_cache_client},
     },
-    run_generator, CacheHandle, Cacheable, CacheableWithState, GenerateFn, GenerateResultFn,
-    GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
+    run_generator, CacheHandle, CacheHandleInner, Cacheable, CacheableWithState, GenerateFn,
+    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
 };
 
 use super::server::Server;
@@ -86,7 +86,7 @@ pub struct ClientBuilder {
 }
 
 struct GenerateState<K, V> {
-    handle: CacheHandle<V>,
+    handle: CacheHandleInner<V>,
     namespace: Namespace,
     hash: Vec<u8>,
     key: K,
@@ -278,6 +278,18 @@ impl Client {
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) -> CacheHandle<V> {
+        CacheHandle::from_inner(Arc::new(self.generate_inner(namespace, key, generate_fn)))
+    }
+
+    pub(crate) fn generate_inner<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+    >(
+        &self,
+        namespace: impl Into<Namespace>,
+        key: K,
+        generate_fn: impl GenerateFn<K, V>,
+    ) -> CacheHandleInner<V> {
         let namespace = namespace.into();
         let state = Client::setup_generate(namespace, key);
         let handle = state.handle.clone();
@@ -385,6 +397,23 @@ impl Client {
         key: K,
         generate_fn: impl GenerateResultFn<K, V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
+        CacheHandle::from_inner(Arc::new(self.generate_result_inner(
+            namespace,
+            key,
+            generate_fn,
+        )))
+    }
+
+    pub(crate) fn generate_result_inner<
+        K: Serialize + Any + Send + Sync,
+        V: Serialize + DeserializeOwned + Send + Sync + Any,
+        E: Send + Sync + Any,
+    >(
+        &self,
+        namespace: impl Into<Namespace>,
+        key: K,
+        generate_fn: impl GenerateResultFn<K, V, E>,
+    ) -> CacheHandleInner<std::result::Result<V, E>> {
         let namespace = namespace.into();
         let state = Client::setup_generate(namespace, key);
         let handle = state.handle.clone();
@@ -651,7 +680,7 @@ impl Client {
     /// Sets up the necessary objects to be passed in to [`Client::spawn_handler`].
     fn setup_generate<K: Serialize, V>(namespace: Namespace, key: K) -> GenerateState<K, V> {
         GenerateState {
-            handle: CacheHandle::empty(),
+            handle: CacheHandleInner::default(),
             namespace,
             hash: crate::hash(&flexbuffers::to_vec(&key).unwrap()),
             key,
@@ -663,7 +692,7 @@ impl Client {
     /// If the provided handler returns a error, stores an [`Arc`]ed error in the handle.
     fn spawn_handler<V: Send + Sync + Any>(
         self,
-        handle: CacheHandle<V>,
+        handle: CacheHandleInner<V>,
         handler: impl FnOnce() -> Result<()> + Send + Any,
     ) {
         thread::spawn(move || {
@@ -744,7 +773,7 @@ impl Client {
 
     /// Handles an unassigned entry by generating it locally.
     fn handle_unassigned<K: Send + Sync + Any, V: Send + Sync + Any>(
-        handle: CacheHandle<V>,
+        handle: CacheHandleInner<V>,
         key: K,
         generate_fn: impl GenerateFn<K, V>,
     ) {
