@@ -306,15 +306,14 @@ impl<V: Any + Send + Sync> CacheHandle<V> {
         let inner = CacheHandleInner::default();
         (Self(Arc::new(inner.clone())), inner)
     }
-}
 
-impl<V: Send + Sync + Any> CacheHandle<V> {
     /// Creates a new cache handle, generating its value immediately.
     pub(crate) fn new_blocking(generate_fn: impl RawGenerateFn<V>) -> Self {
         let (handle, inner) = Self::empty();
         inner.set(run_generator(generate_fn));
         handle
     }
+
     /// Creates a new cache handle, spawning a thread to generate its value using the provided
     /// function.
     pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
@@ -440,9 +439,6 @@ impl<V1, V2> Clone for MappedCacheHandleInner<V1, V2> {
 }
 
 impl<V1: Send + Sync, V2: Send + Sync> CacheValueHolder<V2> for MappedCacheHandleInner<V1, V2> {
-    /// Blocks on the cache entry, returning the result once it is ready.
-    ///
-    /// Returns an error if one was returned by the generator.
     fn try_get(&self) -> ArcResult<&V2> {
         self.result
             .get_or_init(|| (self.map_fn)(self.handle.try_get()))
@@ -450,9 +446,6 @@ impl<V1: Send + Sync, V2: Send + Sync> CacheValueHolder<V2> for MappedCacheHandl
             .map_err(|e| e.clone())
     }
 
-    /// Checks whether the underlying entry is ready.
-    ///
-    /// Returns the entry if available, otherwise returns [`None`].
     fn poll(&self) -> Option<ArcResult<&V2>> {
         let res = self.handle.poll().map(|res| (self.map_fn)(res))?;
         Some(

@@ -149,6 +149,10 @@ impl TypeCache {
 
     /// Blocks on generating a portion `V1` of the cached value as in [`TypeCache::generate_blocking`],
     /// then generates the remainder `V2` in the background as in [`TypeCache::generate`].
+    ///
+    /// Accesses a separate cache from [`TypeCache::generate_blocking`] and [`TypeCache::generate`].
+    /// That is, a key being accessed with this method will not affect the set of available
+    /// key-value pairs for the other two methods.
     pub fn generate_partial_blocking<
         K: Hash + Eq + Any + Send + Sync,
         V1: Send + Sync + Any,
@@ -340,8 +344,8 @@ impl TypeCache {
         &mut self,
         key: K,
         state: S,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        self.generate_with_state(key, state, |key, state| key.generate_with_state(state))
+    ) -> &std::result::Result<K::Output, K::Error> {
+        self.generate_with_state_blocking(key, state, |key, state| key.generate_with_state(state))
     }
 
     /// Gets a handle to a cacheable object from the cache, generating the object in the background
