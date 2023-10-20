@@ -111,7 +111,7 @@ fn schema_conversion() {
     impl FromSchema<StringSchema> for PartiallyTypedSchema {
         type Error = ();
 
-        fn recover_primitive(
+        fn convert_primitive(
             primitive: <StringSchema as Schema>::Primitive,
         ) -> Result<<Self as Schema>::Primitive, Self::Error> {
             Ok(match primitive.as_ref() {
@@ -124,7 +124,7 @@ fn schema_conversion() {
             })
         }
 
-        fn recover_instance(
+        fn convert_instance(
             instance: &mut Instance,
             primitive: &<StringSchema as Schema>::Primitive,
         ) -> Result<(), Self::Error> {
@@ -142,7 +142,7 @@ fn schema_conversion() {
     impl FromSchema<PartiallyTypedSchema> for StringSchema {
         type Error = ();
 
-        fn recover_primitive(
+        fn convert_primitive(
             primitive: <PartiallyTypedSchema as Schema>::Primitive,
         ) -> Result<<Self as Schema>::Primitive, Self::Error> {
             Ok(match primitive {
@@ -152,7 +152,7 @@ fn schema_conversion() {
             })
         }
 
-        fn recover_instance(
+        fn convert_instance(
             instance: &mut Instance,
             primitive: &<PartiallyTypedSchema as Schema>::Primitive,
         ) -> Result<(), Self::Error> {

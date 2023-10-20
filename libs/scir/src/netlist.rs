@@ -1,9 +1,8 @@
 //! Utilities for writing netlisters for SCIR libraries.
 
 use crate::schema::Schema;
-use crate::{BinOp, Cell, CellId, ChildId, Expr, InstanceId, Library, SignalInfo, Slice};
+use crate::{Cell, CellId, ChildId, InstanceId, Library, SignalInfo, Slice};
 use arcstr::ArcStr;
-use itertools::Itertools;
 use std::collections::HashMap;
 use std::io::{Result, Write};
 use std::path::PathBuf;
@@ -68,18 +67,21 @@ impl NetlistCellConversion {
 }
 
 /// A schema with a SPICE-like netlist format.
-///
-/// Appropriate newlines will be added after each function call, so newlines added by
-/// implementors may cause formatting issues.
 pub trait HasSpiceLikeNetlist: Schema {
     /// Writes a prelude to the beginning of the output stream.
+    ///
+    /// Should include a newline after if needed.
     #[allow(unused_variables)]
     fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> Result<()> {
         Ok(())
     }
     /// Writes an include statement.
+    ///
+    /// A newline will be added afterwards.
     fn write_include<W: Write>(&self, out: &mut W, include: &Include) -> Result<()>;
     /// Writes a begin subcircuit statement.
+    ///
+    /// A newline will be added afterwards.
     fn write_start_subckt<W: Write>(
         &self,
         out: &mut W,
@@ -87,8 +89,12 @@ pub trait HasSpiceLikeNetlist: Schema {
         ports: &[&SignalInfo],
     ) -> Result<()>;
     /// Writes an end subcircuit statement.
+    ///
+    /// A newline will be added afterwards.
     fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> Result<()>;
     /// Writes a SCIR instance.
+    ///
+    /// A newline will be added afterwards.
     fn write_instance<W: Write>(
         &self,
         out: &mut W,
@@ -101,12 +107,14 @@ pub trait HasSpiceLikeNetlist: Schema {
     /// Should include a newline after if needed.
     fn write_primitive_subckt<W: Write>(
         &self,
-        out: &mut W,
-        primitive: &<Self as Schema>::Primitive,
+        _out: &mut W,
+        _primitive: &<Self as Schema>::Primitive,
     ) -> Result<()> {
         Ok(())
     }
-    /// Writes a primitive instantiation.
+    /// Writes a primitive instantiation,.
+    ///
+    /// A newline will be added afterwards.
     fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
@@ -115,6 +123,8 @@ pub trait HasSpiceLikeNetlist: Schema {
         primitive: &<Self as Schema>::Primitive,
     ) -> Result<ArcStr>;
     /// Writes a slice.
+    ///
+    /// Should not include a newline at the end.
     fn write_slice<W: Write>(&self, out: &mut W, slice: Slice, info: &SignalInfo) -> Result<()> {
         if let Some(range) = slice.range() {
             for i in range.indices() {
@@ -125,31 +135,6 @@ pub trait HasSpiceLikeNetlist: Schema {
             }
         } else {
             write!(out, "{}", &info.name)?;
-        }
-        Ok(())
-    }
-    /// Writes a SCIR expression.
-    fn write_expr<W: Write>(&self, out: &mut W, expr: &Expr) -> Result<()> {
-        match expr {
-            Expr::NumericLiteral(dec) => write!(out, "{}", dec)?,
-            // boolean literals have no spectre value
-            Expr::BoolLiteral(_) => (),
-            Expr::StringLiteral(s) | Expr::Var(s) => write!(out, "{}", s)?,
-            Expr::BinOp { op, left, right } => {
-                write!(out, "(")?;
-                self.write_expr(out, left)?;
-                write!(out, ")")?;
-                match op {
-                    BinOp::Add => write!(out, "+")?,
-                    BinOp::Sub => write!(out, "-")?,
-                    BinOp::Mul => write!(out, "*")?,
-                    BinOp::Div => write!(out, "/")?,
-                };
-                write!(out, "(")?;
-                self.write_expr(out, right)?;
-                write!(out, ")")?;
-                todo!();
-            }
         }
         Ok(())
     }
@@ -209,7 +194,7 @@ impl<'a, S: Schema, W> NetlisterInstance<'a, S, W> {
 }
 
 impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
-    /// Exports a SCIR library to the output stream using a [`SpiceLikeNetlister`].
+    /// Exports a SCIR library to the output stream as a SPICE-like netlist.
     pub fn export(mut self) -> Result<NetlistLibConversion> {
         let lib = self.export_library()?;
         self.out.flush()?;
@@ -231,7 +216,7 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                 .insert(id, self.export_cell(cell, self.lib.is_top(id))?);
         }
 
-        for (id, prim) in self.lib.primitives() {
+        for (_id, prim) in self.lib.primitives() {
             self.schema.write_primitive_subckt(self.out, prim)?;
         }
 

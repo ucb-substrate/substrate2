@@ -1207,14 +1207,14 @@ impl<S: Schema> RawCellContents<S> {
             }),
             RawCellContents::Primitive(p) => {
                 RawCellContents::ConvertedPrimitive(ConvertedPrimitive(
-                    <S as scir::schema::ToSchema<S2>>::convert_primitive(p.clone())
+                    <S as scir::schema::FromSchema<S2>>::convert_primitive(p.clone())
                         .map_err(|_| Error::UnsupportedPrimitive)?,
                     Arc::new(Primitive::<S>(p)),
                 ))
             }
             RawCellContents::ConvertedPrimitive(p) => {
                 RawCellContents::ConvertedPrimitive(ConvertedPrimitive(
-                    <S as scir::schema::ToSchema<S2>>::convert_primitive(p.0.clone())
+                    <S as scir::schema::FromSchema<S2>>::convert_primitive(p.0.clone())
                         .map_err(|_| Error::UnsupportedPrimitive)?,
                     Arc::new(p),
                 ))
@@ -1231,11 +1231,11 @@ pub(crate) trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
 impl<S1: Schema, S2: ToSchema<S1>> ConvertPrimitive<S1> for Primitive<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
-        <S2 as scir::schema::ToSchema<S1>>::convert_primitive(self.0.clone())
+        <S2 as scir::schema::FromSchema<S1>>::convert_primitive(self.0.clone())
             .map_err(|_| Error::UnsupportedPrimitive)
     }
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()> {
-        <S2 as scir::schema::ToSchema<S1>>::convert_instance(inst, &self.0)
+        <S2 as scir::schema::FromSchema<S1>>::convert_instance(inst, &self.0)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
 }
@@ -1243,12 +1243,12 @@ impl<S1: Schema, S2: ToSchema<S1>> ConvertPrimitive<S1> for Primitive<S2> {
 impl<S1: Schema, S2: ToSchema<S1>> ConvertPrimitive<S1> for ConvertedPrimitive<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
-        <S2 as scir::schema::ToSchema<S1>>::convert_primitive(self.1.convert_primitive()?)
+        <S2 as scir::schema::FromSchema<S1>>::convert_primitive(self.1.convert_primitive()?)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()> {
         self.1.convert_instance(inst)?;
-        <S2 as scir::schema::ToSchema<S1>>::convert_instance(inst, &self.0)
+        <S2 as scir::schema::FromSchema<S1>>::convert_instance(inst, &self.0)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
 }

@@ -10,7 +10,7 @@ use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
-use crate::{Primitive, Spice};
+use crate::Spice;
 use arcstr::ArcStr;
 use nom::bytes::complete::{take_till, take_while};
 use nom::error::ErrorKind;

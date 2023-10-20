@@ -3,12 +3,10 @@
 
 use arcstr::ArcStr;
 use itertools::Itertools;
-use scir::netlist::{
-    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
-    RenameGround,
-};
+use rust_decimal::Decimal;
+use scir::netlist::HasSpiceLikeNetlist;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use scir::{Expr, Instance, Library, SignalInfo};
+use scir::{Instance, Library, SignalInfo};
 use std::collections::HashMap;
 use std::io::prelude::*;
 
@@ -24,15 +22,15 @@ impl Schema for Spice {
 impl FromSchema<NoSchema> for Spice {
     type Error = NoSchemaError;
 
-    fn recover_primitive(
-        primitive: <NoSchema as Schema>::Primitive,
+    fn convert_primitive(
+        _primitive: <NoSchema as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Err(NoSchemaError)
     }
 
-    fn recover_instance(
-        instance: &mut Instance,
-        primitive: &<NoSchema as Schema>::Primitive,
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<NoSchema as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Err(NoSchemaError)
     }
@@ -41,21 +39,39 @@ impl FromSchema<NoSchema> for Spice {
 /// SPICE primitives.
 #[derive(Debug, Clone)]
 pub struct Primitive {
+    /// The kind of primitive.
     pub kind: PrimitiveKind,
-    pub params: HashMap<ArcStr, Expr>,
+    /// Parameters associated with the primitive.
+    pub params: HashMap<ArcStr, Decimal>,
 }
 
+/// An enumeration of SPICE primitive kinds.
 #[derive(Debug, Clone)]
 pub enum PrimitiveKind {
     /// A resistor primitive with ports "1" and "2" and value `value`.
-    Res2 { value: Expr },
+    Res2 {
+        /// The resistor value.
+        value: Decimal,
+    },
     /// A MOS primitive with ports "D", "G", "S", and "B" and name `mname`.
-    Mos { mname: ArcStr },
+    Mos {
+        /// The name of the MOS model.
+        mname: ArcStr,
+    },
     /// A raw instance with associated cell `cell`.
-    RawInstance { cell: ArcStr, ports: Vec<ArcStr> },
-    ExternalModule {
+    RawInstance {
+        /// The associated cell.
         cell: ArcStr,
+        /// The ordered ports of the instance.
         ports: Vec<ArcStr>,
+    },
+    /// An external module with blackboxed contents.
+    ExternalModule {
+        /// The cell name.
+        cell: ArcStr,
+        /// The cell ports.
+        ports: Vec<ArcStr>,
+        /// The contents of the cell.
         contents: ArcStr,
     },
 }
@@ -127,25 +143,23 @@ impl HasSpiceLikeNetlist for Spice {
         out: &mut W,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<()> {
-        match &primitive.kind {
-            PrimitiveKind::ExternalModule {
-                cell,
-                ports,
-                contents,
-            } => {
-                write!(out, ".SUBCKT {}", cell)?;
-                for port in ports {
-                    write!(out, " {}", port)?;
-                }
-                writeln!(out, "\n")?;
-
-                writeln!(out, "{}", contents)?;
-
-                self.write_end_subckt(out, cell)?;
-                writeln!(out)?;
+        if let PrimitiveKind::ExternalModule {
+            cell,
+            ports,
+            contents,
+        } = &primitive.kind
+        {
+            write!(out, ".SUBCKT {}", cell)?;
+            for port in ports {
+                write!(out, " {}", port)?;
             }
-            _ => {}
-        }
+            writeln!(out, "\n")?;
+
+            writeln!(out, "{}", contents)?;
+
+            self.write_end_subckt(out, cell)?;
+            writeln!(out)?;
+        };
         Ok(())
     }
 
@@ -160,13 +174,12 @@ impl HasSpiceLikeNetlist for Spice {
             PrimitiveKind::Res2 { value } => {
                 let name = arcstr::format!("R{}", name);
                 write!(out, "{}", name)?;
-                for port in ["p", "n"] {
+                for port in ["1", "2"] {
                     for part in connections.remove(port).unwrap() {
                         write!(out, " {}", part)?;
                     }
                 }
-                write!(out, " ")?;
-                self.write_expr(out, value)?;
+                write!(out, " {value}")?;
                 name
             }
             PrimitiveKind::Mos { mname } => {
@@ -194,8 +207,7 @@ impl HasSpiceLikeNetlist for Spice {
             }
         };
         for (key, value) in primitive.params.iter().sorted_by_key(|(key, _)| *key) {
-            write!(out, " {key}=")?;
-            self.write_expr(out, value)?;
+            write!(out, " {key}={value}")?;
         }
         Ok(name)
     }

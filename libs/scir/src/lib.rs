@@ -3,7 +3,7 @@
 //! An intermediate-level representation of schematic cells and instances.
 //!
 //! Unlike higher-level Substrate APIs, the structures in this crate use
-//! strings, rather than generics, to specify ports, connections, and parameters.
+//! strings, rather than generics, to specify ports and connections.
 //!
 //! This format is designed to be easy to generate from high-level APIs and
 //! easy to parse from lower-level formats, such as SPICE or structural Verilog.
@@ -32,7 +32,6 @@ use arcstr::ArcStr;
 use diagnostics::IssueSet;
 use drivers::DriverIssue;
 use indexmap::IndexMap;
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
@@ -42,7 +41,7 @@ pub mod schema;
 mod slice;
 
 use crate::netlist::NetlistLibConversion;
-use crate::schema::{NoSchema, NoSchemaError, Schema, ToSchema};
+use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use crate::slice::{Concat, NamedSlice, NamedSliceOne};
 use crate::validation::ValidatorIssue;
 pub use slice::{IndexOwned, Slice, SliceOne, SliceRange};
@@ -52,91 +51,6 @@ pub(crate) mod validation;
 
 #[cfg(test)]
 pub(crate) mod tests;
-
-/// An expression, often used in parameter assignments.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[enumify::enumify(no_as_ref, no_as_mut)]
-pub enum Expr {
-    /// A numeric literal.
-    NumericLiteral(Decimal),
-    /// A boolean literal.
-    BoolLiteral(bool),
-    /// A string literal.
-    StringLiteral(ArcStr),
-    /// A variable/identifier in an expression.
-    Var(ArcStr),
-    /// A binary operation.
-    BinOp {
-        /// The operation type.
-        op: BinOp,
-        /// The left operand.
-        left: Box<Expr>,
-        /// The right operand.
-        right: Box<Expr>,
-    },
-}
-
-/// Binary operation types.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum BinOp {
-    /// Addition.
-    Add,
-    /// Subtraction.
-    Sub,
-    /// Multiplication.
-    Mul,
-    /// Division.
-    Div,
-}
-
-impl From<Decimal> for Expr {
-    fn from(value: Decimal) -> Self {
-        Self::NumericLiteral(value)
-    }
-}
-
-impl From<ArcStr> for Expr {
-    fn from(value: ArcStr) -> Self {
-        Self::StringLiteral(value)
-    }
-}
-
-impl From<bool> for Expr {
-    fn from(value: bool) -> Self {
-        Self::BoolLiteral(value)
-    }
-}
-
-/// A cell parameter.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Param {
-    /// A string parameter.
-    String {
-        /// The default value.
-        default: Option<ArcStr>,
-    },
-    /// A numeric parameter.
-    Numeric {
-        /// The default value.
-        default: Option<Decimal>,
-    },
-    /// A boolean parameter.
-    Bool {
-        /// The default value.
-        default: Option<bool>,
-    },
-}
-
-impl Param {
-    /// Whether or not the parameter has a default value.
-    pub fn has_default(&self) -> bool {
-        match self {
-            Self::String { default } => default.is_some(),
-            Self::Numeric { default } => default.is_some(),
-            Self::Bool { default } => default.is_some(),
-        }
-    }
-}
 
 /// An opaque signal identifier.
 ///
@@ -214,7 +128,7 @@ impl SliceOnePath {
     }
 }
 
-/// A path to a signal of type `S` in a SCIR library.
+/// A path to a signal of type `I` or `N` in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 struct SignalPath<I, N> {
     instances: InstancePath,
@@ -280,9 +194,9 @@ impl SignalPathTail<SliceOne, NamedSliceOne> {
 /// A path to an instance in a SCIR library.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct InstancePath {
-    /// ID of the top cell.
+    /// The top cell of the path.
     top: InstancePathCell,
-    /// Path of SCIR instance IDs.
+    /// Path of SCIR instances.
     elems: Vec<InstancePathElement>,
 }
 
@@ -505,6 +419,7 @@ impl Display for PrimitiveId {
         write!(f, "primitive{}", self.0)
     }
 }
+
 impl Display for ChildId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -514,7 +429,7 @@ impl Display for ChildId {
     }
 }
 
-/// A library of SCIR cells with primitive type P.
+/// A library of SCIR cells with schema `S`.
 pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
     /// The current cell ID counter.
     ///
@@ -605,17 +520,24 @@ impl<S: Schema> Deref for Library<S> {
 }
 
 impl<S: Schema> Library<S> {
+    /// Converts a [`Library<S>`] to a [`Library<NoSchema>`], throwing an error if there
+    /// are any primitives.
+    pub fn drop_schema(self) -> Result<Library<NoSchema>, NoSchemaError> {
+        Ok(Library(self.0.drop_schema()?))
+    }
+
     /// Converts a [`Library<S>`] into a [`LibraryBuilder<C>`].
     ///
     /// A [`LibraryBuilder`] is created to indicate that validation must be done again
     /// to ensure errors were not introduced during the conversion.
-    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, S::Error>
+    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, C::Error>
     where
-        S: ToSchema<C>,
+        C: FromSchema<S>,
     {
-        Ok(self.0.convert_schema()?)
+        self.0.convert_schema()
     }
 
+    /// Converts this library into a [`LibraryBuilder`] that can be modified.
     pub fn into_builder(self) -> LibraryBuilder<S> {
         self.0
     }
@@ -753,7 +675,7 @@ pub struct SignalInfo {
     ///
     /// The contained `usize` represents the index at which the port
     /// corresponding to this signal starts.
-    pub port: Option<usize>,
+    port: Option<usize>,
 }
 
 impl SignalInfo {
@@ -761,6 +683,11 @@ impl SignalInfo {
     #[inline]
     pub fn slice(&self) -> Slice {
         Slice::new(self.id, self.width.map(SliceRange::with_width))
+    }
+
+    /// Returns `true` if this signal is exposed as a port.
+    pub fn is_port(&self) -> bool {
+        self.port.is_some()
     }
 }
 
@@ -773,11 +700,10 @@ pub struct Instance {
     ///
     /// This is not necessarily the name of the child cell.
     name: ArcStr,
-
     /// A map mapping port names to connections.
     ///
     /// The ports are the ports of the **child** cell.
-    /// The signal identifiers are signals of the **parent** cell.
+    /// The connected signals are signals of the **parent** cell.
     connections: HashMap<ArcStr, Concat>,
 }
 
@@ -1176,7 +1102,8 @@ impl<S: Schema> LibraryBuilder<S> {
         self.convert_annotated_instance_path(None, annotated_path)
     }
 
-    /// Converts an [`InstancePath`] to a [`NamedPath`].
+    /// Converts an [`InstancePath`] to a [`NamedPath`], using the provided `conv`
+    /// to modify instance names that were converted during netlisting.
     ///
     /// # Panics
     ///
@@ -1365,11 +1292,11 @@ impl<S: Schema> LibraryBuilder<S> {
     /// Converts a [`LibraryBuilder<S>`] into a [`LibraryBuilder<C>`].
     ///
     /// Instances associated with non-existent primitives will remain unchanged.
-    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, S::Error>
+    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, C::Error>
     where
-        S: ToSchema<C>,
+        C: FromSchema<S>,
     {
-        self.convert_inner(S::convert_primitive, S::convert_instance)
+        self.convert_inner(C::convert_primitive, C::convert_instance)
     }
 }
 

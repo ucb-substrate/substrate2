@@ -27,9 +27,7 @@ pub struct Slice {
     range: Option<SliceRange>,
 }
 
-/// A single wire.
-///
-/// May be a single bit wire or a single bit taken from a bus.
+/// A single bit wire or a single bit of a bus signal.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SliceOne {
     signal: SignalId,
@@ -109,6 +107,7 @@ impl IntoIterator for SliceRange {
 }
 
 impl NamedSlice {
+    /// Creates a new [`NamedSlice`].
     #[inline]
     pub fn new(signal: impl Into<ArcStr>) -> Self {
         Self {
@@ -117,6 +116,7 @@ impl NamedSlice {
         }
     }
 
+    /// Creates a new [`NamedSlice`] with the given range.
     #[inline]
     pub fn with_range(signal: impl Into<ArcStr>, range: impl Into<SliceRange>) -> Self {
         Self {
@@ -250,6 +250,7 @@ impl From<NamedSliceOne> for NamedSlice {
 }
 
 impl NamedSliceOne {
+    /// Creates a new [`NamedSliceOne`].
     #[inline]
     pub fn new(signal: impl Into<ArcStr>) -> Self {
         Self {
@@ -258,6 +259,7 @@ impl NamedSliceOne {
         }
     }
 
+    /// Creates a new [`NamedSliceOne`] with the given index.
     pub fn with_index(signal: ArcStr, index: usize) -> Self {
         Self {
             signal,

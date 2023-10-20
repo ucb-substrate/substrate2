@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::PrimitiveKind;
 use std::path::PathBuf;
 
 pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
@@ -78,7 +79,7 @@ fn parse_dff() {
                     assert_eq!(
                         inst.params,
                         Params {
-                            values: IndexMap::from_iter([
+                            values: HashMap::from_iter([
                                 ("w".into(), "3".into()),
                                 ("l".into(), "0.15".into())
                             ]),
@@ -95,19 +96,25 @@ fn parse_dff() {
 #[test]
 fn convert_dff_to_scir() {
     let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
-    let mut converter = ScirConverter::new("openram_dff", &parsed.ast);
-    converter.blackbox("sky130_fd_pr__nfet_01v8");
-    converter.blackbox("sky130_fd_pr__pfet_01v8");
+    let converter = ScirConverter::new("openram_dff", &parsed.ast);
     let lib = converter.convert().unwrap();
     let issues = lib.validate();
     assert_eq!(issues.num_errors(), 0);
     assert_eq!(issues.num_warnings(), 0);
     assert_eq!(lib.cells().count(), 1);
     let cell = lib.cell_named("openram_dff");
-    assert_eq!(
-        cell.contents().as_ref().unwrap_cell().instances().count(),
-        22
-    );
+    assert_eq!(cell.instances().count(), 22);
+
+    let (_, inst) = cell.instances().nth(10).unwrap();
+    let prim = lib.primitive(inst.child().unwrap_primitive());
+    match &prim.kind {
+        PrimitiveKind::RawInstance { ports, cell } => {
+            assert_eq!(ports.len(), 4);
+            assert_eq!(cell, "sky130_fd_pr__pfet_01v8");
+            assert_eq!(prim.params.len(), 2);
+        }
+        _ => panic!("incorrect primitive kind"),
+    }
 }
 
 #[test]
@@ -122,8 +129,16 @@ fn convert_blackbox_to_scir() {
     assert_eq!(issues.num_warnings(), 0);
     assert_eq!(lib.cells().count(), 1);
     let cell = lib.cell_named("top");
-    assert_eq!(
-        cell.contents().as_ref().unwrap_cell().instances().count(),
-        4
-    );
+    assert_eq!(cell.instances().count(), 4);
+
+    let (_, inst) = cell.instances().nth(2).unwrap();
+    let prim = lib.primitive(inst.child().unwrap_primitive());
+    match &prim.kind {
+        PrimitiveKind::RawInstance { ports, cell } => {
+            assert_eq!(ports.len(), 2);
+            assert_eq!(cell, "blackbox2");
+            assert_eq!(prim.params.len(), 0);
+        }
+        _ => panic!("incorrect primitive kind"),
+    }
 }

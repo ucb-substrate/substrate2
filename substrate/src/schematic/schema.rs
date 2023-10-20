@@ -25,6 +25,6 @@ pub trait Primitive: Clone + Send + Sync + Any {}
 
 impl<T: Clone + Send + Sync + Any> Primitive for T {}
 
-pub trait ToSchema<S: Schema>: Schema + scir::schema::ToSchema<S> {}
+pub trait ToSchema<S: Schema>: Schema + scir::schema::FromSchema<S> {}
 
-impl<S1: Schema, S2: Schema + scir::schema::ToSchema<S1>> ToSchema<S1> for S2 {}
+impl<S1: Schema, S2: Schema + scir::schema::FromSchema<S1>> ToSchema<S1> for S2 {}

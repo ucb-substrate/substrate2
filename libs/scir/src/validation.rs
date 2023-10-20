@@ -77,24 +77,6 @@ pub enum Cause {
         parent_cell_name: ArcStr,
         instance_name: ArcStr,
     },
-    /// An instance does not specify a parameter value, and the parameter has no default.
-    MissingParam {
-        child_cell_id: CellId,
-        child_cell_name: ArcStr,
-        param: ArcStr,
-        parent_cell_id: CellId,
-        parent_cell_name: ArcStr,
-        instance_name: ArcStr,
-    },
-    /// An instance specifies a parameter value, but the parameter does not exist.
-    ExtraParam {
-        child_cell_id: CellId,
-        child_cell_name: ArcStr,
-        param: ArcStr,
-        parent_cell_id: CellId,
-        parent_cell_name: ArcStr,
-        instance_name: ArcStr,
-    },
     /// A bus index is out of bounds given the width of the bus.
     IndexOutOfBounds {
         idx: usize,
@@ -124,12 +106,6 @@ pub enum Cause {
         parent_cell_name: ArcStr,
         child_cell_id: CellId,
         child_cell_name: ArcStr,
-    },
-    /// Incorrect width in a connection to a primitive device.
-    PrimitiveWidthMismatch {
-        width: usize,
-        parent_cell_id: CellId,
-        parent_cell_name: ArcStr,
     },
 }
 
@@ -236,26 +212,6 @@ impl Display for Cause {
                     child_cell_name
                 ),
 
-            Self::MissingParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "unspecified parameter: instance `{}` in cell `{}` does not specify a value for parameter `{}` of cell `{}`, and this parameter does not have a default value",
-                    instance_name,
-                    parent_cell_name,
-                    param,
-                    child_cell_name
-                ),
-
-            Self::ExtraParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "extra param: instance `{}` in cell `{}` specifies a value for parameter `{}` of cell `{}`, but this cell has no such parameter",
-                    instance_name,
-                    parent_cell_name,
-                    param,
-                    child_cell_name
-                ),
-
             Self::IndexOutOfBounds {idx, width, cell_name, .. } =>
                 write!(
                     f,
@@ -293,13 +249,6 @@ impl Display for Cause {
                     expected_width
                 ),
 
-            Self::PrimitiveWidthMismatch { width, parent_cell_name, .. } =>
-                write!(
-                    f,
-                    "mismatched primitive device width: cell `{}` specifies a connection of width {} to a primitive device, but the expected width is 1",
-                    parent_cell_name,
-                    width
-                ),
         }
     }
 }

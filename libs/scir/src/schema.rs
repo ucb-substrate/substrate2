@@ -17,38 +17,19 @@ pub trait Primitive {}
 
 impl<T> Primitive for T {}
 
-/// A schema that can be converted to another schema.
-pub trait ToSchema<S: Schema>: Schema {
+/// A schema that can be converted from another schema.
+pub trait FromSchema<S: Schema>: Schema {
     /// The conversion error type.
     type Error;
 
-    /// Converts a primitive of the original schema to a primitive of the other.
+    /// Converts a primitive of the other schema to a primitive of this schema.
     fn convert_primitive(
-        primitive: <Self as Schema>::Primitive,
-    ) -> Result<<S as Schema>::Primitive, Self::Error>;
-
-    /// Converts an instance from the original schema to a new instance
-    /// based on its associated primitive.
-    fn convert_instance(
-        instance: &mut Instance,
-        primitive: &<Self as Schema>::Primitive,
-    ) -> Result<(), Self::Error>;
-}
-
-/// A schema that can be recovered from another schema.
-pub trait FromSchema<S: Schema>: Schema {
-    /// The recovery error type.
-    type Error;
-
-    /// Recovers a primitive of the original schema from a primitive of the
-    /// other.
-    fn recover_primitive(
         primitive: <S as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error>;
 
-    /// Recovers an instance based on an instance from the other schema and
-    /// its associated primitive.
-    fn recover_instance(
+    /// Converts an instance from the other schema to a new instance
+    /// based on its associated primitive.
+    fn convert_instance(
         instance: &mut Instance,
         primitive: &<S as Schema>::Primitive,
     ) -> Result<(), Self::Error>;
@@ -57,13 +38,13 @@ pub trait FromSchema<S: Schema>: Schema {
 impl<S: Schema> FromSchema<S> for S {
     type Error = ();
 
-    fn recover_primitive(
+    fn convert_primitive(
         primitive: <S as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
-    fn recover_instance(
+    fn convert_instance(
         _instance: &mut Instance,
         _primitive: &<S as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
@@ -71,23 +52,7 @@ impl<S: Schema> FromSchema<S> for S {
     }
 }
 
-impl<S1: Schema, S2: FromSchema<S1>> ToSchema<S2> for S1 {
-    type Error = <S2 as FromSchema<S1>>::Error;
-
-    fn convert_primitive(
-        primitive: <Self as Schema>::Primitive,
-    ) -> Result<<S2 as Schema>::Primitive, Self::Error> {
-        <S2 as FromSchema<S1>>::recover_primitive(primitive)
-    }
-
-    fn convert_instance(
-        instance: &mut Instance,
-        primitive: &<Self as Schema>::Primitive,
-    ) -> Result<(), Self::Error> {
-        <S2 as FromSchema<S1>>::recover_instance(instance, primitive)
-    }
-}
-
+/// A schema with no primitives.
 pub struct NoSchema;
 
 /// An error converting to/from [`NoSchema`].
@@ -118,14 +83,14 @@ impl Schema for StringSchema {
 impl FromSchema<NoSchema> for StringSchema {
     type Error = NoSchemaError;
 
-    fn recover_primitive(
-        primitive: <NoSchema as Schema>::Primitive,
+    fn convert_primitive(
+        _primitive: <NoSchema as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Err(NoSchemaError)
     }
-    fn recover_instance(
-        instance: &mut Instance,
-        primitive: &<NoSchema as Schema>::Primitive,
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<NoSchema as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Err(NoSchemaError)
     }

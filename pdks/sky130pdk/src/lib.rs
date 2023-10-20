@@ -21,7 +21,7 @@ use substrate::spice;
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
 use corner::*;
-use scir::schema::{FromSchema, ToSchema};
+use scir::schema::{FromSchema, FromSchema};
 use scir::Instance;
 use substrate::spice::{Primitive, PrimitiveKind, Spice};
 
@@ -108,7 +108,7 @@ impl FromSchema<Spice> for Sky130Pdk {
     }
 }
 
-impl ToSchema<Spice> for Sky130Pdk {
+impl FromSchema<Spice> for Sky130Pdk {
     type Error = ();
     fn convert_primitive(
         primitive: <Self as scir::schema::Schema>::Primitive,
@@ -136,13 +136,13 @@ impl ToSchema<Spice> for Sky130Pdk {
     }
 }
 
-impl ToSchema<Ngspice> for Sky130Pdk {
+impl FromSchema<Ngspice> for Sky130Pdk {
     type Error = ();
     fn convert_primitive(
         primitive: <Self as scir::schema::Schema>::Primitive,
     ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(NgspicePrimitive::Spice(
-            <Self as ToSchema<Spice>>::convert_primitive(primitive)?,
+            <Self as FromSchema<Spice>>::convert_primitive(primitive)?,
         ))
     }
     fn convert_instance(
@@ -153,7 +153,7 @@ impl ToSchema<Ngspice> for Sky130Pdk {
     }
 }
 
-impl ToSchema<Spectre> for Sky130Pdk {
+impl FromSchema<Spectre> for Sky130Pdk {
     type Error = ();
     fn convert_primitive(
         primitive: <Self as scir::schema::Schema>::Primitive,

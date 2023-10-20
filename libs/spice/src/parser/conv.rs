@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{Primitive, PrimitiveKind, Spice};
 use arcstr::ArcStr;
+use rust_decimal::Decimal;
 use thiserror::Error;
 
 use super::{Ast, Component, Elem, Subckt, Substr};
@@ -42,6 +43,7 @@ pub enum ConvError {
 pub struct ScirConverter<'a> {
     ast: &'a Ast,
     lib: scir::LibraryBuilder<Spice>,
+    blackbox_cells: HashSet<Substr>,
     subckts: HashMap<SubcktName, &'a Subckt>,
     ids: HashMap<SubcktName, scir::CellId>,
 }
@@ -52,12 +54,18 @@ impl<'a> ScirConverter<'a> {
         Self {
             ast,
             lib: scir::LibraryBuilder::new(name),
+            blackbox_cells: Default::default(),
             subckts: Default::default(),
             ids: Default::default(),
         }
     }
 
-    /// Consumes the converter, yielding a SCIR [library](scir::Library)].
+    /// Blackboxes the given cell.
+    pub fn blackbox(&mut self, cell_name: impl Into<Substr>) {
+        self.blackbox_cells.insert(cell_name.into());
+    }
+
+    /// Consumes the converter, yielding a SCIR [library](scir::Library).
     pub fn convert(mut self) -> ConvResult<scir::Library<Spice>> {
         self.map_subckts();
         let subckts = self.subckts.values().copied().collect::<Vec<_>>();
@@ -94,6 +102,10 @@ impl<'a> ScirConverter<'a> {
             return Ok(id);
         }
 
+        if self.blackbox_cells.contains(&subckt.name) {
+            return Err(ConvError::ExportBlackbox);
+        }
+
         let mut cell = scir::Cell::new(ArcStr::from(subckt.name.as_str()));
         let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
@@ -121,7 +133,8 @@ impl<'a> ScirConverter<'a> {
                     cell.add_instance(sinst);
                 }
                 Component::Instance(inst) => {
-                    if let Some(subckt) = self.subckts.get(&inst.child) {
+                    let blackbox = self.blackbox_cells.contains(&inst.child);
+                    if let (false, Some(subckt)) = (blackbox, self.subckts.get(&inst.child)) {
                         let id = self.convert_subckt(subckt)?;
                         let mut sinst = scir::Instance::new(&inst.name[1..], id);
                         let subckt = self
@@ -142,7 +155,6 @@ impl<'a> ScirConverter<'a> {
                             .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
                             .collect::<ConvResult<HashMap<_, _>>>()?;
                         let ports: Vec<_> = (0..inst.ports.len())
-                            .into_iter()
                             .map(|i| arcstr::format!("{}", i + 1))
                             .collect();
                         let id = self.lib.add_primitive(Primitive {
@@ -175,9 +187,6 @@ impl<'a> ScirConverter<'a> {
     }
 }
 
-fn str_as_numeric_lit(s: &Substr) -> ConvResult<scir::Expr> {
-    Ok(scir::Expr::NumericLiteral(
-        s.parse()
-            .map_err(|_| ConvError::InvalidLiteral(s.clone()))?,
-    ))
+fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
+    s.parse().map_err(|_| ConvError::InvalidLiteral(s.clone()))
 }
