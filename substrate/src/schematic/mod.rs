@@ -35,7 +35,7 @@ use crate::io::{
 };
 use crate::pdk::Pdk;
 use crate::schematic::conv::ConvError;
-use crate::schematic::schema::{Schema, ToSchema};
+use crate::schematic::schema::{FromSchema, Schema};
 use crate::sealed;
 use crate::sealed::Token;
 
@@ -123,23 +123,6 @@ pub struct CellBuilder<S: Schema> {
     pub(crate) ports: Vec<Port>,
     pub(crate) contents: RawCellContentsBuilder<S>,
 }
-
-// TODO: Uncomment
-// impl<S: Schema> Clone for CellBuilder<S> {
-//     fn clone(&self) -> Self {
-//         Self {
-//             ctx: self.ctx.clone(),
-//             id: self.id,
-//             cell_name: self.cell_name.clone(),
-//             flatten: self.flatten,
-//             root: self.root.clone(),
-//             node_ctx: self.node_ctx.clone(),
-//             node_names: self.node_names.clone(),
-//             ports: self.ports.clone(),
-//             contents: self.contents.clone(),
-//         }
-//     }
-// }
 
 impl<S: Schema> CellBuilder<S> {
     pub(crate) fn finish(self) -> RawCell<S> {
@@ -347,14 +330,17 @@ impl<S: Schema> CellBuilder<S> {
         inst
     }
 
-    pub fn sub_builder<S2: Schema>(&mut self) -> SubCellBuilder<S, S2> {
+    pub fn sub_builder<S2: Schema>(&mut self) -> SubCellBuilder<S, S2>
+    where
+        S: FromSchema<S2>,
+    {
         SubCellBuilder(self, PhantomData)
     }
 }
 
 pub struct SubCellBuilder<'a, S: Schema, S2: Schema>(&'a mut CellBuilder<S>, PhantomData<S2>);
 
-impl<'a, S: Schema, S2: ToSchema<S>> SubCellBuilder<'a, S, S2> {
+impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
     pub fn signal<TY: SchematicType>(
@@ -1086,10 +1072,7 @@ impl<S: Schema> Clone for RawInstance<S> {
 }
 
 impl<S: Schema> RawInstance<S> {
-    fn convert_schema<S2: Schema>(self) -> Result<RawInstance<S2>>
-    where
-        S: ToSchema<S2>,
-    {
+    fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawInstance<S2>> {
         Ok(RawInstance {
             id: self.id,
             name: self.name,
@@ -1149,10 +1132,7 @@ impl<S: Schema> Clone for RawCell<S> {
 }
 
 impl<S: Schema> RawCell<S> {
-    pub(crate) fn convert_schema<S2: Schema>(self) -> Result<RawCell<S2>>
-    where
-        S: ToSchema<S2>,
-    {
+    pub(crate) fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCell<S2>> {
         Ok(RawCell {
             id: self.id,
             name: self.name,
@@ -1190,10 +1170,7 @@ pub(crate) type RawCellContents<S> =
     RawCellKind<RawCellInner<S>, ScirCellInner<S>, <S as Schema>::Primitive, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContents<S> {
-    fn convert_schema<S2: Schema>(self) -> Result<RawCellContents<S2>>
-    where
-        S: ToSchema<S2>,
-    {
+    fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellContents<S2>> {
         Ok(match self {
             RawCellContents::Cell(c) => RawCellContents::Cell(c.convert_schema()?),
             RawCellContents::Scir(s) => RawCellContents::Scir(ScirCellInner {
@@ -1207,14 +1184,14 @@ impl<S: Schema> RawCellContents<S> {
             }),
             RawCellContents::Primitive(p) => {
                 RawCellContents::ConvertedPrimitive(ConvertedPrimitive(
-                    <S as scir::schema::FromSchema<S2>>::convert_primitive(p.clone())
+                    <S2 as scir::schema::FromSchema<S>>::convert_primitive(p.clone())
                         .map_err(|_| Error::UnsupportedPrimitive)?,
                     Arc::new(Primitive::<S>(p)),
                 ))
             }
             RawCellContents::ConvertedPrimitive(p) => {
                 RawCellContents::ConvertedPrimitive(ConvertedPrimitive(
-                    <S as scir::schema::FromSchema<S2>>::convert_primitive(p.0.clone())
+                    <S2 as scir::schema::FromSchema<S>>::convert_primitive(p.0.clone())
                         .map_err(|_| Error::UnsupportedPrimitive)?,
                     Arc::new(p),
                 ))
@@ -1228,27 +1205,27 @@ pub(crate) trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()>;
 }
 
-impl<S1: Schema, S2: ToSchema<S1>> ConvertPrimitive<S1> for Primitive<S2> {
+impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for Primitive<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
-        <S2 as scir::schema::FromSchema<S1>>::convert_primitive(self.0.clone())
+        <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.0.clone())
             .map_err(|_| Error::UnsupportedPrimitive)
     }
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()> {
-        <S2 as scir::schema::FromSchema<S1>>::convert_instance(inst, &self.0)
+        <S1 as scir::schema::FromSchema<S2>>::convert_instance(inst, &self.0)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
 }
 
-impl<S1: Schema, S2: ToSchema<S1>> ConvertPrimitive<S1> for ConvertedPrimitive<S2> {
+impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
-        <S2 as scir::schema::FromSchema<S1>>::convert_primitive(self.1.convert_primitive()?)
+        <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.1.convert_primitive()?)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()> {
         self.1.convert_instance(inst)?;
-        <S2 as scir::schema::FromSchema<S1>>::convert_instance(inst, &self.0)
+        <S1 as scir::schema::FromSchema<S2>>::convert_instance(inst, &self.0)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
 }
@@ -1323,10 +1300,7 @@ impl<S: Schema> Clone for RawCellInner<S> {
 }
 
 impl<S: Schema> RawCellInner<S> {
-    fn convert_schema<S2: Schema>(self) -> Result<RawCellInner<S2>>
-    where
-        S: ToSchema<S2>,
-    {
+    fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellInner<S2>> {
         Ok(RawCellInner {
             instances: self
                 .instances

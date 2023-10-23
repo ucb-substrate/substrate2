@@ -1,10 +1,6 @@
 //! An enumeration of supported corners.
-use ngspice::Ngspice;
-use serde::{Deserialize, Serialize};
-use spectre::Spectre;
-use substrate::pdk::corner::SupportsSimulator;
 
-use crate::Sky130Pdk;
+use serde::{Deserialize, Serialize};
 
 /// An enumeration of supported corners.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -73,6 +69,7 @@ impl Sky130Corners {
 }
 
 impl Sky130Corner {
+    /// Returns the name of the corner.
     pub fn name(&self) -> arcstr::ArcStr {
         match *self {
             Self::Tt => arcstr::literal!("tt"),

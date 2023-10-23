@@ -7,39 +7,56 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
-use indexmap::IndexMap;
 use ngspice::{Ngspice, NgspicePrimitive};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::{Spectre, SpectrePrimitive};
 use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
-use substrate::schematic::schema::Schema;
-use substrate::scir::Expr;
-use substrate::spice;
 
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
 use corner::*;
-use scir::schema::{FromSchema, FromSchema};
-use scir::Instance;
+use scir::schema::FromSchema;
+use scir::{Instance, ParamValue};
 use substrate::spice::{Primitive, PrimitiveKind, Spice};
 
 pub mod corner;
 pub mod layers;
 pub mod mos;
 
+/// A primitive of the Sky 130 PDK.
 #[derive(Debug, Clone)]
 pub enum Sky130Primitive {
+    /// A raw instance with associated cell `cell`.
     RawInstance {
+        /// The associated cell.
         cell: ArcStr,
+        /// The ordered ports of the instance.
         ports: Vec<ArcStr>,
-        params: IndexMap<ArcStr, Expr>,
+        /// The parameters of the instance.
+        params: HashMap<ArcStr, ParamValue>,
     },
+    /// A Sky 130 MOSFET with ports "D", "G", "S", and "B".
     Mos {
+        /// The MOSFET kind.
         kind: MosKind,
+        /// The MOSFET parameters.
         params: MosParams,
     },
+}
+
+/// An error converting to/from the [`Sky130Pdk`] schema.
+#[derive(Debug, Clone, Copy)]
+pub enum Sky130ConvError {
+    /// A primitive that is not supported by the target schema was encountered.
+    UnsupportedPrimitive,
+    /// A primitive is missing a required parameter.
+    MissingParameter,
+    /// A primitive has an extra parameter.
+    ExtraParameter,
+    /// A primitive has an invalid value for a certain parameter.
+    InvalidParameter,
 }
 
 impl scir::schema::Schema for Sky130Pdk {
@@ -47,51 +64,60 @@ impl scir::schema::Schema for Sky130Pdk {
 }
 
 impl FromSchema<Spice> for Sky130Pdk {
-    type Error = ();
+    type Error = Sky130ConvError;
 
-    fn recover_primitive(
+    fn convert_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
-        Ok(match &primitive.kind {
-            PrimitiveKind::RawInstance { cell, .. } => Sky130Primitive::Mos {
-                kind: MosKind::try_from_str(cell).ok_or(())?,
-                params: MosParams {
-                    w: i64::try_from(
-                        *primitive
-                            .params
-                            .get("w")
-                            .and_then(|expr| expr.get_numeric_literal())
-                            .ok_or(())?,
-                    )
-                    .map_err(|_| ())?,
-                    l: i64::try_from(
-                        *primitive
-                            .params
-                            .get("l")
-                            .and_then(|expr| expr.get_numeric_literal())
-                            .ok_or(())?,
-                    )
-                    .map_err(|_| ())?,
-                    nf: i64::try_from(
-                        primitive
-                            .params
-                            .get("nf")
-                            .and_then(|expr| expr.get_numeric_literal())
-                            .copied()
-                            .unwrap_or(dec!(1)),
-                    )
-                    .map_err(|_| ())?,
-                },
-            },
-            _ => todo!(),
-        })
+        match &primitive.kind {
+            PrimitiveKind::RawInstance { cell, ports } => {
+                Ok(if let Some(kind) = MosKind::try_from_str(cell) {
+                    Sky130Primitive::Mos {
+                        kind,
+                        params: MosParams {
+                            w: i64::try_from(
+                                *primitive
+                                    .params
+                                    .get("w")
+                                    .and_then(|expr| expr.get_numeric())
+                                    .ok_or(Sky130ConvError::MissingParameter)?,
+                            )
+                            .map_err(|_| Sky130ConvError::InvalidParameter)?,
+                            l: i64::try_from(
+                                *primitive
+                                    .params
+                                    .get("l")
+                                    .and_then(|expr| expr.get_numeric())
+                                    .ok_or(Sky130ConvError::MissingParameter)?,
+                            )
+                            .map_err(|_| Sky130ConvError::InvalidParameter)?,
+                            nf: i64::try_from(
+                                primitive
+                                    .params
+                                    .get("nf")
+                                    .and_then(|expr| expr.get_numeric())
+                                    .copied()
+                                    .unwrap_or(dec!(1)),
+                            )
+                            .map_err(|_| Sky130ConvError::InvalidParameter)?,
+                        },
+                    }
+                } else {
+                    Sky130Primitive::RawInstance {
+                        cell: cell.clone(),
+                        ports: ports.clone(),
+                        params: primitive.params.clone(),
+                    }
+                })
+            }
+            _ => Err(Sky130ConvError::UnsupportedPrimitive),
+        }
     }
 
-    fn recover_instance(
+    fn convert_instance(
         instance: &mut Instance,
         primitive: &<Spice as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        println!("{}", instance.name());
         match &primitive.kind {
             PrimitiveKind::RawInstance { cell, ports, .. } => {
                 if MosKind::try_from_str(cell).is_some() {
@@ -102,18 +128,26 @@ impl FromSchema<Spice> for Sky130Pdk {
                     }
                 }
             }
-            _ => todo!(),
+            _ => return Err(Sky130ConvError::UnsupportedPrimitive),
         }
         Ok(())
     }
 }
 
-impl FromSchema<Spice> for Sky130Pdk {
+impl FromSchema<Sky130Pdk> for Spice {
     type Error = ();
     fn convert_primitive(
-        primitive: <Self as scir::schema::Schema>::Primitive,
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
+            Sky130Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => Primitive {
+                kind: PrimitiveKind::RawInstance { cell, ports },
+                params,
+            },
             Sky130Primitive::Mos { kind, params } => Primitive {
                 kind: PrimitiveKind::RawInstance {
                     cell: kind.open_subckt(),
@@ -125,40 +159,48 @@ impl FromSchema<Spice> for Sky130Pdk {
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ]),
             },
-            _ => todo!(),
         })
     }
     fn convert_instance(
-        instance: &mut Instance,
-        primitive: &<Self as scir::schema::Schema>::Primitive,
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
-impl FromSchema<Ngspice> for Sky130Pdk {
+impl FromSchema<Sky130Pdk> for Ngspice {
     type Error = ();
     fn convert_primitive(
-        primitive: <Self as scir::schema::Schema>::Primitive,
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(NgspicePrimitive::Spice(
-            <Self as FromSchema<Spice>>::convert_primitive(primitive)?,
+            <Spice as FromSchema<Sky130Pdk>>::convert_primitive(primitive)?,
         ))
     }
     fn convert_instance(
         instance: &mut Instance,
-        primitive: &<Self as scir::schema::Schema>::Primitive,
+        primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        Ok(())
+        <Spice as FromSchema<Sky130Pdk>>::convert_instance(instance, primitive)
     }
 }
 
-impl FromSchema<Spectre> for Sky130Pdk {
+impl FromSchema<Sky130Pdk> for Spectre {
     type Error = ();
     fn convert_primitive(
-        primitive: <Self as scir::schema::Schema>::Primitive,
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
+            Sky130Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => SpectrePrimitive::RawInstance {
+                cell,
+                ports,
+                params,
+            },
             Sky130Primitive::Mos { kind, params } => SpectrePrimitive::RawInstance {
                 cell: kind.commercial_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
@@ -168,12 +210,11 @@ impl FromSchema<Spectre> for Sky130Pdk {
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ]),
             },
-            _ => todo!(),
         })
     }
     fn convert_instance(
-        instance: &mut Instance,
-        primitive: &<Self as scir::schema::Schema>::Primitive,
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -187,6 +228,7 @@ pub struct Sky130Pdk {
 }
 
 impl Sky130Pdk {
+    /// Creates an instantiation of the open PDK.
     #[inline]
     pub fn open(root_dir: impl Into<PathBuf>) -> Self {
         Self {
@@ -194,6 +236,8 @@ impl Sky130Pdk {
             commercial_root_dir: None,
         }
     }
+
+    /// Creates an instantiation of the commercial PDK.
     #[inline]
     pub fn commercial(root_dir: impl Into<PathBuf>) -> Self {
         Self {
@@ -214,7 +258,7 @@ impl Sky130Pdk {
 impl Pdk for Sky130Pdk {
     type Layers = Sky130Layers;
     type Corner = Sky130Corner;
-    const LAYOUT_DB_UNITS: Option<rust_decimal::Decimal> = Some(dec!(1e-9));
+    const LAYOUT_DB_UNITS: Option<Decimal> = Some(dec!(1e-9));
 }
 
 impl SupportsSimulator<Spectre> for Sky130Pdk {

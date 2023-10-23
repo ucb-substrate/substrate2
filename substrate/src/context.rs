@@ -37,7 +37,7 @@ use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
 use crate::schematic::conv::{ConvError, RawLib, ScirLibExportContext};
-use crate::schematic::schema::{Schema, ToSchema};
+use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellCacheKey,
     CellHandle as SchematicCellHandle, CellId, CellMetadata, ExportsNestedData, InstanceId,
@@ -55,6 +55,30 @@ pub struct Context {
     executor: Arc<dyn Executor>,
     /// A cache for storing the results of expensive computations.
     pub cache: Cache,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        let cfg = Config::default().expect("requires valid Substrate configuration");
+
+        Self {
+            inner: Default::default(),
+            simulators: Default::default(),
+            executor: Arc::new(LocalExecutor),
+            cache: Cache::new(
+                cfg.cache
+                    .into_cache()
+                    .expect("requires valid Substrate cache configuration"),
+            ),
+        }
+    }
+}
+
+impl Context {
+    /// Creates a new [`Context`].
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// The global context.
@@ -98,6 +122,7 @@ impl Default for ContextBuilder {
         }
     }
 }
+
 impl ContextBuilder {
     /// Creates a new, uninitialized builder.
     #[inline]
@@ -159,7 +184,7 @@ impl<PDK: Pdk> Clone for PdkContext<PDK> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct ContextInner {
     pub(crate) schematic: SchematicContext,
     layout: LayoutContext,
@@ -259,7 +284,7 @@ impl Context {
         }
     }
 
-    fn generate_cross_schematic_inner<S1: ToSchema<S2>, S2: Schema, B: Schematic<S1>>(
+    fn generate_cross_schematic_inner<S1: Schema, S2: FromSchema<S1>, B: Schematic<S1>>(
         &self,
         block: Arc<B>,
     ) -> SchemaCellHandle<S2, B> {
@@ -289,7 +314,7 @@ impl Context {
     }
 
     // Can only generate with one layer of indirection (cannot arbitrarily convert).
-    pub fn generate_cross_schematic<S1: ToSchema<S2>, S2: Schema, B: Schematic<S1>>(
+    pub fn generate_cross_schematic<S1: Schema, S2: FromSchema<S1>, B: Schematic<S1>>(
         &self,
         block: B,
     ) -> SchemaCellHandle<S2, B> {
@@ -441,7 +466,8 @@ impl<PDK: Pdk> PdkContext<PDK> {
     /// Simulate the given testbench.
     pub fn simulate<S1, S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
     where
-        S1: ToSchema<<S as Simulator>::Schema>,
+        S1: Schema,
+        <S as Simulator>::Schema: FromSchema<S1>,
         S: Simulator,
         T: Testbench<PDK, S> + Schematic<S1>,
     {

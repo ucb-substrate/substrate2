@@ -2,15 +2,12 @@ use std::collections::HashSet;
 
 use anyhow::anyhow;
 use arcstr::ArcStr;
-use emptypdk::EmptyPdk;
-use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
+use substrate::context::Context;
 use substrate::io::SchematicType;
-use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, NestedInstance};
+use substrate::schematic::CellBuilder;
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     block,
@@ -20,7 +17,6 @@ use substrate::{
     schematic::{conv::RawLib, ExportsNestedData, Schematic},
 };
 
-use crate::shared::buffer::schematic::{InverterMos, InverterMosDataNestedView};
 use crate::shared::{
     buffer::Buffer,
     pdk::ExamplePdkA,
@@ -30,7 +26,7 @@ use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
 #[test]
 fn can_generate_vdivider_schematic() {
-    let ctx = PdkContext::new(EmptyPdk);
+    let ctx = Context::new();
     let vdivider = Vdivider {
         r1: Resistor::new(300),
         r2: Resistor::new(100),

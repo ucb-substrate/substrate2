@@ -780,17 +780,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
-name = "emptypdk"
-version = "0.1.0"
-dependencies = [
- "rust_decimal",
- "rust_decimal_macros",
- "scir",
- "serde",
- "substrate",
-]
-
-[[package]]
 name = "ena"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2118,6 +2107,8 @@ dependencies = [
  "enumify",
  "indexmap 2.0.0",
  "itertools 0.11.0",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "test-log",
  "thiserror",
@@ -2460,7 +2451,6 @@ dependencies = [
  "approx",
  "arcstr",
  "cache",
- "emptypdk",
  "geometry",
  "indexmap 2.0.0",
  "lazy_static",

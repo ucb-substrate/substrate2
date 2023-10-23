@@ -97,8 +97,7 @@ impl HasSpiceLikeNetlist for Spectre {
                     .flat_map(|port| connections.remove(port).unwrap());
                 self.write_instance(out, name, connections, cell)?;
                 for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
-                    write!(out, " {key}=")?;
-                    self.write_expr(out, value)?;
+                    write!(out, " {key}={value}")?;
                 }
             }
         }

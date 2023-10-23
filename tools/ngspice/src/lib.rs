@@ -14,14 +14,13 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
-use indexmap::IndexMap;
 use nutlex::parser::Data;
 use scir::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
     RenameGround,
 };
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Expr, Library, SignalInfo, SignalPathTail, SliceOnePath};
+use scir::{Library, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
@@ -444,15 +443,15 @@ impl scir::schema::Schema for Ngspice {
 impl FromSchema<NoSchema> for Ngspice {
     type Error = NoSchemaError;
 
-    fn recover_primitive(
-        primitive: <NoSchema as Schema>::Primitive,
+    fn convert_primitive(
+        _primitive: <NoSchema as Schema>::Primitive,
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
         Err(NoSchemaError)
     }
 
-    fn recover_instance(
-        instance: &mut scir::Instance,
-        primitive: &<NoSchema as Schema>::Primitive,
+    fn convert_instance(
+        _instance: &mut scir::Instance,
+        _primitive: &<NoSchema as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
         Err(NoSchemaError)
     }
@@ -474,7 +473,7 @@ impl PrimitiveSchematic<Ngspice> for Resistor {
     fn schematic(&self) -> <Ngspice as Schema>::Primitive {
         NgspicePrimitive::Spice(Primitive {
             kind: PrimitiveKind::Res2 {
-                value: Expr::NumericLiteral(self.value()),
+                value: self.value(),
             },
             params: HashMap::new(),
         })

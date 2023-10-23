@@ -1,11 +1,11 @@
 //! Schematic primitives.
 
-use indexmap::IndexMap;
 use rust_decimal::Decimal;
-use scir::Expr;
+use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use spice::{PrimitiveKind, Spice};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use substrate::schematic::PrimitiveSchematic;
 
@@ -16,14 +16,14 @@ use crate::schematic::schema::Schema;
 use crate::{arcstr, block};
 
 /// An instance with a pre-defined cell.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawInstance {
     /// The name of the underlying cell.
     pub cell: ArcStr,
     /// The name of the ports of the underlying cell.
     pub ports: Vec<ArcStr>,
     /// The parameters to pass to the instance.
-    pub params: HashMap<ArcStr, Expr>,
+    pub params: HashMap<ArcStr, ParamValue>,
 }
 
 impl Hash for RawInstance {
@@ -33,13 +33,14 @@ impl Hash for RawInstance {
         self.params.iter().collect::<Vec<_>>().hash(state);
     }
 }
+
 impl RawInstance {
     /// Create a new raw instance with the given parameters.
     #[inline]
     pub fn with_params(
         cell: ArcStr,
         ports: Vec<ArcStr>,
-        params: impl Into<HashMap<ArcStr, Expr>>,
+        params: impl Into<HashMap<ArcStr, ParamValue>>,
     ) -> Self {
         Self {
             cell,
@@ -129,6 +130,7 @@ pub struct Capacitor {
     /// The resistor value.
     value: Decimal,
 }
+
 impl Capacitor {
     /// Create a new capacitor with the given value.
     #[inline]

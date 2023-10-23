@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{Primitive, PrimitiveKind, Spice};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
+use scir::ParamValue;
 use thiserror::Error;
 
 use super::{Ast, Component, Elem, Subckt, Substr};
@@ -152,7 +153,12 @@ impl<'a> ScirConverter<'a> {
                         let params = inst
                             .params
                             .iter()
-                            .map(|(k, v)| Ok((ArcStr::from(k.as_str()), str_as_numeric_lit(v)?)))
+                            .map(|(k, v)| {
+                                Ok((
+                                    ArcStr::from(k.as_str()),
+                                    ParamValue::Numeric(str_as_numeric_lit(v)?),
+                                ))
+                            })
                             .collect::<ConvResult<HashMap<_, _>>>()?;
                         let ports: Vec<_> = (0..inst.ports.len())
                             .map(|i| arcstr::format!("{}", i + 1))

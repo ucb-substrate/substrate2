@@ -45,9 +45,16 @@ impl Display for MosParams {
 
 macro_rules! define_mosfets {
     ($({$typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $comsubckt:ident}),*) => {
+        /// An enumeration of Sky 130 MOSFET varieties.
         #[derive(Clone, Copy, Debug)]
         pub enum MosKind {
-            $($typ),*
+            $(
+                #[doc = $doc]
+                #[doc = ""]
+                #[doc = concat!("In the open-source PDK, produces an instance of `", stringify!($opensubckt), "`.")]
+                #[doc = concat!("In the commercial PDK, produces an instance of `", stringify!($comsubckt), "`.")]
+                $typ,
+            )*
         }
 
         impl MosKind {

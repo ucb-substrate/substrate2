@@ -6,7 +6,7 @@ use itertools::Itertools;
 use rust_decimal::Decimal;
 use scir::netlist::HasSpiceLikeNetlist;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use scir::{Instance, Library, SignalInfo};
+use scir::{Instance, Library, ParamValue, SignalInfo};
 use std::collections::HashMap;
 use std::io::prelude::*;
 
@@ -42,7 +42,7 @@ pub struct Primitive {
     /// The kind of primitive.
     pub kind: PrimitiveKind,
     /// Parameters associated with the primitive.
-    pub params: HashMap<ArcStr, Decimal>,
+    pub params: HashMap<ArcStr, ParamValue>,
 }
 
 /// An enumeration of SPICE primitive kinds.
@@ -53,12 +53,12 @@ pub enum PrimitiveKind {
         /// The resistor value.
         value: Decimal,
     },
-    /// A MOS primitive with ports "D", "G", "S", and "B" and name `mname`.
+    /// A MOS primitive with ports "D", "G", "S", and "B".
     Mos {
         /// The name of the MOS model.
         mname: ArcStr,
     },
-    /// A raw instance with associated cell `cell`.
+    /// A raw instance with an associated cell.
     RawInstance {
         /// The associated cell.
         cell: ArcStr,

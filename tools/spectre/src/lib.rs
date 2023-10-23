@@ -15,9 +15,9 @@ use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use rust_decimal::Decimal;
-use scir::netlist::{Include, NetlistLibConversion};
+use scir::netlist::{Include, NetlistKind, NetlistLibConversion, NetlisterInstance, RenameGround};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Expr, Library, SliceOnePath};
+use scir::{Library, ParamValue, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
@@ -38,10 +38,14 @@ pub mod tran;
 /// Spectre primitives.
 #[derive(Debug, Clone)]
 pub enum SpectrePrimitive {
+    /// A raw instance with an associated cell.
     RawInstance {
+        /// The associated cell.
         cell: ArcStr,
+        /// The ordered ports of the instance.
         ports: Vec<ArcStr>,
-        params: HashMap<ArcStr, Expr>,
+        /// Parameters associated with the instance.
+        params: HashMap<ArcStr, ParamValue>,
     },
 }
 
@@ -103,7 +107,7 @@ impl SimSignal {
 
 /// Spectre simulator global configuration.
 #[derive(Debug, Clone, Default)]
-pub struct Spectre {}
+pub struct Spectre;
 
 /// Spectre per-simulation options.
 ///
@@ -316,95 +320,100 @@ impl Spectre {
         std::fs::create_dir_all(&ctx.work_dir)?;
         let netlist = ctx.work_dir.join("netlist.scs");
         let mut f = std::fs::File::create(&netlist)?;
-        todo!();
-        // let mut w = Vec::new();
+        let mut w = Vec::new();
 
-        // let mut includes = options.includes.into_iter().collect::<Vec<_>>();
-        // let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
-        // let mut ics = options
-        //     .ics
-        //     .iter()
-        //     .map(|(k, v)| (k.clone(), *v))
-        //     .collect::<Vec<_>>();
-        // // Sorting the include list makes repeated netlist invocations
-        // // produce the same output. If we were to iterate over the HashSet directly,
-        // // the order of includes may change even if the contents of the set did not change.
-        // includes.sort();
-        // saves.sort();
-        // ics.sort();
+        let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
+        let mut ics = options
+            .ics
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect::<Vec<_>>();
+        // Sorting the include list makes repeated netlist invocations
+        // produce the same output. If we were to iterate over the HashSet directly,
+        // the order of includes may change even if the contents of the set did not change.
+        includes.sort();
+        saves.sort();
+        ics.sort();
 
-        // let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
-        // let conv = netlister.export()?;
+        let netlister = NetlisterInstance::new(
+            NetlistKind::Testbench(RenameGround::Yes("0".into())),
+            self,
+            &ctx.lib.scir,
+            &includes,
+            &mut w,
+        );
+        let conv = netlister.export()?;
 
-        // writeln!(w)?;
-        // for save in saves {
-        //     writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
-        // }
-        // for (k, v) in ics {
-        //     writeln!(w, "ic {}={}", k.to_string(&ctx.lib.scir, &conv), v)?;
-        // }
+        writeln!(w)?;
+        for save in saves {
+            writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+        }
+        for (k, v) in ics {
+            writeln!(w, "ic {}={}", k.to_string(&ctx.lib.scir, &conv), v)?;
+        }
 
-        // writeln!(w)?;
-        // for (i, an) in input.iter().enumerate() {
-        //     write!(w, "analysis{i} ")?;
-        //     an.netlist(&mut w)?;
-        //     writeln!(w)?;
-        // }
-        // f.write_all(&w)?;
+        writeln!(w)?;
+        for (i, an) in input.iter().enumerate() {
+            write!(w, "analysis{i} ")?;
+            an.netlist(&mut w)?;
+            writeln!(w)?;
+        }
+        f.write_all(&w)?;
 
-        // let output_path = ctx.work_dir.join("netlist.raw");
-        // let log = ctx.work_dir.join("spectre.log");
-        // let run_script = ctx.work_dir.join("simulate.sh");
-        // let work_dir = ctx.work_dir.clone();
-        // let executor = ctx.executor.clone();
+        let output_path = ctx.work_dir.join("netlist.raw");
+        let log = ctx.work_dir.join("spectre.log");
+        let run_script = ctx.work_dir.join("simulate.sh");
+        let work_dir = ctx.work_dir.clone();
+        let executor = ctx.executor.clone();
 
-        // let raw_outputs = ctx
-        //     .cache
-        //     .get_with_state(
-        //         "spectre.simulation.outputs",
-        //         CachedSim {
-        //             simulation_netlist: w,
-        //         },
-        //         CachedSimState {
-        //             input,
-        //             netlist,
-        //             output_path,
-        //             log,
-        //             run_script,
-        //             work_dir,
-        //             executor,
-        //         },
-        //     )
-        //     .try_inner()
-        //     .map_err(|e| match e {
-        //         TryInnerError::CacheError(e) => Error::Caching(e),
-        //         TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
-        //     })?
-        //     .clone();
+        let raw_outputs = ctx
+            .cache
+            .get_with_state(
+                "spectre.simulation.outputs",
+                CachedSim {
+                    simulation_netlist: w,
+                },
+                CachedSimState {
+                    input,
+                    netlist,
+                    output_path,
+                    log,
+                    run_script,
+                    work_dir,
+                    executor,
+                },
+            )
+            .try_inner()
+            .map_err(|e| match e {
+                TryInnerError::CacheError(e) => Error::Caching(e),
+                TryInnerError::GeneratorError(e) => Error::Generator(e.clone()),
+            })?
+            .clone();
 
-        // let conv = Arc::new(conv);
-        // let outputs = raw_outputs
-        //     .into_iter()
-        //     .map(|mut raw_values| {
-        //         TranOutput {
-        //             lib: ctx.lib.clone(),
-        //             conv: conv.clone(),
-        //             time: Arc::new(raw_values.remove("time").unwrap()),
-        //             raw_values: raw_values
-        //                 .into_iter()
-        //                 .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
-        //                 .collect(),
-        //             saved_values: options
-        //                 .saves
-        //                 .iter()
-        //                 .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, &conv)))
-        //                 .collect(),
-        //         }
-        //         .into()
-        //     })
-        //     .collect();
+        let conv = Arc::new(conv);
+        let outputs = raw_outputs
+            .into_iter()
+            .map(|mut raw_values| {
+                TranOutput {
+                    lib: ctx.lib.clone(),
+                    conv: conv.clone(),
+                    time: Arc::new(raw_values.remove("time").unwrap()),
+                    raw_values: raw_values
+                        .into_iter()
+                        .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                        .collect(),
+                    saved_values: options
+                        .saves
+                        .iter()
+                        .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, &conv)))
+                        .collect(),
+                }
+                .into()
+            })
+            .collect();
 
-        // Ok(outputs)
+        Ok(outputs)
     }
 }
 
@@ -415,15 +424,15 @@ impl scir::schema::Schema for Spectre {
 impl FromSchema<NoSchema> for Spectre {
     type Error = NoSchemaError;
 
-    fn recover_primitive(
-        primitive: <NoSchema as Schema>::Primitive,
+    fn convert_primitive(
+        _primitive: <NoSchema as Schema>::Primitive,
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
         Err(NoSchemaError)
     }
 
-    fn recover_instance(
-        instance: &mut scir::Instance,
-        primitive: &<NoSchema as Schema>::Primitive,
+    fn convert_instance(
+        _instance: &mut scir::Instance,
+        _primitive: &<NoSchema as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
         Err(NoSchemaError)
     }
@@ -436,7 +445,7 @@ impl PrimitiveSchematic<Spectre> for Resistor {
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: HashMap::from_iter([(
                 arcstr::literal!("r"),
-                Expr::NumericLiteral(self.value()),
+                ParamValue::Numeric(self.value()),
             )]),
         }
     }
@@ -449,7 +458,7 @@ impl PrimitiveSchematic<Spectre> for Capacitor {
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: HashMap::from_iter([(
                 arcstr::literal!("c"),
-                Expr::NumericLiteral(self.value()),
+                ParamValue::Numeric(self.value()),
             )]),
         }
     }

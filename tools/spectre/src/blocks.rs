@@ -2,7 +2,7 @@
 
 use rust_decimal::Decimal;
 use scir::schema::Schema;
-use scir::Expr;
+use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use substrate::block::{self, Block};
@@ -75,27 +75,27 @@ impl PrimitiveSchematic<Spectre> for Vsource {
         let mut params = HashMap::new();
         match self {
             Vsource::Dc(dc) => {
-                params.insert(literal!("type"), Expr::StringLiteral(literal!("dc")));
-                params.insert(literal!("dc"), Expr::NumericLiteral(*dc));
+                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
+                params.insert(literal!("dc"), ParamValue::Numeric(*dc));
             }
             Vsource::Pulse(pulse) => {
-                params.insert(literal!("type"), Expr::StringLiteral(literal!("pulse")));
-                params.insert(literal!("val0"), Expr::NumericLiteral(pulse.val0));
-                params.insert(literal!("val1"), Expr::NumericLiteral(pulse.val1));
+                params.insert(literal!("type"), ParamValue::String(literal!("pulse")));
+                params.insert(literal!("val0"), ParamValue::Numeric(pulse.val0));
+                params.insert(literal!("val1"), ParamValue::Numeric(pulse.val1));
                 if let Some(period) = pulse.period {
-                    params.insert(literal!("period"), Expr::NumericLiteral(period));
+                    params.insert(literal!("period"), ParamValue::Numeric(period));
                 }
                 if let Some(rise) = pulse.rise {
-                    params.insert(literal!("rise"), Expr::NumericLiteral(rise));
+                    params.insert(literal!("rise"), ParamValue::Numeric(rise));
                 }
                 if let Some(fall) = pulse.fall {
-                    params.insert(literal!("fall"), Expr::NumericLiteral(fall));
+                    params.insert(literal!("fall"), ParamValue::Numeric(fall));
                 }
                 if let Some(width) = pulse.width {
-                    params.insert(literal!("width"), Expr::NumericLiteral(width));
+                    params.insert(literal!("width"), ParamValue::Numeric(width));
                 }
                 if let Some(delay) = pulse.delay {
-                    params.insert(literal!("delay"), Expr::NumericLiteral(delay));
+                    params.insert(literal!("delay"), ParamValue::Numeric(delay));
                 }
             }
         };

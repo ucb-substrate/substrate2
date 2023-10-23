@@ -32,6 +32,7 @@ use arcstr::ArcStr;
 use diagnostics::IssueSet;
 use drivers::DriverIssue;
 use indexmap::IndexMap;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
@@ -51,6 +52,37 @@ pub(crate) mod validation;
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+/// A value of a parameter.
+#[enumify::enumify(no_as_ref, no_as_mut)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ParamValue {
+    /// A string parameter value.
+    String(ArcStr),
+    /// A numeric parameter value.
+    Numeric(Decimal),
+}
+
+impl From<ArcStr> for ParamValue {
+    fn from(value: ArcStr) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<Decimal> for ParamValue {
+    fn from(value: Decimal) -> Self {
+        Self::Numeric(value)
+    }
+}
+
+impl Display for ParamValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParamValue::String(s) => write!(f, "{}", s),
+            ParamValue::Numeric(n) => write!(f, "{}", n),
+        }
+    }
+}
 
 /// An opaque signal identifier.
 ///

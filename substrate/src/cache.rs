@@ -15,18 +15,10 @@ pub struct Cache {
     inner: Arc<Mutex<CacheInner>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct CacheInner {
     type_cache: TypeCache,
     cache: MultiCache,
-}
-
-impl std::fmt::Debug for CacheInner {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("RawCell");
-        let _ = builder.field("type_cache", &self.type_cache);
-        builder.finish()
-    }
 }
 
 impl Cache {
