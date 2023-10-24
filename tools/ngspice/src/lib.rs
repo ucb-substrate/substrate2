@@ -20,17 +20,16 @@ use scir::netlist::{
     RenameGround,
 };
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Library, SignalInfo, SignalPathTail, SliceOnePath};
+use scir::{Library, SignalInfo, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
-use substrate::pdk::Pdk;
 use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::PrimitiveSchematic;
+use substrate::schematic::{Primitive, PrimitiveSchematic};
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::spice::{Primitive, PrimitiveKind, Spice};
+use substrate::spice::{self, Spice};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -41,7 +40,9 @@ pub mod tran;
 /// ngspice primitives.
 #[derive(Debug, Clone)]
 pub enum NgspicePrimitive {
-    Spice(Primitive),
+    /// A SPICE primitive.
+    Spice(spice::Primitive),
+    /// A voltage source with ports "P" and "N".
     Vsource(Vsource),
 }
 
@@ -458,25 +459,38 @@ impl FromSchema<NoSchema> for Ngspice {
 }
 
 impl PrimitiveSchematic<Ngspice> for RawInstance {
-    fn schematic(&self) -> <Ngspice as Schema>::Primitive {
-        NgspicePrimitive::Spice(Primitive {
-            kind: PrimitiveKind::RawInstance {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::schematic::Primitive<Ngspice> {
+        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive {
+            kind: spice::PrimitiveKind::RawInstance {
                 cell: self.cell.clone(),
                 ports: self.ports.clone(),
             },
             params: self.params.clone(),
-        })
+        }));
+        for (i, port) in self.ports.iter().enumerate() {
+            prim.connect(port, io[i]);
+        }
+        prim
     }
 }
 
 impl PrimitiveSchematic<Ngspice> for Resistor {
-    fn schematic(&self) -> <Ngspice as Schema>::Primitive {
-        NgspicePrimitive::Spice(Primitive {
-            kind: PrimitiveKind::Res2 {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::schematic::Primitive<Ngspice> {
+        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive {
+            kind: spice::PrimitiveKind::Res2 {
                 value: self.value(),
             },
             params: HashMap::new(),
-        })
+        }));
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        prim
     }
 }
 
@@ -511,16 +525,34 @@ pub(crate) fn node_voltage_path(
     conv: &NetlistLibConversion,
     path: &SliceOnePath,
 ) -> String {
-    todo!()
+    lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+        if let Some(index) = index {
+            arcstr::format!("{}[{}]", name, index)
+        } else {
+            name.clone()
+        }
+    })
+    .join(".")
 }
 
 pub(crate) fn node_current_path(
     lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
     path: &SliceOnePath,
-    save: bool,
+    _save: bool,
 ) -> String {
-    todo!();
+    let mut named_path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+        if let Some(index) = index {
+            arcstr::format!("{}\\[{}\\]", name, index)
+        } else {
+            name.clone()
+        }
+    });
+    let signal = named_path.pop().unwrap();
+    let mut str_path = named_path.join(".");
+    str_path.push(':');
+    str_path.push_str(&signal);
+    str_path
 }
 
 /// Inputs directly supported by ngspice.
@@ -639,7 +671,7 @@ impl HasSpiceLikeNetlist for Ngspice {
             NgspicePrimitive::Vsource(vsource) => {
                 let name = arcstr::format!("V{}", name);
                 write!(out, "{}", name)?;
-                for port in ["p", "n"] {
+                for port in ["P", "N"] {
                     for part in connections.remove(port).unwrap() {
                         write!(out, " {}", part)?;
                     }

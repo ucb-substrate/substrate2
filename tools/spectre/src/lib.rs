@@ -24,7 +24,7 @@ use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::PrimitiveSchematic;
+use substrate::schematic::{Primitive, PrimitiveSchematic};
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -439,38 +439,48 @@ impl FromSchema<NoSchema> for Spectre {
 }
 
 impl PrimitiveSchematic<Spectre> for Resistor {
-    fn schematic(&self) -> <Spectre as Schema>::Primitive {
-        SpectrePrimitive::RawInstance {
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
+        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("resistor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: HashMap::from_iter([(
                 arcstr::literal!("r"),
                 ParamValue::Numeric(self.value()),
             )]),
-        }
+        });
+        prim.connect("pos", io.p);
+        prim.connect("neg", io.n);
+        prim
     }
 }
 
 impl PrimitiveSchematic<Spectre> for Capacitor {
-    fn schematic(&self) -> <Spectre as Schema>::Primitive {
-        SpectrePrimitive::RawInstance {
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
+        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: HashMap::from_iter([(
                 arcstr::literal!("c"),
                 ParamValue::Numeric(self.value()),
             )]),
-        }
+        });
+        prim.connect("pos", io.p);
+        prim.connect("neg", io.n);
+        prim
     }
 }
 
 impl PrimitiveSchematic<Spectre> for RawInstance {
-    fn schematic(&self) -> <Spectre as Schema>::Primitive {
-        SpectrePrimitive::RawInstance {
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
+        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
             params: self.params.clone(),
+        });
+        for (i, port) in self.ports.iter().enumerate() {
+            prim.connect(port, io[i]);
         }
+        prim
     }
 }
 
@@ -497,8 +507,8 @@ pub(crate) fn instance_path(
     conv: &NetlistLibConversion,
     path: &scir::InstancePath,
 ) -> String {
-    todo!()
-    // lib.convert_instance_path(conv, path).0.join(".")
+    lib.convert_instance_path_with_conv(conv, path.clone())
+        .join(".")
 }
 
 pub(crate) fn node_voltage_path(
@@ -506,7 +516,14 @@ pub(crate) fn node_voltage_path(
     conv: &NetlistLibConversion,
     path: &SliceOnePath,
 ) -> String {
-    todo!()
+    lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+        if let Some(index) = index {
+            arcstr::format!("{}\\[{}\\]", name, index)
+        } else {
+            name.clone()
+        }
+    })
+    .join(".")
 }
 
 pub(crate) fn node_current_path(
@@ -514,7 +531,18 @@ pub(crate) fn node_current_path(
     conv: &NetlistLibConversion,
     path: &SliceOnePath,
 ) -> String {
-    todo!()
+    let mut named_path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+        if let Some(index) = index {
+            arcstr::format!("{}\\[{}\\]", name, index)
+        } else {
+            name.clone()
+        }
+    });
+    let signal = named_path.pop().unwrap();
+    let mut str_path = named_path.join(".");
+    str_path.push(':');
+    str_path.push_str(&signal);
+    str_path
 }
 
 /// Inputs directly supported by Spectre.

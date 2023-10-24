@@ -120,12 +120,18 @@ macro_rules! define_mosfets {
 
         impl substrate::schematic::PrimitiveSchematic<crate::Sky130Pdk> for $typ {
             fn schematic(
-                &self
-            ) -> <crate::Sky130Pdk as substrate::schematic::schema::Schema>::Primitive {
-                crate::Sky130Primitive::Mos {
+                &self,
+                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
+            ) -> substrate::schematic::Primitive<crate::Sky130Pdk> {
+                let mut prim = substrate::schematic::Primitive::new(crate::Sky130Primitive::Mos {
                     kind: MosKind::$typ,
                     params: self.params.clone(),
-                }
+                });
+                prim.connect("D", io.d);
+                prim.connect("G", io.g);
+                prim.connect("S", io.s);
+                prim.connect("B", io.b);
+                prim
             }
         }
         )*

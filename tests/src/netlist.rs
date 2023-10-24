@@ -1,9 +1,6 @@
 use arcstr::ArcStr;
-use indexmap::IndexMap;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use scir::netlist::{NetlistKind, NetlisterInstance};
-use scir::schema::StringSchema;
 use scir::*;
 use spectre::{Spectre, SpectrePrimitive};
 use spice::{Primitive, PrimitiveKind, Spice};
@@ -20,16 +17,16 @@ impl HasRes2 for Spice {
     fn resistor(value: usize) -> Primitive {
         Primitive {
             kind: PrimitiveKind::Res2 {
-                value: Expr::NumericLiteral(Decimal::from(value)),
+                value: Decimal::from(value),
             },
             params: HashMap::new(),
         }
     }
     fn pos() -> &'static str {
-        "p"
+        "1"
     }
     fn neg() -> &'static str {
-        "n"
+        "2"
     }
 }
 
@@ -38,10 +35,7 @@ impl HasRes2 for Spectre {
         SpectrePrimitive::RawInstance {
             cell: ArcStr::from("resistor"),
             ports: vec!["pos".into(), "neg".into()],
-            params: HashMap::from_iter([(
-                ArcStr::from("r"),
-                Expr::NumericLiteral(Decimal::from(value)),
-            )]),
+            params: HashMap::from_iter([(ArcStr::from("r"), Decimal::from(value).into())]),
         }
     }
     fn pos() -> &'static str {

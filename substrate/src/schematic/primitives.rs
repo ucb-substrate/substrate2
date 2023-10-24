@@ -7,11 +7,11 @@ use spice::{PrimitiveKind, Spice};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use substrate::schematic::PrimitiveSchematic;
+use substrate::schematic::{Primitive, PrimitiveSchematic};
 
 use crate::arcstr::ArcStr;
 use crate::block::Block;
-use crate::io::{Array, InOut, Signal, TwoTerminalIo};
+use crate::io::{Array, InOut, SchematicType, Signal, TwoTerminalIo};
 use crate::schematic::schema::Schema;
 use crate::{arcstr, block};
 
@@ -114,13 +114,16 @@ impl Block for Resistor {
 }
 
 impl PrimitiveSchematic<Spice> for Resistor {
-    fn schematic(&self) -> <Spice as Schema>::Primitive {
-        spice::Primitive {
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spice> {
+        let mut prim = Primitive::new(spice::Primitive {
             kind: PrimitiveKind::Res2 {
                 value: self.value.into(),
             },
             params: HashMap::new(),
-        }
+        });
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        prim
     }
 }
 

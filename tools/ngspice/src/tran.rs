@@ -1,6 +1,6 @@
 //! ngspice transient analysis options and data structures.
 
-use crate::{node_voltage_path, Ngspice, NgspicePrimitive, ProbeStmt, SaveStmt};
+use crate::{node_voltage_path, Ngspice, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
-use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{Cell, ExportsNestedData, NestedInstance};
@@ -193,12 +192,10 @@ impl Deref for TranCurrent {
 impl FromSaved<Ngspice, Tran> for TranCurrent {
     type Key = TranCurrentKey;
     fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
-        println!("{:?}", output.raw_values);
         let currents: Vec<Arc<Vec<f64>>> = key
             .0
             .iter()
             .map(|key| {
-                println!("{:?}", output.saved_values.get(key).unwrap());
                 output
                     .raw_values
                     .get(output.saved_values.get(key).unwrap())
@@ -238,7 +235,6 @@ impl<T> Save<Ngspice, Tran, T> for TranCurrent {
         to_save: T,
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::Key {
-        println!("{:?}", to_save.path());
         opts.save_tran_current(SaveStmt::ResistorCurrent(
             ctx.lib.convert_instance_path(to_save.path()).unwrap(),
         ))

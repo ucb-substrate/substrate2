@@ -1,6 +1,6 @@
 //! Spectre transient analysis options and data structures.
 
-use crate::{node_voltage_path, ErrPreset, SimSignal, Spectre, SpectrePrimitive};
+use crate::{node_voltage_path, ErrPreset, SimSignal, Spectre};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::NetlistLibConversion;
@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
-use substrate::pdk::Pdk;
 use substrate::schematic::conv::RawLib;
 use substrate::schematic::{Cell, ExportsNestedData};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
@@ -272,12 +271,11 @@ impl HasSimData<str, Vec<f64>> for TranOutput {
 
 impl HasSimData<SliceOnePath, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &SliceOnePath) -> Option<&Vec<f64>> {
-        todo!()
-        // self.get_data(&*node_voltage_path(
-        //     &self.lib.scir,
-        //     &self.conv,
-        //     &self.lib.scir.simplify_path(k.clone()),
-        // ))
+        self.get_data(&*node_voltage_path(
+            &self.lib.scir,
+            &self.conv,
+            &self.lib.scir.simplify_path(k.clone()),
+        ))
     }
 }
 

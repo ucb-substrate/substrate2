@@ -36,13 +36,13 @@ use crate::io::{
 use crate::pdk::Pdk;
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
-use crate::sealed;
+// use crate::sealed;
 use crate::sealed::Token;
 
 /// A schema that has a primitive associated with a certain block.
 pub trait PrimitiveSchematic<S: Schema>: Block<Kind = block::Primitive> {
     /// Returns the schema primitive corresponding to `block`.
-    fn schematic(&self) -> <S as Schema>::Primitive;
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<S>;
 }
 
 impl<B: Block<Kind = block::Primitive>> ExportsNestedData<block::Primitive> for B {
@@ -57,7 +57,7 @@ impl<S: Schema, B: Block<Kind = block::Primitive> + PrimitiveSchematic<S>>
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> Result<Self::NestedData> {
-        cell.set_primitive(PrimitiveSchematic::schematic(self));
+        cell.set_primitive(PrimitiveSchematic::schematic(self, io));
         Ok(())
     }
 }
@@ -197,7 +197,7 @@ impl<S: Schema> CellBuilder<S> {
     }
 
     /// Marks this cell as a primitive.
-    pub(crate) fn set_primitive(&mut self, primitive: <S as Schema>::Primitive) {
+    pub(crate) fn set_primitive(&mut self, primitive: Primitive<S>) {
         self.contents = RawCellContentsBuilder::Primitive(primitive);
     }
 
@@ -677,12 +677,6 @@ impl<B: ExportsNestedData> Clone for Instance<B> {
 impl<B: ExportsNestedData> HasNestedView for Instance<B> {
     type NestedView = NestedInstance<B>;
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        println!(
-            "nesting instance {:?} {:?} {:?}",
-            Block::name(self.block()),
-            parent.top,
-            parent.bot
-        );
         let mut inst = (*self).clone();
         inst.path = self.path.prepend(parent);
         inst.parent = self.parent.prepend(parent);
@@ -941,10 +935,6 @@ impl InstancePath {
     }
 
     pub(crate) fn prepend(&self, other: &Self) -> Self {
-        println!(
-            "{:?} {:?} {:?} {:?}",
-            self.top, self.bot, other.top, other.bot
-        );
         if let Some(bot) = other.bot {
             assert_eq!(
                 bot, self.top,
@@ -1147,12 +1137,8 @@ impl<S: Schema> RawCell<S> {
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContentsBuilder<S> = RawCellKind<
-    RawCellInnerBuilder<S>,
-    ScirCellInner<S>,
-    <S as Schema>::Primitive,
-    ConvertedPrimitive<S>,
->;
+pub(crate) type RawCellContentsBuilder<S> =
+    RawCellKind<RawCellInnerBuilder<S>, ScirCellInner<S>, Primitive<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContentsBuilder<S> {
     fn build(self) -> RawCellContents<S> {
@@ -1167,7 +1153,7 @@ impl<S: Schema> RawCellContentsBuilder<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContents<S> =
-    RawCellKind<RawCellInner<S>, ScirCellInner<S>, <S as Schema>::Primitive, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInner<S>, ScirCellInner<S>, Primitive<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContents<S> {
     fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellContents<S2>> {
@@ -1183,18 +1169,22 @@ impl<S: Schema> RawCellContents<S> {
                 cell: s.cell,
             }),
             RawCellContents::Primitive(p) => {
-                RawCellContents::ConvertedPrimitive(ConvertedPrimitive(
-                    <S2 as scir::schema::FromSchema<S>>::convert_primitive(p.clone())
-                        .map_err(|_| Error::UnsupportedPrimitive)?,
-                    Arc::new(Primitive::<S>(p)),
-                ))
+                RawCellContents::ConvertedPrimitive(ConvertedPrimitive {
+                    converted: <S2 as scir::schema::FromSchema<S>>::convert_primitive(
+                        p.primitive.clone(),
+                    )
+                    .map_err(|_| Error::UnsupportedPrimitive)?,
+                    original: Arc::new(p),
+                })
             }
             RawCellContents::ConvertedPrimitive(p) => {
-                RawCellContents::ConvertedPrimitive(ConvertedPrimitive(
-                    <S2 as scir::schema::FromSchema<S>>::convert_primitive(p.0.clone())
-                        .map_err(|_| Error::UnsupportedPrimitive)?,
-                    Arc::new(p),
-                ))
+                RawCellContents::ConvertedPrimitive(ConvertedPrimitive {
+                    converted: <S2 as scir::schema::FromSchema<S>>::convert_primitive(
+                        p.converted.clone(),
+                    )
+                    .map_err(|_| Error::UnsupportedPrimitive)?,
+                    original: Arc::new(p),
+                })
             }
         })
     }
@@ -1203,49 +1193,84 @@ impl<S: Schema> RawCellContents<S> {
 pub(crate) trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
     fn convert_primitive(&self) -> Result<<S as Schema>::Primitive>;
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()>;
+    fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>>;
 }
 
 impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for Primitive<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
-        <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.0.clone())
+        <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.primitive.clone())
             .map_err(|_| Error::UnsupportedPrimitive)
     }
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()> {
-        <S1 as scir::schema::FromSchema<S2>>::convert_instance(inst, &self.0)
+        <S1 as scir::schema::FromSchema<S2>>::convert_instance(inst, &self.primitive)
             .map_err(|_| Error::UnsupportedPrimitive)
+    }
+    fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>> {
+        &self.port_map
     }
 }
 
 impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
-        <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.1.convert_primitive()?)
+        <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.original.convert_primitive()?)
             .map_err(|_| Error::UnsupportedPrimitive)
     }
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()> {
-        self.1.convert_instance(inst)?;
-        <S1 as scir::schema::FromSchema<S2>>::convert_instance(inst, &self.0)
+        self.original.convert_instance(inst)?;
+        <S1 as scir::schema::FromSchema<S2>>::convert_instance(inst, &self.converted)
             .map_err(|_| Error::UnsupportedPrimitive)
+    }
+    fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>> {
+        self.original.port_map()
     }
 }
 
-pub(crate) struct Primitive<S: Schema>(<S as Schema>::Primitive);
+pub struct Primitive<S: Schema> {
+    pub(crate) primitive: <S as Schema>::Primitive,
+    pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
+}
 
 impl<S: Schema> Clone for Primitive<S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self {
+            primitive: self.primitive.clone(),
+            port_map: self.port_map.clone(),
+        }
     }
 }
 
-pub(crate) struct ConvertedPrimitive<S: Schema>(
-    <S as Schema>::Primitive,
-    Arc<dyn ConvertPrimitive<S>>,
-);
+impl<S: Schema> Primitive<S> {
+    pub fn new(primitive: <S as Schema>::Primitive) -> Self {
+        Self {
+            primitive,
+            port_map: Default::default(),
+        }
+    }
+
+    pub fn connect(&mut self, port: impl Into<ArcStr>, s: impl Flatten<Node>) {
+        self.port_map.insert(port.into(), s.flatten_vec());
+    }
+}
+
+pub(crate) struct ConvertedPrimitive<S: Schema> {
+    converted: <S as Schema>::Primitive,
+    original: Arc<dyn ConvertPrimitive<S>>,
+}
 
 impl<S: Schema> Clone for ConvertedPrimitive<S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1.clone())
+        Self {
+            converted: self.converted.clone(),
+            original: self.original.clone(),
+        }
+    }
+}
+
+impl<S: Schema> ConvertedPrimitive<S> {
+    pub(crate) fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>> {
+        self.original.port_map()
     }
 }
 

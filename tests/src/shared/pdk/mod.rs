@@ -1,7 +1,6 @@
 use indexmap::IndexMap;
 use ngspice::Ngspice;
 use scir::schema::FromSchema;
-use scir::Expr;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
@@ -9,9 +8,9 @@ use spice::Spice;
 use substrate::block;
 use substrate::block::Block;
 use substrate::context::{Context, PdkContext};
-use substrate::io::MosIo;
+use substrate::io::{MosIo, SchematicType};
 use substrate::pdk::Pdk;
-use substrate::schematic::{ExportsNestedData, PrimitiveSchematic, Schematic};
+use substrate::schematic::{ExportsNestedData, Primitive, PrimitiveSchematic, Schematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
@@ -81,11 +80,19 @@ impl Block for NmosA {
 }
 
 impl PrimitiveSchematic<ExamplePdkA> for NmosA {
-    fn schematic(&self) -> ExamplePrimitive {
-        ExamplePrimitive::Nmos {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Primitive<ExamplePdkA> {
+        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
-        }
+        });
+        prim.connect("D", io.d);
+        prim.connect("G", io.g);
+        prim.connect("S", io.s);
+        prim.connect("B", io.b);
+        prim
     }
 }
 
@@ -111,11 +118,19 @@ impl Block for PmosA {
 }
 
 impl PrimitiveSchematic<ExamplePdkA> for PmosA {
-    fn schematic(&self) -> ExamplePrimitive {
-        ExamplePrimitive::Pmos {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Primitive<ExamplePdkA> {
+        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
-        }
+        });
+        prim.connect("D", io.d);
+        prim.connect("G", io.g);
+        prim.connect("S", io.s);
+        prim.connect("B", io.b);
+        prim
     }
 }
 
@@ -141,11 +156,19 @@ impl Block for NmosB {
 }
 
 impl PrimitiveSchematic<ExamplePdkB> for NmosB {
-    fn schematic(&self) -> ExamplePrimitive {
-        ExamplePrimitive::Nmos {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Primitive<ExamplePdkB> {
+        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
-        }
+        });
+        prim.connect("D", io.d);
+        prim.connect("G", io.g);
+        prim.connect("S", io.s);
+        prim.connect("B", io.b);
+        prim
     }
 }
 
@@ -171,11 +194,19 @@ impl Block for PmosB {
 }
 
 impl PrimitiveSchematic<ExamplePdkB> for PmosB {
-    fn schematic(&self) -> ExamplePrimitive {
-        ExamplePrimitive::Pmos {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Primitive<ExamplePdkB> {
+        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
-        }
+        });
+        prim.connect("D", io.d);
+        prim.connect("G", io.g);
+        prim.connect("S", io.s);
+        prim.connect("B", io.b);
+        prim
     }
 }
 
@@ -201,11 +232,19 @@ impl Block for NmosC {
 }
 
 impl PrimitiveSchematic<ExamplePdkC> for NmosC {
-    fn schematic(&self) -> ExamplePrimitive {
-        ExamplePrimitive::Nmos {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Primitive<ExamplePdkC> {
+        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
-        }
+        });
+        prim.connect("D", io.d);
+        prim.connect("G", io.g);
+        prim.connect("S", io.s);
+        prim.connect("B", io.b);
+        prim
     }
 }
 
@@ -231,11 +270,19 @@ impl Block for PmosC {
 }
 
 impl PrimitiveSchematic<ExamplePdkC> for PmosC {
-    fn schematic(&self) -> ExamplePrimitive {
-        ExamplePrimitive::Pmos {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Primitive<ExamplePdkC> {
+        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
-        }
+        });
+        prim.connect("D", io.d);
+        prim.connect("G", io.g);
+        prim.connect("S", io.s);
+        prim.connect("B", io.b);
+        prim
     }
 }
 

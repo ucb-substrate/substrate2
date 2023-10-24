@@ -54,7 +54,7 @@ fn can_generate_vdivider_schematic() {
 
 #[test]
 fn can_generate_flattened_vdivider_schematic() {
-    let ctx = PdkContext::new(EmptyPdk);
+    let ctx = Context::new();
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
     let RawLib { scir, conv: _ } = ctx.export_scir::<Spice, _>(vdivider).unwrap();
     assert_eq!(scir.cells().count(), 1);
@@ -81,7 +81,7 @@ fn can_generate_flattened_vdivider_schematic() {
 
 #[test]
 fn can_generate_flattened_vdivider_array_schematic() {
-    let ctx = PdkContext::new(EmptyPdk);
+    let ctx = Context::new();
     let vdiv1 = crate::shared::vdivider::flattened::Vdivider::new(300, 100);
     let vdiv2 = crate::shared::vdivider::flattened::Vdivider::new(600, 800);
     let vdiv3 = crate::shared::vdivider::flattened::Vdivider::new(20, 20);

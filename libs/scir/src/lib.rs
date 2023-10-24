@@ -43,9 +43,8 @@ mod slice;
 
 use crate::netlist::NetlistLibConversion;
 use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use crate::slice::{Concat, NamedSlice, NamedSliceOne};
 use crate::validation::ValidatorIssue;
-pub use slice::{IndexOwned, Slice, SliceOne, SliceRange};
+pub use slice::{Concat, IndexOwned, NamedSlice, NamedSliceOne, Slice, SliceOne, SliceRange};
 
 pub(crate) mod drivers;
 pub(crate) mod validation;
@@ -1150,13 +1149,15 @@ impl<S: Schema> LibraryBuilder<S> {
         self.convert_annotated_instance_path(Some(conv), annotated_path)
     }
 
-    /// Converts a [`SliceOnePath`] to a [`NamedPath`].
+    /// Converts a [`SliceOnePath`] to a [`NamedPath`], using the provided `conv`
+    /// to modify instance names that were converted during netlisting.
     ///
     /// # Panics
     ///
     /// Panics if the path contains instance or cell IDs that do not exist.
-    pub fn convert_slice_one_path(
+    fn convert_slice_one_path_inner(
         &self,
+        conv: Option<&NetlistLibConversion>,
         path: SliceOnePath,
         index_fmt: impl FnOnce(&ArcStr, Option<usize>) -> ArcStr,
     ) -> NamedPath {
@@ -1170,10 +1171,39 @@ impl<S: Schema> LibraryBuilder<S> {
             SignalPathTail::Name(name) => bot.signal_named(name.signal()),
         };
 
-        let mut name_path = self.convert_annotated_instance_path(None, annotated_path);
+        let mut name_path = self.convert_annotated_instance_path(conv, annotated_path);
         name_path.push(index_fmt(&signal_info.name, tail.index()));
 
         name_path
+    }
+
+    /// Converts a [`SliceOnePath`] to a [`NamedPath`].
+    /// to modify instance names that were converted during netlisting.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the path contains instance or cell IDs that do not exist.
+    pub fn convert_slice_one_path(
+        &self,
+        path: SliceOnePath,
+        index_fmt: impl FnOnce(&ArcStr, Option<usize>) -> ArcStr,
+    ) -> NamedPath {
+        self.convert_slice_one_path_inner(None, path, index_fmt)
+    }
+
+    /// Converts a [`SliceOnePath`] to a [`NamedPath`], using the provided `conv`
+    /// to modify instance names that were converted during netlisting.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the path contains instance or cell IDs that do not exist.
+    pub fn convert_slice_one_path_with_conv(
+        &self,
+        conv: &NetlistLibConversion,
+        path: SliceOnePath,
+        index_fmt: impl FnOnce(&ArcStr, Option<usize>) -> ArcStr,
+    ) -> NamedPath {
+        self.convert_slice_one_path_inner(Some(conv), path, index_fmt)
     }
 
     /// Returns a simplified path to the provided node, bubbling up through IOs.

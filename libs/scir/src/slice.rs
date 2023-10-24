@@ -510,6 +510,18 @@ impl From<Vec<Slice>> for Concat {
     }
 }
 
+impl From<Vec<SliceOne>> for Concat {
+    #[inline]
+    fn from(value: Vec<SliceOne>) -> Self {
+        Self::new(
+            value
+                .into_iter()
+                .map(|slice_one| slice_one.into())
+                .collect(),
+        )
+    }
+}
+
 impl From<Slice> for Concat {
     #[inline]
     fn from(value: Slice) -> Self {

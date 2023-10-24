@@ -5,7 +5,7 @@ use std::fmt::Formatter;
 
 use arcstr::ArcStr;
 use scir::{
-    Cell, CellId as ScirCellId, ChildId, IndexOwned, Instance, LibraryBuilder, PrimitiveId,
+    Cell, CellId as ScirCellId, ChildId, Concat, IndexOwned, Instance, LibraryBuilder, PrimitiveId,
 };
 use serde::{Deserialize, Serialize};
 use substrate::schematic::{ConvertedPrimitive, ScirCellInner};
@@ -142,18 +142,14 @@ impl<S: Schema> RawLib<S> {
 
         let mut scir_instances = scir::InstancePath::new(self.conv.top?);
         for inst in instances {
-            println!("converting {:?}", inst);
             let conv = cell.instances.get(inst).unwrap();
             match conv.instance.as_ref() {
                 ConvertedScirInstanceContentRef::Cell(id) => {
-                    println!("converted to {:?}", id);
                     scir_id = self.scir.cell(scir_id.into_cell()?).instance(*id).child();
-                    println!("a");
                     scir_instances.push(*id);
                     if let Some(conv) = self.conv.cells.get(&conv.child) {
                         cell = conv
                     }
-                    println!("b");
                 }
                 ConvertedScirInstanceContentRef::InlineCell(conv) => {
                     cell = conv;
@@ -471,7 +467,7 @@ impl<S: Schema> RawCell<S> {
                 let map = lib_ctx.lib.merge((**lib).clone());
                 map.new_cell_id(*id).into()
             }
-            RawCellContents::Primitive(p) => lib_ctx.lib.add_primitive(p.clone()).into(),
+            RawCellContents::Primitive(p) => lib_ctx.lib.add_primitive(p.primitive.clone()).into(),
             RawCellContents::ConvertedPrimitive(p) => lib_ctx
                 .lib
                 .add_primitive(
@@ -560,7 +556,7 @@ impl<S: Schema> RawCell<S> {
                             {
                                 lib_ctx.conv.primitive_mapping.insert(
                                     instance.child.id,
-                                    lib_ctx.lib.add_primitive(p.clone()),
+                                    lib_ctx.lib.add_primitive(p.primitive.clone()),
                                 );
                             }
 
@@ -622,10 +618,30 @@ impl<S: Schema> RawCell<S> {
                     let mut sinst =
                         Instance::new(arcstr::format!("inst{}", cell_ctx.inst_idx), child_id);
                     cell_ctx.inst_idx += 1;
+
                     assert_eq!(instance.child.ports.len(), instance.connections.len());
+
+                    let mut conns = HashMap::new();
                     for (port, &conn) in instance.child.ports.iter().zip(&instance.connections) {
-                        let scir_port_name = instance.child.node_name(port.node());
-                        sinst.connect(scir_port_name, nodes[&conn]);
+                        conns.insert(port.node(), conn);
+                    }
+                    let port_map = match &instance.child.contents {
+                        RawCellContents::Primitive(p) => p.port_map.clone(),
+                        RawCellContents::ConvertedPrimitive(p) => p.port_map().clone(),
+                        _ => HashMap::from_iter(instance.child.ports.iter().map(|port| {
+                            (
+                                instance.child.node_name(port.node()).into(),
+                                vec![port.node()],
+                            )
+                        })),
+                    };
+                    for (port, port_nodes) in port_map {
+                        sinst.connect(
+                            port,
+                            Concat::from_iter(
+                                port_nodes.into_iter().map(|node| nodes[&conns[&node]]),
+                            ),
+                        );
                     }
 
                     if let RawCellContents::ConvertedPrimitive(p) = &instance.child.contents {

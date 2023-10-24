@@ -4,10 +4,7 @@
 use crate::{Spectre, SpectrePrimitive};
 use arcstr::ArcStr;
 use itertools::Itertools;
-use scir::netlist::{
-    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
-    RenameGround,
-};
+use scir::netlist::{HasSpiceLikeNetlist, Include};
 use scir::schema::Schema;
 use scir::Slice;
 use scir::{Library, SignalInfo};
