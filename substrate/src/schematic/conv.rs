@@ -8,7 +8,7 @@ use scir::{
     Cell, CellId as ScirCellId, ChildId, Concat, IndexOwned, Instance, LibraryBuilder, PrimitiveId,
 };
 use serde::{Deserialize, Serialize};
-use substrate::schematic::{ConvertedPrimitive, ScirCellInner};
+use substrate::schematic::{ConvertedPrimitive, ScirCell};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
@@ -463,7 +463,7 @@ impl<S: Schema> RawCell<S> {
 
                 id.into()
             }
-            RawCellContents::Scir(ScirCellInner { lib, cell: id }) => {
+            RawCellContents::Scir(ScirCell { lib, cell: id, .. }) => {
                 let map = lib_ctx.lib.merge((**lib).clone());
                 map.new_cell_id(*id).into()
             }

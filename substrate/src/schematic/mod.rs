@@ -65,7 +65,8 @@ impl<S: Schema, B: Block<Kind = block::Primitive> + PrimitiveSchematic<S>>
 /// A block with a schematic specified using SCIR.
 pub trait ScirSchematic<S: Schema>: Block<Kind = block::Scir> {
     /// Returns the library containing the SCIR cell and its ID.
-    fn schematic(&self) -> Result<(Library<S>, scir::CellId)>;
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle)
+        -> Result<ScirCell<S>>;
 }
 
 /// A block that exports nodes from its schematic.
@@ -99,8 +100,7 @@ impl<S: Schema, B: Block<Kind = block::Scir> + ScirSchematic<S>> Schematic<S, bl
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> Result<Self::NestedData> {
-        let (lib, id) = ScirSchematic::schematic(self)?;
-        cell.set_scir(ScirCellInner { lib, cell: id });
+        cell.set_scir(ScirSchematic::schematic(self, io)?);
         Ok(())
     }
 }
@@ -192,7 +192,7 @@ impl<S: Schema> CellBuilder<S> {
     }
 
     /// Marks this cell as a SCIR cell.
-    pub(crate) fn set_scir(&mut self, scir: ScirCellInner<S>) {
+    pub(crate) fn set_scir(&mut self, scir: ScirCell<S>) {
         self.contents = RawCellContentsBuilder::Scir(scir);
     }
 
@@ -1138,7 +1138,7 @@ impl<S: Schema> RawCell<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContentsBuilder<S> =
-    RawCellKind<RawCellInnerBuilder<S>, ScirCellInner<S>, Primitive<S>, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInnerBuilder<S>, ScirCell<S>, Primitive<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContentsBuilder<S> {
     fn build(self) -> RawCellContents<S> {
@@ -1153,13 +1153,13 @@ impl<S: Schema> RawCellContentsBuilder<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContents<S> =
-    RawCellKind<RawCellInner<S>, ScirCellInner<S>, Primitive<S>, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInner<S>, ScirCell<S>, Primitive<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContents<S> {
     fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellContents<S2>> {
         Ok(match self {
             RawCellContents::Cell(c) => RawCellContents::Cell(c.convert_schema()?),
-            RawCellContents::Scir(s) => RawCellContents::Scir(ScirCellInner {
+            RawCellContents::Scir(s) => RawCellContents::Scir(ScirCell {
                 lib: s
                     .lib
                     .convert_schema()
@@ -1167,6 +1167,7 @@ impl<S: Schema> RawCellContents<S> {
                     .build()
                     .map_err(|e| ConvError::from(e))?,
                 cell: s.cell,
+                port_map: s.port_map,
             }),
             RawCellContents::Primitive(p) => {
                 RawCellContents::ConvertedPrimitive(ConvertedPrimitive {
@@ -1336,26 +1337,42 @@ impl<S: Schema> RawCellInner<S> {
     }
 }
 
-pub(crate) struct ScirCellInner<S: Schema> {
+pub struct ScirCell<S: Schema> {
     pub(crate) lib: scir::Library<S>,
     pub(crate) cell: scir::CellId,
+    pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
 }
 
-impl<S: Schema<Primitive = impl Clone>> Clone for ScirCellInner<S> {
+impl<S: Schema<Primitive = impl Clone>> Clone for ScirCell<S> {
     fn clone(&self) -> Self {
         Self {
             lib: self.lib.clone(),
             cell: self.cell,
+            port_map: self.port_map.clone(),
         }
     }
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirCellInner<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirCell<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("ScirCellInner");
         let _ = builder.field("lib", &self.lib);
         let _ = builder.field("cell", &self.cell);
         builder.finish()
+    }
+}
+
+impl<S: Schema> ScirCell<S> {
+    pub fn new(lib: scir::Library<S>, cell: scir::CellId) -> Self {
+        Self {
+            lib,
+            cell,
+            port_map: HashMap::new(),
+        }
+    }
+
+    pub fn connect(&mut self, port: impl Into<ArcStr>, s: impl Flatten<Node>) {
+        self.port_map.insert(port.into(), s.flatten_vec());
     }
 }
 

@@ -16,7 +16,7 @@ use crate::error::{Error, Result};
 use crate::io::{LayoutType, SchematicType};
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
 use crate::schematic::schema::{Primitive, Schema};
-use crate::schematic::{Cell, CellBuilder, ExportsNestedData, RawCell, ScirCellInner};
+use crate::schematic::{Cell, CellBuilder, ExportsNestedData, RawCell, ScirCell};
 use crate::sealed;
 use crate::sealed::Token;
 

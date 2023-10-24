@@ -280,20 +280,32 @@ impl ToTokens for HasSchematicInputReceiver {
             quote! {
                 impl #imp #substrate::schematic::ScirSchematic<#pdk> for #ident #ty #wher {
                     fn schematic(
-                        &self
-                    ) -> #substrate::error::Result<(#substrate::scir::Library<#pdk>, #substrate::scir::CellId)> {
+                        &self,
+                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,
+                    ) -> #substrate::error::Result<#substrate::schematic::ScirCell<#pdk>> {
                         let source = {
                             #source
                         };
 
                         let (lib, cell_id) = { #scir };
 
-                        Ok((
+                        let cell = lib.cell(cell_id);
+                        let ports_nodes = cell.ports().map(|port| cell.signal(port.signal()).name.clone()).zip(<
+                        <<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle as
+                            #substrate::io::Flatten<#substrate::io::Node>>::flatten_vec(io).into_iter()).collect::<::std::vec::Vec<_>>();
+
+                        let mut scir_cell = #substrate::schematic::ScirCell::new(
                             // TODO: More descriptive error.
                             lib.convert_schema::<#pdk>()
                                 .map_err(|_| #substrate::error::Error::UnsupportedPrimitive)?.build().unwrap(),
                             cell_id
-                        ))
+                        );
+
+                        for (port, node) in ports_nodes {
+                            scir_cell.connect(port, node);
+                        }
+
+                        Ok(scir_cell)
                     }
                 }
             }
