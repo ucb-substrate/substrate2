@@ -35,6 +35,7 @@ pub mod element;
 pub mod error;
 pub mod gds;
 pub mod tiling;
+pub mod tracks;
 
 /// Data exported from a generated layout.
 ///

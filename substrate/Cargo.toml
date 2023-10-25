@@ -35,7 +35,7 @@ type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/typ
 uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
 
 [dev-dependencies]
-toml = "0.7"
+toml = "0.8"
 approx = "0.5"
 sky130pdk = { version = "<=0.6.1", registry = "substrate", path = "../pdks/sky130pdk" }
 spectre = { version = "<=0.6.1", registry = "substrate", path = "../tools/spectre" }

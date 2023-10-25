@@ -275,7 +275,13 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let mut raw_outputs = Vec::with_capacity(input.len());
 
             let file = std::fs::read(&output_path)?;
-            let ast = nutlex::parse(&file).map_err(|e| {
+            let ast = nutlex::parse(
+                &file,
+                nutlex::Options {
+                    endianness: nutlex::ByteOrder::BigEndian,
+                },
+            )
+            .map_err(|e| {
                 tracing::error!("error parsing raw output file: {}", e);
                 Error::Parse
             })?;

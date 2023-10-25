@@ -9,5 +9,6 @@ array_map = { version = "0.4", features = ["derive", "serde", "std"] }
 impl-trait-for-tuples = "0.2"
 approx = "0.5"
 indexmap = { version = "2", features = ["serde"] }
+num-rational = "0.4"
 
 geometry_macros = { version = "0.0.1", registry = "substrate", path = "../geometry_macros" }

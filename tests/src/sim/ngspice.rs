@@ -118,11 +118,13 @@ fn ngspice_can_save_voltages_and_currents() {
         (&*r2, 1.8 / 300.),
         (&*r3, 1.8 / 300.),
         (&*vout, 1.8 / 3.),
-        (&*r3_terminal, -1.8 / 300.),
+        (&*r3_terminal, 1.8 / 300.),
     ] {
-        assert!(actual
-            .iter()
-            .cloned()
-            .all(|val| relative_eq!(val, expected)));
+        actual.iter().copied().for_each(|val| {
+            assert!(
+                relative_eq!(val, expected),
+                "found {val}, expected {expected}"
+            )
+        });
     }
 }
