@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::io::{InOut, Input, Io, Output, SchematicType, Signal};
-use substrate::pdk::Pdk;
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 pub mod tb;

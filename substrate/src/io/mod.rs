@@ -33,9 +33,7 @@ mod impls;
 // BEGIN TRAITS
 
 /// A trait implemented by block input/output interfaces.
-pub trait Io: Directed + SchematicType + LayoutType {
-    // TODO
-}
+pub trait Io: Directed + SchematicType + LayoutType {}
 impl<T: Directed + SchematicType + LayoutType> Io for T {}
 
 /// Indicates that a hardware type specifies signal directions for all of its fields.
@@ -419,10 +417,10 @@ pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
 impl HasTerminalView for () {
     type TerminalView = ();
     fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
+        _cell: CellId,
+        _cell_io: &Self,
+        _instance: InstanceId,
+        _instance_io: &Self,
     ) -> Self::TerminalView {
     }
 }
@@ -977,7 +975,6 @@ pub trait Mos: Block<Io = MosIo> {}
 impl<T> Mos for T where T: Block<Io = MosIo> {}
 
 /// The interface to which simulation testbenches should conform.
-/// TODO: Add trait bound to ensure testbenches have this IO, need to refactor crates.
 #[derive(Debug, Default, Clone, Io)]
 pub struct TestbenchIo {
     /// The global ground net.

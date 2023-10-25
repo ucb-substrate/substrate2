@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use substrate::block;
 use substrate::block::Block;
 use substrate::io::SchematicType;
-use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData};
 

@@ -11,7 +11,7 @@ use serde::Serialize;
 use crate::block::Block;
 use crate::cache::Cache;
 use crate::execute::Executor;
-use crate::io::{SchematicType, TestbenchIo};
+use crate::io::TestbenchIo;
 use crate::pdk::corner::SupportsSimulator;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;

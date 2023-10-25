@@ -1,9 +1,7 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use substrate::block::Block;
-use substrate::io::{MosIo, NestedTerminal, SchematicType, Terminal, TerminalView};
-use substrate::pdk::Pdk;
+use substrate::io::{MosIo, NestedTerminal, SchematicType, Terminal};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, InstancePath, NestedInstance};
 use substrate::type_dispatch::impl_dispatch;

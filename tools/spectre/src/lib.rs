@@ -107,7 +107,7 @@ impl SimSignal {
 
 /// Spectre simulator global configuration.
 #[derive(Debug, Clone, Default)]
-pub struct Spectre;
+pub struct Spectre {}
 
 /// Spectre per-simulation options.
 ///

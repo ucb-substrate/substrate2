@@ -5,7 +5,6 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{Primitive, PrimitiveSchematic};
 
 /// Data associated with a pulse [`Vsource`].
@@ -53,7 +52,7 @@ impl Vsource {
 
 impl PrimitiveSchematic<Ngspice> for Vsource {
     fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Ngspice> {
-        let mut prim = Primitive::new(NgspicePrimitive::Vsource(self.clone()));
+        let mut prim = Primitive::new(NgspicePrimitive::Vsource(*self));
         prim.connect("P", io.p);
         prim.connect("N", io.n);
         prim

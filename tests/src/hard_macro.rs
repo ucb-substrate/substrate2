@@ -3,11 +3,11 @@ use crate::shared::buffer::BufferIo;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 
-use ngspice::Ngspice;
 use scir::netlist::{NetlistKind, NetlisterInstance};
+#[cfg(feature = "spectre")]
 use spectre::Spectre;
 use spice::Spice;
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::{layout::Layout, schematic::Schematic};
 use test_log::test;
 

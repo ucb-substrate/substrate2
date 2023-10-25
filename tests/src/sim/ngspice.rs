@@ -1,15 +1,13 @@
 use approx::relative_eq;
 use ngspice::blocks::Vsource;
-use ngspice::tran::{Tran, TranCurrent, TranVoltage};
-use ngspice::{Ngspice, NgspicePrimitive, Options};
+use ngspice::tran::{Tran, TranCurrent};
+use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
-use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{
     Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
 };

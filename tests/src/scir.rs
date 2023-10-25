@@ -1,6 +1,5 @@
 use crate::netlist::vdivider;
-use scir::{Library, LibraryBuilder};
-use spice::{Primitive, Spice};
+use spice::Spice;
 
 #[test]
 fn merge_scir_libraries() {

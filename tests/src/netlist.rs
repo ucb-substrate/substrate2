@@ -49,7 +49,7 @@ impl HasRes2 for Spectre {
 /// Creates a 1:3 resistive voltage divider.
 pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
     let mut lib = LibraryBuilder::new("vdivider");
-    let mut wrapper = lib.add_primitive(S::resistor(100));
+    let res = lib.add_primitive(S::resistor(100));
 
     let mut vdivider = Cell::new("vdivider");
     let vdd = vdivider.add_node("vdd");
@@ -57,17 +57,17 @@ pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
     let int = vdivider.add_node("int");
     let vss = vdivider.add_node("vss");
 
-    let mut r1 = Instance::new("r1", wrapper);
+    let mut r1 = Instance::new("r1", res);
     r1.connect(S::pos(), vdd);
     r1.connect(S::neg(), int);
     vdivider.add_instance(r1);
 
-    let mut r2 = Instance::new("r2", wrapper);
+    let mut r2 = Instance::new("r2", res);
     r2.connect(S::pos(), int);
     r2.connect(S::neg(), out);
     vdivider.add_instance(r2);
 
-    let mut r3 = Instance::new("r3", wrapper);
+    let mut r3 = Instance::new("r3", res);
     r3.connect(S::pos(), out);
     r3.connect(S::neg(), vss);
     vdivider.add_instance(r3);

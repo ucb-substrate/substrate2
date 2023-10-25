@@ -1,16 +1,13 @@
-use indexmap::IndexMap;
 use ngspice::Ngspice;
-use scir::schema::FromSchema;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
-use spice::Spice;
 use substrate::block;
 use substrate::block::Block;
 use substrate::context::{Context, PdkContext};
 use substrate::io::{MosIo, SchematicType};
 use substrate::pdk::Pdk;
-use substrate::schematic::{ExportsNestedData, Primitive, PrimitiveSchematic, Schematic};
+use substrate::schematic::{Primitive, PrimitiveSchematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 

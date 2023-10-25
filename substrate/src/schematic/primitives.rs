@@ -5,14 +5,12 @@ use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use spice::{PrimitiveKind, Spice};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use substrate::schematic::{Primitive, PrimitiveSchematic};
 
 use crate::arcstr::ArcStr;
 use crate::block::Block;
 use crate::io::{Array, InOut, SchematicType, Signal, TwoTerminalIo};
-use crate::schematic::schema::Schema;
 use crate::{arcstr, block};
 
 /// An instance with a pre-defined cell.
@@ -116,9 +114,7 @@ impl Block for Resistor {
 impl PrimitiveSchematic<Spice> for Resistor {
     fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spice> {
         let mut prim = Primitive::new(spice::Primitive {
-            kind: PrimitiveKind::Res2 {
-                value: self.value.into(),
-            },
+            kind: PrimitiveKind::Res2 { value: self.value },
             params: HashMap::new(),
         });
         prim.connect("1", io.p);

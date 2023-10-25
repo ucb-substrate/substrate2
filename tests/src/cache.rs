@@ -4,8 +4,6 @@ use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
-use substrate::pdk::Pdk;
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
     block,
@@ -74,7 +72,7 @@ impl ExportsNestedData for CacheBlock {
 impl Schematic<ExamplePdkA> for CacheBlock {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let design = *cell

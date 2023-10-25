@@ -2,14 +2,12 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use arcstr::ArcStr;
-use cache::CacheHandle;
 use config::Config;
 use examples::get_snippets;
 use indexmap::IndexMap;
@@ -23,7 +21,7 @@ use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::io::{
     Flatten, Flipped, HasNameTree, LayoutBundleBuilder, LayoutType, NodeContext, NodePriority,
-    Port, SchematicType, TestbenchIo,
+    Port, SchematicType,
 };
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
@@ -36,15 +34,13 @@ use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::Pdk;
-use crate::schematic::conv::{ConvError, RawLib, ScirLibExportContext};
+use crate::schematic::conv::{ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
-    Cell as SchematicCell, CellBuilder as SchematicCellBuilder, CellCacheKey,
-    CellHandle as SchematicCellHandle, CellId, CellMetadata, ExportsNestedData, InstanceId,
-    InstancePath, RawCell as SchematicRawCell, RawCellContents, RawCellInner, RawCellInnerBuilder,
-    SchemaCellHandle, Schematic, SchematicContext,
+    Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
+    InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
+    SchematicContext,
 };
-use crate::sealed;
 use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 
@@ -228,8 +224,7 @@ impl Context {
             block: block.clone(),
             phantom: PhantomData::<S>,
         };
-        let block_clone1 = block.clone();
-        let block_clone2 = block.clone();
+        let block_clone = block.clone();
         let mut inner = self.inner.write().unwrap();
         let context = self.clone();
         let SchematicContext {
@@ -242,7 +237,7 @@ impl Context {
             |key| {
                 next_id.increment();
                 let (cell_builder, io_data) =
-                    prepare_cell_builder(*next_id, context, block_clone1.as_ref());
+                    prepare_cell_builder(*next_id, context, key.block.as_ref());
                 let io_data = Arc::new(io_data);
                 (
                     CellMetadata::<B> {
@@ -252,18 +247,11 @@ impl Context {
                     (*next_id, cell_builder, io_data),
                 )
             },
-            move |key, (id, mut cell_builder, io_data)| {
-                let res = B::schematic(block_clone2.as_ref(), io_data.as_ref(), &mut cell_builder);
-                res.map(|data| {
-                    (
-                        Arc::new(cell_builder.finish()),
-                        Arc::new(SchematicCell::new(
-                            id,
-                            io_data,
-                            block_clone2,
-                            Arc::new(data),
-                        )),
-                    )
+            move |_key, (id, mut cell_builder, io_data)| {
+                let res = B::schematic(block_clone.as_ref(), io_data.as_ref(), &mut cell_builder);
+                res.map(|data| SchemaCellCacheValue {
+                    raw: Arc::new(cell_builder.finish()),
+                    cell: Arc::new(SchematicCell::new(id, io_data, block_clone, Arc::new(data))),
                 })
             },
         );
@@ -278,7 +266,7 @@ impl Context {
                     Ok(res?
                         .as_ref()
                         .map_err(|e| e.clone())
-                        .map(|(_, cell)| cell.clone()))
+                        .map(|SchemaCellCacheValue { cell, .. }| cell.clone()))
                 }),
             },
         }
@@ -297,16 +285,16 @@ impl Context {
                     phantom: PhantomData,
                 },
                 move |_| {
-                    let (raw, cell) = handle
+                    let SchemaCellCacheValue { raw, cell } = handle
                         .handle
                         .try_get()
                         .unwrap()
                         .as_ref()
                         .map_err(|e| e.clone())?;
-                    Ok((
-                        Arc::new((**raw).clone().convert_schema::<S2>()?),
-                        cell.clone(),
-                    ))
+                    Ok(SchemaCellCacheValue {
+                        raw: Arc::new((**raw).clone().convert_schema::<S2>()?),
+                        cell: cell.clone(),
+                    })
                 },
             ),
             cell: handle.cell,
@@ -341,7 +329,7 @@ impl Context {
     ) -> Result<RawLib<S>, ConvError> {
         let cell = self.generate_schematic(block);
         // TODO: Handle errors.
-        let (raw, _) = cell.handle.unwrap_inner();
+        let SchemaCellCacheValue { raw, .. } = cell.handle.unwrap_inner();
         raw.to_scir_lib()
     }
 }
@@ -477,8 +465,8 @@ impl<PDK: Pdk> PdkContext<PDK> {
             .ctx
             .generate_cross_schematic_inner::<S1, <S as Simulator>::Schema, _>(block.clone());
         // TODO: Handle errors.
-        let (raw_cell, cell) = cell.handle.unwrap_inner();
-        let lib = raw_cell.to_scir_lib()?;
+        let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
+        let lib = raw.to_scir_lib()?;
         let ctx = SimulationContext {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),

@@ -1,7 +1,6 @@
 //! Spectre-specific blocks for use in testbenches.
 
 use rust_decimal::Decimal;
-use scir::schema::Schema;
 use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

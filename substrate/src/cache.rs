@@ -1,6 +1,5 @@
 //! Caching utilities.
 
-use std::fmt::Formatter;
 use std::{
     any::Any,
     sync::{Arc, Mutex},

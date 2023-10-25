@@ -1,14 +1,5 @@
 //! Traits and types for specifying formats for storing Substrate schematics.
 use std::any::Any;
-use std::sync::Arc;
-
-use crate::block::Block;
-use crate::error::Result;
-use crate::io::SchematicType;
-use crate::pdk::Pdk;
-use crate::schematic::primitives::Resistor;
-use crate::schematic::{Cell, CellBuilder, ExportsNestedData, RawCell, Schematic};
-use crate::sealed::Token;
 
 pub trait Schema:
     scir::schema::Schema<Primitive = <Self as Schema>::Primitive> + Send + Sync + Any

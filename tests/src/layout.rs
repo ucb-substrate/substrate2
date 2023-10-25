@@ -2,7 +2,7 @@ use geometry::prelude::{NamedOrientation, Point};
 use geometry::side::Sides;
 use geometry::{prelude::Bbox, rect::Rect};
 use serde::{Deserialize, Serialize};
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::context::PdkContext;
 use substrate::geometry::transform::{Transform, TransformMut, Translate, TranslateMut};
 use substrate::layout::element::Shape;

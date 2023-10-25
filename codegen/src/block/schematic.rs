@@ -2,7 +2,6 @@ use darling::ast::{Fields, Style};
 use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse_quote;
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
@@ -147,12 +146,8 @@ impl ToTokens for DataInputReceiver {
 
         let mut generics = generics.clone();
         add_trait_bounds(&mut generics, quote!(#substrate::schematic::HasNestedView));
-        let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
-        let mut ref_generics = generics.clone();
-        ref_generics.params.push(lifetime.clone());
 
         let (imp, ty, wher) = generics.split_for_impl();
-        let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
         let transformed_ident = format_ident!("{}NestedView", ident);
 
         let expanded = match data {

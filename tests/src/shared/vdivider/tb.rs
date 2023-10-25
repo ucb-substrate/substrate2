@@ -4,13 +4,12 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::tran::{Tran, TranCurrent, TranVoltage};
-use spectre::{Options, Spectre, SpectrePrimitive};
-use substrate::block::{self, Block};
+use spectre::{Options, Spectre};
+use substrate::block::Block;
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{
     Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
 };

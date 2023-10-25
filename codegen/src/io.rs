@@ -84,7 +84,6 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     }
 
     let (_imp, ty, _wher) = generics.split_for_impl();
-    let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
     let mut data_len = Vec::new();
@@ -543,29 +542,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
                 #(#hierarchical_build_from_fields)*
             }
         }
-    }
-}
-
-pub(crate) fn io_impl(input: &IoInputReceiver) -> TokenStream {
-    let substrate = substrate_ident();
-    let IoInputReceiver {
-        ref ident,
-        ref generics,
-        ..
-    } = *input;
-
-    let mut io_generics = generics.clone();
-    add_trait_bounds(&mut io_generics, quote!(#substrate::io::SchematicType));
-    add_trait_bounds(&mut io_generics, quote!(#substrate::io::LayoutType));
-    add_trait_bounds(&mut io_generics, quote!(#substrate::io::Directed));
-    add_trait_bounds(&mut io_generics, quote!(::std::any::Any));
-
-    let mut flatlen_generics = generics.clone();
-    add_trait_bounds(&mut flatlen_generics, quote!(#substrate::io::FlatLen));
-
-    let (io_imp, io_ty, io_wher) = io_generics.split_for_impl();
-    quote! {
-        impl #io_imp #substrate::io::Io for #ident #io_ty #io_wher {}
     }
 }
 

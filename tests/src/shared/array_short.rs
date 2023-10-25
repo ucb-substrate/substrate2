@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
 
-use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::{block, block::Block, schematic::Schematic};
 

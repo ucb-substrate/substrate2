@@ -8,7 +8,7 @@ mod sim;
 
 use darling::FromDeriveInput;
 use examples::get_snippets;
-use io::{io_core_impl, io_impl, layout_io, schematic_io, IoInputReceiver};
+use io::{io_core_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,

@@ -1,5 +1,3 @@
-use substrate::pdk::Pdk;
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{ExportsNestedData, Instance, SchematicData};
 
 #[derive(Default, SchematicData)]

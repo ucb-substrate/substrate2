@@ -5,20 +5,14 @@ mod data;
 pub mod layers;
 
 use std::any::Any;
-use std::sync::Arc;
 
 use rust_decimal::Decimal;
-use substrate::schematic::{Instance, SchematicData};
-use type_dispatch::impl_dispatch;
 
-use crate::block::{self, Block};
-use crate::error::{Error, Result};
-use crate::io::{LayoutType, SchematicType};
+use crate::block::Block;
+use crate::error::Result;
+use crate::io::LayoutType;
 use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
-use crate::schematic::schema::{Primitive, Schema};
-use crate::schematic::{Cell, CellBuilder, ExportsNestedData, RawCell, ScirCell};
 use crate::sealed;
-use crate::sealed::Token;
 
 use self::corner::*;
 use self::layers::Layers;

@@ -4,7 +4,6 @@ pub mod conv;
 pub mod primitives;
 pub mod schema;
 
-use cache::error::TryInnerError;
 use cache::mem::TypeCache;
 use cache::CacheHandle;
 pub use codegen::{Schematic, SchematicData};
@@ -17,27 +16,20 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::thread;
 
 use arcstr::ArcStr;
-use enumify::enumify;
 use once_cell::sync::OnceCell;
-use scir::Library;
-use type_dispatch::impl_dispatch;
 
 use crate::block::{self, Block};
-use crate::context::{Context, PdkContext};
+use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::{
-    Connect, Flatten, HasNameTree, HasTerminalView, Io, NameBuf, Node, NodeContext, NodePriority,
+    Connect, Flatten, HasNameTree, HasTerminalView, NameBuf, Node, NodeContext, NodePriority,
     NodeUf, Port, SchematicBundle, SchematicType, TerminalView,
 };
-use crate::pdk::Pdk;
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
-// use crate::sealed;
-use crate::sealed::Token;
 
 /// A schema that has a primitive associated with a certain block.
 pub trait PrimitiveSchematic<S: Schema>: Block<Kind = block::Primitive> {
@@ -322,7 +314,7 @@ impl<S: Schema> CellBuilder<S> {
             name: arcstr::literal!("unnamed"),
             connections: nodes,
             child: cell.handle.map(|handle| match handle {
-                Ok(Ok((raw, cell))) => Ok(raw.clone()),
+                Ok(Ok(SchemaCellCacheValue { raw, .. })) => Ok(raw.clone()),
                 _ => panic!(),
             }),
         });
@@ -428,7 +420,7 @@ impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
     #[track_caller]
     pub fn instantiate<B: Schematic<S2>>(&mut self, block: B) -> Instance<B> {
         let cell = self.ctx().generate_cross_schematic(block);
-        self.0.post_instantiate(cell, SourceInfo::from_caller())
+        self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
     /// Create an instance and immediately connect its ports.
@@ -448,48 +440,7 @@ impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
         cell: SchemaCellHandle<S, B>,
         source_info: SourceInfo,
     ) -> Instance<B> {
-        let io = cell.cell.block.io();
-        let cell_contents = self.0.contents.as_mut().unwrap_cell();
-
-        let (nodes, io_data) =
-            self.0
-                .node_ctx
-                .instantiate_directed(&io, NodePriority::Auto, source_info);
-
-        let names = io.flat_names(Some(
-            arcstr::format!("xinst{}", cell_contents.instances.len()).into(),
-        ));
-        assert_eq!(nodes.len(), names.len());
-
-        self.0.node_names.extend(nodes.iter().copied().zip(names));
-
-        cell_contents.next_instance_id.increment();
-
-        let inst = Instance {
-            id: cell_contents.next_instance_id,
-            parent: self.0.root.clone(),
-            path: self
-                .0
-                .root
-                .append_segment(cell_contents.next_instance_id, cell.cell.id),
-            cell: cell.cell,
-            io: io_data,
-
-            terminal_view: OnceCell::new(),
-            nested_data: OnceCell::new(),
-        };
-
-        cell_contents.instances.push(RawInstanceBuilder {
-            id: inst.id,
-            name: arcstr::literal!("unnamed"),
-            connections: nodes,
-            child: cell.handle.map(|handle| match handle {
-                Ok(Ok((raw, cell))) => Ok(raw.clone()),
-                _ => panic!(),
-            }),
-        });
-
-        inst
+        self.0.post_instantiate(cell, source_info)
     }
 }
 
@@ -609,8 +560,13 @@ impl<T: ExportsNestedData> CellHandle<T> {
     }
 }
 
+pub(crate) struct SchemaCellCacheValue<S: Schema, B: ExportsNestedData> {
+    pub(crate) raw: Arc<RawCell<S>>,
+    pub(crate) cell: Arc<Cell<B>>,
+}
+
 pub struct SchemaCellHandle<S: Schema, B: ExportsNestedData> {
-    pub(crate) handle: CacheHandle<Result<(Arc<RawCell<S>>, Arc<Cell<B>>)>>,
+    pub(crate) handle: CacheHandle<Result<SchemaCellCacheValue<S, B>>>,
     pub cell: CellHandle<B>,
 }
 
@@ -748,7 +704,7 @@ impl<T: ExportsNestedData> Deref for NestedInstance<T> {
     type Target = NestedView<T::NestedData>;
 
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &self.0
     }
 }
 
@@ -807,7 +763,7 @@ impl<T: ExportsNestedData> NestedInstance<T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
-        &self.0.block()
+        self.0.block()
     }
 
     pub fn path(&self) -> &InstancePath {
@@ -824,17 +780,10 @@ pub struct SchematicContext {
     pub(crate) cell_cache: TypeCache,
 }
 
-pub(crate) struct SchemaWrapper<S, T>(PhantomData<S>, T);
-
 impl SchematicContext {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn get_id(&mut self) -> CellId {
-        self.next_id.increment();
-        self.next_id
     }
 }
 
@@ -851,12 +800,6 @@ impl<B: Block> Clone for CellMetadata<B> {
             io_data: self.io_data.clone(),
         }
     }
-}
-
-/// Cell data that must run a user specified generator.
-pub(crate) struct CellData<B: ExportsNestedData, S: Schema> {
-    cell: Cell<B>,
-    raw: RawCell<S>,
 }
 
 pub(crate) struct CellCacheKey<B, S> {
@@ -1020,13 +963,23 @@ impl<T: HasNestedView> HasNestedView for Option<T> {
 }
 
 /// A raw (weakly-typed) instance of a cell.
-/// TODO: Add Debug impl.
 #[allow(dead_code)]
 pub(crate) struct RawInstanceBuilder<S: Schema> {
     id: InstanceId,
     name: ArcStr,
     connections: Vec<Node>,
     child: CacheHandle<Arc<RawCell<S>>>,
+}
+
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawInstanceBuilder<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("RawInstanceBuilder");
+        let _ = builder.field("id", &self.id);
+        let _ = builder.field("name", &self.name);
+        let _ = builder.field("connections", &self.connections);
+        let _ = builder.field("child", &self.child);
+        builder.finish()
+    }
 }
 
 impl<S: Schema> RawInstanceBuilder<S> {
@@ -1041,13 +994,23 @@ impl<S: Schema> RawInstanceBuilder<S> {
 }
 
 /// A raw (weakly-typed) instance of a cell.
-/// TODO: Add Debug impl.
 #[allow(dead_code)]
 pub(crate) struct RawInstance<S: Schema> {
     id: InstanceId,
     name: ArcStr,
     connections: Vec<Node>,
     child: Arc<RawCell<S>>,
+}
+
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawInstance<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("RawInstance");
+        let _ = builder.field("id", &self.id);
+        let _ = builder.field("name", &self.name);
+        let _ = builder.field("connections", &self.connections);
+        let _ = builder.field("child", &self.child);
+        builder.finish()
+    }
 }
 
 impl<S: Schema> Clone for RawInstance<S> {
@@ -1099,8 +1062,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<S>
         let _ = builder.field("uf", &self.uf);
         let _ = builder.field("node_names", &self.node_names);
         let _ = builder.field("roots", &self.roots);
-        // TODO: Uncomment
-        // let _ = builder.field("contents", &self.contents);
+        let _ = builder.field("contents", &self.contents);
         let _ = builder.field("flatten", &self.flatten);
         builder.finish()
     }
@@ -1165,7 +1127,7 @@ impl<S: Schema> RawCellContents<S> {
                     .convert_schema()
                     .map_err(|_| Error::UnsupportedPrimitive)?
                     .build()
-                    .map_err(|e| ConvError::from(e))?,
+                    .map_err(ConvError::from)?,
                 cell: s.cell,
                 port_map: s.port_map,
             }),
@@ -1233,6 +1195,15 @@ pub struct Primitive<S: Schema> {
     pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
 }
 
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for Primitive<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("Primitive");
+        let _ = builder.field("primitive", &self.primitive);
+        let _ = builder.field("port_map", &self.port_map);
+        builder.finish()
+    }
+}
+
 impl<S: Schema> Clone for Primitive<S> {
     fn clone(&self) -> Self {
         Self {
@@ -1258,6 +1229,14 @@ impl<S: Schema> Primitive<S> {
 pub(crate) struct ConvertedPrimitive<S: Schema> {
     converted: <S as Schema>::Primitive,
     original: Arc<dyn ConvertPrimitive<S>>,
+}
+
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ConvertedPrimitive<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("ConvertedPrimitive");
+        let _ = builder.field("converted", &self.converted);
+        builder.finish()
+    }
 }
 
 impl<S: Schema> Clone for ConvertedPrimitive<S> {
@@ -1292,6 +1271,15 @@ pub(crate) struct RawCellInnerBuilder<S: Schema> {
     pub(crate) instances: Vec<RawInstanceBuilder<S>>,
 }
 
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCellInnerBuilder<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("RawCellInnerBuilder");
+        let _ = builder.field("next_instance_id", &self.next_instance_id);
+        let _ = builder.field("instances", &self.instances);
+        builder.finish()
+    }
+}
+
 impl<S: Schema> Default for RawCellInnerBuilder<S> {
     fn default() -> Self {
         Self {
@@ -1315,6 +1303,14 @@ impl<S: Schema> RawCellInnerBuilder<S> {
 
 pub(crate) struct RawCellInner<S: Schema> {
     pub(crate) instances: Vec<RawInstance<S>>,
+}
+
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCellInner<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("RawCellInner");
+        let _ = builder.field("instances", &self.instances);
+        builder.finish()
+    }
 }
 
 impl<S: Schema> Clone for RawCellInner<S> {

@@ -5,9 +5,8 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};
-use substrate::pdk::Pdk;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::schema::{Primitive, Schema};
+use substrate::schematic::schema::Schema;
 use substrate::schematic::{
     CellBuilder, ExportsNestedData, Instance, PrimitiveSchematic, Schematic, SchematicData,
 };

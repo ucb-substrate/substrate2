@@ -1,5 +1,6 @@
 //! Substrate to SCIR conversion.
 
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Formatter;
 
@@ -12,7 +13,6 @@ use substrate::schematic::{ConvertedPrimitive, ScirCell};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
-use crate::pdk::Pdk;
 use crate::schematic::schema::Schema;
 use crate::schematic::{ConvertPrimitive, InstancePath, RawCellContents, RawCellKind};
 
@@ -46,55 +46,16 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawLib<S> 
     }
 }
 
-pub(crate) struct RawLibBuilder<S: Schema> {
-    pub(crate) scir: scir::LibraryBuilder<S>,
-    pub(crate) conv: ScirLibConversionBuilder,
-}
-
-impl<S: Schema<Primitive = impl Clone>> Clone for RawLibBuilder<S> {
-    fn clone(&self) -> Self {
-        Self {
-            scir: self.scir.clone(),
-            conv: self.conv.clone(),
-        }
-    }
-}
-
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawLibBuilder<S> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("RawLib");
-        let _ = builder.field("scir", &self.scir);
-        let _ = builder.field("conv", &self.conv);
-        builder.finish()
-    }
-}
-
-impl<S: Schema> RawLibBuilder<S> {
-    pub(crate) fn new(name: impl Into<ArcStr>) -> Self {
-        Self {
-            scir: LibraryBuilder::new(name),
-            conv: Default::default(),
-        }
-    }
-
-    pub(crate) fn build(self) -> RawLib<S> {
-        RawLib {
-            scir: self.scir.build().unwrap(),
-            conv: self.conv.build(),
-        }
-    }
-}
-
 /// Metadata associated with a conversion from a Substrate schematic to a SCIR library.
 ///
 /// Provides helpers for retrieving SCIR objects from their Substrate IDs.
 #[derive(Debug, Clone)]
 pub struct ScirLibConversion {
     pub(crate) cell_mapping: HashMap<CellId, ScirCellId>,
+    #[allow(dead_code)]
     pub(crate) primitive_mapping: HashMap<CellId, PrimitiveId>,
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
-    pub(crate) top: Option<scir::CellId>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -103,7 +64,6 @@ pub(crate) struct ScirLibConversionBuilder {
     pub(crate) primitive_mapping: HashMap<CellId, PrimitiveId>,
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, ScirCellConversion>,
-    pub(crate) top: Option<scir::CellId>,
 }
 
 impl ScirLibConversionBuilder {
@@ -116,13 +76,7 @@ impl ScirLibConversionBuilder {
             cell_mapping: self.cell_mapping,
             primitive_mapping: self.primitive_mapping,
             cells: self.cells,
-            top: self.top,
         }
-    }
-
-    #[inline]
-    pub(crate) fn set_top(&mut self, id: CellId, scir_id: scir::CellId) {
-        self.top = Some(scir_id);
     }
 
     #[inline]
@@ -136,11 +90,11 @@ impl<S: Schema> RawLib<S> {
         &self,
         top: CellId,
         instances: impl IntoIterator<Item = &'a InstanceId>,
-    ) -> Option<(scir::InstancePath, &ScirCellConversion, scir::ChildId)> {
+    ) -> Option<(scir::InstancePath, &ScirCellConversion)> {
         let mut cell = self.conv.cells.get(&top)?;
-        let mut scir_id: scir::ChildId = self.conv.top?.into();
+        let mut scir_id: scir::ChildId = self.scir.top_cell()?.into();
 
-        let mut scir_instances = scir::InstancePath::new(self.conv.top?);
+        let mut scir_instances = scir::InstancePath::new(self.scir.top_cell()?);
         for inst in instances {
             let conv = cell.instances.get(inst).unwrap();
             match conv.instance.as_ref() {
@@ -156,12 +110,12 @@ impl<S: Schema> RawLib<S> {
                 }
             }
         }
-        Some((scir_instances, cell, scir_id))
+        Some((scir_instances, cell))
     }
 
     /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SignalPath`].
     pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SliceOnePath> {
-        let (instances, cell, id) = self.convert_instance_path_inner(path.top, &path.instances)?;
+        let (instances, cell) = self.convert_instance_path_inner(path.top, &path.instances)?;
 
         let slice = *cell.signals.get(&path.node)?;
 
@@ -170,7 +124,7 @@ impl<S: Schema> RawLib<S> {
 
     /// Converts a Substrate [`InstancePath`] to a SCIR [`scir::InstancePath`].
     pub fn convert_instance_path(&self, path: &InstancePath) -> Option<scir::InstancePath> {
-        let (instances, _, _) = self.convert_instance_path_inner(path.top, &path.path)?;
+        let (instances, _) = self.convert_instance_path_inner(path.top, &path.path)?;
         Some(instances)
     }
 
@@ -183,7 +137,7 @@ impl<S: Schema> RawLib<S> {
     pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<scir::SliceOnePath>> {
         let mut cell = self.conv.cells.get(&path.top)?;
 
-        let mut scir_id = self.conv.top?;
+        let mut scir_id = self.scir.top_cell()?;
         let mut instances = scir::InstancePath::new(scir_id);
         let mut last_clear = false;
         for inst in &path.instances {
@@ -227,7 +181,6 @@ impl<S: Schema> RawLib<S> {
         instances: &mut scir::InstancePath,
         signals: &mut Vec<scir::SliceOnePath>,
     ) -> Option<()> {
-        // let (signal, index) = slice;
         instances.push(id);
         let inst = parent_cell.instance(id);
         for (name, conn) in inst.connections() {
@@ -338,12 +291,6 @@ pub(crate) struct ScirInstanceConversion {
     instance: ConvertedScirInstance,
 }
 
-#[derive(Debug, Clone)]
-pub(crate) enum ScirPrimitiveDeviceConversion {
-    /// A Substrate primitive that translates to a [`scir::Instance`].
-    Instance(scir::InstanceId),
-}
-
 pub(crate) struct ScirLibExportContext<S: Schema> {
     lib: LibraryBuilder<S>,
     conv: ScirLibConversionBuilder,
@@ -402,7 +349,6 @@ impl FlatExport {
 struct ScirCellExportContext {
     id: CellId,
     inst_idx: u64,
-    prim_idx: u64,
     cell: scir::Cell,
 }
 
@@ -412,7 +358,6 @@ impl ScirCellExportContext {
         Self {
             id,
             inst_idx: 0,
-            prim_idx: 0,
             cell,
         }
     }
@@ -437,7 +382,6 @@ impl<S: Schema> RawCell<S> {
 
         if let ChildId::Cell(scir_id) = scir_id {
             lib_ctx.lib.set_top(scir_id);
-            lib_ctx.conv.set_top(self.id, scir_id);
         }
 
         Ok(RawLib {
@@ -450,7 +394,7 @@ impl<S: Schema> RawCell<S> {
         let name = lib_ctx.cell_names.assign_name(self.id, &self.name);
 
         Ok(match &self.contents {
-            RawCellContents::Cell(c) => {
+            RawCellContents::Cell(_) => {
                 let mut cell_ctx = ScirCellExportContext::new(self.id, Cell::new(name));
                 let conv = self.export_instances(lib_ctx, &mut cell_ctx, FlatExport::No)?;
                 let ScirCellExportContext {
@@ -549,15 +493,10 @@ impl<S: Schema> RawCell<S> {
                 for instance in contents.instances.iter() {
                     let child_id: ChildId = match &instance.child.contents {
                         RawCellContents::Primitive(p) => {
-                            if !lib_ctx
-                                .conv
-                                .primitive_mapping
-                                .contains_key(&instance.child.id)
+                            if let Entry::Vacant(e) =
+                                lib_ctx.conv.primitive_mapping.entry(instance.child.id)
                             {
-                                lib_ctx.conv.primitive_mapping.insert(
-                                    instance.child.id,
-                                    lib_ctx.lib.add_primitive(p.primitive.clone()),
-                                );
+                                e.insert(lib_ctx.lib.add_primitive(p.primitive.clone()));
                             }
 
                             (*lib_ctx
@@ -568,13 +507,10 @@ impl<S: Schema> RawCell<S> {
                             .into()
                         }
                         RawCellContents::ConvertedPrimitive(p) => {
-                            if !lib_ctx
-                                .conv
-                                .primitive_mapping
-                                .contains_key(&instance.child.id)
+                            if let Entry::Vacant(e) =
+                                lib_ctx.conv.primitive_mapping.entry(instance.child.id)
                             {
-                                lib_ctx.conv.primitive_mapping.insert(
-                                    instance.child.id,
+                                e.insert(
                                     lib_ctx.lib.add_primitive(
                                         <ConvertedPrimitive<S> as ConvertPrimitive<S>>::convert_primitive(p)
                                             .map_err(|_| ConvError::UnsupportedPrimitive)?,
@@ -606,6 +542,7 @@ impl<S: Schema> RawCell<S> {
                                 );
                                 continue;
                             } else {
+                                #[allow(clippy::map_entry)]
                                 if !lib_ctx.conv.cell_mapping.contains_key(&instance.child.id) {
                                     let id = instance.child.to_scir_cell(lib_ctx)?.unwrap_cell();
                                     lib_ctx.conv.cell_mapping.insert(instance.child.id, id);
