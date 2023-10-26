@@ -315,7 +315,10 @@ impl<S: Schema> CellBuilder<S> {
             connections: nodes,
             child: cell.handle.map(|handle| match handle {
                 Ok(Ok(SchemaCellCacheValue { raw, .. })) => Ok(raw.clone()),
-                _ => panic!(),
+                e => {
+                    tracing::error!("{:?}", e);
+                    panic!("cell generator failed")
+                }
             }),
         });
 
