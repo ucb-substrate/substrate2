@@ -276,7 +276,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
         \"#",
         name = "res",
         fmt = "inline-spice",
-        pdk = "Sky130Pdk"
+        pdk = "Spectre"
     ))]
     pub struct ScirResistor;
 
@@ -294,8 +294,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
-            let mut subcell = cell.sub_builder::<Sky130Pdk>();
-            let res1 = subcell.instantiate_connected(ScirResistor, io);
+            let res1 = cell.instantiate_connected(ScirResistor, io);
             let res = cell.instantiate_connected(Resistor::new(dec!(200)), io);
             let raw_res = cell.instantiate(RawInstance::with_params(
                 arcstr::literal!("resistor"),

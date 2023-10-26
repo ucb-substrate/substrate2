@@ -265,6 +265,7 @@ impl<T> Save<Spectre, Tran, T> for TranCurrent {
 
 impl HasSimData<str, Vec<f64>> for TranOutput {
     fn get_data(&self, k: &str) -> Option<&Vec<f64>> {
+        println!("{}", k);
         self.raw_values.get(k).map(|x| x.as_ref())
     }
 }
