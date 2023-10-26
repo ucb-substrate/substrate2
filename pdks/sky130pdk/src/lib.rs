@@ -154,8 +154,8 @@ impl FromSchema<Sky130Pdk> for Spice {
                     ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 },
                 params: HashMap::from_iter([
-                    (arcstr::literal!("w"), Decimal::from(params.w).into()),
-                    (arcstr::literal!("l"), Decimal::from(params.l).into()),
+                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ]),
             },
@@ -205,8 +205,8 @@ impl FromSchema<Sky130Pdk> for Spectre {
                 cell: kind.commercial_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: HashMap::from_iter([
-                    (arcstr::literal!("w"), Decimal::from(params.w).into()),
-                    (arcstr::literal!("l"), Decimal::from(params.l).into()),
+                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ]),
             },
