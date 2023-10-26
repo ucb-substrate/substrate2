@@ -55,8 +55,17 @@ pub struct BufferInlineHardMacro;
     source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
     name = "vdivider",
     fmt = "spice",
-    pdk = "Sky130Pdk"
+    pdk = "Spice"
 ))]
+#[cfg_attr(
+    feature = "spectre",
+    substrate(schematic(
+        source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
+        name = "vdivider",
+        fmt = "spice",
+        pdk = "Spectre"
+    ))
+)]
 pub struct VdividerDuplicateSubckt;
 
 #[test]

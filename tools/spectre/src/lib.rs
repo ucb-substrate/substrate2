@@ -26,6 +26,8 @@ use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{Primitive, PrimitiveSchematic};
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
+use substrate::spice;
+use substrate::spice::Spice;
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
@@ -450,6 +452,78 @@ impl FromSchema<NoSchema> for Spectre {
         _primitive: &<NoSchema as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
         Err(NoSchemaError)
+    }
+}
+
+/// An error converting to/from the [`Spectre`] schema.
+#[derive(Debug, Clone, Copy)]
+pub enum SpectreConvError {
+    /// A primitive that is not supported by the target schema was encountered.
+    UnsupportedPrimitive,
+    /// A primitive is missing a required parameter.
+    MissingParameter,
+    /// A primitive has an extra parameter.
+    ExtraParameter,
+    /// A primitive has an invalid value for a certain parameter.
+    InvalidParameter,
+    /// A primitive has an invalid port.
+    InvalidPort,
+    /// A blackbox that cannot be converted was encountered.
+    Blackbox,
+}
+
+impl FromSchema<Spice> for Spectre {
+    type Error = SpectreConvError;
+
+    fn convert_primitive(
+        primitive: <Spice as Schema>::Primitive,
+    ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
+        let spice::Primitive { kind, params } = primitive;
+        Ok(match kind {
+            spice::PrimitiveKind::ExternalModule { .. } => {
+                // TODO: Add SPICE external module to Spectre, netlist
+                // with simulator_lang = spice.
+                return Err(SpectreConvError::Blackbox);
+            }
+            spice::PrimitiveKind::RawInstance { cell, ports } => SpectrePrimitive::RawInstance {
+                cell,
+                ports,
+                params,
+            },
+            spice::PrimitiveKind::Mos { mname } => {
+                todo!()
+            }
+            spice::PrimitiveKind::Res2 { value } => SpectrePrimitive::RawInstance {
+                cell: "resistor".into(),
+                ports: vec!["pos".into(), "neg".into()],
+                params: HashMap::from_iter([("r".into(), value.into())]),
+            },
+        })
+    }
+
+    fn convert_instance(
+        instance: &mut scir::Instance,
+        primitive: &<Spice as Schema>::Primitive,
+    ) -> std::result::Result<(), Self::Error> {
+        match &primitive.kind {
+            spice::PrimitiveKind::ExternalModule { .. } => {
+                // TODO: Add SPICE external module to Spectre, netlist
+                // with simulator_lang = spice.
+                return Err(SpectreConvError::Blackbox);
+            }
+            spice::PrimitiveKind::RawInstance { cell, ports } => {}
+            spice::PrimitiveKind::Mos { mname } => {
+                todo!()
+            }
+            spice::PrimitiveKind::Res2 { value } => {
+                instance.map_connections(|port| match port.as_ref() {
+                    "1" => "pos".into(),
+                    "2" => "neg".into(),
+                    _ => port,
+                });
+            }
+        }
+        Ok(())
     }
 }
 

@@ -18,4 +18,5 @@ cache = { version = "0.3.1", registry = "substrate", path = "../../libs/cache" }
 scir = { version = "0.5.0", registry = "substrate", path = "../../libs/scir" }
 nutlex = { version = "0.1.0", registry = "substrate", path = "../../libs/nutlex" }
 substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }
+spice = { version = "0.4.0", registry = "substrate", path = "../../libs/spice" }
 

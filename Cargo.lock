@@ -2371,6 +2371,7 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
+ "spice",
  "substrate",
  "tera",
  "thiserror",

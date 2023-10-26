@@ -79,9 +79,7 @@ impl Schematic<Spectre> for VdividerDuplicateSubcktTb {
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
-        let dut = cell
-            .sub_builder::<Sky130Pdk>()
-            .instantiate(VdividerDuplicateSubckt);
+        let dut = cell.instantiate(VdividerDuplicateSubckt);
 
         cell.connect(dut.io().vdd, vdd);
         cell.connect(dut.io().vss, io.vss);
