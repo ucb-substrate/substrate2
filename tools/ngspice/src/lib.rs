@@ -20,7 +20,7 @@ use scir::netlist::{
     RenameGround,
 };
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Library, SignalInfo, SliceOnePath};
+use scir::{ChildId, Library, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
@@ -42,8 +42,17 @@ pub mod tran;
 pub enum NgspicePrimitive {
     /// A SPICE primitive.
     Spice(spice::Primitive),
-    /// A voltage source with ports "P" and "N".
+    /// A voltage source with ports "1" and "2".
     Vsource(Vsource),
+}
+
+impl NgspicePrimitive {
+    fn ports(&self) -> Vec<ArcStr> {
+        match self {
+            NgspicePrimitive::Spice(spice::Primitive { kind, .. }) => kind.ports(),
+            NgspicePrimitive::Vsource(_) => vec!["1".into(), "2".into()],
+        }
+    }
 }
 
 /// Contents of a ngspice save statement.
@@ -544,19 +553,63 @@ pub(crate) fn node_current_path(
     lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
     path: &SliceOnePath,
-    _save: bool,
+    save: bool,
 ) -> String {
-    let mut named_path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-        if let Some(index) = index {
-            arcstr::format!("{}\\[{}\\]", name, index)
-        } else {
-            name.clone()
-        }
-    });
-    let signal = named_path.pop().unwrap();
+    assert_eq!(
+        path.instances().len(),
+        1,
+        "ngspice only supports saving currents of top level instance terminals"
+    );
+    let annotated_path = lib.annotate_instance_path(path.instances().clone());
+    let mut named_path = lib.convert_instance_path_with_conv(conv, path.instances().clone());
     let mut str_path = named_path.join(".");
     str_path.push(':');
-    str_path.push_str(&signal);
+
+    match annotated_path.instances.last().unwrap().child {
+        Some(ChildId::Cell(id)) => {
+            let cell = lib.cell(id);
+            if save {
+                let signal = match path.tail() {
+                    SignalPathTail::Id(slice) => cell.signal(slice.signal()),
+                    SignalPathTail::Name(slice) => cell.signal_named(slice.signal()),
+                };
+                let idx = signal.port.expect("signal is not a valid terminal");
+                str_path.push_str(&format!(
+                    "{}",
+                    idx + path.tail().index().unwrap_or_default() + 1
+                ));
+            } else {
+                let name = match path.tail() {
+                    SignalPathTail::Id(slice) => cell.signal(slice.signal()).name.clone(),
+                    SignalPathTail::Name(slice) => slice.signal().clone(),
+                };
+                str_path.push_str(&name);
+                if let Some(index) = path.tail().index() {
+                    str_path.push_str(&format!("[{}]", index));
+                }
+            }
+        }
+        Some(ChildId::Primitive(id)) => {
+            let prim = lib.primitive(id);
+            let tail = path.tail().as_ref().unwrap_name();
+            if save {
+                str_path.push_str(&format!(
+                    "{}",
+                    prim.ports()
+                        .iter()
+                        .position(|x| x == tail.signal())
+                        .unwrap()
+                        + 1
+                ));
+            } else {
+                str_path.push_str(&format!("n{}", tail.signal().to_lowercase()));
+            }
+        }
+        None => {
+            panic!("cannot save or recover paths that do not exist")
+        }
+    }
+
     str_path
 }
 

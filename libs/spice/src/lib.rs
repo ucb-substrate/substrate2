@@ -76,6 +76,17 @@ pub enum PrimitiveKind {
     },
 }
 
+impl PrimitiveKind {
+    pub fn ports(&self) -> Vec<ArcStr> {
+        match self {
+            PrimitiveKind::Res2 { .. } => vec!["1".into(), "2".into()],
+            PrimitiveKind::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
+            PrimitiveKind::RawInstance { ports, .. }
+            | PrimitiveKind::ExternalModule { ports, .. } => ports.clone(),
+        }
+    }
+}
+
 impl HasSpiceLikeNetlist for Spice {
     fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
         writeln!(out, "* {}", lib.name())?;

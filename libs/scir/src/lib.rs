@@ -334,13 +334,13 @@ impl<S: Into<ArcStr>> From<S> for InstancePathElement {
 
 /// A path to an instance in a SCIR library with annotated metadata.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-struct AnnotatedInstancePath {
+pub struct AnnotatedInstancePath {
     /// ID or name of the top cell.
     ///
     /// If the name corresponds to a SCIR cell, this should always be an ID.
-    top: InstancePathCell,
+    pub top: InstancePathCell,
     /// Path of SCIR instance IDs.
-    instances: Vec<AnnotatedInstancePathElement>,
+    pub instances: Vec<AnnotatedInstancePathElement>,
 }
 
 impl AnnotatedInstancePath {
@@ -353,9 +353,9 @@ impl AnnotatedInstancePath {
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-struct AnnotatedInstancePathElement {
-    elem: InstancePathElement,
-    child: Option<ChildId>,
+pub struct AnnotatedInstancePathElement {
+    pub elem: InstancePathElement,
+    pub child: Option<ChildId>,
 }
 
 impl From<AnnotatedInstancePath> for InstancePath {
@@ -706,7 +706,7 @@ pub struct SignalInfo {
     ///
     /// The contained `usize` represents the index at which the port
     /// corresponding to this signal starts.
-    port: Option<usize>,
+    pub port: Option<usize>,
 }
 
 impl SignalInfo {
@@ -1030,7 +1030,7 @@ impl<S: Schema> LibraryBuilder<S> {
     ///
     /// Finds cell IDs associated with instances in the path if they are in the SCIR
     /// library, and converts the top of the path to a cell ID if possible.
-    fn annotate_instance_path(&self, path: InstancePath) -> AnnotatedInstancePath {
+    pub fn annotate_instance_path(&self, path: InstancePath) -> AnnotatedInstancePath {
         let mut annotated_elems = Vec::new();
 
         let (top, mut cell) = if let Some((id, cell)) = self.convert_instance_path_cell(&path.top) {
@@ -1070,7 +1070,7 @@ impl<S: Schema> LibraryBuilder<S> {
         }
     }
 
-    fn convert_annotated_instance_path(
+    pub fn convert_annotated_instance_path(
         &self,
         conv: Option<&NetlistLibConversion>,
         path: AnnotatedInstancePath,
@@ -1166,13 +1166,13 @@ impl<S: Schema> LibraryBuilder<S> {
 
         let bot = self.cell(annotated_path.bot().unwrap());
 
-        let signal_info = match &tail {
-            SignalPathTail::Id(id) => bot.signal(id.signal()),
-            SignalPathTail::Name(name) => bot.signal_named(name.signal()),
+        let (name, index) = match &tail {
+            SignalPathTail::Id(id) => (&bot.signal(id.signal()).name, id.index()),
+            SignalPathTail::Name(name) => (name.signal(), name.index()),
         };
 
         let mut name_path = self.convert_annotated_instance_path(conv, annotated_path);
-        name_path.push(index_fmt(&signal_info.name, tail.index()));
+        name_path.push(index_fmt(name, index));
 
         name_path
     }
@@ -1226,37 +1226,48 @@ impl<S: Schema> LibraryBuilder<S> {
             .map(|(_, cell)| cell);
 
         for i in (0..annotated_instances.instances.len()).rev() {
-            let cell = self.cell(
-                annotated_instances.instances[i]
-                    .child
-                    .unwrap()
-                    .unwrap_cell(),
-            );
-            let info = match &tail {
-                SignalPathTail::Id(id) => cell.signal(id.signal()),
-                SignalPathTail::Name(name) => cell.signal_named(name.signal()),
-            };
-            if info.port.is_none() {
-                annotated_instances.instances.truncate(i + 1);
-                return SliceOnePath(SignalPath {
-                    instances: annotated_instances.into(),
-                    tail,
-                });
+            let parent = if i == 0 {
+                top.unwrap()
             } else {
-                let parent = if i == 0 {
-                    top.unwrap()
-                } else {
-                    self.cell(
-                        annotated_instances.instances[i - 1]
-                            .child
-                            .unwrap()
-                            .unwrap_cell(),
-                    )
-                };
-                let inst =
-                    parent.instance_from_path_element(&annotated_instances.instances[i].elem);
-                let idx = tail.index().unwrap_or_default();
-                tail = SignalPathTail::Id(inst.connection(info.name.as_ref()).index(idx));
+                self.cell(
+                    annotated_instances.instances[i - 1]
+                        .child
+                        .unwrap()
+                        .unwrap_cell(),
+                )
+            };
+            match annotated_instances.instances[i].child.unwrap() {
+                ChildId::Cell(id) => {
+                    let cell = self.cell(id);
+                    let info = match &tail {
+                        SignalPathTail::Id(id) => cell.signal(id.signal()),
+                        SignalPathTail::Name(name) => cell.signal_named(name.signal()),
+                    };
+                    if info.port.is_none() {
+                        annotated_instances.instances.truncate(i + 1);
+                        return SliceOnePath(SignalPath {
+                            instances: annotated_instances.into(),
+                            tail,
+                        });
+                    } else {
+                        let inst = parent
+                            .instance_from_path_element(&annotated_instances.instances[i].elem);
+                        let idx = tail.index().unwrap_or_default();
+                        tail = SignalPathTail::Id(inst.connection(info.name.as_ref()).index(idx));
+                    }
+                }
+                ChildId::Primitive(_) => {
+                    let inst =
+                        parent.instance_from_path_element(&annotated_instances.instances[i].elem);
+                    tail = SignalPathTail::Id(match &tail {
+                        SignalPathTail::Id(id) => {
+                            panic!("only paths to named primitive ports can be simplified")
+                        }
+                        SignalPathTail::Name(name) => inst
+                            .connection(name.signal())
+                            .index(name.index().unwrap_or_default()),
+                    });
+                }
             }
         }
 
