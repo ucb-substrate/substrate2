@@ -65,7 +65,8 @@ impl HasSpiceLikeNetlist for Spectre {
         connections: impl Iterator<Item = ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
-        write!(out, "x{} (", name)?;
+        let name = arcstr::format!("x{}", name);
+        write!(out, "{} (", name)?;
 
         for connection in connections {
             write!(out, " {}", connection)?;
@@ -73,7 +74,7 @@ impl HasSpiceLikeNetlist for Spectre {
 
         write!(out, " ) {}", child)?;
 
-        Ok(name.clone())
+        Ok(name)
     }
 
     fn write_primitive_subckt<W: Write>(
@@ -108,7 +109,7 @@ impl HasSpiceLikeNetlist for Spectre {
         mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
-        match primitive {
+        Ok(match primitive {
             SpectrePrimitive::RawInstance {
                 cell,
                 ports,
@@ -117,20 +118,19 @@ impl HasSpiceLikeNetlist for Spectre {
                 let connections = ports
                     .iter()
                     .flat_map(|port| connections.remove(port).unwrap());
-                self.write_instance(out, name, connections, cell)?;
+                let name = self.write_instance(out, name, connections, cell)?;
                 for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
                     write!(out, " {key}={value}")?;
                 }
+                name
             }
             SpectrePrimitive::ExternalModule { cell, ports, .. } => {
                 let connections = ports
                     .iter()
                     .flat_map(|port| connections.remove(port).unwrap());
-                self.write_instance(out, name, connections, cell)?;
+                self.write_instance(out, name, connections, cell)?
             }
-        }
-
-        Ok(name.clone())
+        })
     }
 
     fn write_slice<W: Write>(&self, out: &mut W, slice: Slice, info: &SignalInfo) -> Result<()> {
