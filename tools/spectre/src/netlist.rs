@@ -65,7 +65,7 @@ impl HasSpiceLikeNetlist for Spectre {
         connections: impl Iterator<Item = ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
-        write!(out, "{} (", name)?;
+        write!(out, "x{} (", name)?;
 
         for connection in connections {
             write!(out, " {}", connection)?;
