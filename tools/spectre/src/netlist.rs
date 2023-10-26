@@ -76,6 +76,31 @@ impl HasSpiceLikeNetlist for Spectre {
         Ok(name.clone())
     }
 
+    fn write_primitive_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<()> {
+        if let SpectrePrimitive::ExternalModule {
+            cell,
+            ports,
+            contents,
+        } = primitive
+        {
+            write!(out, "subckt {}", cell)?;
+            for port in ports {
+                write!(out, " {}", port)?;
+            }
+            writeln!(out, "\n")?;
+
+            writeln!(out, "{}", contents)?;
+
+            self.write_end_subckt(out, cell)?;
+            writeln!(out)?;
+        };
+        Ok(())
+    }
+
     fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
@@ -96,6 +121,12 @@ impl HasSpiceLikeNetlist for Spectre {
                 for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
                     write!(out, " {key}={value}")?;
                 }
+            }
+            SpectrePrimitive::ExternalModule { cell, ports, .. } => {
+                let connections = ports
+                    .iter()
+                    .flat_map(|port| connections.remove(port).unwrap());
+                self.write_instance(out, name, connections, cell)?;
             }
         }
 

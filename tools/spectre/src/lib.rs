@@ -47,6 +47,15 @@ pub enum SpectrePrimitive {
         /// Parameters associated with the instance.
         params: HashMap<ArcStr, ParamValue>,
     },
+    /// An external module with blackboxed contents.
+    ExternalModule {
+        /// The cell name.
+        cell: ArcStr,
+        /// The cell ports.
+        ports: Vec<ArcStr>,
+        /// The contents of the cell.
+        contents: ArcStr,
+    },
 }
 
 /// Spectre error presets.
