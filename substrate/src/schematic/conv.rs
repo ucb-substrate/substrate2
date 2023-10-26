@@ -62,6 +62,16 @@ pub(crate) struct ScirLibConversionBuilder {
     pub(crate) cells: HashMap<CellId, SubstrateCellConversion>,
 }
 
+pub enum ConvertedNodePath {
+    Cell(scir::SliceOnePath),
+    Primitive {
+        id: scir::PrimitiveId,
+        instances: scir::InstancePath,
+        port: ArcStr,
+        index: usize,
+    },
+}
+
 impl ScirLibConversionBuilder {
     fn new() -> Self {
         Default::default()
@@ -109,17 +119,22 @@ impl<S: Schema> RawLib<S> {
     }
 
     /// Converts a Substrate [`NodePath`] to a SCIR [`scir::SliceOnePath`].
-    pub fn convert_node_path(&self, path: &NodePath) -> Option<scir::SliceOnePath> {
+    pub fn convert_node_path(&self, path: &NodePath) -> Option<ConvertedNodePath> {
         let (instances, cell) = self.convert_instance_path_inner(path.top, &path.instances)?;
 
         Some(match cell {
-            SubstrateCellConversionRef::Cell(cell) => {
-                scir::SliceOnePath::new(instances, *cell.signals.get(&path.node)?).into()
-            }
+            SubstrateCellConversionRef::Cell(cell) => ConvertedNodePath::Cell(
+                scir::SliceOnePath::new(instances, *cell.signals.get(&path.node)?),
+            ),
             SubstrateCellConversionRef::Primitive(p) => {
                 let prim = self.scir.primitive(p.primitive_id);
                 let (port, index) = p.ports.get(&path.node)?.first()?;
-                scir::SliceOnePath::new(instances, NamedSliceOne::with_index(port.clone(), *index))
+                ConvertedNodePath::Primitive {
+                    id: p.primitive_id,
+                    instances,
+                    port: port.clone(),
+                    index: *index,
+                }
             }
         })
     }
@@ -135,7 +150,7 @@ impl<S: Schema> RawLib<S> {
     ///
     /// Returns [`None`] if the path is invalid. Only flattened instances will
     /// return more than one [`scir::SignalPath`].
-    pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<scir::SliceOnePath>> {
+    pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<ConvertedNodePath>> {
         let mut cell = self.conv.cells.get(&path.top)?.as_ref();
 
         let scir_id = self.scir.top_cell()?;
@@ -177,16 +192,20 @@ impl<S: Schema> RawLib<S> {
                     );
                     signals
                 } else {
-                    vec![scir::SliceOnePath::new(instances, slice)]
+                    vec![ConvertedNodePath::Cell(scir::SliceOnePath::new(
+                        instances, slice,
+                    ))]
                 })
             }
             SubstrateCellConversionRef::Primitive(p) => {
                 let mut out = Vec::new();
                 for (port, index) in p.ports.get(&path.node)? {
-                    out.push(scir::SliceOnePath::new(
-                        instances.clone(),
-                        NamedSliceOne::with_index(port.clone(), *index),
-                    ));
+                    out.push(ConvertedNodePath::Primitive {
+                        id: p.primitive_id,
+                        instances: instances.clone(),
+                        port: port.clone(),
+                        index: *index,
+                    });
                 }
                 Some(out)
             }
@@ -201,7 +220,7 @@ impl<S: Schema> RawLib<S> {
         id: scir::InstanceId,
         slice: scir::SliceOne,
         instances: &mut scir::InstancePath,
-        signals: &mut Vec<scir::SliceOnePath>,
+        signals: &mut Vec<ConvertedNodePath>,
     ) -> Option<()> {
         instances.push(id);
         let inst = parent_cell.instance(id);
@@ -222,13 +241,17 @@ impl<S: Schema> RawLib<S> {
                     };
 
                     if let Some(concat_index) = concat_index {
+                        // TODO: Handle primitive case.
                         let child_cell = self.scir.cell(inst.child().into_cell()?);
                         let port = child_cell.port(name);
                         let port_slice = child_cell.signal(port.signal()).slice();
                         let tail = port_slice
                             .slice_one()
                             .unwrap_or_else(|| port_slice.index(concat_index));
-                        signals.push(scir::SliceOnePath::new(instances.clone(), tail));
+                        signals.push(ConvertedNodePath::Cell(scir::SliceOnePath::new(
+                            instances.clone(),
+                            tail,
+                        )));
                     }
                 }
                 port_index += part.width();
@@ -246,7 +269,7 @@ impl<S: Schema> RawLib<S> {
         parent_cell: &scir::Cell,
         slice: scir::SliceOne,
         instances: &mut scir::InstancePath,
-        signals: &mut Vec<scir::SliceOnePath>,
+        signals: &mut Vec<ConvertedNodePath>,
     ) -> Option<()> {
         for (_, conv) in conv.instances.iter() {
             match conv.instance.as_ref() {

@@ -17,11 +17,12 @@ use error::*;
 use rust_decimal::Decimal;
 use scir::netlist::{Include, NetlistKind, NetlistLibConversion, NetlisterInstance, RenameGround};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Library, ParamValue, SliceOnePath};
+use scir::{Library, NamedSliceOne, ParamValue, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
+use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{Primitive, PrimitiveSchematic};
@@ -187,6 +188,25 @@ impl SetInitialCondition<&SliceOnePath, Decimal, Spectre> for Options {
     }
 }
 
+impl SetInitialCondition<&ConvertedNodePath, Decimal, Spectre> for Options {
+    fn set_initial_condition(
+        &mut self,
+        key: &ConvertedNodePath,
+        value: Decimal,
+        _ctx: &SimulationContext<Spectre>,
+    ) {
+        self.set_ic_inner(
+            SimSignal::ScirVoltage(match key {
+                ConvertedNodePath::Cell(path) => path.clone(),
+                ConvertedNodePath::Primitive {
+                    instances, port, ..
+                } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
+            }),
+            value,
+        );
+    }
+}
+
 impl SetInitialCondition<&NodePath, Decimal, Spectre> for Options {
     fn set_initial_condition(
         &mut self,
@@ -220,7 +240,7 @@ impl SetInitialCondition<NestedNode, Decimal, Spectre> for Options {
     }
 }
 
-#[impl_dispatch({SliceOnePath; NodePath})]
+#[impl_dispatch({SliceOnePath; ConvertedNodePath; NodePath})]
 impl<T> SetInitialCondition<T, Decimal, Spectre> for Options {
     fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext<Spectre>) {
         self.set_initial_condition(&key, value, ctx);

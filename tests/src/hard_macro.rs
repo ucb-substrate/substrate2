@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 
 use scir::netlist::{NetlistKind, NetlisterInstance};
-#[cfg(feature = "spectre")]
 use spectre::Spectre;
 use spice::Spice;
 use substrate::block::Block;
@@ -57,15 +56,12 @@ pub struct BufferInlineHardMacro;
     fmt = "spice",
     pdk = "Spice"
 ))]
-#[cfg_attr(
-    feature = "spectre",
-    substrate(schematic(
-        source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
-        name = "vdivider",
-        fmt = "spice",
-        pdk = "Spectre"
-    ))
-)]
+#[substrate(schematic(
+    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
+    name = "vdivider",
+    fmt = "spice",
+    pdk = "Spectre"
+))]
 pub struct VdividerDuplicateSubckt;
 
 #[test]
