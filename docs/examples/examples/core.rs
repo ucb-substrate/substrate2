@@ -16,7 +16,6 @@ use substrate::schematic::Schematic;
 pub struct ExamplePdk;
 
 impl Pdk for ExamplePdk {
-    type Primitive = ExamplePrimitive;
     type Layers = ExamplePdkLayers;
     type Corner = ExamplePdkCorner;
 }
@@ -60,7 +59,6 @@ pub enum ExamplePdkCorner {
 pub struct ExamplePdkA;
 
 impl Pdk for ExamplePdkA {
-    type Primitive = ExamplePrimitive;
     type Layers = ExamplePdkALayers;
     type Corner = ExampleCorner;
 }
@@ -69,7 +67,6 @@ impl Pdk for ExamplePdkA {
 pub struct ExamplePdkB;
 
 impl Pdk for ExamplePdkB {
-    type Primitive = ExamplePrimitive;
     type Layers = ExamplePdkBLayers;
     type Corner = ExampleCorner;
 }
@@ -429,7 +426,7 @@ impl ExportsLayoutData for Buffer {
 mod single_process_buffer {
     use crate::{BufferData, BufferIo, ExamplePdk, Inverter};
     use serde::{Deserialize, Serialize};
-    use substrate::block::{Block, Cell};
+    use substrate::block::Block;
     use substrate::geometry::align::{AlignBbox, AlignMode};
     use substrate::io::LayoutType;
     use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
@@ -504,7 +501,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
 
 // begin-code-snippet buffer_hard_macro
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
-#[substrate(io = "BufferIo", kind = "PdkScir")]
+#[substrate(io = "BufferIo", kind = "Scir")]
 #[substrate(schematic(
     source = "r###\"
         * CMOS buffer

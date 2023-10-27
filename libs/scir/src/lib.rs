@@ -352,9 +352,12 @@ impl AnnotatedInstancePath {
     }
 }
 
+/// An element of an [`AnnotatedInstancePath`].
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct AnnotatedInstancePathElement {
+    /// The underlying instance path element.
     pub elem: InstancePathElement,
+    /// The child associated with this element, if it exists.
     pub child: Option<ChildId>,
 }
 
@@ -1070,6 +1073,8 @@ impl<S: Schema> LibraryBuilder<S> {
         }
     }
 
+    /// Annotates an instance path with additional metadata, such as whether
+    /// each instance in the path corresponds to an actual SCIR instance.
     pub fn convert_annotated_instance_path(
         &self,
         conv: Option<&NetlistLibConversion>,
@@ -1260,7 +1265,7 @@ impl<S: Schema> LibraryBuilder<S> {
                     let inst =
                         parent.instance_from_path_element(&annotated_instances.instances[i].elem);
                     tail = SignalPathTail::Id(match &tail {
-                        SignalPathTail::Id(id) => {
+                        SignalPathTail::Id(_) => {
                             panic!("only paths to named primitive ports can be simplified")
                         }
                         SignalPathTail::Name(name) => inst

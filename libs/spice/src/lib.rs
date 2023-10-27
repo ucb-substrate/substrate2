@@ -77,6 +77,7 @@ pub enum PrimitiveKind {
 }
 
 impl PrimitiveKind {
+    /// Returns the ports for a given [`PrimitiveKind`].
     pub fn ports(&self) -> Vec<ArcStr> {
         match self {
             PrimitiveKind::Res2 { .. } => vec!["1".into(), "2".into()],

@@ -14,14 +14,13 @@ A Substrate **context** stores all information relevant to Substrate, including
 the tools you've set up, the current PDK, all blocks that have been generated,
 cached computations, and more.
 
-Let's set up a context with the SKY130 PDK installed:
+Let's set up a default context:
 
 ```rust
 use substrate::context::Context;
-use sky130pdk::Sky130OpenPdk;
 
 fn main() {
-    let mut ctx = Context::new(Sky130OpenPdk::new("/path/to/sky130pdk"));
+    let mut ctx = Context::new();
 }
 ```
 
@@ -42,12 +41,10 @@ Here's how we create our inverter block:
 
 ```rust
 use serde::{Serialize, Deserialize};
-use substrate::block::Block;
+use substrate::block::{self, Block};
 use sky130pdk::mos::*;
-use sky130pdk::Sky130OpenPdk;
 use substrate::io::*;
 use substrate::schematic::*;
-use substrate::context::Context;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Inverter {
@@ -65,6 +62,8 @@ pub struct InverterIo {
 
 impl Block for Inverter {
     type Io = InverterIo;
+    type Kind = block::Cell;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
     }
@@ -93,7 +92,7 @@ empty unit type.
 ```rust
 // hidden-rust-doc-start
 use serde::{Serialize, Deserialize};
-use substrate::block::Block;
+use substrate::block::{self, Block};
 use sky130pdk::mos::MosParams;
 use substrate::io::*;
 use substrate::schematic::*;
@@ -114,6 +113,8 @@ pub struct InverterIo {
 
 impl Block for Inverter {
     type Io = InverterIo;
+    type Kind = block::Cell;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
     }
@@ -125,22 +126,22 @@ impl Block for Inverter {
     }
 }
 // hidden-rust-doc-end
-impl ExportsSchematicData for Inverter {
-    type Data = ();
+impl ExportsNestedData for Inverter {
+    type NestedData = ();
 }
 ```
 
 We now specify the actual content of the schematic
 by implementing `Schematic`. This trait requires us to specify
 the PDK for which the schematic is valid. In this case, the schematic
-is for the `Sky130OpenPdk`.
+is for the `Sky130Pdk`.
 
 ```rust
 // hidden-rust-doc-start
 use serde::{Serialize, Deserialize};
-use substrate::block::Block;
-use sky130pdk::mos::*;
-use sky130pdk::Sky130OpenPdk;
+use substrate::block::{self, Block};
+use sky130pdk::mos::{Nfet01v8, Pfet01v8, MosParams};
+use sky130pdk::Sky130Pdk;
 use substrate::io::*;
 use substrate::schematic::*;
 
@@ -160,6 +161,8 @@ pub struct InverterIo {
 
 impl Block for Inverter {
     type Io = InverterIo;
+    type Kind = block::Cell;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
     }
@@ -171,16 +174,16 @@ impl Block for Inverter {
     }
 }
 
-impl ExportsSchematicData for Inverter {
-    type Data = ();
+impl ExportsNestedData for Inverter {
+    type NestedData = ();
 }
 // hidden-rust-doc-end
-impl Schematic<Sky130OpenPdk> for Inverter {
+impl Schematic<Sky130Pdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,
-        cell: &mut CellBuilder<Sky130OpenPdk, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(Nfet01v8::new(self.nmos));
         let nmos = nmos.io();
         cell.connect(nmos.d, io.output);
@@ -206,9 +209,9 @@ We can now export the schematic of our inverter to Substrate's schematic IR, SCI
 ```rust
 // hidden-rust-doc-start
 use serde::{Serialize, Deserialize};
-use substrate::block::Block;
-use sky130pdk::mos::*;
-use sky130pdk::Sky130OpenPdk;
+use substrate::block::{self, Block};
+use sky130pdk::mos::{Nfet01v8, Pfet01v8, MosParams};
+use sky130pdk::Sky130Pdk;
 use substrate::io::*;
 use substrate::schematic::*;
 use substrate::context::Context;
@@ -229,6 +232,8 @@ pub struct InverterIo {
 
 impl Block for Inverter {
     type Io = InverterIo;
+    type Kind = block::Cell;
+
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
     }
@@ -240,15 +245,16 @@ impl Block for Inverter {
     }
 }
 
-impl ExportsSchematicData for Inverter {
-    type Data = ();
+impl ExportsNestedData for Inverter {
+    type NestedData = ();
 }
-impl Schematic<Sky130OpenPdk> for Inverter {
+
+impl Schematic<Sky130Pdk> for Inverter {
     fn schematic(
         &self,
         io: &InverterIoSchematic,
-        cell: &mut CellBuilder<Sky130OpenPdk, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(Nfet01v8::new(self.nmos));
         let nmos = nmos.io();
         cell.connect(nmos.d, io.output);
@@ -267,12 +273,12 @@ impl Schematic<Sky130OpenPdk> for Inverter {
 }
 // hidden-rust-doc-end
 fn main() {
-    let mut ctx = Context::new(Sky130OpenPdk::new("/path/to/sky130pdk"));
+    let mut ctx = Context::new();
     let inv = Inverter {
         nmos: MosParams { w: 1_000, l: 150, nf: 1 },
         pmos: MosParams { w: 2_000, l: 150, nf: 1 },
     };
-    let lib = ctx.export_scir(inv);
+    let lib = ctx.export_scir::<Sky130Pdk, _>(inv);
 }
 ```
 

@@ -1,7 +1,6 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130Pdk;
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::tran::{Tran, TranCurrent, TranVoltage};
 use spectre::{Options, Spectre};

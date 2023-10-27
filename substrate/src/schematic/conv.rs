@@ -1,14 +1,10 @@
 //! Substrate to SCIR conversion.
 
-use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Formatter;
 
 use arcstr::ArcStr;
-use scir::{
-    Cell, CellId as ScirCellId, ChildId, Concat, IndexOwned, Instance, LibraryBuilder,
-    NamedSliceOne, PrimitiveId, SliceOnePath,
-};
+use scir::{Cell, ChildId, Concat, IndexOwned, Instance, LibraryBuilder};
 use serde::{Deserialize, Serialize};
 use substrate::schematic::{ConvertedPrimitive, ScirCell};
 use uniquify::Names;
@@ -127,7 +123,6 @@ impl<S: Schema> RawLib<S> {
                 scir::SliceOnePath::new(instances, *cell.signals.get(&path.node)?),
             ),
             SubstrateCellConversionRef::Primitive(p) => {
-                let prim = self.scir.primitive(p.primitive_id);
                 let (port, index) = p.ports.get(&path.node)?.first()?;
                 ConvertedNodePath::Primitive {
                     id: p.primitive_id,
@@ -145,11 +140,11 @@ impl<S: Schema> RawLib<S> {
         Some(instances)
     }
 
-    /// Converts a Substrate [`TerminalPath`] to a list SCIR [`scir::SignalPath`]s that are
+    /// Converts a Substrate [`TerminalPath`] to a list of [`ConvertedNodePath`]s
     /// associated with the terminal at that path.
     ///
     /// Returns [`None`] if the path is invalid. Only flattened instances will
-    /// return more than one [`scir::SignalPath`].
+    /// return more than one [`ConvertedNodePath`].
     pub fn convert_terminal_path(&self, path: &TerminalPath) -> Option<Vec<ConvertedNodePath>> {
         let mut cell = self.conv.cells.get(&path.top)?.as_ref();
 
@@ -320,22 +315,11 @@ impl From<ScirPrimitiveConversion> for SubstrateCellConversion {
     }
 }
 
-impl SubstrateCellConversion {
-    fn id(&self) -> CellId {
-        match self {
-            SubstrateCellConversion::Cell(c) => c.id,
-            SubstrateCellConversion::Primitive(p) => p.id,
-        }
-    }
-}
-
 /// Data used to map between a Substrate cell and a SCIR cell.
 ///
 /// Flattened cells do not have a conversion.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct ScirCellConversion {
-    /// The Substrate cell ID that this conversion corresponds to.
-    pub(crate) id: CellId,
     /// The corresponding SCIR cell ID. [`None`] for flattened Substrate cells.
     pub(crate) cell_id: Option<scir::CellId>,
     /// Map Substrate nodes to SCIR signal IDs and indices.
@@ -349,8 +333,6 @@ pub(crate) struct ScirCellConversion {
 /// Flattened cells do not have a conversion.
 #[derive(Debug, Clone)]
 pub(crate) struct ScirPrimitiveConversion {
-    /// The Substrate cell ID that this conversion corresponds to.
-    pub(crate) id: CellId,
     pub(crate) primitive_id: scir::PrimitiveId,
     /// Map Substrate nodes to a SCIR primitive port and an index within that port.
     pub(crate) ports: HashMap<Node, Vec<(ArcStr, usize)>>,
@@ -358,13 +340,8 @@ pub(crate) struct ScirPrimitiveConversion {
 
 impl ScirCellConversion {
     #[inline]
-    fn new(id: CellId) -> Self {
-        Self {
-            id,
-            cell_id: None,
-            signals: HashMap::new(),
-            instances: HashMap::new(),
-        }
+    fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -435,19 +412,14 @@ impl FlatExport {
 }
 
 struct ScirCellExportContext {
-    id: CellId,
     inst_idx: u64,
     cell: scir::Cell,
 }
 
 impl ScirCellExportContext {
     #[inline]
-    pub fn new(id: CellId, cell: scir::Cell) -> Self {
-        Self {
-            id,
-            inst_idx: 0,
-            cell,
-        }
+    pub fn new(cell: scir::Cell) -> Self {
+        Self { inst_idx: 0, cell }
     }
 }
 
@@ -492,7 +464,7 @@ impl<S: Schema> RawCell<S> {
 
         Ok(match &self.contents {
             RawCellContents::Cell(_) => {
-                let mut cell_ctx = ScirCellExportContext::new(self.id, Cell::new(name));
+                let mut cell_ctx = ScirCellExportContext::new(Cell::new(name));
                 let mut conv = self.export_instances(lib_ctx, &mut cell_ctx, FlatExport::No)?;
                 let ScirCellExportContext {
                     cell: scir_cell, ..
@@ -511,7 +483,7 @@ impl<S: Schema> RawCell<S> {
             }) => {
                 let map = lib_ctx.lib.merge((**lib).clone());
                 let id = map.new_cell_id(*id);
-                let mut conv = ScirCellConversion::new(self.id);
+                let mut conv = ScirCellConversion::new();
                 conv.cell_id = Some(id);
                 let cell = lib_ctx.lib.cell(id);
 
@@ -544,7 +516,6 @@ impl<S: Schema> RawCell<S> {
                     }
                 }
                 let conv = ScirPrimitiveConversion {
-                    id: self.id,
                     primitive_id: id,
                     ports,
                 };
@@ -564,7 +535,6 @@ impl<S: Schema> RawCell<S> {
                     }
                 }
                 let conv = ScirPrimitiveConversion {
-                    id: self.id,
                     primitive_id: id,
                     ports,
                 };
@@ -588,7 +558,7 @@ impl<S: Schema> RawCell<S> {
                 "can only flat-export Substrate cells"
             );
         }
-        let mut conv = ScirCellConversion::new(cell_ctx.id);
+        let mut conv = ScirCellConversion::new();
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
 

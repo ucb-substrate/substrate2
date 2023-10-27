@@ -510,7 +510,7 @@ impl FromSchema<Spice> for Spectre {
                 ports,
                 params,
             },
-            spice::PrimitiveKind::Mos { mname } => {
+            spice::PrimitiveKind::Mos { .. } => {
                 todo!()
             }
             spice::PrimitiveKind::Res2 { value } => SpectrePrimitive::RawInstance {
@@ -531,11 +531,11 @@ impl FromSchema<Spice> for Spectre {
                 // with simulator_lang = spice.
                 return Err(SpectreConvError::Blackbox);
             }
-            spice::PrimitiveKind::RawInstance { cell, ports } => {}
-            spice::PrimitiveKind::Mos { mname } => {
+            spice::PrimitiveKind::RawInstance { .. } => {}
+            spice::PrimitiveKind::Mos { .. } => {
                 todo!()
             }
-            spice::PrimitiveKind::Res2 { value } => {
+            spice::PrimitiveKind::Res2 { .. } => {
                 instance.map_connections(|port| match port.as_ref() {
                     "1" => "pos".into(),
                     "2" => "neg".into(),

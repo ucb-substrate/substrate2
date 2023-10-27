@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
 use cache::multi::MultiCache;
-use indexmap::IndexMap;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
@@ -12,11 +11,11 @@ use sky130pdk::Sky130Pdk;
 use spectre::blocks::Vsource;
 use spectre::tran::{Tran, TranCurrent};
 use spectre::{Options, Spectre, SpectrePrimitive};
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::cache::Cache;
-use substrate::context::{Context, PdkContext};
+use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::io::{ArrayData, Flatten, InOut, SchematicType, Signal, TestbenchIo};
+use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
@@ -294,8 +293,8 @@ fn spectre_can_save_paths_with_flattened_instances() {
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
-            let res1 = cell.instantiate_connected(ScirResistor, io);
-            let res = cell.instantiate_connected(Resistor::new(dec!(200)), io);
+            cell.instantiate_connected(ScirResistor, io);
+            cell.instantiate_connected(Resistor::new(dec!(200)), io);
             let raw_res = cell.instantiate(RawInstance::with_params(
                 arcstr::literal!("resistor"),
                 vec![arcstr::literal!("pos"), arcstr::literal!("neg")],

@@ -561,7 +561,7 @@ pub(crate) fn node_current_path(
         "ngspice only supports saving currents of top level instance terminals"
     );
     let annotated_path = lib.annotate_instance_path(path.instances().clone());
-    let mut named_path = lib.convert_instance_path_with_conv(conv, path.instances().clone());
+    let named_path = lib.convert_instance_path_with_conv(conv, path.instances().clone());
     let mut str_path = named_path.join(".");
     str_path.push(':');
 
