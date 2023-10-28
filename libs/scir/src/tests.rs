@@ -10,7 +10,7 @@ use crate::*;
 fn duplicate_cell_names() {
     let c1 = Cell::new("duplicate_cell_name");
     let c2 = Cell::new("duplicate_cell_name");
-    let mut lib = <LibraryBuilder>::new("duplicate_cell_names");
+    let mut lib = <LibraryBuilder>::new();
     lib.add_cell(c1);
     lib.add_cell(c2);
     let issues = lib.validate();
@@ -19,7 +19,7 @@ fn duplicate_cell_names() {
 
 #[test]
 fn duplicate_instance_names() {
-    let mut lib = LibraryBuilder::<StringSchema>::new("duplicate_instance_names");
+    let mut lib = LibraryBuilder::<StringSchema>::new();
     let id = lib.add_primitive("res".into());
 
     let mut vdivider = Cell::new("vdivider");
@@ -51,7 +51,7 @@ fn duplicate_instance_names() {
 
 #[test]
 fn duplicate_signal_names() {
-    let mut lib = LibraryBuilder::<StringSchema>::new("duplicate_signal_names");
+    let mut lib = LibraryBuilder::<StringSchema>::new();
 
     let mut cell = Cell::new("cell");
     cell.add_node("duplicate_signal");
@@ -64,7 +64,7 @@ fn duplicate_signal_names() {
 
 #[test]
 fn no_schema_conversion() {
-    let mut lib = LibraryBuilder::<StringSchema>::new("duplicate_instance_names");
+    let mut lib = LibraryBuilder::<StringSchema>::new();
     let empty_cell = Cell::new("empty");
     let id = lib.add_cell(empty_cell);
 
@@ -167,7 +167,7 @@ fn schema_conversion() {
         }
     }
 
-    let mut lib = LibraryBuilder::<StringSchema>::new("schema_conversion");
+    let mut lib = LibraryBuilder::<StringSchema>::new();
 
     let prim_a = lib.add_primitive("prim_a".into());
     let prim_b = lib.add_primitive("prim_b".into());
@@ -218,7 +218,7 @@ fn schema_conversion() {
 /// Returns a SCIR library with nested cells and 3 varieties of [`SliceOnePath`]s that
 /// address the VDD node of the innermost instance for testing purposes.
 fn nested_lib(n: usize) -> (Library<StringSchema>, Vec<SliceOnePath>) {
-    let mut lib = LibraryBuilder::<StringSchema>::new("schema_conversion");
+    let mut lib = LibraryBuilder::<StringSchema>::new();
 
     let prim_inst = lib.add_primitive("prim_inst".into());
 
@@ -331,11 +331,6 @@ fn spice_like_netlist() {
     }
 
     impl HasSpiceLikeNetlist for SpiceLikeSchema {
-        fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
-            writeln!(out, "* {}", lib.name())?;
-            Ok(())
-        }
-
         fn write_include<W: Write>(&self, out: &mut W, include: &Include) -> std::io::Result<()> {
             if let Some(section) = &include.section {
                 write!(out, ".LIB {:?} {}", include.path, section)?;
@@ -435,7 +430,7 @@ fn spice_like_netlist() {
 
     const N: usize = 3;
 
-    let mut lib = LibraryBuilder::<SpiceLikeSchema>::new("netlist_lib");
+    let mut lib = LibraryBuilder::<SpiceLikeSchema>::new();
 
     let resistor = lib.add_primitive("resistor".into());
 

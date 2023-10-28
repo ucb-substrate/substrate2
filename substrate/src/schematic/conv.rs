@@ -58,12 +58,19 @@ pub(crate) struct ScirLibConversionBuilder {
     pub(crate) cells: HashMap<CellId, SubstrateCellConversion>,
 }
 
+/// A path within a SCIR library corresponding to a Substrate [`NodePath`].
 pub enum ConvertedNodePath {
+    /// A path that corresponds to a node within a SCIR cell.
     Cell(scir::SliceOnePath),
+    /// A path that corresponds to a port of a primitive.
     Primitive {
+        /// The ID of the underlying primitive.
         id: scir::PrimitiveId,
+        /// The instance path of the primitive instance.
         instances: scir::InstancePath,
+        /// The port of the primitive instance.
         port: ArcStr,
+        /// The index of the primitive port corresponding to the Substrate node.
         index: usize,
     },
 }
@@ -362,6 +369,16 @@ pub(crate) struct ScirLibExportContext<S: Schema> {
     cell_names: Names<CellId>,
 }
 
+impl<S: Schema> Default for ScirLibExportContext<S> {
+    fn default() -> Self {
+        Self {
+            lib: LibraryBuilder::new(),
+            conv: ScirLibConversionBuilder::new(),
+            cell_names: Names::new(),
+        }
+    }
+}
+
 impl<S: Schema<Primitive = impl Clone>> Clone for ScirLibExportContext<S> {
     fn clone(&self) -> Self {
         Self {
@@ -383,12 +400,8 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirLibExp
 }
 
 impl<S: Schema> ScirLibExportContext<S> {
-    fn new(name: impl Into<ArcStr>) -> Self {
-        Self {
-            lib: LibraryBuilder::new(name),
-            conv: ScirLibConversionBuilder::new(),
-            cell_names: Names::new(),
-        }
+    fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -437,7 +450,7 @@ impl<S: Schema> RawCell<S> {
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
     pub(crate) fn to_scir_lib(&self) -> Result<RawLib<S>, ConvError> {
-        let mut lib_ctx = ScirLibExportContext::new(&self.name);
+        let mut lib_ctx = ScirLibExportContext::new();
         let scir_id = self.to_scir_cell(&mut lib_ctx)?;
 
         if let ChildId::Cell(scir_id) = scir_id {
@@ -686,6 +699,7 @@ pub enum ConvError {
     /// An error in validating the converted SCIR library.
     #[error("error in converted SCIR library")]
     Scir(#[from] scir::Issues),
+    /// An unsupported primitive was encountered during conversion.
     #[error("unsupported primitive")]
     UnsupportedPrimitive,
 }

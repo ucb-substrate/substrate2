@@ -477,9 +477,6 @@ pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
     /// Should be incremented before assigning a new ID.
     primitive_id: u64,
 
-    /// The name of the library.
-    name: ArcStr,
-
     /// A map of the cells in the library.
     cells: IndexMap<CellId, Cell>,
 
@@ -495,12 +492,24 @@ pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
     top: Option<CellId>,
 }
 
+impl<S: Schema> Default for LibraryBuilder<S> {
+    fn default() -> Self {
+        Self {
+            cell_id: 0,
+            primitive_id: 0,
+            cells: IndexMap::new(),
+            primitives: IndexMap::new(),
+            name_map: HashMap::new(),
+            top: None,
+        }
+    }
+}
+
 impl<S: Schema<Primitive = impl Clone>> Clone for LibraryBuilder<S> {
     fn clone(&self) -> Self {
         Self {
             cell_id: self.cell_id,
             primitive_id: self.primitive_id,
-            name: self.name.clone(),
             cells: self.cells.clone(),
             name_map: self.name_map.clone(),
             primitives: self.primitives.clone(),
@@ -514,7 +523,6 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for LibraryBui
         let mut builder = f.debug_struct("LibraryBuilder");
         let _ = builder.field("cell_id", &self.cell_id);
         let _ = builder.field("primitive_id", &self.primitive_id);
-        let _ = builder.field("name", &self.name);
         let _ = builder.field("cells", &self.cells);
         let _ = builder.field("name_map", &self.name_map);
         let _ = builder.field("primitives", &self.primitives);
@@ -793,16 +801,8 @@ pub struct Cell {
 
 impl<S: Schema> LibraryBuilder<S> {
     /// Creates a new, empty library.
-    pub fn new(name: impl Into<ArcStr>) -> Self {
-        Self {
-            cell_id: 0,
-            primitive_id: 0,
-            name: name.into(),
-            cells: IndexMap::new(),
-            primitives: IndexMap::new(),
-            name_map: HashMap::new(),
-            top: None,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Adds the given cell to the library.
@@ -934,12 +934,6 @@ impl<S: Schema> LibraryBuilder<S> {
         self.top_cell().map(|c| c == cell).unwrap_or_default()
     }
 
-    /// The name of the library.
-    #[inline]
-    pub fn name(&self) -> &ArcStr {
-        &self.name
-    }
-
     /// Gets the cell with the given ID.
     ///
     /// # Panics
@@ -980,8 +974,8 @@ impl<S: Schema> LibraryBuilder<S> {
         match self.name_map.get(name) {
             Some(&cell) => cell,
             None => {
-                tracing::error!("no cell named `{}` in SCIR library `{}`", name, self.name);
-                panic!("no cell named `{}` in SCIR library `{}`", name, self.name);
+                tracing::error!("no cell named `{}`", name);
+                panic!("no cell named `{}`", name);
             }
         }
     }
@@ -1330,7 +1324,6 @@ impl<S: Schema> LibraryBuilder<S> {
         let LibraryBuilder {
             cell_id,
             primitive_id,
-            name,
             mut cells,
             name_map,
             primitives,
@@ -1350,7 +1343,6 @@ impl<S: Schema> LibraryBuilder<S> {
         Ok(LibraryBuilder {
             cell_id,
             primitive_id,
-            name,
             cells,
             name_map,
             primitives: primitives

@@ -3,14 +3,12 @@
 use rust_decimal::Decimal;
 use scir::ParamValue;
 use serde::{Deserialize, Serialize};
-use spice::{PrimitiveKind, Spice};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use substrate::schematic::{Primitive, PrimitiveSchematic};
 
 use crate::arcstr::ArcStr;
 use crate::block::Block;
-use crate::io::{Array, InOut, SchematicType, Signal, TwoTerminalIo};
+use crate::io::{Array, InOut, Signal, TwoTerminalIo};
 use crate::{arcstr, block};
 
 /// An instance with a pre-defined cell.
@@ -108,18 +106,6 @@ impl Block for Resistor {
 
     fn io(&self) -> Self::Io {
         Default::default()
-    }
-}
-
-impl PrimitiveSchematic<Spice> for Resistor {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spice> {
-        let mut prim = Primitive::new(spice::Primitive {
-            kind: PrimitiveKind::Res2 { value: self.value },
-            params: HashMap::new(),
-        });
-        prim.connect("1", io.p);
-        prim.connect("2", io.n);
-        prim
     }
 }
 

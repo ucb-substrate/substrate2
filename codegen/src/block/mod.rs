@@ -10,16 +10,15 @@ pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(
-    attributes(substrate),
-    supports(struct_any, enum_any),
-    allow_unknown_fields
-)]
+#[darling(attributes(substrate), supports(struct_any, enum_any))]
 pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
     kind: syn::Ident,
+    #[darling(multiple)]
+    #[allow(unused)]
+    layout: Vec<darling::util::Ignored>,
 }
 
 impl ToTokens for BlockInputReceiver {

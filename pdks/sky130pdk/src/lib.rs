@@ -19,7 +19,7 @@ use crate::mos::{MosKind, MosParams};
 use corner::*;
 use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
-use substrate::spice::{Primitive, PrimitiveKind, Spice};
+use spice::{Primitive, PrimitiveKind, Spice};
 
 pub mod corner;
 pub mod layers;

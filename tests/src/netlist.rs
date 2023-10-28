@@ -48,7 +48,7 @@ impl HasRes2 for Spectre {
 
 /// Creates a 1:3 resistive voltage divider.
 pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
-    let mut lib = LibraryBuilder::new("vdivider");
+    let mut lib = LibraryBuilder::new();
     let res = lib.add_primitive(S::resistor(100));
 
     let mut vdivider = Cell::new("vdivider");
@@ -82,7 +82,7 @@ pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
 
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library<Spice> {
-    let mut lib = LibraryBuilder::new("vdivider");
+    let mut lib = LibraryBuilder::new();
     let wrapper = lib.add_primitive(Primitive {
         kind: PrimitiveKind::ExternalModule {
             cell: "resistor_wrapper".into(),

@@ -14,11 +14,16 @@ use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
+use itertools::Itertools;
 use rust_decimal::Decimal;
-use scir::netlist::{Include, NetlistKind, NetlistLibConversion, NetlisterInstance, RenameGround};
+use scir::netlist::{
+    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
+    RenameGround,
+};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Library, NamedSliceOne, ParamValue, SliceOnePath};
+use scir::{Library, NamedSliceOne, ParamValue, SignalInfo, Slice, SliceOnePath};
 use serde::{Deserialize, Serialize};
+use spice::Spice;
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
@@ -27,14 +32,11 @@ use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{Primitive, PrimitiveSchematic};
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
-use substrate::spice;
-use substrate::spice::Spice;
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
 pub mod error;
-pub mod netlist;
 pub(crate) mod templates;
 pub mod tran;
 
@@ -705,6 +707,143 @@ impl Tran {
         }
         if let Some(errpreset) = self.errpreset {
             write!(out, " errpreset={errpreset}")?;
+        }
+        Ok(())
+    }
+}
+
+impl HasSpiceLikeNetlist for Spectre {
+    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Spectre>) -> std::io::Result<()> {
+        writeln!(out, "// Substrate Spectre library\n")?;
+        writeln!(out, "simulator lang=spectre\n")?;
+        writeln!(out, "// This is a generated file.")?;
+        writeln!(
+            out,
+            "// Be careful when editing manually: this file may be overwritten.\n"
+        )?;
+        Ok(())
+    }
+
+    fn write_include<W: Write>(&self, out: &mut W, include: &Include) -> std::io::Result<()> {
+        if let Some(section) = &include.section {
+            write!(out, "include {:?} section={}", include.path, section)?;
+        } else {
+            write!(out, "include {:?}", include.path)?;
+        }
+        Ok(())
+    }
+
+    fn write_start_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        ports: &[&SignalInfo],
+    ) -> std::io::Result<()> {
+        write!(out, "subckt {} (", name)?;
+        for sig in ports {
+            if let Some(width) = sig.width {
+                for i in 0..width {
+                    write!(out, " {}\\[{}\\]", sig.name, i)?;
+                }
+            } else {
+                write!(out, " {}", sig.name)?;
+            }
+        }
+        write!(out, " )")?;
+        Ok(())
+    }
+
+    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
+        write!(out, "ends {}", name)
+    }
+
+    fn write_instance<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        connections: impl Iterator<Item = ArcStr>,
+        child: &ArcStr,
+    ) -> std::io::Result<ArcStr> {
+        let name = arcstr::format!("x{}", name);
+        write!(out, "{} (", name)?;
+
+        for connection in connections {
+            write!(out, " {}", connection)?;
+        }
+
+        write!(out, " ) {}", child)?;
+
+        Ok(name)
+    }
+
+    fn write_primitive_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<()> {
+        if let SpectrePrimitive::ExternalModule {
+            cell,
+            ports,
+            contents,
+        } = primitive
+        {
+            write!(out, "subckt {}", cell)?;
+            for port in ports {
+                write!(out, " {}", port)?;
+            }
+            writeln!(out, "\n")?;
+
+            writeln!(out, "{}", contents)?;
+
+            self.write_end_subckt(out, cell)?;
+            writeln!(out)?;
+        };
+        Ok(())
+    }
+
+    fn write_primitive_inst<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<ArcStr> {
+        Ok(match primitive {
+            SpectrePrimitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => {
+                let connections = ports
+                    .iter()
+                    .flat_map(|port| connections.remove(port).unwrap());
+                let name = self.write_instance(out, name, connections, cell)?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}={value}")?;
+                }
+                name
+            }
+            SpectrePrimitive::ExternalModule { cell, ports, .. } => {
+                let connections = ports
+                    .iter()
+                    .flat_map(|port| connections.remove(port).unwrap());
+                self.write_instance(out, name, connections, cell)?
+            }
+        })
+    }
+
+    fn write_slice<W: Write>(
+        &self,
+        out: &mut W,
+        slice: Slice,
+        info: &SignalInfo,
+    ) -> std::io::Result<()> {
+        if let Some(range) = slice.range() {
+            for i in range.indices() {
+                write!(out, "{}\\[{}\\]", &info.name, i)?;
+            }
+        } else {
+            write!(out, "{}", &info.name)?;
         }
         Ok(())
     }

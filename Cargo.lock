@@ -856,6 +856,7 @@ dependencies = [
  "serde",
  "sky130pdk",
  "spectre",
+ "spice",
  "substrate",
  "syn 2.0.28",
  "textwrap",
@@ -1470,6 +1471,7 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
+ "spice",
  "substrate",
  "tera",
  "thiserror",
@@ -2306,6 +2308,7 @@ dependencies = [
  "scir",
  "serde",
  "spectre",
+ "spice",
  "substrate",
 ]
 
@@ -2388,6 +2391,7 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
+ "substrate",
  "thiserror",
  "tracing",
 ]
@@ -2427,7 +2431,6 @@ dependencies = [
  "sky130pdk",
  "slotmap",
  "spectre",
- "spice",
  "thiserror",
  "toml 0.8.0",
  "tracing",

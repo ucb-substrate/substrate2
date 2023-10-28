@@ -96,7 +96,7 @@ fn parse_dff() {
 #[test]
 fn convert_dff_to_scir() {
     let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
-    let converter = ScirConverter::new("openram_dff", &parsed.ast);
+    let converter = ScirConverter::new(&parsed.ast);
     let lib = converter.convert().unwrap();
     let issues = lib.validate();
     assert_eq!(issues.num_errors(), 0);
@@ -120,7 +120,7 @@ fn convert_dff_to_scir() {
 #[test]
 fn convert_blackbox_to_scir() {
     let parsed = Parser::parse_file(test_data("spice/blackbox.spice")).unwrap();
-    let mut converter = ScirConverter::new("top", &parsed.ast);
+    let mut converter = ScirConverter::new(&parsed.ast);
     converter.blackbox("blackbox1");
     converter.blackbox("blackbox2");
     let lib = converter.convert().unwrap();

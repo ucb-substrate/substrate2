@@ -4,7 +4,6 @@ version = "0.4.0"
 edition = "2021"
 
 [dependencies]
-scir = { version = "0.5.0", registry = "substrate", path = "../scir" }
 arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
 nom = "7"
 thiserror = "1"
@@ -12,3 +11,6 @@ tracing = "0.1"
 itertools = "0.11.0"
 rust_decimal = "1"
 rust_decimal_macros = "1"
+
+scir = { version = "0.5.0", registry = "substrate", path = "../scir" }
+substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }

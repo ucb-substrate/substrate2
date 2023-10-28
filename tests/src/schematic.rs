@@ -261,7 +261,7 @@ impl Schematic<ExamplePdkA> for Block2 {
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate(Block1);
-        handle.cell.try_cell()?;
+        handle.try_cell()?;
         let _inst = cell.add(handle);
         Ok(())
     }
@@ -283,9 +283,9 @@ impl Schematic<ExamplePdkB> for Block2 {
 fn error_propagation_works() {
     let ctx = PdkContext::new(ExamplePdkA);
     let handle = ctx.generate_schematic::<ExamplePdkA, _>(Block2);
-    assert!(handle.cell.try_cell().is_err());
+    assert!(handle.try_cell().is_err());
 
     let ctx = PdkContext::new(ExamplePdkB);
     let handle = ctx.generate_schematic::<ExamplePdkB, _>(Block2);
-    assert!(handle.cell.try_cell().is_err());
+    assert!(handle.try_cell().is_err());
 }

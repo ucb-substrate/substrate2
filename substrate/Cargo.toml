@@ -30,7 +30,6 @@ gds = { version = "0.3.0", registry = "substrate", path = "../libs/gds" }
 enumify = { version = "0.0.0", registry = "substrate", path = "../libs/enumify" }
 scir = { version = "0.5.0", registry = "substrate", path = "../libs/scir" }
 pathtree = { version = "0.2.0", registry = "substrate", path = "../libs/pathtree" }
-spice = { version = "0.4.0", registry = "substrate", path = "../libs/spice" }
 type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/type_dispatch" }
 uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
 

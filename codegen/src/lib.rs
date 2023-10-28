@@ -264,58 +264,6 @@ pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
 }
 
-/// Derives `substrate::schematic::Schematic` for any Substrate block.
-///
-/// This turns the block into a schematic hard macro.
-/// You must add a `#[substrate(schematic(...))]` attribute to configure this macro;
-/// see the examples below.
-/// Using multiple `#[substrate(schematic(...))]` attributes allows you to
-/// generate `Schematic` implementations for multiple PDKs.
-///
-/// This macro only works on Substrate blocks,
-/// so you must also add a `#[derive(Block)]` attribute
-/// or implement `Block` manually.
-///
-/// # Arguments
-///
-/// This macro requires the following arguments (see [Supported formats](#supported-formats) for more details):
-/// * `source`: The source from which to read the contents of this block's schematic.
-/// * `name`: The name of the block's contents in `source`. For example, if
-///   source is a SPICE netlist, name should be set to the name of the desired
-///   subcircuit in that netlist.
-/// * `fmt`: The netlist format.
-/// * `pdk`: The PDK to which source corresponds.
-///
-/// # Supported formats
-///
-/// The following formats are supported:
-///
-/// * `spice`: Source should be an expression that evaluates to the file path of a SPICE netlist.
-/// * `inline-spice`: Source should be an expression that evaluates to a String-like object
-///   (`&str`, `String`, `ArcStr`, etc.) that contains a SPICE netlist.
-///
-/// Note that expressions can be arbitrary Rust expressions. Here are some examples:
-/// * `fmt = "\"/path/to/netlist.spice\""` (note that you need the escaped quotes to make this a
-/// string literal).
-/// * `fmt = "function_that_returns_path()"`
-/// * `fmt = "function_with_arguments_that_returns_path(\"my_argument\")"`
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "buffer_hard_macro")]
-#[proc_macro_error]
-#[proc_macro_derive(Schematic, attributes(substrate))]
-pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
-    let receiver = block::schematic::HasSchematicInputReceiver::from_derive_input(
-        &parse_macro_input!(input as DeriveInput),
-    );
-    let receiver = handle_error!(receiver);
-    quote!(
-        #receiver
-    )
-    .into()
-}
-
 /// Derives `substrate::layout::Layout` for any Substrate block.
 ///
 /// This turns the block into a layout hard macro.

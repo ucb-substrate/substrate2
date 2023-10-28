@@ -344,6 +344,7 @@ impl AsRef<NestedNode> for NestedTerminal {
 }
 
 impl NestedTerminal {
+    /// Returns the path to this [`NestedTerminal`].
     pub fn path(&self) -> TerminalPath {
         TerminalPath(self.0.path())
     }

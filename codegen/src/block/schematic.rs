@@ -1,5 +1,5 @@
 use darling::ast::{Fields, Style};
-use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
+use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 
@@ -207,107 +207,6 @@ impl ToTokens for DataInputReceiver {
                     }
                 }
             }
-        };
-
-        tokens.extend(quote! {
-            #expanded
-        });
-    }
-}
-
-#[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(any), allow_unknown_fields)]
-pub struct HasSchematicInputReceiver {
-    ident: syn::Ident,
-    generics: syn::Generics,
-    #[darling(multiple)]
-    schematic: Vec<SchematicHardMacro>,
-}
-
-#[derive(Debug, FromMeta)]
-pub struct SchematicHardMacro {
-    source: syn::Expr,
-    fmt: darling::util::SpannedValue<String>,
-    pdk: syn::Type,
-    name: String,
-}
-
-impl ToTokens for HasSchematicInputReceiver {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let substrate = substrate_ident();
-        let HasSchematicInputReceiver {
-            ref ident,
-            ref generics,
-            ref schematic,
-            ..
-        } = *self;
-
-        let (imp, ty, wher) = generics.split_for_impl();
-
-        let has_schematic_impls = schematic.iter().map(|schematic| {
-            let SchematicHardMacro { source, fmt, pdk, name } = schematic;
-
-            let parsed_to_scir = quote! {
-                let mut conv = #substrate::spice::parser::conv::ScirConverter::new(::std::stringify!(#ident), &parsed.ast);
-
-                let lib = conv.convert().unwrap();
-                let cell_id = lib.cell_id_named(#name);
-
-                (lib, cell_id)
-            };
-
-            // The SCIR token stream must create two variables:
-            // * lib, of type Arc<scir::Library>
-            // * cell_id, of type scir::CellId
-            // The token stream has access to source.
-            let scir = match fmt.as_str() {
-                "spice" => quote! {
-                    let parsed = #substrate::spice::parser::Parser::parse_file(source).unwrap();
-                    #parsed_to_scir
-                },
-                "inline-spice" | "inline_spice" => quote! {
-                    let parsed = #substrate::spice::parser::Parser::parse(source).unwrap();
-                    #parsed_to_scir
-                },
-                fmtstr => proc_macro_error::abort!(fmt.span(), "unsupported schematic hard macro format: `{}`", fmtstr),
-            };
-
-            quote! {
-                impl #imp #substrate::schematic::ScirSchematic<#pdk> for #ident #ty #wher {
-                    fn schematic(
-                        &self,
-                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,
-                    ) -> #substrate::error::Result<#substrate::schematic::ScirCell<#pdk>> {
-                        let source = {
-                            #source
-                        };
-
-                        let (lib, cell_id) = { #scir };
-
-                        let cell = lib.cell(cell_id);
-                        let ports_nodes = cell.ports().map(|port| cell.signal(port.signal()).name.clone()).zip(<
-                        <<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle as
-                            #substrate::io::Flatten<#substrate::io::Node>>::flatten_vec(io).into_iter()).collect::<::std::vec::Vec<_>>();
-
-                        let mut scir_cell = #substrate::schematic::ScirCell::new(
-                            // TODO: More descriptive error.
-                            lib.convert_schema::<#pdk>()
-                                .map_err(|_| #substrate::error::Error::UnsupportedPrimitive)?.build().unwrap(),
-                            cell_id
-                        );
-
-                        for (port, node) in ports_nodes {
-                            scir_cell.connect(port, node);
-                        }
-
-                        Ok(scir_cell)
-                    }
-                }
-            }
-        });
-
-        let expanded = quote! {
-            #(#has_schematic_impls)*
         };
 
         tokens.extend(quote! {

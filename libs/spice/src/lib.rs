@@ -1,6 +1,8 @@
 //! SPICE netlist exporter.
 #![warn(missing_docs)]
 
+use crate::parser::conv::ScirConverter;
+use crate::parser::{ParsedSpice, Parser};
 use arcstr::ArcStr;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -9,11 +11,50 @@ use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, ParamValue, SignalInfo};
 use std::collections::HashMap;
 use std::io::prelude::*;
+use std::path::Path;
+use substrate::block::Block;
+use substrate::io::SchematicType;
+use substrate::schematic::primitives::Resistor;
+use substrate::schematic::PrimitiveSchematic;
 
 pub mod parser;
 
 /// The SPICE schema.
 pub struct Spice;
+
+impl Spice {
+    /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`] associated with
+    /// the cell named `cell_name`.
+    pub fn scir_cell_from_parsed(
+        parsed: &ParsedSpice,
+        cell_name: &str,
+    ) -> substrate::schematic::ScirCell<Spice> {
+        let conv = ScirConverter::new(&parsed.ast);
+        let lib = conv.convert().unwrap();
+        let cell_id = lib.cell_id_named(cell_name);
+        substrate::schematic::ScirCell::new(lib, cell_id)
+    }
+
+    /// Converts a SPICE string to an unconnected [`ScirCell`] associated with
+    /// the cell named `cell_name`.
+    pub fn scir_cell_from_str(
+        source: &str,
+        cell_name: &str,
+    ) -> substrate::schematic::ScirCell<Spice> {
+        let parsed = Parser::parse(source).unwrap();
+        Spice::scir_cell_from_parsed(&parsed, cell_name)
+    }
+
+    /// Converts a SPICE file to an unconnected [`ScirCell`] associated with
+    /// the cell named `cell_name`.
+    pub fn scir_cell_from_file(
+        path: impl AsRef<Path>,
+        cell_name: &str,
+    ) -> substrate::schematic::ScirCell<Spice> {
+        let parsed = Parser::parse_file(path).unwrap();
+        Spice::scir_cell_from_parsed(&parsed, cell_name)
+    }
+}
 
 impl Schema for Spice {
     type Primitive = Primitive;
@@ -88,9 +129,26 @@ impl PrimitiveKind {
     }
 }
 
+impl PrimitiveSchematic<Spice> for Resistor {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::schematic::Primitive<Spice> {
+        let mut prim = substrate::schematic::Primitive::new(Primitive {
+            kind: PrimitiveKind::Res2 {
+                value: self.value(),
+            },
+            params: HashMap::new(),
+        });
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        prim
+    }
+}
+
 impl HasSpiceLikeNetlist for Spice {
-    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
-        writeln!(out, "* {}", lib.name())?;
+    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
+        writeln!(out, "* Substrate SPICE library")?;
         writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
         Ok(())
     }

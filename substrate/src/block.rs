@@ -11,21 +11,34 @@ use crate::io::Io;
 use crate::sealed;
 use crate::sealed::Token;
 
+/// The kind of a Substrate [`Block`].
+///
+/// May be one of [`Cell`], [`Scir`], and [`Primitive`].
 pub trait BlockKind {
     #[doc(hidden)]
     fn sealed(_: sealed::Token);
 }
 
+/// A cell formed by composing Substrate blocks.
 pub struct Cell;
 impl BlockKind for Cell {
     fn sealed(_: Token) {}
 }
 
+/// A block associated with a SCIR cell.
+///
+/// Used for hard macros that can be parsed
+/// to SCIR libraries.
 pub struct Scir;
 impl BlockKind for Scir {
     fn sealed(_: Token) {}
 }
 
+/// A block associated with a schema primitive.
+///
+/// Used for blocks that cannot be expressed as
+/// SCIR cells or compositions of other Substrate
+/// blocks.
 pub struct Primitive;
 impl BlockKind for Primitive {
     fn sealed(_: Token) {}

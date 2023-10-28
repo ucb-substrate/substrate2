@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
 use spectre::tran::{Tran, TranCurrent, TranVoltage};
 use spectre::{Options, Spectre};
+use spice::Spice;
 use substrate::block::Block;
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
@@ -78,7 +79,9 @@ impl Schematic<Spectre> for VdividerDuplicateSubcktTb {
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
         let out = cell.signal("out", Signal);
-        let dut = cell.instantiate(VdividerDuplicateSubckt);
+        let dut = cell
+            .sub_builder::<Spice>()
+            .instantiate(VdividerDuplicateSubckt);
 
         cell.connect(dut.io().vdd, vdd);
         cell.connect(dut.io().vss, io.vss);

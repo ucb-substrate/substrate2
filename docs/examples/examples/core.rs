@@ -1,16 +1,17 @@
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
+use spice::Spice;
 use substrate::block::{self, Block};
 use substrate::context::PdkContext;
 use substrate::geometry::prelude::*;
 use substrate::io::{
     CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
-    PortGeometry, ShapePort, Signal,
+    PortGeometry, SchematicType, ShapePort, Signal,
 };
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{HasLayout, Pdk, PdkLayers};
-use substrate::schematic::Schematic;
+use substrate::schematic::{ScirCell, ScirSchematic};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -500,27 +501,41 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
 // end-code-snippet buffer_multiprocess
 
 // begin-code-snippet buffer_hard_macro
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
 #[substrate(io = "BufferIo", kind = "Scir")]
-#[substrate(schematic(
-    source = "r###\"
-        * CMOS buffer
-
-        .subckt buffer din dout vdd vss
-        X0 din dinb vdd vss inverter
-        X1 dinb dout vdd vss inverter
-        .ends
-
-        .subckt inverter din dout vdd vss
-        X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
-        X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
-        .ends
-    \"###",
-    name = "buffer",
-    fmt = "inline-spice",
-    pdk = "Sky130Pdk"
-))]
 pub struct BufferInlineHardMacro;
+
+impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::error::Result<ScirCell<Sky130Pdk>> {
+        let mut cell = Spice::scir_cell_from_str(
+            r#"
+                * CMOS buffer
+
+                .subckt buffer din dout vdd vss
+                X0 din dinb vdd vss inverter
+                X1 dinb dout vdd vss inverter
+                .ends
+
+                .subckt inverter din dout vdd vss
+                X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
+                X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
+                .ends
+            "#,
+            "buffer",
+        )
+        .convert_schema::<Sky130Pdk>()?;
+
+        cell.connect("din", io.din);
+        cell.connect("dout", io.dout);
+        cell.connect("vss", io.vss);
+        cell.connect("vdd", io.vdd);
+
+        Ok(cell)
+    }
+}
 // end-code-snippet buffer_hard_macro
 
 // begin-code-snippet buffern_data

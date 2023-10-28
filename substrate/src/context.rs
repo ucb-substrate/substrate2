@@ -44,6 +44,15 @@ use crate::schematic::{
 use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 
+/// The global context.
+///
+/// Stores configuration such as the PDK and tool plugins to use during generation.
+///
+/// Cheaply clonable.
+///
+/// # Examples
+///
+#[doc = get_snippets!("core", "generate")]
 #[derive(Clone)]
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,
@@ -77,15 +86,7 @@ impl Context {
     }
 }
 
-/// The global context.
-///
-/// Stores configuration such as the PDK and tool plugins to use during generation.
-///
-/// Cheaply clonable.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "generate")]
+/// A [`Context`] with an associated PDK `PDK`.
 pub struct PdkContext<PDK: Pdk> {
     /// PDK configuration and general data.
     pub pdk: Arc<PDK>,
@@ -193,6 +194,7 @@ impl Context {
         Default::default()
     }
 
+    /// Adds an associated PDK to the context, creating a [`PdkContext`].
     pub fn with_pdk<PDK: Pdk>(self, pdk: PDK) -> PdkContext<PDK> {
         // Instantiate PDK layers.
         let mut inner = self.inner.write().unwrap();
@@ -301,7 +303,9 @@ impl Context {
         }
     }
 
-    // Can only generate with one layer of indirection (cannot arbitrarily convert).
+    /// Generates a schematic of a block in schema `S1` for use in schema `S2`.
+    ///
+    /// Can only generate a cross schematic with one layer of [`FromSchema`] indirection.
     pub fn generate_cross_schematic<S1: Schema, S2: FromSchema<S1>, B: Schematic<S1>>(
         &self,
         block: B,

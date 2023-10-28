@@ -6,7 +6,7 @@ pub mod schema;
 
 use cache::mem::TypeCache;
 use cache::CacheHandle;
-pub use codegen::{Schematic, SchematicData};
+pub use codegen::SchematicData;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -97,6 +97,7 @@ impl<S: Schema, B: Block<Kind = block::Scir> + ScirSchematic<S>> Schematic<S, bl
     }
 }
 
+/// A builder for creating a schematic cell.
 pub struct CellBuilder<S: Schema> {
     /// The current global context.
     pub(crate) ctx: Context,
@@ -329,6 +330,7 @@ impl<S: Schema> CellBuilder<S> {
         inst
     }
 
+    /// Creates a [`SubCellBuilder`] for instantiating blocks from schema `S2`.
     pub fn sub_builder<S2: Schema>(&mut self) -> SubCellBuilder<S, S2>
     where
         S: FromSchema<S2>,
@@ -337,6 +339,7 @@ impl<S: Schema> CellBuilder<S> {
     }
 }
 
+/// A cell builder for instantiating blocks from schema `S2` in schema `S`.
 pub struct SubCellBuilder<'a, S: Schema, S2: Schema>(&'a mut CellBuilder<S>, PhantomData<S2>);
 
 impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
@@ -572,9 +575,31 @@ pub(crate) struct SchemaCellCacheValue<S: Schema, B: ExportsNestedData> {
     pub(crate) cell: Arc<Cell<B>>,
 }
 
+/// A cell handle associated with a schema `S`.
 pub struct SchemaCellHandle<S: Schema, B: ExportsNestedData> {
     pub(crate) handle: CacheHandle<Result<SchemaCellCacheValue<S, B>>>,
-    pub cell: CellHandle<B>,
+    pub(crate) cell: CellHandle<B>,
+}
+
+impl<S: Schema, B: ExportsNestedData> SchemaCellHandle<S, B> {
+    /// Tries to access the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes and returns an error if one was thrown during generation.
+    pub fn try_cell(&self) -> Result<&Cell<B>> {
+        // TODO: Handle cache errors with more granularity.
+        self.cell.try_cell()
+    }
+
+    /// Returns the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if generation fails.
+    pub fn cell(&self) -> &Cell<B> {
+        self.cell.cell()
+    }
 }
 
 impl<S: Schema, B: ExportsNestedData> Deref for SchemaCellHandle<S, B> {
@@ -700,11 +725,13 @@ impl<T: ExportsNestedData> Instance<T> {
         &self.cell.cell().block
     }
 
+    /// Returns the path to this [`Instance`].
     pub fn path(&self) -> &InstancePath {
         &self.path
     }
 }
 
+/// A nested view of an [`Instance`].
 pub struct NestedInstance<T: ExportsNestedData>(Instance<T>);
 
 impl<T: ExportsNestedData> Deref for NestedInstance<T> {
@@ -773,6 +800,7 @@ impl<T: ExportsNestedData> NestedInstance<T> {
         self.0.block()
     }
 
+    /// Returns the path to this [`NestedInstance`].
     pub fn path(&self) -> &InstancePath {
         &self.0.path
     }
@@ -1197,6 +1225,8 @@ impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive
     }
 }
 
+/// A schema primitive translation that can be used to define
+/// a Substrate schematic.
 pub struct Primitive<S: Schema> {
     pub(crate) primitive: <S as Schema>::Primitive,
     pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
@@ -1221,6 +1251,7 @@ impl<S: Schema> Clone for Primitive<S> {
 }
 
 impl<S: Schema> Primitive<S> {
+    /// Creates a new [`Primitive`] corresponding to the given schema primitive.
     pub fn new(primitive: <S as Schema>::Primitive) -> Self {
         Self {
             primitive,
@@ -1228,6 +1259,7 @@ impl<S: Schema> Primitive<S> {
         }
     }
 
+    /// Connects port `port` of the schema primitive to Substrate nodes `s`.
     pub fn connect(&mut self, port: impl Into<ArcStr>, s: impl Flatten<Node>) {
         self.port_map.insert(port.into(), s.flatten_vec());
     }
@@ -1340,6 +1372,7 @@ impl<S: Schema> RawCellInner<S> {
     }
 }
 
+/// A SCIR cell translation that can be used to define a Substrate schematic.
 pub struct ScirCell<S: Schema> {
     pub(crate) lib: scir::Library<S>,
     pub(crate) cell: scir::CellId,
@@ -1366,7 +1399,14 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirCell<S
 }
 
 impl<S: Schema> ScirCell<S> {
+    /// Creates a new [`ScirCell`] corresponding to the given cell in
+    /// SCIR library `lib`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided cell does not exist in the SCIR library.
     pub fn new(lib: scir::Library<S>, cell: scir::CellId) -> Self {
+        assert!(lib.try_cell(cell).is_some());
         Self {
             lib,
             cell,
@@ -1374,8 +1414,35 @@ impl<S: Schema> ScirCell<S> {
         }
     }
 
+    /// Connects port `port` of the SCIR cell to Substrate nodes `s`.
     pub fn connect(&mut self, port: impl Into<ArcStr>, s: impl Flatten<Node>) {
         self.port_map.insert(port.into(), s.flatten_vec());
+    }
+
+    /// Returns the SCIR cell that this Substrate translation corresponds to.
+    pub fn cell(&self) -> &scir::Cell {
+        self.lib.cell(self.cell)
+    }
+
+    /// Returns the ports of the underlying SCIR cell in order.
+    pub fn ports(&self) -> impl Iterator<Item = &ArcStr> {
+        let cell = self.cell();
+        cell.ports().map(|port| &cell.signal(port.signal()).name)
+    }
+
+    /// Converts the underlying SCIR library to schema `S2`.
+    pub fn convert_schema<S2: FromSchema<S>>(self) -> substrate::error::Result<ScirCell<S2>> {
+        Ok(ScirCell {
+            //  TODO: More descriptive error.
+            lib: self
+                .lib
+                .convert_schema::<S2>()
+                .map_err(|_| Error::UnsupportedPrimitive)?
+                .build()
+                .unwrap(),
+            cell: self.cell,
+            port_map: self.port_map,
+        })
     }
 }
 

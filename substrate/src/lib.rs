@@ -1,15 +1,7 @@
 //! The Substrate analog circuit generator framework.
+#![warn(missing_docs)]
 
 extern crate self as substrate;
-
-#[doc(inline)]
-pub use geometry;
-#[doc(inline)]
-pub use scir;
-#[doc(inline)]
-pub use spice;
-#[doc(inline)]
-pub use type_dispatch;
 
 pub mod block;
 pub mod cache;
@@ -32,5 +24,11 @@ mod sealed {
 pub use arcstr;
 #[doc(hidden)]
 pub use duplicate;
+#[doc(inline)]
+pub use geometry;
+#[doc(inline)]
+pub use scir;
 #[doc(hidden)]
 pub use serde;
+#[doc(inline)]
+pub use type_dispatch;

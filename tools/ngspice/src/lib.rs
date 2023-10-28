@@ -22,6 +22,7 @@ use scir::netlist::{
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{ChildId, Library, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
+use spice::Spice;
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
@@ -29,7 +30,6 @@ use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{Primitive, PrimitiveSchematic};
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::spice::{self, Spice};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -667,8 +667,8 @@ impl Tran {
 }
 
 impl HasSpiceLikeNetlist for Ngspice {
-    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
-        writeln!(out, "* {}", lib.name())?;
+    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
+        writeln!(out, "* Substrate SPICE library")?;
         writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
         Ok(())
     }

@@ -236,6 +236,21 @@ impl HasNestedView for NestedNode {
     }
 }
 
+impl FlatLen for Vec<Node> {
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+
+impl Flatten<Node> for Vec<Node> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(self.iter().copied());
+    }
+}
+
 impl FlatLen for Terminal {
     fn len(&self) -> usize {
         1

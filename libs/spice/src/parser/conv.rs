@@ -51,10 +51,10 @@ pub struct ScirConverter<'a> {
 
 impl<'a> ScirConverter<'a> {
     /// Create a new SCIR converter.
-    pub fn new(name: impl Into<ArcStr>, ast: &'a Ast) -> Self {
+    pub fn new(ast: &'a Ast) -> Self {
         Self {
             ast,
-            lib: scir::LibraryBuilder::new(name),
+            lib: scir::LibraryBuilder::new(),
             blackbox_cells: Default::default(),
             subckts: Default::default(),
             ids: Default::default(),

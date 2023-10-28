@@ -3,21 +3,17 @@ use crate::shared::buffer::BufferIo;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 
+use crate::paths::test_data;
 use scir::netlist::{NetlistKind, NetlisterInstance};
-use spectre::Spectre;
 use spice::Spice;
 use substrate::block::Block;
-use substrate::{layout::Layout, schematic::Schematic};
+use substrate::io::SchematicType;
+use substrate::layout::Layout;
+use substrate::schematic::{ScirCell, ScirSchematic};
 use test_log::test;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic, Layout)]
-#[substrate(io = "BufferIo", kind = "Scir", flatten)]
-#[substrate(schematic(
-    source = "crate::paths::test_data(\"spice/buffer.spice\")",
-    name = "buffer",
-    fmt = "spice",
-    pdk = "Sky130Pdk"
-))]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Layout)]
+#[substrate(io = "BufferIo", kind = "Scir")]
 #[substrate(layout(
     source = "crate::paths::test_data(\"gds/buffer.gds\")",
     name = "buffer",
@@ -26,43 +22,80 @@ use test_log::test;
 ))]
 pub struct BufferHardMacro;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
+impl ScirSchematic<Sky130Pdk> for BufferHardMacro {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::error::Result<ScirCell<Sky130Pdk>> {
+        let mut cell = Spice::scir_cell_from_file(test_data("spice/buffer.spice"), "buffer")
+            .convert_schema::<Sky130Pdk>()?;
+
+        cell.connect("din", io.din);
+        cell.connect("dout", io.dout);
+        cell.connect("vss", io.vss);
+        cell.connect("vdd", io.vdd);
+
+        Ok(cell)
+    }
+}
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
 #[substrate(io = "BufferIo", kind = "Scir")]
-#[substrate(schematic(
-    source = "r#\"
-        * CMOS buffer
-
-        .subckt buffer din dout vdd vss
-        X0 din dinb vdd vss inverter
-        X1 dinb dout vdd vss inverter
-        .ends
-
-        .subckt inverter din dout vdd vss
-        X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
-        X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
-        .ends
-    \"#",
-    name = "buffer",
-    fmt = "inline-spice",
-    pdk = "Sky130Pdk"
-))]
 pub struct BufferInlineHardMacro;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
-#[substrate(io = "crate::shared::vdivider::VdividerFlatIo", kind = "Scir", flatten)]
-#[substrate(schematic(
-    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
-    name = "vdivider",
-    fmt = "spice",
-    pdk = "Spice"
-))]
-#[substrate(schematic(
-    source = "crate::paths::test_data(\"spice/vdivider_duplicate_subckt.spice\")",
-    name = "vdivider",
-    fmt = "spice",
-    pdk = "Spectre"
-))]
+impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::error::Result<ScirCell<Sky130Pdk>> {
+        let mut cell = Spice::scir_cell_from_str(
+            r#"
+                * CMOS buffer
+
+                .subckt buffer din dout vdd vss
+                X0 din dinb vdd vss inverter
+                X1 dinb dout vdd vss inverter
+                .ends
+
+                .subckt inverter din dout vdd vss
+                X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
+                X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
+                .ends
+            "#,
+            "buffer",
+        )
+        .convert_schema::<Sky130Pdk>()?;
+
+        cell.connect("din", io.din);
+        cell.connect("dout", io.dout);
+        cell.connect("vss", io.vss);
+        cell.connect("vdd", io.vdd);
+
+        Ok(cell)
+    }
+}
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+#[substrate(io = "crate::shared::vdivider::VdividerFlatIo", kind = "Scir")]
 pub struct VdividerDuplicateSubckt;
+
+impl ScirSchematic<Spice> for VdividerDuplicateSubckt {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::error::Result<ScirCell<Spice>> {
+        let mut cell = Spice::scir_cell_from_file(
+            test_data("spice/vdivider_duplicate_subckt.spice"),
+            "vdivider",
+        );
+
+        cell.connect("vdd", io.vdd);
+        cell.connect("vss", io.vss);
+        cell.connect("out", io.out);
+
+        Ok(cell)
+    }
+}
 
 #[test]
 fn export_hard_macro() {
