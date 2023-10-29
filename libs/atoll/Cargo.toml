@@ -8,4 +8,3 @@ license = "BSD-3-Clause"
 [dependencies]
 substrate = { version = "0.6.1", registry = "substrate", path = "../../substrate" }
 grid = "0.11"
-

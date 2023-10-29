@@ -143,7 +143,7 @@
 #![warn(missing_docs)]
 
 use grid::Grid;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use substrate::geometry::prelude::{Dir, Point};
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 
@@ -328,6 +328,11 @@ impl<S> GridState<S> {
     pub fn get(&self, x: i64, y: i64) -> &S {
         self.states.get(x as usize, y as usize).unwrap()
     }
+
+    /// Get a mutable reference to the state associated to the point with the given `(x, y)` coordinates.
+    pub fn get_mut(&mut self, x: i64, y: i64) -> &mut S {
+        self.states.get_mut(x as usize, y as usize).unwrap()
+    }
 }
 
 /// The state of a point on a routing grid.
@@ -436,8 +441,13 @@ impl RoutingSlice {
     }
 
     /// Whether or not the given net can occupy the given coordinate.
-    pub fn is_available_for_net(&self, net: NetId, pos: Pos) -> bool {
+    pub fn is_available_for_net(&self, pos: Pos, net: NetId) -> bool {
         self.grid.get(pos.x, pos.y).is_available_for_net(net)
+    }
+
+    /// Allocates the given location to the given net.
+    pub fn allocate(&mut self, pos: Pos, net: NetId) {
+        *self.grid.get_mut(pos.x, pos.y) = PointState::Routed(net);
     }
 }
 
@@ -556,7 +566,8 @@ impl Pos {
 /// transition to pos2, pos2 has a down transition to pos1.
 pub struct RoutingVolume {
     slices: HashMap<LayerId, RoutingSlice>,
-    ilts: HashMap<Pos, HashSet<InterlayerTransition>>,
+    // (src, dst) -> ilt
+    ilts: HashMap<Pos, HashMap<Pos, InterlayerTransition>>,
 }
 
 /// Configuration for specifying a routing via.
@@ -581,6 +592,15 @@ pub struct RoutingVolumeConfig {
     layers: Vec<(ViaConfig, MetalConfig)>,
 }
 
+/// A type of transition: either an interlayer transition, or an intralayer transition.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TransitionKind {
+    /// A transition within a routing layer.
+    Intralayer,
+    /// A transition from one routing layer to another.
+    Interlayer,
+}
+
 impl RoutingVolume {
     /// Create a [`RoutingVolume`] from the given configuration.
     pub fn new(cfg: RoutingVolumeConfig) -> Self {
@@ -600,8 +620,8 @@ impl RoutingVolume {
             let dir = topm.dir.track_dir();
             let bot_dir = botm.dir.track_dir();
 
-            assert!(
-                dir == !bot_dir,
+            assert_eq!(
+                dir, !bot_dir,
                 "adjacent layers must have opposite track directions"
             );
 
@@ -719,8 +739,13 @@ impl RoutingVolume {
         &self.slices[&layer]
     }
 
+    fn slice_mut(&mut self, layer: impl Into<LayerId>) -> &mut RoutingSlice {
+        let layer = layer.into();
+        self.slices.get_mut(&layer).unwrap()
+    }
+
     /// Returns an iterator over the points accessible to `net` starting from `pos`.
-    pub fn next(&self, pos: Pos, net: NetId) -> impl Iterator<Item = Pos> {
+    pub fn transitions(&self, pos: Pos, net: NetId) -> impl Iterator<Item = (TransitionKind, Pos)> {
         let slice = self.slice(pos.layer);
 
         let mut successors = Vec::new();
@@ -732,20 +757,20 @@ impl RoutingVolume {
             let coord = pos.coord(dir);
             for ofs in [-1, 1] {
                 let npos = pos.with_coord(dir, coord + ofs);
-                if slice.is_valid_pos(npos) {
-                    successors.push(npos);
+                if slice.is_valid_pos(npos) && slice.is_available_for_net(npos, net) {
+                    successors.push((TransitionKind::Intralayer, npos));
                 }
             }
         }
 
         if let Some(ilts) = self.ilts.get(&pos) {
-            for ilt in ilts {
+            for ilt in ilts.values() {
                 if ilt
                     .requires
                     .iter()
                     .all(|pos| self.is_available_for_net(net, *pos))
                 {
-                    successors.push(ilt.dst);
+                    successors.push((TransitionKind::Interlayer, ilt.dst));
                 }
             }
         }
@@ -755,12 +780,68 @@ impl RoutingVolume {
 
     fn is_available_for_net(&self, net: NetId, pos: Pos) -> bool {
         let slice = self.slice(pos.layer);
-        slice.is_available_for_net(net, pos)
+        slice.is_available_for_net(pos, net)
     }
 
     /// Adds the given interlayer transition to the set of allowed transitions.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an interlayer transition for the given source and destination pair
+    /// already exists.
     pub fn add_ilt(&mut self, ilt: InterlayerTransition) {
         let entry = self.ilts.entry(ilt.src).or_default();
-        entry.insert(ilt);
+        let prev = entry.insert(ilt.dst, ilt);
+        assert!(prev.is_none());
+    }
+
+    /// Find and allocate a route between source and destination.
+    ///
+    /// Returns [`Some`] if a route was found; returns [`None`] if no route was found.
+    pub fn route(&mut self, src: Pos, dst: Pos, net: NetId) -> Option<()> {
+        let mut q = VecDeque::new();
+        let mut visited = HashSet::new();
+        let mut parent = HashMap::new();
+
+        q.push_back(src);
+        visited.insert(src);
+
+        while !q.is_empty() {
+            let v = q.pop_front().unwrap();
+            if v == dst {
+                break;
+            }
+            for (kind, next) in self.transitions(v, net) {
+                if !visited.contains(&next) {
+                    visited.insert(next);
+                    q.push_back(next);
+                    parent.insert(next, (kind, v));
+                }
+            }
+        }
+
+        // Failed to reach the destination.
+        if !parent.contains_key(&dst) {
+            return None;
+        }
+
+        let mut v = dst;
+        self.slice_mut(dst.layer).allocate(dst, net);
+        while v != src {
+            let &(tk, parent) = &parent[&v];
+            match tk {
+                TransitionKind::Intralayer => self.slice_mut(v.layer).allocate(parent, net),
+                TransitionKind::Interlayer => {
+                    let ilt = self.ilts.get(&parent).unwrap().get(&v).unwrap();
+                    for &pos in ilt.requires.iter() {
+                        self.slices.get_mut(&pos.layer).unwrap().allocate(pos, net);
+                    }
+                }
+            }
+            v = parent;
+        }
+        assert_eq!(v, src);
+
+        Some(())
     }
 }
