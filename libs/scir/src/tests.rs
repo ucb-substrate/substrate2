@@ -486,7 +486,6 @@ fn spice_like_netlist() {
 
     println!("{:?}", netlist);
     for fragment in [
-        "* netlist_lib",
         r#".SUBCKT dut p<0| p<1| p<2| n<0| n<1| n<2|
 
   inst_0 n<0| p<0| resistor
@@ -509,7 +508,6 @@ fn spice_like_netlist() {
 
     println!("{:?}", netlist);
     for fragment in [
-        "* netlist_lib",
         r#".SUBCKT dut p<0| p<1| p<2| n<0| n<1| n<2|
 
   inst_0 n<0| p<0| resistor
