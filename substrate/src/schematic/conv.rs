@@ -243,17 +243,28 @@ impl<S: Schema> RawLib<S> {
                     };
 
                     if let Some(concat_index) = concat_index {
-                        // TODO: Handle primitive case.
-                        let child_cell = self.scir.cell(inst.child().into_cell()?);
-                        let port = child_cell.port(name);
-                        let port_slice = child_cell.signal(port.signal()).slice();
-                        let tail = port_slice
-                            .slice_one()
-                            .unwrap_or_else(|| port_slice.index(concat_index));
-                        signals.push(ConvertedNodePath::Cell(scir::SliceOnePath::new(
-                            instances.clone(),
-                            tail,
-                        )));
+                        match inst.child() {
+                            ChildId::Cell(id) => {
+                                let child_cell = self.scir.cell(id);
+                                let port = child_cell.port(name);
+                                let port_slice = child_cell.signal(port.signal()).slice();
+                                let tail = port_slice
+                                    .slice_one()
+                                    .unwrap_or_else(|| port_slice.index(concat_index));
+                                signals.push(ConvertedNodePath::Cell(scir::SliceOnePath::new(
+                                    instances.clone(),
+                                    tail,
+                                )));
+                            }
+                            ChildId::Primitive(id) => {
+                                signals.push(ConvertedNodePath::Primitive {
+                                    id,
+                                    instances: instances.clone(),
+                                    port: name.clone(),
+                                    index: concat_index,
+                                });
+                            }
+                        }
                     }
                 }
                 port_index += part.width();

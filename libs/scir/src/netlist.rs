@@ -306,7 +306,7 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
             if signal == &sig_info.name && slice.range().is_none() {
                 // Ground renaming cannot apply to buses.
                 // TODO assert that the ground port has width 1.
-                return Ok(arcstr::format!("{}", replace_with));
+                return Ok(replace_with.clone());
             }
         }
         let mut buf = Vec::new();
