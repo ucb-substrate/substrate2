@@ -1,10 +1,11 @@
+use crate::paths::test_data;
 use crate::shared::buffer::BufferIo;
 
+use scir::netlist::{NetlistKind, NetlisterInstance};
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
-
-use crate::paths::test_data;
-use scir::netlist::{NetlistKind, NetlisterInstance};
+#[cfg(feature = "spectre")]
+use spectre::Spectre;
 use spice::Spice;
 use substrate::block::Block;
 use substrate::io::SchematicType;

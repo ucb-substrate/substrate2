@@ -11,6 +11,7 @@ use sky130pdk::Sky130Pdk;
 use spectre::blocks::Vsource;
 use spectre::tran::{Tran, TranCurrent};
 use spectre::{Options, Spectre, SpectrePrimitive};
+use spice::Spice;
 use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
@@ -20,6 +21,7 @@ use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
     Cell, CellBuilder, ExportsNestedData, Instance, Primitive, PrimitiveSchematic, Schematic,
+    ScirCell, ScirSchematic,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -265,19 +267,31 @@ fn spectre_can_include_sections() {
 
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
-    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Schematic)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
     #[substrate(io = "TwoTerminalIo", kind = "Scir")]
-    #[substrate(schematic(
-        source = "r#\"\
+    pub struct ScirResistor;
+
+    impl ScirSchematic<Spectre> for ScirResistor {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        ) -> substrate::error::Result<ScirCell<Spectre>> {
+            let mut cell = Spice::scir_cell_from_str(
+                r#"
             .subckt res p n
             R0 p n 100
             .ends
-        \"#",
-        name = "res",
-        fmt = "inline-spice",
-        pdk = "Spectre"
-    ))]
-    pub struct ScirResistor;
+            "#,
+                "res",
+            )
+            .convert_schema::<Spectre>()?;
+
+            cell.connect("p", io.p);
+            cell.connect("n", io.n);
+
+            Ok(cell)
+        }
+    }
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
     #[substrate(io = "TwoTerminalIo", kind = "Cell")]

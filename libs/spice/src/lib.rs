@@ -23,8 +23,8 @@ pub mod parser;
 pub struct Spice;
 
 impl Spice {
-    /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`] associated with
-    /// the cell named `cell_name`.
+    /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`](substrate::schematic::ScirCell)
+    /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_parsed(
         parsed: &ParsedSpice,
         cell_name: &str,
@@ -35,8 +35,8 @@ impl Spice {
         substrate::schematic::ScirCell::new(lib, cell_id)
     }
 
-    /// Converts a SPICE string to an unconnected [`ScirCell`] associated with
-    /// the cell named `cell_name`.
+    /// Converts a SPICE string to an unconnected [`ScirCell`](substrate::schematic::ScirCell)
+    /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_str(
         source: &str,
         cell_name: &str,
@@ -45,8 +45,8 @@ impl Spice {
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }
 
-    /// Converts a SPICE file to an unconnected [`ScirCell`] associated with
-    /// the cell named `cell_name`.
+    /// Converts a SPICE file to an unconnected [`ScirCell`](substrate::schematic::ScirCell)
+    /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_file(
         path: impl AsRef<Path>,
         cell_name: &str,

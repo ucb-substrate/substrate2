@@ -155,8 +155,7 @@ fn netlist_spice_vdivider() {
     assert_eq!(string.matches("Rr1").count(), 1);
     assert_eq!(string.matches("Rr2").count(), 1);
     assert_eq!(string.matches("Rr3").count(), 1);
-    assert_eq!(string.matches("vdivider").count(), 3);
-    assert_eq!(string.matches("* vdivider").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
 }
 
 #[test]
@@ -199,8 +198,7 @@ fn netlist_spice_vdivider_blackbox() {
     assert_eq!(string.matches("Xr2").count(), 1);
     assert_eq!(string.matches("Xr3").count(), 1);
     assert_eq!(string.matches("resistor_wrapper").count(), 5);
-    assert_eq!(string.matches("vdivider").count(), 3);
-    assert_eq!(string.matches("* vdivider").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
     assert_eq!(string.matches("Rblackbox pos neg 3300").count(), 1);
 }
 
@@ -224,7 +222,6 @@ fn netlist_spectre_vdivider() {
     assert_eq!(string.matches("r1").count(), 1);
     assert_eq!(string.matches("r2").count(), 1);
     assert_eq!(string.matches("r3").count(), 1);
-    assert_eq!(string.matches("vdivider").count(), 3);
-    assert_eq!(string.matches("// vdivider").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
     assert_eq!(string.matches("resistor r=100").count(), 3);
 }
