@@ -18,6 +18,8 @@ use substrate::schematic::primitives::Resistor;
 use substrate::schematic::PrimitiveSchematic;
 
 pub mod parser;
+#[cfg(test)]
+mod tests;
 
 /// The SPICE schema.
 pub struct Spice;
@@ -86,6 +88,21 @@ pub struct Primitive {
     pub params: HashMap<ArcStr, ParamValue>,
 }
 
+impl Primitive {
+    /// Creates a new SPICE primitive.
+    pub fn new(kind: PrimitiveKind) -> Self {
+        Self {
+            kind,
+            params: Default::default(),
+        }
+    }
+
+    /// Creates a new SPICE primitive with the provided parameters.
+    pub fn with_params(kind: PrimitiveKind, params: HashMap<ArcStr, ParamValue>) -> Self {
+        Self { kind, params }
+    }
+}
+
 /// An enumeration of SPICE primitive kinds.
 #[derive(Debug, Clone)]
 pub enum PrimitiveKind {
@@ -101,20 +118,69 @@ pub enum PrimitiveKind {
     },
     /// A raw instance with an associated cell.
     RawInstance {
-        /// The associated cell.
-        cell: ArcStr,
         /// The ordered ports of the instance.
         ports: Vec<ArcStr>,
-    },
-    /// An external module with blackboxed contents.
-    ExternalModule {
-        /// The cell name.
+        /// The associated cell.
         cell: ArcStr,
-        /// The cell ports.
-        ports: Vec<ArcStr>,
-        /// The contents of the cell.
-        contents: ArcStr,
     },
+    /// An instance with blackboxed contents.
+    BlackboxInstance {
+        /// The contents of the cell.
+        contents: BlackboxContents,
+    },
+}
+
+/// Contents of a blackboxed instance.
+#[derive(Debug, Clone)]
+pub struct BlackboxContents {
+    /// The elements that make up this blackbox.
+    pub elems: Vec<BlackboxElement>,
+}
+
+impl BlackboxContents {
+    /// Pushes an new element to the blackbox.
+    pub fn push(&mut self, elem: impl Into<BlackboxElement>) {
+        self.elems.push(elem.into());
+    }
+}
+
+/// An element of a blackbox instance.
+#[derive(Debug, Clone)]
+pub enum BlackboxElement {
+    /// A placeholder for the instance's name.
+    InstanceName,
+    /// A raw blackbox string.
+    RawString(ArcStr),
+    /// A port of the SCIR instantiation of this blackbox.
+    Port(ArcStr),
+}
+
+impl FromIterator<BlackboxElement> for BlackboxContents {
+    fn from_iter<T: IntoIterator<Item = BlackboxElement>>(iter: T) -> Self {
+        Self {
+            elems: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl From<BlackboxElement> for BlackboxContents {
+    fn from(value: BlackboxElement) -> Self {
+        Self { elems: vec![value] }
+    }
+}
+
+impl<T: Into<ArcStr>> From<T> for BlackboxContents {
+    fn from(value: T) -> Self {
+        Self {
+            elems: vec![BlackboxElement::RawString(value.into())],
+        }
+    }
+}
+
+impl<T: Into<ArcStr>> From<T> for BlackboxElement {
+    fn from(value: T) -> Self {
+        Self::RawString(value.into())
+    }
 }
 
 impl PrimitiveKind {
@@ -123,8 +189,18 @@ impl PrimitiveKind {
         match self {
             PrimitiveKind::Res2 { .. } => vec!["1".into(), "2".into()],
             PrimitiveKind::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
-            PrimitiveKind::RawInstance { ports, .. }
-            | PrimitiveKind::ExternalModule { ports, .. } => ports.clone(),
+            PrimitiveKind::RawInstance { ports, .. } => ports.clone(),
+            PrimitiveKind::BlackboxInstance { contents } => contents
+                .elems
+                .iter()
+                .filter_map(|x| {
+                    if let BlackboxElement::Port(p) = x {
+                        Some(p.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
         }
     }
 }
@@ -193,7 +269,7 @@ impl HasSpiceLikeNetlist for Spice {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: impl Iterator<Item = ArcStr>,
+        connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
         let name = arcstr::format!("X{}", name);
@@ -208,36 +284,11 @@ impl HasSpiceLikeNetlist for Spice {
         Ok(name)
     }
 
-    fn write_primitive_subckt<W: Write>(
-        &self,
-        out: &mut W,
-        primitive: &<Self as Schema>::Primitive,
-    ) -> std::io::Result<()> {
-        if let PrimitiveKind::ExternalModule {
-            cell,
-            ports,
-            contents,
-        } = &primitive.kind
-        {
-            write!(out, ".SUBCKT {}", cell)?;
-            for port in ports {
-                write!(out, " {}", port)?;
-            }
-            writeln!(out, "\n")?;
-
-            writeln!(out, "{}", contents)?;
-
-            self.write_end_subckt(out, cell)?;
-            writeln!(out)?;
-        };
-        Ok(())
-    }
-
     fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
         name: &ArcStr,
-        mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        mut connections: HashMap<ArcStr, Vec<ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
         let name = match &primitive.kind {
@@ -263,8 +314,7 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {}", mname)?;
                 name
             }
-            PrimitiveKind::RawInstance { cell, ports }
-            | PrimitiveKind::ExternalModule { cell, ports, .. } => {
+            PrimitiveKind::RawInstance { cell, ports } => {
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {
@@ -274,6 +324,23 @@ impl HasSpiceLikeNetlist for Spice {
                 }
                 write!(out, " {}", cell)?;
                 name
+            }
+            PrimitiveKind::BlackboxInstance { contents } => {
+                // TODO: See if there is a way to translate the name based on the
+                // contents, or make documentation explaining that blackbox instances
+                // cannot be addressed by path.
+                for elem in &contents.elems {
+                    match elem {
+                        BlackboxElement::InstanceName => write!(out, "{}", name)?,
+                        BlackboxElement::RawString(s) => write!(out, "{}", s)?,
+                        BlackboxElement::Port(p) => {
+                            for part in connections.get(p).unwrap() {
+                                write!(out, "{}", part)?
+                            }
+                        }
+                    }
+                }
+                name.clone()
             }
         };
         for (key, value) in primitive.params.iter().sorted_by_key(|(key, _)| *key) {

@@ -99,19 +99,9 @@ pub trait HasSpiceLikeNetlist: Schema {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: impl Iterator<Item = ArcStr>,
+        connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> Result<ArcStr>;
-    /// Writes a primitive subcircuit.
-    ///
-    /// Should include a newline after if needed.
-    fn write_primitive_subckt<W: Write>(
-        &self,
-        _out: &mut W,
-        _primitive: &<Self as Schema>::Primitive,
-    ) -> Result<()> {
-        Ok(())
-    }
     /// Writes a primitive instantiation,.
     ///
     /// A newline will be added afterwards.
@@ -119,7 +109,7 @@ pub trait HasSpiceLikeNetlist: Schema {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        connections: HashMap<ArcStr, Vec<ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> Result<ArcStr>;
     /// Writes a slice.
@@ -216,10 +206,6 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                 .insert(id, self.export_cell(cell, self.lib.is_top(id))?);
         }
 
-        for (_id, prim) in self.lib.primitives() {
-            self.schema.write_primitive_subckt(self.out, prim)?;
-        }
-
         self.schema.write_postlude(self.out, self.lib)?;
         Ok(conv)
     }
@@ -262,18 +248,20 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                         k.clone(),
                         v.parts()
                             .map(|part| self.make_slice(cell, *part, &ground))
-                            .collect::<Result<Vec<_>>>()?
-                            .into_iter(),
+                            .collect::<Result<Vec<_>>>()?,
                     ))
                 })
                 .collect::<Result<_>>()?;
             let name = match inst.child() {
                 ChildId::Cell(child_id) => {
                     let child = self.lib.cell(child_id);
-                    let ports = child.ports().flat_map(|port| {
-                        let port_name = &child.signal(port.signal()).name;
-                        connections.remove(port_name).unwrap()
-                    });
+                    let ports = child
+                        .ports()
+                        .flat_map(|port| {
+                            let port_name = &child.signal(port.signal()).name;
+                            connections.remove(port_name).unwrap()
+                        })
+                        .collect::<Vec<_>>();
                     self.schema
                         .write_instance(self.out, inst.name(), ports, child.name())?
                 }

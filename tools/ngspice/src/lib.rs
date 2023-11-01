@@ -698,28 +698,17 @@ impl HasSpiceLikeNetlist for Ngspice {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: impl Iterator<Item = ArcStr>,
+        connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
         Spice.write_instance(out, name, connections, child)
-    }
-
-    fn write_primitive_subckt<W: Write>(
-        &self,
-        out: &mut W,
-        primitive: &<Self as Schema>::Primitive,
-    ) -> std::io::Result<()> {
-        if let NgspicePrimitive::Spice(spice_primitive) = primitive {
-            Spice.write_primitive_subckt(out, spice_primitive)?;
-        }
-        Ok(())
     }
 
     fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
         name: &ArcStr,
-        mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        mut connections: HashMap<ArcStr, Vec<ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
         match primitive {

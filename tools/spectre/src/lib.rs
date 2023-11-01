@@ -23,7 +23,7 @@ use scir::netlist::{
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{Library, NamedSliceOne, ParamValue, SignalInfo, Slice, SliceOnePath};
 use serde::{Deserialize, Serialize};
-use spice::Spice;
+use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::execute::Executor;
 use substrate::io::{NestedNode, NodePath, SchematicType};
@@ -52,15 +52,15 @@ pub enum SpectrePrimitive {
         /// Parameters associated with the instance.
         params: HashMap<ArcStr, ParamValue>,
     },
-    /// An external module with blackboxed contents.
-    ExternalModule {
-        /// The cell name.
-        cell: ArcStr,
-        /// The cell ports.
-        ports: Vec<ArcStr>,
+    /// An instance with blackboxed contents.
+    BlackboxInstance {
         /// The contents of the cell.
-        contents: ArcStr,
+        contents: BlackboxContents,
     },
+    /// A SPICE primitive.
+    ///
+    /// Integrated using `simulator lang=spice`.
+    Spice(spice::Primitive),
 }
 
 /// Spectre error presets.
@@ -490,8 +490,6 @@ pub enum SpectreConvError {
     InvalidParameter,
     /// A primitive has an invalid port.
     InvalidPort,
-    /// A blackbox that cannot be converted was encountered.
-    Blackbox,
 }
 
 impl FromSchema<Spice> for Spectre {
@@ -502,24 +500,17 @@ impl FromSchema<Spice> for Spectre {
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
         let spice::Primitive { kind, params } = primitive;
         Ok(match kind {
-            spice::PrimitiveKind::ExternalModule { .. } => {
-                // TODO: Add SPICE external module to Spectre, netlist
-                // with simulator_lang = spice.
-                return Err(SpectreConvError::Blackbox);
-            }
             spice::PrimitiveKind::RawInstance { cell, ports } => SpectrePrimitive::RawInstance {
                 cell,
                 ports,
                 params,
             },
-            spice::PrimitiveKind::Mos { .. } => {
-                todo!()
-            }
             spice::PrimitiveKind::Res2 { value } => SpectrePrimitive::RawInstance {
                 cell: "resistor".into(),
                 ports: vec!["pos".into(), "neg".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
+            kind @ _ => SpectrePrimitive::Spice(spice::Primitive { kind, params }),
         })
     }
 
@@ -527,23 +518,12 @@ impl FromSchema<Spice> for Spectre {
         instance: &mut scir::Instance,
         primitive: &<Spice as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
-        match &primitive.kind {
-            spice::PrimitiveKind::ExternalModule { .. } => {
-                // TODO: Add SPICE external module to Spectre, netlist
-                // with simulator_lang = spice.
-                return Err(SpectreConvError::Blackbox);
-            }
-            spice::PrimitiveKind::RawInstance { .. } => {}
-            spice::PrimitiveKind::Mos { .. } => {
-                todo!()
-            }
-            spice::PrimitiveKind::Res2 { .. } => {
-                instance.map_connections(|port| match port.as_ref() {
-                    "1" => "pos".into(),
-                    "2" => "neg".into(),
-                    _ => port,
-                });
-            }
+        if let spice::PrimitiveKind::Res2 { .. } = &primitive.kind {
+            instance.map_connections(|port| match port.as_ref() {
+                "1" => "pos".into(),
+                "2" => "neg".into(),
+                _ => port,
+            });
         }
         Ok(())
     }
@@ -761,7 +741,7 @@ impl HasSpiceLikeNetlist for Spectre {
         &self,
         out: &mut W,
         name: &ArcStr,
-        connections: impl Iterator<Item = ArcStr>,
+        connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
         let name = arcstr::format!("x{}", name);
@@ -776,36 +756,11 @@ impl HasSpiceLikeNetlist for Spectre {
         Ok(name)
     }
 
-    fn write_primitive_subckt<W: Write>(
-        &self,
-        out: &mut W,
-        primitive: &<Self as Schema>::Primitive,
-    ) -> std::io::Result<()> {
-        if let SpectrePrimitive::ExternalModule {
-            cell,
-            ports,
-            contents,
-        } = primitive
-        {
-            write!(out, "subckt {}", cell)?;
-            for port in ports {
-                write!(out, " {}", port)?;
-            }
-            writeln!(out, "\n")?;
-
-            writeln!(out, "{}", contents)?;
-
-            self.write_end_subckt(out, cell)?;
-            writeln!(out)?;
-        };
-        Ok(())
-    }
-
     fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
         name: &ArcStr,
-        mut connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+        mut connections: HashMap<ArcStr, Vec<ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
         Ok(match primitive {
@@ -816,18 +771,36 @@ impl HasSpiceLikeNetlist for Spectre {
             } => {
                 let connections = ports
                     .iter()
-                    .flat_map(|port| connections.remove(port).unwrap());
+                    .flat_map(|port| connections.remove(port).unwrap())
+                    .collect();
                 let name = self.write_instance(out, name, connections, cell)?;
                 for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
                     write!(out, " {key}={value}")?;
                 }
                 name
             }
-            SpectrePrimitive::ExternalModule { cell, ports, .. } => {
-                let connections = ports
-                    .iter()
-                    .flat_map(|port| connections.remove(port).unwrap());
-                self.write_instance(out, name, connections, cell)?
+            SpectrePrimitive::BlackboxInstance { contents } => {
+                // TODO: See if there is a way to translate the name based on the
+                // contents, or make documentation explaining that blackbox instances
+                // cannot be addressed by path.
+                for elem in &contents.elems {
+                    match elem {
+                        BlackboxElement::InstanceName => write!(out, "{}", name)?,
+                        BlackboxElement::RawString(s) => write!(out, "{}", s)?,
+                        BlackboxElement::Port(p) => {
+                            for part in connections.get(p).unwrap() {
+                                write!(out, "{}", part)?
+                            }
+                        }
+                    }
+                }
+                name.clone()
+            }
+            SpectrePrimitive::Spice(p) => {
+                writeln!(out, "simulator lang=spice")?;
+                let name = Spice.write_primitive_inst(out, name, connections, p)?;
+                writeln!(out, "simulator lang=spectre")?;
+                name
             }
         })
     }

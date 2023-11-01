@@ -388,7 +388,7 @@ fn spice_like_netlist() {
             &self,
             out: &mut W,
             name: &ArcStr,
-            connections: impl Iterator<Item = ArcStr>,
+            connections: Vec<ArcStr>,
             child: &ArcStr,
         ) -> std::io::Result<ArcStr> {
             write!(out, "{}", name)?;
@@ -406,7 +406,7 @@ fn spice_like_netlist() {
             &self,
             out: &mut W,
             name: &ArcStr,
-            connections: HashMap<ArcStr, impl Iterator<Item = ArcStr>>,
+            connections: HashMap<ArcStr, Vec<ArcStr>>,
             primitive: &<Self as Schema>::Primitive,
         ) -> std::io::Result<ArcStr> {
             write!(out, "{}", name)?;

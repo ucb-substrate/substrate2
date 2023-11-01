@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use scir::netlist::{NetlistKind, NetlisterInstance};
 use scir::*;
 use spectre::{Spectre, SpectrePrimitive};
-use spice::{Primitive, PrimitiveKind, Spice};
+use spice::{BlackboxContents, BlackboxElement, Primitive, PrimitiveKind, Spice};
 use std::collections::HashMap;
 use substrate::schematic::schema::Schema;
 
@@ -84,10 +84,18 @@ pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
 pub(crate) fn vdivider_blackbox() -> Library<Spice> {
     let mut lib = LibraryBuilder::new();
     let wrapper = lib.add_primitive(Primitive {
-        kind: PrimitiveKind::ExternalModule {
-            cell: "resistor_wrapper".into(),
-            ports: vec!["pos".into(), "neg".into()],
-            contents: "Rblackbox pos neg 3300".into(),
+        kind: PrimitiveKind::BlackboxInstance {
+            contents: BlackboxContents {
+                elems: vec![
+                    "R".into(),
+                    BlackboxElement::InstanceName,
+                    " ".into(),
+                    BlackboxElement::Port("pos".into()),
+                    " ".into(),
+                    BlackboxElement::Port("neg".into()),
+                    " 3300".into(),
+                ],
+            },
         },
         params: HashMap::new(),
     });
@@ -192,14 +200,13 @@ fn netlist_spice_vdivider_blackbox() {
     // Once we have a SPICE parser, we can parse the SPICE back to SCIR
     // and assert that the input SCIR is equivalent to the output SCIR.
 
-    assert_eq!(string.matches("SUBCKT").count(), 2);
-    assert_eq!(string.matches("ENDS").count(), 2);
-    assert_eq!(string.matches("Xr1").count(), 1);
-    assert_eq!(string.matches("Xr2").count(), 1);
-    assert_eq!(string.matches("Xr3").count(), 1);
-    assert_eq!(string.matches("resistor_wrapper").count(), 5);
+    assert_eq!(string.matches("SUBCKT").count(), 1);
+    assert_eq!(string.matches("ENDS").count(), 1);
+    assert_eq!(string.matches("Rr1").count(), 1);
+    assert_eq!(string.matches("Rr2").count(), 1);
+    assert_eq!(string.matches("Rr3").count(), 1);
     assert_eq!(string.matches("vdivider").count(), 2);
-    assert_eq!(string.matches("Rblackbox pos neg 3300").count(), 1);
+    assert_eq!(string.matches("3300").count(), 3);
 }
 
 #[test]
