@@ -510,7 +510,7 @@ impl FromSchema<Spice> for Spectre {
                 ports: vec!["pos".into(), "neg".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
-            kind @ _ => SpectrePrimitive::Spice(spice::Primitive { kind, params }),
+            kind => SpectrePrimitive::Spice(spice::Primitive { kind, params }),
         })
     }
 
