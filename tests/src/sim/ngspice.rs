@@ -9,7 +9,7 @@ use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, NestedData,
 };
 use substrate::simulation::data::{FromSaved, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -24,7 +24,7 @@ fn ngspice_can_save_voltages_and_currents() {
     #[substrate(io = "TestbenchIo", kind = "Cell")]
     struct ResistorTb;
 
-    #[derive(SchematicData)]
+    #[derive(NestedData)]
     struct ResistorTbData {
         r1: Instance<Resistor>,
         r2: Instance<Resistor>,

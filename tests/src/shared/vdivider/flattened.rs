@@ -5,7 +5,7 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, NestedData};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
 #[substrate(io = "VdividerIo", kind = "Cell")]
@@ -56,7 +56,7 @@ impl ExportsNestedData for VdividerArray {
     type NestedData = Vec<Instance<Vdivider>>;
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct VdividerData {
     pub r1: Instance<Resistor>,
     pub r2: Instance<Resistor>,

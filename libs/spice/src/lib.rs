@@ -25,34 +25,34 @@ mod tests;
 pub struct Spice;
 
 impl Spice {
-    /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`](substrate::schematic::ScirCell)
+    /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
     /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_parsed(
         parsed: &ParsedSpice,
         cell_name: &str,
-    ) -> substrate::schematic::ScirCell<Spice> {
+    ) -> substrate::schematic::ScirBinding<Spice> {
         let conv = ScirConverter::new(&parsed.ast);
         let lib = conv.convert().unwrap();
         let cell_id = lib.cell_id_named(cell_name);
-        substrate::schematic::ScirCell::new(lib, cell_id)
+        substrate::schematic::ScirBinding::new(lib, cell_id)
     }
 
-    /// Converts a SPICE string to an unconnected [`ScirCell`](substrate::schematic::ScirCell)
+    /// Converts a SPICE string to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
     /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_str(
         source: &str,
         cell_name: &str,
-    ) -> substrate::schematic::ScirCell<Spice> {
+    ) -> substrate::schematic::ScirBinding<Spice> {
         let parsed = Parser::parse(source).unwrap();
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }
 
-    /// Converts a SPICE file to an unconnected [`ScirCell`](substrate::schematic::ScirCell)
+    /// Converts a SPICE file to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
     /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_file(
         path: impl AsRef<Path>,
         cell_name: &str,
-    ) -> substrate::schematic::ScirCell<Spice> {
+    ) -> substrate::schematic::ScirBinding<Spice> {
         let parsed = Parser::parse_file(path).unwrap();
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }

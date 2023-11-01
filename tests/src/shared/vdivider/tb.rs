@@ -11,7 +11,7 @@ use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, SchematicData,
+    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, NestedData,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -23,7 +23,7 @@ use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 #[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct VdividerTb;
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct VdividerTbData {
     iprobe: Instance<Iprobe>,
     dut: Instance<Vdivider>,

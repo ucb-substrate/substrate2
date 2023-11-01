@@ -6,7 +6,7 @@ use std::fmt::Formatter;
 use arcstr::ArcStr;
 use scir::{Cell, ChildId, Concat, IndexOwned, Instance, LibraryBuilder};
 use serde::{Deserialize, Serialize};
-use substrate::schematic::{ConvertedPrimitive, ScirCell};
+use substrate::schematic::{ConvertedPrimitive, ScirBinding};
 use uniquify::Names;
 
 use crate::io::{Node, NodePath, TerminalPath};
@@ -500,7 +500,7 @@ impl<S: Schema> RawCell<S> {
 
                 id.into()
             }
-            RawCellContents::Scir(ScirCell {
+            RawCellContents::Scir(ScirBinding {
                 lib,
                 cell: id,
                 port_map,

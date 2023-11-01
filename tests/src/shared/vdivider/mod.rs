@@ -8,7 +8,7 @@ use substrate::io::{Io, SchematicType};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    CellBuilder, ExportsNestedData, Instance, PrimitiveSchematic, Schematic, SchematicData,
+    CellBuilder, ExportsNestedData, Instance, PrimitiveSchematic, Schematic, NestedData,
 };
 
 pub mod flattened;
@@ -95,7 +95,7 @@ impl Block for VdividerArray {
     }
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct VdividerData {
     r1: Instance<Resistor>,
     r2: Instance<Resistor>,

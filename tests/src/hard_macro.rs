@@ -10,7 +10,7 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::layout::Layout;
-use substrate::schematic::{ScirCell, ScirSchematic};
+use substrate::schematic::{ScirBinding, ScirSchematic};
 use test_log::test;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Layout)]
@@ -27,7 +27,7 @@ impl ScirSchematic<Sky130Pdk> for BufferHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirCell<Sky130Pdk>> {
+    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
         let mut cell = Spice::scir_cell_from_file(test_data("spice/buffer.spice"), "buffer")
             .convert_schema::<Sky130Pdk>()?;
 
@@ -48,7 +48,7 @@ impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirCell<Sky130Pdk>> {
+    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
         let mut cell = Spice::scir_cell_from_str(
             r#"
                 * CMOS buffer
@@ -84,7 +84,7 @@ impl ScirSchematic<Spice> for VdividerDuplicateSubckt {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirCell<Spice>> {
+    ) -> substrate::error::Result<ScirBinding<Spice>> {
         let mut cell = Spice::scir_cell_from_file(
             test_data("spice/vdivider_duplicate_subckt.spice"),
             "vdivider",

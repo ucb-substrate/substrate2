@@ -52,7 +52,7 @@ pub trait ExportsLayoutData: Block {
     ///
     /// When the block is instantiated and transformed, all contained data
     /// will be transformed with the block.
-    type Data: LayoutData;
+    type LayoutData: LayoutData;
 }
 
 /// A block that can be laid out in process design kit `PDK`.
@@ -62,7 +62,7 @@ pub trait Layout<PDK: Pdk>: ExportsLayoutData {
         &self,
         io: &mut <<Self as Block>::Io as LayoutType>::Builder,
         cell: &mut CellBuilder<PDK, Self>,
-    ) -> Result<Self::Data>;
+    ) -> Result<Self::LayoutData>;
 }
 
 /// A block that implements [`Layout<PDK>`].
@@ -79,7 +79,7 @@ pub trait LayoutImplemented<PDK: Pdk>: ExportsLayoutData {
         io: &mut <<Self as Block>::Io as LayoutType>::Builder,
         cell: &mut CellBuilder<PDK, Self>,
         _: sealed::Token,
-    ) -> Result<Self::Data>;
+    ) -> Result<Self::LayoutData>;
 }
 
 impl<PDK: Pdk, B: ExportsLayoutData> LayoutImplemented<PDK> for B
@@ -91,7 +91,7 @@ where
         io: &mut <<Self as Block>::Io as LayoutType>::Builder,
         cell: &mut CellBuilder<PDK, Self>,
         _: sealed::Token,
-    ) -> Result<Self::Data> {
+    ) -> Result<Self::LayoutData> {
         PDK::layout(self, io, cell, sealed::Token)
     }
 }
@@ -131,7 +131,7 @@ pub struct Cell<T: ExportsLayoutData> {
     /// Block whose layout this cell represents.
     block: Arc<T>,
     /// Extra data created during layout generation.
-    data: T::Data,
+    data: T::LayoutData,
     pub(crate) io: Arc<<T::Io as LayoutType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
 }
@@ -139,7 +139,7 @@ pub struct Cell<T: ExportsLayoutData> {
 impl<T: ExportsLayoutData> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
-        data: T::Data,
+        data: T::LayoutData,
         io: Arc<<T::Io as LayoutType>::Bundle>,
         raw: Arc<RawCell>,
     ) -> Self {
@@ -157,7 +157,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     }
 
     /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&self) -> &T::Data {
+    pub fn data(&self) -> &T::LayoutData {
         &self.data
     }
 
@@ -214,7 +214,7 @@ pub struct TransformedCell<'a, T: ExportsLayoutData> {
     /// Block whose layout this cell represents.
     block: &'a T,
     /// Extra data created during layout generation.
-    data: Transformed<'a, T::Data>,
+    data: Transformed<'a, T::LayoutData>,
     /// The geometry of the cell's IO.
     io: Transformed<'a, <T::Io as LayoutType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
@@ -228,7 +228,7 @@ impl<'a, T: ExportsLayoutData> TransformedCell<'a, T> {
     }
 
     /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&'a self) -> &Transformed<'a, T::Data> {
+    pub fn data(&'a self) -> &Transformed<'a, T::LayoutData> {
         &self.data
     }
 }
@@ -306,7 +306,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<Transformed<'_, T::Data>> {
+    pub fn try_data(&self) -> Result<Transformed<'_, T::LayoutData>> {
         Ok(self.try_cell()?.data)
     }
 
@@ -317,7 +317,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> Transformed<'_, T::Data> {
+    pub fn data(&self) -> Transformed<'_, T::LayoutData> {
         self.cell().data
     }
 

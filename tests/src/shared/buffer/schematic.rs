@@ -7,7 +7,7 @@ use substrate::schematic::{CellBuilder, InstancePath, NestedInstance};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     io::Signal,
-    schematic::{ExportsNestedData, Instance, Schematic, SchematicData},
+    schematic::{ExportsNestedData, Instance, Schematic, NestedData},
 };
 
 use crate::shared::pdk::{
@@ -23,7 +23,7 @@ pub enum InverterMos {
     Pmos,
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub enum InverterMosData {
     NmosA(Instance<NmosA>),
     PmosA(Instance<PmosA>),
@@ -112,7 +112,7 @@ impl Schematic<ExamplePdkB> for InverterMos {
     }
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct InverterData {
     pub pmos_g: Terminal,
     pub pmos: Option<Instance<InverterMos>>,
@@ -175,7 +175,7 @@ impl Schematic<ExamplePdkC> for Inverter {
     }
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct BufferData {
     pub inv1: Instance<Inverter>,
     pub inv2: Instance<Inverter>,
@@ -215,7 +215,7 @@ impl<PDK> Schematic<PDK> for Buffer {
     }
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct BufferNData {
     pub bubbled_pmos_g: NestedTerminal,
     pub bubbled_inv1: NestedInstance<Inverter>,
@@ -258,7 +258,7 @@ where
     }
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct BufferNxMData {
     pub bubbled_pmos_g: NestedTerminal,
     pub bubbled_inv1: NestedInstance<Inverter>,

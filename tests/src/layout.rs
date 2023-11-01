@@ -36,7 +36,7 @@ pub enum PointEnum {
 pub struct GridTilerExample;
 
 impl ExportsLayoutData for GridTilerExample {
-    type Data = ();
+    type LayoutData = ();
 }
 
 impl Layout<ExamplePdkA> for GridTilerExample {
@@ -44,7 +44,7 @@ impl Layout<ExamplePdkA> for GridTilerExample {
         &self,
         _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         let mut tiler = GridTiler::new();
 
         let tile1 = Tile::from_bbox(Shape::new(

@@ -21,7 +21,7 @@ use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
     Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, PrimitiveSchematic,
-    Schematic, ScirCell, ScirSchematic,
+    Schematic, ScirBinding, ScirSchematic,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -281,7 +281,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        ) -> substrate::error::Result<ScirCell<Spectre>> {
+        ) -> substrate::error::Result<ScirBinding<Spectre>> {
             let mut cell = Spice::scir_cell_from_str(
                 r#"
             .subckt res p n

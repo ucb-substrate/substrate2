@@ -22,7 +22,7 @@ use crate::shared::pdk::{ExamplePdkA, ExamplePdkB};
 use super::{Buffer, BufferN, BufferNxM, Inverter};
 
 impl ExportsLayoutData for Inverter {
-    type Data = ();
+    type LayoutData = ();
 }
 
 impl Layout<ExamplePdkA> for Inverter {
@@ -30,7 +30,7 @@ impl Layout<ExamplePdkA> for Inverter {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(Shape::new(
             cell.ctx.layers.polya,
             Rect::from_sides(0, 0, 100, 200),
@@ -65,7 +65,7 @@ impl Layout<ExamplePdkB> for Inverter {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(Shape::new(
             cell.ctx.layers.polyb,
             Rect::from_sides(0, 0, 200, 100),
@@ -159,7 +159,7 @@ pub struct BufferData {
 }
 
 impl ExportsLayoutData for Buffer {
-    type Data = BufferData;
+    type LayoutData = BufferData;
 }
 
 pub trait BufferSupportedPdk: Pdk + HasLayout<Inverter> {
@@ -179,7 +179,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         let derived_layers = PDK::derived_layers(cell.ctx.layers.as_ref());
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
 
@@ -222,7 +222,7 @@ pub struct BufferNData {
 }
 
 impl ExportsLayoutData for BufferN {
-    type Data = BufferNData;
+    type LayoutData = BufferNData;
 }
 
 impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferN {
@@ -230,7 +230,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferN {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         let buffer = cell.generate(Buffer::new(self.strength));
 
         let mut data = BufferNData::default();
@@ -271,7 +271,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferN {
 }
 
 impl ExportsLayoutData for BufferNxM {
-    type Data = ();
+    type LayoutData = ();
 }
 
 impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferNxM {
@@ -279,7 +279,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferNxM {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         let derived_layers = PDK::derived_layers(cell.ctx.layers.as_ref());
         let buffern = cell.generate::<BufferN>(BufferN::new(self.strength, self.n));
         let mut tiler = ArrayTiler::new(TileAlignMode::Center, TileAlignMode::NegAdjacent);

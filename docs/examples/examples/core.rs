@@ -11,7 +11,7 @@ use substrate::io::{
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{HasLayout, Pdk, PdkLayers};
-use substrate::schematic::{ScirCell, ScirSchematic};
+use substrate::schematic::{ScirBinding, ScirSchematic};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -56,7 +56,6 @@ pub enum ExamplePdkCorner {
 }
 // end-code-snippet derive_corner
 
-#[derive(Clone)]
 pub struct ExamplePdkA;
 
 impl Pdk for ExamplePdkA {
@@ -64,7 +63,6 @@ impl Pdk for ExamplePdkA {
     type Corner = ExampleCorner;
 }
 
-#[derive(Clone)]
 pub struct ExamplePdkB;
 
 impl Pdk for ExamplePdkB {
@@ -203,7 +201,7 @@ impl Block for Inverter {
 
 // begin-code-snippet inverter_layout
 impl ExportsLayoutData for Inverter {
-    type Data = ();
+    type LayoutData = ();
 }
 
 impl Layout<ExamplePdk> for Inverter {
@@ -211,7 +209,7 @@ impl Layout<ExamplePdk> for Inverter {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdk, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         io.vss.push(IoShape::with_layers(
             cell.ctx.layers.met1,
             Rect::from_sides(25, 0, 75, 25),
@@ -244,7 +242,7 @@ impl Layout<ExamplePdkA> for Inverter {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         io.vss.push(IoShape::with_layers(
             cell.ctx.layers.met1a,
             Rect::from_sides(25, 0, 75, 25),
@@ -276,7 +274,7 @@ impl Layout<ExamplePdkB> for Inverter {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         io.vss.push(IoShape::with_layers(
             cell.ctx.layers.met1b,
             Rect::from_sides(50, 0, 150, 25),
@@ -421,7 +419,7 @@ pub struct BufferData {
 }
 
 impl ExportsLayoutData for Buffer {
-    type Data = BufferData;
+    type LayoutData = BufferData;
 }
 
 mod single_process_buffer {
@@ -440,7 +438,7 @@ mod single_process_buffer {
 
     // begin-code-snippet buffer_layout
     impl ExportsLayoutData for Buffer {
-        type Data = BufferData;
+        type LayoutData = BufferData;
     }
 
     // begin-code-snippet cell_builder_generate
@@ -451,7 +449,7 @@ mod single_process_buffer {
             io: &mut <<Self as Block>::Io as LayoutType>::Builder,
             cell: &mut CellBuilder<ExamplePdk, Self>,
             // end-ellipses cell_builder_generate
-        ) -> substrate::error::Result<Self::Data> {
+        ) -> substrate::error::Result<Self::LayoutData> {
             let inv1 = cell.generate(Inverter::new(self.strength));
             let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
@@ -481,7 +479,7 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
@@ -509,7 +507,7 @@ impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirCell<Sky130Pdk>> {
+    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
         let mut cell = Spice::scir_cell_from_str(
             r#"
                 * CMOS buffer

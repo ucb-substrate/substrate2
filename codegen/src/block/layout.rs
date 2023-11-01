@@ -256,7 +256,7 @@ impl ToTokens for HasLayoutInputReceiver {
 
         let has_layout = quote! {
             impl #imp #substrate::layout::ExportsLayoutData for #ident #ty #wher {
-                type Data = ();
+                type LayoutData = ();
             }
         };
 
@@ -278,7 +278,7 @@ impl ToTokens for HasLayoutInputReceiver {
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,
                         cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
-                    ) -> #substrate::error::Result<Self::Data> {
+                    ) -> #substrate::error::Result<Self::LayoutData> {
 
                         let source = { #source };
 

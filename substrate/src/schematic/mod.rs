@@ -6,7 +6,7 @@ pub mod schema;
 
 use cache::mem::TypeCache;
 use cache::CacheHandle;
-pub use codegen::SchematicData;
+pub use codegen::NestedData;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -33,7 +33,7 @@ use crate::schematic::schema::{FromSchema, Schema};
 
 /// A schema that has a primitive associated with a certain block.
 pub trait PrimitiveSchematic<S: Schema>: Block<Kind = block::Primitive> {
-    /// Returns the schema primitive corresponding to `block`.
+    /// Returns a binding to a schema primitive.
     fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle)
         -> PrimitiveBinding<S>;
 }
@@ -57,9 +57,11 @@ impl<S: Schema, B: Block<Kind = block::Primitive> + PrimitiveSchematic<S>>
 
 /// A block with a schematic specified using SCIR.
 pub trait ScirSchematic<S: Schema>: Block<Kind = block::Scir> {
-    /// Returns the library containing the SCIR cell and its ID.
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle)
-        -> Result<ScirCell<S>>;
+    /// Returns a binding to a cell within a SCIR library.
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> Result<ScirBinding<S>>;
 }
 
 /// A block that exports nodes from its schematic.
@@ -186,7 +188,7 @@ impl<S: Schema> CellBuilder<S> {
     }
 
     /// Marks this cell as a SCIR cell.
-    pub(crate) fn set_scir(&mut self, scir: ScirCell<S>) {
+    pub(crate) fn set_scir(&mut self, scir: ScirBinding<S>) {
         self.contents = RawCellContentsBuilder::Scir(scir);
     }
 
@@ -946,7 +948,7 @@ impl InstancePath {
     }
 }
 
-/// Data that can be stored in [`HasSchematicData::Data`](crate::schematic::ExportsNestedData::NestedData).
+/// Data that can be stored in [`ExportsNestedData::NestedData`](crate::schematic::ExportsNestedData::NestedData).
 pub trait NestedData: HasNestedView + Send + Sync {}
 impl<T: HasNestedView + Send + Sync> NestedData for T {}
 
@@ -1136,7 +1138,7 @@ impl<S: Schema> RawCell<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContentsBuilder<S> =
-    RawCellKind<RawCellInnerBuilder<S>, ScirCell<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInnerBuilder<S>, ScirBinding<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContentsBuilder<S> {
     fn build(self) -> RawCellContents<S> {
@@ -1151,13 +1153,13 @@ impl<S: Schema> RawCellContentsBuilder<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContents<S> =
-    RawCellKind<RawCellInner<S>, ScirCell<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInner<S>, ScirBinding<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContents<S> {
     fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellContents<S2>> {
         Ok(match self {
             RawCellContents::Cell(c) => RawCellContents::Cell(c.convert_schema()?),
-            RawCellContents::Scir(s) => RawCellContents::Scir(ScirCell {
+            RawCellContents::Scir(s) => RawCellContents::Scir(ScirBinding {
                 lib: s
                     .lib
                     .convert_schema()
@@ -1226,7 +1228,7 @@ impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive
     }
 }
 
-/// A schema primitive translation that can be used to define
+/// A binding to a schema primitive that can be used to define
 /// a Substrate schematic.
 pub struct PrimitiveBinding<S: Schema> {
     pub(crate) primitive: <S as Schema>::Primitive,
@@ -1373,14 +1375,14 @@ impl<S: Schema> RawCellInner<S> {
     }
 }
 
-/// A SCIR cell translation that can be used to define a Substrate schematic.
-pub struct ScirCell<S: Schema> {
+/// A binding to a cell within a SCIR library that can be used to define a Substrate schematic.
+pub struct ScirBinding<S: Schema> {
     pub(crate) lib: scir::Library<S>,
     pub(crate) cell: scir::CellId,
     pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
 }
 
-impl<S: Schema<Primitive = impl Clone>> Clone for ScirCell<S> {
+impl<S: Schema<Primitive = impl Clone>> Clone for ScirBinding<S> {
     fn clone(&self) -> Self {
         Self {
             lib: self.lib.clone(),
@@ -1390,7 +1392,7 @@ impl<S: Schema<Primitive = impl Clone>> Clone for ScirCell<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirCell<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirBinding<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("ScirCellInner");
         let _ = builder.field("lib", &self.lib);
@@ -1399,8 +1401,8 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirCell<S
     }
 }
 
-impl<S: Schema> ScirCell<S> {
-    /// Creates a new [`ScirCell`] corresponding to the given cell in
+impl<S: Schema> ScirBinding<S> {
+    /// Creates a new [`ScirBinding`] corresponding to the given cell in
     /// SCIR library `lib`.
     ///
     /// # Panics
@@ -1432,8 +1434,8 @@ impl<S: Schema> ScirCell<S> {
     }
 
     /// Converts the underlying SCIR library to schema `S2`.
-    pub fn convert_schema<S2: FromSchema<S>>(self) -> substrate::error::Result<ScirCell<S2>> {
-        Ok(ScirCell {
+    pub fn convert_schema<S2: FromSchema<S>>(self) -> substrate::error::Result<ScirBinding<S2>> {
+        Ok(ScirBinding {
             //  TODO: More descriptive error.
             lib: self
                 .lib

@@ -48,7 +48,7 @@ pub trait HasLayout<B: ExportsLayoutData>: Pdk + Sized {
         io: &mut <<B as Block>::Io as LayoutType>::Builder,
         cell: &mut LayoutCellBuilder<Self, B>,
         _: sealed::Token,
-    ) -> Result<B::Data>;
+    ) -> Result<B::LayoutData>;
 }
 
 impl<PDK: Pdk, B: Layout<PDK>> HasLayout<B> for PDK {
@@ -57,7 +57,7 @@ impl<PDK: Pdk, B: Layout<PDK>> HasLayout<B> for PDK {
         io: &mut <<B as Block>::Io as LayoutType>::Builder,
         cell: &mut LayoutCellBuilder<Self, B>,
         _: sealed::Token,
-    ) -> Result<B::Data> {
+    ) -> Result<B::LayoutData> {
         block.layout(io, cell)
     }
 }

@@ -185,14 +185,9 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::layout::Data` for a struct.
 ///
-/// The `#[substrate(transform)]` attribute annotates data that should be transformed with the enclosing instance when
-/// instantiated in another block.
-///
 /// # Examples
 ///
-/// This example stores the individual buffer instances within a buffer chain. The `#[substrate(transform)]`
-/// notes that the buffers in the data should be transformed if the buffer chain is instantiated in another
-/// block and transformed.
+/// This example stores the individual buffer instances within a buffer chain.
 ///
 #[doc = get_snippets!("core", "buffern_data")]
 #[proc_macro_derive(LayoutData, attributes(substrate))]
@@ -207,12 +202,9 @@ pub fn derive_layout_data(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Derives `substrate::schematic::Data` for a struct.
-///
-/// The `#[substrate(nested)]` attribute annotates data that represents nested instances or nodes. This allows
-/// Substrate to keep track of paths to nested instances and nodes for simulation purposes.
-#[proc_macro_derive(SchematicData, attributes(substrate))]
-pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
+/// Derives `substrate::schematic::NestedData` for a struct.
+#[proc_macro_derive(NestedData, attributes(substrate))]
+pub fn derive_nested_data(input: TokenStream) -> TokenStream {
     let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
     ));
@@ -225,7 +217,7 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::block::Block` for a struct or enum.
 ///
-/// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
+/// You must specify the block's IO and kind by adding a `#[substrate(io = "IoType", kind = "BlockKind)]` attribute:
 /// ```
 /// use serde::{Serialize, Deserialize};
 /// use substrate::block::Block;
@@ -236,6 +228,8 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 ///   // ...
 /// }
 /// ```
+///
+/// The available kinds can be found by looking at implementors of `substrate::block::BlockKind`.
 ///
 /// This derive macro only works if you want to use the default value of the IO.
 /// If the IO type does not implement [`Default`], or you want to use a non-default
