@@ -1,11 +1,11 @@
 //! ngspice-specific blocks for use in testbenches.
 
-use crate::{Ngspice, NgspicePrimitive};
+use crate::{Ngspice, Primitive};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
-use substrate::schematic::{Primitive, PrimitiveSchematic};
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -51,8 +51,11 @@ impl Vsource {
 }
 
 impl PrimitiveSchematic<Ngspice> for Vsource {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Ngspice> {
-        let mut prim = Primitive::new(NgspicePrimitive::Vsource(*self));
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Ngspice> {
+        let mut prim = PrimitiveBinding::new(Primitive::Vsource(*self));
         prim.connect("P", io.p);
         prim.connect("N", io.n);
         prim

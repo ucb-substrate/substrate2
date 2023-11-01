@@ -7,7 +7,7 @@ use substrate::block::Block;
 use substrate::context::{Context, PdkContext};
 use substrate::io::{MosIo, SchematicType};
 use substrate::pdk::Pdk;
-use substrate::schematic::{Primitive, PrimitiveSchematic};
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
@@ -80,8 +80,8 @@ impl PrimitiveSchematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Primitive<ExamplePdkA> {
-        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
+    ) -> PrimitiveBinding<ExamplePdkA> {
+        let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
         });
@@ -118,8 +118,8 @@ impl PrimitiveSchematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Primitive<ExamplePdkA> {
-        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
+    ) -> PrimitiveBinding<ExamplePdkA> {
+        let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
         });
@@ -156,8 +156,8 @@ impl PrimitiveSchematic<ExamplePdkB> for NmosB {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Primitive<ExamplePdkB> {
-        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
+    ) -> PrimitiveBinding<ExamplePdkB> {
+        let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
         });
@@ -194,8 +194,8 @@ impl PrimitiveSchematic<ExamplePdkB> for PmosB {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Primitive<ExamplePdkB> {
-        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
+    ) -> PrimitiveBinding<ExamplePdkB> {
+        let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
         });
@@ -232,8 +232,8 @@ impl PrimitiveSchematic<ExamplePdkC> for NmosC {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Primitive<ExamplePdkC> {
-        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
+    ) -> PrimitiveBinding<ExamplePdkC> {
+        let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
         });
@@ -270,8 +270,8 @@ impl PrimitiveSchematic<ExamplePdkC> for PmosC {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Primitive<ExamplePdkC> {
-        let mut prim = Primitive::new(ExamplePrimitive::Nmos {
+    ) -> PrimitiveBinding<ExamplePdkC> {
+        let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
         });

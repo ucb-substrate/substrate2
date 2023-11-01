@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use substrate::block::{self, Block};
 use substrate::io::{SchematicType, TwoTerminalIo};
-use substrate::schematic::{Primitive, PrimitiveSchematic};
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 
-use crate::{Spectre, SpectrePrimitive};
+use crate::{Primitive, Spectre};
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -68,7 +68,10 @@ impl Block for Vsource {
 }
 
 impl PrimitiveSchematic<Spectre> for Vsource {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Spectre> {
         use arcstr::literal;
         let mut params = HashMap::new();
         match self {
@@ -98,7 +101,7 @@ impl PrimitiveSchematic<Spectre> for Vsource {
             }
         };
 
-        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("vsource"),
             ports: vec!["p".into(), "n".into()],
             params,
@@ -131,8 +134,11 @@ impl Block for Iprobe {
 }
 
 impl PrimitiveSchematic<Spectre> for Iprobe {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
-        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Spectre> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],
             params: HashMap::new(),

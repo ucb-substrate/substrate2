@@ -2,8 +2,8 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::netlist::{NetlistKind, NetlisterInstance};
 use scir::*;
-use spectre::{Spectre, SpectrePrimitive};
-use spice::{BlackboxContents, BlackboxElement, Primitive, Spice};
+use spectre::Spectre;
+use spice::{BlackboxContents, BlackboxElement, Spice};
 use std::collections::HashMap;
 use substrate::schematic::schema::Schema;
 
@@ -14,8 +14,8 @@ pub(crate) trait HasRes2: Schema {
 }
 
 impl HasRes2 for Spice {
-    fn resistor(value: usize) -> Primitive {
-        Primitive::Res2 {
+    fn resistor(value: usize) -> spice::Primitive {
+        spice::Primitive::Res2 {
             value: Decimal::from(value),
         }
     }
@@ -28,8 +28,8 @@ impl HasRes2 for Spice {
 }
 
 impl HasRes2 for Spectre {
-    fn resistor(value: usize) -> SpectrePrimitive {
-        SpectrePrimitive::RawInstance {
+    fn resistor(value: usize) -> spectre::Primitive {
+        spectre::Primitive::RawInstance {
             cell: ArcStr::from("resistor"),
             ports: vec!["pos".into(), "neg".into()],
             params: HashMap::from_iter([(ArcStr::from("r"), Decimal::from(value).into())]),
@@ -80,7 +80,7 @@ pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library<Spice> {
     let mut lib = LibraryBuilder::new();
-    let wrapper = lib.add_primitive(Primitive::BlackboxInstance {
+    let wrapper = lib.add_primitive(spice::Primitive::BlackboxInstance {
         contents: BlackboxContents {
             elems: vec![
                 "R".into(),

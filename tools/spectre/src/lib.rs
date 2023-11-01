@@ -30,7 +30,7 @@ use substrate::io::{NestedNode, NodePath, SchematicType};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{Primitive, PrimitiveSchematic};
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -42,7 +42,7 @@ pub mod tran;
 
 /// Spectre primitives.
 #[derive(Debug, Clone)]
-pub enum SpectrePrimitive {
+pub enum Primitive {
     /// A raw instance with an associated cell.
     RawInstance {
         /// The associated cell.
@@ -457,7 +457,7 @@ impl Spectre {
 }
 
 impl scir::schema::Schema for Spectre {
-    type Primitive = SpectrePrimitive;
+    type Primitive = Primitive;
 }
 
 impl FromSchema<NoSchema> for Spectre {
@@ -503,17 +503,17 @@ impl FromSchema<Spice> for Spectre {
                 cell,
                 ports,
                 params,
-            } => SpectrePrimitive::RawInstance {
+            } => Primitive::RawInstance {
                 cell,
                 ports,
                 params,
             },
-            spice::Primitive::Res2 { value } => SpectrePrimitive::RawInstance {
+            spice::Primitive::Res2 { value } => Primitive::RawInstance {
                 cell: "resistor".into(),
                 ports: vec!["pos".into(), "neg".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
-            primitive => SpectrePrimitive::Spice(primitive),
+            primitive => Primitive::Spice(primitive),
         })
     }
 
@@ -533,8 +533,11 @@ impl FromSchema<Spice> for Spectre {
 }
 
 impl PrimitiveSchematic<Spectre> for Resistor {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
-        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Spectre> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("resistor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: HashMap::from_iter([(
@@ -549,8 +552,11 @@ impl PrimitiveSchematic<Spectre> for Resistor {
 }
 
 impl PrimitiveSchematic<Spectre> for Capacitor {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
-        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Spectre> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
             params: HashMap::from_iter([(
@@ -565,8 +571,11 @@ impl PrimitiveSchematic<Spectre> for Capacitor {
 }
 
 impl PrimitiveSchematic<Spectre> for RawInstance {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<Spectre> {
-        let mut prim = Primitive::new(SpectrePrimitive::RawInstance {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Spectre> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
             params: self.params.clone(),
@@ -767,7 +776,7 @@ impl HasSpiceLikeNetlist for Spectre {
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
         Ok(match primitive {
-            SpectrePrimitive::RawInstance {
+            Primitive::RawInstance {
                 cell,
                 ports,
                 params,
@@ -782,7 +791,7 @@ impl HasSpiceLikeNetlist for Spectre {
                 }
                 name
             }
-            SpectrePrimitive::BlackboxInstance { contents } => {
+            Primitive::BlackboxInstance { contents } => {
                 // TODO: See if there is a way to translate the name based on the
                 // contents, or make documentation explaining that blackbox instances
                 // cannot be addressed by path.
@@ -799,7 +808,7 @@ impl HasSpiceLikeNetlist for Spectre {
                 }
                 name.clone()
             }
-            SpectrePrimitive::Spice(p) => {
+            Primitive::Spice(p) => {
                 writeln!(out, "simulator lang=spice")?;
                 let name = Spice.write_primitive_inst(out, name, connections, p)?;
                 writeln!(out, "simulator lang=spectre")?;

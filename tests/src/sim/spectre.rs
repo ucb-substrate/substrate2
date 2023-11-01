@@ -10,7 +10,7 @@ use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130Pdk;
 use spectre::blocks::Vsource;
 use spectre::tran::{Tran, TranCurrent};
-use spectre::{Options, Spectre, SpectrePrimitive};
+use spectre::{Options, Primitive, Spectre};
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::cache::Cache;
@@ -20,8 +20,8 @@ use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, Primitive, PrimitiveSchematic, Schematic,
-    ScirCell, ScirSchematic,
+    Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, PrimitiveSchematic,
+    Schematic, ScirCell, ScirSchematic,
 };
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -182,8 +182,8 @@ fn spectre_can_include_sections() {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        ) -> Primitive<Spectre> {
-            let mut prim = Primitive::new(SpectrePrimitive::BlackboxInstance {
+        ) -> PrimitiveBinding<Spectre> {
+            let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
                 contents: BlackboxContents {
                     elems: vec![
                         BlackboxElement::InstanceName,

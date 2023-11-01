@@ -162,7 +162,7 @@ impl<T: Into<ArcStr>> From<T> for BlackboxElement {
 }
 
 impl Primitive {
-    /// Returns the ports for a given [`PrimitiveKind`].
+    /// Returns the ports for a given [`Primitive`].
     pub fn ports(&self) -> Vec<ArcStr> {
         match self {
             Primitive::Res2 { .. } => vec!["1".into(), "2".into()],
@@ -189,8 +189,8 @@ impl PrimitiveSchematic<Spice> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::Primitive<Spice> {
-        let mut prim = substrate::schematic::Primitive::new(Primitive::Res2 {
+    ) -> substrate::schematic::PrimitiveBinding<Spice> {
+        let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {
             value: self.value(),
         });
         prim.connect("1", io.p);

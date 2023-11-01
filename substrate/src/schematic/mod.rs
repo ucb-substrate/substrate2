@@ -34,7 +34,8 @@ use crate::schematic::schema::{FromSchema, Schema};
 /// A schema that has a primitive associated with a certain block.
 pub trait PrimitiveSchematic<S: Schema>: Block<Kind = block::Primitive> {
     /// Returns the schema primitive corresponding to `block`.
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle) -> Primitive<S>;
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle)
+        -> PrimitiveBinding<S>;
 }
 
 impl<B: Block<Kind = block::Primitive>> ExportsNestedData<block::Primitive> for B {
@@ -190,7 +191,7 @@ impl<S: Schema> CellBuilder<S> {
     }
 
     /// Marks this cell as a primitive.
-    pub(crate) fn set_primitive(&mut self, primitive: Primitive<S>) {
+    pub(crate) fn set_primitive(&mut self, primitive: PrimitiveBinding<S>) {
         self.contents = RawCellContentsBuilder::Primitive(primitive);
     }
 
@@ -1135,7 +1136,7 @@ impl<S: Schema> RawCell<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContentsBuilder<S> =
-    RawCellKind<RawCellInnerBuilder<S>, ScirCell<S>, Primitive<S>, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInnerBuilder<S>, ScirCell<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContentsBuilder<S> {
     fn build(self) -> RawCellContents<S> {
@@ -1150,7 +1151,7 @@ impl<S: Schema> RawCellContentsBuilder<S> {
 
 /// The contents of a raw cell.
 pub(crate) type RawCellContents<S> =
-    RawCellKind<RawCellInner<S>, ScirCell<S>, Primitive<S>, ConvertedPrimitive<S>>;
+    RawCellKind<RawCellInner<S>, ScirCell<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema> RawCellContents<S> {
     fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellContents<S2>> {
@@ -1194,7 +1195,7 @@ pub(crate) trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
     fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>>;
 }
 
-impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for Primitive<S2> {
+impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for PrimitiveBinding<S2> {
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
         <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.primitive.clone())
@@ -1227,12 +1228,12 @@ impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive
 
 /// A schema primitive translation that can be used to define
 /// a Substrate schematic.
-pub struct Primitive<S: Schema> {
+pub struct PrimitiveBinding<S: Schema> {
     pub(crate) primitive: <S as Schema>::Primitive,
     pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for Primitive<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for PrimitiveBinding<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("Primitive");
         let _ = builder.field("primitive", &self.primitive);
@@ -1241,7 +1242,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for Primitive<
     }
 }
 
-impl<S: Schema> Clone for Primitive<S> {
+impl<S: Schema> Clone for PrimitiveBinding<S> {
     fn clone(&self) -> Self {
         Self {
             primitive: self.primitive.clone(),
@@ -1250,8 +1251,8 @@ impl<S: Schema> Clone for Primitive<S> {
     }
 }
 
-impl<S: Schema> Primitive<S> {
-    /// Creates a new [`Primitive`] corresponding to the given schema primitive.
+impl<S: Schema> PrimitiveBinding<S> {
+    /// Creates a new [`PrimitiveBinding`] corresponding to the given schema primitive.
     pub fn new(primitive: <S as Schema>::Primitive) -> Self {
         Self {
             primitive,

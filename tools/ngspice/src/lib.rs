@@ -28,7 +28,7 @@ use substrate::execute::Executor;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{Primitive, PrimitiveSchematic};
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
 
@@ -39,18 +39,18 @@ pub mod tran;
 
 /// ngspice primitives.
 #[derive(Debug, Clone)]
-pub enum NgspicePrimitive {
+pub enum Primitive {
     /// A SPICE primitive.
     Spice(spice::Primitive),
     /// A voltage source with ports "1" and "2".
     Vsource(Vsource),
 }
 
-impl NgspicePrimitive {
+impl Primitive {
     fn ports(&self) -> Vec<ArcStr> {
         match self {
-            NgspicePrimitive::Spice(prim) => prim.ports(),
-            NgspicePrimitive::Vsource(_) => vec!["1".into(), "2".into()],
+            Primitive::Spice(prim) => prim.ports(),
+            Primitive::Vsource(_) => vec!["1".into(), "2".into()],
         }
     }
 }
@@ -452,7 +452,7 @@ impl Ngspice {
 }
 
 impl scir::schema::Schema for Ngspice {
-    type Primitive = NgspicePrimitive;
+    type Primitive = Primitive;
 }
 
 impl FromSchema<NoSchema> for Ngspice {
@@ -476,8 +476,8 @@ impl PrimitiveSchematic<Ngspice> for RawInstance {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::Primitive<Ngspice> {
-        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive::RawInstance {
+    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
             params: self.params.clone(),
@@ -493,8 +493,8 @@ impl PrimitiveSchematic<Ngspice> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::Primitive<Ngspice> {
-        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive::Res2 {
+    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
             value: self.value(),
         }));
         prim.connect("1", io.p);
@@ -707,10 +707,10 @@ impl HasSpiceLikeNetlist for Ngspice {
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
         match primitive {
-            NgspicePrimitive::Spice(spice_primitive) => {
+            Primitive::Spice(spice_primitive) => {
                 Spice.write_primitive_inst(out, name, connections, spice_primitive)
             }
-            NgspicePrimitive::Vsource(vsource) => {
+            Primitive::Vsource(vsource) => {
                 let name = arcstr::format!("V{}", name);
                 write!(out, "{}", name)?;
                 for port in ["P", "N"] {

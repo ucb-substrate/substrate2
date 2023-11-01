@@ -122,8 +122,8 @@ macro_rules! define_mosfets {
             fn schematic(
                 &self,
                 io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-            ) -> substrate::schematic::Primitive<crate::Sky130Pdk> {
-                let mut prim = substrate::schematic::Primitive::new(crate::Sky130Primitive::Mos {
+            ) -> substrate::schematic::PrimitiveBinding<crate::Sky130Pdk> {
+                let mut prim = substrate::schematic::PrimitiveBinding::new(crate::Primitive::Mos {
                     kind: MosKind::$typ,
                     params: self.params.clone(),
                 });
