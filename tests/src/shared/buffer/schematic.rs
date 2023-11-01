@@ -7,7 +7,7 @@ use substrate::schematic::{CellBuilder, InstancePath, NestedInstance};
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
     io::Signal,
-    schematic::{ExportsNestedData, Instance, Schematic, NestedData},
+    schematic::{ExportsNestedData, Instance, NestedData, Schematic},
 };
 
 use crate::shared::pdk::{

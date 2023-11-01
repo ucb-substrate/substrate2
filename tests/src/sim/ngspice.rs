@@ -8,9 +8,7 @@ use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, NestedData,
-};
+use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 use substrate::simulation::data::{FromSaved, Save};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;

@@ -8,7 +8,7 @@ use substrate::io::{Io, SchematicType};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
-    CellBuilder, ExportsNestedData, Instance, PrimitiveSchematic, Schematic, NestedData,
+    CellBuilder, ExportsNestedData, Instance, NestedData, PrimitiveSchematic, Schematic,
 };
 
 pub mod flattened;

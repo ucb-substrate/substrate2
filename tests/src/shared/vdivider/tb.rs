@@ -10,9 +10,7 @@ use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
-use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, Schematic, NestedData,
-};
+use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 use substrate::simulation::data::{FromSaved, HasSimData, Save};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
 

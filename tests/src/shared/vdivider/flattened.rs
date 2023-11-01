@@ -5,7 +5,7 @@ use substrate::block;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, Schematic, NestedData};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
 #[substrate(io = "VdividerIo", kind = "Cell")]
