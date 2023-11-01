@@ -11,7 +11,7 @@ use sky130pdk::Sky130Pdk;
 use spectre::blocks::Vsource;
 use spectre::tran::{Tran, TranCurrent};
 use spectre::{Options, Spectre, SpectrePrimitive};
-use spice::Spice;
+use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
@@ -183,11 +183,17 @@ fn spectre_can_include_sections() {
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
         ) -> Primitive<Spectre> {
-            // TODO: External module currently does not have name deduplication.
-            let mut prim = Primitive::new(SpectrePrimitive::ExternalModule {
-                cell: "lib_include_res".into(),
-                ports: vec!["pos".into(), "neg".into()],
-                contents: "res0 ( pos neg ) example_resistor".into(),
+            let mut prim = Primitive::new(SpectrePrimitive::BlackboxInstance {
+                contents: BlackboxContents {
+                    elems: vec![
+                        BlackboxElement::InstanceName,
+                        " ( ".into(),
+                        BlackboxElement::Port("pos".into()),
+                        " ".into(),
+                        BlackboxElement::Port("neg".into()),
+                        " ) example_resistor".into(),
+                    ],
+                },
             });
             prim.connect("pos", io.p);
             prim.connect("neg", io.n);

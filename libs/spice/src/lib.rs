@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use scir::netlist::HasSpiceLikeNetlist;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, ParamValue, SignalInfo};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::prelude::*;
 use std::path::Path;
 use substrate::block::Block;
@@ -200,6 +200,8 @@ impl PrimitiveKind {
                         None
                     }
                 })
+                .collect::<HashSet<_>>()
+                .into_iter()
                 .collect(),
         }
     }
