@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::PrimitiveKind;
+use crate::Primitive;
 use std::path::PathBuf;
 
 pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
@@ -107,11 +107,15 @@ fn convert_dff_to_scir() {
 
     let (_, inst) = cell.instances().nth(10).unwrap();
     let prim = lib.primitive(inst.child().unwrap_primitive());
-    match &prim.kind {
-        PrimitiveKind::RawInstance { ports, cell } => {
+    match prim {
+        Primitive::RawInstance {
+            ports,
+            cell,
+            params,
+        } => {
             assert_eq!(ports.len(), 4);
             assert_eq!(cell, "sky130_fd_pr__pfet_01v8");
-            assert_eq!(prim.params.len(), 2);
+            assert_eq!(params.len(), 2);
         }
         _ => panic!("incorrect primitive kind"),
     }
@@ -133,11 +137,15 @@ fn convert_blackbox_to_scir() {
 
     let (_, inst) = cell.instances().nth(2).unwrap();
     let prim = lib.primitive(inst.child().unwrap_primitive());
-    match &prim.kind {
-        PrimitiveKind::RawInstance { ports, cell } => {
+    match prim {
+        Primitive::RawInstance {
+            ports,
+            cell,
+            params,
+        } => {
             assert_eq!(ports.len(), 2);
             assert_eq!(cell, "blackbox2");
-            assert_eq!(prim.params.len(), 0);
+            assert_eq!(params.len(), 0);
         }
         _ => panic!("incorrect primitive kind"),
     }

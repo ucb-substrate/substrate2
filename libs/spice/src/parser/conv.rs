@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{Primitive, PrimitiveKind, Spice};
+use crate::{Primitive, Spice};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::ParamValue;
@@ -122,11 +122,8 @@ impl<'a> ScirConverter<'a> {
             match component {
                 Component::Mos(_mos) => todo!(),
                 Component::Res(res) => {
-                    let id = self.lib.add_primitive(Primitive {
-                        kind: PrimitiveKind::Res2 {
-                            value: str_as_numeric_lit(&res.value)?,
-                        },
-                        params: HashMap::new(),
+                    let id = self.lib.add_primitive(Primitive::Res2 {
+                        value: str_as_numeric_lit(&res.value)?,
                     });
                     let mut sinst = scir::Instance::new(&res.name[1..], id);
                     sinst.connect("1", node(&res.pos, &mut cell));
@@ -163,11 +160,9 @@ impl<'a> ScirConverter<'a> {
                         let ports: Vec<_> = (0..inst.ports.len())
                             .map(|i| arcstr::format!("{}", i + 1))
                             .collect();
-                        let id = self.lib.add_primitive(Primitive {
-                            kind: PrimitiveKind::RawInstance {
-                                cell: child,
-                                ports: ports.clone(),
-                            },
+                        let id = self.lib.add_primitive(Primitive::RawInstance {
+                            cell: child,
+                            ports: ports.clone(),
                             params,
                         });
                         let mut sinst = scir::Instance::new(&inst.name[1..], id);

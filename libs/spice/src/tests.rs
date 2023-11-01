@@ -1,4 +1,4 @@
-use crate::{BlackboxContents, BlackboxElement, Primitive, PrimitiveKind, Spice};
+use crate::{BlackboxContents, BlackboxElement, Primitive, Spice};
 use scir::netlist::{NetlistKind, NetlisterInstance};
 use scir::{Cell, Direction, Instance, LibraryBuilder};
 
@@ -11,7 +11,7 @@ fn scir_netlists_correctly() {
     top.expose_port(vdd, Direction::InOut);
     top.expose_port(vss, Direction::InOut);
 
-    let r_blackbox = lib.add_primitive(Primitive::new(PrimitiveKind::BlackboxInstance {
+    let r_blackbox = lib.add_primitive(Primitive::BlackboxInstance {
         contents: BlackboxContents {
             elems: vec![
                 "R".into(),
@@ -23,7 +23,7 @@ fn scir_netlists_correctly() {
                 " 3000".into(),
             ],
         },
-    }));
+    });
     let mut inst = Instance::new("blackbox", r_blackbox);
     inst.connect("P", vdd);
     inst.connect("N", vss);

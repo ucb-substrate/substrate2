@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use scir::netlist::{NetlistKind, NetlisterInstance};
 use scir::*;
 use spectre::{Spectre, SpectrePrimitive};
-use spice::{BlackboxContents, BlackboxElement, Primitive, PrimitiveKind, Spice};
+use spice::{BlackboxContents, BlackboxElement, Primitive, Spice};
 use std::collections::HashMap;
 use substrate::schematic::schema::Schema;
 
@@ -15,11 +15,8 @@ pub(crate) trait HasRes2: Schema {
 
 impl HasRes2 for Spice {
     fn resistor(value: usize) -> Primitive {
-        Primitive {
-            kind: PrimitiveKind::Res2 {
-                value: Decimal::from(value),
-            },
-            params: HashMap::new(),
+        Primitive::Res2 {
+            value: Decimal::from(value),
         }
     }
     fn pos() -> &'static str {
@@ -83,21 +80,18 @@ pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
 /// Creates a 1:3 resistive voltage divider using blackboxed resistors.
 pub(crate) fn vdivider_blackbox() -> Library<Spice> {
     let mut lib = LibraryBuilder::new();
-    let wrapper = lib.add_primitive(Primitive {
-        kind: PrimitiveKind::BlackboxInstance {
-            contents: BlackboxContents {
-                elems: vec![
-                    "R".into(),
-                    BlackboxElement::InstanceName,
-                    " ".into(),
-                    BlackboxElement::Port("pos".into()),
-                    " ".into(),
-                    BlackboxElement::Port("neg".into()),
-                    " 3300".into(),
-                ],
-            },
+    let wrapper = lib.add_primitive(Primitive::BlackboxInstance {
+        contents: BlackboxContents {
+            elems: vec![
+                "R".into(),
+                BlackboxElement::InstanceName,
+                " ".into(),
+                BlackboxElement::Port("pos".into()),
+                " ".into(),
+                BlackboxElement::Port("neg".into()),
+                " 3300".into(),
+            ],
         },
-        params: HashMap::new(),
     });
 
     let mut vdivider = Cell::new("vdivider");

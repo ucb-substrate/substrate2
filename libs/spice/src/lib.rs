@@ -79,33 +79,9 @@ impl FromSchema<NoSchema> for Spice {
     }
 }
 
-/// SPICE primitives.
+/// A SPICE primitive.
 #[derive(Debug, Clone)]
-pub struct Primitive {
-    /// The kind of primitive.
-    pub kind: PrimitiveKind,
-    /// Parameters associated with the primitive.
-    pub params: HashMap<ArcStr, ParamValue>,
-}
-
-impl Primitive {
-    /// Creates a new SPICE primitive.
-    pub fn new(kind: PrimitiveKind) -> Self {
-        Self {
-            kind,
-            params: Default::default(),
-        }
-    }
-
-    /// Creates a new SPICE primitive with the provided parameters.
-    pub fn with_params(kind: PrimitiveKind, params: HashMap<ArcStr, ParamValue>) -> Self {
-        Self { kind, params }
-    }
-}
-
-/// An enumeration of SPICE primitive kinds.
-#[derive(Debug, Clone)]
-pub enum PrimitiveKind {
+pub enum Primitive {
     /// A resistor primitive with ports "1" and "2" and value `value`.
     Res2 {
         /// The resistor value.
@@ -122,6 +98,8 @@ pub enum PrimitiveKind {
         ports: Vec<ArcStr>,
         /// The associated cell.
         cell: ArcStr,
+        /// Parameters associated with the raw instance.
+        params: HashMap<ArcStr, ParamValue>,
     },
     /// An instance with blackboxed contents.
     BlackboxInstance {
@@ -183,14 +161,14 @@ impl<T: Into<ArcStr>> From<T> for BlackboxElement {
     }
 }
 
-impl PrimitiveKind {
+impl Primitive {
     /// Returns the ports for a given [`PrimitiveKind`].
     pub fn ports(&self) -> Vec<ArcStr> {
         match self {
-            PrimitiveKind::Res2 { .. } => vec!["1".into(), "2".into()],
-            PrimitiveKind::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
-            PrimitiveKind::RawInstance { ports, .. } => ports.clone(),
-            PrimitiveKind::BlackboxInstance { contents } => contents
+            Primitive::Res2 { .. } => vec!["1".into(), "2".into()],
+            Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
+            Primitive::RawInstance { ports, .. } => ports.clone(),
+            Primitive::BlackboxInstance { contents } => contents
                 .elems
                 .iter()
                 .filter_map(|x| {
@@ -212,11 +190,8 @@ impl PrimitiveSchematic<Spice> for Resistor {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
     ) -> substrate::schematic::Primitive<Spice> {
-        let mut prim = substrate::schematic::Primitive::new(Primitive {
-            kind: PrimitiveKind::Res2 {
-                value: self.value(),
-            },
-            params: HashMap::new(),
+        let mut prim = substrate::schematic::Primitive::new(Primitive::Res2 {
+            value: self.value(),
         });
         prim.connect("1", io.p);
         prim.connect("2", io.n);
@@ -293,8 +268,8 @@ impl HasSpiceLikeNetlist for Spice {
         mut connections: HashMap<ArcStr, Vec<ArcStr>>,
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
-        let name = match &primitive.kind {
-            PrimitiveKind::Res2 { value } => {
+        let name = match &primitive {
+            Primitive::Res2 { value } => {
                 let name = arcstr::format!("R{}", name);
                 write!(out, "{}", name)?;
                 for port in ["1", "2"] {
@@ -305,7 +280,7 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {value}")?;
                 name
             }
-            PrimitiveKind::Mos { mname } => {
+            Primitive::Mos { mname } => {
                 let name = arcstr::format!("M{}", name);
                 write!(out, "{}", name)?;
                 for port in ["D", "G", "S", "B"] {
@@ -316,7 +291,11 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {}", mname)?;
                 name
             }
-            PrimitiveKind::RawInstance { cell, ports } => {
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => {
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {
@@ -325,9 +304,12 @@ impl HasSpiceLikeNetlist for Spice {
                     }
                 }
                 write!(out, " {}", cell)?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}={value}")?;
+                }
                 name
             }
-            PrimitiveKind::BlackboxInstance { contents } => {
+            Primitive::BlackboxInstance { contents } => {
                 // TODO: See if there is a way to translate the name based on the
                 // contents, or make documentation explaining that blackbox instances
                 // cannot be addressed by path.
@@ -345,9 +327,6 @@ impl HasSpiceLikeNetlist for Spice {
                 name.clone()
             }
         };
-        for (key, value) in primitive.params.iter().sorted_by_key(|(key, _)| *key) {
-            write!(out, " {key}={value}")?;
-        }
         Ok(name)
     }
 }

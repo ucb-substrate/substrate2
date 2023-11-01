@@ -498,19 +498,22 @@ impl FromSchema<Spice> for Spectre {
     fn convert_primitive(
         primitive: <Spice as Schema>::Primitive,
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
-        let spice::Primitive { kind, params } = primitive;
-        Ok(match kind {
-            spice::PrimitiveKind::RawInstance { cell, ports } => SpectrePrimitive::RawInstance {
+        Ok(match primitive {
+            spice::Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => SpectrePrimitive::RawInstance {
                 cell,
                 ports,
                 params,
             },
-            spice::PrimitiveKind::Res2 { value } => SpectrePrimitive::RawInstance {
+            spice::Primitive::Res2 { value } => SpectrePrimitive::RawInstance {
                 cell: "resistor".into(),
                 ports: vec!["pos".into(), "neg".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
-            kind => SpectrePrimitive::Spice(spice::Primitive { kind, params }),
+            primitive => SpectrePrimitive::Spice(primitive),
         })
     }
 
@@ -518,7 +521,7 @@ impl FromSchema<Spice> for Spectre {
         instance: &mut scir::Instance,
         primitive: &<Spice as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
-        if let spice::PrimitiveKind::Res2 { .. } = &primitive.kind {
+        if let spice::Primitive::Res2 { .. } = primitive {
             instance.map_connections(|port| match port.as_ref() {
                 "1" => "pos".into(),
                 "2" => "neg".into(),

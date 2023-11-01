@@ -49,7 +49,7 @@ pub enum NgspicePrimitive {
 impl NgspicePrimitive {
     fn ports(&self) -> Vec<ArcStr> {
         match self {
-            NgspicePrimitive::Spice(spice::Primitive { kind, .. }) => kind.ports(),
+            NgspicePrimitive::Spice(prim) => prim.ports(),
             NgspicePrimitive::Vsource(_) => vec!["1".into(), "2".into()],
         }
     }
@@ -477,11 +477,9 @@ impl PrimitiveSchematic<Ngspice> for RawInstance {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
     ) -> substrate::schematic::Primitive<Ngspice> {
-        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive {
-            kind: spice::PrimitiveKind::RawInstance {
-                cell: self.cell.clone(),
-                ports: self.ports.clone(),
-            },
+        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive::RawInstance {
+            cell: self.cell.clone(),
+            ports: self.ports.clone(),
             params: self.params.clone(),
         }));
         for (i, port) in self.ports.iter().enumerate() {
@@ -496,11 +494,8 @@ impl PrimitiveSchematic<Ngspice> for Resistor {
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
     ) -> substrate::schematic::Primitive<Ngspice> {
-        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive {
-            kind: spice::PrimitiveKind::Res2 {
-                value: self.value(),
-            },
-            params: HashMap::new(),
+        let mut prim = Primitive::new(NgspicePrimitive::Spice(spice::Primitive::Res2 {
+            value: self.value(),
         }));
         prim.connect("1", io.p);
         prim.connect("2", io.n);

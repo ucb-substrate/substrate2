@@ -19,7 +19,7 @@ use crate::mos::{MosKind, MosParams};
 use corner::*;
 use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
-use spice::{Primitive, PrimitiveKind, Spice};
+use spice::{Primitive, Spice};
 
 pub mod corner;
 pub mod layers;
@@ -69,47 +69,46 @@ impl FromSchema<Spice> for Sky130Pdk {
     fn convert_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
-        match &primitive.kind {
-            PrimitiveKind::RawInstance { cell, ports } => {
-                Ok(if let Some(kind) = MosKind::try_from_str(cell) {
-                    Sky130Primitive::Mos {
-                        kind,
-                        params: MosParams {
-                            w: i64::try_from(
-                                *primitive
-                                    .params
-                                    .get("w")
-                                    .and_then(|expr| expr.get_numeric())
-                                    .ok_or(Sky130ConvError::MissingParameter)?,
-                            )
-                            .map_err(|_| Sky130ConvError::InvalidParameter)?,
-                            l: i64::try_from(
-                                *primitive
-                                    .params
-                                    .get("l")
-                                    .and_then(|expr| expr.get_numeric())
-                                    .ok_or(Sky130ConvError::MissingParameter)?,
-                            )
-                            .map_err(|_| Sky130ConvError::InvalidParameter)?,
-                            nf: i64::try_from(
-                                primitive
-                                    .params
-                                    .get("nf")
-                                    .and_then(|expr| expr.get_numeric())
-                                    .copied()
-                                    .unwrap_or(dec!(1)),
-                            )
-                            .map_err(|_| Sky130ConvError::InvalidParameter)?,
-                        },
-                    }
-                } else {
-                    Sky130Primitive::RawInstance {
-                        cell: cell.clone(),
-                        ports: ports.clone(),
-                        params: primitive.params.clone(),
-                    }
-                })
-            }
+        match &primitive {
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => Ok(if let Some(kind) = MosKind::try_from_str(cell) {
+                Sky130Primitive::Mos {
+                    kind,
+                    params: MosParams {
+                        w: i64::try_from(
+                            *params
+                                .get("w")
+                                .and_then(|expr| expr.get_numeric())
+                                .ok_or(Sky130ConvError::MissingParameter)?,
+                        )
+                        .map_err(|_| Sky130ConvError::InvalidParameter)?,
+                        l: i64::try_from(
+                            *params
+                                .get("l")
+                                .and_then(|expr| expr.get_numeric())
+                                .ok_or(Sky130ConvError::MissingParameter)?,
+                        )
+                        .map_err(|_| Sky130ConvError::InvalidParameter)?,
+                        nf: i64::try_from(
+                            params
+                                .get("nf")
+                                .and_then(|expr| expr.get_numeric())
+                                .copied()
+                                .unwrap_or(dec!(1)),
+                        )
+                        .map_err(|_| Sky130ConvError::InvalidParameter)?,
+                    },
+                }
+            } else {
+                Sky130Primitive::RawInstance {
+                    cell: cell.clone(),
+                    ports: ports.clone(),
+                    params: params.clone(),
+                }
+            }),
             _ => Err(Sky130ConvError::UnsupportedPrimitive),
         }
     }
@@ -118,8 +117,8 @@ impl FromSchema<Spice> for Sky130Pdk {
         instance: &mut Instance,
         primitive: &<Spice as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        match &primitive.kind {
-            PrimitiveKind::RawInstance { cell, ports, .. } => {
+        match primitive {
+            Primitive::RawInstance { cell, ports, .. } => {
                 if MosKind::try_from_str(cell).is_some() {
                     let connections = instance.connections_mut();
                     for (port, mapped_port) in ports.iter().zip(["D", "G", "S", "B"]) {
@@ -144,15 +143,14 @@ impl FromSchema<Sky130Pdk> for Spice {
                 cell,
                 ports,
                 params,
-            } => Primitive {
-                kind: PrimitiveKind::RawInstance { cell, ports },
+            } => Primitive::RawInstance {
+                cell,
+                ports,
                 params,
             },
-            Sky130Primitive::Mos { kind, params } => Primitive {
-                kind: PrimitiveKind::RawInstance {
-                    cell: kind.open_subckt(),
-                    ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                },
+            Sky130Primitive::Mos { kind, params } => Primitive::RawInstance {
+                cell: kind.open_subckt(),
+                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: HashMap::from_iter([
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
                     (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
