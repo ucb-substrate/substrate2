@@ -10,6 +10,34 @@
     * substrate bumped from 0.6.0 to 0.6.1
     * spectre bumped from 0.6.0 to 0.6.1
 
+## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/sky130pdk-v0.6.1...sky130pdk-v0.7.0) (2023-11-02)
+
+
+### Features
+
+* **netlists:** use consistent ordering via indexmap ([#266](https://github.com/ucb-substrate/substrate2/issues/266)) ([f275c19](https://github.com/ucb-substrate/substrate2/commit/f275c19396ed4f7d255836822ff72b808f89cde7)), closes [#265](https://github.com/ucb-substrate/substrate2/issues/265)
+* **ngspice:** create ngspice simulator ([#274](https://github.com/ucb-substrate/substrate2/issues/274)) ([0205300](https://github.com/ucb-substrate/substrate2/commit/02053006bc26d0b3d9e1d380def89836d7921857))
+* **primitives:** revamp schematic primitives ([#291](https://github.com/ucb-substrate/substrate2/issues/291)) ([e5ba06a](https://github.com/ucb-substrate/substrate2/commit/e5ba06ab10008b72e78397ad70781caa6bc61791))
+* **refactor:** rename Has_ and Has_Data ([#282](https://github.com/ucb-substrate/substrate2/issues/282)) ([2018153](https://github.com/ucb-substrate/substrate2/commit/2018153686dd7ef3df0e10874db3c656ca245026))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate rust_decimal to 1.32 ([#296](https://github.com/ucb-substrate/substrate2/issues/296)) ([a2fe877](https://github.com/ucb-substrate/substrate2/commit/a2fe877d03d3f907f348d7711a2132194ae91034))
+* **deps:** update rust crate rust_decimal_macros to 1.32 ([#297](https://github.com/ucb-substrate/substrate2/issues/297)) ([5474cc8](https://github.com/ucb-substrate/substrate2/commit/5474cc8778b81c30b34fc7d146eec6e5e2532a26))
+* **mos:** flatten SKY130 PDK MOS devices ([#271](https://github.com/ucb-substrate/substrate2/issues/271)) ([f4ce572](https://github.com/ucb-substrate/substrate2/commit/f4ce572ded2b5d1942113d3002a8de6f0c57c0f9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.6.1 to 0.7.0
+    * scir bumped from 0.5.0 to 0.6.0
+    * spectre bumped from 0.6.1 to 0.7.0
+    * ngspice bumped from 0.0.0 to 0.1.0
+    * spice bumped from 0.4.0 to 0.5.0
+
 ## [0.6.0](https://github.com/substrate-labs/substrate2/compare/sky130pdk-v0.5.0...sky130pdk-v0.6.0) (2023-08-08)
 
 

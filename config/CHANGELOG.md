@@ -12,6 +12,20 @@
   * dependencies
     * cache bumped from 0.3.0 to 0.3.1
 
+## [0.2.4](https://github.com/ucb-substrate/substrate2/compare/config-v0.2.3...config-v0.2.4) (2023-11-02)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate toml_edit to 0.20 ([#307](https://github.com/ucb-substrate/substrate2/issues/307)) ([7681606](https://github.com/ucb-substrate/substrate2/commit/7681606c082c8f7b0ef98b114348c90f6ea83d16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.3.1 to 0.4.0
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/config-v0.1.0...config-v0.2.0) (2023-07-23)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.3.1...cache-v0.4.0) (2023-11-02)
+
+
+### Features
+
+* **primitives:** revamp schematic primitives ([#291](https://github.com/ucb-substrate/substrate2/issues/291)) ([e5ba06a](https://github.com/ucb-substrate/substrate2/commit/e5ba06ab10008b72e78397ad70781caa6bc61791))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate prost-types to 0.12 ([#300](https://github.com/ucb-substrate/substrate2/issues/300)) ([06ca94e](https://github.com/ucb-substrate/substrate2/commit/06ca94e903b6996876585f162f82ff8615025710))
+
 ## [0.3.1](https://github.com/substrate-labs/substrate2/compare/cache-v0.3.0...cache-v0.3.1) (2023-08-08)
 
 

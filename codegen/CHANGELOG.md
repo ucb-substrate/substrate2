@@ -6,6 +6,28 @@
   * dev-dependencies
     * substrate bumped from 0.1.0 to 0.1.1
 
+## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.6.1...codegen-v0.7.0) (2023-11-02)
+
+
+### Features
+
+* **impl-dispatch:** remove impl dispatch in favor of trait bounds ([#283](https://github.com/ucb-substrate/substrate2/issues/283)) ([d954115](https://github.com/ucb-substrate/substrate2/commit/d9541152db52aebde928e41c0d800453e906d62b))
+* **netlister:** reduce duplicate code between spectre and SPICE netlisters ([#261](https://github.com/ucb-substrate/substrate2/issues/261)) ([5ba3623](https://github.com/ucb-substrate/substrate2/commit/5ba36230e653e4dc77819c5c50b527311768cd83))
+* **primitives:** revamp schematic primitives ([#291](https://github.com/ucb-substrate/substrate2/issues/291)) ([e5ba06a](https://github.com/ucb-substrate/substrate2/commit/e5ba06ab10008b72e78397ad70781caa6bc61791))
+* **refactor:** rename Has_ and Has_Data ([#282](https://github.com/ucb-substrate/substrate2/issues/282)) ([2018153](https://github.com/ucb-substrate/substrate2/commit/2018153686dd7ef3df0e10874db3c656ca245026))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.3.1 to 0.4.0
+  * dev-dependencies
+    * substrate bumped from <=0.6.1 to <=0.7.0
+    * sky130pdk bumped from <=0.6.1 to <=0.7.0
+    * spectre bumped from <=0.6.1 to <=0.7.0
+    * spice bumped from <=0.4.0 to <=0.5.0
+
 ## [0.6.1](https://github.com/substrate-labs/substrate2/compare/codegen-v0.6.0...codegen-v0.6.1) (2023-08-08)
 
 

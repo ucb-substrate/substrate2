@@ -1,6 +1,6 @@
 [package]
 name = "scir"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 
 [dependencies]
@@ -15,7 +15,7 @@ itertools = "0.11.0"
 
 diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
 uniquify = { version = "0.2.0", path = "../uniquify", registry = "substrate" }
-enumify = { version = "0.0.0", path = "../enumify", registry = "substrate" }
+enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
