@@ -8,18 +8,28 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::blocks::Vsource;
 use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use nutlex::parser::Data;
-use scir::netlist::{Include, NetlistLibConversion};
-use scir::{Library, SignalPathTail};
+use scir::netlist::{
+    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
+    RenameGround,
+};
+use scir::schema::{FromSchema, NoSchema, NoSchemaError};
+use scir::{ChildId, Library, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
+use spice::Spice;
+use substrate::block::Block;
 use substrate::execute::Executor;
+use substrate::io::SchematicType;
+use substrate::schematic::primitives::{RawInstance, Resistor};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::spice::Netlister;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -27,13 +37,31 @@ pub mod error;
 pub(crate) mod templates;
 pub mod tran;
 
+/// ngspice primitives.
+#[derive(Debug, Clone)]
+pub enum Primitive {
+    /// A SPICE primitive.
+    Spice(spice::Primitive),
+    /// A voltage source with ports "1" and "2".
+    Vsource(Vsource),
+}
+
+impl Primitive {
+    fn ports(&self) -> Vec<ArcStr> {
+        match self {
+            Primitive::Spice(prim) => prim.ports(),
+            Primitive::Vsource(_) => vec!["1".into(), "2".into()],
+        }
+    }
+}
+
 /// Contents of a ngspice save statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum SaveStmt {
     /// A raw string to follow ".save".
     Raw(ArcStr),
     /// A SCIR signal path representing a node whose voltage should be saved.
-    ScirVoltage(scir::SignalPath),
+    ScirVoltage(SliceOnePath),
     /// A SCIR signal path representing a resistor whose current should be saved.
     ResistorCurrent(scir::InstancePath),
 }
@@ -50,7 +78,11 @@ impl SaveStmt {
         Self::from(path)
     }
 
-    pub(crate) fn to_save_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_save_string(
+        &self,
+        lib: &Library<Ngspice>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             SaveStmt::Raw(raw) => raw.clone(),
             SaveStmt::ScirVoltage(scir) => arcstr::format!(
@@ -58,12 +90,20 @@ impl SaveStmt {
                 node_voltage_path(lib, conv, &lib.simplify_path(scir.clone()),)
             ),
             SaveStmt::ResistorCurrent(scir) => {
-                arcstr::format!("@R.{}.R0[i]", instance_path(lib, conv, scir))
+                arcstr::format!(
+                    "@{}{}[i]",
+                    if scir.len() == 1 { "" } else { "R." },
+                    instance_path(lib, conv, scir)
+                )
             }
         }
     }
 
-    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_data_string(
+        &self,
+        lib: &Library<Ngspice>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             SaveStmt::Raw(raw) => raw.clone(),
             SaveStmt::ScirVoltage(_) => self.to_save_string(lib, conv),
@@ -80,7 +120,7 @@ pub enum ProbeStmt {
     /// A raw string to follow ".probe".
     Raw(ArcStr),
     /// A SCIR signal path representing a terminal whose current should be saved.
-    ScirCurrent(scir::SignalPath),
+    ScirCurrent(SliceOnePath),
 }
 
 impl<T: Into<ArcStr>> From<T> for ProbeStmt {
@@ -95,7 +135,11 @@ impl ProbeStmt {
         Self::from(path)
     }
 
-    pub(crate) fn to_probe_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_probe_string(
+        &self,
+        lib: &Library<Ngspice>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             ProbeStmt::Raw(raw) => raw.clone(),
             ProbeStmt::ScirCurrent(scir) => {
@@ -104,7 +148,11 @@ impl ProbeStmt {
         }
     }
 
-    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_data_string(
+        &self,
+        lib: &Library<Ngspice>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             ProbeStmt::Raw(raw) => raw.clone(),
             ProbeStmt::ScirCurrent(scir) => {
@@ -127,7 +175,7 @@ impl SavedData {
     pub(crate) fn netlist<W: Write>(
         &self,
         out: &mut W,
-        lib: &Library,
+        lib: &Library<Ngspice>,
         conv: &NetlistLibConversion,
     ) -> std::io::Result<()> {
         match self {
@@ -136,7 +184,11 @@ impl SavedData {
         }
     }
 
-    pub(crate) fn to_data_string(&self, lib: &Library, conv: &NetlistLibConversion) -> ArcStr {
+    pub(crate) fn to_data_string(
+        &self,
+        lib: &Library<Ngspice>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
         match self {
             Self::Save(save) => save.to_data_string(lib, conv),
             Self::Probe(probe) => probe.to_data_string(lib, conv),
@@ -302,7 +354,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
 impl Ngspice {
     fn simulate(
         &self,
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Ngspice>,
         options: Options,
         input: Vec<Input>,
     ) -> Result<Vec<Output>> {
@@ -319,7 +371,13 @@ impl Ngspice {
         includes.sort();
         saves.sort();
 
-        let netlister = Netlister::new(&ctx.lib.scir, &includes, &mut w);
+        let netlister = NetlisterInstance::new(
+            NetlistKind::Testbench(RenameGround::Yes(arcstr::literal!("0"))),
+            self,
+            &ctx.lib.scir,
+            &includes,
+            &mut w,
+        );
         let conv = netlister.export()?;
 
         writeln!(w)?;
@@ -393,7 +451,60 @@ impl Ngspice {
     }
 }
 
+impl scir::schema::Schema for Ngspice {
+    type Primitive = Primitive;
+}
+
+impl FromSchema<NoSchema> for Ngspice {
+    type Error = NoSchemaError;
+
+    fn convert_primitive(
+        _primitive: <NoSchema as Schema>::Primitive,
+    ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
+        Err(NoSchemaError)
+    }
+
+    fn convert_instance(
+        _instance: &mut scir::Instance,
+        _primitive: &<NoSchema as Schema>::Primitive,
+    ) -> std::result::Result<(), Self::Error> {
+        Err(NoSchemaError)
+    }
+}
+
+impl PrimitiveSchematic<Ngspice> for RawInstance {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
+            cell: self.cell.clone(),
+            ports: self.ports.clone(),
+            params: self.params.clone(),
+        }));
+        for (i, port) in self.ports.iter().enumerate() {
+            prim.connect(port, io[i]);
+        }
+        prim
+    }
+}
+
+impl PrimitiveSchematic<Ngspice> for Resistor {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
+            value: self.value(),
+        }));
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        prim
+    }
+}
+
 impl Simulator for Ngspice {
+    type Schema = Ngspice;
     type Input = Input;
     type Options = Options;
     type Output = Output;
@@ -401,7 +512,7 @@ impl Simulator for Ngspice {
 
     fn simulate_inputs(
         &self,
-        config: &substrate::simulation::SimulationContext,
+        config: &substrate::simulation::SimulationContext<Self>,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>> {
@@ -410,76 +521,90 @@ impl Simulator for Ngspice {
 }
 
 pub(crate) fn instance_path(
-    lib: &Library,
+    lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
     path: &scir::InstancePath,
 ) -> String {
-    lib.convert_instance_path(conv, path).0.join(".")
+    lib.convert_instance_path_with_conv(conv, path.clone())
+        .join(".")
 }
 
 pub(crate) fn node_voltage_path(
-    lib: &Library,
+    lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
-    path: &scir::SignalPath,
+    path: &SliceOnePath,
 ) -> String {
-    let scir::NamedSignalPath {
-        mut instances,
-        signal,
-        index,
-    } = lib.convert_signal_path(conv, path);
-    instances.push(signal);
-    let mut str_path = instances.join(".");
-    if let Some(index) = index {
-        str_path.push_str(&format!("[{}]", index));
-    }
-    str_path
+    lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+        if let Some(index) = index {
+            arcstr::format!("{}[{}]", name, index)
+        } else {
+            name.clone()
+        }
+    })
+    .join(".")
 }
 
 pub(crate) fn node_current_path(
-    lib: &Library,
+    lib: &Library<Ngspice>,
     conv: &NetlistLibConversion,
-    path: &scir::SignalPath,
+    path: &SliceOnePath,
     save: bool,
 ) -> String {
-    let scir::NamedSignalPath {
-        instances,
-        signal,
-        index,
-    } = lib.convert_signal_path(conv, path);
     assert_eq!(
-        instances.len(),
+        path.instances().len(),
         1,
         "ngspice only supports saving currents of top level instance terminals"
     );
-    let mut str_path = if save {
-        instances.join(".")
-    } else {
-        instances.0.join(".")
-    };
+    let annotated_path = lib.annotate_instance_path(path.instances().clone());
+    let named_path = lib.convert_instance_path_with_conv(conv, path.instances().clone());
+    let mut str_path = named_path.join(".");
     str_path.push(':');
-    match path.tail {
-        SignalPathTail::Scir { cell, slice } => {
-            let cell = lib.cell(cell);
+
+    match annotated_path.instances.last().unwrap().child {
+        Some(ChildId::Cell(id)) => {
+            let cell = lib.cell(id);
             if save {
-                let signal = cell.signal(slice.signal());
+                let signal = match path.tail() {
+                    SignalPathTail::Id(slice) => cell.signal(slice.signal()),
+                    SignalPathTail::Name(slice) => cell.signal_named(slice.signal()),
+                };
                 let idx = signal.port.expect("signal is not a valid terminal");
-                str_path.push_str(&format!("{}", idx + slice.index().unwrap_or_default() + 1));
+                str_path.push_str(&format!(
+                    "{}",
+                    idx + path.tail().index().unwrap_or_default() + 1
+                ));
             } else {
-                str_path.push_str(&signal);
-                if let Some(index) = index {
+                let name = match path.tail() {
+                    SignalPathTail::Id(slice) => cell.signal(slice.signal()).name.clone(),
+                    SignalPathTail::Name(slice) => slice.signal().clone(),
+                };
+                str_path.push_str(&name);
+                if let Some(index) = path.tail().index() {
                     str_path.push_str(&format!("[{}]", index));
                 }
             }
         }
-        _ => {
-            // FIXME: This doesn't work since the port index is required for saving,
-            // but the name is required for recovering.
-            str_path.push_str(&signal);
-            if let Some(index) = index {
-                str_path.push_str(&format!("[{}]", index));
+        Some(ChildId::Primitive(id)) => {
+            let prim = lib.primitive(id);
+            let tail = path.tail().as_ref().unwrap_name();
+            if save {
+                str_path.push_str(&format!(
+                    "{}",
+                    prim.ports()
+                        .iter()
+                        .position(|x| x == tail.signal())
+                        .unwrap()
+                        + 1
+                ));
+            } else {
+                str_path.push_str(&format!("n{}", tail.signal().to_lowercase()));
             }
         }
+        None => {
+            panic!("cannot save or recover paths that do not exist")
+        }
     }
+
     str_path
 }
 
@@ -533,5 +658,87 @@ impl Tran {
             write!(out, "{start}")?;
         }
         Ok(())
+    }
+}
+
+impl HasSpiceLikeNetlist for Ngspice {
+    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
+        writeln!(out, "* Substrate SPICE library")?;
+        writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
+        Ok(())
+    }
+
+    fn write_include<W: Write>(
+        &self,
+        out: &mut W,
+        include: &scir::netlist::Include,
+    ) -> std::io::Result<()> {
+        Spice.write_include(out, include)
+    }
+
+    fn write_start_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        ports: &[&SignalInfo],
+    ) -> std::io::Result<()> {
+        Spice.write_start_subckt(out, name, ports)
+    }
+
+    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
+        Spice.write_end_subckt(out, name)
+    }
+
+    fn write_instance<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        connections: Vec<ArcStr>,
+        child: &ArcStr,
+    ) -> std::io::Result<ArcStr> {
+        Spice.write_instance(out, name, connections, child)
+    }
+
+    fn write_primitive_inst<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        mut connections: HashMap<ArcStr, Vec<ArcStr>>,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<ArcStr> {
+        match primitive {
+            Primitive::Spice(spice_primitive) => {
+                Spice.write_primitive_inst(out, name, connections, spice_primitive)
+            }
+            Primitive::Vsource(vsource) => {
+                let name = arcstr::format!("V{}", name);
+                write!(out, "{}", name)?;
+                for port in ["P", "N"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                match vsource {
+                    Vsource::Dc(dc) => {
+                        write!(out, " DC {}", dc)?;
+                    }
+                    Vsource::Pulse(pulse) => {
+                        write!(
+                            out,
+                            "PULSE({} {} {} {} {} {} {} {})",
+                            pulse.val0,
+                            pulse.val1,
+                            pulse.delay.unwrap_or_default(),
+                            pulse.rise.unwrap_or_default(),
+                            pulse.fall.unwrap_or_default(),
+                            pulse.width.unwrap_or_default(),
+                            pulse.period.unwrap_or_default(),
+                            pulse.num_pulses.unwrap_or_default(),
+                        )?;
+                    }
+                }
+                Ok(name)
+            }
+        }
     }
 }

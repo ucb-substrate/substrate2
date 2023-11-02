@@ -1,12 +1,14 @@
 use super::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use substrate::block;
 use substrate::block::Block;
-use substrate::pdk::Pdk;
-use substrate::schematic::{CellBuilder, ExportsSchematicData, Instance, Schematic, SchematicData};
+use substrate::io::SchematicType;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
-#[substrate(io = "VdividerIo", flatten)]
+#[substrate(io = "VdividerIo", kind = "Cell")]
 pub struct Vdivider {
     pub r1: Resistor,
     pub r2: Resistor,
@@ -28,6 +30,7 @@ pub struct VdividerArray {
 }
 
 impl Block for VdividerArray {
+    type Kind = block::Cell;
     type Io = VdividerArrayIo;
 
     fn id() -> ArcStr {
@@ -45,28 +48,31 @@ impl Block for VdividerArray {
     }
 }
 
-impl ExportsSchematicData for Vdivider {
-    type Data = VdividerData;
+impl ExportsNestedData for Vdivider {
+    type NestedData = VdividerData;
 }
 
-impl ExportsSchematicData for VdividerArray {
-    type Data = Vec<Instance<Vdivider>>;
+impl ExportsNestedData for VdividerArray {
+    type NestedData = Vec<Instance<Vdivider>>;
 }
 
-#[derive(SchematicData)]
+#[derive(NestedData)]
 pub struct VdividerData {
-    #[substrate(nested)]
     pub r1: Instance<Resistor>,
-    #[substrate(nested)]
     pub r2: Instance<Resistor>,
 }
 
-impl<PDK: Pdk> Schematic<PDK> for Vdivider {
+impl<S: Schema> Schematic<S> for Vdivider
+where
+    Resistor: PrimitiveSchematic<S>,
+{
     fn schematic(
         &self,
-        io: &VdividerIoSchematic,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<S>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        cell.flatten();
+
         let r1 = cell.instantiate(self.r1);
         let r2 = cell.instantiate(self.r2);
 
@@ -78,12 +84,15 @@ impl<PDK: Pdk> Schematic<PDK> for Vdivider {
     }
 }
 
-impl<PDK: Pdk> Schematic<PDK> for VdividerArray {
+impl<S: Schema> Schematic<S> for VdividerArray
+where
+    Vdivider: Schematic<S>,
+{
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<S>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut vdividers = Vec::new();
 
         for (i, vdivider) in self.vdividers.iter().enumerate() {

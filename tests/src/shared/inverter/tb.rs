@@ -4,24 +4,24 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130CommercialPdk;
+use sky130pdk::Sky130Pdk;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::tran::Tran;
 use spectre::{Options, Spectre};
 use substrate::block::Block;
-use substrate::context::Context;
-use substrate::io::TestbenchIo;
+use substrate::context::PdkContext;
 use substrate::io::{Node, Signal};
+use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::ExportsSchematicData;
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::HasSimData;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{HasSimSchematic, Testbench};
+use substrate::simulation::Testbench;
 
 use super::Inverter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
+#[substrate(io = "TestbenchIo", kind = "Cell")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,
@@ -34,26 +34,27 @@ impl InverterTb {
     }
 }
 
-impl ExportsSchematicData for InverterTb {
-    type Data = Node;
+impl ExportsNestedData for InverterTb {
+    type NestedData = Node;
 }
 
-impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
+impl Schematic<Spectre> for InverterTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        let inv = cell.instantiate(self.dut);
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut sub_cell = cell.sub_builder::<Sky130Pdk>();
+        let inv = sub_cell.instantiate(self.dut);
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
 
-        let vddsrc = cell.instantiate_tb(Vsource::dc(self.pvt.voltage));
+        let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate_tb(Vsource::pulse(Pulse {
+        let vin = cell.instantiate(Vsource::pulse(Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
@@ -79,11 +80,11 @@ pub struct InverterTbData {
     pub tf: f64,
 }
 
-impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
+impl Testbench<Sky130Pdk, Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(
         &self,
-        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre, Self>,
+        sim: substrate::simulation::SimController<Sky130Pdk, Spectre, Self>,
     ) -> Self::Output {
         let output = sim
             .simulate_default(
@@ -132,11 +133,7 @@ pub struct InverterDesign {
 }
 
 impl InverterDesign {
-    pub fn run(
-        &self,
-        ctx: &mut Context<Sky130CommercialPdk>,
-        work_dir: impl AsRef<Path>,
-    ) -> Inverter {
+    pub fn run(&self, ctx: &mut PdkContext<Sky130Pdk>, work_dir: impl AsRef<Path>) -> Inverter {
         let work_dir = work_dir.as_ref();
         let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
 

@@ -19,6 +19,7 @@ serde = { version = "1", features = ["derive"] }
 substrate = { version = "<=0.6.1", registry = "substrate", path = "../../substrate" }
 sky130pdk = { version = "<=0.6.1", registry = "substrate", path = "../../pdks/sky130pdk" }
 spectre = { version = "<=0.6.1", registry = "substrate", path = "../../tools/spectre" }
+spice = { version = "<=0.4.0", registry = "substrate", path = "../../libs/spice" }
 
 [lib]
 proc-macro = true

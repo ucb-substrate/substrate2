@@ -183,7 +183,7 @@ impl Display for Cause {
     }
 }
 
-impl LibraryBuilder {
+impl<S: Schema> LibraryBuilder<S> {
     /// Perform driver analysis on this library.
     pub fn validate_drivers(&self) -> IssueSet<DriverIssue> {
         let _guard = span!(Level::INFO, "performing driver analysis on SCIR Library").entered();
@@ -204,12 +204,6 @@ impl LibraryBuilder {
             span!(Level::INFO, "validating SCIR cell drivers", cell.id = %id, cell.name = %cell.name)
                 .entered();
 
-        // Cannot validate blackbox cells.
-        if cell.contents().is_opaque() {
-            return;
-        }
-        let contents = cell.contents().as_ref().unwrap_clear();
-
         let mut net_states: HashMap<SignalId, Vec<NetState>> =
             HashMap::from_iter(cell.signals().map(|(id, info)| {
                 let len = info.width.unwrap_or(1);
@@ -226,21 +220,8 @@ impl LibraryBuilder {
             }
         }
 
-        for (_, instance) in contents.instances.iter() {
+        for (_, instance) in cell.instances.iter() {
             analyze_instance(self, &mut net_states, instance);
-        }
-
-        for (_, device) in contents.primitives.iter() {
-            for slice in device.nodes() {
-                let states = net_states.get_mut(&slice.signal()).unwrap();
-                if let Some(range) = slice.range() {
-                    for idx in range {
-                        update_net_state(&mut states[idx], Direction::InOut);
-                    }
-                } else {
-                    update_net_state(&mut states[0], Direction::InOut);
-                }
-            }
         }
 
         for (sig, list) in net_states.iter() {
@@ -259,12 +240,15 @@ impl LibraryBuilder {
     }
 }
 
-fn analyze_instance(
-    lib: &LibraryBuilder,
+fn analyze_instance<S: Schema>(
+    lib: &LibraryBuilder<S>,
     net_states: &mut HashMap<SignalId, Vec<NetState>>,
     inst: &Instance,
 ) {
-    let cell = lib.cell(inst.cell());
+    if inst.child().is_primitive() {
+        return;
+    }
+    let cell = lib.cell(inst.child().unwrap_cell());
     for (port, conn) in inst.connections() {
         let dir = cell.port(port).direction;
         for part in conn.parts() {
@@ -285,23 +269,5 @@ fn update_net_state(state: &mut NetState, dir: Direction) {
         Direction::Output => state.drivers += 1,
         Direction::Input => state.taps += 1,
         Direction::InOut => state.inouts += 1,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::*;
-    use test_log::test;
-
-    #[test]
-    fn duplicate_cell_names() {
-        let c1 = Cell::new_whitebox("duplicate_cell_name");
-        let mut c2 = Cell::new_blackbox("duplicate_cell_name");
-        c2.add_blackbox_elem("* contents of cell");
-        let mut lib = LibraryBuilder::new("duplicate_cell_names");
-        lib.add_cell(c1);
-        lib.add_cell(c2);
-        let issues = lib.validate();
-        assert!(issues.has_error() || issues.has_warning());
     }
 }

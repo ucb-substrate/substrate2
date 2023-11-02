@@ -1,5 +1,5 @@
 use substrate::{
-    context::Context,
+    context::PdkContext,
     pdk::layers::{GdsLayerSpec, Layer},
     schematic::conv::RawLib,
 };
@@ -7,8 +7,8 @@ use substrate::{
 use crate::shared::pdk::{ExamplePdkA, NmosA};
 
 #[test]
-fn test_pdk_layers() {
-    let ctx = Context::new(ExamplePdkA);
+fn pdk_layers() {
+    let ctx = PdkContext::new(ExamplePdkA);
 
     assert_eq!(
         ctx.layers.met1a.drawing.info().gds,
@@ -23,18 +23,14 @@ fn test_pdk_layers() {
 
 #[test]
 fn export_nmos_a() {
-    let ctx = Context::new(ExamplePdkA);
-    let RawLib { scir, conv: _ } = ctx.export_scir(NmosA { w: 1_200, l: 150 }).unwrap();
-    assert_eq!(scir.cells().count(), 1);
+    let ctx = PdkContext::new(ExamplePdkA);
+    let RawLib { scir, conv: _ } = ctx
+        .export_scir::<ExamplePdkA, _>(NmosA { w: 1_200, l: 150 })
+        .unwrap();
+    assert_eq!(scir.primitives().count(), 1);
     let issues = scir.validate();
     println!("Library:\n{:#?}", scir);
     println!("Issues = {:#?}", issues);
     assert_eq!(issues.num_errors(), 0);
     assert_eq!(issues.num_warnings(), 0);
-
-    let mos = scir.cell_named("nmos_a_w1200_l150");
-    assert_eq!(mos.ports().count(), 4);
-    let contents = mos.contents().as_ref().unwrap_clear();
-    assert_eq!(contents.primitives().count(), 1);
-    assert_eq!(contents.instances().count(), 0);
 }

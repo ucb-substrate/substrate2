@@ -1,14 +1,11 @@
 //! ngspice-specific blocks for use in testbenches.
 
+use crate::{Ngspice, Primitive};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::TwoTerminalIo;
-use substrate::pdk::Pdk;
-use substrate::schematic::{BlackboxContents, ExportsSchematicData};
-use substrate::simulation::HasSimSchematic;
-
-use crate::Ngspice;
+use substrate::io::{SchematicType, TwoTerminalIo};
+use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -33,7 +30,7 @@ pub struct Pulse {
 
 /// A voltage source.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo")]
+#[substrate(io = "TwoTerminalIo", kind = "Primitive")]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
@@ -53,66 +50,14 @@ impl Vsource {
     }
 }
 
-impl ExportsSchematicData for Vsource {
-    type Data = ();
-}
-
-impl<PDK: Pdk> HasSimSchematic<PDK, Ngspice> for Vsource {
+impl PrimitiveSchematic<Ngspice> for Vsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Ngspice, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        let mut contents = BlackboxContents::new();
-        contents.push("V0");
-        contents.push(io.p);
-        contents.push(io.n);
-
-        match self {
-            Self::Dc(dc) => {
-                contents.push("DC");
-                contents.push(format!("{}", dc));
-            }
-            Self::Pulse(pulse) => {
-                contents.push(format!(
-                    "PULSE({} {} {} {} {} {} {} {})",
-                    pulse.val0,
-                    pulse.val1,
-                    pulse.delay.unwrap_or_default(),
-                    pulse.rise.unwrap_or_default(),
-                    pulse.fall.unwrap_or_default(),
-                    pulse.width.unwrap_or_default(),
-                    pulse.period.unwrap_or_default(),
-                    pulse.num_pulses.unwrap_or_default(),
-                ));
-            }
-        };
-        cell.set_blackbox(contents);
-        Ok(())
-    }
-}
-
-/// A resistor.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo")]
-pub struct Resistor(pub Decimal);
-
-impl ExportsSchematicData for Resistor {
-    type Data = ();
-}
-
-impl<PDK: Pdk> HasSimSchematic<PDK, Ngspice> for Resistor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<PDK, Ngspice, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        let mut contents = BlackboxContents::new();
-        contents.push("R0");
-        contents.push(io.p);
-        contents.push(io.n);
-        contents.push(format!("{}", self.0));
-        cell.set_blackbox(contents);
-        Ok(())
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+    ) -> PrimitiveBinding<Ngspice> {
+        let mut prim = PrimitiveBinding::new(Primitive::Vsource(*self));
+        prim.connect("P", io.p);
+        prim.connect("N", io.n);
+        prim
     }
 }

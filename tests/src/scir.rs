@@ -1,10 +1,11 @@
 use crate::netlist::vdivider;
+use spice::Spice;
 
 #[test]
 fn merge_scir_libraries() {
-    let mut lib1 = (*vdivider()).clone();
-    let lib2 = vdivider();
-    let mapping = lib1.merge(&lib2);
+    let mut lib1 = (*vdivider::<Spice>()).clone();
+    let lib2 = vdivider::<Spice>();
+    let mapping = lib1.merge(lib2.clone().into_builder());
 
     let preserved_id = lib1.cell_id_named("vdivider");
     let old_id = lib2.cell_id_named("vdivider");
@@ -14,7 +15,7 @@ fn merge_scir_libraries() {
     assert_eq!(issues.num_warnings(), 0);
     assert_eq!(issues.num_errors(), 0);
 
-    assert_eq!(lib1.cells().count(), 4);
+    assert_eq!(lib1.cells().count(), 2);
 
     let new_name = lib1.cell(new_id).name();
 

@@ -33,9 +33,8 @@ mod impls;
 // BEGIN TRAITS
 
 /// A trait implemented by block input/output interfaces.
-pub trait Io: Directed + SchematicType + LayoutType {
-    // TODO
-}
+pub trait Io: Directed + SchematicType + LayoutType {}
+impl<T: Directed + SchematicType + LayoutType> Io for T {}
 
 /// Indicates that a hardware type specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}
@@ -295,10 +294,42 @@ impl From<&NestedNode> for NodePath {
 }
 
 /// A terminal of an instance.
-#[derive(Clone, Debug)]
-pub struct Terminal(NestedNode);
+#[derive(Copy, Clone, Debug)]
+pub struct Terminal {
+    cell_id: CellId,
+    cell_node: Node,
+    instance_id: InstanceId,
+    instance_node: Node,
+}
+
+impl Connect<Node> for Terminal {}
+impl Connect<&Node> for Terminal {}
+impl Connect<Node> for &Terminal {}
+impl Connect<&Node> for &Terminal {}
+impl Connect<Terminal> for Node {}
+impl Connect<&Terminal> for Node {}
+impl Connect<Terminal> for &Node {}
+impl Connect<&Terminal> for &Node {}
 
 impl Deref for Terminal {
+    type Target = Node;
+
+    fn deref(&self) -> &Self::Target {
+        &self.instance_node
+    }
+}
+
+impl AsRef<Node> for Terminal {
+    fn as_ref(&self) -> &Node {
+        self
+    }
+}
+
+/// A nested instance terminal.
+#[derive(Clone, Debug)]
+pub struct NestedTerminal(NestedNode);
+
+impl Deref for NestedTerminal {
     type Target = NestedNode;
 
     fn deref(&self) -> &Self::Target {
@@ -306,9 +337,16 @@ impl Deref for Terminal {
     }
 }
 
-impl AsRef<NestedNode> for Terminal {
+impl AsRef<NestedNode> for NestedTerminal {
     fn as_ref(&self) -> &NestedNode {
         self
+    }
+}
+
+impl NestedTerminal {
+    /// Returns the path to this [`NestedTerminal`].
+    pub fn path(&self) -> TerminalPath {
+        TerminalPath(self.0.path())
     }
 }
 
@@ -330,21 +368,14 @@ impl AsRef<NodePath> for TerminalPath {
     }
 }
 
-impl Terminal {
-    /// Returns the path to this terminal.
-    pub fn path(&self) -> TerminalPath {
-        TerminalPath(self.0.path())
-    }
-}
-
-impl From<Terminal> for TerminalPath {
-    fn from(value: Terminal) -> Self {
+impl From<NestedTerminal> for TerminalPath {
+    fn from(value: NestedTerminal) -> Self {
         value.path()
     }
 }
 
-impl From<&Terminal> for TerminalPath {
-    fn from(value: &Terminal) -> Self {
+impl From<&NestedTerminal> for TerminalPath {
+    fn from(value: &NestedTerminal) -> Self {
         value.path()
     }
 }
@@ -354,42 +385,45 @@ impl From<&Terminal> for TerminalPath {
 /// Stores a path of instances up to each terminal using an [`InstancePath`].
 pub trait HasTerminalView {
     /// A view of the nested terminals.
-    type TerminalView<'a>
-    where
-        Self: 'a;
+    type TerminalView: HasNestedView + Flatten<Node> + Send + Sync;
 
-    /// Creates a terminal view of the object given a parent node.
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_>;
+    /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView;
 }
 
 impl<T> HasTerminalView for &T
 where
     T: HasTerminalView,
 {
-    type TerminalView<'a>
-    = T::TerminalView<'a> where Self: 'a;
+    type TerminalView = T::TerminalView;
 
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
-        (*self).terminal_view(parent)
-    }
-}
-
-// TODO: Potentially use lazy evaluation instead of cloning.
-impl<T: HasTerminalView> HasTerminalView for Vec<T> {
-    type TerminalView<'a> = Vec<TerminalView<'a, T>> where T: 'a;
-
-    fn terminal_view(&self, parent: &InstancePath) -> Self::TerminalView<'_> {
-        self.iter().map(|elem| elem.terminal_view(parent)).collect()
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        HasTerminalView::terminal_view(cell, *cell_io, instance, *instance_io)
     }
 }
 
 /// The associated terminal view of an object.
-pub type TerminalView<'a, T> = <T as HasTerminalView>::TerminalView<'a>;
+pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
 
 impl HasTerminalView for () {
-    type TerminalView<'a> = ();
-
-    fn terminal_view(&self, _parent: &InstancePath) -> Self::TerminalView<'_> {}
+    type TerminalView = ();
+    fn terminal_view(
+        _cell: CellId,
+        _cell_io: &Self,
+        _instance: InstanceId,
+        _instance_io: &Self,
+    ) -> Self::TerminalView {
+    }
 }
 
 /// The priority a node has in determining the name of a merged node.
@@ -460,6 +494,7 @@ impl ena::unify::UnifyKey for Node {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct NodeContext {
     uf: NodeUf,
     connections_data: Vec<Option<NodeConnectionsData>>,
@@ -941,7 +976,6 @@ pub trait Mos: Block<Io = MosIo> {}
 impl<T> Mos for T where T: Block<Io = MosIo> {}
 
 /// The interface to which simulation testbenches should conform.
-/// TODO: Add trait bound to ensure testbenches have this IO, need to refactor crates.
 #[derive(Debug, Default, Clone, Io)]
 pub struct TestbenchIo {
     /// The global ground net.

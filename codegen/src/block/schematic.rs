@@ -1,8 +1,7 @@
 use darling::ast::{Fields, Style};
-use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
+use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse_quote;
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
@@ -93,7 +92,7 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
         ref attrs,
     } = field;
     let substrate = substrate_ident();
-    let field_ty = quote!(#substrate::schematic::NestedView<'__substrate_derive_lifetime, #ty>);
+    let field_ty = quote!(#substrate::schematic::NestedView<#ty>);
 
     match ident {
         Some(ident) => {
@@ -147,12 +146,8 @@ impl ToTokens for DataInputReceiver {
 
         let mut generics = generics.clone();
         add_trait_bounds(&mut generics, quote!(#substrate::schematic::HasNestedView));
-        let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
-        let mut ref_generics = generics.clone();
-        ref_generics.params.push(lifetime.clone());
 
         let (imp, ty, wher) = generics.split_for_impl();
-        let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
         let transformed_ident = format_ident!("{}NestedView", ident);
 
         let expanded = match data {
@@ -174,15 +169,15 @@ impl ToTokens for DataInputReceiver {
 
                 quote! {
                     #(#attrs)*
-                    #vis struct #transformed_ident #ref_generics #body
+                    #vis struct #transformed_ident #generics #body
 
                     impl #imp #substrate::schematic::HasNestedView for #ident #ty #wher {
-                        type NestedView<#lifetime> = #transformed_ident #ref_ty;
+                        type NestedView = #transformed_ident #ty;
 
-                        fn nested_view<#lifetime>(
-                            &#lifetime self,
+                        fn nested_view(
+                            &self,
                             __substrate_derive_parent: &#substrate::schematic::InstancePath,
-                        ) -> Self::NestedView<#lifetime> {
+                        ) -> Self::NestedView {
                             #retval
                         }
                     }
@@ -195,16 +190,16 @@ impl ToTokens for DataInputReceiver {
                     .map(|v| transform_variant_match_arm(transformed_ident.clone(), v));
                 quote! {
                     #(#attrs)*
-                    #vis enum #transformed_ident #ref_generics {
+                    #vis enum #transformed_ident #generics {
                         #( #decls )*
                     }
                     impl #imp #substrate::schematic::HasNestedView for #ident #ty #wher {
-                        type NestedView<#lifetime> = #transformed_ident #ref_ty;
+                        type NestedView = #transformed_ident #ty;
 
-                        fn nested_view<#lifetime>(
-                            &#lifetime self,
+                        fn nested_view(
+                            &self,
                             __substrate_derive_parent: &#substrate::schematic::InstancePath,
-                        ) -> Self::NestedView<#lifetime> {
+                        ) -> Self::NestedView {
                             match self {
                                 #(#arms)*
                             }
@@ -212,128 +207,6 @@ impl ToTokens for DataInputReceiver {
                     }
                 }
             }
-        };
-
-        tokens.extend(quote! {
-            #expanded
-        });
-    }
-}
-
-#[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(any))]
-pub struct HasSchematicInputReceiver {
-    ident: syn::Ident,
-    generics: syn::Generics,
-    #[allow(unused)]
-    io: darling::util::Ignored,
-    #[darling(multiple)]
-    #[allow(unused)]
-    layout: Vec<darling::util::Ignored>,
-    #[darling(multiple)]
-    schematic: Vec<SchematicHardMacro>,
-    #[darling(default)]
-    #[allow(unused)]
-    flatten: darling::util::Ignored,
-}
-
-#[derive(Debug, FromMeta)]
-pub struct SchematicHardMacro {
-    source: syn::Expr,
-    fmt: darling::util::SpannedValue<String>,
-    pdk: syn::Type,
-    name: String,
-}
-
-impl ToTokens for HasSchematicInputReceiver {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let substrate = substrate_ident();
-        let HasSchematicInputReceiver {
-            ref ident,
-            ref generics,
-            ref schematic,
-            ..
-        } = *self;
-
-        let (imp, ty, wher) = generics.split_for_impl();
-
-        let has_schematic = quote! {
-            impl #imp #substrate::schematic::ExportsSchematicData for #ident #ty #wher {
-                type Data = ();
-            }
-        };
-
-        let has_schematic_impls = schematic.iter().map(|schematic| {
-            let SchematicHardMacro { source, fmt, pdk, name } = schematic;
-
-            let parsed_to_scir = quote! {
-                let mut conv = #substrate::spice::parser::conv::ScirConverter::new(::std::stringify!(#ident), &parsed.ast);
-
-                for prim in cell.ctx.pdk.schematic_primitives() {
-                    conv.blackbox(#substrate::arcstr::Substr::full(prim));
-                }
-
-                let lib = ::std::sync::Arc::new(conv.convert().unwrap());
-                let cell_id = lib.cell_id_named(#name);
-
-                (lib, cell_id)
-            };
-
-            // The SCIR token stream must create two variables:
-            // * lib, of type Arc<scir::Library>
-            // * cell_id, of type scir::CellId
-            // The token stream has access to source.
-            let scir = match fmt.as_str() {
-                "spice" => quote! {
-                    let parsed = #substrate::spice::parser::Parser::parse_file(source).unwrap();
-                    #parsed_to_scir
-                },
-                "inline-spice" | "inline_spice" => quote! {
-                    let parsed = #substrate::spice::parser::Parser::parse(source).unwrap();
-                    #parsed_to_scir
-                },
-                fmtstr => proc_macro_error::abort!(fmt.span(), "unsupported schematic hard macro format: `{}`", fmtstr),
-            };
-
-            quote! {
-                impl #imp #substrate::schematic::Schematic<#pdk> for #ident #ty #wher {
-                    fn schematic(
-                        &self,
-                        io: &<<Self as #substrate::block::Block>::Io as #substrate::io::SchematicType>::Bundle,
-                        cell: &mut #substrate::schematic::CellBuilder<#pdk, Self>,
-                    ) -> #substrate::error::Result<Self::Data> {
-                        use #substrate::pdk::Pdk;
-
-                        let source = {
-                            #source
-                        };
-
-                        let (lib, cell_id) = { #scir };
-
-                        use #substrate::io::StructData;
-                        let connections: ::std::collections::HashMap<#substrate::arcstr::ArcStr, ::std::vec::Vec<#substrate::io::Node>> =
-                            ::std::collections::HashMap::from_iter(io.fields().into_iter().map(|f| {
-                                let nodes = io.field_nodes(&f).unwrap();
-                                (f, nodes)
-                            }));
-
-                        cell.add_primitive(#substrate::schematic::PrimitiveDevice::new(
-                            #substrate::schematic::PrimitiveDeviceKind::ScirInstance {
-                                lib,
-                                cell: cell_id,
-                                connections,
-                            }
-                        ));
-                        Ok(())
-                    }
-                }
-            }
-        });
-
-        let expanded = quote! {
-            #has_schematic
-
-            #(#has_schematic_impls)*
         };
 
         tokens.extend(quote! {

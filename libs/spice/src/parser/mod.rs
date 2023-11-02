@@ -5,12 +5,13 @@ pub mod conv;
 mod tests;
 
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
+use crate::Spice;
 use arcstr::ArcStr;
-use indexmap::IndexMap;
 use nom::bytes::complete::{take_till, take_while};
 use nom::error::ErrorKind;
 use nom::{IResult, InputTakeAtPosition};
@@ -372,7 +373,7 @@ pub struct Mos {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Params {
     /// A map of key-value pairs.
-    values: IndexMap<Substr, Substr>,
+    values: HashMap<Substr, Substr>,
 }
 
 #[inline]
@@ -762,8 +763,8 @@ impl Display for TokenizerError {
 
 impl ParsedSpice {
     /// Convert this SPICE netlist to a SCIR library.
-    pub fn to_scir(&self) -> conv::ConvResult<scir::Library> {
-        let conv = ScirConverter::new(self.name.clone(), &self.ast);
+    pub fn to_scir(&self) -> conv::ConvResult<scir::Library<Spice>> {
+        let conv = ScirConverter::new(&self.ast);
         conv.convert()
     }
 }

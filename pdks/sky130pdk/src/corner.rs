@@ -1,10 +1,6 @@
 //! An enumeration of supported corners.
-use ngspice::Ngspice;
-use serde::{Deserialize, Serialize};
-use spectre::Spectre;
-use substrate::pdk::corner::InstallCorner;
 
-use crate::{Sky130CommercialPdk, Sky130OpenPdk};
+use serde::{Deserialize, Serialize};
 
 /// An enumeration of supported corners.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -73,7 +69,8 @@ impl Sky130Corners {
 }
 
 impl Sky130Corner {
-    fn name(&self) -> arcstr::ArcStr {
+    /// Returns the name of the corner.
+    pub fn name(&self) -> arcstr::ArcStr {
         match *self {
             Self::Tt => arcstr::literal!("tt"),
             Self::Fs => arcstr::literal!("fs"),
@@ -81,32 +78,5 @@ impl Sky130Corner {
             Self::Ff => arcstr::literal!("ff"),
             Self::Ss => arcstr::literal!("ss"),
         }
-    }
-}
-
-impl InstallCorner<Spectre> for Sky130CommercialPdk {
-    fn install_corner(
-        &self,
-        corner: &<Self as substrate::pdk::Pdk>::Corner,
-        opts: &mut <Spectre as substrate::simulation::Simulator>::Options,
-    ) {
-        opts.include(self.root_dir.join(format!(
-            "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
-            corner.name()
-        )));
-    }
-}
-
-impl InstallCorner<Ngspice> for Sky130OpenPdk {
-    fn install_corner(
-        &self,
-        corner: &<Self as substrate::pdk::Pdk>::Corner,
-        opts: &mut <Ngspice as substrate::simulation::Simulator>::Options,
-    ) {
-        opts.include_section(
-            self.root_dir
-                .join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice"),
-            corner.name().clone(),
-        );
     }
 }

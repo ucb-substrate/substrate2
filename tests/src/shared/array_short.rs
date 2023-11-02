@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
 
-use substrate::pdk::Pdk;
-use substrate::{block::Block, schematic::Schematic};
+use substrate::schematic::schema::Schema;
+use substrate::{block, block::Block, schematic::Schematic};
 
 #[derive(Debug, Clone, Io)]
 pub struct ArrayIo {
@@ -19,6 +19,7 @@ pub struct ArrayShort {
 }
 
 impl Block for ArrayShort {
+    type Kind = block::Cell;
     type Io = ArrayIo;
 
     fn id() -> ArcStr {
@@ -35,16 +36,16 @@ impl Block for ArrayShort {
     }
 }
 
-impl ExportsSchematicData for ArrayShort {
-    type Data = ();
+impl ExportsNestedData for ArrayShort {
+    type NestedData = ();
 }
 
-impl<PDK: Pdk> Schematic<PDK> for ArrayShort {
+impl<S: Schema> Schematic<S> for ArrayShort {
     fn schematic(
         &self,
-        io: &ArrayIoSchematic,
-        cell: &mut CellBuilder<PDK, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<S>,
+    ) -> substrate::error::Result<Self::NestedData> {
         for i in 0..self.width {
             cell.connect(io.inputs[i], io.out)
         }
@@ -56,12 +57,13 @@ impl<PDK: Pdk> Schematic<PDK> for ArrayShort {
 mod tests {
     use super::*;
     use crate::shared::pdk::sky130_open_ctx;
+    use sky130pdk::Sky130Pdk;
     use test_log::test;
 
     #[test]
     #[should_panic]
     fn panics_when_shorting_ios() {
         let ctx = sky130_open_ctx();
-        let _ = ctx.export_scir(ArrayShort { width: 5 });
+        let _ = ctx.export_scir::<Sky130Pdk, _>(ArrayShort { width: 5 });
     }
 }

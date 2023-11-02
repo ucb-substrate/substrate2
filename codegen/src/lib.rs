@@ -8,7 +8,7 @@ mod sim;
 
 use darling::FromDeriveInput;
 use examples::get_snippets;
-use io::{io_core_impl, io_impl, layout_io, schematic_io, IoInputReceiver};
+use io::{io_core_impl, layout_io, schematic_io, IoInputReceiver};
 use pdk::layers::{
     DerivedLayerFamilyInputReceiver, DerivedLayersInputReceiver, LayerFamilyInputReceiver,
     LayerInputReceiver, LayersInputReceiver,
@@ -153,9 +153,7 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let schematic = schematic_io(&input);
     let layout = layout_io(&input);
     let io_core_impl = io_core_impl(&input);
-    let io_impl = io_impl(&input);
     quote!(
-        #io_impl
         #io_core_impl
         #schematic
         #layout
@@ -187,14 +185,9 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::layout::Data` for a struct.
 ///
-/// The `#[substrate(transform)]` attribute annotates data that should be transformed with the enclosing instance when
-/// instantiated in another block.
-///
 /// # Examples
 ///
-/// This example stores the individual buffer instances within a buffer chain. The `#[substrate(transform)]`
-/// notes that the buffers in the data should be transformed if the buffer chain is instantiated in another
-/// block and transformed.
+/// This example stores the individual buffer instances within a buffer chain.
 ///
 #[doc = get_snippets!("core", "buffern_data")]
 #[proc_macro_derive(LayoutData, attributes(substrate))]
@@ -209,12 +202,9 @@ pub fn derive_layout_data(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Derives `substrate::schematic::Data` for a struct.
-///
-/// The `#[substrate(nested)]` attribute annotates data that represents nested instances or nodes. This allows
-/// Substrate to keep track of paths to nested instances and nodes for simulation purposes.
-#[proc_macro_derive(SchematicData, attributes(substrate))]
-pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
+/// Derives `substrate::schematic::NestedData` for a struct.
+#[proc_macro_derive(NestedData, attributes(substrate))]
+pub fn derive_nested_data(input: TokenStream) -> TokenStream {
     let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
     ));
@@ -227,17 +217,19 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::block::Block` for a struct or enum.
 ///
-/// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
+/// You must specify the block's IO and kind by adding a `#[substrate(io = "IoType", kind = "BlockKind)]` attribute:
 /// ```
 /// use serde::{Serialize, Deserialize};
 /// use substrate::block::Block;
 ///
 /// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
-/// #[substrate(io = "substrate::io::TestbenchIo")]
+/// #[substrate(io = "substrate::io::TestbenchIo", kind="Cell")]
 /// pub struct MyBlock {
 ///   // ...
 /// }
 /// ```
+///
+/// The available kinds can be found by looking at implementors of `substrate::block::BlockKind`.
 ///
 /// This derive macro only works if you want to use the default value of the IO.
 /// If the IO type does not implement [`Default`], or you want to use a non-default
@@ -248,24 +240,6 @@ pub fn derive_schematic_data(input: TokenStream) -> TokenStream {
 /// the name of the struct/enum converted to snake case. For example, the name
 /// of a block called `MyBlock` will be `my_block`.
 /// If you wish to customize this behavior, consider implementing `Block` manually.
-///
-/// ## Flattening
-///
-/// Some blocks may simply be wrappers around inner blocks.
-/// If you wish to flatten a block, add the `#[substrate(flatten)]` attribute to it.
-/// The block will be inlined during netlisting.
-///
-/// The `flatten` attribute is ignored when netlisting top-level blocks such as testbenches.
-/// ```
-/// use serde::{Serialize, Deserialize};
-/// use substrate::block::Block;
-///
-/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
-/// #[substrate(io = "substrate::io::TestbenchIo", flatten)]
-/// pub struct MyFlattenedBlock {
-///   // ...
-/// }
-/// ```
 #[proc_macro_derive(Block, attributes(substrate))]
 pub fn derive_block(input: TokenStream) -> TokenStream {
     let receiver =
@@ -282,58 +256,6 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn simulator_tuples(input: TokenStream) -> TokenStream {
     simulator_tuples_impl(input)
-}
-
-/// Derives `substrate::schematic::Schematic` for any Substrate block.
-///
-/// This turns the block into a schematic hard macro.
-/// You must add a `#[substrate(schematic(...))]` attribute to configure this macro;
-/// see the examples below.
-/// Using multiple `#[substrate(schematic(...))]` attributes allows you to
-/// generate `Schematic` implementations for multiple PDKs.
-///
-/// This macro only works on Substrate blocks,
-/// so you must also add a `#[derive(Block)]` attribute
-/// or implement `Block` manually.
-///
-/// # Arguments
-///
-/// This macro requires the following arguments (see [Supported formats](#supported-formats) for more details):
-/// * `source`: The source from which to read the contents of this block's schematic.
-/// * `name`: The name of the block's contents in `source`. For example, if
-///   source is a SPICE netlist, name should be set to the name of the desired
-///   subcircuit in that netlist.
-/// * `fmt`: The netlist format.
-/// * `pdk`: The PDK to which source corresponds.
-///
-/// # Supported formats
-///
-/// The following formats are supported:
-///
-/// * `spice`: Source should be an expression that evaluates to the file path of a SPICE netlist.
-/// * `inline-spice`: Source should be an expression that evaluates to a String-like object
-///   (`&str`, `String`, `ArcStr`, etc.) that contains a SPICE netlist.
-///
-/// Note that expressions can be arbitrary Rust expressions. Here are some examples:
-/// * `fmt = "\"/path/to/netlist.spice\""` (note that you need the escaped quotes to make this a
-/// string literal).
-/// * `fmt = "function_that_returns_path()"`
-/// * `fmt = "function_with_arguments_that_returns_path(\"my_argument\")"`
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "buffer_hard_macro")]
-#[proc_macro_error]
-#[proc_macro_derive(Schematic, attributes(substrate))]
-pub fn derive_has_schematic_impl(input: TokenStream) -> TokenStream {
-    let receiver = block::schematic::HasSchematicInputReceiver::from_derive_input(
-        &parse_macro_input!(input as DeriveInput),
-    );
-    let receiver = handle_error!(receiver);
-    quote!(
-        #receiver
-    )
-    .into()
 }
 
 /// Derives `substrate::layout::Layout` for any Substrate block.

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use substrate::block;
 
 use substrate::io::{
     Array, CustomLayoutType, InOut, Input, Io, LayoutPort, LayoutType, Output, ShapePort, Signal,
@@ -33,6 +34,7 @@ impl Inverter {
 }
 
 impl Block for Inverter {
+    type Kind = block::Cell;
     type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
@@ -60,6 +62,7 @@ impl Buffer {
 }
 
 impl Block for Buffer {
+    type Kind = block::Cell;
     type Io = BufferIo;
 
     fn id() -> arcstr::ArcStr {
@@ -116,6 +119,7 @@ impl BufferN {
 }
 
 impl Block for BufferN {
+    type Kind = block::Cell;
     type Io = BufferNIo;
 
     fn id() -> arcstr::ArcStr {
@@ -155,6 +159,7 @@ impl BufferNxM {
 }
 
 impl Block for BufferNxM {
+    type Kind = block::Cell;
     type Io = BufferNxMIo;
 
     fn id() -> arcstr::ArcStr {

@@ -65,7 +65,7 @@ fn generates_in_background_and_caches_values() {
 
     // Should immediately return a filled cell as this has already been generated.
     let num_gen_clone = num_gen.clone();
-    let handle3 = cache.generate(Params1 { value: 5 }, move |_| {
+    let handle3 = cache.generate(p1, move |_| {
         *num_gen_clone.lock().unwrap() += 1;
         Value {
             inner: Arc::new("circuit".to_string()),

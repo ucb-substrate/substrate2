@@ -6,6 +6,7 @@ use std::sync::Arc;
 use gds::GdsError;
 
 use crate::layout::error::{GdsImportError, LayoutError};
+use crate::schematic::conv::ConvError;
 
 /// A result type returning Substrate errors.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -45,17 +46,14 @@ pub enum Error {
     Anyhow(#[from] Arc<anyhow::Error>),
     /// Schematic to SCIR conversion produced errors.
     #[error("error converting to SCIR: {0}")]
-    ScirConversion(Box<scir::Issues>),
+    ScirConversion(#[from] ConvError),
+    /// An error indicating that the schema does not support an instantiated primitive.
+    #[error("schema does not support primitive")]
+    UnsupportedPrimitive,
 }
 
 impl From<LayoutError> for Error {
     fn from(value: LayoutError) -> Self {
         Error::Layout(value)
-    }
-}
-
-impl From<scir::Issues> for Error {
-    fn from(value: scir::Issues) -> Self {
-        Self::ScirConversion(Box::new(value))
     }
 }

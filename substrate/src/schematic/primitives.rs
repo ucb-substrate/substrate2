@@ -1,15 +1,75 @@
 //! Schematic primitives.
 
 use rust_decimal::Decimal;
+use scir::ParamValue;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
-use crate::arcstr;
 use crate::arcstr::ArcStr;
 use crate::block::Block;
-use crate::io::TwoTerminalIo;
-use crate::pdk::Pdk;
+use crate::io::{Array, InOut, Signal, TwoTerminalIo};
+use crate::{arcstr, block};
 
-use super::{ExportsSchematicData, PrimitiveDeviceKind, PrimitiveNode, Schematic};
+/// An instance with a pre-defined cell.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawInstance {
+    /// The name of the underlying cell.
+    pub cell: ArcStr,
+    /// The name of the ports of the underlying cell.
+    pub ports: Vec<ArcStr>,
+    /// The parameters to pass to the instance.
+    pub params: HashMap<ArcStr, ParamValue>,
+}
+
+impl Hash for RawInstance {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.cell.hash(state);
+        self.ports.hash(state);
+        self.params.iter().collect::<Vec<_>>().hash(state);
+    }
+}
+
+impl RawInstance {
+    /// Create a new raw instance with the given parameters.
+    #[inline]
+    pub fn with_params(
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        params: impl Into<HashMap<ArcStr, ParamValue>>,
+    ) -> Self {
+        Self {
+            cell,
+            ports,
+            params: params.into(),
+        }
+    }
+    /// Create a new raw instance with no parameters.
+    #[inline]
+    pub fn new(cell: ArcStr, ports: Vec<ArcStr>) -> Self {
+        Self {
+            cell,
+            ports,
+            params: HashMap::new(),
+        }
+    }
+}
+impl Block for RawInstance {
+    type Kind = block::Primitive;
+    type Io = InOut<Array<Signal>>;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("raw_instance")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("raw_instance_{}", self.cell)
+    }
+
+    fn io(&self) -> Self::Io {
+        InOut(Array::new(self.ports.len(), Default::default()))
+    }
+}
 
 /// An ideal 2-terminal resistor.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,8 +93,8 @@ impl Resistor {
     }
 }
 impl Block for Resistor {
+    type Kind = block::Primitive;
     type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
 
     fn id() -> ArcStr {
         arcstr::literal!("resistor")
@@ -48,26 +108,6 @@ impl Block for Resistor {
         Default::default()
     }
 }
-impl ExportsSchematicData for Resistor {
-    type Data = ();
-}
-impl<PDK: Pdk> Schematic<PDK> for Resistor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as crate::io::SchematicType>::Bundle,
-        cell: &mut super::CellBuilder<PDK, Self>,
-    ) -> crate::error::Result<Self::Data> {
-        cell.add_primitive(
-            PrimitiveDeviceKind::Res2 {
-                pos: PrimitiveNode::new("p", io.p),
-                neg: PrimitiveNode::new("n", io.n),
-                value: self.value,
-            }
-            .into(),
-        );
-        Ok(())
-    }
-}
 
 /// An ideal 2-terminal capacitor.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +115,7 @@ pub struct Capacitor {
     /// The resistor value.
     value: Decimal,
 }
+
 impl Capacitor {
     /// Create a new capacitor with the given value.
     #[inline]
@@ -91,8 +132,8 @@ impl Capacitor {
     }
 }
 impl Block for Capacitor {
+    type Kind = block::Primitive;
     type Io = TwoTerminalIo;
-    const FLATTEN: bool = true;
 
     fn id() -> ArcStr {
         arcstr::literal!("capacitor")
@@ -104,25 +145,5 @@ impl Block for Capacitor {
 
     fn io(&self) -> Self::Io {
         Default::default()
-    }
-}
-impl ExportsSchematicData for Capacitor {
-    type Data = ();
-}
-impl<PDK: Pdk> Schematic<PDK> for Capacitor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as crate::io::SchematicType>::Bundle,
-        cell: &mut super::CellBuilder<PDK, Self>,
-    ) -> crate::error::Result<Self::Data> {
-        cell.add_primitive(
-            PrimitiveDeviceKind::Cap2 {
-                pos: PrimitiveNode::new("p", io.p),
-                neg: PrimitiveNode::new("n", io.n),
-                value: self.value,
-            }
-            .into(),
-        );
-        Ok(())
     }
 }

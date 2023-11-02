@@ -5,6 +5,7 @@
 //! several cache servers.
 #![warn(missing_docs)]
 
+use std::fmt::Formatter;
 use std::ops::Deref;
 use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
 
@@ -29,6 +30,10 @@ lazy_static! {
     pub static ref NAMESPACE_REGEX: Regex =
         Regex::new(r"^([A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*$").unwrap();
 }
+
+/// A function for mapping a cached value to another value.
+pub trait ValueMapFn<V1, V2>: Fn(ArcResult<&V1>) -> ArcResult<V2> + Send + Sync + Any {}
+impl<V1, V2, T: Fn(ArcResult<&V1>) -> ArcResult<V2> + Send + Sync + Any> ValueMapFn<V1, V2> for T {}
 
 /// A function that can be used to generate a value in a background thread.
 pub trait RawGenerateFn<V>: FnOnce() -> V + Send + Any {}
@@ -227,62 +232,44 @@ impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for A
     }
 }
 
-/// A handle to a cache entry that might still be generating.
-#[derive(Debug)]
-pub struct CacheHandle<V>(Arc<OnceCell<ArcResult<V>>>);
-
-impl<V> Clone for CacheHandle<V> {
-    fn clone(&self) -> Self {
-        CacheHandle(self.0.clone())
-    }
-}
-
-impl<V> CacheHandle<V> {
-    /// Creates an empty cache handle.
-    pub(crate) fn empty() -> Self {
-        Self(Arc::new(OnceCell::new()))
-    }
-}
-
-impl<V: Send + Sync + Any> CacheHandle<V> {
-    /// Creates a new cache handle, spawning a thread to generate its value using the provided
-    /// function.
-    pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
-        let handle = Self(Arc::new(OnceCell::new()));
-
-        let handle_clone = handle.clone();
-        thread::spawn(move || {
-            handle_clone.set(run_generator(generate_fn));
-        });
-
-        handle
-    }
-}
-
-impl<V> CacheHandle<V> {
+trait CacheValueHolder<V>: Send + Sync {
     /// Blocks on the cache entry, returning the result once it is ready.
     ///
     /// Returns an error if one was returned by the generator.
-    pub fn try_get(&self) -> ArcResult<&V> {
-        self.0.wait().as_ref().map_err(|e| e.clone())
-    }
+    fn try_get(&self) -> ArcResult<&V>;
 
     /// Checks whether the underlying entry is ready.
     ///
     /// Returns the entry if available, otherwise returns [`None`].
-    pub fn poll(&self) -> Option<&ArcResult<V>> {
-        self.0.get()
+    fn poll(&self) -> Option<ArcResult<&V>>;
+}
+
+#[derive(Debug)]
+pub(crate) struct CacheHandleInner<V>(Arc<OnceCell<ArcResult<V>>>);
+
+impl<V> Default for CacheHandleInner<V> {
+    fn default() -> Self {
+        Self(Arc::new(OnceCell::new()))
+    }
+}
+
+impl<V> Clone for CacheHandleInner<V> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<V: Send + Sync> CacheValueHolder<V> for CacheHandleInner<V> {
+    fn try_get(&self) -> ArcResult<&V> {
+        self.0.wait().as_ref().map_err(|e| e.clone())
     }
 
-    /// Blocks on the cache entry, returning its output.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the generator failed to run or an internal error was thrown by the cache.
-    pub fn get(&self) -> &V {
-        self.try_get().unwrap()
+    fn poll(&self) -> Option<ArcResult<&V>> {
+        Some(self.0.get()?.as_ref().map_err(|e| e.clone()))
     }
+}
 
+impl<V> CacheHandleInner<V> {
     /// Sets the value of the cache handle.
     ///
     /// # Panics
@@ -293,6 +280,98 @@ impl<V> CacheHandle<V> {
             tracing::error!("failed to set cache handle value");
             panic!("failed to set cache handle value");
         }
+    }
+}
+
+/// A handle to a cache entry that might still be generating.
+pub struct CacheHandle<V>(Arc<dyn CacheValueHolder<V>>);
+
+impl<V> std::fmt::Debug for CacheHandle<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CacheHandle").finish()
+    }
+}
+
+impl<V> Clone for CacheHandle<V> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<V: Any + Send + Sync> CacheHandle<V> {
+    pub(crate) fn from_inner(inner: Arc<dyn CacheValueHolder<V>>) -> Self {
+        Self(inner)
+    }
+
+    pub(crate) fn empty() -> (Self, CacheHandleInner<V>) {
+        let inner = CacheHandleInner::default();
+        (Self(Arc::new(inner.clone())), inner)
+    }
+
+    /// Creates a new cache handle, generating its value immediately.
+    pub(crate) fn new_blocking(generate_fn: impl RawGenerateFn<V>) -> Self {
+        let (handle, inner) = Self::empty();
+        inner.set(run_generator(generate_fn));
+        handle
+    }
+
+    /// Creates a new cache handle, spawning a thread to generate its value using the provided
+    /// function.
+    pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
+        let (handle, inner) = Self::empty();
+        thread::spawn(move || {
+            inner.set(run_generator(generate_fn));
+        });
+        handle
+    }
+
+    /// Maps an existing [`CacheHandle`] to a [`CacheHandle`] of a different type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::sync::{Arc, Mutex};
+    /// use cache::{mem::TypeCache, error::Error, CacheableWithState};
+    ///
+    /// let mut cache = TypeCache::new();
+    ///
+    /// fn generate_fn(tuple: &(u64, u64)) -> u64 {
+    ///     tuple.0 + tuple.1
+    /// }
+    ///
+    /// let handle = cache.generate((5, 6), generate_fn);
+    /// assert_eq!(*handle.get(), 11);
+    ///
+    /// // Does not call `generate_fn` again as the result has been cached.
+    /// let mapped_handle = handle.map(|res| res.map(|sum| *sum > 50));
+    /// assert_eq!(*mapped_handle.get(), false);
+    /// ```
+    pub fn map<V2: Send + Sync + Any>(&self, map_fn: impl ValueMapFn<V, V2>) -> CacheHandle<V2> {
+        CacheHandle(Arc::new(MappedCacheHandleInner::new(self.clone(), map_fn)))
+    }
+}
+
+impl<V> CacheHandle<V> {
+    /// Blocks on the cache entry, returning the result once it is ready.
+    ///
+    /// Returns an error if one was returned by the generator.
+    pub fn try_get(&self) -> ArcResult<&V> {
+        self.0.try_get()
+    }
+
+    /// Checks whether the underlying entry is ready.
+    ///
+    /// Returns the entry if available, otherwise returns [`None`].
+    pub fn poll(&self) -> Option<ArcResult<&V>> {
+        self.0.poll()
+    }
+
+    /// Blocks on the cache entry, returning its output.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the generator failed to run or an internal error was thrown by the cache.
+    pub fn get(&self) -> &V {
+        self.try_get().unwrap()
     }
 }
 
@@ -340,6 +419,51 @@ impl<V: Debug, E> CacheHandle<std::result::Result<V, E>> {
     /// if the generator did not return an error.
     pub fn unwrap_err_inner(&self) -> &E {
         self.get().as_ref().unwrap_err()
+    }
+}
+
+pub(crate) struct MappedCacheHandleInner<V1, V2> {
+    handle: Arc<dyn CacheValueHolder<V1>>,
+    map_fn: Arc<dyn ValueMapFn<V1, V2, Output = ArcResult<V2>>>,
+    result: Arc<OnceCell<ArcResult<V2>>>,
+}
+
+impl<V1, V2> Clone for MappedCacheHandleInner<V1, V2> {
+    fn clone(&self) -> Self {
+        Self {
+            handle: self.handle.clone(),
+            map_fn: self.map_fn.clone(),
+            result: self.result.clone(),
+        }
+    }
+}
+
+impl<V1: Send + Sync, V2: Send + Sync> CacheValueHolder<V2> for MappedCacheHandleInner<V1, V2> {
+    fn try_get(&self) -> ArcResult<&V2> {
+        self.result
+            .get_or_init(|| (self.map_fn)(self.handle.try_get()))
+            .as_ref()
+            .map_err(|e| e.clone())
+    }
+
+    fn poll(&self) -> Option<ArcResult<&V2>> {
+        let res = self.handle.poll().map(|res| (self.map_fn)(res))?;
+        Some(
+            self.result
+                .get_or_init(|| res)
+                .as_ref()
+                .map_err(|e| e.clone()),
+        )
+    }
+}
+
+impl<V1, V2> MappedCacheHandleInner<V1, V2> {
+    fn new(handle: CacheHandle<V1>, map_fn: impl ValueMapFn<V1, V2>) -> Self {
+        Self {
+            handle: handle.0,
+            map_fn: Arc::new(map_fn),
+            result: Arc::new(OnceCell::new()),
+        }
     }
 }
 

@@ -226,20 +226,12 @@ impl ToTokens for DataInputReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(substrate), supports(any))]
+#[darling(attributes(substrate), supports(any), allow_unknown_fields)]
 pub struct HasLayoutInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
-    #[allow(unused)]
-    io: darling::util::Ignored,
-    #[darling(multiple)]
-    #[allow(unused)]
-    schematic: Vec<darling::util::Ignored>,
     #[darling(multiple)]
     layout: Vec<LayoutHardMacro>,
-    #[darling(default)]
-    #[allow(unused)]
-    flatten: darling::util::Ignored,
 }
 
 #[derive(Debug, FromMeta)]
@@ -264,7 +256,7 @@ impl ToTokens for HasLayoutInputReceiver {
 
         let has_layout = quote! {
             impl #imp #substrate::layout::ExportsLayoutData for #ident #ty #wher {
-                type Data = ();
+                type LayoutData = ();
             }
         };
 
@@ -286,7 +278,7 @@ impl ToTokens for HasLayoutInputReceiver {
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,
                         cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
-                    ) -> #substrate::error::Result<Self::Data> {
+                    ) -> #substrate::error::Result<Self::LayoutData> {
 
                         let source = { #source };
 

@@ -52,9 +52,9 @@ pub enum Cause {
         cell_id: CellId,
         cell_name: ArcStr,
     },
-    /// An instance in a parent cell references a child cell not present in the library.
-    MissingChildCell {
-        child_cell_id: CellId,
+    /// An instance in a parent cell references a child not present in the library.
+    MissingChild {
+        child_id: ChildId,
         parent_cell_id: CellId,
         parent_cell_name: ArcStr,
         instance_name: ArcStr,
@@ -73,24 +73,6 @@ pub enum Cause {
         child_cell_id: CellId,
         child_cell_name: ArcStr,
         port: ArcStr,
-        parent_cell_id: CellId,
-        parent_cell_name: ArcStr,
-        instance_name: ArcStr,
-    },
-    /// An instance does not specify a parameter value, and the parameter has no default.
-    MissingParam {
-        child_cell_id: CellId,
-        child_cell_name: ArcStr,
-        param: ArcStr,
-        parent_cell_id: CellId,
-        parent_cell_name: ArcStr,
-        instance_name: ArcStr,
-    },
-    /// An instance specifies a parameter value, but the parameter does not exist.
-    ExtraParam {
-        child_cell_id: CellId,
-        child_cell_name: ArcStr,
-        param: ArcStr,
         parent_cell_id: CellId,
         parent_cell_name: ArcStr,
         instance_name: ArcStr,
@@ -124,12 +106,6 @@ pub enum Cause {
         parent_cell_name: ArcStr,
         child_cell_id: CellId,
         child_cell_name: ArcStr,
-    },
-    /// Incorrect width in a connection to a primitive device.
-    PrimitiveWidthMismatch {
-        width: usize,
-        parent_cell_id: CellId,
-        parent_cell_name: ArcStr,
     },
 }
 
@@ -207,13 +183,13 @@ impl Display for Cause {
                     cell_name
                 ),
 
-            Self::MissingChildCell { child_cell_id, parent_cell_name, instance_name, .. } =>
+            Self::MissingChild { child_id, parent_cell_name, instance_name, .. } =>
                 write!(
                     f,
                     "missing child cell: instance `{}` in cell `{}` references cell ID `{}`, but no cell with this ID was found in the library",
                     instance_name,
                     parent_cell_name,
-                    child_cell_id
+                    child_id
                 ),
 
             Self::UnconnectedPort { child_cell_name, port, parent_cell_name, instance_name, .. } =>
@@ -233,26 +209,6 @@ impl Display for Cause {
                     instance_name,
                     parent_cell_name,
                     port,
-                    child_cell_name
-                ),
-
-            Self::MissingParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "unspecified parameter: instance `{}` in cell `{}` does not specify a value for parameter `{}` of cell `{}`, and this parameter does not have a default value",
-                    instance_name,
-                    parent_cell_name,
-                    param,
-                    child_cell_name
-                ),
-
-            Self::ExtraParam { child_cell_name, param, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "extra param: instance `{}` in cell `{}` specifies a value for parameter `{}` of cell `{}`, but this cell has no such parameter",
-                    instance_name,
-                    parent_cell_name,
-                    param,
                     child_cell_name
                 ),
 
@@ -293,18 +249,11 @@ impl Display for Cause {
                     expected_width
                 ),
 
-            Self::PrimitiveWidthMismatch { width, parent_cell_name, .. } =>
-                write!(
-                    f,
-                    "mismatched primitive device width: cell `{}` specifies a connection of width {} to a primitive device, but the expected width is 1",
-                    parent_cell_name,
-                    width
-                ),
         }
     }
 }
 
-impl LibraryBuilder {
+impl<S: Schema> LibraryBuilder<S> {
     /// Check whether or not this library is valid.
     pub fn validate(&self) -> IssueSet<ValidatorIssue> {
         let _guard = span!(Level::INFO, "validating SCIR Library").entered();
@@ -336,7 +285,7 @@ impl LibraryBuilder {
                         id2: *id,
                         name: cell.name.clone(),
                     },
-                    Severity::Warning,
+                    Severity::Error,
                 );
                 issues.add(issue);
             }
@@ -371,14 +320,8 @@ impl LibraryBuilder {
             )
         };
 
-        // Cannot validate blackbox cells.
-        if cell.contents().is_opaque() {
-            return;
-        }
-        let contents = cell.contents().as_ref().unwrap_clear();
-
         let mut inst_names = HashSet::new();
-        for (_id, instance) in contents.instances.iter() {
+        for (_id, instance) in cell.instances.iter() {
             if inst_names.contains(&instance.name) {
                 issues.add(ValidatorIssue::new_and_log(
                     Cause::DuplicateInstanceNames {
@@ -386,12 +329,12 @@ impl LibraryBuilder {
                         cell_id: id,
                         cell_name: cell.name.clone(),
                     },
-                    Severity::Warning,
+                    Severity::Error,
                 ));
             }
             inst_names.insert(instance.name.clone());
             for concat in instance.connections.values() {
-                for part in concat.parts.iter() {
+                for part in concat.parts() {
                     let signal = match cell.signals.get(&part.signal()) {
                         Some(signal) => signal,
                         None => {
@@ -441,16 +384,8 @@ impl LibraryBuilder {
             }
         }
 
-        for (_, device) in contents.primitives.iter() {
-            for slice in device.nodes() {
-                if !cell.signals.contains_key(&slice.signal()) {
-                    issues.add(invalid_signal(slice.signal()));
-                }
-            }
-        }
-
         let mut port_signals = HashSet::with_capacity(cell.ports.len());
-        for port in cell.ports.iter() {
+        for port in cell.ports() {
             if !cell.signals.contains_key(&port.signal) {
                 issues.add(invalid_signal(port.signal));
                 continue;
@@ -469,6 +404,23 @@ impl LibraryBuilder {
                 issues.add(issue);
             }
         }
+
+        let mut signal_names = HashMap::new();
+        for (signal_id, signal) in cell.signals() {
+            if let Some(other) = signal_names.insert(&signal.name, signal_id) {
+                let issue = ValidatorIssue::new_and_log(
+                    Cause::DuplicateSignalNames {
+                        id1: signal_id,
+                        id2: other,
+                        name: signal.name.clone(),
+                        cell_id: id,
+                        cell_name: cell.name().clone(),
+                    },
+                    Severity::Error,
+                );
+                issues.add(issue);
+            }
+        }
     }
 
     fn validate_cell2(&self, id: CellId, issues: &mut IssueSet<ValidatorIssue>) {
@@ -477,64 +429,93 @@ impl LibraryBuilder {
             span!(Level::INFO, "validating SCIR cell (pass 2)", cell.id = %id, cell.name = %cell.name)
                 .entered();
 
-        // Cannot validate blackbox cells.
-        if cell.contents().is_opaque() {
-            return;
-        }
-        let contents = cell.contents().as_ref().unwrap_clear();
-
-        for (_id, instance) in contents.instances.iter() {
-            let child = match self.cells.get(&instance.cell) {
-                Some(child) => child,
-                None => {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::MissingChildCell {
-                            child_cell_id: instance.cell,
-                            parent_cell_id: id,
-                            parent_cell_name: cell.name.clone(),
-                            instance_name: instance.name.clone(),
-                        },
-                        Severity::Error,
-                    );
-                    issues.add(issue);
-                    continue;
-                }
-            };
-
-            let mut child_ports = HashSet::with_capacity(child.ports.len());
-
-            // Check for missing ports
-            for port in child.ports.iter() {
-                let name = &child.signals[&port.signal].name;
-                child_ports.insert(name.clone());
-                match instance.connections.get(name) {
-                    Some(conn) => {
-                        let expected_width = child.signals[&port.signal].width.unwrap_or(1);
-                        if conn.width() != expected_width {
+        for (_id, instance) in cell.instances.iter() {
+            match instance.child {
+                ChildId::Cell(c) => {
+                    let child = match self.cells.get(&c) {
+                        Some(child) => child,
+                        None => {
                             let issue = ValidatorIssue::new_and_log(
-                                Cause::PortWidthMismatch {
-                                    expected_width,
-                                    actual_width: conn.width(),
-                                    port: name.clone(),
+                                Cause::MissingChild {
+                                    child_id: c.into(),
+                                    parent_cell_id: id,
+                                    parent_cell_name: cell.name.clone(),
                                     instance_name: instance.name.clone(),
-                                    child_cell_id: instance.cell,
+                                },
+                                Severity::Error,
+                            );
+                            issues.add(issue);
+                            continue;
+                        }
+                    };
+                    let mut child_ports = HashSet::with_capacity(child.ports.len());
+
+                    // Check for missing ports
+                    for port in child.ports() {
+                        let name = &child.signals[&port.signal].name;
+                        child_ports.insert(name.clone());
+                        match instance.connections.get(name) {
+                            Some(conn) => {
+                                let expected_width = child.signals[&port.signal].width.unwrap_or(1);
+                                if conn.width() != expected_width {
+                                    let issue = ValidatorIssue::new_and_log(
+                                        Cause::PortWidthMismatch {
+                                            expected_width,
+                                            actual_width: conn.width(),
+                                            port: name.clone(),
+                                            instance_name: instance.name.clone(),
+                                            child_cell_id: instance.child.unwrap_cell(),
+                                            child_cell_name: child.name.clone(),
+                                            parent_cell_name: cell.name.clone(),
+                                            parent_cell_id: id,
+                                        },
+                                        Severity::Error,
+                                    );
+                                    issues.add(issue);
+                                }
+                            }
+                            None => {
+                                let issue = ValidatorIssue::new_and_log(
+                                    Cause::UnconnectedPort {
+                                        child_cell_id: instance.child.unwrap_cell(),
+                                        child_cell_name: child.name.clone(),
+                                        port: name.clone(),
+                                        parent_cell_name: cell.name.clone(),
+                                        parent_cell_id: id,
+                                        instance_name: instance.name.clone(),
+                                    },
+                                    Severity::Error,
+                                );
+                                issues.add(issue);
+                            }
+                        }
+                    }
+
+                    // Check for extra ports
+                    for conn in instance.connections.keys() {
+                        if !child_ports.contains(conn) {
+                            let issue = ValidatorIssue::new_and_log(
+                                Cause::ExtraPort {
+                                    child_cell_id: instance.child.unwrap_cell(),
                                     child_cell_name: child.name.clone(),
+                                    port: conn.clone(),
                                     parent_cell_name: cell.name.clone(),
                                     parent_cell_id: id,
+                                    instance_name: instance.name.clone(),
                                 },
                                 Severity::Error,
                             );
                             issues.add(issue);
                         }
                     }
-                    None => {
+                }
+                ChildId::Primitive(p) => {
+                    if self.try_primitive(p).is_none() {
                         let issue = ValidatorIssue::new_and_log(
-                            Cause::UnconnectedPort {
-                                child_cell_id: instance.cell,
-                                child_cell_name: child.name.clone(),
-                                port: name.clone(),
-                                parent_cell_name: cell.name.clone(),
+                            Cause::MissingChild {
+                                child_id: p.into(),
                                 parent_cell_id: id,
+                                parent_cell_name: cell.name.clone(),
                                 instance_name: instance.name.clone(),
                             },
                             Severity::Error,
@@ -543,96 +524,6 @@ impl LibraryBuilder {
                     }
                 }
             }
-
-            // Check for extra ports
-            for conn in instance.connections.keys() {
-                if !child_ports.contains(conn) {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::ExtraPort {
-                            child_cell_id: instance.cell,
-                            child_cell_name: child.name.clone(),
-                            port: conn.clone(),
-                            parent_cell_name: cell.name.clone(),
-                            parent_cell_id: id,
-                            instance_name: instance.name.clone(),
-                        },
-                        Severity::Error,
-                    );
-                    issues.add(issue);
-                }
-            }
-
-            // Check for missing params.
-            let mut child_params = HashSet::with_capacity(child.params.len());
-            for (name, param) in child.params.iter() {
-                child_params.insert(name.clone());
-                if instance.params.get(name).is_none() && !param.has_default() {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::MissingParam {
-                            child_cell_id: instance.cell,
-                            child_cell_name: child.name.clone(),
-                            param: name.clone(),
-                            parent_cell_name: cell.name.clone(),
-                            parent_cell_id: id,
-                            instance_name: instance.name.clone(),
-                        },
-                        Severity::Error,
-                    );
-                    issues.add(issue);
-                }
-            }
-
-            // Check for extra params.
-            for param in instance.params.keys() {
-                if !child_params.contains(param) {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::ExtraParam {
-                            child_cell_id: instance.cell,
-                            child_cell_name: child.name.clone(),
-                            param: param.clone(),
-                            parent_cell_name: cell.name.clone(),
-                            parent_cell_id: id,
-                            instance_name: instance.name.clone(),
-                        },
-                        Severity::Warning,
-                    );
-                    issues.add(issue);
-                }
-            }
         }
-
-        for (_, device) in contents.primitives.iter() {
-            for slice in device.nodes() {
-                if slice.width() != 1 {
-                    let issue = ValidatorIssue::new_and_log(
-                        Cause::PrimitiveWidthMismatch {
-                            width: slice.width(),
-                            parent_cell_id: id,
-                            parent_cell_name: cell.name.clone(),
-                        },
-                        Severity::Warning,
-                    );
-                    issues.add(issue);
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::*;
-    use test_log::test;
-
-    #[test]
-    fn duplicate_cell_names() {
-        let c1 = Cell::new_whitebox("duplicate_cell_name");
-        let mut c2 = Cell::new_blackbox("duplicate_cell_name");
-        c2.add_blackbox_elem("* contents of cell");
-        let mut lib = LibraryBuilder::new("duplicate_cell_names");
-        lib.add_cell(c1);
-        lib.add_cell(c2);
-        let issues = lib.validate();
-        assert!(issues.has_error() || issues.has_warning());
     }
 }

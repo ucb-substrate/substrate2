@@ -11,11 +11,12 @@ use serde::Serialize;
 use crate::block::Block;
 use crate::cache::Cache;
 use crate::execute::Executor;
-use crate::io::{SchematicType, TestbenchIo};
-use crate::pdk::corner::InstallCorner;
+use crate::io::TestbenchIo;
+use crate::pdk::corner::SupportsSimulator;
 use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
-use crate::schematic::{Cell, ExportsSchematicData, SimCellBuilder};
+use crate::schematic::schema::Schema;
+use crate::schematic::{Cell, ExportsNestedData, Schematic};
 use crate::simulation::data::Save;
 use codegen::simulator_tuples;
 
@@ -30,6 +31,8 @@ pub trait Analysis {
 
 /// A circuit simulator.
 pub trait Simulator: Any + Send + Sync {
+    /// The schema that this simulator uses.
+    type Schema: Schema;
     /// The input type this simulator accepts.
     type Input;
     /// Options shared across all analyses for a given simulator run.
@@ -42,7 +45,7 @@ pub trait Simulator: Any + Send + Sync {
     /// Simulates the given set of analyses.
     fn simulate_inputs(
         &self,
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Self>,
         options: Self::Options,
         input: Vec<Self::Input>,
     ) -> Result<Vec<Self::Output>, Self::Error>;
@@ -50,7 +53,7 @@ pub trait Simulator: Any + Send + Sync {
     /// Simulates the given, possibly composite, analysis.
     fn simulate<A>(
         &self,
-        ctx: &SimulationContext,
+        ctx: &SimulationContext<Self>,
         options: Self::Options,
         input: A,
     ) -> Result<A::Output, Self::Error>
@@ -67,11 +70,11 @@ pub trait Simulator: Any + Send + Sync {
 }
 
 /// Substrate-defined simulation context.
-pub struct SimulationContext {
+pub struct SimulationContext<S: Simulator + ?Sized> {
     /// The simulator's intended working directory.
     pub work_dir: PathBuf,
     /// The SCIR library to simulate with associated Substrate metadata.
-    pub lib: Arc<RawLib>,
+    pub lib: Arc<RawLib<S::Schema>>,
     /// The executor to which simulation commands should be submitted.
     pub executor: Arc<dyn Executor>,
     /// The cache for storing the results of expensive computations.
@@ -110,22 +113,22 @@ where
 }
 
 /// Controls simulation options.
-pub struct SimController<PDK: Pdk, S: Simulator, T: Testbench<PDK, S>> {
+pub struct SimController<PDK, S: Simulator, T: ExportsNestedData> {
     pub(crate) simulator: Arc<S>,
     /// The current PDK.
     pub pdk: Arc<PDK>,
     /// The current testbench cell.
-    pub tb: Cell<T>,
-    pub(crate) ctx: SimulationContext,
+    pub tb: Arc<Cell<T>>,
+    pub(crate) ctx: SimulationContext<S>,
 }
 
 /// Set an initial condition.
-pub trait SetInitialCondition<K, V> {
+pub trait SetInitialCondition<K, V, S: Simulator> {
     /// Set an initial condition assigning the given value to the given key.
-    fn set_initial_condition(&mut self, key: K, value: V, ctx: &SimulationContext);
+    fn set_initial_condition(&mut self, key: K, value: V, ctx: &SimulationContext<S>);
 }
 
-impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
+impl<PDK: SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
     /// Run the given analysis, returning the default output.
     ///
     /// Note that providing [`None`] for `corner` will result in model files not being included,
@@ -164,7 +167,7 @@ impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimControl
     /// Set an initial condition by mutating the given options.
     pub fn set_initial_condition<K, V>(&self, key: K, value: V, options: &mut S::Options)
     where
-        S::Options: SetInitialCondition<K, V>,
+        S::Options: SetInitialCondition<K, V, S>,
     {
         options.set_initial_condition(key, value, &self.ctx);
     }
@@ -172,25 +175,12 @@ impl<PDK: Pdk + InstallCorner<S>, S: Simulator, T: Testbench<PDK, S>> SimControl
 
 /// A testbench that can be simulated.
 pub trait Testbench<PDK: Pdk, S: Simulator>:
-    HasSimSchematic<PDK, S> + Block<Io = TestbenchIo>
+    Schematic<S::Schema> + Block<Io = TestbenchIo>
 {
     /// The output produced by this testbench.
     type Output: Any + Serialize + DeserializeOwned;
     /// Run the testbench using the given simulation controller.
     fn run(&self, sim: SimController<PDK, S, Self>) -> Self::Output;
-}
-
-/// A block that has a schematic compatible with the given PDK and simulator.
-///
-/// Unlike [`Schematic`](crate::schematic::Schematic), this trait indicates that the schematic of this block
-/// is simulator-specific.
-pub trait HasSimSchematic<PDK: Pdk, S: Simulator>: Block + ExportsSchematicData {
-    /// Generates the block's schematic.
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut SimCellBuilder<PDK, S, Self>,
-    ) -> crate::error::Result<Self::Data>;
 }
 
 #[impl_for_tuples(64)]

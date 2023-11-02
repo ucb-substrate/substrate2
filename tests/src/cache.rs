@@ -3,11 +3,13 @@ use std::sync::{Arc, Mutex};
 use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use substrate::schematic::{HasNestedView, InstancePath};
+use substrate::io::SchematicType;
+use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
+    block,
     block::Block,
-    context::Context,
-    schematic::{ExportsSchematicData, Schematic},
+    context::PdkContext,
+    schematic::{ExportsNestedData, Schematic},
 };
 
 use crate::shared::pdk::ExamplePdkA;
@@ -34,6 +36,7 @@ impl Cacheable for CachedDesignScript {
 pub struct CacheBlock(u64);
 
 impl Block for CacheBlock {
+    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -55,23 +58,23 @@ pub struct CacheBlockData {
 }
 
 impl HasNestedView for CacheBlockData {
-    type NestedView<'a> = Self;
+    type NestedView = Self;
 
-    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView<'_> {
+    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView {
         *self
     }
 }
 
-impl ExportsSchematicData for CacheBlock {
-    type Data = CacheBlockData;
+impl ExportsNestedData for CacheBlock {
+    type NestedData = CacheBlockData;
 }
 
 impl Schematic<ExamplePdkA> for CacheBlock {
     fn schematic(
         &self,
-        _io: &<<Self as substrate::block::Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::CellBuilder<ExamplePdkA, Self>,
-    ) -> substrate::error::Result<Self::Data> {
+        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<ExamplePdkA>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let design = *cell
             .ctx()
             .cache
@@ -84,13 +87,13 @@ impl Schematic<ExamplePdkA> for CacheBlock {
 
 #[test]
 fn caching_works() {
-    let ctx = Context::new(ExamplePdkA);
+    let ctx = PdkContext::new(ExamplePdkA);
     for i in 0..5 {
         // Generates 5 different blocks that share the same design script.
         //
         // Should only run the design script once even though 5 schematics are generated.
-        let handle = ctx.generate_schematic(CacheBlock(i));
-        assert_eq!(handle.cell().data().design, 25);
+        let handle = ctx.generate_schematic::<ExamplePdkA, _>(CacheBlock(i));
+        assert_eq!(handle.cell().design, 25);
     }
     assert_eq!(*RUNS.lock().unwrap(), 1);
 }
