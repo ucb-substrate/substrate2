@@ -6,6 +6,26 @@
     * sky130pdk bumped from <=0.6.0 to <=0.6.1
     * spectre bumped from <=0.6.0 to <=0.6.1
 
+## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.3.1...examples-v0.4.0) (2023-11-02)
+
+
+### Features
+
+* **impl-dispatch:** remove impl dispatch in favor of trait bounds ([#283](https://github.com/ucb-substrate/substrate2/issues/283)) ([d954115](https://github.com/ucb-substrate/substrate2/commit/d9541152db52aebde928e41c0d800453e906d62b))
+* **polygon:** polygon implemented in geometry ([#263](https://github.com/ucb-substrate/substrate2/issues/263)) ([4508570](https://github.com/ucb-substrate/substrate2/commit/45085706a30a12f4af6c5e3f642ca55b4c32dd24))
+* **primitives:** revamp schematic primitives ([#291](https://github.com/ucb-substrate/substrate2/issues/291)) ([e5ba06a](https://github.com/ucb-substrate/substrate2/commit/e5ba06ab10008b72e78397ad70781caa6bc61791))
+* **refactor:** rename Has_ and Has_Data ([#282](https://github.com/ucb-substrate/substrate2/issues/282)) ([2018153](https://github.com/ucb-substrate/substrate2/commit/2018153686dd7ef3df0e10874db3c656ca245026))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.6.1 to <=0.7.0
+    * sky130pdk bumped from <=0.6.1 to <=0.7.0
+    * spectre bumped from <=0.6.1 to <=0.7.0
+    * spice bumped from <=0.4.0 to <=0.5.0
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/examples-v0.2.0...examples-v0.3.0) (2023-08-08)
 
 

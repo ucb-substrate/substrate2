@@ -182,7 +182,7 @@ dependencies = [
 
 [[package]]
 name = "atoll"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "grid",
  "substrate",
@@ -401,7 +401,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cache"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "backoff",
@@ -530,7 +530,7 @@ checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 
 [[package]]
 name = "codegen"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
@@ -557,7 +557,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "config"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "cache",
@@ -799,14 +799,14 @@ dependencies = [
 
 [[package]]
 name = "enumify"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "enumify_macros",
 ]
 
 [[package]]
 name = "enumify_macros"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.3",
@@ -847,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "examples"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "arcstr",
  "proc-macro-crate 1.3.1",
@@ -1008,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "approx",
  "array_map",
@@ -1461,7 +1461,7 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
 name = "ngspice"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arcstr",
  "cache",
@@ -1585,7 +1585,7 @@ dependencies = [
 
 [[package]]
 name = "nutlex"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "approx",
  "enumify",
@@ -2174,7 +2174,7 @@ dependencies = [
 
 [[package]]
 name = "scir"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -2299,7 +2299,7 @@ checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
 name = "sky130pdk"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "arcstr",
  "indexmap 2.0.0",
@@ -2364,7 +2364,7 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "arcstr",
  "cache",
@@ -2384,7 +2384,7 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "arcstr",
  "itertools 0.11.0",
@@ -2405,7 +2405,7 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "substrate"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "approx",
