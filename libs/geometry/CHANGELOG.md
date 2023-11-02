@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.4.0...geometry-v0.5.0) (2023-11-02)
+
+
+### Features
+
+* **geometry:** implemented contains for polygon ([#292](https://github.com/ucb-substrate/substrate2/issues/292)) ([708053a](https://github.com/ucb-substrate/substrate2/commit/708053adfb9f3783fc03895ede7348ace51730f0))
+* **netlists:** use consistent ordering via indexmap ([#266](https://github.com/ucb-substrate/substrate2/issues/266)) ([f275c19](https://github.com/ucb-substrate/substrate2/commit/f275c19396ed4f7d255836822ff72b808f89cde7)), closes [#265](https://github.com/ucb-substrate/substrate2/issues/265)
+* **polygon:** polygon implemented in geometry ([#263](https://github.com/ucb-substrate/substrate2/issues/263)) ([4508570](https://github.com/ucb-substrate/substrate2/commit/45085706a30a12f4af6c5e3f642ca55b4c32dd24))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate num-rational to 0.4 ([#294](https://github.com/ucb-substrate/substrate2/issues/294)) ([fc8f5ce](https://github.com/ucb-substrate/substrate2/commit/fc8f5ce9f35eb074acff45115e44ffbd37e0d237))
+
 ## [0.4.0](https://github.com/substrate-labs/substrate2/compare/geometry-v0.3.0...geometry-v0.4.0) (2023-08-08)
 
 
