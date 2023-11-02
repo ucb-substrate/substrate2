@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Substrate Labs',
   tagline: '21st century electronic design automation tools, written in Rust.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/substrate_logo2_blue.png',
 
   // Set the production url of your site here
   url: 'https://docs.substratelabs.io',
@@ -64,12 +64,13 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       // Replace with your project's social card
-      image: 'img/logo.jpg',
+      image: 'img/substrate_logo2.png',
       navbar: {
         title: 'Substrate Labs',
         logo: {
           alt: 'Substrate Labs Logo',
-          src: 'img/logo.jpg',
+          src: 'img/substrate_logo2.png',
+          srcDark: 'img/substrate_logo2_dark.png',
         },
         items: [
           {
