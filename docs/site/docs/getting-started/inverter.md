@@ -10,7 +10,9 @@ import CargoToml from '@substrate/examples/sky130_inverter/Cargo.toml?snippet';
 # Designing an inverter
 
 In this tutorial, we'll design and simulate a schematic-level inverter in
-the Skywater 130nm process.
+the Skywater 130nm process to showcase some of the capabilities of Substrate's
+analog simulation interface. We'll also go into some more detail about what
+the code you're writing is actually doing.
 
 ## Setup
 
@@ -56,7 +58,7 @@ The `Input`, `Output`, and `InOut` wrappers provide directions for the `Signal`s
 
 The `#[derive(Io)]` attribute tells Substrate that our `InverterIo` struct should be made into a Substrate IO.
 
-## Inverter Parameters
+## Inverter parameters
 
 Now that we've defined an Io, we can define a **block**.
 Substrate blocks are analogous to modules or cells in other generator frameworks.
@@ -86,13 +88,8 @@ For example, blocks must implement `Eq` so that Substrate can tell if two blocks
 We can finally generate a schematic for our inverter.
 
 Describing a Schematic in Substrate requires implementing two traits:
-* `HasSchematicData` declares that a block can generate schematic data.
-* `HasSchematic` specifies the actual schematic in a particular PDK.
-
-The `HasSchematicData` trait allows you to declare a `Data` type for data returned by your block's
-schematic generator.
-This can be useful if you, for example, want to save a node in your circuit to probe in a simulation later on.
-For now, we don't want to save anything, so we'll set `Data` to Rust's unit type, `()`.
+* `ExportsNestedData` declares what nested data a block exposes, such as internal nodes or instances. For now, we don't want to expose anything, so we'll set the associated `NestedData` type to Rust's unit type, `()`.
+* `Schematic` specifies the actual schematic in a particular **schema**. A schema is essentially just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
 <CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-schematic">{InverterMod}</CodeSnippet>
@@ -106,7 +103,8 @@ For example, we connect the drain of the NMOS (`nmos.io().d`) to the inverter ou
 ## Testbench
 
 Let's now simulate our inverter and measure the rise and fall times.
-We'll use the commercial Spectre simulator.
+For now, we'll use [ngspice](https://ngspice.sourceforge.io/) as our simulator. Before moving on,
+make sure you have downloaded ngspice version 41 or beyond.
 
 Start by creating a new file, `src/tb.rs`. Add a reference to this module
 in `src/lib.rs`:
