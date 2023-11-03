@@ -1,12 +1,13 @@
 //! SPICE netlist exporter.
 #![warn(missing_docs)]
 
+use crate::netlist::HasSpiceLikeNetlist;
 use crate::parser::conv::ScirConverter;
 use crate::parser::{ParsedSpice, Parser};
+
 use arcstr::ArcStr;
 use itertools::Itertools;
 use rust_decimal::Decimal;
-use scir::netlist::HasSpiceLikeNetlist;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, ParamValue, SignalInfo};
 use std::collections::{HashMap, HashSet};
@@ -17,6 +18,7 @@ use substrate::io::SchematicType;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::PrimitiveSchematic;
 
+pub mod netlist;
 pub mod parser;
 #[cfg(test)]
 mod tests;
@@ -196,137 +198,5 @@ impl PrimitiveSchematic<Spice> for Resistor {
         prim.connect("1", io.p);
         prim.connect("2", io.n);
         prim
-    }
-}
-
-impl HasSpiceLikeNetlist for Spice {
-    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
-        writeln!(out, "* Substrate SPICE library")?;
-        writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
-        Ok(())
-    }
-
-    fn write_include<W: Write>(
-        &self,
-        out: &mut W,
-        include: &scir::netlist::Include,
-    ) -> std::io::Result<()> {
-        if let Some(section) = &include.section {
-            write!(out, ".LIB {:?} {}", include.path, section)?;
-        } else {
-            write!(out, ".INCLUDE {:?}", include.path)?;
-        }
-        Ok(())
-    }
-
-    fn write_start_subckt<W: Write>(
-        &self,
-        out: &mut W,
-        name: &ArcStr,
-        ports: &[&SignalInfo],
-    ) -> std::io::Result<()> {
-        write!(out, ".SUBCKT {}", name)?;
-        for sig in ports {
-            if let Some(width) = sig.width {
-                for i in 0..width {
-                    write!(out, " {}[{}]", sig.name, i)?;
-                }
-            } else {
-                write!(out, " {}", sig.name)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
-        write!(out, ".ENDS {}", name)
-    }
-
-    fn write_instance<W: Write>(
-        &self,
-        out: &mut W,
-        name: &ArcStr,
-        connections: Vec<ArcStr>,
-        child: &ArcStr,
-    ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("X{}", name);
-        write!(out, "{}", name)?;
-
-        for connection in connections {
-            write!(out, " {}", connection)?;
-        }
-
-        write!(out, " {}", child)?;
-
-        Ok(name)
-    }
-
-    fn write_primitive_inst<W: Write>(
-        &self,
-        out: &mut W,
-        name: &ArcStr,
-        mut connections: HashMap<ArcStr, Vec<ArcStr>>,
-        primitive: &<Self as Schema>::Primitive,
-    ) -> std::io::Result<ArcStr> {
-        let name = match &primitive {
-            Primitive::Res2 { value } => {
-                let name = arcstr::format!("R{}", name);
-                write!(out, "{}", name)?;
-                for port in ["1", "2"] {
-                    for part in connections.remove(port).unwrap() {
-                        write!(out, " {}", part)?;
-                    }
-                }
-                write!(out, " {value}")?;
-                name
-            }
-            Primitive::Mos { mname } => {
-                let name = arcstr::format!("M{}", name);
-                write!(out, "{}", name)?;
-                for port in ["D", "G", "S", "B"] {
-                    for part in connections.remove(port).unwrap() {
-                        write!(out, " {}", part)?;
-                    }
-                }
-                write!(out, " {}", mname)?;
-                name
-            }
-            Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            } => {
-                let name = arcstr::format!("X{}", name);
-                write!(out, "{}", name)?;
-                for port in ports {
-                    for part in connections.remove(port).unwrap() {
-                        write!(out, " {}", part)?;
-                    }
-                }
-                write!(out, " {}", cell)?;
-                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
-                    write!(out, " {key}={value}")?;
-                }
-                name
-            }
-            Primitive::BlackboxInstance { contents } => {
-                // TODO: See if there is a way to translate the name based on the
-                // contents, or make documentation explaining that blackbox instances
-                // cannot be addressed by path.
-                for elem in &contents.elems {
-                    match elem {
-                        BlackboxElement::InstanceName => write!(out, "{}", name)?,
-                        BlackboxElement::RawString(s) => write!(out, "{}", s)?,
-                        BlackboxElement::Port(p) => {
-                            for part in connections.get(p).unwrap() {
-                                write!(out, "{}", part)?
-                            }
-                        }
-                    }
-                }
-                name.clone()
-            }
-        };
-        Ok(name)
     }
 }

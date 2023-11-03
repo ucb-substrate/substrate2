@@ -1,0 +1,11 @@
+* Substrate SPICE library
+* This is a generated file. Be careful when editing manually: this file may be overwritten.
+
+
+.SUBCKT vdivider vdd vss dout
+
+  Rinst0 vdd dout 100
+  Rinst1 dout vss 200
+
+.ENDS vdivider
+

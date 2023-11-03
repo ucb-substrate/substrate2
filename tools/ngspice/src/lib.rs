@@ -725,7 +725,7 @@ impl HasSpiceLikeNetlist for Ngspice {
                     Vsource::Pulse(pulse) => {
                         write!(
                             out,
-                            "PULSE({} {} {} {} {} {} {} {})",
+                            " PULSE({} {} {} {} {} {} {} {})",
                             pulse.val0,
                             pulse.val1,
                             pulse.delay.unwrap_or_default(),
