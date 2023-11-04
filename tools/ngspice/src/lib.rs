@@ -15,13 +15,12 @@ use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use nutlex::parser::Data;
-use scir::netlist::{
-    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
-    RenameGround,
-};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{ChildId, Library, SignalInfo, SignalPathTail, SliceOnePath};
+use scir::{ChildId, Library, NetlistLibConversion, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
+use spice::netlist::{
+    HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
+};
 use spice::Spice;
 use substrate::block::Block;
 use substrate::execute::Executor;
@@ -372,11 +371,13 @@ impl Ngspice {
         saves.sort();
 
         let netlister = NetlisterInstance::new(
-            NetlistKind::Testbench(RenameGround::Yes(arcstr::literal!("0"))),
             self,
             &ctx.lib.scir,
-            &includes,
             &mut w,
+            NetlistOptions::new(
+                NetlistKind::Testbench(RenameGround::Yes(arcstr::literal!("0"))),
+                &includes,
+            ),
         );
         let conv = netlister.export()?;
 
@@ -671,7 +672,7 @@ impl HasSpiceLikeNetlist for Ngspice {
     fn write_include<W: Write>(
         &self,
         out: &mut W,
-        include: &scir::netlist::Include,
+        include: &spice::netlist::Include,
     ) -> std::io::Result<()> {
         Spice.write_include(out, include)
     }
@@ -725,7 +726,7 @@ impl HasSpiceLikeNetlist for Ngspice {
                     Vsource::Pulse(pulse) => {
                         write!(
                             out,
-                            "PULSE({} {} {} {} {} {} {} {})",
+                            " PULSE({} {} {} {} {} {} {} {})",
                             pulse.val0,
                             pulse.val1,
                             pulse.delay.unwrap_or_default(),

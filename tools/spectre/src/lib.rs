@@ -16,13 +16,14 @@ use cache::CacheableWithState;
 use error::*;
 use itertools::Itertools;
 use rust_decimal::Decimal;
-use scir::netlist::{
-    HasSpiceLikeNetlist, Include, NetlistKind, NetlistLibConversion, NetlisterInstance,
-    RenameGround,
-};
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
-use scir::{Library, NamedSliceOne, ParamValue, SignalInfo, Slice, SliceOnePath};
+use scir::{
+    Library, NamedSliceOne, NetlistLibConversion, ParamValue, SignalInfo, Slice, SliceOnePath,
+};
 use serde::{Deserialize, Serialize};
+use spice::netlist::{
+    HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
+};
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::execute::Executor;
@@ -376,11 +377,13 @@ impl Spectre {
         ics.sort();
 
         let netlister = NetlisterInstance::new(
-            NetlistKind::Testbench(RenameGround::Yes("0".into())),
             self,
             &ctx.lib.scir,
-            &includes,
             &mut w,
+            NetlistOptions::new(
+                NetlistKind::Testbench(RenameGround::Yes("0".into())),
+                &includes,
+            ),
         );
         let conv = netlister.export()?;
 
