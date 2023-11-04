@@ -11,7 +11,6 @@ tracing = "0.1"
 serde = "1"
 indexmap = { version = "2", features = ["serde"] }
 thiserror = "1"
-itertools = "0.11.0"
 
 diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
 uniquify = { version = "0.2.0", path = "../uniquify", registry = "substrate" }

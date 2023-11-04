@@ -1,17 +1,14 @@
 //! SPICE netlist exporter.
 #![warn(missing_docs)]
 
-use crate::netlist::HasSpiceLikeNetlist;
 use crate::parser::conv::ScirConverter;
 use crate::parser::{ParsedSpice, Parser};
 
 use arcstr::ArcStr;
-use itertools::Itertools;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use scir::{Instance, Library, ParamValue, SignalInfo};
+use scir::{Instance, ParamValue};
 use std::collections::{HashMap, HashSet};
-use std::io::prelude::*;
 use std::path::Path;
 use substrate::block::Block;
 use substrate::io::SchematicType;

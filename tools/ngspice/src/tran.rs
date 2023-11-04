@@ -3,7 +3,7 @@
 use crate::{node_voltage_path, Ngspice, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
-use scir::netlist::NetlistLibConversion;
+use scir::NetlistLibConversion;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
