@@ -37,11 +37,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 
 pub mod merge;
-pub mod netlist;
 pub mod schema;
 mod slice;
 
-use crate::netlist::NetlistLibConversion;
 use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use crate::validation::ValidatorIssue;
 pub use slice::{Concat, IndexOwned, NamedSlice, NamedSliceOne, Slice, SliceOne, SliceRange};
@@ -797,6 +795,34 @@ pub struct Cell {
     ///
     /// Instance names are only guaranteed to be unique in a validated [`Library`].
     instance_name_map: HashMap<ArcStr, InstanceId>,
+}
+
+/// Metadata associated with the conversion from a SCIR library to a netlist.
+#[derive(Debug, Clone, Default)]
+pub struct NetlistLibConversion {
+    /// Conversion metadata for each cell in the SCIR library.
+    pub cells: HashMap<CellId, NetlistCellConversion>,
+}
+
+impl NetlistLibConversion {
+    /// Creates a new [`NetlistLibConversion`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Metadata associated with the conversion from a SCIR cell to a netlisted subcircuit.
+#[derive(Debug, Clone, Default)]
+pub struct NetlistCellConversion {
+    /// The netlisted names of SCIR instances.
+    pub instances: HashMap<InstanceId, ArcStr>,
+}
+
+impl NetlistCellConversion {
+    /// Creates a new [`NetlistCellConversion`].
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl<S: Schema> LibraryBuilder<S> {

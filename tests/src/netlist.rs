@@ -1,8 +1,8 @@
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
-use scir::netlist::{NetlistKind, NetlisterInstance};
 use scir::*;
 use spectre::Spectre;
+use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use std::collections::HashMap;
 use substrate::schematic::schema::Schema;
@@ -143,8 +143,9 @@ fn vdivider_blackbox_is_valid() {
 fn netlist_spice_vdivider() {
     let lib = vdivider::<Spice>();
     let mut buf: Vec<u8> = Vec::new();
-    let netlister = NetlisterInstance::new(NetlistKind::Cells, &Spice, &lib, &[], &mut buf);
-    netlister.export().unwrap();
+    Spice
+        .write_scir_netlist(&lib, &mut buf, Default::default())
+        .unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);
 
@@ -164,15 +165,17 @@ fn netlist_spice_vdivider() {
 fn netlist_spice_vdivider_is_repeatable() {
     let lib = vdivider::<Spice>();
     let mut buf: Vec<u8> = Vec::new();
-    let netlister = NetlisterInstance::new(NetlistKind::Cells, &Spice, &lib, &[], &mut buf);
-    netlister.export().unwrap();
+    Spice
+        .write_scir_netlist(&lib, &mut buf, Default::default())
+        .unwrap();
     let golden = String::from_utf8(buf).unwrap();
 
     for i in 0..100 {
         let lib = vdivider::<Spice>();
         let mut buf: Vec<u8> = Vec::new();
-        let netlister = NetlisterInstance::new(NetlistKind::Cells, &Spice, &lib, &[], &mut buf);
-        netlister.export().unwrap();
+        Spice
+            .write_scir_netlist(&lib, &mut buf, Default::default())
+            .unwrap();
         let attempt = String::from_utf8(buf).unwrap();
         assert_eq!(
             attempt, golden,
@@ -185,8 +188,9 @@ fn netlist_spice_vdivider_is_repeatable() {
 fn netlist_spice_vdivider_blackbox() {
     let lib = vdivider_blackbox();
     let mut buf: Vec<u8> = Vec::new();
-    let netlister = NetlisterInstance::new(NetlistKind::Cells, &Spice, &lib, &[], &mut buf);
-    netlister.export().unwrap();
+    Spice
+        .write_scir_netlist(&lib, &mut buf, Default::default())
+        .unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);
 
@@ -208,9 +212,14 @@ fn netlist_spectre_vdivider() {
     let lib = vdivider::<Spectre>();
     let mut buf: Vec<u8> = Vec::new();
     let includes = Vec::new();
-    let netlister =
-        NetlisterInstance::new(NetlistKind::Cells, &Spectre {}, &lib, &includes, &mut buf);
-    netlister.export().unwrap();
+    NetlisterInstance::new(
+        &Spectre {},
+        &lib,
+        &mut buf,
+        NetlistOptions::new(NetlistKind::Cells, &includes),
+    )
+    .export()
+    .unwrap();
     let string = String::from_utf8(buf).unwrap();
     println!("{}", string);
 

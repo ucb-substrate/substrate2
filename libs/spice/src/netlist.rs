@@ -1,11 +1,21 @@
-//! Utilities for writing netlisters for SCIR libraries.
+//! Utilities for writing SPICE netlisters for SCIR libraries.
 
-use crate::schema::Schema;
-use crate::{Cell, CellId, ChildId, InstanceId, Library, SignalInfo, Slice};
 use arcstr::ArcStr;
+use itertools::Itertools;
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::{Result, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use crate::{BlackboxElement, Primitive, Spice};
+use scir::schema::Schema;
+use scir::{
+    Cell, ChildId, Library, NetlistCellConversion, NetlistLibConversion, SignalInfo, Slice,
+};
+use substrate::context::Context;
+use substrate::schematic::conv::RawLib;
+use substrate::schematic::Schematic;
 
 /// A netlist include statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -35,34 +45,6 @@ impl Include {
     pub fn section(mut self, section: impl Into<ArcStr>) -> Self {
         self.section = Some(section.into());
         self
-    }
-}
-
-/// Metadata associated with the conversion from a SCIR library to a netlist.
-#[derive(Debug, Clone, Default)]
-pub struct NetlistLibConversion {
-    /// Conversion metadata for each cell in the SCIR library.
-    pub cells: HashMap<CellId, NetlistCellConversion>,
-}
-
-impl NetlistLibConversion {
-    /// Creates a new [`NetlistLibConversion`].
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-/// Metadata associated with the conversion from a SCIR cell to a netlisted subcircuit.
-#[derive(Debug, Clone, Default)]
-pub struct NetlistCellConversion {
-    /// The netlisted names of SCIR instances.
-    pub instances: HashMap<InstanceId, ArcStr>,
-}
-
-impl NetlistCellConversion {
-    /// Creates a new [`NetlistCellConversion`].
-    pub fn new() -> Self {
-        Self::default()
     }
 }
 
@@ -145,40 +127,52 @@ pub enum RenameGround {
 }
 
 /// The type of netlist to be exported.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[enumify::enumify(no_as_ref, no_as_mut)]
 pub enum NetlistKind {
+    /// A netlist that is a collection of cells.
+    #[default]
+    Cells,
     /// A testbench netlist that should have its top cell inlined and its ground renamed to
     /// the simulator ground node.
     Testbench(RenameGround),
-    /// A netlist that is a collection of cells.
-    Cells,
+}
+
+/// Configuration for SPICE netlists.
+#[derive(Clone, Debug, Default)]
+pub struct NetlistOptions<'a> {
+    kind: NetlistKind,
+    includes: &'a [Include],
+}
+
+impl<'a> NetlistOptions<'a> {
+    /// Creates a new [`NetlistOptions`].
+    pub fn new(kind: NetlistKind, includes: &'a [Include]) -> Self {
+        Self { kind, includes }
+    }
 }
 
 /// An instance of a netlister.
 pub struct NetlisterInstance<'a, S: Schema, W> {
-    kind: NetlistKind,
     schema: &'a S,
     lib: &'a Library<S>,
-    includes: &'a [Include],
     out: &'a mut W,
+    opts: NetlistOptions<'a>,
 }
 
 impl<'a, S: Schema, W> NetlisterInstance<'a, S, W> {
     /// Creates a new [`NetlisterInstance`].
     pub fn new(
-        kind: NetlistKind,
         schema: &'a S,
         lib: &'a Library<S>,
-        includes: &'a [Include],
         out: &'a mut W,
+        opts: NetlistOptions<'a>,
     ) -> Self {
         Self {
-            kind,
             schema,
             lib,
-            includes,
             out,
+            opts,
         }
     }
 }
@@ -193,7 +187,7 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
 
     fn export_library(&mut self) -> Result<NetlistLibConversion> {
         self.schema.write_prelude(self.out, self.lib)?;
-        for include in self.includes {
+        for include in self.opts.includes {
             self.schema.write_include(self.out, include)?;
             writeln!(self.out)?;
         }
@@ -211,11 +205,11 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
     }
 
     fn export_cell(&mut self, cell: &Cell, is_top: bool) -> Result<NetlistCellConversion> {
-        let is_testbench_top = is_top && self.kind.is_testbench();
+        let is_testbench_top = is_top && self.opts.kind.is_testbench();
 
         let indent = if is_testbench_top { "" } else { "  " };
 
-        let ground = match (is_testbench_top, &self.kind) {
+        let ground = match (is_testbench_top, &self.opts.kind) {
             (true, NetlistKind::Testbench(RenameGround::Yes(replace_with))) => {
                 let msg = "testbench should have one port: ground";
                 let mut ports = cell.ports();
@@ -238,7 +232,7 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
         }
 
         let mut conv = NetlistCellConversion::new();
-        for (id, inst) in cell.instances.iter() {
+        for (id, inst) in cell.instances() {
             write!(self.out, "{}", indent)?;
             let mut connections: HashMap<_, _> = inst
                 .connections()
@@ -271,7 +265,7 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
                         .write_primitive_inst(self.out, inst.name(), connections, child)?
                 }
             };
-            conv.instances.insert(*id, name);
+            conv.instances.insert(id, name);
             writeln!(self.out)?;
         }
 
@@ -302,5 +296,189 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
         Ok(ArcStr::from(std::str::from_utf8(&buf).expect(
             "slice should only have UTF8-compatible characters",
         )))
+    }
+}
+
+impl HasSpiceLikeNetlist for Spice {
+    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
+        writeln!(out, "* Substrate SPICE library")?;
+        writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
+        Ok(())
+    }
+
+    fn write_include<W: Write>(&self, out: &mut W, include: &Include) -> std::io::Result<()> {
+        if let Some(section) = &include.section {
+            write!(out, ".LIB {:?} {}", include.path, section)?;
+        } else {
+            write!(out, ".INCLUDE {:?}", include.path)?;
+        }
+        Ok(())
+    }
+
+    fn write_start_subckt<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        ports: &[&SignalInfo],
+    ) -> std::io::Result<()> {
+        write!(out, ".SUBCKT {}", name)?;
+        for sig in ports {
+            if let Some(width) = sig.width {
+                for i in 0..width {
+                    write!(out, " {}[{}]", sig.name, i)?;
+                }
+            } else {
+                write!(out, " {}", sig.name)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> std::io::Result<()> {
+        write!(out, ".ENDS {}", name)
+    }
+
+    fn write_instance<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        connections: Vec<ArcStr>,
+        child: &ArcStr,
+    ) -> std::io::Result<ArcStr> {
+        let name = arcstr::format!("X{}", name);
+        write!(out, "{}", name)?;
+
+        for connection in connections {
+            write!(out, " {}", connection)?;
+        }
+
+        write!(out, " {}", child)?;
+
+        Ok(name)
+    }
+
+    fn write_primitive_inst<W: Write>(
+        &self,
+        out: &mut W,
+        name: &ArcStr,
+        mut connections: HashMap<ArcStr, Vec<ArcStr>>,
+        primitive: &<Self as Schema>::Primitive,
+    ) -> std::io::Result<ArcStr> {
+        let name = match &primitive {
+            Primitive::Res2 { value } => {
+                let name = arcstr::format!("R{}", name);
+                write!(out, "{}", name)?;
+                for port in ["1", "2"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                write!(out, " {value}")?;
+                name
+            }
+            Primitive::Mos { mname } => {
+                let name = arcstr::format!("M{}", name);
+                write!(out, "{}", name)?;
+                for port in ["D", "G", "S", "B"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                write!(out, " {}", mname)?;
+                name
+            }
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => {
+                let name = arcstr::format!("X{}", name);
+                write!(out, "{}", name)?;
+                for port in ports {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                write!(out, " {}", cell)?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}={value}")?;
+                }
+                name
+            }
+            Primitive::BlackboxInstance { contents } => {
+                // TODO: See if there is a way to translate the name based on the
+                // contents, or make documentation explaining that blackbox instances
+                // cannot be addressed by path.
+                for elem in &contents.elems {
+                    match elem {
+                        BlackboxElement::InstanceName => write!(out, "{}", name)?,
+                        BlackboxElement::RawString(s) => write!(out, "{}", s)?,
+                        BlackboxElement::Port(p) => {
+                            for part in connections.get(p).unwrap() {
+                                write!(out, "{}", part)?
+                            }
+                        }
+                    }
+                }
+                name.clone()
+            }
+        };
+        Ok(name)
+    }
+}
+
+impl Spice {
+    /// Writes a nestlist of a SPICE library to the provided buffer.
+    pub fn write_scir_netlist<W: Write>(
+        &self,
+        lib: &Library<Spice>,
+        out: &mut W,
+        opts: NetlistOptions<'_>,
+    ) -> Result<NetlistLibConversion> {
+        NetlisterInstance::new(self, lib, out, opts).export()
+    }
+    /// Writes a netlist of a SPICE library to a file at the given path.
+    pub fn write_scir_netlist_to_file(
+        &self,
+        lib: &Library<Spice>,
+        path: impl AsRef<Path>,
+        opts: NetlistOptions<'_>,
+    ) -> Result<NetlistLibConversion> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut f = File::create(path)?;
+        self.write_scir_netlist(lib, &mut f, opts)
+    }
+    /// Writes a SPICE netlist of a Substrate block to the given buffer.
+    pub fn write_block_netlist<B: Schematic<Spice>, W: Write>(
+        &self,
+        ctx: &Context,
+        block: B,
+        out: &mut W,
+        opts: NetlistOptions<'_>,
+    ) -> substrate::error::Result<(RawLib<Spice>, NetlistLibConversion)> {
+        let raw_lib = ctx.export_scir::<Spice, _>(block)?;
+
+        let conv = self
+            .write_scir_netlist(&raw_lib.scir, out, opts)
+            .map_err(Arc::new)?;
+        Ok((raw_lib, conv))
+    }
+    /// Writes a SPICE netlist of a Substrate block to a file at the given path.
+    pub fn write_block_netlist_to_file<B: Schematic<Spice>>(
+        &self,
+        ctx: &Context,
+        block: B,
+        path: impl AsRef<Path>,
+        opts: NetlistOptions<'_>,
+    ) -> substrate::error::Result<(RawLib<Spice>, NetlistLibConversion)> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(Arc::new)?;
+        }
+        let mut f = File::create(path).map_err(Arc::new)?;
+        self.write_block_netlist(ctx, block, &mut f, opts)
     }
 }
