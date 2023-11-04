@@ -1,9 +1,0 @@
-  File included as:   .inc  "/Users/rohan/layout/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice" tt
-
-  File included as:   .inc  tt
-
-Error: Could not find include file tt
-Error: unknown subckt: xinst0.xinst0 dout xinst0_din 0 0 xinst0.sky130_fd_pr__nfet_01v8 xinst0.l=0.150 xinst0.nf=1 w=1.200
-    Simulation interrupted due to error!
-
-Error: there aren't any circuits loaded.
