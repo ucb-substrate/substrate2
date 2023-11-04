@@ -1,6 +1,6 @@
 [package]
 name = "ngspice"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -15,7 +15,7 @@ tracing = "0.1"
 indexmap = { version = "2", features = ["serde"] }
 
 cache = { version = "0.4.0", registry = "substrate", path = "../../libs/cache" }
-scir = { version = "0.6.0", registry = "substrate", path = "../../libs/scir" }
-substrate = { version = "0.7.0", registry = "substrate", path = "../../substrate" }
+scir = { version = "0.7.0", registry = "substrate", path = "../../libs/scir" }
+substrate = { version = "0.7.1", registry = "substrate", path = "../../substrate" }
 nutlex = { version = "0.2.0", registry = "substrate", path = "../../libs/nutlex" }
-spice = { version = "0.5.0", registry = "substrate", path = "../../libs/spice" }
+spice = { version = "0.6.0", registry = "substrate", path = "../../libs/spice" }

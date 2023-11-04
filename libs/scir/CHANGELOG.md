@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/scir-v0.6.0...scir-v0.7.0) (2023-11-04)
+
+
+### Features
+
+* **spice:** refactor netlisting and fix voltage source netlist ([#316](https://github.com/ucb-substrate/substrate2/issues/316)) ([7a3df69](https://github.com/ucb-substrate/substrate2/commit/7a3df695cf9b38c837ff86d5a5da2417c4db7aa2))
+
 ## [0.6.0](https://github.com/ucb-substrate/substrate2/compare/scir-v0.5.0...scir-v0.6.0) (2023-11-02)
 
 

@@ -8,6 +8,22 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.7.0...spectre-v0.8.0) (2023-11-04)
+
+
+### Features
+
+* **spice:** refactor netlisting and fix voltage source netlist ([#316](https://github.com/ucb-substrate/substrate2/issues/316)) ([7a3df69](https://github.com/ucb-substrate/substrate2/commit/7a3df695cf9b38c837ff86d5a5da2417c4db7aa2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.6.0 to 0.7.0
+    * substrate bumped from 0.7.0 to 0.7.1
+    * spice bumped from 0.5.0 to 0.6.0
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.6.1...spectre-v0.7.0) (2023-11-02)
 
 
