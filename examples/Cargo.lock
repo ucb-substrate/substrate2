@@ -403,6 +403,38 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cache"
 version = "0.4.0"
+dependencies = [
+ "backoff",
+ "clap",
+ "flexbuffers",
+ "fs4",
+ "futures-core",
+ "futures-util",
+ "hex",
+ "lazy_static",
+ "once_cell",
+ "path-absolutize",
+ "prost 0.11.9",
+ "prost-types",
+ "regex",
+ "rusqlite",
+ "serde",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tokio-rusqlite",
+ "tokio-stream",
+ "tokio-util",
+ "toml 0.8.6",
+ "tonic",
+ "tonic-build",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "cache"
+version = "0.4.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "923f343ac9b24a38bca9909ef6ede9f96314c732bda55312386125e03ad57256"
 dependencies = [
@@ -528,18 +560,33 @@ checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 [[package]]
 name = "codegen"
 version = "0.7.0"
-source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "0609d2f1e15861152b0a3145590cfa28dce633541c52dff01c4e804c9dfac66c"
 dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.1",
- "examples",
+ "examples 0.4.0",
  "proc-macro-crate 1.3.1",
  "proc-macro-error",
  "proc-macro2",
  "quote",
  "syn 2.0.32",
- "type_dispatch",
+ "type_dispatch 0.3.0",
+]
+
+[[package]]
+name = "codegen"
+version = "0.7.0"
+source = "registry+https://github.com/substrate-labs/crates-index"
+checksum = "0609d2f1e15861152b0a3145590cfa28dce633541c52dff01c4e804c9dfac66c"
+dependencies = [
+ "convert_case 0.6.0",
+ "darling 0.20.1",
+ "examples 0.4.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
+ "type_dispatch 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
 ]
 
 [[package]]
@@ -551,11 +598,25 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "config"
 version = "0.2.4"
+dependencies = [
+ "anyhow",
+ "cache 0.4.0",
+ "lazycell",
+ "log",
+ "serde",
+ "toml 0.8.6",
+ "toml_edit 0.20.7",
+ "windows-sys",
+]
+
+[[package]]
+name = "config"
+version = "0.2.4"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "f08355427ddff7fdaa525bb9d7cd1b79b77c6307f0e5c797bc315833d91c5259"
 dependencies = [
  "anyhow",
- "cache",
+ "cache 0.4.0 (registry+https://github.com/substrate-labs/crates-index)",
  "lazycell",
  "log",
  "serde",
@@ -746,6 +807,14 @@ checksum = "850878694b7933ca4c9569d30a34b55031b9b139ee1fc7b94a527c4ef960d690"
 [[package]]
 name = "diagnostics"
 version = "0.3.0"
+dependencies = [
+ "serde",
+ "tracing",
+]
+
+[[package]]
+name = "diagnostics"
+version = "0.3.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "6679a8fd51905c642fb2183bc3d25992796b05a24f1ed5f6f4ba0d9b14e6a46d"
 dependencies = [
@@ -797,10 +866,31 @@ dependencies = [
 [[package]]
 name = "enumify"
 version = "0.1.0"
+dependencies = [
+ "enumify_macros 0.1.0",
+]
+
+[[package]]
+name = "enumify"
+version = "0.1.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "5b365d7e333abc3b3427932dada29c49b8338b7c9b9816462dc1e0681719b73d"
 dependencies = [
- "enumify_macros",
+ "enumify_macros 0.1.0 (registry+https://github.com/substrate-labs/crates-index)",
+]
+
+[[package]]
+name = "enumify_macros"
+version = "0.1.0"
+dependencies = [
+ "convert_case 0.6.0",
+ "darling 0.20.1",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
+ "type_dispatch 0.3.0",
 ]
 
 [[package]]
@@ -816,7 +906,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.32",
- "type_dispatch",
+ "type_dispatch 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
 ]
 
 [[package]]
@@ -844,6 +934,18 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "examples"
+version = "0.4.0"
+dependencies = [
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
+ "textwrap",
 ]
 
 [[package]]
@@ -976,6 +1078,25 @@ dependencies = [
 [[package]]
 name = "gds"
 version = "0.3.0"
+dependencies = [
+ "arcstr",
+ "byteorder",
+ "chrono",
+ "derive_builder",
+ "derive_more",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml",
+ "textwrap",
+ "toml 0.8.6",
+]
+
+[[package]]
+name = "gds"
+version = "0.3.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "fd62e18551e71d79f3599cb88d12bdac4e74f85f136ec6679356dda1b0e1dbc6"
 dependencies = [
@@ -1007,16 +1128,42 @@ dependencies = [
 [[package]]
 name = "geometry"
 version = "0.5.0"
+dependencies = [
+ "approx",
+ "array_map",
+ "geometry_macros 0.0.1",
+ "impl-trait-for-tuples",
+ "indexmap 2.0.0",
+ "num-rational",
+ "serde",
+]
+
+[[package]]
+name = "geometry"
+version = "0.5.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "98badbaf06276c808e4c4723565e65448f573e4716bdaa3552c3387d5a119782"
 dependencies = [
  "approx",
  "array_map",
- "geometry_macros",
+ "geometry_macros 0.0.1 (registry+https://github.com/substrate-labs/crates-index)",
  "impl-trait-for-tuples",
  "indexmap 2.0.0",
  "num-rational",
  "serde",
+]
+
+[[package]]
+name = "geometry_macros"
+version = "0.0.1"
+dependencies = [
+ "darling 0.20.1",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
+ "type_dispatch 0.3.0",
 ]
 
 [[package]]
@@ -1031,7 +1178,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.32",
- "type_dispatch",
+ "type_dispatch 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
 ]
 
 [[package]]
@@ -1467,20 +1614,18 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 [[package]]
 name = "ngspice"
 version = "0.1.0"
-source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "01521849a09287e42732d92bb3ab2e787ff896d7410f9f7a8f117c2b8da84ce7"
 dependencies = [
  "arcstr",
- "cache",
+ "cache 0.4.0",
  "indexmap 2.0.0",
  "lazy_static",
  "nutlex",
  "rust_decimal",
  "rust_decimal_macros",
- "scir",
+ "scir 0.6.0",
  "serde",
- "spice",
- "substrate",
+ "spice 0.5.0",
+ "substrate 0.7.0",
  "tera",
  "thiserror",
  "tracing",
@@ -1593,10 +1738,8 @@ dependencies = [
 [[package]]
 name = "nutlex"
 version = "0.2.0"
-source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "5d245670188f30d1e100affbcb915b87c361a3b9bbd6d98bbff499e5cbe3d398"
 dependencies = [
- "enumify",
+ "enumify 0.1.0",
  "nom",
  "serde",
  "thiserror",
@@ -1649,6 +1792,10 @@ checksum = "9d55e486337acb9973cdea3ec5638c1b3bcb22e573b2b7b41969e0c744d5a15e"
 dependencies = [
  "once_cell",
 ]
+
+[[package]]
+name = "pathtree"
+version = "0.2.0"
 
 [[package]]
 name = "pathtree"
@@ -2185,12 +2332,28 @@ dependencies = [
 [[package]]
 name = "scir"
 version = "0.6.0"
+dependencies = [
+ "arcstr",
+ "diagnostics 0.3.0",
+ "enumify 0.1.0",
+ "indexmap 2.0.0",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "thiserror",
+ "tracing",
+ "uniquify 0.2.0",
+]
+
+[[package]]
+name = "scir"
+version = "0.6.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "2f1d276f75682e7cb9216d3b1721f2ab268f7ed862d7ad2e5619c9ba3aac912b"
 dependencies = [
  "arcstr",
- "diagnostics",
- "enumify",
+ "diagnostics 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "enumify 0.1.0 (registry+https://github.com/substrate-labs/crates-index)",
  "indexmap 2.0.0",
  "itertools 0.11.0",
  "rust_decimal",
@@ -2198,7 +2361,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tracing",
- "uniquify",
+ "uniquify 0.2.0 (registry+https://github.com/substrate-labs/crates-index)",
 ]
 
 [[package]]
@@ -2317,25 +2480,23 @@ dependencies = [
  "serde",
  "sky130pdk",
  "spectre",
- "substrate",
+ "substrate 0.7.0",
 ]
 
 [[package]]
 name = "sky130pdk"
 version = "0.7.0"
-source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "a5d3098a8908fac8473e39aa544ae0dc9559f7333d1664070cf6735b3b38e001"
 dependencies = [
  "arcstr",
  "indexmap 2.0.0",
  "ngspice",
  "rust_decimal",
  "rust_decimal_macros",
- "scir",
+ "scir 0.6.0",
  "serde",
  "spectre",
- "spice",
- "substrate",
+ "spice 0.5.0",
+ "substrate 0.7.0",
 ]
 
 [[package]]
@@ -2390,21 +2551,35 @@ dependencies = [
 [[package]]
 name = "spectre"
 version = "0.7.0"
-source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "2c38293ee78a84826cdd33f45c51ca2323e4fe33bbe704e67e6822a29b41c87b"
 dependencies = [
  "arcstr",
- "cache",
+ "cache 0.4.0",
  "itertools 0.11.0",
  "lazy_static",
  "nutlex",
  "rust_decimal",
  "rust_decimal_macros",
- "scir",
+ "scir 0.6.0",
  "serde",
- "spice",
- "substrate",
+ "spice 0.5.0",
+ "substrate 0.7.0",
  "tera",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "spice"
+version = "0.5.0"
+dependencies = [
+ "arcstr",
+ "enumify 0.1.0",
+ "itertools 0.11.0",
+ "nom",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scir 0.6.0",
+ "substrate 0.7.0",
  "thiserror",
  "tracing",
 ]
@@ -2420,8 +2595,8 @@ dependencies = [
  "nom",
  "rust_decimal",
  "rust_decimal_macros",
- "scir",
- "substrate",
+ "scir 0.6.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "substrate 0.7.0 (registry+https://github.com/substrate-labs/crates-index)",
  "thiserror",
  "tracing",
 ]
@@ -2433,8 +2608,8 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
- "spice",
- "substrate",
+ "spice 0.5.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "substrate 0.7.0 (registry+https://github.com/substrate-labs/crates-index)",
 ]
 
 [[package]]
@@ -2446,35 +2621,67 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 [[package]]
 name = "substrate"
 version = "0.7.0"
+dependencies = [
+ "anyhow",
+ "arcstr",
+ "cache 0.4.0",
+ "codegen 0.7.0",
+ "config 0.2.4",
+ "derive_builder",
+ "downcast-rs",
+ "duplicate",
+ "ena",
+ "enumify 0.1.0",
+ "examples 0.4.0",
+ "gds 0.3.0",
+ "geometry 0.5.0",
+ "impl-trait-for-tuples",
+ "indexmap 2.0.0",
+ "once_cell",
+ "pathtree 0.2.0",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scir 0.6.0",
+ "serde",
+ "slotmap",
+ "thiserror",
+ "tracing",
+ "type_dispatch 0.3.0",
+ "uniquify 0.2.0",
+]
+
+[[package]]
+name = "substrate"
+version = "0.7.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "c299016e6d185cad8391b96233aaa3c68e1f63c95efc4a16d441d052bb506e86"
 dependencies = [
  "anyhow",
  "arcstr",
- "cache",
- "codegen",
- "config",
+ "cache 0.4.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "codegen 0.7.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "config 0.2.4 (registry+https://github.com/substrate-labs/crates-index)",
  "derive_builder",
  "downcast-rs",
  "duplicate",
  "ena",
- "enumify",
- "examples",
- "gds",
- "geometry",
+ "enumify 0.1.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "examples 0.4.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "gds 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "geometry 0.5.0 (registry+https://github.com/substrate-labs/crates-index)",
  "impl-trait-for-tuples",
  "indexmap 2.0.0",
  "once_cell",
- "pathtree",
+ "pathtree 0.2.0 (registry+https://github.com/substrate-labs/crates-index)",
  "rust_decimal",
  "rust_decimal_macros",
- "scir",
+ "scir 0.6.0 (registry+https://github.com/substrate-labs/crates-index)",
  "serde",
  "slotmap",
  "thiserror",
  "tracing",
- "type_dispatch",
- "uniquify",
+ "type_dispatch 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
+ "uniquify 0.2.0 (registry+https://github.com/substrate-labs/crates-index)",
 ]
 
 [[package]]
@@ -2901,6 +3108,18 @@ checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 [[package]]
 name = "type_dispatch"
 version = "0.3.0"
+dependencies = [
+ "darling 0.20.1",
+ "duplicate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
+ "type_dispatch_macros 0.3.0",
+]
+
+[[package]]
+name = "type_dispatch"
+version = "0.3.0"
 source = "registry+https://github.com/substrate-labs/crates-index"
 checksum = "42b95b55b4c53404406a0f3ce9cfcfd25b28d6760f822a7ac9466c7608f33f94"
 dependencies = [
@@ -2909,7 +3128,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.32",
- "type_dispatch_macros",
+ "type_dispatch_macros 0.3.0 (registry+https://github.com/substrate-labs/crates-index)",
+]
+
+[[package]]
+name = "type_dispatch_macros"
+version = "0.3.0"
+dependencies = [
+ "darling 0.20.1",
+ "itertools 0.11.0",
+ "proc-macro-crate 1.3.1",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
 ]
 
 [[package]]
@@ -3025,6 +3257,14 @@ name = "unicode-width"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
+
+[[package]]
+name = "uniquify"
+version = "0.2.0"
+dependencies = [
+ "arcstr",
+ "serde",
+]
 
 [[package]]
 name = "uniquify"
