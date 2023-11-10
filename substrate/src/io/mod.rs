@@ -240,6 +240,14 @@ pub struct Flipped<T>(pub T);
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Signal;
 
+impl Signal {
+    /// Creates a new [`Signal`].
+    #[inline]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// A type representing a single hardware layout port with a single [`Shape`](crate::layout::element::Shape) as
 /// its geometry.
 #[derive(Debug, Default, Clone, Copy)]

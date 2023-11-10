@@ -8,14 +8,15 @@ import CargoToml from '@substrate/examples/spice_vdivider/Cargo.toml?snippet';
 
 # Quickstart
 
-Substrate is fully integrated with the Rust ecosystem, so all you need to do to get started is [install Rust](https://www.rust-lang.org/tools/install)! To get you up to speed with Substrate's basic features, we'll show you how make a simple voltage divider schematic.
+To get you up to speed with Substrate's basic features, we'll show you how make a simple voltage divider schematic.
 
 In this tutorial, we'll breeze through the basics to give you a sense of what Substrate generators look like. If you're looking for a deeper dive into how analog design and simulation work in Substrate, check out the [Designing an inverter](inverter.md) tutorial.
 
 ## Creating a Substrate project
 
-Ensure that you have a recent version of Rust installed (1.70.0 or beyond).
-Add the Substrate registry to your Cargo config:
+Substrate is fully integrated with the Rust ecosystem, so all you need to get started is a [recent installation of Rust](https://www.rust-lang.org/tools/install)! Ensure that you have version 1.70.0 or beyond.
+
+First, add the Substrate registry to your Cargo config:
 
 ```toml title="~/.cargo/config.toml"
 [registries]

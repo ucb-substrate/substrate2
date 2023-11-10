@@ -1,7 +1,7 @@
 ---
 slug: long-blog-post
 title: Long Blog Post
-authors: [rohanku, rahulk29]
+authors: endi
 tags: [hello, docusaurus]
 ---
 

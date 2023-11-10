@@ -38,7 +38,3 @@
 [data-theme='dark'] .featureSvg {
   filter: invert(100%);
 }
-
-.hidden-rust-doc {
-  display: none;
-}

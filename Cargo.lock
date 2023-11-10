@@ -854,6 +854,8 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "sky130pdk",
  "spectre",

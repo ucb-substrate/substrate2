@@ -257,5 +257,6 @@ cargo test design_inverter_spectre --features spectre -- --show-output
 
 ## Conclusion
 
+You should now be well equipped to start writing your own schematic generators in Substrate.
 A full, runnable example for this tutorial is available [here](https://github.com/substrate-labs/substrate2/tree/main/examples/sky130_inverter).
 
