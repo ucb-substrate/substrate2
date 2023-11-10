@@ -1,6 +1,6 @@
 [package]
 name = "examples"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,10 +16,10 @@ textwrap = "0.16"
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
-substrate = { version = "<=0.7.0", registry = "substrate", path = "../../substrate" }
-sky130pdk = { version = "<=0.7.0", registry = "substrate", path = "../../pdks/sky130pdk" }
-spectre = { version = "<=0.7.0", registry = "substrate", path = "../../tools/spectre" }
-spice = { version = "<=0.5.0", registry = "substrate", path = "../../libs/spice" }
+substrate = { version = "<=0.7.1", registry = "substrate", path = "../../substrate" }
+sky130pdk = { version = "<=0.7.1", registry = "substrate", path = "../../pdks/sky130pdk" }
+spectre = { version = "<=0.8.0", registry = "substrate", path = "../../tools/spectre" }
+spice = { version = "<=0.6.0", registry = "substrate", path = "../../libs/spice" }
 
 [lib]
 proc-macro = true

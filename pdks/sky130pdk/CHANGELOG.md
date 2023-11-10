@@ -10,6 +10,14 @@
     * substrate bumped from 0.6.0 to 0.6.1
     * spectre bumped from 0.6.0 to 0.6.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.7.0 to 0.7.1
+    * scir bumped from 0.6.0 to 0.7.0
+    * spectre bumped from 0.7.0 to 0.8.0
+    * ngspice bumped from 0.1.0 to 0.2.0
+    * spice bumped from 0.5.0 to 0.6.0
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/sky130pdk-v0.6.1...sky130pdk-v0.7.0) (2023-11-02)
 
 

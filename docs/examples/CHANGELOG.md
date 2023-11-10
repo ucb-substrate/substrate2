@@ -6,6 +6,13 @@
     * sky130pdk bumped from <=0.6.0 to <=0.6.1
     * spectre bumped from <=0.6.0 to <=0.6.1
 
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.7.0 to <=0.7.1
+    * sky130pdk bumped from <=0.7.0 to <=0.7.1
+    * spectre bumped from <=0.7.0 to <=0.8.0
+    * spice bumped from <=0.5.0 to <=0.6.0
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.3.1...examples-v0.4.0) (2023-11-02)
 
 
