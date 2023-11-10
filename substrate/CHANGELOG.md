@@ -5,6 +5,16 @@
     * codegen bumped from 0.1.0 to 0.1.1
     * substrate_api bumped from 0.1.0 to 0.1.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.4.0 to 0.4.1
+    * codegen bumped from 0.7.0 to 0.7.1
+    * scir bumped from 0.6.0 to 0.7.0
+  * dev-dependencies
+    * sky130pdk bumped from <=0.7.0 to <=0.7.1
+    * spectre bumped from <=0.7.0 to <=0.8.0
+    * spice bumped from <=0.5.0 to <=0.6.0
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.6.1...substrate-v0.7.0) (2023-11-02)
 
 

@@ -434,7 +434,7 @@ mod single_process_buffer {
     use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 
     #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Block)]
-    #[substrate(io = "BufferIo", kind = "Cell")]
+    #[substrate(io = "BufferIo")]
     pub struct Buffer {
         strength: usize,
     }
