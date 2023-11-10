@@ -617,8 +617,8 @@ fn io() {
     }
 
     let io_type = ArrayIo {
-        in_bus: Input(Array::new(5, Signal::default())),
-        out_bus: Output(Array::new(5, Signal::default())),
+        in_bus: Input(Array::new(5, Signal::new())),
+        out_bus: Output(Array::new(5, Signal::new())),
     };
     // end-code-snippet array-io
 
@@ -626,8 +626,8 @@ fn io() {
     impl ArrayIo {
         pub fn new(in_size: usize, m: usize) -> Self {
             Self {
-                in_bus: Input(Array::new(in_size, Signal::default())),
-                out_bus: Output(Array::new(in_size * m, Signal::default())),
+                in_bus: Input(Array::new(in_size, Signal::new())),
+                out_bus: Output(Array::new(in_size * m, Signal::new())),
             }
         }
     }
@@ -728,7 +728,6 @@ fn io() {
     // end-code-snippet sram-block
 
     let _ = io_type;
-    ()
 }
 
 #[derive(Io, Clone, Default, Debug)]
@@ -738,6 +737,7 @@ pub struct VdividerIo {
     pub dout: Output<Signal>,
 }
 
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, Eq)]
 #[substrate(io = "()")]
 pub struct Vdivider {

@@ -22,6 +22,8 @@ substrate = { version = "<=0.7.0", registry = "substrate", path = "../substrate"
 sky130pdk = { version = "<=0.7.0", registry = "substrate", path = "../pdks/sky130pdk" }
 spectre = { version = "<=0.7.0", registry = "substrate", path = "../tools/spectre" }
 spice = { version = "<=0.5.0", registry = "substrate", path = "../libs/spice" }
+rust_decimal = "1.30"
+rust_decimal_macros = "1.30"
 
 [lib]
 proc-macro = true

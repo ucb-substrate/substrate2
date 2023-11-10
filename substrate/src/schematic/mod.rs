@@ -678,6 +678,21 @@ impl<T: ExportsNestedData> Deref for Instance<T> {
     }
 }
 
+impl<B: ExportsNestedData> Clone for Instance<B> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            parent: self.parent.clone(),
+            path: self.path.clone(),
+            io: self.io.clone(),
+            cell: self.cell.clone(),
+
+            terminal_view: self.terminal_view.clone(),
+            nested_data: self.nested_data.clone(),
+        }
+    }
+}
+
 impl<B: ExportsNestedData> HasNestedView for Instance<B> {
     type NestedView = NestedInstance<B>;
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
@@ -691,19 +706,6 @@ impl<B: ExportsNestedData> HasNestedView for Instance<B> {
 }
 
 impl<T: ExportsNestedData> Instance<T> {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            parent: self.parent.clone(),
-            path: self.path.clone(),
-            io: self.io.clone(),
-            cell: self.cell.clone(),
-
-            terminal_view: self.terminal_view.clone(),
-            nested_data: self.nested_data.clone(),
-        }
-    }
-
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
@@ -764,6 +766,12 @@ impl<T: ExportsNestedData> Deref for NestedInstance<T> {
     }
 }
 
+impl<B: ExportsNestedData> Clone for NestedInstance<B> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<B: ExportsNestedData> HasNestedView for NestedInstance<B> {
     type NestedView = NestedInstance<B>;
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
@@ -777,10 +785,6 @@ impl<B: ExportsNestedData> HasNestedView for NestedInstance<B> {
 }
 
 impl<T: ExportsNestedData> NestedInstance<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.

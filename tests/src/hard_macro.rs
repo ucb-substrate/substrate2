@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 #[cfg(feature = "spectre")]
 use spectre::Spectre;
+#[cfg(feature = "spectre")]
 use spice::netlist::NetlisterInstance;
 use spice::Spice;
 use substrate::block::Block;
