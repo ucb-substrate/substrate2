@@ -3,9 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
 use substrate::block::Block;
-use substrate::io::{
-    InOut, Io, Output, SchematicType, Signal, TwoTerminalIo, TwoTerminalIoSchematic,
-};
+use substrate::io::{InOut, Io, Output, SchematicType, Signal};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 // end-code-snippet imports
@@ -21,7 +19,7 @@ pub struct VdividerIo {
 
 // begin-code-snippet vdivider-struct
 #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-#[substrate(io = "VdividerIo")]
+#[substrate(io = "VdividerIo", kind = "Cell")]
 pub struct Vdivider {
     /// The top resistance.
     pub r1: Decimal,
@@ -71,7 +69,7 @@ mod tests {
         ));
         std::fs::create_dir_all(&work_dir).expect("failed to create working directory");
 
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let raw_lib = ctx
             .export_scir::<Spice, _>(Vdivider {
                 r1: dec!(100),
