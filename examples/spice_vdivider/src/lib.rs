@@ -56,32 +56,28 @@ impl Schematic<Spice> for Vdivider {
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
-    use std::fs::File;
+    use spice::netlist::NetlistOptions;
     use std::path::PathBuf;
     use substrate::context::Context;
-    use substrate::scir::netlist::{NetlistKind, NetlisterInstance};
 
     #[test]
     pub fn netlist_vdivider() {
-        let work_dir = PathBuf::from(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/tests/netlist_vdivider"
-        ));
-        std::fs::create_dir_all(&work_dir).expect("failed to create working directory");
-
         let ctx = Context::new();
-        let raw_lib = ctx
-            .export_scir::<Spice, _>(Vdivider {
-                r1: dec!(100),
-                r2: dec!(200),
-            })
-            .expect("failed to export vdivider to SCIR");
-
-        let mut f =
-            File::create(work_dir.join("vdivider.spice")).expect("failed to open output file");
-        NetlisterInstance::new(NetlistKind::Cells, &Spice, &raw_lib.scir, &[], &mut f)
-            .export()
-            .expect("failed to netlist vdivider SCIR library");
+        Spice
+            .write_block_netlist_to_file(
+                &ctx,
+                Vdivider {
+                    r1: dec!(100),
+                    r2: dec!(200),
+                },
+                PathBuf::from(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/tests/netlist_vdivider"
+                ))
+                .join("vdivider.spice"),
+                NetlistOptions::default(),
+            )
+            .expect("failed to netlist vdivider");
     }
 }
 // end-code-snippet tests
