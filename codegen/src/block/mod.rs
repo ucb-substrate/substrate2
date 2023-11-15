@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use type_dispatch::derive::add_trait_bounds;
 
@@ -15,7 +15,7 @@ pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
-    kind: syn::Ident,
+    kind: Option<syn::Ident>,
     #[darling(multiple)]
     #[allow(unused)]
     layout: Vec<darling::util::Ignored>,
@@ -46,6 +46,10 @@ impl ToTokens for BlockInputReceiver {
         let (imp, ty, wher) = generics.split_for_impl();
 
         let name = ident.to_string().to_case(Case::Snake);
+
+        let kind = kind
+            .clone()
+            .unwrap_or_else(|| syn::Ident::new("Cell", Span::call_site()));
 
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {

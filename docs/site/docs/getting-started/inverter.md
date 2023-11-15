@@ -10,9 +10,13 @@ import CargoToml from '@substrate/examples/sky130_inverter/Cargo.toml?snippet';
 # Designing an inverter
 
 In this tutorial, we'll design and simulate a schematic-level inverter in
-the Skywater 130nm process.
+the Skywater 130nm process to showcase some of the capabilities of Substrate's
+analog simulation interface. We'll also go into some more detail about what
+the code you're writing is actually doing.
 
 ## Setup
+
+### Rust
 
 Ensure that you have a recent version of Rust installed.
 Add the Substrate registry to your Cargo config:
@@ -38,6 +42,25 @@ Replace the content of `src/lib.rs` with the following:
 
 <CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{InverterMod}</CodeSnippet>
 
+### Simulators
+
+This tutorial will demonstrate how to invoke both [ngspice](https://ngspice.sourceforge.io/index.html) and [Spectre](https://www.cadence.com/en_US/home/tools/custom-ic-analog-rf-design/circuit-simulation/spectre-ams-designer.html) from Substrate to run transient simulations.
+You can choose to use whichever simulator you would like, but make sure to install the appropriate simulator before
+running your Rust code. We recommend an ngspice version of at least 41.
+
+### SKY130 PDK
+
+If you would like to simulate using ngspice, you will need to install the open source PDK by cloning the [`skywater-pdk` repo](https://github.com/ucb-substrate/skywater-pdk) and pulling the relevant libraries:
+
+```
+git clone https://github.com/ucb-substrate/skywater-pdk.git && cd skywater-pdk
+git submodule update --init libraries/sky130_fd_pr/latest
+```
+
+Also, ensure that the `SKY130_OPEN_PDK_ROOT` environment variable points to the location of the repo you just cloned.
+
+Similarly, if you would like to use Spectre, you will need to ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to an installation of the commercial SKY130 PDK.
+
 ## Interface
 
 We'll first define the interface (also referred to as IO) exposed by our inverter.
@@ -56,9 +79,9 @@ The `Input`, `Output`, and `InOut` wrappers provide directions for the `Signal`s
 
 The `#[derive(Io)]` attribute tells Substrate that our `InverterIo` struct should be made into a Substrate IO.
 
-## Inverter Parameters
+## Inverter parameters
 
-Now that we've defined an Io, we can define a **block**.
+Now that we've defined an IO, we can define a **block**.
 Substrate blocks are analogous to modules or cells in other generator frameworks.
 
 While Substrate does not require you to structure your blocks in any particular way,
@@ -79,20 +102,17 @@ We'll now define the struct representing our inverter:
 <CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-struct">{InverterMod}</CodeSnippet>
 
 There are a handful of `#[derive]` attributes that give our struct properties that Substrate requires.
-For example, blocks must implement `Eq` so that Substrate can tell if two blocks are equivalent.
+For example, blocks must implement `Eq` so that Substrate can tell if two blocks are equivalent. It is important
+that `Eq` is implemented in a way that makes sense as Substrate uses it to determine if a block can be reused
+or needs to be regenerated.
 
 ## Schematic Generator
 
-We can finally generate a schematic for our inverter.
+We can now generate a schematic for our inverter.
 
 Describing a Schematic in Substrate requires implementing two traits:
-* `HasSchematicData` declares that a block can generate schematic data.
-* `HasSchematic` specifies the actual schematic in a particular PDK.
-
-The `HasSchematicData` trait allows you to declare a `Data` type for data returned by your block's
-schematic generator.
-This can be useful if you, for example, want to save a node in your circuit to probe in a simulation later on.
-For now, we don't want to save anything, so we'll set `Data` to Rust's unit type, `()`.
+* `ExportsNestedData` declares what nested data a block exposes, such as internal nodes or instances. For now, we don't want to expose anything, so we'll set the associated `NestedData` type to Rust's unit type, `()`.
+* `Schematic` specifies the actual schematic in a particular **schema**. A schema is essentially just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
 <CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-schematic">{InverterMod}</CodeSnippet>
@@ -106,7 +126,7 @@ For example, we connect the drain of the NMOS (`nmos.io().d`) to the inverter ou
 ## Testbench
 
 Let's now simulate our inverter and measure the rise and fall times.
-We'll use the commercial Spectre simulator.
+For now, we'll use ngspice as our simulator. Later, we'll add support for Spectre.
 
 Start by creating a new file, `src/tb.rs`. Add a reference to this module
 in `src/lib.rs`:
@@ -122,15 +142,9 @@ All Substrate testbenches are blocks that have schematics.
 The schematic specifies the simulation structure (i.e. input sources,
 the device being tested, etc.).
 
-As a result, creating a testbench is similar to creating a regular block, but with a few differences:
-* We don't have to define an IO, since all testbenches must declare their IO to be `TestbenchIo`.
-  `TestbenchIo` has one port, `vss`, that allows simulators to identify a global ground (which
-  they often assign to node 0).
-* Instead of implementing `HasSchematic`, testbenches implement `HasSimSchematic`,
-  which declares that a testbench has a particular setup in a given PDK **and** a given simulator.
-  This allows testbenches to use simulator-specific blocks, such as PRBS sources in Spectre.
-  Trying to instantiate a Spectre PRBS source in an Ngspice testbench
-  would result in a compile-time error.
+As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
+All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows 
+simulators to identify a global ground (whichthey often assign to node 0).
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
 We'll make our testbench take two parameters:
@@ -145,7 +159,7 @@ The `Pvt<Sky130Corner>` in our testbench is essentially a 3-tuple of a process c
 voltage, and temperature. The process corner here is an instance of `Sky130Corner`,
 which is defined in the `sky130pdk` plugin for Substrate.
 
-Let's now create the schematic for our testbench. This should have three components:
+Let's now create the schematic for our testbench. We will do this in the `Ngspice` schema so that the ngspice simulator plugin knows how to netlist and simulate our testbench. This should have three components:
 * A pulse input source driving the inverter input.
 * A dc voltage source supplying power to the inverter.
 * The instance of the inverter itself.
@@ -157,7 +171,7 @@ Here's our testbench setup:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="schematic">{InverterTb}</CodeSnippet>
 
-We create two Spectre-specific `Vsource`s (one for VDD; the other as an input stimulus).
+We create two Spectre-specific `Vsource`s (one for VDD, the other as an input stimulus).
 We also instantiate our inverter and connect everything up.
 The `cell.signal(...)` calls create intermediate nodes.
 Creating them isn't strictly necessary (we could connect `inv.io().vdd` directly to `vddsrc.io().p`,
@@ -175,9 +189,9 @@ This is how our testbench looks:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{InverterTb}</CodeSnippet>
 
-Notice in particular how we obtain the output waveform `vout`.
-
-We use the `WaveformRef` API to look for 20-80% transitions, and capture their duration.
+We define `NgspiceVout` as a receiver for data saved during simulation. 
+We then create a general-purpose `Vout` struct. This struct is not necessary if we only want to use ngspice,
+but it will come in handy when we add support for other simulators.
 
 ## Design
 
@@ -192,14 +206,22 @@ Here's our implementation:
 
 We sweep over possible PMOS widths. For each width,
 we create a new testbench instance and tell Substrate to simulate it.
-We keep track of (and eventually return) the inverter instance that minimizes
+We use the `WaveformRef` API to look for 20-80% transitions, and capture their duration.
+Finally, we keep track of (and eventually return) the inverter instance that minimizes
 the absolute difference between the rise and fall times.
+
+You may also notice that the `run` function is generic over the simulator `S`, requiring only that
+the `InverterTb` implements `Testbench` and yields `Vout` as an output. This allows to support additional
+simulators simply by implementing `Testbench` for each simulator we would like to support.
 
 ## Running the script
 
-Let's now run the script we wrote. We must first create a Substrate context:
+Let's now run the script we wrote. We must first create a Substrate **context** that stores all information 
+relevant to Substrate. This includes
+the tools you've set up, the current PDK, all blocks that have been generated,
+cached computations, and more.
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-commercial-ctx">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-open-ctx">{InverterTb}</CodeSnippet>
 
 We can then write a Rust unit test to run our design script:
 
@@ -208,17 +230,33 @@ We can then write a Rust unit test to run our design script:
 To run the test, run
 
 ```
-cargo test design_inverter -- --show-output
+cargo test design_inverter_ngspice -- --show-output
 ```
-
-Ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
-the Sky 130 commercial PDK.
-Also ensure that you have correctly set any environment variables needed by Spectre.
-
-## Conclusion
 
 If all goes well, the test above should print
 the inverter dimensions with the minimum rise/fall time difference.
 
+## Adding Spectre support
+Because we designed in multi-simulator support from the beginning, adding Spectre support is simply a matter
+of defining a Spectre-specific testbench schematic, running the appropriate Spectre simulation, and 
+returning the data in the appropriate format.
+
+To add Spectre support, we can simply add the following code:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-support">{InverterTb}</CodeSnippet>
+
+Before running the new Spectre test, ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
+the Sky 130 commercial PDK.
+Also ensure that you have correctly set any environment variables needed by Spectre.
+
+To run the test, run
+
+```
+cargo test design_inverter_spectre --features spectre -- --show-output
+```
+
+## Conclusion
+
+You should now be well equipped to start writing your own schematic generators in Substrate.
 A full, runnable example for this tutorial is available [here](https://github.com/substrate-labs/substrate2/tree/main/examples/sky130_inverter).
 

@@ -16,6 +16,8 @@ textwrap = "0.16"
 [dev-dependencies]
 arcstr = "1"
 serde = { version = "1", features = ["derive"] }
+rust_decimal = "1.30"
+rust_decimal_macros = "1.30"
 substrate = { version = "<=0.7.1", registry = "substrate", path = "../../substrate" }
 sky130pdk = { version = "<=0.7.1", registry = "substrate", path = "../../pdks/sky130pdk" }
 spectre = { version = "<=0.8.0", registry = "substrate", path = "../../tools/spectre" }

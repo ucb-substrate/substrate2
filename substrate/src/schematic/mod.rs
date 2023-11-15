@@ -207,9 +207,7 @@ impl<S: Schema> CellBuilder<S> {
     /// Can be used to check data stored in the cell or other generated results before adding the
     /// cell to the current schematic with [`CellBuilder::add`].
     ///
-    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
-    /// error recovery and other checks are not possible when using
-    /// [`instantiate`](CellBuilder::instantiate).
+    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`].
     pub fn generate<B: Schematic<S>>(&mut self, block: B) -> SchemaCellHandle<S, B> {
         self.ctx().generate_schematic(block)
     }
@@ -231,43 +229,59 @@ impl<S: Schema> CellBuilder<S> {
 
     /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
     ///
-    /// Does not block on generation. Spawns a thread that waits on the generation of
-    /// the underlying cell and panics if generation fails. If error recovery is desired,
+    /// Does not block on generation. If immediate error recovery is desired,
     /// check errors before calling this function using [`CellHandle::try_cell`].
     ///
     /// # Panics
     ///
-    /// Immediately panics if this cell has been marked as a blackbox.
-    /// A blackbox cell cannot contain instances or primitive devices.
-    ///
-    /// The spawned thread may panic after this function returns if cell generation fails.
+    /// If the instantiated cell fails to generate, this function will eventually cause a panic after
+    /// the parent cell's generator completes. To avoid this, return errors using [`Instance::try_data`]
+    /// before your generator returns.
     #[track_caller]
     pub fn add<B: ExportsNestedData>(&mut self, cell: SchemaCellHandle<S, B>) -> Instance<B> {
         self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
-    /// Instantiate a schematic view of the given block.
+    /// Instantiates a schematic view of the given block.
     ///
     /// This function generates and adds the cell to the schematic. If checks need to be done on
     /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
     /// [`CellBuilder::add`].
     ///
-    /// Spawns a thread that generates the underlying cell and panics if the generator fails. If error
+    /// Spawns a thread that generates the underlying cell. If immediate error
     /// recovery is desired, use the generate and add workflow mentioned above.
     ///
     /// # Panics
     ///
-    /// Immediately panics if this cell has been marked as a blackbox.
-    /// A blackbox cell cannot contain instances or primitive devices.
+    /// If the instantiated cell fails to generate, this function will eventually cause a panic after
+    /// the parent cell's generator completes. To avoid this, return errors using [`Instance::try_data`]
+    /// before your generator returns.
     ///
-    /// The spawned thread may panic after this function returns if cell generation fails.
+    /// If an error is not returned from the enclosing generator, but this function returns
+    /// an error, the enclosing generator will panic since the instantiation irrecoverably failed.
     #[track_caller]
     pub fn instantiate<B: Schematic<S>>(&mut self, block: B) -> Instance<B> {
         let cell = self.ctx().generate_schematic(block);
         self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
-    /// Create an instance and immediately connect its ports.
+    /// Instantiates a schematic view of the given block, blocking on generator for underlying
+    /// cell. Returns an error if the generator returned an error.
+    ///
+    /// See [`SubCellBuilder::instantiate`] for details.
+    ///
+    /// # Panics
+    ///
+    /// If an error is not returned from the enclosing generator, but this function returns
+    /// an error, the enclosing generator will panic since the instantiation irrecoverably failed.
+    #[track_caller]
+    pub fn instantiate_blocking<B: Schematic<S>>(&mut self, block: B) -> Result<Instance<B>> {
+        let inst = self.instantiate(block);
+        inst.try_data()?;
+        Ok(inst)
+    }
+
+    /// Creates an instance using [`CellBuilder::instantiate`] and immediately connects its ports.
     pub fn instantiate_connected<B, C>(&mut self, block: B, io: C)
     where
         B: Schematic<S>,
@@ -376,9 +390,7 @@ impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
     /// Can be used to check data stored in the cell or other generated results before adding the
     /// cell to the current schematic with [`CellBuilder::add`].
     ///
-    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`]. However,
-    /// error recovery and other checks are not possible when using
-    /// [`instantiate`](CellBuilder::instantiate).
+    /// To generate and add the block simultaneously, use [`CellBuilder::instantiate`].
     pub fn generate<B: Schematic<S2>>(&mut self, block: B) -> SchemaCellHandle<S, B> {
         self.ctx().generate_cross_schematic(block)
     }
@@ -400,43 +412,59 @@ impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
 
     /// Adds a cell generated with [`CellBuilder::generate`] to the current schematic.
     ///
-    /// Does not block on generation. Spawns a thread that waits on the generation of
-    /// the underlying cell and panics if generation fails. If error recovery is desired,
+    /// Does not block on generation. If immediate error recovery is desired,
     /// check errors before calling this function using [`CellHandle::try_cell`].
     ///
     /// # Panics
     ///
-    /// Immediately panics if this cell has been marked as a blackbox.
-    /// A blackbox cell cannot contain instances or primitive devices.
-    ///
-    /// The spawned thread may panic after this function returns if cell generation fails.
+    /// If the instantiated cell fails to generate, this function will eventually cause a panic after
+    /// the parent cell's generator completes. To avoid this, return errors using [`Instance::try_data`]
+    /// before your generator returns.
     #[track_caller]
     pub fn add<B: ExportsNestedData>(&mut self, cell: SchemaCellHandle<S, B>) -> Instance<B> {
         self.0.add(cell)
     }
 
-    /// Instantiate a schematic view of the given block.
+    /// Instantiates a schematic view of the given block.
     ///
     /// This function generates and adds the cell to the schematic. If checks need to be done on
-    /// the generated cell before it is added to the schematic, use [`CellBuilder::generate`] and
-    /// [`CellBuilder::add`].
+    /// the generated cell before it is added to the schematic, use [`SubCellBuilder::generate`] and
+    /// [`SubCellBuilder::add`].
     ///
-    /// Spawns a thread that generates the underlying cell and panics if the generator fails. If error
+    /// Spawns a thread that generates the underlying cell. If immediate error
     /// recovery is desired, use the generate and add workflow mentioned above.
     ///
     /// # Panics
     ///
-    /// Immediately panics if this cell has been marked as a blackbox.
-    /// A blackbox cell cannot contain instances or primitive devices.
+    /// If the instantiated cell fails to generate, this function will eventually cause a panic after
+    /// the parent cell's generator completes. To avoid this, return errors using [`Instance::try_data`]
+    /// before your generator returns.
     ///
-    /// The spawned thread may panic after this function returns if cell generation fails.
+    /// If an error is not returned from the enclosing generator, but this function returns
+    /// an error, the enclosing generator will panic since the instantiation irrecoverably failed.
     #[track_caller]
     pub fn instantiate<B: Schematic<S2>>(&mut self, block: B) -> Instance<B> {
         let cell = self.ctx().generate_cross_schematic(block);
         self.post_instantiate(cell, SourceInfo::from_caller())
     }
 
-    /// Create an instance and immediately connect its ports.
+    /// Instantiates a schematic view of the given block, blocking on generator for underlying
+    /// cell. Returns an error if the generator returned an error.
+    ///
+    /// See [`SubCellBuilder::instantiate`] for details.
+    ///
+    /// # Panics
+    ///
+    /// If an error is not returned from the enclosing generator, but this function returns
+    /// an error, the enclosing generator will panic since the instantiation irrecoverably failed.
+    #[track_caller]
+    pub fn instantiate_blocking<B: Schematic<S2>>(&mut self, block: B) -> Result<Instance<B>> {
+        let inst = self.instantiate(block);
+        inst.try_data()?;
+        Ok(inst)
+    }
+
+    /// Creates an instance using [`SubCellBuilder::instantiate`] and immediately connects its ports.
     pub fn instantiate_connected<B, C>(&mut self, block: B, io: C)
     where
         B: Schematic<S2>,
@@ -714,18 +742,11 @@ impl<T: ExportsNestedData> Instance<T> {
 
     /// Tries to access the underlying block used to create this instance's cell.
     ///
-    /// Returns an error if one was thrown during generation.
-    pub fn try_block(&self) -> Result<&T> {
-        self.cell.try_cell().map(|cell| cell.block.as_ref())
-    }
-
-    /// Tries to access the underlying block used to create this instance's cell.
-    ///
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
-        &self.cell.cell().block
+        &self.cell.block
     }
 
     /// Returns the path to this [`Instance`].
@@ -788,17 +809,6 @@ impl<T: ExportsNestedData> NestedInstance<T> {
     }
 
     /// Tries to access the underlying block used to create this instance's cell.
-    ///
-    /// Returns an error if one was thrown during generation.
-    pub fn try_block(&self) -> Result<&T> {
-        self.0.try_block()
-    }
-
-    /// Tries to access the underlying block used to create this instance's cell.
-    ///
-    /// # Panics
-    ///
-    /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
         self.0.block()
     }

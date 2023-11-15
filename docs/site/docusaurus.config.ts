@@ -1,14 +1,11 @@
-// @ts-check
-// Note: type annotations allow type checking and IDEs autocompletion
+import {themes as prismThemes} from 'prism-react-renderer';
+import type {Config} from '@docusaurus/types';
+import type * as Preset from '@docusaurus/preset-classic';
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
-
-/** @type {import('@docusaurus/types').Config} */
-const config = {
+const config: Config = {
   title: 'Substrate Labs',
   tagline: '21st century electronic design automation tools, written in Rust.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/substrate_logo2_blue.png',
 
   // Set the production url of your site here
   url: 'https://docs.substratelabs.io',
@@ -60,16 +57,15 @@ const config = {
     ],
   ],
 
-  themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-    ({
+  themeConfig: {
       // Replace with your project's social card
-      image: 'img/logo.jpg',
+      image: 'img/substrate_logo2.png',
       navbar: {
         title: 'Substrate Labs',
         logo: {
           alt: 'Substrate Labs Logo',
-          src: 'img/logo.jpg',
+          src: 'img/substrate_logo2.png',
+          srcDark: 'img/substrate_logo2_dark.png',
         },
         items: [
           {
@@ -99,7 +95,7 @@ const config = {
             items: [
               {
                 label: 'Tutorial',
-                to: '/docs/category/introduction',
+                to: '/docs/category/getting-started',
               },
             ],
           },
@@ -128,19 +124,12 @@ const config = {
         ],
         copyright: `Copyright © ${new Date().getFullYear()} Substrate Labs. Built with Docusaurus.`,
       },
-      prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
-        additionalLanguages: ['rust', 'toml'],
-        magicComments: [
-          {
-            className: 'hidden-rust-doc',
-            line: 'hidden-rust-doc',
-            block: {start: 'hidden-rust-doc-start', end: 'hidden-rust-doc-end'},
-          },
-        ],
-      },
-    }),
+    prism: {
+      theme: prismThemes.github,
+      darkTheme: prismThemes.dracula,
+      additionalLanguages: ['rust', 'toml'],
+    },
+  } satisfies Preset.ThemeConfig,
 };
 
-module.exports = config;
+export default config;

@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+use arcstr::ArcStr;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
@@ -5,8 +8,8 @@ use substrate::block::{self, Block};
 use substrate::context::PdkContext;
 use substrate::geometry::prelude::*;
 use substrate::io::{
-    CustomLayoutType, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node, Output,
-    PortGeometry, SchematicType, ShapePort, Signal,
+    Array, CustomLayoutType, Flipped, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node,
+    Output, PortGeometry, SchematicType, ShapePort, Signal,
 };
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
@@ -431,7 +434,7 @@ mod single_process_buffer {
     use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 
     #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Block)]
-    #[substrate(io = "BufferIo", kind = "Cell")]
+    #[substrate(io = "BufferIo")]
     pub struct Buffer {
         strength: usize,
     }
@@ -603,4 +606,416 @@ mod sim {
     #[allow(unused)]
     pub struct Tuple(NamedFields, SavedEnum);
     // end-code-snippet sim_from_saved
+}
+
+fn io() {
+    // begin-code-snippet array-io
+    #[derive(Io, Clone, Debug)]
+    pub struct ArrayIo {
+        pub in_bus: Input<Array<Signal>>,
+        pub out_bus: Output<Array<Signal>>,
+    }
+
+    let io_type = ArrayIo {
+        in_bus: Input(Array::new(5, Signal::new())),
+        out_bus: Output(Array::new(5, Signal::new())),
+    };
+    // end-code-snippet array-io
+
+    // begin-code-snippet array-io-constructor
+    impl ArrayIo {
+        pub fn new(in_size: usize, m: usize) -> Self {
+            Self {
+                in_bus: Input(Array::new(in_size, Signal::new())),
+                out_bus: Output(Array::new(in_size * m, Signal::new())),
+            }
+        }
+    }
+    // end-code-snippet array-io-constructor
+
+    // begin-code-snippet mos-io
+    #[derive(Io, Clone, Default, Debug)]
+    pub struct ThreePortMosIo {
+        pub d: InOut<Signal>,
+        pub g: Input<Signal>,
+        pub s: InOut<Signal>,
+    }
+
+    #[derive(Io, Clone, Default, Debug)]
+    pub struct FourPortMosIo {
+        pub d: InOut<Signal>,
+        pub g: Input<Signal>,
+        pub s: InOut<Signal>,
+        pub b: InOut<Signal>,
+    }
+    // end-code-snippet mos-io
+
+    // begin-code-snippet mos-io-from
+    impl From<ThreePortMosIoSchematic> for FourPortMosIoSchematic {
+        fn from(value: ThreePortMosIoSchematic) -> Self {
+            Self {
+                d: value.d,
+                g: value.g,
+                s: value.s,
+                b: value.s,
+            }
+        }
+    }
+    // end-code-snippet mos-io-from
+
+    // begin-code-snippet mos-io-body
+    impl ThreePortMosIoSchematic {
+        fn with_body(&self, b: Node) -> FourPortMosIoSchematic {
+            FourPortMosIoSchematic {
+                d: self.d,
+                g: self.g,
+                s: self.s,
+                b,
+            }
+        }
+    }
+    // end-code-snippet mos-io-body
+
+    // begin-code-snippet sram-io
+    #[derive(Io, Clone, Debug)]
+    pub struct SramIo {
+        pub clk: Input<Signal>,
+        pub we: Input<Signal>,
+        pub addr: Input<Array<Signal>>,
+        pub din: Input<Array<Signal>>,
+        pub dout: Output<Array<Signal>>,
+    }
+
+    pub type SramObserverIo = Input<SramIo>;
+    // end-code-snippet sram-io
+
+    // begin-code-snippet sram-driver-io
+    pub type SramDriverIo = Flipped<SramIo>;
+    // end-code-snippet sram-driver-io
+
+    // begin-code-snippet sram-block
+    #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+    pub struct Sram {
+        num_words: usize,
+        data_width: usize,
+    }
+
+    impl Block for Sram {
+        type Io = SramIo;
+        type Kind = substrate::block::Cell;
+
+        fn id() -> ArcStr {
+            arcstr::literal!("sram")
+        }
+
+        fn name(&self) -> ArcStr {
+            arcstr::format!("sram{}x{}", self.num_words, self.data_width)
+        }
+
+        fn io(&self) -> Self::Io {
+            Self::Io {
+                clk: Default::default(),
+                we: Default::default(),
+                addr: Input(Array::new(
+                    (self.num_words - 1).ilog2() as usize + 1,
+                    Signal::new(),
+                )),
+                din: Input(Array::new(self.data_width, Signal::new())),
+                dout: Output(Array::new(self.data_width, Signal::new())),
+            }
+        }
+    }
+    // end-code-snippet sram-block
+
+    let _ = io_type;
+}
+
+#[derive(Io, Clone, Default, Debug)]
+pub struct VdividerIo {
+    pub vdd: InOut<Signal>,
+    pub vss: InOut<Signal>,
+    pub dout: Output<Signal>,
+}
+
+#[allow(clippy::derived_hash_with_manual_eq)]
+#[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, Eq)]
+#[substrate(io = "()")]
+pub struct Vdivider {
+    /// The top resistance.
+    pub r1: Decimal,
+    /// The bottom resistance.
+    pub r2: Decimal,
+}
+
+// begin-code-snippet vdivider-bad-eq
+impl PartialEq<Self> for Vdivider {
+    fn eq(&self, other: &Self) -> bool {
+        self.r1 == other.r1
+    }
+}
+// end-code-snippet vdivider-bad-eq
+
+pub mod nested_data {
+    use serde::{Deserialize, Serialize};
+    use substrate::block::Block;
+    use substrate::io::Node;
+    use substrate::schematic::{
+        ExportsNestedData, HasNestedView, Instance, InstancePath, NestedData, NestedView,
+    };
+
+    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "()")]
+    pub struct Inverter;
+
+    impl ExportsNestedData for Inverter {
+        type NestedData = ();
+    }
+
+    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "()")]
+    pub struct Buffer;
+
+    // begin-code-snippet buffer-nested-data
+    #[derive(NestedData)]
+    pub struct BufferData {
+        inv1: Instance<Inverter>,
+        inv2: Instance<Inverter>,
+        x: Node,
+    }
+
+    impl ExportsNestedData for Buffer {
+        type NestedData = BufferData;
+    }
+    // end-code-snippet buffer-nested-data
+
+    // begin-code-snippet custom-nested-view
+    #[derive(Clone, Copy)]
+    pub struct MyMetadata {
+        my_calculated_value: i64,
+    }
+
+    impl HasNestedView for MyMetadata {
+        type NestedView = Self;
+
+        fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView {
+            *self
+        }
+    }
+
+    #[derive(NestedData)]
+    pub struct BufferDataWithMetadata {
+        inv1: Instance<Inverter>,
+        inv2: Instance<Inverter>,
+        metadata: MyMetadata,
+    }
+    // end-code-snippet custom-nested-view
+
+    // begin-code-snippet custom-nested-view-2
+    pub struct BufferDataWithMetadataV2 {
+        inv1: Instance<Inverter>,
+        inv2: Instance<Inverter>,
+        metadata: i64,
+    }
+
+    pub struct NestedBufferDataWithMetadataV2 {
+        inv1: NestedView<Instance<Inverter>>,
+        inv2: NestedView<Instance<Inverter>>,
+        metadata: i64,
+    }
+
+    impl HasNestedView for BufferDataWithMetadataV2 {
+        type NestedView = NestedBufferDataWithMetadataV2;
+
+        fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+            Self::NestedView {
+                inv1: self.inv1.nested_view(parent),
+                inv2: self.inv2.nested_view(parent),
+                metadata: self.metadata,
+            }
+        }
+    }
+    // end-code-snippet custom-nested-view-2
+}
+
+mod try_data {
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Serialize};
+    use spice::Spice;
+    use substrate::block::Block;
+    use substrate::io::SchematicType;
+    use substrate::schematic::primitives::Resistor;
+    use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+
+    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "super::VdividerIo")]
+    pub struct Vdivider {
+        /// The top resistance.
+        pub r1: Decimal,
+        /// The bottom resistance.
+        pub r2: Decimal,
+    }
+
+    impl ExportsNestedData for Vdivider {
+        type NestedData = ();
+    }
+
+    // begin-code-snippet vdivider-try-data-error-handling
+    impl Schematic<Spice> for Vdivider {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<Spice>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let r1 = cell.instantiate(Resistor::new(self.r1));
+            let r2 = cell.instantiate(Resistor::new(self.r2));
+            r1.try_data()?;
+            r2.try_data()?;
+
+            cell.connect(io.vdd, r1.io().p);
+            cell.connect(io.dout, r1.io().n);
+            cell.connect(io.dout, r2.io().p);
+            cell.connect(io.vss, r2.io().n);
+
+            Ok(())
+        }
+    }
+    // end-code-snippet vdivider-try-data-error-handling
+}
+
+mod instantiate_blocking {
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Serialize};
+    use spice::Spice;
+    use substrate::block::Block;
+    use substrate::io::SchematicType;
+    use substrate::schematic::primitives::Resistor;
+    use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+
+    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "super::VdividerIo")]
+    pub struct Vdivider {
+        /// The top resistance.
+        pub r1: Decimal,
+        /// The bottom resistance.
+        pub r2: Decimal,
+    }
+
+    impl ExportsNestedData for Vdivider {
+        type NestedData = ();
+    }
+
+    // begin-code-snippet vdivider-instantiate-blocking-error-handling
+    impl Schematic<Spice> for Vdivider {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<Spice>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let r1 = cell.instantiate_blocking(Resistor::new(self.r1))?;
+            let r2 = cell.instantiate_blocking(Resistor::new(self.r2))?;
+
+            cell.connect(io.vdd, r1.io().p);
+            cell.connect(io.dout, r1.io().n);
+            cell.connect(io.dout, r2.io().p);
+            cell.connect(io.vss, r2.io().n);
+
+            Ok(())
+        }
+    }
+    // end-code-snippet vdivider-instantiate-blocking-error-handling
+}
+
+mod instantiate_blocking_bad {
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Serialize};
+    use spice::Spice;
+    use substrate::block::Block;
+    use substrate::io::SchematicType;
+    use substrate::schematic::primitives::Resistor;
+    use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+
+    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "super::VdividerIo")]
+    pub struct Vdivider {
+        /// The top resistance.
+        pub r1: Decimal,
+        /// The bottom resistance.
+        pub r2: Decimal,
+    }
+
+    impl ExportsNestedData for Vdivider {
+        type NestedData = ();
+    }
+
+    // begin-code-snippet vdivider-instantiate-blocking-bad
+    impl Schematic<Spice> for Vdivider {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<Spice>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            if let Ok(r1) = cell.instantiate_blocking(Resistor::new(self.r1)) {
+                cell.connect(io.vdd, r1.io().p);
+                cell.connect(io.dout, r1.io().n);
+            } else {
+                cell.connect(io.vdd, io.dout);
+            }
+            let r2 = cell.instantiate_blocking(Resistor::new(self.r1))?;
+            cell.connect(io.dout, r2.io().p);
+            cell.connect(io.vss, r2.io().n);
+
+            Ok(())
+        }
+    }
+    // end-code-snippet vdivider-instantiate-blocking-bad
+}
+
+mod generate {
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Serialize};
+    use spice::Spice;
+    use substrate::block::Block;
+    use substrate::io::SchematicType;
+    use substrate::schematic::primitives::Resistor;
+    use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+
+    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "super::VdividerIo")]
+    pub struct Vdivider {
+        /// The top resistance.
+        pub r1: Decimal,
+        /// The bottom resistance.
+        pub r2: Decimal,
+    }
+
+    impl ExportsNestedData for Vdivider {
+        type NestedData = ();
+    }
+
+    // begin-code-snippet vdivider-generate-add-error-handling
+    impl Schematic<Spice> for Vdivider {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<Spice>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let r1_cell = cell.generate(Resistor::new(self.r1));
+            let r2 = cell.instantiate_blocking(Resistor::new(self.r2))?;
+
+            // Block on generator to see if it succeeds.
+            if r1_cell.try_cell().is_ok() {
+                let r1 = cell.add(r1_cell);
+                cell.connect(io.vdd, r1.io().p);
+                cell.connect(io.dout, r1.io().n);
+            } else {
+                cell.connect(io.vdd, io.dout);
+            }
+
+            cell.connect(io.dout, r2.io().p);
+            cell.connect(io.vss, r2.io().n);
+
+            Ok(())
+        }
+    }
+    // end-code-snippet vdivider-generate-add-error-handling
 }

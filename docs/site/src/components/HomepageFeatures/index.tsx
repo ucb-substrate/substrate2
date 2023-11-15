@@ -1,5 +1,5 @@
-import React from 'react';
 import clsx from 'clsx';
+import Heading from '@theme/Heading';
 import styles from './styles.module.css';
 
 type FeatureItem = {
@@ -11,7 +11,7 @@ type FeatureItem = {
 const FeatureList: FeatureItem[] = [
   {
     title: 'Bring your Own Tools',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('@site/static/img/CrossedTools.svg').default,
     description: (
       <>
         Design, verify, and tapeout your chip with a tool suite of your choice 
@@ -21,7 +21,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: '100% Performant Rust Code',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    Svg: require('@site/static/img/rust_logo.svg').default,
     description: (
       <>
         Generators can be written entirely in Rust, providing high performance alongside memory safety and type checking.
@@ -30,7 +30,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Open Source',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('@site/static/img/Globe_icon.svg').default,
     description: (
       <>
         The core of Substrate is open source, meaning anyone can write a circuit generator without an expensive license.
@@ -46,7 +46,7 @@ function Feature({title, Svg, description}: FeatureItem) {
         <Svg className={styles.featureSvg} role="img" />
       </div>
       <div className="text--center padding-horiz--md">
-        <h3>{title}</h3>
+        <Heading as="h3">{title}</Heading>
         <p>{description}</p>
       </div>
     </div>
