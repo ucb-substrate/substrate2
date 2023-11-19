@@ -13,10 +13,10 @@ use substrate::context::PdkContext;
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::HasSimData;
+use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
+use substrate::simulation::data::{tran, FromSaved, Save};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::Testbench;
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 use super::Inverter;
 
@@ -80,16 +80,33 @@ pub struct InverterTbData {
     pub tf: f64,
 }
 
-impl Testbench<Sky130Pdk, Spectre> for InverterTb {
+#[derive(FromSaved, Serialize, Deserialize)]
+pub struct InverterTbOutput {
+    pub time: tran::Time,
+    pub vout: tran::Voltage,
+}
+
+impl Save<Spectre, Tran, &Cell<InverterTb>> for InverterTbOutput {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: &Cell<InverterTb>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::Key {
+            time: tran::Time::save(ctx, (), opts),
+            vout: tran::Voltage::save(ctx, to_save.data(), opts),
+        }
+    }
+}
+
+impl Testbench<Spectre> for InverterTb {
     type Output = InverterTbData;
-    fn run(
-        &self,
-        sim: substrate::simulation::SimController<Sky130Pdk, Spectre, Self>,
-    ) -> Self::Output {
-        let output = sim
-            .simulate_default(
-                Options::default(),
-                Some(&self.pvt.corner),
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+        let mut opts = Options::default();
+        let output: InverterTbOutput = sim
+            .simulate(
+                opts,
+                // Some(&self.pvt.corner),
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),
@@ -98,9 +115,9 @@ impl Testbench<Sky130Pdk, Spectre> for InverterTb {
             )
             .expect("failed to run simulation");
 
-        let vout = output.get_data(&sim.tb.data()).unwrap();
+        let vout = output.vout;
         let time = &output.time;
-        let vout = WaveformRef::new(time, vout);
+        let vout = WaveformRef::new(time, &*vout);
         let mut trans = vout.transitions(
             0.2 * self.pvt.voltage.to_f64().unwrap(),
             0.8 * self.pvt.voltage.to_f64().unwrap(),

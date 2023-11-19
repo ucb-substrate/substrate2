@@ -41,7 +41,7 @@ pub(crate) fn simulator_tuples_impl(input: TokenStream) -> TokenStream {
                 #ty: #substrate::simulation::Analysis + #substrate::simulation::SupportedBy<S>
             });
             into_inputs.push(quote! {
-                <#ty as #substrate::simulation::SupportedBy<S>>::into_input(a.#idx, inputs);
+                <#ty as #substrate::simulation::SupportedBy<S>>::into_input(self.#idx, inputs);
             });
             from_outputs.push(quote! {
                 <#ty as #substrate::simulation::SupportedBy<S>>::from_output(outputs)
@@ -49,14 +49,14 @@ pub(crate) fn simulator_tuples_impl(input: TokenStream) -> TokenStream {
         }
 
         tokens.push(quote! {
-            impl <S, #( #tys ),*> #substrate::simulation::Supports<( #( #tys ),* )> for S
+            impl <S, #( #tys ),*> #substrate::simulation::SupportedBy<S> for ( #( #tys ),* )
                 where S: #substrate::simulation::Simulator, #(#bounds),*
             {
-                fn into_input(a: (#(#tys),*), inputs: &mut Vec<<S as #substrate::simulation::Simulator>::Input>) {
+                fn into_input(self, inputs: &mut Vec<<S as #substrate::simulation::Simulator>::Input>) {
                     #(#into_inputs)*
                 }
 
-                fn from_output(outputs: &mut impl Iterator<Item = <Self as #substrate::simulation::Simulator>::Output>) -> <(#(#tys),*) as #substrate::simulation::Analysis>::Output {
+                fn from_output(outputs: &mut impl Iterator<Item = <S as #substrate::simulation::Simulator>::Output>) -> <Self as #substrate::simulation::Analysis>::Output {
                     (#(#from_outputs),*)
                 }
             }

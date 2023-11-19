@@ -336,6 +336,39 @@ impl Context {
         let SchemaCellCacheValue { raw, .. } = cell.handle.unwrap_inner();
         raw.to_scir_lib()
     }
+
+    /// Simulate the given testbench.
+    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    where
+        S: Simulator,
+        T: Testbench<S>,
+    {
+        let simulator = self.get_simulator::<S>();
+        let block = Arc::new(block);
+        let cell = self.generate_schematic_inner::<<S as Simulator>::Schema, _>(block.clone());
+        // TODO: Handle errors.
+        let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
+        let lib = raw.to_scir_lib()?;
+        let ctx = SimulationContext {
+            lib: Arc::new(lib),
+            work_dir: work_dir.into(),
+            executor: self.executor.clone(),
+            cache: self.cache.clone(),
+        };
+        let controller = SimController {
+            tb: cell.clone(),
+            simulator,
+            ctx,
+        };
+
+        // TODO caching
+        Ok(block.run(controller))
+    }
+
+    fn get_simulator<S: Simulator>(&self) -> Arc<S> {
+        let arc = self.simulators.get(&TypeId::of::<S>()).unwrap().clone();
+        arc.downcast().unwrap()
+    }
 }
 
 impl<PDK: Pdk> PdkContext<PDK> {
@@ -453,44 +486,6 @@ impl<PDK: Pdk> PdkContext<PDK> {
     pub fn get_gds_layer(&self, spec: GdsLayerSpec) -> Option<LayerId> {
         let inner = self.ctx.inner.read().unwrap();
         inner.layers.get_gds_layer(spec)
-    }
-
-    /// Simulate the given testbench.
-    pub fn simulate<S1, S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
-    where
-        S1: Schema,
-        <S as Simulator>::Schema: FromSchema<S1>,
-        S: Simulator,
-        T: Testbench<PDK, S> + Schematic<S1>,
-    {
-        let simulator = self.get_simulator::<S>();
-        let block = Arc::new(block);
-        let cell = self
-            .ctx
-            .generate_cross_schematic_inner::<S1, <S as Simulator>::Schema, _>(block.clone());
-        // TODO: Handle errors.
-        let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
-        let lib = raw.to_scir_lib()?;
-        let ctx = SimulationContext {
-            lib: Arc::new(lib),
-            work_dir: work_dir.into(),
-            executor: self.executor.clone(),
-            cache: self.cache.clone(),
-        };
-        let controller = SimController {
-            pdk: self.pdk.clone(),
-            tb: cell.clone(),
-            simulator,
-            ctx,
-        };
-
-        // TODO caching
-        Ok(block.run(controller))
-    }
-
-    fn get_simulator<S: Simulator>(&self) -> Arc<S> {
-        let arc = self.ctx.simulators.get(&TypeId::of::<S>()).unwrap().clone();
-        arc.downcast().unwrap()
     }
 }
 

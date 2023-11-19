@@ -9,7 +9,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
+use crate::tran::Tran;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -32,7 +32,9 @@ use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
-use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
+use substrate::simulation::options::ic::InitialCondition;
+use substrate::simulation::options::{ic, SimOption};
+use substrate::simulation::{SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
@@ -163,90 +165,81 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> TranVoltageKey {
-        TranVoltageKey(self.save_inner(save))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> tran::VoltageKey {
+        tran::VoltageKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save)])
+    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentKey {
+        tran::CurrentKey(vec![self.save_inner(save)])
     }
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
-impl<K> SetInitialCondition<K, Decimal, Spectre> for Options {
-    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext<Spectre>) {
-        self.set_ic_inner(key, value);
+impl<K> SimOption<Spectre> for InitialCondition<K, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext<Spectre>,
+    ) {
+        opts.set_ic_inner(self.key, *self.value);
     }
 }
 
-impl SetInitialCondition<&SliceOnePath, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &SliceOnePath,
-        value: Decimal,
-        _ctx: &SimulationContext<Spectre>,
+impl SimOption<Spectre> for InitialCondition<&SliceOnePath, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext<Spectre>,
     ) {
-        self.set_ic_inner(SimSignal::ScirVoltage(key.clone()), value);
+        opts.set_ic_inner(SimSignal::ScirVoltage(self.key.clone()), *self.value);
     }
 }
 
-impl SetInitialCondition<&ConvertedNodePath, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &ConvertedNodePath,
-        value: Decimal,
-        _ctx: &SimulationContext<Spectre>,
+impl SimOption<Spectre> for InitialCondition<&ConvertedNodePath, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext<Spectre>,
     ) {
-        self.set_ic_inner(
-            SimSignal::ScirVoltage(match key {
+        opts.set_ic_inner(
+            SimSignal::ScirVoltage(match self.key {
                 ConvertedNodePath::Cell(path) => path.clone(),
                 ConvertedNodePath::Primitive {
                     instances, port, ..
                 } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
             }),
-            value,
+            *self.value,
         );
     }
 }
 
-impl SetInitialCondition<&NodePath, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &NodePath,
-        value: Decimal,
+impl SimOption<Spectre> for InitialCondition<&NodePath, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
         ctx: &SimulationContext<Spectre>,
     ) {
-        self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
-    }
-}
-
-impl SetInitialCondition<&NestedNode, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &NestedNode,
-        value: Decimal,
-        ctx: &SimulationContext<Spectre>,
-    ) {
-        self.set_initial_condition(key.path(), value, ctx);
-    }
-}
-
-impl SetInitialCondition<NestedNode, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: NestedNode,
-        value: Decimal,
-        ctx: &SimulationContext<Spectre>,
-    ) {
-        self.set_initial_condition(key.path(), value, ctx);
+        InitialCondition {
+            key: ctx.lib.convert_node_path(self.key).unwrap(),
+            value: self.value,
+        }
+        .set_option(opts, ctx)
     }
 }
 
 #[impl_dispatch({SliceOnePath; ConvertedNodePath; NodePath})]
-impl<T> SetInitialCondition<T, Decimal, Spectre> for Options {
-    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext<Spectre>) {
-        self.set_initial_condition(&key, value, ctx);
+impl<T> SimOption<Spectre> for InitialCondition<T, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext<Spectre>,
+    ) {
+        InitialCondition {
+            key: &self.key,
+            value: self.value,
+        }
+        .set_option(opts, ctx)
     }
 }
 
@@ -437,7 +430,7 @@ impl Spectre {
         let outputs = raw_outputs
             .into_iter()
             .map(|mut raw_values| {
-                TranOutput {
+                tran::Output {
                     lib: ctx.lib.clone(),
                     conv: conv.clone(),
                     time: Arc::new(raw_values.remove("time").unwrap()),
@@ -668,16 +661,16 @@ impl From<Tran> for Input {
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
-    Tran(TranOutput),
+    Tran(tran::Output),
 }
 
-impl From<TranOutput> for Output {
-    fn from(value: TranOutput) -> Self {
+impl From<tran::Output> for Output {
+    fn from(value: tran::Output) -> Self {
         Self::Tran(value)
     }
 }
 
-impl TryFrom<Output> for TranOutput {
+impl TryFrom<Output> for tran::Output {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         match value {

@@ -8,9 +8,11 @@ use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::SupportsSimulator;
 use substrate::schematic::primitives::{Capacitor, Resistor};
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::HasSimData;
-use substrate::simulation::Testbench;
+use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
+use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::options::ic;
+use substrate::simulation::options::ic::InitialCondition;
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 /// An RC testbench.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
@@ -51,15 +53,37 @@ impl Schematic<Spectre> for RcTb {
     }
 }
 
-impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
+#[derive(FromSaved, Serialize, Deserialize)]
+pub struct RcTbOutput {
+    pub vout: tran::Voltage,
+}
+
+impl Save<Spectre, Tran, &Cell<RcTb>> for RcTbOutput {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: &Cell<RcTb>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::Key {
+            vout: tran::Voltage::save(ctx, to_save.data(), opts),
+        }
+    }
+}
+
+impl Testbench<Spectre> for RcTb {
     type Output = (f64, f64);
-    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
         let mut opts = Options::default();
-        sim.set_initial_condition(sim.tb.data(), self.ic, &mut opts);
-        let output = sim
-            .simulate_default(
+        sim.set_option(
+            InitialCondition {
+                key: sim.tb.data(),
+                value: ic::Voltage(self.ic),
+            },
+            &mut opts,
+        );
+        let output: RcTbOutput = sim
+            .simulate(
                 opts,
-                None,
                 Tran {
                     stop: dec!(10e-6),
                     ..Default::default()
@@ -67,10 +91,8 @@ impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
             )
             .unwrap();
 
-        let vout = output.get_data(&sim.tb.data()).unwrap();
-
-        let first = vout.first().unwrap();
-        let last = vout.last().unwrap();
+        let first = output.vout.first().unwrap();
+        let last = output.vout.last().unwrap();
         (*first, *last)
     }
 }

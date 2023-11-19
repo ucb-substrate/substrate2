@@ -576,26 +576,25 @@ fn main() {
 
 /// Demonstrates how to save simulator output.
 mod sim {
-    use spectre::tran::{TranCurrent, TranVoltage};
-    use substrate::simulation::data::FromSaved;
+    use substrate::simulation::data::{tran, FromSaved};
 
     // begin-code-snippet sim_from_saved
     #[derive(Debug, Clone, FromSaved)]
     #[allow(unused)]
     pub enum SavedEnum {
         Fields {
-            vout: TranVoltage,
-            iout: TranCurrent,
+            vout: tran::Voltage,
+            iout: tran::Current,
         },
-        Tuple(TranVoltage, TranCurrent),
+        Tuple(tran::Voltage, tran::Current),
         Unit,
     }
 
     #[derive(Debug, Clone, FromSaved)]
     #[allow(unused)]
     pub struct NamedFields {
-        vout: TranVoltage,
-        iout: TranCurrent,
+        vout: tran::Voltage,
+        iout: tran::Current,
     }
 
     #[derive(Debug, Clone, FromSaved)]

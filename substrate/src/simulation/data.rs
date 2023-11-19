@@ -1,34 +1,11 @@
 //! Interfaces for interacting with simulation data.
 
 pub use codegen::FromSaved;
+use std::sync::Arc;
 use type_dispatch::impl_dispatch;
 
 use crate::io::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 use crate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-
-/// A simulation artifact with node data `V` that can be indexed by key `K`.
-pub trait HasSimData<K: ?Sized, V> {
-    /// Gets data for key `k`.
-    fn get_data(&self, k: &K) -> Option<&V>;
-}
-
-impl<D, T: HasSimData<NodePath, D>> HasSimData<NestedNode, D> for T {
-    fn get_data(&self, k: &NestedNode) -> Option<&D> {
-        self.get_data(&k.path())
-    }
-}
-
-impl<D, T: HasSimData<NodePath, D>> HasSimData<TerminalPath, D> for T {
-    fn get_data(&self, k: &TerminalPath) -> Option<&D> {
-        self.get_data(k.as_ref())
-    }
-}
-
-impl<D, T: HasSimData<NestedNode, D>> HasSimData<NestedTerminal, D> for T {
-    fn get_data(&self, k: &NestedTerminal) -> Option<&D> {
-        self.get_data(k.as_ref())
-    }
-}
 
 /// A simulation output that can be recovered from the output of a particular analysis.
 pub trait FromSaved<S: Simulator, A: Analysis> {
@@ -39,6 +16,16 @@ pub trait FromSaved<S: Simulator, A: Analysis> {
 
     /// Recovers the desired simulation output from the analysis's output.
     fn from_saved(output: &<A as Analysis>::Output, key: Self::Key) -> Self;
+}
+
+impl<S: Simulator, A: Analysis, T: FromSaved<S, A>> FromSaved<S, A> for Vec<T> {
+    type Key = Vec<<T as FromSaved<S, A>>::Key>;
+
+    fn from_saved(output: &<A as Analysis>::Output, key: Self::Key) -> Self {
+        key.into_iter()
+            .map(|key| T::from_saved(output, key))
+            .collect()
+    }
 }
 
 /// A simulation output that can be saved in an analysis within a given simulator.
@@ -66,27 +53,64 @@ impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, NodePath>> Sav
     }
 }
 
-#[impl_dispatch(&'a NodePath, {TerminalPath; &TerminalPath})]
-impl<N1, N2, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, N1>> Save<S, A, N2>
-    for T
+#[impl_dispatch({TerminalPath; &TerminalPath})]
+impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, &'a NodePath>>
+    Save<S, A, N> for T
 {
     fn save(
         ctx: &SimulationContext<S>,
-        to_save: N2,
+        to_save: N,
         opts: &mut <S as Simulator>::Options,
     ) -> Self::Key {
         T::save(ctx, to_save.as_ref(), opts)
     }
 }
 
-impl<S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, &'a TerminalPath>>
-    Save<S, A, NestedTerminal> for T
+#[impl_dispatch({NestedTerminal; &NestedTerminal})]
+impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, TerminalPath>> Save<S, A, N>
+    for T
 {
     fn save(
         ctx: &SimulationContext<S>,
-        to_save: NestedTerminal,
+        to_save: N,
         opts: &mut <S as Simulator>::Options,
     ) -> Self::Key {
-        T::save(ctx, &to_save.path(), opts)
+        T::save(ctx, to_save.path(), opts)
+    }
+}
+
+pub mod tran {
+    use serde::{Deserialize, Serialize};
+    use std::ops::Deref;
+    use std::sync::Arc;
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct Voltage(pub Arc<Vec<f64>>);
+
+    impl Deref for Voltage {
+        type Target = Vec<f64>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct Current(pub Arc<Vec<f64>>);
+
+    impl Deref for Current {
+        type Target = Vec<f64>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct Time(pub Arc<Vec<f64>>);
+
+    impl Deref for Time {
+        type Target = Vec<f64>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
     }
 }

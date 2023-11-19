@@ -2,7 +2,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
-use spectre::tran::{Tran, TranCurrent, TranVoltage};
+use spectre::tran::Tran;
 use spectre::{Options, Spectre};
 use spice::Spice;
 use substrate::block::Block;
@@ -11,14 +11,14 @@ use substrate::io::{SchematicType, Signal};
 use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
-use substrate::simulation::data::{FromSaved, HasSimData, Save};
-use substrate::simulation::{SimulationContext, Simulator, Testbench};
+use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::{Analysis, SimulationContext, Simulator, Testbench};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct VdividerTb;
 
 #[derive(NestedData)]
@@ -92,84 +92,77 @@ impl Schematic<Spectre> for VdividerDuplicateSubcktTb {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, FromSaved, Serialize, Deserialize)]
 pub struct VdividerDuplicateSubcktTbOutput {
-    pub vdd: Vec<f64>,
-    pub out: Vec<f64>,
+    pub vdd: tran::Voltage,
+    pub out: tran::Voltage,
 }
 
-impl<PDK> Testbench<PDK, Spectre> for VdividerDuplicateSubcktTb
-where
-    PDK: SupportsSimulator<Spectre>,
-{
-    type Output = VdividerDuplicateSubcktTbOutput;
-    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
-        let output = sim
-            .simulate_default(
-                Options::default(),
-                None,
-                Tran {
-                    stop: dec!(1e-9),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation");
-
-        VdividerDuplicateSubcktTbOutput {
-            vdd: output.get_data(&sim.tb.data().io().vdd).unwrap().clone(),
-            out: output.get_data(&sim.tb.data().io().out).unwrap().clone(),
+impl Save<Spectre, Tran, &Cell<VdividerDuplicateSubcktTb>> for VdividerDuplicateSubcktTbOutput {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: &Cell<VdividerDuplicateSubcktTb>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::Key {
+            vdd: tran::Voltage::save(ctx, &to_save.data().io().vdd, opts),
+            out: tran::Voltage::save(ctx, &to_save.data().io().out, opts),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VdividerTbOutput {
-    pub tran: VdividerTbTranOutput,
+impl Testbench<Spectre> for VdividerDuplicateSubcktTb {
+    type Output = VdividerDuplicateSubcktTbOutput;
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+        sim.simulate(
+            Options::default(),
+            Tran {
+                stop: dec!(1e-9),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation")
+    }
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize, FromSaved)]
-pub struct VdividerTbTranOutput {
-    pub current: TranCurrent,
-    pub iprobe: TranCurrent,
-    pub vdd: TranVoltage,
-    pub out: TranVoltage,
+pub struct VdividerTbOutput {
+    pub current: tran::Current,
+    pub iprobe: tran::Current,
+    pub vdd: tran::Voltage,
+    pub out: tran::Voltage,
 }
 
-impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbTranOutput {
+impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbOutput {
     fn save(
         ctx: &SimulationContext<Spectre>,
         cell: &Cell<VdividerTb>,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::Key {
         Self::Key {
-            current: TranCurrent::save(ctx, cell.dut.io().pwr.vdd, opts),
-            iprobe: TranCurrent::save(ctx, cell.iprobe.io().p, opts),
-            vdd: TranVoltage::save(ctx, cell.dut.io().pwr.vdd, opts),
-            out: TranVoltage::save(ctx, cell.dut.io().out, opts),
+            current: tran::Current::save(ctx, cell.dut.io().pwr.vdd, opts),
+            iprobe: tran::Current::save(ctx, cell.iprobe.io().p, opts),
+            vdd: tran::Voltage::save(ctx, cell.dut.io().pwr.vdd, opts),
+            out: tran::Voltage::save(ctx, cell.dut.io().out, opts),
         }
     }
 }
 
-impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for VdividerTb {
+impl Testbench<Spectre> for VdividerTb {
     type Output = VdividerTbOutput;
-    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
-        let tran: VdividerTbTranOutput = sim
-            .simulate(
-                Options::default(),
-                None,
-                Tran {
-                    stop: dec!(1e-9),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation");
-
-        VdividerTbOutput { tran }
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+        sim.simulate(
+            Options::default(),
+            Tran {
+                stop: dec!(1e-9),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation")
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct VdividerArrayTb;
 
 impl ExportsNestedData for VdividerArrayTb {
@@ -237,113 +230,77 @@ impl Schematic<Spectre> for FlattenedVdividerArrayTb {
         Ok(dut)
     }
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VdividerArrayTbData {
-    pub expected: Vec<f64>,
-    pub out: Vec<Vec<f64>>,
-    pub out_nested: Vec<Vec<f64>>,
-    pub vdd: Vec<f64>,
+#[derive(Debug, Clone, FromSaved, Serialize, Deserialize)]
+pub struct VdividerArrayTbOutput {
+    pub out: Vec<tran::Voltage>,
+    pub out_nested: Vec<tran::Voltage>,
+    pub vdd: tran::Voltage,
 }
 
-impl<PDK: Pdk + SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for VdividerArrayTb {
-    type Output = VdividerArrayTbData;
-    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
-        let output = sim
-            .simulate_default(
-                Options::default(),
-                None,
-                Tran {
-                    stop: dec!(1e-9),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation");
-
-        let expected: Vec<_> = sim
-            .tb
-            .iter()
-            .map(|inst| {
-                (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
-                    .to_f64()
-                    .unwrap()
-                    * 1.8f64
-            })
-            .collect();
-
-        let out = sim
-            .tb
-            .iter()
-            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
-            .collect();
-
-        let out_nested = sim
-            .tb
-            .iter()
-            .map(|inst| output.get_data(&inst.r1.io().n).unwrap().clone())
-            .collect();
-
-        let vdd = output
-            .get_data(&sim.tb.data().io().elements[0].vdd)
-            .unwrap()
-            .clone();
-
-        VdividerArrayTbData {
-            expected,
-            out,
-            out_nested,
-            vdd,
+impl Save<Spectre, Tran, &Cell<VdividerArrayTb>> for VdividerArrayTbOutput {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: &Cell<VdividerArrayTb>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::Key {
+            out: to_save
+                .iter()
+                .map(|inst| tran::Voltage::save(ctx, inst.io().out, opts))
+                .collect(),
+            out_nested: to_save
+                .iter()
+                .map(|inst| tran::Voltage::save(ctx, inst.r1.io().n, opts))
+                .collect(),
+            vdd: tran::Voltage::save(ctx, &to_save.data().io().elements[0].vdd, opts),
         }
     }
 }
 
-impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for FlattenedVdividerArrayTb {
-    type Output = VdividerArrayTbData;
-    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
-        let output = sim
-            .simulate_default(
-                Options::default(),
-                None,
-                Tran {
-                    stop: dec!(1e-9),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation");
-
-        let expected: Vec<_> = sim
-            .tb
-            .iter()
-            .map(|inst| {
-                (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
-                    .to_f64()
-                    .unwrap()
-                    * 1.8f64
-            })
-            .collect();
-
-        let out = sim
-            .tb
-            .iter()
-            .map(|inst| output.get_data(&inst.io().out).unwrap().clone())
-            .collect();
-
-        let out_nested = sim
-            .tb
-            .iter()
-            .map(|inst| output.get_data(&inst.r1.io().n).unwrap().clone())
-            .collect();
-
-        let vdd = output
-            .get_data(&sim.tb.data().io().elements[0].vdd)
-            .unwrap()
-            .clone();
-
-        VdividerArrayTbData {
-            expected,
-            out,
-            out_nested,
-            vdd,
+impl Save<Spectre, Tran, &Cell<FlattenedVdividerArrayTb>> for VdividerArrayTbOutput {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: &Cell<FlattenedVdividerArrayTb>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::Key {
+        Self::Key {
+            out: to_save
+                .iter()
+                .map(|inst| tran::Voltage::save(ctx, inst.io().out, opts))
+                .collect(),
+            out_nested: to_save
+                .iter()
+                .map(|inst| tran::Voltage::save(ctx, inst.r1.io().n, opts))
+                .collect(),
+            vdd: tran::Voltage::save(ctx, &to_save.data().io().elements[0].vdd, opts),
         }
+    }
+}
+
+impl Testbench<Spectre> for VdividerArrayTb {
+    type Output = VdividerArrayTbOutput;
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+        sim.simulate(
+            Options::default(),
+            Tran {
+                stop: dec!(1e-9),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation")
+    }
+}
+
+impl Testbench<Spectre> for FlattenedVdividerArrayTb {
+    type Output = VdividerArrayTbOutput;
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+        sim.simulate(
+            Options::default(),
+            Tran {
+                stop: dec!(1e-9),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation")
     }
 }

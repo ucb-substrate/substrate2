@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::blocks::Vsource;
-use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
+use crate::tran::Tran;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -245,18 +245,18 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> TranVoltageKey {
-        TranVoltageKey(self.save_inner(save.into()))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> tran::VoltageKey {
+        tran::VoltageKey(self.save_inner(save.into()))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save.into())])
+    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> tran::CurrentKey {
+        tran::CurrentKey(vec![self.save_inner(save.into())])
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save.into())])
+    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> tran::CurrentKey {
+        tran::CurrentKey(vec![self.save_inner(save.into())])
     }
 }
 
@@ -430,7 +430,7 @@ impl Ngspice {
         let outputs = raw_outputs
             .into_iter()
             .map(|mut raw_values| {
-                TranOutput {
+                tran::Output {
                     lib: ctx.lib.clone(),
                     conv: conv.clone(),
                     time: Arc::new(raw_values.remove("time").unwrap()),
@@ -626,16 +626,16 @@ impl From<Tran> for Input {
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
-    Tran(TranOutput),
+    Tran(tran::Output),
 }
 
-impl From<TranOutput> for Output {
-    fn from(value: TranOutput) -> Self {
+impl From<tran::Output> for Output {
+    fn from(value: tran::Output) -> Self {
         Self::Tran(value)
     }
 }
 
-impl TryFrom<Output> for TranOutput {
+impl TryFrom<Output> for tran::Output {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         match value {
