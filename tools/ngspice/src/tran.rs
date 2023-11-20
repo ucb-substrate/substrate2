@@ -1,16 +1,15 @@
 //! ngspice transient analysis options and data structures.
 
-use crate::{node_voltage_path, Ngspice, ProbeStmt, SaveStmt};
+use crate::{Ngspice, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
-use scir::NetlistLibConversion;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
-use substrate::schematic::conv::{ConvertedNodePath, RawLib};
+use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{Cell, ExportsNestedData, NestedInstance};
 use substrate::simulation::data::{tran, FromSaved, Save};
@@ -33,8 +32,6 @@ pub struct Tran {
 /// The result of a transient analysis.
 #[derive(Debug, Clone)]
 pub struct Output {
-    pub(crate) lib: Arc<RawLib<Ngspice>>,
-    pub(crate) conv: Arc<NetlistLibConversion>,
     /// The time points of the transient simulation.
     pub time: Arc<Vec<f64>>,
     /// A map from signal name to values.

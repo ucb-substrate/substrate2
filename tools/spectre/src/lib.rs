@@ -27,7 +27,7 @@ use spice::netlist::{
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::execute::Executor;
-use substrate::io::{NestedNode, NodePath, SchematicType};
+use substrate::io::{NodePath, SchematicType};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
@@ -180,9 +180,9 @@ impl<K> SimOption<Spectre> for InitialCondition<K, ic::Voltage> {
     fn set_option(
         self,
         opts: &mut <Spectre as Simulator>::Options,
-        ctx: &SimulationContext<Spectre>,
+        _ctx: &SimulationContext<Spectre>,
     ) {
-        opts.set_ic_inner(self.key, *self.value);
+        opts.set_ic_inner(self.path, *self.value);
     }
 }
 
@@ -190,9 +190,9 @@ impl SimOption<Spectre> for InitialCondition<&SliceOnePath, ic::Voltage> {
     fn set_option(
         self,
         opts: &mut <Spectre as Simulator>::Options,
-        ctx: &SimulationContext<Spectre>,
+        _ctx: &SimulationContext<Spectre>,
     ) {
-        opts.set_ic_inner(SimSignal::ScirVoltage(self.key.clone()), *self.value);
+        opts.set_ic_inner(SimSignal::ScirVoltage(self.path.clone()), *self.value);
     }
 }
 
@@ -200,10 +200,10 @@ impl SimOption<Spectre> for InitialCondition<&ConvertedNodePath, ic::Voltage> {
     fn set_option(
         self,
         opts: &mut <Spectre as Simulator>::Options,
-        ctx: &SimulationContext<Spectre>,
+        _ctx: &SimulationContext<Spectre>,
     ) {
         opts.set_ic_inner(
-            SimSignal::ScirVoltage(match self.key {
+            SimSignal::ScirVoltage(match self.path {
                 ConvertedNodePath::Cell(path) => path.clone(),
                 ConvertedNodePath::Primitive {
                     instances, port, ..
@@ -221,7 +221,7 @@ impl SimOption<Spectre> for InitialCondition<&NodePath, ic::Voltage> {
         ctx: &SimulationContext<Spectre>,
     ) {
         InitialCondition {
-            key: ctx.lib.convert_node_path(self.key).unwrap(),
+            path: ctx.lib.convert_node_path(self.path).unwrap(),
             value: self.value,
         }
         .set_option(opts, ctx)
@@ -236,7 +236,7 @@ impl<T> SimOption<Spectre> for InitialCondition<T, ic::Voltage> {
         ctx: &SimulationContext<Spectre>,
     ) {
         InitialCondition {
-            key: &self.key,
+            path: &self.path,
             value: self.value,
         }
         .set_option(opts, ctx)
@@ -431,8 +431,6 @@ impl Spectre {
             .into_iter()
             .map(|mut raw_values| {
                 tran::Output {
-                    lib: ctx.lib.clone(),
-                    conv: conv.clone(),
                     time: Arc::new(raw_values.remove("time").unwrap()),
                     raw_values: raw_values
                         .into_iter()

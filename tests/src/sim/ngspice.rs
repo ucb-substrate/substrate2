@@ -4,7 +4,6 @@ use ngspice::tran::Tran;
 use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
 use substrate::schematic::primitives::Resistor;

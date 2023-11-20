@@ -1,7 +1,6 @@
 //! Interfaces for interacting with simulation data.
 
 pub use codegen::FromSaved;
-use std::sync::Arc;
 use type_dispatch::impl_dispatch;
 
 use crate::io::{NestedNode, NestedTerminal, NodePath, TerminalPath};
@@ -79,11 +78,13 @@ impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, TerminalPath>>
     }
 }
 
+/// Transient data definitions.
 pub mod tran {
     use serde::{Deserialize, Serialize};
     use std::ops::Deref;
     use std::sync::Arc;
 
+    /// A time-series of voltage measurements from a transient simulation.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Voltage(pub Arc<Vec<f64>>);
 
@@ -94,6 +95,7 @@ pub mod tran {
         }
     }
 
+    /// A time-series of current measurements from a transient simulation.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Current(pub Arc<Vec<f64>>);
 
@@ -104,6 +106,7 @@ pub mod tran {
         }
     }
 
+    /// The time points associated with a transient simulation.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Time(pub Arc<Vec<f64>>);
 

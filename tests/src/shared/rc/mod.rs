@@ -6,7 +6,6 @@ use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
-use substrate::pdk::corner::SupportsSimulator;
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save};
@@ -76,7 +75,7 @@ impl Testbench<Spectre> for RcTb {
         let mut opts = Options::default();
         sim.set_option(
             InitialCondition {
-                key: sim.tb.data(),
+                path: sim.tb.data(),
                 value: ic::Voltage(self.ic),
             },
             &mut opts,

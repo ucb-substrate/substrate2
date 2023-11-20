@@ -1,4 +1,3 @@
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spectre::blocks::{Iprobe, Vsource};
@@ -8,11 +7,9 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
-use substrate::pdk::corner::SupportsSimulator;
-use substrate::pdk::Pdk;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save};
-use substrate::simulation::{Analysis, SimulationContext, Simulator, Testbench};
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};

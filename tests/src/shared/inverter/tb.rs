@@ -102,7 +102,7 @@ impl Save<Spectre, Tran, &Cell<InverterTb>> for InverterTbOutput {
 impl Testbench<Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
-        let mut opts = Options::default();
+        let opts = Options::default();
         let output: InverterTbOutput = sim
             .simulate(
                 opts,
@@ -117,7 +117,7 @@ impl Testbench<Spectre> for InverterTb {
 
         let vout = output.vout;
         let time = &output.time;
-        let vout = WaveformRef::new(time, &*vout);
+        let vout = WaveformRef::new(time, &vout);
         let mut trans = vout.transitions(
             0.2 * self.pvt.voltage.to_f64().unwrap(),
             0.8 * self.pvt.voltage.to_f64().unwrap(),

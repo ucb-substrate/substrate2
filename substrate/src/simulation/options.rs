@@ -1,3 +1,5 @@
+//! Standard APIs for setting simulator options.
+
 use crate::simulation::{SimulationContext, Simulator};
 
 /// An option for a simulator.
@@ -17,10 +19,13 @@ pub mod ic {
 
     /// An initial condition.
     pub struct InitialCondition<K, V> {
-        pub key: K,
+        /// A path referring to the item whose initial condition needs to be set.
+        pub path: K,
+        /// An initial condition that should be set at the above path.
         pub value: V,
     }
 
+    /// An initial voltage value.
     pub struct Voltage(pub Decimal);
 
     impl Deref for Voltage {
@@ -44,7 +49,7 @@ pub mod ic {
     {
         fn set_option(self, opts: &mut <S as Simulator>::Options, ctx: &SimulationContext<S>) {
             InitialCondition {
-                key: self.key.path(),
+                path: self.path.path(),
                 value: self.value,
             }
             .set_option(opts, ctx)
@@ -58,7 +63,7 @@ pub mod ic {
     {
         fn set_option(self, opts: &mut <S as Simulator>::Options, ctx: &SimulationContext<S>) {
             InitialCondition {
-                key: self.key.as_ref(),
+                path: self.path.as_ref(),
                 value: self.value,
             }
             .set_option(opts, ctx)
@@ -72,7 +77,7 @@ pub mod ic {
     {
         fn set_option(self, opts: &mut <S as Simulator>::Options, ctx: &SimulationContext<S>) {
             InitialCondition {
-                key: self.key.path(),
+                path: self.path.path(),
                 value: self.value,
             }
             .set_option(opts, ctx)

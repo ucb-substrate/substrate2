@@ -431,8 +431,6 @@ impl Ngspice {
             .into_iter()
             .map(|mut raw_values| {
                 tran::Output {
-                    lib: ctx.lib.clone(),
-                    conv: conv.clone(),
                     time: Arc::new(raw_values.remove("time").unwrap()),
                     raw_values: raw_values
                         .into_iter()

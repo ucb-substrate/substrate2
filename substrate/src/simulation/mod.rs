@@ -12,8 +12,6 @@ use crate::block::Block;
 use crate::cache::Cache;
 use crate::execute::Executor;
 use crate::io::TestbenchIo;
-use crate::pdk::corner::SupportsSimulator;
-use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
@@ -107,8 +105,8 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate_default<'a, A: Analysis + SupportedBy<S>>(
-        &'a self,
+    pub fn simulate_default<A: Analysis + SupportedBy<S>>(
+        &self,
         options: S::Options,
         input: A,
     ) -> Result<A::Output, S::Error> {
@@ -121,8 +119,8 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<'a, A: Analysis + SupportedBy<S>, O: for<'b> Save<S, A, &'b Cell<T>>>(
-        &'a self,
+    pub fn simulate<A: Analysis + SupportedBy<S>, O: for<'a> Save<S, A, &'a Cell<T>>>(
+        &self,
         mut options: S::Options,
         input: A,
     ) -> Result<O, S::Error> {
