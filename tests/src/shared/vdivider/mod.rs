@@ -7,9 +7,7 @@ use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{
-    CellBuilder, ExportsNestedData, Instance, NestedData, PrimitiveSchematic, Schematic,
-};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 
 pub mod flattened;
 pub mod tb;
@@ -55,7 +53,6 @@ pub struct VdividerArray {
 }
 
 impl Block for Vdivider {
-    type Kind = block::Cell;
     type Io = VdividerIo;
 
     fn id() -> ArcStr {
@@ -77,7 +74,6 @@ pub struct VdividerArrayIo {
 }
 
 impl Block for VdividerArray {
-    type Kind = block::Cell;
     type Io = VdividerArrayIo;
 
     fn id() -> ArcStr {
@@ -111,7 +107,7 @@ impl ExportsNestedData for VdividerArray {
 
 impl<S: Schema> Schematic<S> for Vdivider
 where
-    Resistor: PrimitiveSchematic<S>,
+    Resistor: Schematic<S>,
 {
     fn schematic(
         &self,
@@ -131,7 +127,7 @@ where
 
 impl<S: Schema> Schematic<S> for VdividerArray
 where
-    Resistor: PrimitiveSchematic<S>,
+    Resistor: Schematic<S>,
 {
     fn schematic(
         &self,

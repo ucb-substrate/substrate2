@@ -31,7 +31,7 @@ use substrate::io::{NodePath, SchematicType};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
+use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption};
 use substrate::simulation::{SimulationContext, Simulator};
@@ -526,11 +526,12 @@ impl FromSchema<Spice> for Spectre {
     }
 }
 
-impl PrimitiveSchematic<Spectre> for Resistor {
+impl Schematic<Spectre> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("resistor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
@@ -541,15 +542,17 @@ impl PrimitiveSchematic<Spectre> for Resistor {
         });
         prim.connect("pos", io.p);
         prim.connect("neg", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
-impl PrimitiveSchematic<Spectre> for Capacitor {
+impl Schematic<Spectre> for Capacitor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
             ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
@@ -560,15 +563,17 @@ impl PrimitiveSchematic<Spectre> for Capacitor {
         });
         prim.connect("pos", io.p);
         prim.connect("neg", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
-impl PrimitiveSchematic<Spectre> for RawInstance {
+impl Schematic<Spectre> for RawInstance {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
@@ -577,7 +582,8 @@ impl PrimitiveSchematic<Spectre> for RawInstance {
         for (i, port) in self.ports.iter().enumerate() {
             prim.connect(port, io[i]);
         }
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 

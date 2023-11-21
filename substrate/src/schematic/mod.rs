@@ -31,43 +31,10 @@ use crate::io::{
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 
-/// A schema that has a primitive associated with a certain block.
-pub trait PrimitiveSchematic<S: Schema>: Block<Kind = block::Primitive> {
-    /// Returns a binding to a schema primitive.
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle)
-        -> PrimitiveBinding<S>;
-}
-
-impl<B: Block<Kind = block::Primitive>> ExportsNestedData<block::Primitive> for B {
-    type NestedData = ();
-}
-
-impl<S: Schema, B: Block<Kind = block::Primitive> + PrimitiveSchematic<S>>
-    Schematic<S, block::Primitive> for B
-{
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<S>,
-    ) -> Result<Self::NestedData> {
-        cell.set_primitive(PrimitiveSchematic::schematic(self, io));
-        Ok(())
-    }
-}
-
-/// A block with a schematic specified using SCIR.
-pub trait ScirSchematic<S: Schema>: Block<Kind = block::Scir> {
-    /// Returns a binding to a cell within a SCIR library.
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> Result<ScirBinding<S>>;
-}
-
 /// A block that exports nodes from its schematic.
 ///
 /// All blocks that have a schematic implementation must export nodes.
-pub trait ExportsNestedData<K = <Self as Block>::Kind>: Block {
+pub trait ExportsNestedData: Block {
     /// Extra schematic data to be stored with the block's generated cell.
     ///
     /// When the block is instantiated, all contained data will be nested
@@ -76,28 +43,13 @@ pub trait ExportsNestedData<K = <Self as Block>::Kind>: Block {
 }
 
 /// A block that has a schematic associated with the given PDK and schema.
-pub trait Schematic<S: Schema, K = <Self as Block>::Kind>: ExportsNestedData {
+pub trait Schematic<S: Schema>: ExportsNestedData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> Result<Self::NestedData>;
-}
-
-impl<B: Block<Kind = block::Scir>> ExportsNestedData<block::Scir> for B {
-    type NestedData = ();
-}
-
-impl<S: Schema, B: Block<Kind = block::Scir> + ScirSchematic<S>> Schematic<S, block::Scir> for B {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        cell: &mut CellBuilder<S>,
-    ) -> Result<Self::NestedData> {
-        cell.set_scir(ScirSchematic::schematic(self, io)?);
-        Ok(())
-    }
 }
 
 /// A builder for creating a schematic cell.
@@ -188,12 +140,12 @@ impl<S: Schema> CellBuilder<S> {
     }
 
     /// Marks this cell as a SCIR cell.
-    pub(crate) fn set_scir(&mut self, scir: ScirBinding<S>) {
+    pub fn set_scir(&mut self, scir: ScirBinding<S>) {
         self.contents = RawCellContentsBuilder::Scir(scir);
     }
 
     /// Marks this cell as a primitive.
-    pub(crate) fn set_primitive(&mut self, primitive: PrimitiveBinding<S>) {
+    pub fn set_primitive(&mut self, primitive: PrimitiveBinding<S>) {
         self.contents = RawCellContentsBuilder::Primitive(primitive);
     }
 

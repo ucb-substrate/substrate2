@@ -16,7 +16,7 @@ use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 /// An RC testbench.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct RcTb {
     ic: Decimal,
 }

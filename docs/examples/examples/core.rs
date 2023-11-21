@@ -14,7 +14,7 @@ use substrate::io::{
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{HasLayout, Pdk, PdkLayers};
-use substrate::schematic::{ScirBinding, ScirSchematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic, ScirBinding};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -186,7 +186,6 @@ impl Inverter {
 // end-hidden-code
 impl Block for Inverter {
     type Io = InverterIo;
-    type Kind = block::Cell;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
@@ -400,7 +399,6 @@ impl Buffer {
 
 impl Block for Buffer {
     type Io = BufferIo;
-    type Kind = block::Cell;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer")
@@ -503,15 +501,20 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
 
 // begin-code-snippet buffer_hard_macro
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "BufferIo", kind = "Scir")]
+#[substrate(io = "BufferIo")]
 pub struct BufferInlineHardMacro;
 
-impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
+impl ExportsNestedData for BufferInlineHardMacro {
+    type NestedData = ();
+}
+
+impl Schematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
-        let mut cell = Spice::scir_cell_from_str(
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut scir = Spice::scir_cell_from_str(
             r#"
                 * CMOS buffer
 
@@ -529,12 +532,13 @@ impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
         )
         .convert_schema::<Sky130Pdk>()?;
 
-        cell.connect("din", io.din);
-        cell.connect("dout", io.dout);
-        cell.connect("vss", io.vss);
-        cell.connect("vdd", io.vdd);
+        scir.connect("din", io.din);
+        scir.connect("dout", io.dout);
+        scir.connect("vss", io.vss);
+        scir.connect("vdd", io.vdd);
 
-        Ok(cell)
+        cell.set_scir(scir);
+        Ok(())
     }
 }
 // end-code-snippet buffer_hard_macro
@@ -701,7 +705,6 @@ fn io() {
 
     impl Block for Sram {
         type Io = SramIo;
-        type Kind = substrate::block::Cell;
 
         fn id() -> ArcStr {
             arcstr::literal!("sram")

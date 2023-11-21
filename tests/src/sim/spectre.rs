@@ -176,14 +176,19 @@ fn spectre_can_include_sections() {
     }
 
     #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "LibIncludeResistorIo", kind = "Primitive")]
+    #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl PrimitiveSchematic<Spectre> for LibIncludeResistor {
+    impl ExportsNestedData for LibIncludeResistor {
+        type NestedData = ();
+    }
+
+    impl Schematic<Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        ) -> PrimitiveBinding<Spectre> {
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
             let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
                 contents: BlackboxContents {
                     elems: vec![
@@ -198,12 +203,13 @@ fn spectre_can_include_sections() {
             });
             prim.connect("pos", io.p);
             prim.connect("neg", io.n);
-            prim
+            cell.set_primitive(prim);
+            Ok(())
         }
     }
 
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "Cell")]
+    #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
     impl ExportsNestedData for LibIncludeTb {
@@ -281,14 +287,19 @@ fn spectre_can_include_sections() {
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TwoTerminalIo", kind = "Scir")]
+    #[substrate(io = "TwoTerminalIo")]
     pub struct ScirResistor;
 
-    impl ScirSchematic<Spectre> for ScirResistor {
+    impl ExportsNestedData for ScirResistor {
+        type NestedData = ();
+    }
+
+    impl Schematic<Spectre> for ScirResistor {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        ) -> substrate::error::Result<ScirBinding<Spectre>> {
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
             let mut cell = Spice::scir_cell_from_str(
                 r#"
             .subckt res p n
@@ -302,12 +313,13 @@ fn spectre_can_save_paths_with_flattened_instances() {
             cell.connect("p", io.p);
             cell.connect("n", io.n);
 
-            Ok(cell)
+            cell.set_scir(cell);
+            Ok(())
         }
     }
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TwoTerminalIo", kind = "Cell")]
+    #[substrate(io = "TwoTerminalIo")]
     pub struct VirtualResistor;
 
     impl ExportsNestedData for VirtualResistor {
@@ -335,7 +347,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     }
 
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "Cell")]
+    #[substrate(io = "TestbenchIo")]
     struct VirtualResistorTb;
 
     impl ExportsNestedData for VirtualResistorTb {

@@ -7,7 +7,7 @@ use substrate::block::Block;
 use substrate::context::{Context, PdkContext};
 use substrate::io::{MosIo, SchematicType};
 use substrate::pdk::Pdk;
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
 use self::layers::{ExamplePdkALayers, ExamplePdkBLayers};
 
@@ -63,7 +63,6 @@ pub struct NmosA {
 }
 
 impl Block for NmosA {
-    type Kind = block::Primitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("nmos_a")
@@ -76,11 +75,16 @@ impl Block for NmosA {
     }
 }
 
-impl PrimitiveSchematic<ExamplePdkA> for NmosA {
+impl ExportsNestedData for NmosA {
+    type NestedData = ();
+}
+
+impl Schematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<ExamplePdkA> {
+        cell: &mut CellBuilder<ExamplePdkA>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
@@ -89,7 +93,8 @@ impl PrimitiveSchematic<ExamplePdkA> for NmosA {
         prim.connect("G", io.g);
         prim.connect("S", io.s);
         prim.connect("B", io.b);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
@@ -101,7 +106,6 @@ pub struct PmosA {
 }
 
 impl Block for PmosA {
-    type Kind = block::Primitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("pmos_a")
@@ -114,11 +118,16 @@ impl Block for PmosA {
     }
 }
 
-impl PrimitiveSchematic<ExamplePdkA> for PmosA {
+impl ExportsNestedData for PmosA {
+    type NestedData = ();
+}
+
+impl Schematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<ExamplePdkA> {
+        cell: &mut CellBuilder<ExamplePdkA>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
@@ -127,7 +136,8 @@ impl PrimitiveSchematic<ExamplePdkA> for PmosA {
         prim.connect("G", io.g);
         prim.connect("S", io.s);
         prim.connect("B", io.b);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
@@ -139,7 +149,6 @@ pub struct NmosB {
 }
 
 impl Block for NmosB {
-    type Kind = block::Primitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("nmos_a")
@@ -152,11 +161,16 @@ impl Block for NmosB {
     }
 }
 
-impl PrimitiveSchematic<ExamplePdkB> for NmosB {
+impl ExportsNestedData for NmosB {
+    type NestedData = ();
+}
+
+impl Schematic<ExamplePdkB> for NmosB {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<ExamplePdkB> {
+        cell: &mut CellBuilder<ExamplePdkB>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
@@ -165,7 +179,8 @@ impl PrimitiveSchematic<ExamplePdkB> for NmosB {
         prim.connect("G", io.g);
         prim.connect("S", io.s);
         prim.connect("B", io.b);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
@@ -177,7 +192,6 @@ pub struct PmosB {
 }
 
 impl Block for PmosB {
-    type Kind = block::Primitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("pmos_a")
@@ -190,11 +204,16 @@ impl Block for PmosB {
     }
 }
 
-impl PrimitiveSchematic<ExamplePdkB> for PmosB {
+impl ExportsNestedData for PmosB {
+    type NestedData = ();
+}
+
+impl Schematic<ExamplePdkB> for PmosB {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<ExamplePdkB> {
+        cell: &mut CellBuilder<ExamplePdkB>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
@@ -203,7 +222,8 @@ impl PrimitiveSchematic<ExamplePdkB> for PmosB {
         prim.connect("G", io.g);
         prim.connect("S", io.s);
         prim.connect("B", io.b);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
@@ -215,7 +235,6 @@ pub struct NmosC {
 }
 
 impl Block for NmosC {
-    type Kind = block::Primitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("nmos_a")
@@ -228,11 +247,16 @@ impl Block for NmosC {
     }
 }
 
-impl PrimitiveSchematic<ExamplePdkC> for NmosC {
+impl ExportsNestedData for NmosC {
+    type NestedData = ();
+}
+
+impl Schematic<ExamplePdkC> for NmosC {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<ExamplePdkC> {
+        cell: &mut CellBuilder<ExamplePdkC>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
@@ -241,7 +265,8 @@ impl PrimitiveSchematic<ExamplePdkC> for NmosC {
         prim.connect("G", io.g);
         prim.connect("S", io.s);
         prim.connect("B", io.b);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
@@ -253,7 +278,6 @@ pub struct PmosC {
 }
 
 impl Block for PmosC {
-    type Kind = block::Primitive;
     type Io = MosIo;
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("pmos_a")
@@ -266,11 +290,16 @@ impl Block for PmosC {
     }
 }
 
-impl PrimitiveSchematic<ExamplePdkC> for PmosC {
+impl ExportsNestedData for PmosC {
+    type NestedData = ();
+}
+
+impl Schematic<ExamplePdkC> for PmosC {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<ExamplePdkC> {
+        cell: &mut CellBuilder<ExamplePdkC>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
             w: self.w,
             l: self.l,
@@ -279,7 +308,8 @@ impl PrimitiveSchematic<ExamplePdkC> for PmosC {
         prim.connect("G", io.g);
         prim.connect("S", io.s);
         prim.connect("B", io.b);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 

@@ -2,9 +2,11 @@
 
 use std::fmt::Display;
 
+use crate::Sky130Pdk;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::MosIo;
+use substrate::io::{MosIo, SchematicType};
+use substrate::schematic::CellBuilder;
 
 /// MOSFET sizing parameters.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,7 +107,6 @@ macro_rules! define_mosfets {
 
         impl Block for $typ {
             type Io = MosIo;
-            type Kind = substrate::block::Primitive;
 
             fn id() -> substrate::arcstr::ArcStr {
                 arcstr::literal!(stringify!($name))
@@ -118,11 +119,12 @@ macro_rules! define_mosfets {
             }
         }
 
-        impl substrate::schematic::PrimitiveSchematic<crate::Sky130Pdk> for $typ {
-            fn schematic(
-                &self,
-                io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-            ) -> substrate::schematic::PrimitiveBinding<crate::Sky130Pdk> {
+        impl substrate::schematic::ExportsNestedData for $typ {
+            type NestedData = ();
+        }
+
+        impl substrate::schematic::Schematic<crate::Sky130Pdk> for $typ {
+            fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle, cell: &mut CellBuilder<Sky130Pdk>) -> substrate::error::Result<Self::NestedData> {
                 let mut prim = substrate::schematic::PrimitiveBinding::new(crate::Primitive::Mos {
                     kind: MosKind::$typ,
                     params: self.params.clone(),
@@ -131,7 +133,8 @@ macro_rules! define_mosfets {
                 prim.connect("G", io.g);
                 prim.connect("S", io.s);
                 prim.connect("B", io.b);
-                prim
+                cell.set_primitive(prim);
+                Ok(())
             }
         }
         )*

@@ -59,7 +59,7 @@ impl Schematic<Spectre> for VdividerTb {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct VdividerDuplicateSubcktTb;
 
 impl ExportsNestedData for VdividerDuplicateSubcktTb {
@@ -194,7 +194,7 @@ impl Schematic<Spectre> for VdividerArrayTb {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct FlattenedVdividerArrayTb;
 
 impl ExportsNestedData for FlattenedVdividerArrayTb {

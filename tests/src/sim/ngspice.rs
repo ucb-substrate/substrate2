@@ -18,7 +18,7 @@ use crate::shared::pdk::sky130_open_ctx;
 #[test]
 fn ngspice_can_save_voltages_and_currents() {
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "Cell")]
+    #[substrate(io = "TestbenchIo")]
     struct ResistorTb;
 
     #[derive(NestedData)]

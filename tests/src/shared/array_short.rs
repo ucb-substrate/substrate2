@@ -19,7 +19,6 @@ pub struct ArrayShort {
 }
 
 impl Block for ArrayShort {
-    type Kind = block::Cell;
     type Io = ArrayIo;
 
     fn id() -> ArcStr {

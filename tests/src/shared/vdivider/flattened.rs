@@ -8,7 +8,7 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
-#[substrate(io = "VdividerIo", kind = "Cell")]
+#[substrate(io = "VdividerIo")]
 pub struct Vdivider {
     pub r1: Resistor,
     pub r2: Resistor,
@@ -30,7 +30,6 @@ pub struct VdividerArray {
 }
 
 impl Block for VdividerArray {
-    type Kind = block::Cell;
     type Io = VdividerArrayIo;
 
     fn id() -> ArcStr {
@@ -64,7 +63,7 @@ pub struct VdividerData {
 
 impl<S: Schema> Schematic<S> for Vdivider
 where
-    Resistor: PrimitiveSchematic<S>,
+    Resistor: Schematic<S>,
 {
     fn schematic(
         &self,

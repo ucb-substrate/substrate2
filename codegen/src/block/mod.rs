@@ -15,7 +15,6 @@ pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
-    kind: Option<syn::Ident>,
     #[darling(multiple)]
     #[allow(unused)]
     layout: Vec<darling::util::Ignored>,
@@ -28,7 +27,6 @@ impl ToTokens for BlockInputReceiver {
             ref ident,
             ref generics,
             ref io,
-            ref kind,
             ..
         } = *self;
 
@@ -47,14 +45,9 @@ impl ToTokens for BlockInputReceiver {
 
         let name = ident.to_string().to_case(Case::Snake);
 
-        let kind = kind
-            .clone()
-            .unwrap_or_else(|| syn::Ident::new("Cell", Span::call_site()));
-
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
-                type Kind = #substrate::block::#kind;
 
                 fn id() -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))

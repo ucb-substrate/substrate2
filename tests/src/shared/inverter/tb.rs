@@ -21,7 +21,7 @@ use substrate::simulation::{SimulationContext, Simulator, Testbench};
 use super::Inverter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,

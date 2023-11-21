@@ -17,7 +17,7 @@ use crate::shared::pdk::{
 use super::{BufferN, Inverter};
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "MosIo", kind = "Cell")]
+#[substrate(io = "MosIo")]
 pub enum InverterMos {
     Nmos,
     Pmos,

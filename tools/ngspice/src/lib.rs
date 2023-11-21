@@ -27,7 +27,7 @@ use substrate::execute::Executor;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
+use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
 
@@ -471,11 +471,12 @@ impl FromSchema<NoSchema> for Ngspice {
     }
 }
 
-impl PrimitiveSchematic<Ngspice> for RawInstance {
+impl Schematic<Ngspice> for RawInstance {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
@@ -484,21 +485,24 @@ impl PrimitiveSchematic<Ngspice> for RawInstance {
         for (i, port) in self.ports.iter().enumerate() {
             prim.connect(port, io[i]);
         }
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
-impl PrimitiveSchematic<Ngspice> for Resistor {
+impl Schematic<Ngspice> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
             value: self.value(),
         }));
         prim.connect("1", io.p);
         prim.connect("2", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 

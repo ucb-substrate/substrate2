@@ -13,7 +13,7 @@ use std::path::Path;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::PrimitiveSchematic;
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 pub mod netlist;
 pub mod parser;
@@ -184,16 +184,18 @@ impl Primitive {
     }
 }
 
-impl PrimitiveSchematic<Spice> for Resistor {
+impl Schematic<Spice> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::PrimitiveBinding<Spice> {
+        cell: &mut CellBuilder<Spice>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {
             value: self.value(),
         });
         prim.connect("1", io.p);
         prim.connect("2", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
