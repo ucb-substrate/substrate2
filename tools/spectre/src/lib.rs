@@ -165,13 +165,13 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> tran::VoltageKey {
-        tran::VoltageKey(self.save_inner(save))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> tran::VoltageSavedKey {
+        tran::VoltageSavedKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentKey {
-        tran::CurrentKey(vec![self.save_inner(save)])
+    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentSavedKey {
+        tran::CurrentSavedKey(vec![self.save_inner(save)])
     }
 }
 

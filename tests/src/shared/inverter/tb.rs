@@ -14,7 +14,7 @@ use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
@@ -86,15 +86,15 @@ pub struct InverterTbOutput {
     pub vout: tran::Voltage,
 }
 
-impl Save<Spectre, Tran, &Cell<InverterTb>> for InverterTbOutput {
-    fn save(
+impl SaveTb<Spectre, Tran, InverterTbOutput> for InverterTb {
+    fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        to_save: &Cell<InverterTb>,
+        cell: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
+    ) -> <InverterTbOutput as FromSaved<Spectre, Tran>>::SavedKey {
+        InverterTbOutputSavedKey {
             time: tran::Time::save(ctx, (), opts),
-            vout: tran::Voltage::save(ctx, to_save.data(), opts),
+            vout: tran::Voltage::save(ctx, cell.data(), opts),
         }
     }
 }

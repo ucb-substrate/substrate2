@@ -245,18 +245,18 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> tran::VoltageKey {
-        tran::VoltageKey(self.save_inner(save.into()))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> tran::VoltageSavedKey {
+        tran::VoltageSavedKey(self.save_inner(save.into()))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> tran::CurrentKey {
-        tran::CurrentKey(vec![self.save_inner(save.into())])
+    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> tran::CurrentSavedKey {
+        tran::CurrentSavedKey(vec![self.save_inner(save.into())])
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> tran::CurrentKey {
-        tran::CurrentKey(vec![self.save_inner(save.into())])
+    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> tran::CurrentSavedKey {
+        tran::CurrentSavedKey(vec![self.save_inner(save.into())])
     }
 }
 

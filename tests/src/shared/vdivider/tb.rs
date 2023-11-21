@@ -8,7 +8,7 @@ use substrate::block::Block;
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
@@ -95,13 +95,13 @@ pub struct VdividerDuplicateSubcktTbOutput {
     pub out: tran::Voltage,
 }
 
-impl Save<Spectre, Tran, &Cell<VdividerDuplicateSubcktTb>> for VdividerDuplicateSubcktTbOutput {
-    fn save(
+impl SaveTb<Spectre, Tran, VdividerDuplicateSubcktTbOutput> for VdividerDuplicateSubcktTb {
+    fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        to_save: &Cell<VdividerDuplicateSubcktTb>,
+        to_save: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
+    ) -> <VdividerDuplicateSubcktTbOutput as FromSaved<Spectre, Tran>>::SavedKey {
+        VdividerDuplicateSubcktTbOutputSavedKey {
             vdd: tran::Voltage::save(ctx, &to_save.data().io().vdd, opts),
             out: tran::Voltage::save(ctx, &to_save.data().io().out, opts),
         }
@@ -129,17 +129,17 @@ pub struct VdividerTbOutput {
     pub out: tran::Voltage,
 }
 
-impl Save<Spectre, Tran, &Cell<VdividerTb>> for VdividerTbOutput {
-    fn save(
+impl SaveTb<Spectre, Tran, VdividerTbOutput> for VdividerTb {
+    fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        cell: &Cell<VdividerTb>,
+        to_save: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
-            current: tran::Current::save(ctx, cell.dut.io().pwr.vdd, opts),
-            iprobe: tran::Current::save(ctx, cell.iprobe.io().p, opts),
-            vdd: tran::Voltage::save(ctx, cell.dut.io().pwr.vdd, opts),
-            out: tran::Voltage::save(ctx, cell.dut.io().out, opts),
+    ) -> <VdividerTbOutput as FromSaved<Spectre, Tran>>::SavedKey {
+        VdividerTbOutputSavedKey {
+            current: tran::Current::save(ctx, to_save.dut.io().pwr.vdd, opts),
+            iprobe: tran::Current::save(ctx, to_save.iprobe.io().p, opts),
+            vdd: tran::Voltage::save(ctx, to_save.dut.io().pwr.vdd, opts),
+            out: tran::Voltage::save(ctx, to_save.dut.io().out, opts),
         }
     }
 }
@@ -234,42 +234,42 @@ pub struct VdividerArrayTbOutput {
     pub vdd: tran::Voltage,
 }
 
-impl Save<Spectre, Tran, &Cell<VdividerArrayTb>> for VdividerArrayTbOutput {
-    fn save(
+impl SaveTb<Spectre, Tran, VdividerArrayTbOutput> for VdividerArrayTb {
+    fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        to_save: &Cell<VdividerArrayTb>,
+        cell: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
-            out: to_save
+    ) -> <VdividerArrayTbOutput as FromSaved<Spectre, Tran>>::SavedKey {
+        VdividerArrayTbOutputSavedKey {
+            out: cell
                 .iter()
                 .map(|inst| tran::Voltage::save(ctx, inst.io().out, opts))
                 .collect(),
-            out_nested: to_save
+            out_nested: cell
                 .iter()
                 .map(|inst| tran::Voltage::save(ctx, inst.r1.io().n, opts))
                 .collect(),
-            vdd: tran::Voltage::save(ctx, &to_save.data().io().elements[0].vdd, opts),
+            vdd: tran::Voltage::save(ctx, &cell.data().io().elements[0].vdd, opts),
         }
     }
 }
 
-impl Save<Spectre, Tran, &Cell<FlattenedVdividerArrayTb>> for VdividerArrayTbOutput {
-    fn save(
+impl SaveTb<Spectre, Tran, VdividerArrayTbOutput> for FlattenedVdividerArrayTb {
+    fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        to_save: &Cell<FlattenedVdividerArrayTb>,
+        cell: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
-            out: to_save
+    ) -> <VdividerArrayTbOutput as FromSaved<Spectre, Tran>>::SavedKey {
+        VdividerArrayTbOutputSavedKey {
+            out: cell
                 .iter()
                 .map(|inst| tran::Voltage::save(ctx, inst.io().out, opts))
                 .collect(),
-            out_nested: to_save
+            out_nested: cell
                 .iter()
                 .map(|inst| tran::Voltage::save(ctx, inst.r1.io().n, opts))
                 .collect(),
-            vdd: tran::Voltage::save(ctx, &to_save.data().io().elements[0].vdd, opts),
+            vdd: tran::Voltage::save(ctx, &cell.data().io().elements[0].vdd, opts),
         }
     }
 }

@@ -8,7 +8,8 @@ use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::tran::Voltage;
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::options::ic;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -52,20 +53,13 @@ impl Schematic<Spectre> for RcTb {
     }
 }
 
-#[derive(FromSaved, Serialize, Deserialize)]
-pub struct RcTbOutput {
-    pub vout: tran::Voltage,
-}
-
-impl Save<Spectre, Tran, &Cell<RcTb>> for RcTbOutput {
-    fn save(
+impl SaveTb<Spectre, Tran, tran::Voltage> for RcTb {
+    fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        to_save: &Cell<RcTb>,
+        to_save: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
-            vout: tran::Voltage::save(ctx, to_save.data(), opts),
-        }
+    ) -> <tran::Voltage as FromSaved<Spectre, Tran>>::SavedKey {
+        tran::Voltage::save(ctx, to_save.data(), opts)
     }
 }
 
@@ -80,7 +74,7 @@ impl Testbench<Spectre> for RcTb {
             },
             &mut opts,
         );
-        let output: RcTbOutput = sim
+        let vout: tran::Voltage = sim
             .simulate(
                 opts,
                 Tran {
@@ -90,8 +84,8 @@ impl Testbench<Spectre> for RcTb {
             )
             .unwrap();
 
-        let first = output.vout.first().unwrap();
-        let last = output.vout.last().unwrap();
+        let first = vout.first().unwrap();
+        let last = vout.last().unwrap();
         (*first, *last)
     }
 }

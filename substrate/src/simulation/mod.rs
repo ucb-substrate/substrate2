@@ -15,8 +15,9 @@ use crate::io::TestbenchIo;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
-use crate::simulation::data::Save;
+use crate::simulation::data::{Save, SaveTb};
 use codegen::simulator_tuples;
+use substrate::simulation::data::FromSaved;
 
 pub mod data;
 pub mod options;
@@ -119,12 +120,16 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<A: Analysis + SupportedBy<S>, O: for<'a> Save<S, A, &'a Cell<T>>>(
+    pub fn simulate<A: Analysis + SupportedBy<S>, O>(
         &self,
         mut options: S::Options,
         input: A,
-    ) -> Result<O, S::Error> {
-        let key = O::save(&self.ctx, &self.tb, &mut options);
+    ) -> Result<O, S::Error>
+    where
+        O: FromSaved<S, A>,
+        T: SaveTb<S, A, O>,
+    {
+        let key = T::save_tb(&self.ctx, &self.tb, &mut options);
         let output = self.simulate_default(options, input)?;
         Ok(O::from_saved(&output, key))
     }

@@ -8,7 +8,7 @@ use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;
 
@@ -66,13 +66,13 @@ fn ngspice_can_save_voltages_and_currents() {
         r3_terminal: tran::Current,
     }
 
-    impl Save<Ngspice, Tran, &Cell<ResistorTb>> for ResistorTbOutput {
-        fn save(
+    impl SaveTb<Ngspice, Tran, ResistorTbOutput> for ResistorTb {
+        fn save_tb(
             ctx: &SimulationContext<Ngspice>,
-            to_save: &Cell<ResistorTb>,
+            to_save: &Cell<Self>,
             opts: &mut <Ngspice as Simulator>::Options,
-        ) -> Self::Key {
-            Self::Key {
+        ) -> <ResistorTbOutput as FromSaved<Ngspice, Tran>>::SavedKey {
+            ResistorTbOutputSavedKey {
                 r1: tran::Current::save(ctx, &to_save.r1, opts),
                 r2: tran::Current::save(ctx, &to_save.r2, opts),
                 r3: tran::Current::save(ctx, &to_save.r3, opts),

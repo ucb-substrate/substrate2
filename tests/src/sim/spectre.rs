@@ -23,7 +23,7 @@ use substrate::schematic::{
     Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, PrimitiveSchematic,
     Schematic, ScirBinding, ScirSchematic,
 };
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;
 
@@ -34,6 +34,7 @@ use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 use substrate::schematic::primitives::{RawInstance, Resistor};
+use substrate::simulation::data::tran::{Current, Voltage};
 
 #[test]
 fn vdivider_tran() {
@@ -231,20 +232,13 @@ fn spectre_can_include_sections() {
         }
     }
 
-    #[derive(FromSaved)]
-    pub struct LibIncludeOutput {
-        vout: tran::Voltage,
-    }
-
-    impl Save<Spectre, Tran, &Cell<LibIncludeTb>> for LibIncludeOutput {
-        fn save(
+    impl SaveTb<Spectre, Tran, tran::Voltage> for LibIncludeTb {
+        fn save_tb(
             ctx: &SimulationContext<Spectre>,
-            to_save: &Cell<LibIncludeTb>,
+            cell: &Cell<Self>,
             opts: &mut <Spectre as Simulator>::Options,
-        ) -> Self::Key {
-            Self::Key {
-                vout: tran::Voltage::save(ctx, to_save.data().io().n, opts),
-            }
+        ) -> <Voltage as FromSaved<Spectre, Tran>>::SavedKey {
+            tran::Voltage::save(ctx, cell.data().io().n, opts)
         }
     }
 
@@ -254,7 +248,7 @@ fn spectre_can_include_sections() {
         fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
             let mut opts = Options::default();
             opts.include_section(test_data("spectre/example_lib.scs"), &self.0);
-            let output: LibIncludeOutput = sim
+            let vout: tran::Voltage = sim
                 .simulate(
                     opts,
                     Tran {
@@ -265,7 +259,7 @@ fn spectre_can_include_sections() {
                 )
                 .expect("failed to run simulation");
 
-            *output.vout.first().unwrap()
+            *vout.first().unwrap()
         }
     }
 
@@ -368,25 +362,18 @@ fn spectre_can_save_paths_with_flattened_instances() {
         }
     }
 
-    #[derive(FromSaved, Serialize, Deserialize)]
-    struct VirtualResistorOutput {
-        current_draw: tran::Current,
-    }
-
-    impl Save<Spectre, Tran, &Cell<VirtualResistorTb>> for VirtualResistorOutput {
-        fn save(
+    impl SaveTb<Spectre, Tran, tran::Current> for VirtualResistor {
+        fn save_tb(
             ctx: &SimulationContext<Spectre>,
-            to_save: &Cell<VirtualResistorTb>,
+            cell: &Cell<Self>,
             opts: &mut <Spectre as Simulator>::Options,
-        ) -> Self::Key {
-            Self::Key {
-                current_draw: tran::Current::save(ctx, to_save.data().io().p, opts),
-            }
+        ) -> <Current as FromSaved<Spectre, Tran>>::SavedKey {
+            tran::Current::save(ctx, cell.data().io().p, opts)
         }
     }
 
     impl Testbench<Spectre> for VirtualResistorTb {
-        type Output = VirtualResistorOutput;
+        type Output = tran::Current;
 
         fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
             sim.simulate(
@@ -404,7 +391,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     let test_name = "spectre_can_save_paths_with_flattened_instances";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, sim_dir).unwrap();
+    let current_draw = ctx.simulate(VirtualResistorTb, sim_dir).unwrap();
 
     assert!(current_draw
         .iter()

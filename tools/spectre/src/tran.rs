@@ -40,8 +40,9 @@ pub struct Output {
 }
 
 impl FromSaved<Spectre, Tran> for Output {
-    type Key = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::Key) -> Self {
+    type SavedKey = ();
+
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
         (*output).clone()
     }
 }
@@ -51,7 +52,7 @@ impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<T>> for Output {
         _ctx: &SimulationContext<Spectre>,
         _to_save: &Cell<T>,
         _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
     }
 }
 
@@ -60,13 +61,13 @@ impl Save<Spectre, Tran, ()> for Output {
         _ctx: &SimulationContext<Spectre>,
         _to_save: (),
         _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
     }
 }
 
 impl FromSaved<Spectre, Tran> for tran::Time {
-    type Key = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::Key) -> Self {
+    type SavedKey = ();
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
         tran::Time(output.time.clone())
     }
 }
@@ -76,7 +77,7 @@ impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<T>> for tran::Time {
         _ctx: &SimulationContext<Spectre>,
         _to_save: &Cell<T>,
         _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
     }
 }
 
@@ -85,17 +86,17 @@ impl Save<Spectre, Tran, ()> for tran::Time {
         _ctx: &SimulationContext<Spectre>,
         _to_save: (),
         _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
     }
 }
 
 /// An identifier for a saved transient voltage.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VoltageKey(pub(crate) u64);
+pub struct VoltageSavedKey(pub(crate) u64);
 
 impl FromSaved<Spectre, Tran> for tran::Voltage {
-    type Key = VoltageKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
+    type SavedKey = VoltageSavedKey;
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SavedKey) -> Self {
         tran::Voltage(
             output
                 .raw_values
@@ -112,7 +113,7 @@ impl<T> Save<Spectre, Tran, T> for tran::Voltage {
         _ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         opts.save_tran_voltage(to_save)
     }
 }
@@ -122,7 +123,7 @@ impl Save<Spectre, Tran, &SliceOnePath> for tran::Voltage {
         _ctx: &SimulationContext<Spectre>,
         to_save: &SliceOnePath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         opts.save_tran_voltage(SimSignal::ScirVoltage(to_save.clone()))
     }
 }
@@ -132,7 +133,7 @@ impl Save<Spectre, Tran, &ConvertedNodePath> for tran::Voltage {
         ctx: &SimulationContext<Spectre>,
         to_save: &ConvertedNodePath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         Self::save(
             ctx,
             match to_save {
@@ -151,7 +152,7 @@ impl Save<Spectre, Tran, &NodePath> for tran::Voltage {
         ctx: &SimulationContext<Spectre>,
         to_save: &NodePath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         Self::save(ctx, ctx.lib.convert_node_path(to_save).unwrap(), opts)
     }
 }
@@ -162,18 +163,18 @@ impl<T> Save<Spectre, Tran, T> for tran::Voltage {
         ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         Self::save(ctx, &to_save, opts)
     }
 }
 
 /// An identifier for a saved transient current.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CurrentKey(pub(crate) Vec<u64>);
+pub struct CurrentSavedKey(pub(crate) Vec<u64>);
 
 impl FromSaved<Spectre, Tran> for tran::Current {
-    type Key = CurrentKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::Key) -> Self {
+    type SavedKey = CurrentSavedKey;
+    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SavedKey) -> Self {
         let currents: Vec<Arc<Vec<f64>>> = key
             .0
             .iter()
@@ -202,7 +203,7 @@ impl<T> Save<Spectre, Tran, T> for tran::Current {
         _ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         opts.save_tran_current(to_save)
     }
 }
@@ -212,7 +213,7 @@ impl Save<Spectre, Tran, &SliceOnePath> for tran::Current {
         _ctx: &SimulationContext<Spectre>,
         to_save: &SliceOnePath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         opts.save_tran_current(SimSignal::ScirCurrent(to_save.clone()))
     }
 }
@@ -222,7 +223,7 @@ impl Save<Spectre, Tran, &ConvertedNodePath> for tran::Current {
         ctx: &SimulationContext<Spectre>,
         to_save: &ConvertedNodePath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         Self::save(
             ctx,
             match to_save {
@@ -241,8 +242,8 @@ impl Save<Spectre, Tran, &TerminalPath> for tran::Current {
         ctx: &SimulationContext<Spectre>,
         to_save: &TerminalPath,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
-        CurrentKey(
+    ) -> Self::SavedKey {
+        CurrentSavedKey(
             ctx.lib
                 .convert_terminal_path(to_save)
                 .unwrap()
@@ -259,7 +260,7 @@ impl<T> Save<Spectre, Tran, T> for tran::Current {
         ctx: &SimulationContext<Spectre>,
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::Key {
+    ) -> Self::SavedKey {
         Self::save(ctx, &to_save, opts)
     }
 }
