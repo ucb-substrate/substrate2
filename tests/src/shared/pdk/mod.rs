@@ -4,7 +4,7 @@ use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
 use substrate::block;
 use substrate::block::Block;
-use substrate::context::{Context, PdkContext};
+use substrate::context::{Context, ContextBuilder, Installation, PdkContext};
 use substrate::io::{MosIo, SchematicType};
 use substrate::pdk::Pdk;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
@@ -21,9 +21,14 @@ pub enum ExamplePrimitive {
 
 pub struct ExamplePdkA;
 
+impl Installation for ExamplePdkA {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkA {
     type Layers = ExamplePdkALayers;
-    type Corner = ExampleCorner;
 }
 
 impl scir::schema::Schema for ExamplePdkA {
@@ -36,24 +41,31 @@ impl scir::schema::Schema for ExamplePdkB {
     type Primitive = ExamplePrimitive;
 }
 
+impl Installation for ExamplePdkB {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkB {
     type Layers = ExamplePdkBLayers;
-    type Corner = ExampleCorner;
 }
 
 pub struct ExamplePdkC;
 
+impl Installation for ExamplePdkC {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkC {
     type Layers = ExamplePdkBLayers;
-    type Corner = ExampleCorner;
 }
 
 impl scir::schema::Schema for ExamplePdkC {
     type Primitive = ExamplePrimitive;
 }
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ExampleCorner;
 
 /// An NMOS in PDK A.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -326,9 +338,10 @@ pub fn sky130_commercial_ctx() -> PdkContext<Sky130Pdk> {
     let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
         .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     Context::builder()
-        .with_simulator(Spectre::default())
+        .install(Spectre::default())
+        .install(Sky130Pdk::commercial(pdk_root))
         .build()
-        .with_pdk(Sky130Pdk::commercial(pdk_root))
+        .with_pdk()
 }
 
 /// Create a new Substrate context for the SKY130 open-source PDK.
@@ -344,7 +357,8 @@ pub fn sky130_open_ctx() -> PdkContext<Sky130Pdk> {
     let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
-        .with_simulator(Ngspice::default())
+        .install(Ngspice::default())
+        .install(Sky130Pdk::open(pdk_root))
         .build()
-        .with_pdk(Sky130Pdk::open(pdk_root))
+        .with_pdk()
 }

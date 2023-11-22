@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::block::Block;
 use crate::cache::Cache;
+use crate::context::{Context, Installation};
 use crate::execute::Executor;
 use crate::io::TestbenchIo;
 use crate::schematic::conv::RawLib;
@@ -30,7 +31,7 @@ pub trait Analysis {
 }
 
 /// A circuit simulator.
-pub trait Simulator: Any + Send + Sync {
+pub trait Simulator: Installation + Any + Send + Sync {
     /// The schema that this simulator uses.
     type Schema: Schema;
     /// The input type this simulator accepts.
@@ -75,10 +76,7 @@ pub struct SimulationContext<S: Simulator + ?Sized> {
     pub work_dir: PathBuf,
     /// The SCIR library to simulate with associated Substrate metadata.
     pub lib: Arc<RawLib<S::Schema>>,
-    /// The executor to which simulation commands should be submitted.
-    pub executor: Arc<dyn Executor>,
-    /// The cache for storing the results of expensive computations.
-    pub cache: Cache,
+    pub ctx: Context,
 }
 
 /// Indicates that a particular analysis is supported by a simulator.

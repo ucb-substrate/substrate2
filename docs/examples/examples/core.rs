@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
 use substrate::block::{self, Block};
-use substrate::context::PdkContext;
+use substrate::context::{ContextBuilder, Installation, PdkContext};
 use substrate::geometry::prelude::*;
 use substrate::io::{
     Array, CustomLayoutType, Flipped, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node,
@@ -13,15 +13,20 @@ use substrate::io::{
 };
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
-use substrate::pdk::{HasLayout, Pdk, PdkLayers};
+use substrate::pdk::{Pdk, PdkLayers};
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic, ScirBinding};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
 
+impl Installation for ExamplePdk {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdk {
     type Layers = ExamplePdkLayers;
-    type Corner = ExamplePdkCorner;
 }
 // end-code-snippet pdk
 
@@ -61,16 +66,26 @@ pub enum ExamplePdkCorner {
 
 pub struct ExamplePdkA;
 
+impl Installation for ExamplePdkA {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkA {
     type Layers = ExamplePdkALayers;
-    type Corner = ExampleCorner;
 }
 
 pub struct ExamplePdkB;
 
+impl Installation for ExamplePdkB {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkB {
     type Layers = ExamplePdkBLayers;
-    type Corner = ExampleCorner;
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -472,10 +487,10 @@ mod single_process_buffer {
 }
 
 // begin-code-snippet buffer_multiprocess
-pub trait BufferSupportedPdk: Pdk + HasLayout<Inverter> {}
-impl<PDK: Pdk + HasLayout<Inverter>> BufferSupportedPdk for PDK {}
-
-impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
+impl<PDK: Pdk> Layout<PDK> for Buffer
+where
+    Inverter: Layout<PDK>,
+{
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,

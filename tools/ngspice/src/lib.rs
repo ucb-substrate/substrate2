@@ -23,6 +23,7 @@ use spice::netlist::{
 };
 use spice::Spice;
 use substrate::block::Block;
+use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::{RawInstance, Resistor};
@@ -505,6 +506,8 @@ impl Schematic<Ngspice> for Resistor {
         Ok(())
     }
 }
+
+impl Installation for Ngspice {}
 
 impl Simulator for Ngspice {
     type Schema = Ngspice;

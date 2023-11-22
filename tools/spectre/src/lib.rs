@@ -26,6 +26,7 @@ use spice::netlist::{
 };
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
+use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::io::{NodePath, SchematicType};
 use substrate::schematic::conv::ConvertedNodePath;
@@ -586,6 +587,8 @@ impl Schematic<Spectre> for RawInstance {
         Ok(())
     }
 }
+
+impl Installation for Spectre {}
 
 impl Simulator for Spectre {
     type Schema = Spectre;

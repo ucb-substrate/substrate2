@@ -1,11 +1,13 @@
 //! PDK layer interface.
 
+use std::sync::RwLock;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
     sync::Arc,
 };
 
+use crate::pdk::Pdk;
 use arcstr::ArcStr;
 pub use codegen::{DerivedLayerFamily, DerivedLayers, Layer, LayerFamily, Layers};
 use serde::{Deserialize, Serialize};
@@ -34,6 +36,11 @@ impl AsRef<LayerId> for LayerId {
 new_key_type! {
     /// A key for layer families in a [`LayerContext`].
     pub(crate) struct LayerFamilyKey;
+}
+
+pub(crate) struct InstalledLayers<PDK: Pdk> {
+    pub(crate) layers: Arc<PDK::Layers>,
+    pub(crate) ctx: Arc<RwLock<LayerContext>>,
 }
 
 /// A context used for assigning identifiers to user-defined layers.
