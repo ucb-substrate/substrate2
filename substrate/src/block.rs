@@ -8,8 +8,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::io::Io;
-use crate::sealed;
-use crate::sealed::Token;
 
 /// A block that can be instantiated by Substrate.
 ///

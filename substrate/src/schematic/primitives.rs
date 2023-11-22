@@ -7,10 +7,10 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use substrate::schematic::ExportsNestedData;
 
+use crate::arcstr;
 use crate::arcstr::ArcStr;
 use crate::block::Block;
 use crate::io::{Array, InOut, Signal, TwoTerminalIo};
-use crate::{arcstr, block};
 
 /// An instance with a pre-defined cell.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

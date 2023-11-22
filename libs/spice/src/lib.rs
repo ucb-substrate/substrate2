@@ -13,7 +13,7 @@ use std::path::Path;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+use substrate::schematic::{CellBuilder, Schematic};
 
 pub mod netlist;
 pub mod parser;

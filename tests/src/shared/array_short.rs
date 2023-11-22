@@ -4,7 +4,7 @@ use substrate::io::*;
 use substrate::schematic::*;
 
 use substrate::schematic::schema::Schema;
-use substrate::{block, block::Block, schematic::Schematic};
+use substrate::{block::Block, schematic::Schematic};
 
 #[derive(Debug, Clone, Io)]
 pub struct ArrayIo {

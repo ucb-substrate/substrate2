@@ -1,7 +1,6 @@
 use super::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate::block;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::schematic::schema::Schema;

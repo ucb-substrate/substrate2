@@ -41,7 +41,6 @@ use crate::schematic::{
     InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
     SchematicContext,
 };
-use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 
 /// The global context.
@@ -57,8 +56,9 @@ use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,
     installations: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
-    /// Map from PDK to InstalledLayers<PDK>.
+    /// Map from `PDK` to `InstalledLayers<PDK>`.
     layers: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+    /// The executor to which commands should be submitted.
     pub executor: Arc<dyn Executor>,
     /// A cache for storing the results of expensive computations.
     pub cache: Cache,
@@ -89,7 +89,14 @@ impl Context {
     }
 }
 
+/// An item that can be installed in a context.
 pub trait Installation: Any + Send + Sync {
+    /// A post-installation hook for additional context modifications
+    /// required by the installation.
+    ///
+    /// PDKs, for example, should use this hook to install their layer
+    /// set and standard cell libraries.
+    #[allow(unused_variables)]
     fn post_install(&self, ctx: &mut ContextBuilder) {}
 }
 /// A [`Context`] with an associated PDK `PDK`.
@@ -113,7 +120,7 @@ impl<PDK: Pdk> Deref for PdkContext<PDK> {
 /// Builder for creating a Substrate [`Context`].
 pub struct ContextBuilder {
     installations: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
-    /// Map from PDK to InstalledLayers<PDK>.
+    /// Map from `PDK` to `InstalledLayers<PDK>`.
     layers: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     executor: Arc<dyn Executor>,
     cache: Option<Cache>,
@@ -251,7 +258,7 @@ impl Context {
             .unwrap();
 
         PdkContext {
-            pdk: pdk,
+            pdk,
             layers: layers.clone(),
             layer_ctx: ctx.clone(),
             ctx: self.clone(),
@@ -403,8 +410,7 @@ impl Context {
         let ctx = SimulationContext {
             lib: Arc::new(lib),
             work_dir: work_dir.into(),
-            executor: self.executor.clone(),
-            cache: self.cache.clone(),
+            ctx: self.clone(),
         };
         let controller = SimController {
             tb: cell.clone(),
@@ -416,6 +422,7 @@ impl Context {
         Ok(block.run(controller))
     }
 
+    /// Gets an installation from the context installation map.
     pub fn get_installation<I: Installation>(&self) -> Arc<I> {
         let arc = self.installations.get(&TypeId::of::<I>()).unwrap().clone();
         arc.downcast().unwrap()

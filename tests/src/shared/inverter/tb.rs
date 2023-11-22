@@ -102,11 +102,11 @@ impl SaveTb<Spectre, Tran, InverterTbOutput> for InverterTb {
 impl Testbench<Spectre> for InverterTb {
     type Output = InverterTbData;
     fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
-        let opts = Options::default();
+        let mut opts = Options::default();
+        sim.set_option(self.pvt.corner, &mut opts);
         let output: InverterTbOutput = sim
             .simulate(
                 opts,
-                // Some(&self.pvt.corner),
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),

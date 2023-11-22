@@ -9,14 +9,12 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::block::Block;
-use crate::cache::Cache;
 use crate::context::{Context, Installation};
-use crate::execute::Executor;
 use crate::io::TestbenchIo;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
-use crate::simulation::data::{Save, SaveTb};
+use crate::simulation::data::SaveTb;
 use codegen::simulator_tuples;
 use substrate::simulation::data::FromSaved;
 
@@ -76,12 +74,11 @@ pub struct SimulationContext<S: Simulator + ?Sized> {
     pub work_dir: PathBuf,
     /// The SCIR library to simulate with associated Substrate metadata.
     pub lib: Arc<RawLib<S::Schema>>,
+    /// The global context.
     pub ctx: Context,
 }
 
 /// Indicates that a particular analysis is supported by a simulator.
-///
-/// Where possible, prefer implementing [`Supports`].
 pub trait SupportedBy<S: Simulator>: Analysis {
     /// Convert the analysis into inputs accepted by this simulator.
     fn into_input(self, inputs: &mut Vec<S::Input>);

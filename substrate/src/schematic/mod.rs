@@ -20,7 +20,7 @@ use std::sync::Arc;
 use arcstr::ArcStr;
 use once_cell::sync::OnceCell;
 
-use crate::block::{self, Block};
+use crate::block::Block;
 use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};

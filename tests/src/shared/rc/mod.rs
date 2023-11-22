@@ -8,7 +8,6 @@ use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::tran::Voltage;
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::options::ic;
 use substrate::simulation::options::ic::InitialCondition;

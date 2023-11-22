@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use substrate::block;
 
 use substrate::io::{
     Array, CustomLayoutType, InOut, Input, Io, LayoutPort, LayoutType, Output, ShapePort, Signal,

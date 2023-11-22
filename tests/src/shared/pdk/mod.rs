@@ -2,7 +2,6 @@ use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
-use substrate::block;
 use substrate::block::Block;
 use substrate::context::{Context, ContextBuilder, Installation, PdkContext};
 use substrate::io::{MosIo, SchematicType};

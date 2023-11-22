@@ -401,9 +401,10 @@ impl Spectre {
         let log = ctx.work_dir.join("spectre.log");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
-        let executor = ctx.executor.clone();
+        let executor = ctx.ctx.executor.clone();
 
         let raw_outputs = ctx
+            .ctx
             .cache
             .get_with_state(
                 "spectre.simulation.outputs",

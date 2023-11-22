@@ -8,20 +8,15 @@ use std::any::Any;
 
 use rust_decimal::Decimal;
 
-use crate::block::Block;
 use crate::context::Installation;
-use crate::error::Result;
-use crate::io::LayoutType;
-use crate::layout::{CellBuilder as LayoutCellBuilder, ExportsLayoutData, Layout};
-use crate::sealed;
 
-use self::corner::*;
 use self::layers::Layers;
 
 /// A process development kit.
 ///
 /// The PDK's [`Installation::post_install`] hook should install
-/// the PDK's layer set using [`ContextBuilder::install_pdk_layers`].
+/// the PDK's layer set using
+/// [`install_pdk_layers`](crate::context::ContextBuilder::install_pdk_layers).
 pub trait Pdk: Installation + Send + Sync + Any {
     /// A set of layers used by the PDK.
     type Layers: Layers;

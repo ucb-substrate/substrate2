@@ -10,7 +10,6 @@ use substrate::schematic::primitives::Resistor;
 use substrate::schematic::CellBuilder;
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
-    block,
     block::Block,
     context::PdkContext,
     io::{HasNameTree, InOut, NameTree, Output, Signal},

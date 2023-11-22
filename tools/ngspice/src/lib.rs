@@ -400,9 +400,10 @@ impl Ngspice {
         let err_log = ctx.work_dir.join("ngspice.err");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
-        let executor = ctx.executor.clone();
+        let executor = ctx.ctx.executor.clone();
 
         let raw_outputs = ctx
+            .ctx
             .cache
             .get_with_state(
                 "ngspice.simulation.outputs",

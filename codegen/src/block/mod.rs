@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use type_dispatch::derive::add_trait_bounds;
 

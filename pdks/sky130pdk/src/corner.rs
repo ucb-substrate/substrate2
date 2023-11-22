@@ -3,6 +3,7 @@
 use crate::Sky130Pdk;
 use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
+use spectre::Spectre;
 use substrate::simulation::options::SimOption;
 use substrate::simulation::{SimulationContext, Simulator};
 

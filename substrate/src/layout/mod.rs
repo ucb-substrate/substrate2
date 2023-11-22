@@ -25,7 +25,6 @@ use once_cell::sync::OnceCell;
 
 use crate::io::LayoutType;
 use crate::pdk::Pdk;
-use crate::sealed;
 use crate::{block::Block, error::Error};
 use crate::{context::PdkContext, error::Result};
 

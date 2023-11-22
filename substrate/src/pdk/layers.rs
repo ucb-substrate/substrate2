@@ -76,10 +76,6 @@ impl LayerContext {
         id
     }
 
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
     pub(crate) fn install_layers<L: Layers>(&mut self) -> Arc<L> {
         let layers = L::new(self);
         let id = TypeId::of::<L>();

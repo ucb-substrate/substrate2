@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::context::{ContextBuilder, Installation, PdkContext};
 use substrate::geometry::prelude::*;
 use substrate::io::{
@@ -14,7 +14,7 @@ use substrate::io::{
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{Pdk, PdkLayers};
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic, ScirBinding};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;

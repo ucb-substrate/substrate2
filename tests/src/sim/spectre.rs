@@ -7,7 +7,6 @@ use cache::multi::MultiCache;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130Pdk;
 use spectre::blocks::Vsource;
 use spectre::tran::Tran;
 use spectre::{Options, Primitive, Spectre};
@@ -20,8 +19,7 @@ use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, PrimitiveSchematic,
-    Schematic, ScirBinding, ScirSchematic,
+    Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, Schematic,
 };
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
@@ -152,14 +150,11 @@ fn spectre_caches_simulations() {
     let executor = CountExecutor::default();
     let count = executor.count.clone();
 
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     let ctx = Context::builder()
-        .with_simulator(Spectre::default())
+        .install(Spectre::default())
         .cache(Cache::new(MultiCache::builder().build()))
         .executor(executor)
-        .build()
-        .with_pdk(Sky130Pdk::commercial(pdk_root));
+        .build();
 
     ctx.simulate(VdividerTb, &sim_dir).unwrap();
     ctx.simulate(VdividerTb, &sim_dir).unwrap();
@@ -300,7 +295,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
-            let mut cell = Spice::scir_cell_from_str(
+            let mut scir = Spice::scir_cell_from_str(
                 r#"
             .subckt res p n
             R0 p n 100
@@ -310,10 +305,10 @@ fn spectre_can_save_paths_with_flattened_instances() {
             )
             .convert_schema::<Spectre>()?;
 
-            cell.connect("p", io.p);
-            cell.connect("n", io.n);
+            scir.connect("p", io.p);
+            scir.connect("n", io.n);
 
-            cell.set_scir(cell);
+            cell.set_scir(scir);
             Ok(())
         }
     }
@@ -374,7 +369,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
         }
     }
 
-    impl SaveTb<Spectre, Tran, tran::Current> for VirtualResistor {
+    impl SaveTb<Spectre, Tran, tran::Current> for VirtualResistorTb {
         fn save_tb(
             ctx: &SimulationContext<Spectre>,
             cell: &Cell<Self>,

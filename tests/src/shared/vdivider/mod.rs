@@ -1,7 +1,6 @@
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use substrate::block;
 use substrate::block::Block;
 use substrate::io::{Array, InOut, Output, Signal};
 use substrate::io::{Io, SchematicType};

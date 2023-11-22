@@ -43,7 +43,9 @@ pub trait Save<S: Simulator, A: Analysis + SupportedBy<S>, T>: FromSaved<S, A> {
     ) -> <Self as FromSaved<S, A>>::SavedKey;
 }
 
+/// A testbench that can save data of type `T`.
 pub trait SaveTb<S: Simulator, A: Analysis, T: FromSaved<S, A>>: ExportsNestedData {
+    /// Saves data `T` from cell `cell`.
     fn save_tb(
         ctx: &SimulationContext<S>,
         cell: &Cell<Self>,

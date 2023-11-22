@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 

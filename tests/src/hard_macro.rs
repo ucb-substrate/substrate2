@@ -11,7 +11,7 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::layout::Layout;
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic, ScirBinding};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use test_log::test;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Layout)]

@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
 use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
-    block,
     block::Block,
     context::PdkContext,
     schematic::{ExportsNestedData, Schematic},
