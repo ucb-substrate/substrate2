@@ -536,14 +536,14 @@ impl Schematic<Spectre> for Resistor {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("resistor"),
-            ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+            ports: vec![arcstr::literal!("p"), arcstr::literal!("n")],
             params: HashMap::from_iter([(
                 arcstr::literal!("r"),
                 ParamValue::Numeric(self.value()),
             )]),
         });
-        prim.connect("pos", io.p);
-        prim.connect("neg", io.n);
+        prim.connect("p", io.p);
+        prim.connect("n", io.n);
         cell.set_primitive(prim);
         Ok(())
     }
