@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
 use cache::multi::MultiCache;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
@@ -75,9 +76,17 @@ fn vdivider_array_tran() {
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerArrayTb, sim_dir).unwrap();
 
-    for (expected, (out, out_nested)) in [(300f64, 300f64), (600f64, 800f64), (3600f64, 1200f64)]
+    let cell = ctx.generate_schematic(crate::shared::vdivider::tb::FlattenedVdividerArrayTb);
+
+    for (expected, (out, out_nested)) in cell
+        .cell()
         .iter()
-        .map(|(r1, r2)| r2 / (r1 + r2) * 1.8f64)
+        .map(|inst| {
+            (inst.block().r1.value() / (inst.block().r1.value() + inst.block().r2.value()))
+                .to_f64()
+                .unwrap()
+                * 1.8f64
+        })
         .zip(output.out.iter().zip(output.out_nested.iter()))
     {
         assert!(out.iter().all(|val| relative_eq!(*val, expected)));
@@ -99,9 +108,17 @@ fn flattened_vdivider_array_tran() {
         )
         .unwrap();
 
-    for (expected, (out, out_nested)) in [(300f64, 300f64), (600f64, 800f64), (3600f64, 1200f64)]
+    let cell = ctx.generate_schematic(crate::shared::vdivider::tb::FlattenedVdividerArrayTb);
+
+    for (expected, (out, out_nested)) in cell
+        .cell()
         .iter()
-        .map(|(r1, r2)| r2 / (r1 + r2) * 1.8f64)
+        .map(|inst| {
+            (inst.block().r1.value() / (inst.block().r1.value() + inst.block().r2.value()))
+                .to_f64()
+                .unwrap()
+                * 1.8f64
+        })
         .zip(output.out.iter().zip(output.out_nested.iter()))
     {
         assert!(out.iter().all(|val| relative_eq!(*val, expected)));

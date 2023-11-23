@@ -514,8 +514,8 @@ impl FromSchema<Spice> for Spectre {
     }
 
     fn convert_instance(
-        instance: &mut scir::Instance,
-        primitive: &<Spice as Schema>::Primitive,
+        _instance: &mut scir::Instance,
+        _primitive: &<Spice as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
