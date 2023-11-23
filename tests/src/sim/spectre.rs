@@ -76,13 +76,13 @@ fn vdivider_array_tran() {
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerArrayTb, sim_dir).unwrap();
 
-    let cell = ctx.generate_schematic(crate::shared::vdivider::tb::FlattenedVdividerArrayTb);
+    let cell = ctx.generate_schematic(crate::shared::vdivider::tb::VdividerArrayTb);
 
     for (expected, (out, out_nested)) in cell
         .cell()
         .iter()
         .map(|inst| {
-            (inst.block().r1.value() / (inst.block().r1.value() + inst.block().r2.value()))
+            (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
                 .to_f64()
                 .unwrap()
                 * 1.8f64
@@ -90,7 +90,7 @@ fn vdivider_array_tran() {
         .zip(output.out.iter().zip(output.out_nested.iter()))
     {
         assert!(out.iter().all(|val| relative_eq!(*val, expected)));
-        assert_eq!(out, out_nested);
+        assert!(out_nested.iter().all(|val| relative_eq!(*val, expected)));
     }
 
     assert!(output.vdd.iter().all(|val| relative_eq!(*val, 1.8)));
@@ -114,7 +114,7 @@ fn flattened_vdivider_array_tran() {
         .cell()
         .iter()
         .map(|inst| {
-            (inst.block().r1.value() / (inst.block().r1.value() + inst.block().r2.value()))
+            (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
                 .to_f64()
                 .unwrap()
                 * 1.8f64
@@ -122,7 +122,7 @@ fn flattened_vdivider_array_tran() {
         .zip(output.out.iter().zip(output.out_nested.iter()))
     {
         assert!(out.iter().all(|val| relative_eq!(*val, expected)));
-        assert_eq!(out, out_nested);
+        assert!(out_nested.iter().all(|val| relative_eq!(*val, expected)));
     }
 
     assert!(output.vdd.iter().all(|val| relative_eq!(*val, 1.8)));
