@@ -506,7 +506,7 @@ impl FromSchema<Spice> for Spectre {
             },
             spice::Primitive::Res2 { value } => Primitive::RawInstance {
                 cell: "resistor".into(),
-                ports: vec!["pos".into(), "neg".into()],
+                ports: vec!["p".into(), "n".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
             primitive => Primitive::Spice(primitive),
@@ -519,8 +519,8 @@ impl FromSchema<Spice> for Spectre {
     ) -> std::result::Result<(), Self::Error> {
         if let spice::Primitive::Res2 { .. } = primitive {
             instance.map_connections(|port| match port.as_ref() {
-                "1" => "pos".into(),
-                "2" => "neg".into(),
+                "1" => "p".into(),
+                "2" => "n".into(),
                 _ => port,
             });
         }
@@ -557,14 +557,14 @@ impl Schematic<Spectre> for Capacitor {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
-            ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+            ports: vec![arcstr::literal!("p"), arcstr::literal!("n")],
             params: HashMap::from_iter([(
                 arcstr::literal!("c"),
                 ParamValue::Numeric(self.value()),
             )]),
         });
-        prim.connect("pos", io.p);
-        prim.connect("neg", io.n);
+        prim.connect("p", io.p);
+        prim.connect("n", io.n);
         cell.set_primitive(prim);
         Ok(())
     }
