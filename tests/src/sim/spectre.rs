@@ -189,15 +189,15 @@ fn spectre_can_include_sections() {
                     elems: vec![
                         BlackboxElement::InstanceName,
                         " ( ".into(),
-                        BlackboxElement::Port("pos".into()),
+                        BlackboxElement::Port("p".into()),
                         " ".into(),
-                        BlackboxElement::Port("neg".into()),
+                        BlackboxElement::Port("n".into()),
                         " ) example_resistor".into(),
                     ],
                 },
             });
-            prim.connect("pos", io.p);
-            prim.connect("neg", io.n);
+            prim.connect("p", io.p);
+            prim.connect("n", io.n);
             cell.set_primitive(prim);
             Ok(())
         }

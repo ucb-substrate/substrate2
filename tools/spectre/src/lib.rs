@@ -506,7 +506,7 @@ impl FromSchema<Spice> for Spectre {
             },
             spice::Primitive::Res2 { value } => Primitive::RawInstance {
                 cell: "resistor".into(),
-                ports: vec!["p".into(), "n".into()],
+                ports: vec!["1".into(), "2".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
             primitive => Primitive::Spice(primitive),
@@ -517,13 +517,6 @@ impl FromSchema<Spice> for Spectre {
         instance: &mut scir::Instance,
         primitive: &<Spice as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
-        if let spice::Primitive::Res2 { .. } = primitive {
-            instance.map_connections(|port| match port.as_ref() {
-                "1" => "p".into(),
-                "2" => "n".into(),
-                _ => port,
-            });
-        }
         Ok(())
     }
 }
@@ -536,14 +529,14 @@ impl Schematic<Spectre> for Resistor {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("resistor"),
-            ports: vec![arcstr::literal!("p"), arcstr::literal!("n")],
+            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
             params: HashMap::from_iter([(
                 arcstr::literal!("r"),
                 ParamValue::Numeric(self.value()),
             )]),
         });
-        prim.connect("p", io.p);
-        prim.connect("n", io.n);
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
         cell.set_primitive(prim);
         Ok(())
     }
@@ -557,14 +550,14 @@ impl Schematic<Spectre> for Capacitor {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
-            ports: vec![arcstr::literal!("p"), arcstr::literal!("n")],
+            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
             params: HashMap::from_iter([(
                 arcstr::literal!("c"),
                 ParamValue::Numeric(self.value()),
             )]),
         });
-        prim.connect("p", io.p);
-        prim.connect("n", io.n);
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
         cell.set_primitive(prim);
         Ok(())
     }
