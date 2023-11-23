@@ -28,11 +28,11 @@ use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
 use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
-use crate::layout::{LayoutContext, LayoutImplemented};
-use crate::pdk::layers::GdsLayerSpec;
+use crate::layout::{Layout, LayoutContext};
 use crate::pdk::layers::LayerContext;
 use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
+use crate::pdk::layers::{GdsLayerSpec, InstalledLayers};
 use crate::pdk::Pdk;
 use crate::schematic::conv::{ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
@@ -41,7 +41,6 @@ use crate::schematic::{
     InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
     SchematicContext,
 };
-use crate::sealed::Token;
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 
 /// The global context.
@@ -56,8 +55,11 @@ use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 #[derive(Clone)]
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,
-    simulators: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
-    executor: Arc<dyn Executor>,
+    installations: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+    /// Map from `PDK` to `InstalledLayers<PDK>`.
+    layers: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
+    /// The executor to which commands should be submitted.
+    pub executor: Arc<dyn Executor>,
     /// A cache for storing the results of expensive computations.
     pub cache: Cache,
 }
@@ -68,7 +70,8 @@ impl Default for Context {
 
         Self {
             inner: Default::default(),
-            simulators: Default::default(),
+            installations: Default::default(),
+            layers: Default::default(),
             executor: Arc::new(LocalExecutor),
             cache: Cache::new(
                 cfg.cache
@@ -86,12 +89,23 @@ impl Context {
     }
 }
 
+/// An item that can be installed in a context.
+pub trait Installation: Any + Send + Sync {
+    /// A post-installation hook for additional context modifications
+    /// required by the installation.
+    ///
+    /// PDKs, for example, should use this hook to install their layer
+    /// set and standard cell libraries.
+    #[allow(unused_variables)]
+    fn post_install(&self, ctx: &mut ContextBuilder) {}
+}
 /// A [`Context`] with an associated PDK `PDK`.
 pub struct PdkContext<PDK: Pdk> {
     /// PDK configuration and general data.
     pub pdk: Arc<PDK>,
     /// The PDK layer set.
     pub layers: Arc<PDK::Layers>,
+    layer_ctx: Arc<RwLock<LayerContext>>,
     ctx: Context,
 }
 
@@ -105,7 +119,9 @@ impl<PDK: Pdk> Deref for PdkContext<PDK> {
 
 /// Builder for creating a Substrate [`Context`].
 pub struct ContextBuilder {
-    simulators: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    installations: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    /// Map from `PDK` to `InstalledLayers<PDK>`.
+    layers: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     executor: Arc<dyn Executor>,
     cache: Option<Cache>,
 }
@@ -113,7 +129,8 @@ pub struct ContextBuilder {
 impl Default for ContextBuilder {
     fn default() -> Self {
         Self {
-            simulators: Default::default(),
+            installations: Default::default(),
+            layers: Default::default(),
             executor: Arc::new(LocalExecutor),
             cache: None,
         }
@@ -128,39 +145,59 @@ impl ContextBuilder {
     }
 
     /// Sets the executor.
-    pub fn executor<E: Executor>(mut self, executor: E) -> Self {
+    pub fn executor<E: Executor>(&mut self, executor: E) -> &mut Self {
         self.executor = Arc::new(executor);
         self
     }
 
-    /// Installs the given simulator.
+    /// Installs the given [`Installation`].
     ///
-    /// Only one simulator of any given type can exist.
+    /// Only one installation of any given type can exist. Overwrites
+    /// conflicting installations of the same type.
     #[inline]
-    pub fn with_simulator<S>(mut self, simulator: S) -> Self
+    pub fn install<I>(&mut self, installation: I) -> &mut Self
     where
-        S: Simulator,
+        I: Installation,
     {
-        self.simulators
-            .insert(TypeId::of::<S>(), Arc::new(simulator));
+        let installation = Arc::new(installation);
+        self.installations
+            .insert(TypeId::of::<I>(), installation.clone());
+        installation.post_install(self);
+        self
+    }
+
+    /// Installs layers for a PDK.
+    ///
+    /// For use in [`Installation::post_install`] hooks for PDK types.
+    pub fn install_pdk_layers<PDK: Pdk>(&mut self) -> &mut Self {
+        let mut ctx = LayerContext::default();
+        let layers = ctx.install_layers::<PDK::Layers>();
+        self.layers.insert(
+            TypeId::of::<PDK>(),
+            Arc::new(InstalledLayers::<PDK> {
+                layers,
+                ctx: Arc::new(RwLock::new(ctx)),
+            }),
+        );
         self
     }
 
     /// Sets the desired cache configuration.
-    pub fn cache(mut self, cache: Cache) -> Self {
+    pub fn cache(&mut self, cache: Cache) -> &mut Self {
         self.cache = Some(cache);
         self
     }
 
     /// Builds the context based on the configuration in this builder.
-    pub fn build(self) -> Context {
+    pub fn build(&mut self) -> Context {
         let cfg = Config::default().expect("requires valid Substrate configuration");
 
         Context {
-            inner: Arc::new(RwLock::new(ContextInner::new(LayerContext::new()))),
-            simulators: Arc::new(self.simulators),
-            executor: self.executor,
-            cache: self.cache.unwrap_or_else(|| {
+            inner: Arc::new(RwLock::new(ContextInner::new())),
+            installations: Arc::new(self.installations.clone()),
+            layers: Arc::new(self.layers.clone()),
+            executor: self.executor.clone(),
+            cache: self.cache.clone().unwrap_or_else(|| {
                 Cache::new(
                     cfg.cache
                         .into_cache()
@@ -176,6 +213,7 @@ impl<PDK: Pdk> Clone for PdkContext<PDK> {
         Self {
             pdk: self.pdk.clone(),
             layers: self.layers.clone(),
+            layer_ctx: self.layer_ctx.clone(),
             ctx: self.ctx.clone(),
         }
     }
@@ -185,7 +223,12 @@ impl<PDK: Pdk> Clone for PdkContext<PDK> {
 pub(crate) struct ContextInner {
     pub(crate) schematic: SchematicContext,
     layout: LayoutContext,
-    layers: LayerContext,
+}
+
+impl ContextInner {
+    fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl Context {
@@ -194,18 +237,31 @@ impl Context {
         Default::default()
     }
 
-    /// Adds an associated PDK to the context, creating a [`PdkContext`].
-    pub fn with_pdk<PDK: Pdk>(self, pdk: PDK) -> PdkContext<PDK> {
+    /// Creates a [`PdkContext`] for the given installed PDK.
+    ///
+    /// The PDK must first be installed in the context.
+    pub fn with_pdk<PDK: Pdk>(&self) -> PdkContext<PDK> {
         // Instantiate PDK layers.
-        let mut inner = self.inner.write().unwrap();
-        let layers = inner.layers.install_layers::<PDK::Layers>();
+        let pdk = self
+            .installations
+            .get(&TypeId::of::<PDK>())
+            .expect("PDK must be installed")
+            .clone()
+            .downcast()
+            .unwrap();
 
-        drop(inner);
+        let InstalledLayers { layers, ctx } = self
+            .layers
+            .get(&TypeId::of::<PDK>())
+            .expect("PDK layer set must be installed")
+            .downcast_ref::<InstalledLayers<PDK>>()
+            .unwrap();
 
         PdkContext {
-            pdk: Arc::new(pdk),
-            layers,
-            ctx: self,
+            pdk,
+            layers: layers.clone(),
+            layer_ctx: ctx.clone(),
+            ctx: self.clone(),
         }
     }
 
@@ -336,19 +392,54 @@ impl Context {
         let SchemaCellCacheValue { raw, .. } = cell.handle.unwrap_inner();
         raw.to_scir_lib()
     }
+
+    /// Simulate the given testbench.
+    ///
+    /// The simulator must be installed in the context.
+    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    where
+        S: Simulator,
+        T: Testbench<S>,
+    {
+        let simulator = self.get_installation::<S>();
+        let block = Arc::new(block);
+        let cell = self.generate_schematic_inner::<<S as Simulator>::Schema, _>(block.clone());
+        // TODO: Handle errors.
+        let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
+        let lib = raw.to_scir_lib()?;
+        let ctx = SimulationContext {
+            lib: Arc::new(lib),
+            work_dir: work_dir.into(),
+            ctx: self.clone(),
+        };
+        let controller = SimController {
+            tb: cell.clone(),
+            simulator,
+            ctx,
+        };
+
+        // TODO caching
+        Ok(block.run(controller))
+    }
+
+    /// Gets an installation from the context installation map.
+    pub fn get_installation<I: Installation>(&self) -> Arc<I> {
+        let arc = self.installations.get(&TypeId::of::<I>()).unwrap().clone();
+        arc.downcast().unwrap()
+    }
 }
 
 impl<PDK: Pdk> PdkContext<PDK> {
     /// Creates a new global context.
     #[inline]
     pub fn new(pdk: PDK) -> Self {
-        ContextBuilder::new().build().with_pdk(pdk)
+        ContextBuilder::new().install(pdk).build().with_pdk()
     }
 
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: LayoutImplemented<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: Layout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
         let mut inner_mut = self.ctx.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
@@ -366,7 +457,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
                 let mut io_builder = block.io().builder();
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
-                let data = block.layout_impl(&mut io_builder, &mut cell_builder, Token);
+                let data = block.layout(&mut io_builder, &mut cell_builder);
 
                 let io = io_builder.build()?;
                 let ports = IndexMap::from_iter(
@@ -389,16 +480,12 @@ impl<PDK: Pdk> PdkContext<PDK> {
     }
 
     /// Writes a layout to a GDS file.
-    pub fn write_layout<T: LayoutImplemented<PDK>>(
-        &self,
-        block: T,
-        path: impl AsRef<Path>,
-    ) -> Result<()> {
+    pub fn write_layout<T: Layout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
         let handle = self.generate_layout(block);
         let cell = handle.try_cell()?;
 
-        let inner = self.ctx.inner.read().unwrap();
-        GdsExporter::new(cell.raw.clone(), &inner.layers)
+        let layer_ctx = self.layer_ctx.read().unwrap();
+        GdsExporter::new(cell.raw.clone(), &layer_ctx)
             .export()
             .map_err(LayoutError::from)?
             .save(path)
@@ -411,12 +498,10 @@ impl<PDK: Pdk> PdkContext<PDK> {
     pub fn read_gds(&self, path: impl AsRef<Path>) -> Result<ImportedGds> {
         let lib = gds::GdsLibrary::load(path)?;
         let mut inner = self.ctx.inner.write().unwrap();
-        let ContextInner {
-            ref mut layers,
-            ref mut layout,
-            ..
-        } = *inner;
-        let imported = GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import()?;
+        let ContextInner { ref mut layout, .. } = *inner;
+        let mut layer_ctx = self.layer_ctx.write().unwrap();
+        let imported =
+            GdsImporter::new(&lib, layout, &mut layer_ctx, PDK::LAYOUT_DB_UNITS).import()?;
         Ok(imported)
     }
 
@@ -428,13 +513,10 @@ impl<PDK: Pdk> PdkContext<PDK> {
     ) -> Result<Arc<RawCell>> {
         let lib = gds::GdsLibrary::load(path)?;
         let mut inner = self.ctx.inner.write().unwrap();
-        let ContextInner {
-            ref mut layers,
-            ref mut layout,
-            ..
-        } = *inner;
-        let imported =
-            GdsImporter::new(&lib, layout, layers, PDK::LAYOUT_DB_UNITS).import_cell(cell)?;
+        let ContextInner { ref mut layout, .. } = *inner;
+        let mut layer_ctx = self.layer_ctx.write().unwrap();
+        let imported = GdsImporter::new(&lib, layout, &mut layer_ctx, PDK::LAYOUT_DB_UNITS)
+            .import_cell(cell)?;
         Ok(imported)
     }
 
@@ -442,8 +524,8 @@ impl<PDK: Pdk> PdkContext<PDK> {
     ///
     /// Allows for accessing GDS layers or other extra layers that are not present in the PDK.
     pub fn install_layers<L: Layers>(&self) -> Arc<L> {
-        let mut inner = self.ctx.inner.write().unwrap();
-        inner.layers.install_layers::<L>()
+        let mut layer_ctx = self.layer_ctx.write().unwrap();
+        layer_ctx.install_layers::<L>()
     }
 
     /// Gets a layer by its GDS layer spec.
@@ -451,57 +533,8 @@ impl<PDK: Pdk> PdkContext<PDK> {
     /// Should generally not be used except for situations involving GDS import, where
     /// layers may be imported at runtime.
     pub fn get_gds_layer(&self, spec: GdsLayerSpec) -> Option<LayerId> {
-        let inner = self.ctx.inner.read().unwrap();
-        inner.layers.get_gds_layer(spec)
-    }
-
-    /// Simulate the given testbench.
-    pub fn simulate<S1, S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
-    where
-        S1: Schema,
-        <S as Simulator>::Schema: FromSchema<S1>,
-        S: Simulator,
-        T: Testbench<PDK, S> + Schematic<S1>,
-    {
-        let simulator = self.get_simulator::<S>();
-        let block = Arc::new(block);
-        let cell = self
-            .ctx
-            .generate_cross_schematic_inner::<S1, <S as Simulator>::Schema, _>(block.clone());
-        // TODO: Handle errors.
-        let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
-        let lib = raw.to_scir_lib()?;
-        let ctx = SimulationContext {
-            lib: Arc::new(lib),
-            work_dir: work_dir.into(),
-            executor: self.executor.clone(),
-            cache: self.cache.clone(),
-        };
-        let controller = SimController {
-            pdk: self.pdk.clone(),
-            tb: cell.clone(),
-            simulator,
-            ctx,
-        };
-
-        // TODO caching
-        Ok(block.run(controller))
-    }
-
-    fn get_simulator<S: Simulator>(&self) -> Arc<S> {
-        let arc = self.ctx.simulators.get(&TypeId::of::<S>()).unwrap().clone();
-        arc.downcast().unwrap()
-    }
-}
-
-impl ContextInner {
-    #[allow(dead_code)]
-    pub(crate) fn new(layers: LayerContext) -> Self {
-        Self {
-            layers,
-            schematic: Default::default(),
-            layout: Default::default(),
-        }
+        let layer_ctx = self.layer_ctx.read().unwrap();
+        layer_ctx.get_gds_layer(spec)
     }
 }
 

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::blocks::Vsource;
-use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
+use crate::tran::Tran;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -23,11 +23,12 @@ use spice::netlist::{
 };
 use spice::Spice;
 use substrate::block::Block;
+use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
+use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
 
@@ -245,18 +246,18 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> TranVoltageKey {
-        TranVoltageKey(self.save_inner(save.into()))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> tran::VoltageSavedKey {
+        tran::VoltageSavedKey(self.save_inner(save.into()))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save.into())])
+    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> tran::CurrentSavedKey {
+        tran::CurrentSavedKey(vec![self.save_inner(save.into())])
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save.into())])
+    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> tran::CurrentSavedKey {
+        tran::CurrentSavedKey(vec![self.save_inner(save.into())])
     }
 }
 
@@ -399,9 +400,10 @@ impl Ngspice {
         let err_log = ctx.work_dir.join("ngspice.err");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
-        let executor = ctx.executor.clone();
+        let executor = ctx.ctx.executor.clone();
 
         let raw_outputs = ctx
+            .ctx
             .cache
             .get_with_state(
                 "ngspice.simulation.outputs",
@@ -430,9 +432,7 @@ impl Ngspice {
         let outputs = raw_outputs
             .into_iter()
             .map(|mut raw_values| {
-                TranOutput {
-                    lib: ctx.lib.clone(),
-                    conv: conv.clone(),
+                tran::Output {
                     time: Arc::new(raw_values.remove("time").unwrap()),
                     raw_values: raw_values
                         .into_iter()
@@ -473,11 +473,12 @@ impl FromSchema<NoSchema> for Ngspice {
     }
 }
 
-impl PrimitiveSchematic<Ngspice> for RawInstance {
+impl Schematic<Ngspice> for RawInstance {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
@@ -486,23 +487,28 @@ impl PrimitiveSchematic<Ngspice> for RawInstance {
         for (i, port) in self.ports.iter().enumerate() {
             prim.connect(port, io[i]);
         }
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
-impl PrimitiveSchematic<Ngspice> for Resistor {
+impl Schematic<Ngspice> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::schematic::PrimitiveBinding<Ngspice> {
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
             value: self.value(),
         }));
         prim.connect("1", io.p);
         prim.connect("2", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
+
+impl Installation for Ngspice {}
 
 impl Simulator for Ngspice {
     type Schema = Ngspice;
@@ -626,16 +632,16 @@ impl From<Tran> for Input {
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
-    Tran(TranOutput),
+    Tran(tran::Output),
 }
 
-impl From<TranOutput> for Output {
-    fn from(value: TranOutput) -> Self {
+impl From<tran::Output> for Output {
+    fn from(value: tran::Output) -> Self {
         Self::Tran(value)
     }
 }
 
-impl TryFrom<Output> for TranOutput {
+impl TryFrom<Output> for tran::Output {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         match value {

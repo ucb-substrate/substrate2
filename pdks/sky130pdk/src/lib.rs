@@ -11,15 +11,14 @@ use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
-use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
 
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
-use corner::*;
 use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
 use spice::Spice;
+use substrate::context::{ContextBuilder, Installation};
 
 pub mod corner;
 pub mod layers;
@@ -255,37 +254,13 @@ impl Sky130Pdk {
     }
 }
 
+impl Installation for Sky130Pdk {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Sky130Pdk>();
+    }
+}
+
 impl Pdk for Sky130Pdk {
     type Layers = Sky130Layers;
-    type Corner = Sky130Corner;
     const LAYOUT_DB_UNITS: Option<Decimal> = Some(dec!(1e-9));
-}
-
-impl SupportsSimulator<Spectre> for Sky130Pdk {
-    fn install_corner(
-        &self,
-        corner: &<Self as substrate::pdk::Pdk>::Corner,
-        opts: &mut <Spectre as substrate::simulation::Simulator>::Options,
-    ) {
-        opts.include(self.commercial_root_dir.as_ref().unwrap().join(format!(
-            "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
-            corner.name()
-        )));
-    }
-}
-
-impl SupportsSimulator<Ngspice> for Sky130Pdk {
-    fn install_corner(
-        &self,
-        corner: &<Self as substrate::pdk::Pdk>::Corner,
-        opts: &mut <Ngspice as substrate::simulation::Simulator>::Options,
-    ) {
-        opts.include_section(
-            self.open_root_dir
-                .as_ref()
-                .unwrap()
-                .join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice"),
-            corner.name(),
-        );
-    }
 }

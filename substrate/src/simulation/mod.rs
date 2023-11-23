@@ -9,18 +9,17 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::block::Block;
-use crate::cache::Cache;
-use crate::execute::Executor;
+use crate::context::{Context, Installation};
 use crate::io::TestbenchIo;
-use crate::pdk::corner::SupportsSimulator;
-use crate::pdk::Pdk;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, ExportsNestedData, Schematic};
-use crate::simulation::data::Save;
+use crate::simulation::data::SaveTb;
 use codegen::simulator_tuples;
+use substrate::simulation::data::FromSaved;
 
 pub mod data;
+pub mod options;
 pub mod waveform;
 
 /// A single simulator analysis.
@@ -30,7 +29,7 @@ pub trait Analysis {
 }
 
 /// A circuit simulator.
-pub trait Simulator: Any + Send + Sync {
+pub trait Simulator: Installation + Any + Send + Sync {
     /// The schema that this simulator uses.
     type Schema: Schema;
     /// The input type this simulator accepts.
@@ -75,23 +74,11 @@ pub struct SimulationContext<S: Simulator + ?Sized> {
     pub work_dir: PathBuf,
     /// The SCIR library to simulate with associated Substrate metadata.
     pub lib: Arc<RawLib<S::Schema>>,
-    /// The executor to which simulation commands should be submitted.
-    pub executor: Arc<dyn Executor>,
-    /// The cache for storing the results of expensive computations.
-    pub cache: Cache,
-}
-
-/// Indicates that a simulator supports a certain analysis.
-pub trait Supports<A: Analysis>: Simulator {
-    /// Convert this analysis into inputs accepted by the simulator.
-    fn into_input(a: A, inputs: &mut Vec<Self::Input>);
-    /// Convert the simulator outputs to this analysis's output.
-    fn from_output(outputs: &mut impl Iterator<Item = Self::Output>) -> A::Output;
+    /// The global context.
+    pub ctx: Context,
 }
 
 /// Indicates that a particular analysis is supported by a simulator.
-///
-/// Where possible, prefer implementing [`Supports`].
 pub trait SupportedBy<S: Simulator>: Analysis {
     /// Convert the analysis into inputs accepted by this simulator.
     fn into_input(self, inputs: &mut Vec<S::Input>);
@@ -99,51 +86,26 @@ pub trait SupportedBy<S: Simulator>: Analysis {
     fn from_output(outputs: &mut impl Iterator<Item = S::Output>) -> Self::Output;
 }
 
-impl<S, A> SupportedBy<S> for A
-where
-    A: Analysis,
-    S: Supports<A>,
-{
-    fn into_input(self, inputs: &mut Vec<<S as Simulator>::Input>) {
-        S::into_input(self, inputs);
-    }
-    fn from_output(outputs: &mut impl Iterator<Item = <S as Simulator>::Output>) -> Self::Output {
-        S::from_output(outputs)
-    }
-}
-
 /// Controls simulation options.
-pub struct SimController<PDK, S: Simulator, T: ExportsNestedData> {
+pub struct SimController<S: Simulator, T: ExportsNestedData> {
     pub(crate) simulator: Arc<S>,
-    /// The current PDK.
-    pub pdk: Arc<PDK>,
     /// The current testbench cell.
     pub tb: Arc<Cell<T>>,
     pub(crate) ctx: SimulationContext<S>,
 }
 
-/// Set an initial condition.
-pub trait SetInitialCondition<K, V, S: Simulator> {
-    /// Set an initial condition assigning the given value to the given key.
-    fn set_initial_condition(&mut self, key: K, value: V, ctx: &SimulationContext<S>);
-}
-
-impl<PDK: SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>> SimController<PDK, S, T> {
+impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// Run the given analysis, returning the default output.
     ///
     /// Note that providing [`None`] for `corner` will result in model files not being included,
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate_default<'a, A: Analysis + SupportedBy<S>>(
-        &'a self,
-        mut options: S::Options,
-        corner: Option<&'a PDK::Corner>,
+    pub fn simulate_default<A: Analysis + SupportedBy<S>>(
+        &self,
+        options: S::Options,
         input: A,
     ) -> Result<A::Output, S::Error> {
-        if let Some(corner) = corner {
-            self.pdk.install_corner(corner, &mut options);
-        }
         self.simulator.simulate(&self.ctx, options, input)
     }
 
@@ -153,34 +115,35 @@ impl<PDK: SupportsSimulator<S>, S: Simulator, T: Testbench<PDK, S>> SimControlle
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<'a, A: Analysis + SupportedBy<S>, O: for<'b> Save<S, A, &'b Cell<T>>>(
-        &'a self,
+    pub fn simulate<A: Analysis + SupportedBy<S>, O>(
+        &self,
         mut options: S::Options,
-        corner: Option<&'a PDK::Corner>,
         input: A,
-    ) -> Result<O, S::Error> {
-        let key = O::save(&self.ctx, &self.tb, &mut options);
-        let output = self.simulate_default(options, corner, input)?;
+    ) -> Result<O, S::Error>
+    where
+        O: FromSaved<S, A>,
+        T: SaveTb<S, A, O>,
+    {
+        let key = T::save_tb(&self.ctx, &self.tb, &mut options);
+        let output = self.simulate_default(options, input)?;
         Ok(O::from_saved(&output, key))
     }
 
-    /// Set an initial condition by mutating the given options.
-    pub fn set_initial_condition<K, V>(&self, key: K, value: V, options: &mut S::Options)
+    /// Set an option by mutating the given options.
+    pub fn set_option<O>(&self, opt: O, options: &mut S::Options)
     where
-        S::Options: SetInitialCondition<K, V, S>,
+        O: options::SimOption<S>,
     {
-        options.set_initial_condition(key, value, &self.ctx);
+        opt.set_option(options, &self.ctx);
     }
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<PDK: Pdk, S: Simulator>:
-    Schematic<S::Schema> + Block<Io = TestbenchIo>
-{
+pub trait Testbench<S: Simulator>: Schematic<S::Schema> + Block<Io = TestbenchIo> {
     /// The output produced by this testbench.
     type Output: Any + Serialize + DeserializeOwned;
     /// Run the testbench using the given simulation controller.
-    fn run(&self, sim: SimController<PDK, S, Self>) -> Self::Output;
+    fn run(&self, sim: SimController<S, Self>) -> Self::Output;
 }
 
 #[impl_for_tuples(64)]

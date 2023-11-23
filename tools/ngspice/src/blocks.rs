@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -30,7 +30,7 @@ pub struct Pulse {
 
 /// A voltage source.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TwoTerminalIo", kind = "Primitive")]
+#[substrate(io = "TwoTerminalIo")]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
@@ -50,14 +50,20 @@ impl Vsource {
     }
 }
 
-impl PrimitiveSchematic<Ngspice> for Vsource {
+impl ExportsNestedData for Vsource {
+    type NestedData = ();
+}
+
+impl Schematic<Ngspice> for Vsource {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Ngspice> {
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Vsource(*self));
         prim.connect("P", io.p);
         prim.connect("N", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }

@@ -6,15 +6,16 @@ use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::io::{Node, Signal};
 use substrate::io::{SchematicType, TestbenchIo};
-use substrate::pdk::corner::SupportsSimulator;
 use substrate::schematic::primitives::{Capacitor, Resistor};
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::HasSimData;
-use substrate::simulation::Testbench;
+use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
+use substrate::simulation::options::ic;
+use substrate::simulation::options::ic::InitialCondition;
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 
 /// An RC testbench.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct RcTb {
     ic: Decimal,
 }
@@ -51,23 +52,36 @@ impl Schematic<Spectre> for RcTb {
     }
 }
 
-impl<PDK: SupportsSimulator<Spectre>> Testbench<PDK, Spectre> for RcTb {
+impl SaveTb<Spectre, Tran, tran::Voltage> for RcTb {
+    fn save_tb(
+        ctx: &SimulationContext<Spectre>,
+        to_save: &Cell<Self>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> <tran::Voltage as FromSaved<Spectre, Tran>>::SavedKey {
+        tran::Voltage::save(ctx, to_save.data(), opts)
+    }
+}
+
+impl Testbench<Spectre> for RcTb {
     type Output = (f64, f64);
-    fn run(&self, sim: substrate::simulation::SimController<PDK, Spectre, Self>) -> Self::Output {
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
         let mut opts = Options::default();
-        sim.set_initial_condition(sim.tb.data(), self.ic, &mut opts);
-        let output = sim
-            .simulate_default(
+        sim.set_option(
+            InitialCondition {
+                path: sim.tb.data(),
+                value: ic::Voltage(self.ic),
+            },
+            &mut opts,
+        );
+        let vout: tran::Voltage = sim
+            .simulate(
                 opts,
-                None,
                 Tran {
                     stop: dec!(10e-6),
                     ..Default::default()
                 },
             )
             .unwrap();
-
-        let vout = output.get_data(&sim.tb.data()).unwrap();
 
         let first = vout.first().unwrap();
         let last = vout.last().unwrap();

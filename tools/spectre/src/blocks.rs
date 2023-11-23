@@ -4,9 +4,9 @@ use rust_decimal::Decimal;
 use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use substrate::block::{self, Block};
+use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
 use crate::{Primitive, Spectre};
 
@@ -52,7 +52,6 @@ impl Vsource {
 
 impl Block for Vsource {
     type Io = TwoTerminalIo;
-    type Kind = block::Primitive;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("vsource")
@@ -67,11 +66,16 @@ impl Block for Vsource {
     }
 }
 
-impl PrimitiveSchematic<Spectre> for Vsource {
+impl ExportsNestedData for Vsource {
+    type NestedData = ();
+}
+
+impl Schematic<Spectre> for Vsource {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         use arcstr::literal;
         let mut params = HashMap::new();
         match self {
@@ -108,7 +112,8 @@ impl PrimitiveSchematic<Spectre> for Vsource {
         });
         prim.connect("p", io.p);
         prim.connect("n", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
@@ -118,7 +123,6 @@ pub struct Iprobe;
 
 impl Block for Iprobe {
     type Io = TwoTerminalIo;
-    type Kind = block::Primitive;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("iprobe")
@@ -133,11 +137,16 @@ impl Block for Iprobe {
     }
 }
 
-impl PrimitiveSchematic<Spectre> for Iprobe {
+impl ExportsNestedData for Iprobe {
+    type NestedData = ();
+}
+
+impl Schematic<Spectre> for Iprobe {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],
@@ -145,6 +154,7 @@ impl PrimitiveSchematic<Spectre> for Iprobe {
         });
         prim.connect("in", io.p);
         prim.connect("out", io.n);
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }

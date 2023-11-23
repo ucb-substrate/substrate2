@@ -11,11 +11,11 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::layout::Layout;
-use substrate::schematic::{ScirBinding, ScirSchematic};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use test_log::test;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Layout)]
-#[substrate(io = "BufferIo", kind = "Scir")]
+#[substrate(io = "BufferIo")]
 #[substrate(layout(
     source = "crate::paths::test_data(\"gds/buffer.gds\")",
     name = "buffer",
@@ -24,33 +24,44 @@ use test_log::test;
 ))]
 pub struct BufferHardMacro;
 
-impl ScirSchematic<Sky130Pdk> for BufferHardMacro {
+impl ExportsNestedData for BufferHardMacro {
+    type NestedData = ();
+}
+
+impl Schematic<Sky130Pdk> for BufferHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
-        let mut cell = Spice::scir_cell_from_file(test_data("spice/buffer.spice"), "buffer")
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut scir = Spice::scir_cell_from_file(test_data("spice/buffer.spice"), "buffer")
             .convert_schema::<Sky130Pdk>()?;
 
-        cell.connect("din", io.din);
-        cell.connect("dout", io.dout);
-        cell.connect("vss", io.vss);
-        cell.connect("vdd", io.vdd);
+        scir.connect("din", io.din);
+        scir.connect("dout", io.dout);
+        scir.connect("vss", io.vss);
+        scir.connect("vdd", io.vdd);
 
-        Ok(cell)
+        cell.set_scir(scir);
+        Ok(())
     }
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "BufferIo", kind = "Scir")]
+#[substrate(io = "BufferIo")]
 pub struct BufferInlineHardMacro;
 
-impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
+impl ExportsNestedData for BufferInlineHardMacro {
+    type NestedData = ();
+}
+
+impl Schematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
-        let mut cell = Spice::scir_cell_from_str(
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut scir = Spice::scir_cell_from_str(
             r#"
                 * CMOS buffer
 
@@ -68,34 +79,41 @@ impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
         )
         .convert_schema::<Sky130Pdk>()?;
 
-        cell.connect("din", io.din);
-        cell.connect("dout", io.dout);
-        cell.connect("vss", io.vss);
-        cell.connect("vdd", io.vdd);
+        scir.connect("din", io.din);
+        scir.connect("dout", io.dout);
+        scir.connect("vss", io.vss);
+        scir.connect("vdd", io.vdd);
 
-        Ok(cell)
+        cell.set_scir(scir);
+        Ok(())
     }
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "crate::shared::vdivider::VdividerFlatIo", kind = "Scir")]
+#[substrate(io = "crate::shared::vdivider::VdividerFlatIo")]
 pub struct VdividerDuplicateSubckt;
 
-impl ScirSchematic<Spice> for VdividerDuplicateSubckt {
+impl ExportsNestedData for VdividerDuplicateSubckt {
+    type NestedData = ();
+}
+
+impl Schematic<Spice> for VdividerDuplicateSubckt {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirBinding<Spice>> {
-        let mut cell = Spice::scir_cell_from_file(
+        cell: &mut CellBuilder<Spice>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut scir = Spice::scir_cell_from_file(
             test_data("spice/vdivider_duplicate_subckt.spice"),
             "vdivider",
         );
 
-        cell.connect("vdd", io.vdd);
-        cell.connect("vss", io.vss);
-        cell.connect("out", io.out);
+        scir.connect("vdd", io.vdd);
+        scir.connect("vss", io.vss);
+        scir.connect("out", io.out);
 
-        Ok(cell)
+        cell.set_scir(scir);
+        Ok(())
     }
 }
 

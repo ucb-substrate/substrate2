@@ -15,9 +15,6 @@ pub mod schematic;
 pub mod simulation;
 
 mod diagnostics;
-mod sealed {
-    pub struct Token;
-}
 
 // Re-exported for procedural macros.
 #[doc(hidden)]

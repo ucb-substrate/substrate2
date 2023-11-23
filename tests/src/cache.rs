@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use substrate::io::SchematicType;
 use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
-    block,
     block::Block,
     context::PdkContext,
     schematic::{ExportsNestedData, Schematic},
@@ -36,7 +35,6 @@ impl Cacheable for CachedDesignScript {
 pub struct CacheBlock(u64);
 
 impl Block for CacheBlock {
-    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {

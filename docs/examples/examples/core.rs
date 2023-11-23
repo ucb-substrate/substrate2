@@ -4,8 +4,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
-use substrate::block::{self, Block};
-use substrate::context::PdkContext;
+use substrate::block::Block;
+use substrate::context::{ContextBuilder, Installation, PdkContext};
 use substrate::geometry::prelude::*;
 use substrate::io::{
     Array, CustomLayoutType, Flipped, InOut, Input, Io, IoShape, LayoutPort, LayoutType, Node,
@@ -13,15 +13,20 @@ use substrate::io::{
 };
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
-use substrate::pdk::{HasLayout, Pdk, PdkLayers};
-use substrate::schematic::{ScirBinding, ScirSchematic};
+use substrate::pdk::{Pdk, PdkLayers};
+use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
 
+impl Installation for ExamplePdk {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdk {
     type Layers = ExamplePdkLayers;
-    type Corner = ExamplePdkCorner;
 }
 // end-code-snippet pdk
 
@@ -61,16 +66,26 @@ pub enum ExamplePdkCorner {
 
 pub struct ExamplePdkA;
 
+impl Installation for ExamplePdkA {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkA {
     type Layers = ExamplePdkALayers;
-    type Corner = ExampleCorner;
 }
 
 pub struct ExamplePdkB;
 
+impl Installation for ExamplePdkB {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        ctx.install_pdk_layers::<Self>();
+    }
+}
+
 impl Pdk for ExamplePdkB {
     type Layers = ExamplePdkBLayers;
-    type Corner = ExampleCorner;
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -186,7 +201,6 @@ impl Inverter {
 // end-hidden-code
 impl Block for Inverter {
     type Io = InverterIo;
-    type Kind = block::Cell;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("inverter")
@@ -400,7 +414,6 @@ impl Buffer {
 
 impl Block for Buffer {
     type Io = BufferIo;
-    type Kind = block::Cell;
 
     fn id() -> arcstr::ArcStr {
         arcstr::literal!("buffer")
@@ -474,10 +487,10 @@ mod single_process_buffer {
 }
 
 // begin-code-snippet buffer_multiprocess
-pub trait BufferSupportedPdk: Pdk + HasLayout<Inverter> {}
-impl<PDK: Pdk + HasLayout<Inverter>> BufferSupportedPdk for PDK {}
-
-impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
+impl<PDK: Pdk> Layout<PDK> for Buffer
+where
+    Inverter: Layout<PDK>,
+{
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -503,15 +516,20 @@ impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
 
 // begin-code-snippet buffer_hard_macro
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "BufferIo", kind = "Scir")]
+#[substrate(io = "BufferIo")]
 pub struct BufferInlineHardMacro;
 
-impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
+impl ExportsNestedData for BufferInlineHardMacro {
+    type NestedData = ();
+}
+
+impl Schematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> substrate::error::Result<ScirBinding<Sky130Pdk>> {
-        let mut cell = Spice::scir_cell_from_str(
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut scir = Spice::scir_cell_from_str(
             r#"
                 * CMOS buffer
 
@@ -529,12 +547,13 @@ impl ScirSchematic<Sky130Pdk> for BufferInlineHardMacro {
         )
         .convert_schema::<Sky130Pdk>()?;
 
-        cell.connect("din", io.din);
-        cell.connect("dout", io.dout);
-        cell.connect("vss", io.vss);
-        cell.connect("vdd", io.vdd);
+        scir.connect("din", io.din);
+        scir.connect("dout", io.dout);
+        scir.connect("vss", io.vss);
+        scir.connect("vdd", io.vdd);
 
-        Ok(cell)
+        cell.set_scir(scir);
+        Ok(())
     }
 }
 // end-code-snippet buffer_hard_macro
@@ -576,26 +595,25 @@ fn main() {
 
 /// Demonstrates how to save simulator output.
 mod sim {
-    use spectre::tran::{TranCurrent, TranVoltage};
-    use substrate::simulation::data::FromSaved;
+    use substrate::simulation::data::{tran, FromSaved};
 
     // begin-code-snippet sim_from_saved
     #[derive(Debug, Clone, FromSaved)]
     #[allow(unused)]
     pub enum SavedEnum {
         Fields {
-            vout: TranVoltage,
-            iout: TranCurrent,
+            vout: tran::Voltage,
+            iout: tran::Current,
         },
-        Tuple(TranVoltage, TranCurrent),
+        Tuple(tran::Voltage, tran::Current),
         Unit,
     }
 
     #[derive(Debug, Clone, FromSaved)]
     #[allow(unused)]
     pub struct NamedFields {
-        vout: TranVoltage,
-        iout: TranCurrent,
+        vout: tran::Voltage,
+        iout: tran::Current,
     }
 
     #[derive(Debug, Clone, FromSaved)]
@@ -702,7 +720,6 @@ fn io() {
 
     impl Block for Sram {
         type Io = SramIo;
-        type Kind = substrate::block::Cell;
 
         fn id() -> ArcStr {
             arcstr::literal!("sram")

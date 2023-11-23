@@ -5,7 +5,7 @@ use geometry::{
     union::BoundingUnion,
 };
 
-use substrate::pdk::{HasLayout, Pdk};
+use substrate::pdk::Pdk;
 use substrate::{
     io::IoShape,
     layout::{
@@ -162,25 +162,17 @@ impl ExportsLayoutData for Buffer {
     type LayoutData = BufferData;
 }
 
-pub trait BufferSupportedPdk: Pdk + HasLayout<Inverter> {
-    fn derived_layers(layers: &Self::Layers) -> BufferDerivedLayers;
-}
-impl<PDK: Pdk + HasLayout<Inverter>> BufferSupportedPdk for PDK
+impl<PDK: Pdk> Layout<PDK> for Buffer
 where
-    for<'a> &'a Self::Layers: Into<BufferDerivedLayers>,
+    for<'a> &'a PDK::Layers: Into<BufferDerivedLayers>,
+    Inverter: Layout<PDK>,
 {
-    fn derived_layers(layers: &Self::Layers) -> BufferDerivedLayers {
-        layers.into()
-    }
-}
-
-impl<PDK: BufferSupportedPdk> Layout<PDK> for Buffer {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
-        let derived_layers = PDK::derived_layers(cell.ctx.layers.as_ref());
+        let derived_layers: BufferDerivedLayers = cell.ctx.layers.as_ref().into();
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
 
         let inv1 = cell.generate(Inverter::new(self.strength));
@@ -225,7 +217,10 @@ impl ExportsLayoutData for BufferN {
     type LayoutData = BufferNData;
 }
 
-impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferN {
+impl<PDK: Pdk> Layout<PDK> for BufferN
+where
+    Buffer: Layout<PDK>,
+{
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
@@ -274,13 +269,17 @@ impl ExportsLayoutData for BufferNxM {
     type LayoutData = ();
 }
 
-impl<PDK: BufferSupportedPdk> Layout<PDK> for BufferNxM {
+impl<PDK: Pdk> Layout<PDK> for BufferNxM
+where
+    for<'a> &'a PDK::Layers: Into<BufferDerivedLayers>,
+    BufferN: Layout<PDK>,
+{
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
-        let derived_layers = PDK::derived_layers(cell.ctx.layers.as_ref());
+        let derived_layers: BufferDerivedLayers = cell.ctx.layers.as_ref().into();
         let buffern = cell.generate::<BufferN>(BufferN::new(self.strength, self.n));
         let mut tiler = ArrayTiler::new(TileAlignMode::Center, TileAlignMode::NegAdjacent);
 

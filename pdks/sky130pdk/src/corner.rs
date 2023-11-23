@@ -1,6 +1,11 @@
 //! An enumeration of supported corners.
 
+use crate::Sky130Pdk;
+use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
+use spectre::Spectre;
+use substrate::simulation::options::SimOption;
+use substrate::simulation::{SimulationContext, Simulator};
 
 /// An enumeration of supported corners.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -78,5 +83,41 @@ impl Sky130Corner {
             Self::Ff => arcstr::literal!("ff"),
             Self::Ss => arcstr::literal!("ss"),
         }
+    }
+}
+
+impl SimOption<Spectre> for Sky130Corner {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext<Spectre>,
+    ) {
+        let pdk = ctx.ctx.get_installation::<Sky130Pdk>();
+        opts.include(
+            pdk.commercial_root_dir
+                .as_ref()
+                .expect("Commercial root directory must be specified")
+                .join(format!(
+                    "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
+                    self.name()
+                )),
+        )
+    }
+}
+
+impl SimOption<Ngspice> for Sky130Corner {
+    fn set_option(
+        self,
+        opts: &mut <Ngspice as Simulator>::Options,
+        ctx: &SimulationContext<Ngspice>,
+    ) {
+        let pdk = ctx.ctx.get_installation::<Sky130Pdk>();
+        opts.include_section(
+            pdk.open_root_dir
+                .as_ref()
+                .expect("Commercial root directory must be specified")
+                .join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice"),
+            self.name(),
+        )
     }
 }
