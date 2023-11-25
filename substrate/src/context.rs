@@ -401,7 +401,9 @@ impl Context {
         S: Simulator,
         T: Testbench<S>,
     {
-        let simulator = self.get_installation::<S>();
+        let simulator = self
+            .get_installation::<S>()
+            .expect("Simulator must be installed");
         let block = Arc::new(block);
         let cell = self.generate_schematic_inner::<<S as Simulator>::Schema, _>(block.clone());
         // TODO: Handle errors.
@@ -423,9 +425,10 @@ impl Context {
     }
 
     /// Gets an installation from the context installation map.
-    pub fn get_installation<I: Installation>(&self) -> Arc<I> {
-        let arc = self.installations.get(&TypeId::of::<I>()).unwrap().clone();
-        arc.downcast().unwrap()
+    pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
+        self.installations
+            .get(&TypeId::of::<I>())
+            .map(|arc| arc.clone().downcast().unwrap())
     }
 }
 

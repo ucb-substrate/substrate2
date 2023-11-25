@@ -999,6 +999,15 @@ pub struct TwoTerminalIo {
     pub n: InOut<Signal>,
 }
 
+/// The interface for VDD and VSS rails.
+#[derive(Debug, Default, Clone, Io)]
+pub struct PowerIo {
+    /// The VDD rail.
+    pub vdd: InOut<Signal>,
+    /// The VSS rail.
+    pub vss: InOut<Signal>,
+}
+
 // END COMMON IO TYPES
 
 #[cfg(test)]

@@ -334,11 +334,14 @@ impl Schematic<ExamplePdkC> for PmosC {
 /// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
 pub fn sky130_commercial_ctx() -> PdkContext<Sky130Pdk> {
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
+    // Open PDK needed for standard cells.
+    let open_pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
+        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
+    let commercial_pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
         .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Spectre::default())
-        .install(Sky130Pdk::commercial(pdk_root))
+        .install(Sky130Pdk::new(open_pdk_root, commercial_pdk_root))
         .build()
         .with_pdk()
 }
