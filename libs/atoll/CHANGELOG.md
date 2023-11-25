@@ -4,6 +4,10 @@
   * dependencies
     * substrate bumped from 0.7.0 to 0.7.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.7.1 to 0.8.0
+
 ## 0.1.0 (2023-11-02)
 
 
