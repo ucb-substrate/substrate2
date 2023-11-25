@@ -1623,6 +1623,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+
+[[package]]
 name = "path-absolutize"
 version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2301,6 +2307,7 @@ dependencies = [
  "arcstr",
  "indexmap 2.1.0",
  "ngspice",
+ "paste",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
@@ -2398,6 +2405,7 @@ dependencies = [
  "enumify",
  "itertools 0.11.0",
  "nom",
+ "regex",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",

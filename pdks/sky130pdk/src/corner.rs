@@ -92,7 +92,10 @@ impl SimOption<Spectre> for Sky130Corner {
         opts: &mut <Spectre as Simulator>::Options,
         ctx: &SimulationContext<Spectre>,
     ) {
-        let pdk = ctx.ctx.get_installation::<Sky130Pdk>();
+        let pdk = ctx
+            .ctx
+            .get_installation::<Sky130Pdk>()
+            .expect("Sky130 PDK must be installed");
         opts.include(
             pdk.commercial_root_dir
                 .as_ref()
@@ -111,7 +114,10 @@ impl SimOption<Ngspice> for Sky130Corner {
         opts: &mut <Ngspice as Simulator>::Options,
         ctx: &SimulationContext<Ngspice>,
     ) {
-        let pdk = ctx.ctx.get_installation::<Sky130Pdk>();
+        let pdk = ctx
+            .ctx
+            .get_installation::<Sky130Pdk>()
+            .expect("Sky130 PDK must be installed");
         opts.include_section(
             pdk.open_root_dir
                 .as_ref()

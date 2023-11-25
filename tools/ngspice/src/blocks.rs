@@ -5,6 +5,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
+use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
 /// Data associated with a pulse [`Vsource`].
@@ -64,6 +65,18 @@ impl Schematic<Ngspice> for Vsource {
         prim.connect("P", io.p);
         prim.connect("N", io.n);
         cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+impl Schematic<Ngspice> for DcVsource {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        cell.flatten();
+        cell.instantiate_connected(Vsource::dc(self.value()), io);
         Ok(())
     }
 }

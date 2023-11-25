@@ -323,6 +323,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             type Bundle = #data_ident #ty;
             fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::Node]) -> (Self::Bundle, &'n [#substrate::io::Node]) {
                 #( #instantiate_fields )*
+                #[allow(redundant_field_names)]
                 (#data_ident #construct_data_body, __substrate_node_ids)
             }
         }
