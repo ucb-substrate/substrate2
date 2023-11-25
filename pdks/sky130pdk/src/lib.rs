@@ -23,6 +23,7 @@ use substrate::context::{ContextBuilder, Installation};
 pub mod corner;
 pub mod layers;
 pub mod mos;
+pub mod stdcells;
 
 /// A primitive of the Sky 130 PDK.
 #[derive(Debug, Clone)]
@@ -68,12 +69,14 @@ impl FromSchema<Spice> for Sky130Pdk {
     fn convert_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
+        println!("{:?}", primitive);
         match &primitive {
             spice::Primitive::RawInstance {
                 cell,
                 ports,
                 params,
             } => Ok(if let Some(kind) = MosKind::try_from_str(cell) {
+                println!("{:?}", kind);
                 Primitive::Mos {
                     kind,
                     params: MosParams {
@@ -81,14 +84,16 @@ impl FromSchema<Spice> for Sky130Pdk {
                             *params
                                 .get("w")
                                 .and_then(|expr| expr.get_numeric())
-                                .ok_or(ConvError::MissingParameter)?,
+                                .ok_or(ConvError::MissingParameter)?
+                                * dec!(1000),
                         )
                         .map_err(|_| ConvError::InvalidParameter)?,
                         l: i64::try_from(
                             *params
                                 .get("l")
                                 .and_then(|expr| expr.get_numeric())
-                                .ok_or(ConvError::MissingParameter)?,
+                                .ok_or(ConvError::MissingParameter)?
+                                * dec!(1000),
                         )
                         .map_err(|_| ConvError::InvalidParameter)?,
                         nf: i64::try_from(

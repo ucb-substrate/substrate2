@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{Primitive, Spice};
 use arcstr::ArcStr;
+use regex::Regex;
 use rust_decimal::Decimal;
 use scir::ParamValue;
 use thiserror::Error;
@@ -153,7 +154,10 @@ impl<'a> ScirConverter<'a> {
                             .map(|(k, v)| {
                                 Ok((
                                     ArcStr::from(k.as_str()),
-                                    ParamValue::Numeric(str_as_numeric_lit(v)?),
+                                    match str_as_numeric_lit(v) {
+                                        Ok(v) => ParamValue::Numeric(v),
+                                        Err(_) => ParamValue::String(v.to_string().into()),
+                                    },
                                 ))
                             })
                             .collect::<ConvResult<HashMap<_, _>>>()?;
@@ -189,5 +193,25 @@ impl<'a> ScirConverter<'a> {
 }
 
 fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
-    s.parse().map_err(|_| ConvError::InvalidLiteral(s.clone()))
+    let re = Regex::new(r"^([0-9]+)(t|g|x|meg|k|m|u|n|p|f?)([a-zA-Z]*)$").unwrap();
+    let caps = re.captures(s).ok_or(ConvError::InvalidLiteral(s.clone()))?;
+    let num: Decimal = caps.get(1).unwrap().as_str().parse().unwrap();
+    println!("sus");
+    let multiplier = Decimal::from_scientific(
+        match caps.get(2).unwrap().as_str().to_lowercase().as_str() {
+            "t" => "1e12",
+            "g" => "1e9",
+            "x" | "meg" => "1e6",
+            "k" => "1e3",
+            "m" => "1e-3",
+            "u" => "1e-6",
+            "n" => "1e-9",
+            "p" => "1e-12",
+            "f" => "1e-15",
+            _ => "1",
+        },
+    )
+    .unwrap();
+
+    Ok(num * multiplier)
 }

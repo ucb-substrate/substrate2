@@ -139,6 +139,18 @@ impl<S: Schema> CellBuilder<S> {
         });
     }
 
+    /// Connect all signals in the given data instances.
+    pub fn connect_multiple<D>(&mut self, s2: &[D])
+    where
+        D: Flatten<Node>,
+    {
+        if s2.len() > 1 {
+            for s in &s2[1..] {
+                self.connect(&s2[0], s);
+            }
+        }
+    }
+
     /// Marks this cell as a SCIR cell.
     pub fn set_scir(&mut self, scir: ScirBinding<S>) {
         self.contents = RawCellContentsBuilder::Scir(scir);
@@ -1393,6 +1405,10 @@ impl<S: Schema> ScirBinding<S> {
     pub fn ports(&self) -> impl Iterator<Item = &ArcStr> {
         let cell = self.cell();
         cell.ports().map(|port| &cell.signal(port.signal()).name)
+    }
+
+    fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>> {
+        &self.port_map
     }
 
     /// Converts the underlying SCIR library to schema `S2`.

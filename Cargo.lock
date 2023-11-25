@@ -2398,6 +2398,7 @@ dependencies = [
  "enumify",
  "itertools 0.11.0",
  "nom",
+ "regex",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
