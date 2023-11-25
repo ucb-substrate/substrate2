@@ -59,7 +59,7 @@ git submodule update --init libraries/sky130_fd_pr/latest
 
 Also, ensure that the `SKY130_OPEN_PDK_ROOT` environment variable points to the location of the repo you just cloned.
 
-Similarly, if you would like to use Spectre, you will need to ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to an installation of the commercial SKY130 PDK.
+If you would like to use Spectre, you will also need to ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to an installation of the commercial SKY130 PDK.
 
 ## Interface
 
