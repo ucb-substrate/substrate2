@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use substrate::block::Block;
 use substrate::io::{SchematicType, TwoTerminalIo};
+use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
 use crate::{Primitive, Spectre};
@@ -113,6 +114,18 @@ impl Schematic<Spectre> for Vsource {
         prim.connect("p", io.p);
         prim.connect("n", io.n);
         cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+impl Schematic<Spectre> for DcVsource {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        cell.flatten();
+        cell.instantiate_connected(Vsource::dc(self.value()), io);
         Ok(())
     }
 }

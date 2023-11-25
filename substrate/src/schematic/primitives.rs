@@ -137,6 +137,7 @@ impl Capacitor {
         self.value
     }
 }
+
 impl Block for Capacitor {
     type Io = TwoTerminalIo;
 
@@ -153,5 +154,48 @@ impl Block for Capacitor {
     }
 }
 impl ExportsNestedData for Capacitor {
+    type NestedData = ();
+}
+
+/// An ideal 2-terminal DC voltage source.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DcVsource {
+    /// The voltage of the source.
+    value: Decimal,
+}
+
+impl DcVsource {
+    /// Create a new DC voltage source.
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+
+    /// The value of the voltage source.
+    #[inline]
+    pub fn value(&self) -> Decimal {
+        self.value
+    }
+}
+
+impl Block for DcVsource {
+    type Io = TwoTerminalIo;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("vsource")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("vsource_{}", self.value)
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl ExportsNestedData for DcVsource {
     type NestedData = ();
 }

@@ -117,8 +117,12 @@ impl SimSignal {
     pub(crate) fn to_string(&self, lib: &Library<Spectre>, conv: &NetlistLibConversion) -> ArcStr {
         match self {
             SimSignal::Raw(raw) => raw.clone(),
-            SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            SimSignal::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+            SimSignal::ScirCurrent(scir) => {
+                ArcStr::from(Spectre::node_current_path(lib, conv, scir))
+            }
+            SimSignal::ScirVoltage(scir) => {
+                ArcStr::from(Spectre::node_voltage_path(lib, conv, scir))
+            }
         }
     }
 }
@@ -450,6 +454,72 @@ impl Spectre {
 
         Ok(outputs)
     }
+
+    /// Escapes the given node name to be Spectre-compatible.
+    pub fn escape_node_name(node_name: &str) -> String {
+        let mut escaped_name = String::new();
+        for c in node_name.chars() {
+            if c.is_alphanumeric() || c == '_' {
+                escaped_name.push(c);
+            } else {
+                escaped_name.push('\\');
+                escaped_name.push(c);
+            }
+        }
+        escaped_name
+    }
+
+    /// Converts a [`scir::InstancePath`] to a Spectre path string corresponding to
+    /// the associated instance.
+    pub fn instance_path(
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+        path: &scir::InstancePath,
+    ) -> String {
+        lib.convert_instance_path_with_conv(conv, path.clone())
+            .join(".")
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spectre path string corresponding to the associated
+    /// node voltage.
+    pub fn node_voltage_path(
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+    ) -> String {
+        lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+            let name = Spectre::escape_node_name(name);
+            if let Some(index) = index {
+                arcstr::format!("{}\\[{}\\]", name, index)
+            } else {
+                name.into()
+            }
+        })
+        .join(".")
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spectre path string corresponding to the associated
+    /// terminal current.
+    pub fn node_current_path(
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+    ) -> String {
+        let mut named_path =
+            lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+                let name = Spectre::escape_node_name(name);
+                if let Some(index) = index {
+                    arcstr::format!("{}\\[{}\\]", name, index)
+                } else {
+                    name.into()
+                }
+            });
+        let signal = named_path.pop().unwrap();
+        let mut str_path = named_path.join(".");
+        str_path.push(':');
+        str_path.push_str(&signal);
+        str_path
+    }
 }
 
 impl scir::schema::Schema for Spectre {
@@ -599,50 +669,6 @@ impl Simulator for Spectre {
     ) -> Result<Vec<Self::Output>> {
         self.simulate(config, options, input)
     }
-}
-
-#[allow(dead_code)]
-pub(crate) fn instance_path(
-    lib: &Library<Spectre>,
-    conv: &NetlistLibConversion,
-    path: &scir::InstancePath,
-) -> String {
-    lib.convert_instance_path_with_conv(conv, path.clone())
-        .join(".")
-}
-
-pub(crate) fn node_voltage_path(
-    lib: &Library<Spectre>,
-    conv: &NetlistLibConversion,
-    path: &SliceOnePath,
-) -> String {
-    lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-        if let Some(index) = index {
-            arcstr::format!("{}\\[{}\\]", name, index)
-        } else {
-            name.clone()
-        }
-    })
-    .join(".")
-}
-
-pub(crate) fn node_current_path(
-    lib: &Library<Spectre>,
-    conv: &NetlistLibConversion,
-    path: &SliceOnePath,
-) -> String {
-    let mut named_path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-        if let Some(index) = index {
-            arcstr::format!("{}\\[{}\\]", name, index)
-        } else {
-            name.clone()
-        }
-    });
-    let signal = named_path.pop().unwrap();
-    let mut str_path = named_path.join(".");
-    str_path.push(':');
-    str_path.push_str(&signal);
-    str_path
 }
 
 /// Inputs directly supported by Spectre.
@@ -820,12 +846,13 @@ impl HasSpiceLikeNetlist for Spectre {
         slice: Slice,
         info: &SignalInfo,
     ) -> std::io::Result<()> {
+        let name = Spectre::escape_node_name(&info.name);
         if let Some(range) = slice.range() {
             for i in range.indices() {
-                write!(out, "{}\\[{}\\]", &info.name, i)?;
+                write!(out, "{}\\[{}\\]", &name, i)?;
             }
         } else {
-            write!(out, "{}", &info.name)?;
+            write!(out, "{}", &name)?;
         }
         Ok(())
     }
