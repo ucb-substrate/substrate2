@@ -1,5 +1,5 @@
 use crate::paths::get_path;
-use crate::shared::pdk::{sky130_commercial_ctx, sky130_open_ctx};
+use crate::shared::pdk::sky130_open_ctx;
 use approx::assert_abs_diff_eq;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
@@ -132,6 +132,8 @@ fn sky130_and2_ngspice() {
 #[cfg(feature = "spectre")]
 #[test]
 fn sky130_and2_spectre() {
+    use crate::shared::pdk::sky130_commercial_ctx;
+
     let test_name = "sky130_and2_spectre";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();

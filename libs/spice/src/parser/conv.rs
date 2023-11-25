@@ -193,7 +193,7 @@ impl<'a> ScirConverter<'a> {
 }
 
 fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
-    let re = Regex::new(r"^([0-9]+)(t|g|x|meg|k|m|u|n|p|f?)([a-zA-Z]*)$").unwrap();
+    let re = Regex::new(r"^([0-9]+\.?[0-9]*)(t|g|x|meg|k|m|u|n|p|f?)$").unwrap();
     let caps = re.captures(s).ok_or(ConvError::InvalidLiteral(s.clone()))?;
     let num: Decimal = caps.get(1).unwrap().as_str().parse().unwrap();
     println!("sus");
@@ -208,7 +208,7 @@ fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
             "n" => "1e-9",
             "p" => "1e-12",
             "f" => "1e-15",
-            _ => "1",
+            _ => "1e0",
         },
     )
     .unwrap();
