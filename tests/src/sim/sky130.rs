@@ -138,7 +138,12 @@ fn sky130_and2_spectre() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
 
-    for (a, b, expected) in [(dec!(1.8), dec!(1.8), 1.8f64), (dec!(1.8), dec!(0), 0f64)] {
+    for (a, b, expected) in [
+        (dec!(1.8), dec!(1.8), 1.8f64),
+        (dec!(1.8), dec!(0), 0f64),
+        (dec!(0), dec!(1.8), 0f64),
+        (dec!(0), dec!(0), 0f64),
+    ] {
         let vout = ctx
             .simulate::<spectre::Spectre, _>(
                 And2Tb {
