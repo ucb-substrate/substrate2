@@ -1478,7 +1478,6 @@ impl Cell {
     /// Panics if the provided port does not exist.
     #[inline]
     pub fn port(&self, name: &str) -> &Port {
-        println!("{:?}", self.ports);
         self.ports.get(name).unwrap()
     }
 

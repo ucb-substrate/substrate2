@@ -110,11 +110,6 @@ paste! {
             let lib = "sky130_fd_sc_hd";
             let name = stringify!($name);
             let cell_name = format!("{lib}__{name}_{}", self.strength());
-            println!(
-                "{:?}",
-                pdk.stdcell_path(lib, name)
-                    .join(format!("{}.spice", cell_name))
-            );
             let mut scir = Spice::scir_cell_from_file(
                 pdk.stdcell_path(lib, name)
                     .join(format!("{}.spice", cell_name)),

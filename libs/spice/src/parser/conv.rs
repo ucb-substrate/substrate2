@@ -196,7 +196,6 @@ fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
     let re = Regex::new(r"^([0-9]+\.?[0-9]*)(t|g|x|meg|k|m|u|n|p|f?)$").unwrap();
     let caps = re.captures(s).ok_or(ConvError::InvalidLiteral(s.clone()))?;
     let num: Decimal = caps.get(1).unwrap().as_str().parse().unwrap();
-    println!("sus");
     let multiplier = Decimal::from_scientific(
         match caps.get(2).unwrap().as_str().to_lowercase().as_str() {
             "t" => "1e12",

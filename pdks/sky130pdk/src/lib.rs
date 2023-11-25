@@ -69,14 +69,12 @@ impl FromSchema<Spice> for Sky130Pdk {
     fn convert_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
-        println!("{:?}", primitive);
         match &primitive {
             spice::Primitive::RawInstance {
                 cell,
                 ports,
                 params,
             } => Ok(if let Some(kind) = MosKind::try_from_str(cell) {
-                println!("{:?}", kind);
                 Primitive::Mos {
                     kind,
                     params: MosParams {
