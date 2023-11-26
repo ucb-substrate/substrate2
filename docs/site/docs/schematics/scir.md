@@ -1,0 +1,87 @@
+---
+sidebar_position: 4
+---
+
+import CodeSnippet from '@site/src/components/CodeSnippet';
+import VdividerMod from '@substrate/examples/spice_vdivider/src/lib.rs?snippet';
+import Core from '@substrate/docs/examples/examples/core.rs?snippet';
+
+# Schematic cell intermediate representation (SCIR)
+
+SCIR is an intermediate representation used by Substrate to allow schematic portability between netlisters and simulators.
+This section will cover where SCIR is used in Substrate's API and how it interfaces with plugins for tools like ngspice and Spectre.
+
+## Overview
+
+### Basic objects
+
+The table below provides high-level definitions of basic SCIR objects.
+
+| Term | Definition |
+| --- | --- |
+| Instance | An instantiation of another SCIR object. |
+| Cell | A collection of interconnected SCIR instances, corresponding to a SUBCKT in SPICE. |
+| Signal | A node or bus within a SCIR cell. |
+| Slice | A subset of a SCIR signal. |
+| Port | A SCIR signal that has been exposed to the instantiators of its parent SCIR cell. |
+| Connection | A SCIR signal from a parent cell connected to a port of child SCIR instance. |
+| Library | A set of cells, of which one may be designated as the "top" cell. |
+
+Take the following SPICE circuit as an example:
+
+```spice
+* CMOS buffer
+
+.subckt buffer din dout vdd vss
+X0 din dinb vdd vss inverter
+X1 dinb dout vdd vss inverter
+.ends
+
+.subckt inverter din dout vdd vss
+X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
+X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
+.ends
+```
+
+This circuit could conceptually be parsed to a SCIR library containing two cells named `buffer` and `inverter`. The buffer cell would contain 5 signals (`din`, `dinb`, `dout`, `vdd`, and `vss`), 4 of which are exposed as ports, as well as two instances of the `inverter` cell. The `dinb` signal is connected to the `dout` port of the first inverter instance and the `din` port of the second inverter instance.
+
+### Primitives
+
+Since SCIR cells are simply collections of SCIR instances, SCIR instances must be able to instantiate more than just cells since we would otherwise only be able to represent an empty hierarchy. As such, SCIR allows users to define a set of arbitrary primitives that can be instantiated within SCIR cells. These primitives are opaque to SCIR and contain any data that the user sees fit.
+
+In the above buffer example, the `sky130_fd_pr__nfet_01v8` and `sky130_fd_pr__pfet_01v8` are a type of primitive called a "raw instance" that allow a SCIR instance to reference an external SPICE model and provide its parameters. In Rust, the primitive definition looks like this:
+
+```rs
+enum Primitive {
+    // ...
+
+    /// A raw instance with an associated cell.
+    RawInstance {
+        /// The ordered ports of the instance.
+        ports: Vec<ArcStr>,
+        /// The associated cell.
+        cell: ArcStr,
+        /// Parameters associated with the raw instance.
+        params: HashMap<ArcStr, ParamValue>,
+    }
+
+    // ...
+}
+```
+
+While SCIR cells and instances do not have parameters, parameters can be injected using SCIR primitives as shown above.
+
+### Schemas
+
+SCIR schemas are simply sets of primitives that can be used to describe circuits. For example, the SPICE schema consists of MOSFET, resistor, capacitor, raw instance, and other primitives that can describe any circuit that can be netlisted to SPICE. Similarly, SKY130 is also a schema since it has its own set of primitive MOSFETs and resistors that can be fabricated in the SKY130 process.
+
+SCIR schemas allows portability to be elegantly encoded by defining which schemas a schema can be converted to. Since the SKY130 PDK supports simulations in ngspice and Spectre, we can declare that the SKY130 schema can be converted to both the ngspice and Spectre schemas. The specifics of this procedure will be detailed later on in this section.
+
+### Relationship to Substrate
+
+Generators in Substrate produce cells that can be exported to SCIR. Substrate's APIs allow defining schematics in different schemas, which encodes generator compatibility in the Rust type system. For example, a Substrate block with a schematic in the `Sky130Pdk` schema can be included in a Spectre testbench's schematic in the `Spectre` schema, but cannot be included in an HSPICE testbench since the `Sky130Pdk` schema is not compatible with the HSPICE schema. Similarly, you cannot instantiate a SKY130 schematic in a schematic in a different process node (e.g. GF180).
+
+While the user generally interfaces with Substrate's block API, simulator and netlister plugins interface with SCIR.
+This allows backend tools to abstract away Substrate's internal representation of cells.
+For simulation and netlisting, Substrate will export the appropriate cell to SCIR and pass the generated SCIR 
+library to the necessary plugin for processing.

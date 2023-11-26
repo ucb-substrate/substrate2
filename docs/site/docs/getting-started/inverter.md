@@ -95,7 +95,7 @@ We'll make our inverter generator have three parameters:
 We're assuming here that the NMOS and PMOS will have the same length.
 
 In this tutorial, we store all dimensions as integers in layout database units.
-In the Sky 130 process, the database unit is a nanometer, so supplying an NMOS width
+In the SKY130 process, the database unit is a nanometer, so supplying an NMOS width
 of 1,200 will produce a transistor with a width of 1.2 microns.
 
 We'll now define the struct representing our inverter:
@@ -246,7 +246,7 @@ To add Spectre support, we can simply add the following code:
 <CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-support">{InverterTb}</CodeSnippet>
 
 Before running the new Spectre test, ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
-the Sky 130 commercial PDK.
+the SKY130 commercial PDK.
 Also ensure that you have correctly set any environment variables needed by Spectre.
 
 To run the test, run
