@@ -91,8 +91,8 @@ impl SaveTb<Ngspice, ngspice::tran::Tran, Vout> for InverterTb {
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> <Vout as FromSaved<Ngspice, Tran>>::SavedKey {
         VoutSavedKey {
-            t: tran::Time::save(ctx, to_save, opts),
-            v: tran::Voltage::save(ctx, to_save.data(), opts),
+            t: tran::Time::save(ctx, (), opts),
+            v: tran::Voltage::save(ctx, cell.data(), opts),
         }
     }
 }
@@ -266,15 +266,15 @@ pub mod spectre_support {
         }
     }
 
-    impl substrate::simulation::data::Save<Spectre, spectre::tran::Tran, &Cell<InverterTb>> for Vout {
-        fn save(
+    impl substrate::simulation::data::SaveTb<Spectre, spectre::tran::Tran, Vout> for InverterTb {
+        fn save_tb(
             ctx: &SimulationContext<Spectre>,
-            to_save: &Cell<InverterTb>,
+            cell: &Cell<Self>,
             opts: &mut <Spectre as Simulator>::Options,
-        ) -> Self::Key {
-            Self::Key {
-                t: tran::Time::save(ctx, to_save, opts),
-                v: tran::Voltage::save(ctx, to_save.data(), opts),
+        ) -> <Vout as FromSaved<Spectre, spectre::tran::Tran>>::SavedKey {
+            VoutSavedKey {
+                t: tran::Time::save(ctx, cell, opts),
+                v: tran::Voltage::save(ctx, cell.data(), opts),
             }
         }
     }
