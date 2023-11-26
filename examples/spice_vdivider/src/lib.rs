@@ -19,7 +19,7 @@ pub struct VdividerIo {
 
 // begin-code-snippet vdivider-struct
 #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-#[substrate(io = "VdividerIo", kind = "Cell")]
+#[substrate(io = "VdividerIo")]
 pub struct Vdivider {
     /// The top resistance.
     pub r1: Decimal,
@@ -51,6 +51,7 @@ impl Schematic<Spice> for Vdivider {
     }
 }
 // end-code-snippet vdivider-schematic
+
 // begin-code-snippet tests
 #[cfg(test)]
 mod tests {

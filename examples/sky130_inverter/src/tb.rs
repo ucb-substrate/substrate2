@@ -1,6 +1,7 @@
 // begin-code-snippet imports
 use super::Inverter;
 
+use ngspice::tran::Tran;
 use ngspice::Ngspice;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
@@ -13,14 +14,14 @@ use substrate::context::{Context, PdkContext};
 use substrate::io::{Node, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::FromSaved;
+use substrate::simulation::data::{tran, FromSaved, SaveTb};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
 // end-code-snippet imports
 
 // begin-code-snippet struct-and-impl
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo", kind = "Cell")]
+#[substrate(io = "TestbenchIo")]
 pub struct InverterTb {
     pvt: Pvt<Sky130Corner>,
     dut: Inverter,
@@ -78,60 +79,38 @@ impl Schematic<Ngspice> for InverterTb {
 
 // begin-code-snippet testbench
 #[derive(Debug, Clone, FromSaved)]
-pub struct NgspiceVout {
-    t: ngspice::tran::TranTime,
-    v: ngspice::tran::TranVoltage,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vout {
-    t: Vec<f64>,
-    v: Vec<f64>,
+    t: tran::Time,
+    v: tran::Voltage,
 }
 
-impl From<NgspiceVout> for Vout {
-    fn from(value: NgspiceVout) -> Self {
-        Self {
-            t: (*value.t).clone(),
-            v: (*value.v).clone(),
-        }
-    }
-}
-
-impl substrate::simulation::data::Save<Ngspice, ngspice::tran::Tran, &Cell<InverterTb>>
-    for NgspiceVout
-{
-    fn save(
+impl SaveTb<Ngspice, ngspice::tran::Tran, Vout> for InverterTb {
+    fn save_tb(
         ctx: &SimulationContext<Ngspice>,
-        to_save: &Cell<InverterTb>,
+        cell: &Cell<Self>,
         opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::Key {
-        Self::Key {
-            t: ngspice::tran::TranTime::save(ctx, to_save, opts),
-            v: ngspice::tran::TranVoltage::save(ctx, to_save.data(), opts),
+    ) -> <Vout as FromSaved<Ngspice, Tran>>::SavedKey {
+        VoutSavedKey {
+            t: tran::Time::save(ctx, to_save, opts),
+            v: tran::Voltage::save(ctx, to_save.data(), opts),
         }
     }
 }
 
-impl Testbench<Sky130Pdk, Ngspice> for InverterTb {
+impl Testbench<Ngspice> for InverterTb {
     type Output = Vout;
-    fn run(
-        &self,
-        sim: substrate::simulation::SimController<Sky130Pdk, Ngspice, Self>,
-    ) -> Self::Output {
-        let opts = ngspice::Options::default();
-        let out: NgspiceVout = sim
-            .simulate(
-                opts,
-                Some(&self.pvt.corner),
-                ngspice::tran::Tran {
-                    stop: dec!(2e-9),
-                    step: dec!(1e-11),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation");
-        out.into()
+    fn run(&self, sim: substrate::simulation::SimController<Ngspice, Self>) -> Self::Output {
+        let mut opts = ngspice::Options::default();
+        sim.set_option(self.pvt.corner, &mut opts);
+        sim.simulate(
+            opts,
+            ngspice::tran::Tran {
+                stop: dec!(2e-9),
+                step: dec!(1e-11),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation")
     }
 }
 // end-code-snippet testbench
@@ -157,7 +136,7 @@ impl InverterDesign {
         work_dir: impl AsRef<Path>,
     ) -> Inverter
     where
-        InverterTb: Testbench<Sky130Pdk, S, Output = Vout>,
+        InverterTb: Testbench<S, Output = Vout>,
     {
         let work_dir = work_dir.as_ref();
         let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
@@ -287,56 +266,33 @@ pub mod spectre_support {
         }
     }
 
-    #[derive(Debug, Clone, FromSaved)]
-    pub struct SpectreVout {
-        t: spectre::tran::TranTime,
-        v: spectre::tran::TranVoltage,
-    }
-
-    impl From<SpectreVout> for Vout {
-        fn from(value: SpectreVout) -> Self {
-            Self {
-                t: (*value.t).clone(),
-                v: (*value.v).clone(),
-            }
-        }
-    }
-
-    impl substrate::simulation::data::Save<Spectre, spectre::tran::Tran, &Cell<InverterTb>>
-        for SpectreVout
-    {
+    impl substrate::simulation::data::Save<Spectre, spectre::tran::Tran, &Cell<InverterTb>> for Vout {
         fn save(
             ctx: &SimulationContext<Spectre>,
             to_save: &Cell<InverterTb>,
             opts: &mut <Spectre as Simulator>::Options,
         ) -> Self::Key {
             Self::Key {
-                t: spectre::tran::TranTime::save(ctx, to_save, opts),
-                v: spectre::tran::TranVoltage::save(ctx, to_save.data(), opts),
+                t: tran::Time::save(ctx, to_save, opts),
+                v: tran::Voltage::save(ctx, to_save.data(), opts),
             }
         }
     }
 
-    impl Testbench<Sky130Pdk, Spectre> for InverterTb {
+    impl Testbench<Spectre> for InverterTb {
         type Output = Vout;
-        fn run(
-            &self,
-            sim: substrate::simulation::SimController<Sky130Pdk, Spectre, Self>,
-        ) -> Self::Output {
-            let opts = spectre::Options::default();
-            let out: SpectreVout = sim
-                .simulate(
-                    opts,
-                    Some(&self.pvt.corner),
-                    spectre::tran::Tran {
-                        stop: dec!(2e-9),
-                        errpreset: Some(spectre::ErrPreset::Conservative),
-                        ..Default::default()
-                    },
-                )
-                .expect("failed to run simulation");
-
-            out.into()
+        fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+            let mut opts = spectre::Options::default();
+            sim.set_option(self.pvt.corner, &mut opts);
+            sim.simulate(
+                opts,
+                spectre::tran::Tran {
+                    stop: dec!(2e-9),
+                    errpreset: Some(spectre::ErrPreset::Conservative),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation")
         }
     }
 
