@@ -13,6 +13,24 @@
     * spectre bumped from <=0.7.0 to <=0.8.0
     * spice bumped from <=0.5.0 to <=0.6.0
 
+## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.4.1...examples-v0.5.0) (2023-11-25)
+
+
+### Features
+
+* **docs:** update tutorials and revamp documentation website ([#315](https://github.com/ucb-substrate/substrate2/issues/315)) ([49bdf7f](https://github.com/ucb-substrate/substrate2/commit/49bdf7ff61e2fdbf19022697d518ad7fbafb465f))
+* **simulation:** improve simulation APIs ([#320](https://github.com/ucb-substrate/substrate2/issues/320)) ([4ed59a1](https://github.com/ucb-substrate/substrate2/commit/4ed59a1283f9546e8336cc96015bd87c55682777))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.7.1 to <=0.8.0
+    * sky130pdk bumped from <=0.7.1 to <=0.8.0
+    * spectre bumped from <=0.8.0 to <=0.9.0
+    * spice bumped from <=0.6.0 to <=0.7.0
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.3.1...examples-v0.4.0) (2023-11-02)
 
 
