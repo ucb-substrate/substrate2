@@ -1,10 +1,10 @@
 [package]
 name = "atoll"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "Automatic transformation of logical layout"
 license = "BSD-3-Clause"
 
 [dependencies]
-substrate = { version = "0.8.0", registry = "substrate", path = "../../substrate" }
+substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
 grid = "0.11"
