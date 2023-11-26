@@ -72,15 +72,6 @@ impl FromSaved<Spectre, Tran> for tran::Time {
     }
 }
 
-impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<T>> for tran::Time {
-    fn save(
-        _ctx: &SimulationContext<Spectre>,
-        _to_save: &Cell<T>,
-        _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SavedKey {
-    }
-}
-
 impl Save<Spectre, Tran, ()> for tran::Time {
     fn save(
         _ctx: &SimulationContext<Spectre>,
