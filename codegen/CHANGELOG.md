@@ -15,6 +15,15 @@
     * spectre bumped from <=0.7.0 to <=0.8.0
     * spice bumped from <=0.5.0 to <=0.6.0
 
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.5.0 to 0.5.1
+  * dev-dependencies
+    * substrate bumped from <=0.8.0 to <=0.8.1
+    * sky130pdk bumped from <=0.8.0 to <=0.8.1
+    * spectre bumped from <=0.9.0 to <=0.9.1
+    * spice bumped from <=0.7.0 to <=0.7.1
+
 ## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.7.1...codegen-v0.8.0) (2023-11-25)
 
 
