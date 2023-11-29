@@ -3,7 +3,6 @@ sidebar_position: 4
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-import VdividerMod from '@substrate/examples/spice_vdivider/src/lib.rs?snippet';
 import Core from '@substrate/docs/examples/examples/core.rs?snippet';
 
 # Schematic cell intermediate representation (SCIR)
@@ -85,3 +84,39 @@ While the user generally interfaces with Substrate's block API, simulator and ne
 This allows backend tools to abstract away Substrate's internal representation of cells.
 For simulation and netlisting, Substrate will export the appropriate cell to SCIR and pass the generated SCIR 
 library to the necessary plugin for processing.
+
+## Technical Details
+
+### Schemas
+
+Every SCIR library requires an underlying schema that implements the [`Schema`](https://api.substratelabs.io/scir/schema/trait.Schema.html) trait.
+
+```rs
+pub trait Schema {
+    type Primitive: Primitive;
+}
+```
+
+A SCIR schema has an associated primitive type that describes available primitives for representing objects that cannot be represented directly in SCIR. As an example, the most basic schema, [`NoSchema`](https://api.substratelabs.io/scir/schema/struct.NoSchema.html), has a primitive type of [`NoPrimitive`](https://api.substratelabs.io/scir/schema/struct.NoPrimitive.html#) that cannot be instantiated — as such, any SCIR library with this schema will have no primitives.
+
+### Libraries
+
+Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`](https://api.substratelabs.io/scir/struct.LibraryBuilder.html). To create a library with the [`StringSchema`] schema, whose primitives are arbitrary `ArcStr`s, we write the following:
+
+<CodeSnippet language="rust" snippet="scir-library-builder">{Core}</CodeSnippet>
+
+SCIR libraries are collections of SCIR cells and primitives. We can create a new cell and add it to our library:
+
+<CodeSnippet language="rust" snippet="scir-library-cell">{Core}</CodeSnippet>
+
+We can also add primitives to the library as follows (since we are using `StringSchema`, the value of the primitive must be an `ArcStr`):
+
+<CodeSnippet language="rust" snippet="scir-library-primitive">{Core}</CodeSnippet>
+
+SCIR cells may contain signals that connect instances and/or serve as ports that interface with parent cells.
+
+<CodeSnippet language="rust" snippet="scir-library-signals">{Core}</CodeSnippet>
+
+SCIR cells may also contain instances of SCIR primitives and other cells. We can connect ports of each instance to signals in the parent cell. While connections to instances of SCIR cells must connect to ports declared in the underlying cell, connections to primitives are not checked by SCIR as primitives are opaque to SCIR.
+
+<CodeSnippet language="rust" snippet="scir-library-instances">{Core}</CodeSnippet>

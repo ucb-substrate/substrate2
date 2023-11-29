@@ -144,7 +144,7 @@ the device being tested, etc.).
 
 As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
 All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows 
-simulators to identify a global ground (whichthey often assign to node 0).
+simulators to identify a global ground (which they often assign to node 0).
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
 We'll make our testbench take two parameters:
@@ -189,9 +189,8 @@ This is how our testbench looks:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{InverterTb}</CodeSnippet>
 
-We define `NgspiceVout` as a receiver for data saved during simulation. 
-We then create a general-purpose `Vout` struct. This struct is not necessary if we only want to use ngspice,
-but it will come in handy when we add support for other simulators.
+We define `Vout` as a receiver for data saved during simulation. We then tell Substrate what data we want to save from
+our testbench by implementing the `SaveTb` trait.
 
 ## Design
 

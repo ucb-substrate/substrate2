@@ -1036,3 +1036,22 @@ mod generate {
     }
     // end-code-snippet vdivider-generate-add-error-handling
 }
+
+mod scir {
+    use substrate::scir::schema::{Schema, StringSchema};
+    use substrate::scir::{Cell, LibraryBuilder};
+
+    fn library() {
+        // begin-code-snippet scir-library-builder
+        let mut lib = LibraryBuilder::<StringSchema>::new();
+        // end-code-snippet scir-library-builder
+        // begin-code-snippet scir-library-cell
+        let empty_cell = Cell::new("empty");
+        let empty_cell_id = lib.add_cell(empty_cell);
+        // end-code-snippet scir-library-cell
+        // begin-code-snippet scir-library-primitive
+        let resistor_id = lib.add_primitive(arcstr::literal!("resistor"));
+        // end-code-snippet scir-library-primitive
+        let composite_cell = Cell::new("composite_cell");
+    }
+}

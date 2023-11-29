@@ -198,9 +198,10 @@ pub fn sky130_open_ctx() -> PdkContext<Sky130Pdk> {
     let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
-        .with_simulator(Ngspice::default())
+        .install(Ngspice::default())
+        .install(Sky130Pdk::open(pdk_root))
         .build()
-        .with_pdk(Sky130Pdk::open(pdk_root))
+        .with_pdk()
 }
 // end-code-snippet sky130-open-ctx
 
@@ -309,9 +310,10 @@ pub mod spectre_support {
         let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
             .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
         Context::builder()
-            .with_simulator(Spectre::default())
+            .install(Spectre::default())
+            .install(Sky130Pdk::commercial(pdk_root))
             .build()
-            .with_pdk(Sky130Pdk::commercial(pdk_root))
+            .with_pdk()
     }
 
     #[cfg(test)]

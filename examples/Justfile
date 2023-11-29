@@ -5,3 +5,6 @@ _default:
 test:
   cargo test --locked
 
+check:
+  cargo clippy --locked --all-features --all-targets -- -D warnings
+
