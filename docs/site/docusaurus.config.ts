@@ -74,7 +74,6 @@ const config: Config = {
             position: 'left',
             label: 'Documentation',
           },
-          {to: '/blog', label: 'Blog', position: 'left'},
           {
             href: 'https://api.substratelabs.io/substrate/',
             label: 'API',
