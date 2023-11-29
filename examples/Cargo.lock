@@ -541,9 +541,9 @@ checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
 name = "codegen"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "0873505bf1399df6b43e9c9a134245cbf525fdb9ad80f0f58e49be2bd52433f3"
+checksum = "8c966d6bfad305e3245f29465799c567b05a31c82d6674a9755112526e8ad9f2"
 dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.3",
@@ -851,9 +851,9 @@ dependencies = [
 
 [[package]]
 name = "examples"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "127053821478b3b829b646eebb5c971ad2968abb66a9422aaa3b2ef186f3b994"
+checksum = "ebd3acd1072c5b64e6426241d07895aa54e2f42442888e7a4290ef6a7f7762a9"
 dependencies = [
  "proc-macro-crate 1.3.1",
  "proc-macro-error",
@@ -1458,9 +1458,9 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
 name = "ngspice"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "409596c58583879e7d01e554331cb509a858794a38f7722a6ec10420cbb4b1cc"
+checksum = "66bdced3817e3c459c32da28e52ad575c55d498637cfac9fba7305bcac36b72b"
 dependencies = [
  "arcstr",
  "cache",
@@ -2296,9 +2296,9 @@ dependencies = [
 
 [[package]]
 name = "sky130pdk"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "cb11327b577b5ef5bdea872f0608f2bc17ab73e7cfce33961fb93c2df82205c5"
+checksum = "592d3c6962fa3bca5386a2fc04dcbcd39806ae1ceac69e2fc666435195f4af6b"
 dependencies = [
  "arcstr",
  "indexmap 2.1.0",
@@ -2375,9 +2375,9 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "8e475c509a5ab22cf7fca6efff3bce5206518376c468907df35b45836164f071"
+checksum = "6bca07586f0922168674c0b4c2cb561e31cf65e72dc817e28a35ced6052d03e2"
 dependencies = [
  "arcstr",
  "cache",
@@ -2397,9 +2397,9 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "af37250730d8ba2ad78cb1d4b7a53a526bf1f724d3a60076cdebfb6ffc8d4f93"
+checksum = "0417466a53adcf981c234645f8cb7b6b4e29995d002d3c48f8667905abd5947e"
 dependencies = [
  "arcstr",
  "enumify",
@@ -2433,9 +2433,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "substrate"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/substrate-labs/crates-index"
-checksum = "9d105f701ce297497f62a377ddc90f39cb8254533f35aea296f8f789def5a843"
+checksum = "b21020c4053c444a444ea77d8c50329492b9eeb0330b2c65df0f190db72ac41f"
 dependencies = [
  "anyhow",
  "arcstr",

@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::{Cell, ExportsNestedData};
 use substrate::simulation::data::{tran, FromSaved, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
@@ -44,15 +43,6 @@ impl FromSaved<Spectre, Tran> for Output {
 
     fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
         (*output).clone()
-    }
-}
-
-impl<T: ExportsNestedData> Save<Spectre, Tran, &Cell<T>> for Output {
-    fn save(
-        _ctx: &SimulationContext<Spectre>,
-        _to_save: &Cell<T>,
-        _opts: &mut <Spectre as Simulator>::Options,
-    ) -> Self::SavedKey {
     }
 }
 

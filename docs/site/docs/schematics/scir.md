@@ -50,7 +50,7 @@ Since SCIR cells are simply collections of SCIR instances, SCIR instances must b
 
 In the above buffer example, the `sky130_fd_pr__nfet_01v8` and `sky130_fd_pr__pfet_01v8` are a type of primitive called a "raw instance" that allow a SCIR instance to reference an external SPICE model and provide its parameters. In Rust, the primitive definition looks like this:
 
-```rs
+```rust
 enum Primitive {
     // ...
 
@@ -91,17 +91,41 @@ library to the necessary plugin for processing.
 
 Every SCIR library requires an underlying schema that implements the [`Schema`](https://api.substratelabs.io/scir/schema/trait.Schema.html) trait.
 
-```rs
+```rust
 pub trait Schema {
     type Primitive: Primitive;
 }
 ```
 
-A SCIR schema has an associated primitive type that describes available primitives for representing objects that cannot be represented directly in SCIR. As an example, the most basic schema, [`NoSchema`](https://api.substratelabs.io/scir/schema/struct.NoSchema.html), has a primitive type of [`NoPrimitive`](https://api.substratelabs.io/scir/schema/struct.NoPrimitive.html#) that cannot be instantiated — as such, any SCIR library with this schema will have no primitives.
+A SCIR schema has an associated primitive type that describes available primitives for representing objects that cannot be represented directly in SCIR. As an example, the most basic schema, [`NoSchema`](https://api.substratelabs.io/scir/schema/struct.NoSchema.html), has a primitive type of [`NoPrimitive`](https://api.substratelabs.io/scir/schema/struct.NoPrimitive.html) that cannot be instantiated — as such, any SCIR library with this schema will have no primitives.
+
+The relationship between schemas is encoded via the [`FromSchema`](https://api.substratelabs.io/scir/schema/trait.FromSchema.html) trait, which describes how one schema is converted to another.
+
+```rs
+pub trait FromSchema<S: Schema>: Schema {
+    type Error;
+
+    // Required methods
+    fn convert_primitive(
+        primitive: <S as Schema>::Primitive
+    ) -> Result<<Self as Schema>::Primitive, Self::Error>;
+    fn convert_instance(
+        instance: &mut Instance,
+        primitive: &<S as Schema>::Primitive
+    ) -> Result<(), Self::Error>;
+}
+```
+
+Schemas that are inter-convertible must have a 1-to-1 correspondence between their primitives, as shown by the 
+signature of `fn convert_primitive(...)`. The instance conversion function, `fn convert_instance(...)`, 
+allows you to modify the connections of a SCIR instance that is associated with a primitive to correctly
+connect to the ports of the primitive in the new schema.
+
+The `FromSchema` trait is particularly important since it allows for schematics to be made simulator and netlist portable, and potentially even process portable, as we will see later.
 
 ### Libraries
 
-Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`](https://api.substratelabs.io/scir/struct.LibraryBuilder.html). To create a library with the [`StringSchema`] schema, whose primitives are arbitrary `ArcStr`s, we write the following:
+Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`](https://api.substratelabs.io/scir/struct.LibraryBuilder.html). To create a library with the [`StringSchema`](https://api.substratelabs.io/scir/schema/struct.StringSchema.html) schema, whose primitives are arbitrary `ArcStr`s, we write the following:
 
 <CodeSnippet language="rust" snippet="scir-library-builder">{Core}</CodeSnippet>
 
@@ -119,4 +143,24 @@ SCIR cells may contain signals that connect instances and/or serve as ports that
 
 SCIR cells may also contain instances of SCIR primitives and other cells. We can connect ports of each instance to signals in the parent cell. While connections to instances of SCIR cells must connect to ports declared in the underlying cell, connections to primitives are not checked by SCIR as primitives are opaque to SCIR.
 
+We can first instantiate the resistor primitives we defined earlier and add our voltage divider cell to our SCIR library.
+
+<CodeSnippet language="rust" snippet="scir-library-primitive-instances">{Core}</CodeSnippet>
+
+We can then create a cell that instantiates two of our newly-defined voltage divider cell.
+
 <CodeSnippet language="rust" snippet="scir-library-instances">{Core}</CodeSnippet>
+
+### Bindings
+
+SCIR primitives and cells can be instantiated in Substrate generators using *bindings*. Suppose we have the following schema that supports instantiating resistor and capacitor primitives:
+
+<CodeSnippet language="rust" snippet="scir-schema">{Core}</CodeSnippet>
+
+We can create a Substrate block whose schematic corresponds to a `MyPrimitive::Resistor` using a [`PrimitiveBinding`](https://api.substratelabs.io/substrate/schematic/struct.PrimitiveBinding.html). It can then be instantiated in other Substrate generators just like any other block.
+
+<CodeSnippet language="rust" snippet="scir-primitive-binding">{Core}</CodeSnippet>
+
+Similarly, we can bind to a SCIR cell using a [`ScirBinding`](https://api.substratelabs.io/substrate/schematic/struct.ScirBinding.html):
+
+<CodeSnippet language="rust" snippet="scir-scir-binding">{Core}</CodeSnippet>

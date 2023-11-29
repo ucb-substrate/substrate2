@@ -10,7 +10,7 @@ use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::Resistor;
-use substrate::schematic::{Cell, ExportsNestedData, NestedInstance};
+use substrate::schematic::NestedInstance;
 use substrate::simulation::data::{tran, FromSaved, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
@@ -43,15 +43,6 @@ impl FromSaved<Ngspice, Tran> for Output {
     type SavedKey = ();
     fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
         (*output).clone()
-    }
-}
-
-impl<T: ExportsNestedData> Save<Ngspice, Tran, &Cell<T>> for Output {
-    fn save(
-        _ctx: &SimulationContext<Ngspice>,
-        _to_save: &Cell<T>,
-        _opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
     }
 }
 

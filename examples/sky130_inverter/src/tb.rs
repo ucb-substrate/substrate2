@@ -14,7 +14,7 @@ use substrate::context::{Context, PdkContext};
 use substrate::io::{Node, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, SaveTb};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
 // end-code-snippet imports
@@ -78,7 +78,7 @@ impl Schematic<Ngspice> for InverterTb {
 // end-code-snippet schematic
 
 // begin-code-snippet testbench
-#[derive(Debug, Clone, FromSaved)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromSaved)]
 pub struct Vout {
     t: tran::Time,
     v: tran::Voltage,
