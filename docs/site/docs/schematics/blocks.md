@@ -30,7 +30,6 @@ There are a few things you need to specify when defining a block:
 | Member | Description |
 |---|---|
 | `type Io` | The IO type of the block. See the [IOs section](./io.md) for more details. |
-| `type Kind` | The kind of the block, which must implement [`BlockKind`](https://api.substratelabs.io/substrate/block/trait.BlockKind.html). For now, you should only need the [`Cell`](https://api.substratelabs.io/substrate/block/struct.Cell.html) kind, which describes any block that is composed of other Substrate blocks. The other block kinds are used for interfacing with [SCIR](https://api.substratelabs.io/scir/), which is discussed in a [later section](#TODO). |
 | `fn id() -> ArcStr` | Returns a unique ID of this block within the crate. While this is not used by Substrate as of November 2023, its intended purpose is to allow generators to be called by name, potentially via a CLI. **No two blocks in the same crate should have the same ID string.** |
 | `fn name(&self)` | Returns a name describing a specific instantiation of a block. This is used to create descriptive cell names when netlisting or writing a layout to GDS. |
 | `fn io(&self) -> Self::Io` | Returns an instantiation of the block's IO type, describing the properties of the IO for a specific set of parameters. This allows you to vary bus lengths at runtime based on block parameters. |
@@ -47,7 +46,7 @@ This derived `Eq` implementation is fine, since it checks that both resistors ar
 
 <CodeSnippet language="rust" snippet="vdivider-bad-eq">{Core}</CodeSnippet>
 
-Now, let's say you generate a voltage divider with two 100 ohm resistors. Then, you try to generate a goltage divider with one 100 ohm resistor and one 200 ohm resistor. Since Substrate thinks these are equivalent due to your `Eq` implementation, it will reuse the previously generated voltage divider with two 100 ohm resistors!
+Now, let's say you generate a voltage divider with two 100 ohm resistors. Then, you try to generate a voltage divider with one 100 ohm resistor and one 200 ohm resistor. Since Substrate thinks these are equivalent due to your `Eq` implementation, it will reuse the previously generated voltage divider with two 100 ohm resistors!
 
 :::warning
 The moral of the story, make sure that your block struct contains any relevant parameters and has a correct `Eq` implementation. Otherwise, Substrate may incorrectly cache generated versions of your block, leading to errors that are extremely difficult to catch.

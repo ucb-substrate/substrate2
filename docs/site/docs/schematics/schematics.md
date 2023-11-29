@@ -56,7 +56,7 @@ Once a block has an associated IO and nested data, you can define its schematic 
 <CodeSnippet language="rust" snippet="vdivider-schematic">{VdividerMod}</CodeSnippet>
 
 Let's look at what each part of the implementation is doing.
-- In the first line, we implement `Schematic<Spice>` for `Vdivider`. `Spice` is a schema, or essentially a specific format in which a block can be defined. Essentially, we are saying that `Vdivider` has a schematic in the `Spice` schema, which allows us to netlist the voltage divider to SPICE and run simulations with it in SPICE simulators. For more details on schemas, see the [SCIR chapter](#TODO).
+- In the first line, we implement `Schematic<Spice>` for `Vdivider`. `Spice` is a schema, or essentially a specific format in which a block can be defined. Essentially, we are saying that `Vdivider` has a schematic in the `Spice` schema, which allows us to netlist the voltage divider to SPICE and run simulations with it in SPICE simulators. For more details on schemas, see the [SCIR chapter](./scir.md).
 - `fn schematic(...)`, which defines our schematic, takes in three arguments:
     - `&self` - the block itself, which should contain parameters to the generator.
     - `io` - the bundle corresponding to the cell's IO.

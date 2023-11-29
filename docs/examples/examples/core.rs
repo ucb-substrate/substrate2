@@ -1036,3 +1036,169 @@ mod generate {
     }
     // end-code-snippet vdivider-generate-add-error-handling
 }
+
+mod scir {
+    use serde::{Deserialize, Serialize};
+    use substrate::block::Block;
+    use substrate::io::{SchematicType, TwoTerminalIo};
+    use substrate::schematic::{
+        CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic, ScirBinding,
+    };
+    use substrate::scir::schema::{Schema, StringSchema};
+    use substrate::scir::{Cell, Direction, Instance, LibraryBuilder};
+
+    // begin-code-snippet scir-schema
+    pub struct MySchema;
+
+    #[derive(Debug, Copy, Clone)]
+    pub enum MyPrimitive {
+        Resistor(i64),
+        Capacitor(i64),
+    }
+
+    impl Schema for MySchema {
+        type Primitive = MyPrimitive;
+    }
+    // end-code-snippet scir-schema
+
+    // begin-code-snippet scir-primitive-binding
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+    #[substrate(io = "TwoTerminalIo")]
+    pub struct Resistor(i64);
+
+    impl ExportsNestedData for Resistor {
+        type NestedData = ();
+    }
+
+    impl Schematic<MySchema> for Resistor {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<MySchema>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let mut prim = PrimitiveBinding::new(MyPrimitive::Resistor(self.0));
+
+            prim.connect("p", io.p);
+            prim.connect("n", io.n);
+
+            cell.set_primitive(prim);
+            Ok(())
+        }
+    }
+    // end-code-snippet scir-primitive-binding
+
+    // begin-code-snippet scir-scir-binding
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+    #[substrate(io = "TwoTerminalIo")]
+    pub struct ParallelResistors(i64, i64);
+
+    impl ExportsNestedData for ParallelResistors {
+        type NestedData = ();
+    }
+
+    impl Schematic<MySchema> for ParallelResistors {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<MySchema>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            // Creates a SCIR library containing the desired cell.
+            let mut lib = LibraryBuilder::<MySchema>::new();
+            let r1 = lib.add_primitive(MyPrimitive::Resistor(self.0));
+            let r2 = lib.add_primitive(MyPrimitive::Resistor(self.1));
+            let mut parallel_resistors = Cell::new("parallel_resistors");
+            let p = parallel_resistors.add_node("p");
+            let n = parallel_resistors.add_node("n");
+            parallel_resistors.expose_port(p, Direction::InOut);
+            parallel_resistors.expose_port(n, Direction::InOut);
+            let mut r1 = Instance::new("r1", r1);
+            r1.connect("p", p);
+            r1.connect("n", n);
+            parallel_resistors.add_instance(r1);
+            let mut r2 = Instance::new("r2", r2);
+            r2.connect("p", p);
+            r2.connect("n", n);
+            parallel_resistors.add_instance(r2);
+            let cell_id = lib.add_cell(parallel_resistors);
+
+            // Binds to the desired cell in the SCIR library.
+            let mut scir = ScirBinding::new(lib.build().unwrap(), cell_id);
+
+            scir.connect("p", io.p);
+            scir.connect("n", io.n);
+
+            cell.set_scir(scir);
+            Ok(())
+        }
+    }
+    // end-code-snippet scir-scir-binding
+
+    #[allow(unused_variables)]
+    fn library() {
+        // begin-code-snippet scir-library-builder
+        let mut lib = LibraryBuilder::<StringSchema>::new();
+        // end-code-snippet scir-library-builder
+        // begin-code-snippet scir-library-cell
+        let empty_cell = Cell::new("empty");
+        let empty_cell_id = lib.add_cell(empty_cell);
+        // end-code-snippet scir-library-cell
+        // begin-code-snippet scir-library-primitive
+        let resistor_id = lib.add_primitive(arcstr::literal!("resistor"));
+        // end-code-snippet scir-library-primitive
+        // begin-code-snippet scir-library-signals
+        let mut vdivider = Cell::new("vdivider");
+
+        let vdd = vdivider.add_node("vdd");
+        let vout = vdivider.add_node("vout");
+        let vss = vdivider.add_node("vss");
+
+        vdivider.expose_port(vdd, Direction::InOut);
+        vdivider.expose_port(vout, Direction::Output);
+        vdivider.expose_port(vss, Direction::InOut);
+        // end-code-snippet scir-library-signals
+        // begin-code-snippet scir-library-primitive-instances
+        let mut r1 = Instance::new("r1", resistor_id);
+
+        r1.connect("p", vdd);
+        r1.connect("n", vout);
+
+        vdivider.add_instance(r1);
+
+        let mut r2 = Instance::new("r2", resistor_id);
+
+        r2.connect("p", vout);
+        r2.connect("n", vss);
+
+        vdivider.add_instance(r2);
+
+        let vdivider_id = lib.add_cell(vdivider);
+        // end-code-snippet scir-library-primitive-instances
+        // begin-code-snippet scir-library-instances
+        let mut stacked_vdivider = Cell::new("stacked_vdivider");
+
+        let vdd = stacked_vdivider.add_node("vdd");
+        let v1 = stacked_vdivider.add_node("v1");
+        let v2 = stacked_vdivider.add_node("v2");
+        let v3 = stacked_vdivider.add_node("v3");
+        let vss = stacked_vdivider.add_node("vss");
+
+        let mut vdiv1 = Instance::new("vdiv1", vdivider_id);
+
+        vdiv1.connect("vdd", vdd);
+        vdiv1.connect("vout", v1);
+        vdiv1.connect("vss", v2);
+
+        stacked_vdivider.add_instance(vdiv1);
+
+        let mut vdiv2 = Instance::new("vdiv2", vdivider_id);
+
+        vdiv2.connect("vdd", v2);
+        vdiv2.connect("vout", v3);
+        vdiv2.connect("vss", vss);
+
+        stacked_vdivider.add_instance(vdiv2);
+
+        let stacked_vdivider_id = lib.add_cell(stacked_vdivider);
+        // end-code-snippet scir-library-instances
+    }
+}

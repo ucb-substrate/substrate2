@@ -59,7 +59,7 @@ git submodule update --init libraries/sky130_fd_pr/latest
 
 Also, ensure that the `SKY130_OPEN_PDK_ROOT` environment variable points to the location of the repo you just cloned.
 
-Similarly, if you would like to use Spectre, you will need to ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to an installation of the commercial SKY130 PDK.
+If you would like to use Spectre, you will also need to ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to an installation of the commercial SKY130 PDK.
 
 ## Interface
 
@@ -95,7 +95,7 @@ We'll make our inverter generator have three parameters:
 We're assuming here that the NMOS and PMOS will have the same length.
 
 In this tutorial, we store all dimensions as integers in layout database units.
-In the Sky 130 process, the database unit is a nanometer, so supplying an NMOS width
+In the SKY130 process, the database unit is a nanometer, so supplying an NMOS width
 of 1,200 will produce a transistor with a width of 1.2 microns.
 
 We'll now define the struct representing our inverter:
@@ -144,7 +144,7 @@ the device being tested, etc.).
 
 As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
 All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows 
-simulators to identify a global ground (whichthey often assign to node 0).
+simulators to identify a global ground (which they often assign to node 0).
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
 We'll make our testbench take two parameters:
@@ -189,9 +189,8 @@ This is how our testbench looks:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{InverterTb}</CodeSnippet>
 
-We define `NgspiceVout` as a receiver for data saved during simulation. 
-We then create a general-purpose `Vout` struct. This struct is not necessary if we only want to use ngspice,
-but it will come in handy when we add support for other simulators.
+We define `Vout` as a receiver for data saved during simulation. We then tell Substrate what data we want to save from
+our testbench by implementing the `SaveTb` trait.
 
 ## Design
 
@@ -246,7 +245,7 @@ To add Spectre support, we can simply add the following code:
 <CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-support">{InverterTb}</CodeSnippet>
 
 Before running the new Spectre test, ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
-the Sky 130 commercial PDK.
+the SKY130 commercial PDK.
 Also ensure that you have correctly set any environment variables needed by Spectre.
 
 To run the test, run
