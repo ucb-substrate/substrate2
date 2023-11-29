@@ -46,7 +46,7 @@ This derived `Eq` implementation is fine, since it checks that both resistors ar
 
 <CodeSnippet language="rust" snippet="vdivider-bad-eq">{Core}</CodeSnippet>
 
-Now, let's say you generate a voltage divider with two 100 ohm resistors. Then, you try to generate a goltage divider with one 100 ohm resistor and one 200 ohm resistor. Since Substrate thinks these are equivalent due to your `Eq` implementation, it will reuse the previously generated voltage divider with two 100 ohm resistors!
+Now, let's say you generate a voltage divider with two 100 ohm resistors. Then, you try to generate a voltage divider with one 100 ohm resistor and one 200 ohm resistor. Since Substrate thinks these are equivalent due to your `Eq` implementation, it will reuse the previously generated voltage divider with two 100 ohm resistors!
 
 :::warning
 The moral of the story, make sure that your block struct contains any relevant parameters and has a correct `Eq` implementation. Otherwise, Substrate may incorrectly cache generated versions of your block, leading to errors that are extremely difficult to catch.
