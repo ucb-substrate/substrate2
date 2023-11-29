@@ -274,7 +274,7 @@ pub mod spectre_support {
             opts: &mut <Spectre as Simulator>::Options,
         ) -> <Vout as FromSaved<Spectre, spectre::tran::Tran>>::SavedKey {
             VoutSavedKey {
-                t: tran::Time::save(ctx, cell, opts),
+                t: tran::Time::save(ctx, (), opts),
                 v: tran::Voltage::save(ctx, cell.data(), opts),
             }
         }
