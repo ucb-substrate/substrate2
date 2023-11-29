@@ -1,6 +1,6 @@
 [package]
 name = "spice"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 
 [dependencies]
@@ -13,6 +13,6 @@ rust_decimal = "1"
 rust_decimal_macros = "1"
 
 scir = { version = "0.7.0", registry = "substrate", path = "../scir" }
-substrate = { version = "0.8.0", registry = "substrate", path = "../../substrate" }
+substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
 enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
 regex = "1.10.2"

@@ -6,7 +6,6 @@ use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
@@ -65,34 +64,14 @@ impl Save<Ngspice, Tran, ()> for Output {
     }
 }
 
-/// The time points of a transient simulation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TranTime(pub(crate) Arc<Vec<f64>>);
-
-impl Deref for TranTime {
-    type Target = Vec<f64>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl FromSaved<Ngspice, Tran> for TranTime {
+impl FromSaved<Ngspice, Tran> for tran::Time {
     type SavedKey = ();
     fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
-        TranTime(output.time.clone())
+        tran::Time(output.time.clone())
     }
 }
 
-impl<T: ExportsNestedData> Save<Ngspice, Tran, &Cell<T>> for TranTime {
-    fn save(
-        _ctx: &SimulationContext<Ngspice>,
-        _to_save: &Cell<T>,
-        _opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-    }
-}
-
-impl Save<Ngspice, Tran, ()> for TranTime {
+impl Save<Ngspice, Tran, ()> for tran::Time {
     fn save(
         _ctx: &SimulationContext<Ngspice>,
         _to_save: (),

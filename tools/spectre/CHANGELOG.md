@@ -8,6 +8,21 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.9.0...spectre-v0.9.1) (2023-11-26)
+
+
+### Bug Fixes
+
+* **simulation:** standardize ngspice and spectre transient data formats ([#327](https://github.com/ucb-substrate/substrate2/issues/327)) ([0aa42d6](https://github.com/ucb-substrate/substrate2/commit/0aa42d6000d28a8aecb655e06330f4545e155b9b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.8.0 to 0.8.1
+    * spice bumped from 0.7.0 to 0.7.1
+
 ## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.8.0...spectre-v0.9.0) (2023-11-25)
 
 
