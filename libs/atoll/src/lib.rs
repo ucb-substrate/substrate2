@@ -1,15 +1,6 @@
 //! Atoll: Automatic transformation of logical layout.
 //!
-//! Atoll projects are made of one or more **blocks**.
-//! Each block is a compact, rectangular grid of devices.
-//! Each block in turn is composed of a set of tiles drawn from a TileSet.
-//! TileSets provide a tile generator for each tile archetype.
-//!
-//! The set of tile archetypes is given by the Cartesian product
-//! of [`Col`] and [`Row`].
-//!
-//! A tile generator takes tile configuration info and produces
-//! a tile of its archetype.
+//! Atoll projects are made of one or more **tiles**.
 //!
 //! # Grid structure
 //!
@@ -146,40 +137,11 @@ use grid::Grid;
 use std::collections::{HashMap, HashSet, VecDeque};
 use substrate::geometry::prelude::{Dir, Point};
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
+use substrate::scir::schema::Schema;
+use substrate::scir::Library;
 
 /// Identifies nets in a routing solver.
 pub type NetId = usize;
-
-/// A column in an Atoll grid.
-pub enum Col {
-    /// A device column.
-    Device,
-    /// A column dedicated to routing.
-    Routing {
-        /// Whether taps should be placed under the routing layers.
-        ///
-        /// Requires allocation of power/ground tracks in the routing column.
-        tap: bool,
-    },
-}
-
-/// A row in an Atoll grid.
-pub enum Row {
-    /// A device row.
-    Device,
-    /// A row dedicated to routing.
-    Routing,
-}
-
-/// A single Atoll block.
-pub struct Atoll {
-    /// PMOS rows.
-    pub pmos: Vec<Row>,
-    /// NMOS rows.
-    pub nmos: Vec<Row>,
-    /// Columns (shared between PMOS and NMOS).
-    pub cols: Vec<Col>,
-}
 
 /// Identifies a routing layer.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -845,3 +807,34 @@ impl RoutingVolume {
         Some(())
     }
 }
+
+pub trait Tile {
+    fn rowspan(&self) -> usize;
+    fn colspan(&self) -> usize;
+}
+
+pub struct PlacedTile<T> {
+    inner: T,
+    llx: i64,
+    lly: i64,
+}
+
+impl<T: Schema> Schema for PlacedTile<T> {
+    type Primitive = <T as Schema>::Primitive;
+}
+
+pub struct Placed<T: Schema> {
+    library: Library<PlacedTile<T>>,
+    // grid state
+}
+
+pub struct Routed<T: Schema> {
+    library: Library<PlacedTile<T>>,
+    // grid state
+}
+
+pub trait Syn<S: Schema, T: Schema + Tile> {
+    fn syn(&self, lib: Library<S>) -> Library<T>;
+}
+pub trait Place<T: Schema>: Fn(Library<T>) -> Placed<T> {}
+pub trait Route<T: Schema>: Fn(Placed<T>) -> Routed<T> {}

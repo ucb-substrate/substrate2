@@ -21,6 +21,7 @@ use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
 use spice::Spice;
 
+pub mod atoll;
 pub mod corner;
 pub mod layers;
 pub mod mos;
