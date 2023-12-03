@@ -12,6 +12,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
 use substrate::pdk::Pdk;
+use unicase::UniCase;
 
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
@@ -80,7 +81,7 @@ impl FromSchema<Spice> for Sky130Pdk {
                     params: MosParams {
                         w: i64::try_from(
                             *params
-                                .get("w")
+                                .get(&UniCase::new(arcstr::literal!("w")))
                                 .and_then(|expr| expr.get_numeric())
                                 .ok_or(ConvError::MissingParameter)?
                                 * dec!(1000),
@@ -88,7 +89,7 @@ impl FromSchema<Spice> for Sky130Pdk {
                         .map_err(|_| ConvError::InvalidParameter)?,
                         l: i64::try_from(
                             *params
-                                .get("l")
+                                .get(&UniCase::new(arcstr::literal!("l")))
                                 .and_then(|expr| expr.get_numeric())
                                 .ok_or(ConvError::MissingParameter)?
                                 * dec!(1000),
@@ -96,7 +97,7 @@ impl FromSchema<Spice> for Sky130Pdk {
                         .map_err(|_| ConvError::InvalidParameter)?,
                         nf: i64::try_from(
                             params
-                                .get("nf")
+                                .get(&UniCase::new(arcstr::literal!("nf")))
                                 .and_then(|expr| expr.get_numeric())
                                 .copied()
                                 .unwrap_or(dec!(1)),
@@ -108,7 +109,11 @@ impl FromSchema<Spice> for Sky130Pdk {
                 Primitive::RawInstance {
                     cell: cell.clone(),
                     ports: ports.clone(),
-                    params: params.clone(),
+                    params: params
+                        .clone()
+                        .into_iter()
+                        .map(|(k, v)| (k.into_inner(), v))
+                        .collect(),
                 }
             }),
             _ => Err(ConvError::UnsupportedPrimitive),
@@ -148,15 +153,27 @@ impl FromSchema<Sky130Pdk> for Spice {
             } => spice::Primitive::RawInstance {
                 cell,
                 ports,
-                params,
+                params: params
+                    .into_iter()
+                    .map(|(k, v)| (UniCase::new(k), v))
+                    .collect(),
             },
             Primitive::Mos { kind, params } => spice::Primitive::RawInstance {
                 cell: kind.open_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: HashMap::from_iter([
-                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
-                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
-                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                    (
+                        UniCase::new(arcstr::literal!("w")),
+                        Decimal::new(params.w, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("l")),
+                        Decimal::new(params.l, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("nf")),
+                        Decimal::from(params.nf).into(),
+                    ),
                 ]),
             },
         })

@@ -16,3 +16,4 @@ indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 arcstr = { version = "1", features = ["serde"] }
 paste = "1"
+unicase = "2"

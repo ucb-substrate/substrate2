@@ -14,6 +14,7 @@ use substrate::block::Block;
 use substrate::io::SchematicType;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{CellBuilder, Schematic};
+use unicase::UniCase;
 
 pub mod netlist;
 pub mod parser;
@@ -89,7 +90,9 @@ pub enum Primitive {
     /// A MOS primitive with ports "D", "G", "S", and "B".
     Mos {
         /// The name of the MOS model.
-        mname: ArcStr,
+        model: ArcStr,
+        /// Parameters associated with the MOS primitive.
+        params: HashMap<UniCase<ArcStr>, ParamValue>,
     },
     /// A raw instance with an associated cell.
     RawInstance {
@@ -98,7 +101,7 @@ pub enum Primitive {
         /// The associated cell.
         cell: ArcStr,
         /// Parameters associated with the raw instance.
-        params: HashMap<ArcStr, ParamValue>,
+        params: HashMap<UniCase<ArcStr>, ParamValue>,
     },
     /// An instance with blackboxed contents.
     BlackboxInstance {
