@@ -7,7 +7,7 @@ use crate::parser::{ParsedSpice, Parser};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use scir::{Instance, ParamValue};
+use scir::{Instance, Library, ParamValue};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use substrate::block::Block;
@@ -27,17 +27,35 @@ pub struct Spice;
 impl Spice {
     /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
     /// associated with the cell named `cell_name`.
+    pub fn scir_lib_from_parsed(parsed: &ParsedSpice) -> Library<Spice> {
+        let conv = ScirConverter::new(&parsed.ast);
+        conv.convert().unwrap()
+    }
+
+    /// Converts a SPICE string to a [`Library`].
+    pub fn scir_lib_from_str(source: &str) -> Library<Spice> {
+        let parsed = Parser::parse(source).unwrap();
+        Spice::scir_lib_from_parsed(&parsed)
+    }
+
+    /// Converts a SPICE file to a [`Library`].
+    pub fn scir_lib_from_file(path: impl AsRef<Path>) -> Library<Spice> {
+        let parsed = Parser::parse_file(path).unwrap();
+        Spice::scir_lib_from_parsed(&parsed)
+    }
+
+    /// Converts [`ParsedSpice`] to an unconnected [`ScirBinding`](substrate::schematic::ScirBinding)
+    /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_parsed(
         parsed: &ParsedSpice,
         cell_name: &str,
     ) -> substrate::schematic::ScirBinding<Spice> {
-        let conv = ScirConverter::new(&parsed.ast);
-        let lib = conv.convert().unwrap();
+        let lib = Spice::scir_lib_from_parsed(parsed);
         let cell_id = lib.cell_id_named(cell_name);
         substrate::schematic::ScirBinding::new(lib, cell_id)
     }
 
-    /// Converts a SPICE string to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
+    /// Converts a SPICE string to an unconnected [`ScirBinding`](substrate::schematic::ScirBinding)
     /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_str(
         source: &str,
@@ -47,7 +65,7 @@ impl Spice {
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }
 
-    /// Converts a SPICE file to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
+    /// Converts a SPICE file to an unconnected [`ScirBinding`](substrate::schematic::ScirBinding)
     /// associated with the cell named `cell_name`.
     pub fn scir_cell_from_file(
         path: impl AsRef<Path>,
