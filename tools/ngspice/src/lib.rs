@@ -31,6 +31,7 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
+use unicase::UniCase;
 
 pub mod blocks;
 pub mod error;
@@ -482,7 +483,12 @@ impl Schematic<Ngspice> for RawInstance {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
-            params: self.params.clone(),
+            params: self
+                .params
+                .clone()
+                .into_iter()
+                .map(|(k, v)| (UniCase::new(k), v))
+                .collect(),
         }));
         for (i, port) in self.ports.iter().enumerate() {
             prim.connect(port, io[i]);

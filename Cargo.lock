@@ -1488,6 +1488,7 @@ dependencies = [
  "tera",
  "thiserror",
  "tracing",
+ "unicase",
 ]
 
 [[package]]
@@ -2305,6 +2306,7 @@ dependencies = [
  "spectre",
  "spice",
  "substrate",
+ "unicase",
 ]
 
 [[package]]
@@ -2402,6 +2404,7 @@ dependencies = [
  "substrate",
  "thiserror",
  "tracing",
+ "unicase",
 ]
 
 [[package]]
@@ -2973,6 +2976,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96bd2f2237fe450fcd0a1d2f5f4e91711124f7857ba2e964247776ebeeb7b0c4"
 dependencies = [
  "unic-common",
+]
+
+[[package]]
+name = "unicase"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7d2d4dafb69621809a81864c9c1b864479e1235c0dd4e199924b9742439ed89"
+dependencies = [
+ "version_check",
 ]
 
 [[package]]

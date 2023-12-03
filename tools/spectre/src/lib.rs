@@ -565,15 +565,6 @@ impl FromSchema<Spice> for Spectre {
         primitive: <Spice as Schema>::Primitive,
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(match primitive {
-            spice::Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            } => Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            },
             spice::Primitive::Res2 { value } => Primitive::RawInstance {
                 cell: "resistor".into(),
                 ports: vec!["1".into(), "2".into()],
