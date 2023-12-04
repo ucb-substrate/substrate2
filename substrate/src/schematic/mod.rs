@@ -922,7 +922,7 @@ impl InstancePath {
     }
 }
 
-/// Data that can be stored in [`ExportsNestedData::NestedData`](crate::schematic::ExportsNestedData::NestedData).
+/// Data that can be stored in [`ExportsNestedData::NestedData`].
 pub trait NestedData: HasNestedView + Send + Sync {}
 impl<T: HasNestedView + Send + Sync> NestedData for T {}
 
