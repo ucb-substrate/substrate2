@@ -25,8 +25,7 @@ mod tests;
 pub struct Spice;
 
 impl Spice {
-    /// Converts [`ParsedSpice`] to an unconnected [`ScirCell`](substrate::schematic::ScirBinding)
-    /// associated with the cell named `cell_name`.
+    /// Converts [`ParsedSpice`] to a [`Library`].
     pub fn scir_lib_from_parsed(parsed: &ParsedSpice) -> Library<Spice> {
         let conv = ScirConverter::new(&parsed.ast);
         conv.convert().unwrap()
