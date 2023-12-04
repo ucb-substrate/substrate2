@@ -868,7 +868,7 @@ impl ConfigValue {
     fn merge(&mut self, from: ConfigValue, force: bool) -> Result<()> {
         match (self, from) {
             (&mut CV::List(ref mut old, _), CV::List(ref mut new, _)) => {
-                old.extend(mem::take(new).into_iter());
+                old.extend(mem::take(new));
             }
             (&mut CV::Table(ref mut old, _), CV::Table(ref mut new, _)) => {
                 for (key, value) in mem::take(new) {

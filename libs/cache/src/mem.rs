@@ -932,12 +932,7 @@ impl NamespaceCache {
         let handle = CacheHandleInner::default();
         let hash = crate::hash(&flexbuffers::to_vec(&key).unwrap());
 
-        let (in_progress, entry) = match self
-            .entries
-            .entry(namespace)
-            .or_insert(HashMap::new())
-            .entry(hash)
-        {
+        let (in_progress, entry) = match self.entries.entry(namespace).or_default().entry(hash) {
             Entry::Vacant(v) => (false, v.insert(CacheHandleInner::default()).clone()),
             Entry::Occupied(o) => (true, o.get().clone()),
         }
