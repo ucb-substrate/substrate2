@@ -12,6 +12,7 @@ use regex::Regex;
 use rust_decimal::Decimal;
 use scir::ParamValue;
 use thiserror::Error;
+use unicase::UniCase;
 
 use super::{Ast, Component, Elem, Subckt, Substr};
 
@@ -121,7 +122,30 @@ impl<'a> ScirConverter<'a> {
 
         for component in subckt.components.iter() {
             match component {
-                Component::Mos(_mos) => todo!(),
+                Component::Mos(mos) => {
+                    let model = ArcStr::from(mos.model.as_str());
+                    let params = mos
+                        .params
+                        .iter()
+                        .map(|(k, v)| {
+                            Ok((
+                                UniCase::new(ArcStr::from(k.as_str())),
+                                match str_as_numeric_lit(v) {
+                                    Ok(v) => ParamValue::Numeric(v),
+                                    Err(_) => ParamValue::String(v.to_string().into()),
+                                },
+                            ))
+                        })
+                        .collect::<ConvResult<HashMap<_, _>>>()?;
+                    // TODO: Deduplicate primitives, though does not affect functionality
+                    let id = self.lib.add_primitive(Primitive::Mos { model, params });
+                    let mut sinst = scir::Instance::new(&mos.name[1..], id);
+                    sinst.connect("D", node(&mos.d, &mut cell));
+                    sinst.connect("G", node(&mos.g, &mut cell));
+                    sinst.connect("S", node(&mos.s, &mut cell));
+                    sinst.connect("B", node(&mos.b, &mut cell));
+                    cell.add_instance(sinst);
+                }
                 Component::Res(res) => {
                     let id = self.lib.add_primitive(Primitive::Res2 {
                         value: str_as_numeric_lit(&res.value)?,
@@ -153,7 +177,7 @@ impl<'a> ScirConverter<'a> {
                             .iter()
                             .map(|(k, v)| {
                                 Ok((
-                                    ArcStr::from(k.as_str()),
+                                    UniCase::new(ArcStr::from(k.as_str())),
                                     match str_as_numeric_lit(v) {
                                         Ok(v) => ParamValue::Numeric(v),
                                         Err(_) => ParamValue::String(v.to_string().into()),
