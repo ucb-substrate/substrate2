@@ -455,8 +455,8 @@ impl Spectre {
         Ok(outputs)
     }
 
-    /// Escapes the given node name to be Spectre-compatible.
-    pub fn escape_node_name(node_name: &str) -> String {
+    /// Escapes the given identifier to be Spectre-compatible.
+    pub fn escape_identifier(node_name: &str) -> String {
         let mut escaped_name = String::new();
         for c in node_name.chars() {
             if c.is_alphanumeric() || c == '_' {
@@ -488,7 +488,7 @@ impl Spectre {
         path: &SliceOnePath,
     ) -> String {
         lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-            let name = Spectre::escape_node_name(name);
+            let name = Spectre::escape_identifier(name);
             if let Some(index) = index {
                 arcstr::format!("{}\\[{}\\]", name, index)
             } else {
@@ -507,7 +507,7 @@ impl Spectre {
     ) -> String {
         let mut named_path =
             lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-                let name = Spectre::escape_node_name(name);
+                let name = Spectre::escape_identifier(name);
                 if let Some(index) = index {
                     arcstr::format!("{}\\[{}\\]", name, index)
                 } else {
@@ -770,7 +770,7 @@ impl HasSpiceLikeNetlist for Spectre {
         connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("x{}", name);
+        let name = ArcStr::from(Spectre::escape_identifier(&format!("x{}", name)));
         write!(out, "{} (", name)?;
 
         for connection in connections {
@@ -837,7 +837,7 @@ impl HasSpiceLikeNetlist for Spectre {
         slice: Slice,
         info: &SignalInfo,
     ) -> std::io::Result<()> {
-        let name = Spectre::escape_node_name(&info.name);
+        let name = Spectre::escape_identifier(&info.name);
         if let Some(range) = slice.range() {
             for i in range.indices() {
                 write!(out, "{}\\[{}\\]", &name, i)?;
