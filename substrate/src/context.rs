@@ -172,12 +172,15 @@ impl ContextBuilder {
     pub fn install_pdk_layers<PDK: Pdk>(&mut self) -> Arc<PDK::Layers> {
         let mut ctx = LayerContext::default();
         let layers = ctx.install_layers::<PDK::Layers>();
-        let arc = Arc::new(InstalledLayers::<PDK> {
-            layers,
-            ctx: Arc::new(RwLock::new(ctx)),
-        });
-        self.layers.insert(TypeId::of::<PDK>(), arc.clone());
-        arc.layers.clone()
+        let result = layers.clone();
+        self.layers.insert(
+            TypeId::of::<PDK>(),
+            Arc::new(InstalledLayers::<PDK> {
+                layers,
+                ctx: Arc::new(RwLock::new(ctx)),
+            }),
+        );
+        result
     }
 
     /// Sets the desired cache configuration.
