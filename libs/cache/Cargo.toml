@@ -16,12 +16,12 @@ tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 prost = "0.12"
 prost-types = "0.12"
-rusqlite = "0.29"
+rusqlite = { version = "0.30", features = ["bundled"] }
 fs4 = { version = "0.7", features = ["tokio"] }
 thiserror = "1"
 toml = "0.8"
 clap = { version = "4", features = ["derive"] }
-tokio-rusqlite = "0.4"
+tokio-rusqlite = "0.5"
 sha2 = "0.10"
 hex = "0.4"
 flexbuffers = "2"

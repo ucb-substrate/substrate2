@@ -34,10 +34,7 @@ pub struct ArrayTileKey<T> {
 
 impl<T> Clone for ArrayTileKey<T> {
     fn clone(&self) -> Self {
-        Self {
-            key: self.key,
-            phantom: PhantomData,
-        }
+        *self
     }
 }
 
@@ -243,10 +240,7 @@ pub struct GridTileKey<T> {
 
 impl<T> Clone for GridTileKey<T> {
     fn clone(&self) -> Self {
-        Self {
-            key: self.key,
-            phantom: PhantomData,
-        }
+        *self
     }
 }
 

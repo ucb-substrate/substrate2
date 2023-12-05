@@ -169,9 +169,10 @@ impl ContextBuilder {
     /// Installs layers for a PDK.
     ///
     /// For use in [`Installation::post_install`] hooks for PDK types.
-    pub fn install_pdk_layers<PDK: Pdk>(&mut self) -> &mut Self {
+    pub fn install_pdk_layers<PDK: Pdk>(&mut self) -> Arc<PDK::Layers> {
         let mut ctx = LayerContext::default();
         let layers = ctx.install_layers::<PDK::Layers>();
+        let result = layers.clone();
         self.layers.insert(
             TypeId::of::<PDK>(),
             Arc::new(InstalledLayers::<PDK> {
@@ -179,7 +180,7 @@ impl ContextBuilder {
                 ctx: Arc::new(RwLock::new(ctx)),
             }),
         );
-        self
+        result
     }
 
     /// Sets the desired cache configuration.
@@ -205,6 +206,11 @@ impl ContextBuilder {
                 )
             }),
         }
+    }
+
+    /// Gets an installation from the context installation map.
+    pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
+        retrieve_installation(&self.installations)
     }
 }
 
@@ -426,10 +432,15 @@ impl Context {
 
     /// Gets an installation from the context installation map.
     pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
-        self.installations
-            .get(&TypeId::of::<I>())
-            .map(|arc| arc.clone().downcast().unwrap())
+        retrieve_installation(&self.installations)
     }
+}
+
+fn retrieve_installation<I: Installation>(
+    map: &HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+) -> Option<Arc<I>> {
+    map.get(&TypeId::of::<I>())
+        .map(|arc| arc.clone().downcast().unwrap())
 }
 
 impl<PDK: Pdk> PdkContext<PDK> {
@@ -468,7 +479,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
                         .io()
                         .flat_names(None)
                         .into_iter()
-                        .zip(io.flatten_vec().into_iter()),
+                        .zip(io.flatten_vec()),
                 );
                 data.map(|data| {
                     LayoutCell::new(

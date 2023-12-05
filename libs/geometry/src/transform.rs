@@ -408,10 +408,7 @@ pub struct TransformedVec<'a, T> {
 
 impl<'a, T> Clone for TransformedVec<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner,
-            trans: self.trans,
-        }
+        *self
     }
 }
 
@@ -954,16 +951,13 @@ mod tests {
     #[test]
     fn transformed_hash_maps_lazily_evaluate_views() {
         let count = Arc::new(Mutex::new(0));
-        let v = HashMap::from_iter(
-            [
-                (5, LazyRect(Rect::from_sides(0, 0, 100, 200), count.clone())),
-                (
-                    7,
-                    LazyRect(Rect::from_sides(50, 50, 200, 100), count.clone()),
-                ),
-            ]
-            .into_iter(),
-        );
+        let v = HashMap::from_iter([
+            (5, LazyRect(Rect::from_sides(0, 0, 100, 200), count.clone())),
+            (
+                7,
+                LazyRect(Rect::from_sides(50, 50, 200, 100), count.clone()),
+            ),
+        ]);
 
         let transformed_map = v.transformed_view(Transformation::translate(50f64, 50f64));
 
