@@ -1,4 +1,6 @@
 use ngspice::Ngspice;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
@@ -28,6 +30,7 @@ impl Installation for ExamplePdkA {
 
 impl Pdk for ExamplePdkA {
     type Layers = ExamplePdkALayers;
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }
 
 impl scir::schema::Schema for ExamplePdkA {
@@ -48,6 +51,7 @@ impl Installation for ExamplePdkB {
 
 impl Pdk for ExamplePdkB {
     type Layers = ExamplePdkBLayers;
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }
 
 pub struct ExamplePdkC;
@@ -60,6 +64,7 @@ impl Installation for ExamplePdkC {
 
 impl Pdk for ExamplePdkC {
     type Layers = ExamplePdkBLayers;
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }
 
 impl scir::schema::Schema for ExamplePdkC {

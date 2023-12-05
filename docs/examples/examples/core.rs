@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
@@ -27,6 +28,7 @@ impl Installation for ExamplePdk {
 
 impl Pdk for ExamplePdk {
     type Layers = ExamplePdkLayers;
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }
 // end-code-snippet pdk
 
@@ -74,6 +76,7 @@ impl Installation for ExamplePdkA {
 
 impl Pdk for ExamplePdkA {
     type Layers = ExamplePdkALayers;
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }
 
 pub struct ExamplePdkB;
@@ -86,6 +89,7 @@ impl Installation for ExamplePdkB {
 
 impl Pdk for ExamplePdkB {
     type Layers = ExamplePdkBLayers;
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
