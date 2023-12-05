@@ -883,12 +883,20 @@ impl PortGeometryBuilder {
         }
     }
 
-    /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes.
+    /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes
+    /// and moving their old values to the collection of unnamed shapes.
     pub fn merge(&mut self, other: impl Into<PortGeometry>) {
         let other = other.into();
+        if let Some(old_primary) = self.primary.take() {
+            self.unnamed_shapes.push(old_primary);
+        }
         self.primary = Some(other.primary);
         self.unnamed_shapes.extend(other.unnamed_shapes);
-        self.named_shapes.extend(other.named_shapes);
+        for (name, shape) in other.named_shapes {
+            if let Some(old_shape) = self.named_shapes.insert(name, shape) {
+                self.unnamed_shapes.push(old_shape);
+            }
+        }
     }
 
     /// Sets the primary shape of this port.
