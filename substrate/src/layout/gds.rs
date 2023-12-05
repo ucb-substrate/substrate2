@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
 use arcstr::ArcStr;
-use gds::HasLayer;
+use gds::{GdsUnits, HasLayer};
 use geometry::prelude::Polygon;
 use geometry::transform::Transformation;
 use geometry::{
@@ -61,6 +61,19 @@ impl<'a> GdsExporter<'a> {
             layers,
             cell_db: Default::default(),
             gds: gds::GdsLibrary::new("TOP"),
+        }
+    }
+
+    /// Creates a new GDS exporter with the given units.
+    ///
+    /// Requires the cell to be exported and a [`LayerContext`] for mapping Substrate layers to GDS
+    /// layers.
+    pub fn with_units(cell: Arc<RawCell>, layers: &'a LayerContext, units: GdsUnits) -> Self {
+        Self {
+            cell,
+            layers,
+            cell_db: Default::default(),
+            gds: gds::GdsLibrary::with_units("TOP", units),
         }
     }
 

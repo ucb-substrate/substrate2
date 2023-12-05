@@ -10,7 +10,9 @@ use std::sync::{Arc, RwLock};
 use arcstr::ArcStr;
 use config::Config;
 use examples::get_snippets;
+use gds::GdsUnits;
 use indexmap::IndexMap;
+use rust_decimal::prelude::ToPrimitive;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
 use tracing::{span, Level};
 
@@ -499,12 +501,17 @@ impl<PDK: Pdk> PdkContext<PDK> {
         let cell = handle.try_cell()?;
 
         let layer_ctx = self.layer_ctx.read().unwrap();
-        GdsExporter::new(cell.raw.clone(), &layer_ctx)
-            .export()
-            .map_err(LayoutError::from)?
-            .save(path)
-            .map_err(GdsExportError::from)
-            .map_err(LayoutError::from)?;
+        let db_units = PDK::LAYOUT_DB_UNITS.to_f64().unwrap();
+        GdsExporter::with_units(
+            cell.raw.clone(),
+            &layer_ctx,
+            GdsUnits::new(1e-6 / db_units, db_units),
+        )
+        .export()
+        .map_err(LayoutError::from)?
+        .save(path)
+        .map_err(GdsExportError::from)
+        .map_err(LayoutError::from)?;
         Ok(())
     }
 
@@ -515,7 +522,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
         let ContextInner { ref mut layout, .. } = *inner;
         let mut layer_ctx = self.layer_ctx.write().unwrap();
         let imported =
-            GdsImporter::new(&lib, layout, &mut layer_ctx, PDK::LAYOUT_DB_UNITS).import()?;
+            GdsImporter::new(&lib, layout, &mut layer_ctx, Some(PDK::LAYOUT_DB_UNITS)).import()?;
         Ok(imported)
     }
 
@@ -529,7 +536,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
         let mut inner = self.ctx.inner.write().unwrap();
         let ContextInner { ref mut layout, .. } = *inner;
         let mut layer_ctx = self.layer_ctx.write().unwrap();
-        let imported = GdsImporter::new(&lib, layout, &mut layer_ctx, PDK::LAYOUT_DB_UNITS)
+        let imported = GdsImporter::new(&lib, layout, &mut layer_ctx, Some(PDK::LAYOUT_DB_UNITS))
             .import_cell(cell)?;
         Ok(imported)
     }

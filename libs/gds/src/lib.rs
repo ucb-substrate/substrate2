@@ -959,6 +959,16 @@ impl GdsLibrary {
         }
     }
 
+    /// Creates a new and empty [GdsLibrary] with the given units.
+    pub fn with_units(name: impl Into<ArcStr>, units: GdsUnits) -> Self {
+        Self {
+            name: name.into(),
+            version: 3,
+            units,
+            ..Default::default()
+        }
+    }
+
     /// Reads a GDS loaded from file at path `fname`.
     pub fn load(fname: impl AsRef<Path>) -> GdsResult<GdsLibrary> {
         // Create the parser, and parse a library.
