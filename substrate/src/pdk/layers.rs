@@ -120,7 +120,7 @@ impl LayerContext {
 
 /// A GDS layer specification.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct GdsLayerSpec(pub u8, pub u8);
+pub struct GdsLayerSpec(pub u16, pub u16);
 
 /// A struct containing general information for a PDK layer family.
 #[derive(Debug, Clone)]
@@ -207,8 +207,8 @@ pub trait Layers: Any + Send + Sync {
 impl TryFrom<gds::GdsLayerSpec> for GdsLayerSpec {
     type Error = std::num::TryFromIntError;
     fn try_from(value: gds::GdsLayerSpec) -> Result<Self, Self::Error> {
-        let layer = u8::try_from(value.layer)?;
-        let xtype = u8::try_from(value.xtype)?;
+        let layer = u16::try_from(value.layer)?;
+        let xtype = u16::try_from(value.xtype)?;
         Ok(Self(layer, xtype))
     }
 }
