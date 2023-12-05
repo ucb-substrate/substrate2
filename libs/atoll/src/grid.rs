@@ -189,20 +189,34 @@ impl<L: AtollLayer> LayerStack<L> {
         };
         UniformTracks::with_offset(layer.line(), layer.space(), layer.offset() + ofs)
     }
+
+    /// Returns whether or not the layer stack is valid.
+    ///
+    /// Checks that all layers have alternating track directions.
+    pub fn is_valid(&self) -> bool {
+        if self.len() <= 1 {
+            return false;
+        }
+
+        let mut dir = self.layer(0).dir().track_dir();
+        for layer in &self.layers[1..] {
+            let next_dir = layer.dir().track_dir();
+            if next_dir == dir {
+                return false;
+            }
+            dir = next_dir;
+        }
+        true
+    }
 }
 
 impl<'a, L: AtollLayer> LayerSlice<'a, L> {
     /// A single LCM unit in the given direction.
     pub fn lcm_unit(&self, dir: Dir) -> i64 {
-        println!("calc lcm");
         (self.start..self.end)
             .map(|l| self.layer(l))
             .filter(|&l| l.dir().track_dir() == !dir)
             .map(|l| l.pitch())
-            .map(|p| {
-                println!("handling pitch {p}");
-                p
-            })
             .fold(1, num::integer::lcm)
     }
 
@@ -320,10 +334,6 @@ impl<L: AtollLayer> RoutingGrid<L> {
 
     /// The coordinate of the last track on the given layer.
     fn max_coord(&self, layer: usize) -> i64 {
-        println!(
-            "layer = {layer}, start = {}, end = {}",
-            self.start, self.end
-        );
         let slice = self.stack.slice(self.start..self.end);
         let layer = slice.layer(layer);
         let lcm = slice.lcm_unit(!layer.dir().track_dir());
@@ -437,5 +447,6 @@ mod tests {
         let slice = layers.all();
         assert_eq!(slice.lcm_unit(Dir::Horiz), 4_800);
         assert_eq!(slice.lcm_unit(Dir::Vert), 600);
+        assert!(layers.is_valid());
     }
 }
