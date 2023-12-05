@@ -142,7 +142,9 @@
 //!
 #![warn(missing_docs)]
 
-use grid::Grid;
+pub mod grid;
+
+use ::grid::Grid;
 use std::collections::{HashMap, HashSet, VecDeque};
 use substrate::geometry::prelude::{Dir, Point};
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
@@ -298,7 +300,7 @@ pub struct GridState<S = PointState> {
     /// The routing grid.
     pub grid: EnumeratedRoutingGrid,
     /// The state associated to each point in the routing grid.
-    pub states: grid::Grid<S>,
+    pub states: ::grid::Grid<S>,
 }
 
 impl<S: Clone> GridState<S> {
@@ -555,15 +557,7 @@ impl Pos {
     }
 }
 
-/// M0: Any, M0V x M0H
-/// M1: Horiz, M0V x M1H
-/// M2: Vert, M2V x M1H
-/// M3: Horiz, M2V x M3H
-/// M4: Vert
-///
-/// Pos(M3, x, y) can jump to Pos(M2, x, adj(y))
-/// Up and down are symmetric: if pos1 has an up
-/// transition to pos2, pos2 has a down transition to pos1.
+/// A 3D routing volume (ie. a stack of several 2D [`RoutingSlice`]).
 pub struct RoutingVolume {
     slices: HashMap<LayerId, RoutingSlice>,
     // (src, dst) -> ilt

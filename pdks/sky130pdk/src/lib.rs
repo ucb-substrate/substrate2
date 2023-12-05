@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
+use atoll::RoutingDir;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -20,6 +21,8 @@ use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::{ContextBuilder, Installation};
+use substrate::geometry::dir::Dir;
+use substrate::pdk::layers::Layer;
 
 pub mod corner;
 pub mod layers;
@@ -276,7 +279,78 @@ impl Sky130Pdk {
 
 impl Installation for Sky130Pdk {
     fn post_install(&self, ctx: &mut ContextBuilder) {
-        ctx.install_pdk_layers::<Sky130Pdk>();
+        let layers = ctx.install_pdk_layers::<Sky130Pdk>();
+        use atoll::grid::*;
+        let layers = LayerStack {
+            layers: vec![
+                PdkLayer {
+                    id: layers.li1.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Any {
+                            track_dir: Dir::Vert,
+                        },
+                        line: 170,
+                        space: 170,
+                        offset: 85,
+                        endcap: 75,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met1.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Horiz,
+                        line: 150,
+                        space: 190,
+                        offset: 75,
+                        endcap: 85,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met2.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Vert,
+                        line: 150,
+                        space: 190,
+                        offset: 75,
+                        endcap: 75,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met3.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Horiz,
+                        line: 340,
+                        space: 340,
+                        offset: 170,
+                        endcap: 75,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met4.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Vert,
+                        line: 340,
+                        space: 340,
+                        offset: 170,
+                        endcap: 170,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met5.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Horiz,
+                        line: 1_700,
+                        space: 1_700,
+                        offset: 850,
+                        endcap: 170,
+                    },
+                },
+            ],
+            offset_x: 0,
+            offset_y: 0,
+        };
+
+        ctx.install(layers);
     }
 }
 
