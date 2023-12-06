@@ -356,5 +356,5 @@ impl Installation for Sky130Pdk {
 
 impl Pdk for Sky130Pdk {
     type Layers = Sky130Layers;
-    const LAYOUT_DB_UNITS: Option<Decimal> = Some(dec!(1e-9));
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }

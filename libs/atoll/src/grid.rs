@@ -304,7 +304,7 @@ impl<L: AtollLayer> RoutingGrid<L> {
     /// Calculates the bounds of a particular track on the given layer.
     ///
     /// The start and end coordinates are with respect to tracks on the grid defining layer.
-    fn track(&self, layer: usize, track: i64, start: i64, end: i64) -> Rect {
+    pub fn track(&self, layer: usize, track: i64, start: i64, end: i64) -> Rect {
         let slice = self.stack.slice(self.start..self.end);
         let tracks = slice.tracks(layer);
         // note that the grid defining layer may be outside the slice,

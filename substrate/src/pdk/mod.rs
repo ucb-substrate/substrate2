@@ -21,7 +21,7 @@ pub trait Pdk: Installation + Send + Sync + Any {
     /// A set of layers used by the PDK.
     type Layers: Layers;
     /// The layout database unit for this PDK.
-    const LAYOUT_DB_UNITS: Option<Decimal> = None;
+    const LAYOUT_DB_UNITS: Decimal;
 }
 
 /// The type of a PDK's layer set.
