@@ -505,7 +505,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
         GdsExporter::with_units(
             cell.raw.clone(),
             &layer_ctx,
-            GdsUnits::new(1e-6 / db_units, db_units),
+            GdsUnits::new(db_units / 1e-6, db_units),
         )
         .export()
         .map_err(LayoutError::from)?
