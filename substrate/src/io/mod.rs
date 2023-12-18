@@ -1016,6 +1016,15 @@ pub struct PowerIo {
     pub vss: InOut<Signal>,
 }
 
+/// A pair of differential signals.
+#[derive(Debug, Default, Copy, Clone, Io)]
+pub struct DiffPair {
+    /// The positive signal.
+    pub p: InOut<Signal>,
+    /// The negative signal.
+    pub n: InOut<Signal>,
+}
+
 // END COMMON IO TYPES
 
 #[cfg(test)]
