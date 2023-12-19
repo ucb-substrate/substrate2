@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
-use atoll::RoutingDir;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -21,8 +20,6 @@ use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::{ContextBuilder, Installation};
-use substrate::geometry::dir::Dir;
-use substrate::pdk::layers::Layer;
 
 mod atoll;
 pub mod corner;
@@ -281,7 +278,6 @@ impl Sky130Pdk {
 impl Installation for Sky130Pdk {
     fn post_install(&self, ctx: &mut ContextBuilder) {
         let layers = ctx.install_pdk_layers::<Sky130Pdk>();
-        use atoll::grid::*;
 
         ctx.install(layers.atoll_layer_stack());
     }

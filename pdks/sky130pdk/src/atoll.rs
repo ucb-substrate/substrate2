@@ -2,8 +2,10 @@ use crate::layers::Sky130Layers;
 use atoll::grid::{AbstractLayer, LayerStack, PdkLayer};
 use atoll::RoutingDir;
 use substrate::geometry::dir::Dir;
+use substrate::pdk::layers::Layer;
 
 impl Sky130Layers {
+    /// Returns the ATOLL-compatible routing layer stack.
     pub fn atoll_layer_stack(&self) -> LayerStack<PdkLayer> {
         LayerStack {
             layers: vec![
