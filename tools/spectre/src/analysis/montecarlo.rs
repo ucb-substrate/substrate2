@@ -56,8 +56,19 @@ pub struct MonteCarlo<A> {
     pub analysis: A,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Output<T>(Vec<T>);
+
+impl Output<Vec<crate::Output>> {
+    pub fn to_analysis<A: SupportedBy<Spectre>>(mut self) -> Output<A::Output> {
+        let out = self
+            .0
+            .into_iter()
+            .map(|out| A::from_output(&mut out.into_iter()))
+            .collect();
+        Output(out)
+    }
+}
 
 impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for MonteCarlo<Vec<Input>> {
     fn from(value: MonteCarlo<A>) -> Self {

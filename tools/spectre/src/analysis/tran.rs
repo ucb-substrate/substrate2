@@ -268,6 +268,17 @@ impl<T> Save<Spectre, Tran, T> for tran::Current {
     }
 }
 
+#[impl_dispatch({NestedTerminal; &NestedTerminal})]
+impl<T> Save<Spectre, Tran, T> for tran::Current {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: T,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> Self::SavedKey {
+        Self::save(ctx, to_save.path(), opts)
+    }
+}
+
 impl Analysis for Tran {
     type Output = Output;
 }

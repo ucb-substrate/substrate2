@@ -768,7 +768,7 @@ impl MonteCarlo<Vec<Input>> {
         if let Some(firstrun) = self.firstrun {
             write!(out, " firstrun={firstrun}")?;
         }
-        write!(out, "{{")?;
+        write!(out, " {{")?;
 
         for (i, an) in self.analysis.iter().enumerate() {
             let name = subanalysis_name(prefix, i);

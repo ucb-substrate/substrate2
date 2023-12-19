@@ -147,7 +147,7 @@ pub struct VdividerAnalysis {
 
 pub struct VdividerAnalysisOutput {
     tran: spectre::analysis::tran::Output,
-    mc: Vec<spectre::analysis::tran::Output>,
+    mc: montecarlo::Output<spectre::analysis::tran::Output>,
 }
 impl Analysis for VdividerAnalysis {
     type Output = VdividerAnalysisOutput;
@@ -162,9 +162,11 @@ impl SupportedBy<Spectre> for VdividerAnalysis {
     fn from_output(
         outputs: &mut impl Iterator<Item = <Spectre as Simulator>::Output>,
     ) -> Self::Output {
+        let mc: montecarlo::Output<Vec<spectre::Output>> =
+            outputs.next().unwrap().try_into().unwrap();
         VdividerAnalysisOutput {
             tran: outputs.next().unwrap().try_into().unwrap(),
-            mc: outputs.next().unwrap().try_into().unwrap(),
+            mc: mc.to_analysis::<Tran>(),
         }
     }
 }
@@ -174,11 +176,20 @@ impl FromSaved<Spectre, VdividerAnalysis> for VdividerTbOutput {
 
     fn from_saved(output: &<VdividerAnalysis as Analysis>::Output, key: &Self::SavedKey) -> Self {
         Self {
-            current: tran::Current::from_saved(&output.tran, &key.current),
-            iprobe: tran::Current::from_saved(&output.tran, &key.iprobe),
-            vdd: tran::Voltage::from_saved(&output.tran, &key.vdd),
-            out: tran::Voltage::from_saved(&output.tran, &key.out),
-            mc_out: montecarlo::Output::<_>::from_saved(&output.mc, &key.mc_out),
+            current: <tran::Current as FromSaved<Spectre, Tran>>::from_saved(
+                &output.tran,
+                &key.current,
+            ),
+            iprobe: <tran::Current as FromSaved<Spectre, Tran>>::from_saved(
+                &output.tran,
+                &key.iprobe,
+            ),
+            vdd: <tran::Voltage as FromSaved<Spectre, Tran>>::from_saved(&output.tran, &key.vdd),
+            out: <tran::Voltage as FromSaved<Spectre, Tran>>::from_saved(&output.tran, &key.out),
+            mc_out: <montecarlo::Output<_> as FromSaved<Spectre, MonteCarlo<Tran>>>::from_saved(
+                &output.mc,
+                &key.mc_out,
+            ),
         }
     }
 }
