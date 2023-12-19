@@ -58,7 +58,7 @@ pub struct MonteCarlo<A> {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Output<T>(Vec<T>);
+pub struct Output<T>(pub(crate) Vec<T>);
 
 impl<T> Deref for Output<T> {
     type Target = Vec<T>;
