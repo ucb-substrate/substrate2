@@ -8,6 +8,7 @@ use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
 use substrate::io::{NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
@@ -59,6 +60,20 @@ pub struct MonteCarlo<A> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Output<T>(Vec<T>);
 
+impl<T> Deref for Output<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> Output<T> {
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+}
+
 impl Output<Vec<crate::Output>> {
     pub fn to_analysis<A: SupportedBy<Spectre>>(mut self) -> Output<A::Output> {
         let out = self
@@ -107,7 +122,7 @@ where
         to_save: T,
         opts: &mut <Spectre as Simulator>::Options,
     ) -> <Self as FromSaved<Spectre, MonteCarlo<A>>>::SavedKey {
-        Self::save(ctx, to_save, opts)
+        S::save(ctx, to_save, opts)
     }
 }
 
