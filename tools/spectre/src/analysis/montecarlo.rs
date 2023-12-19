@@ -1,20 +1,11 @@
 //! Spectre Monte Carlo analysis options and data structures.
 
-use crate::error::{Error, Result};
-use crate::{ErrPreset, Input, SimSignal, Spectre};
-use arcstr::ArcStr;
-use rust_decimal::Decimal;
-use scir::{NamedSliceOne, SliceOnePath};
+use crate::{Input, Spectre};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::sync::Arc;
-use substrate::io::{NodePath, TerminalPath};
-use substrate::schematic::conv::ConvertedNodePath;
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::{FromSaved, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
 
 /// Level of statistical variation to apply in a Monte Carlo analysis.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -57,6 +48,7 @@ pub struct MonteCarlo<A> {
     pub analysis: A,
 }
 
+/// A Monte Carlo simulation output.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Output<T>(pub(crate) Vec<T>);
 
@@ -69,19 +61,10 @@ impl<T> Deref for Output<T> {
 }
 
 impl<T> Output<T> {
+    /// Returns the underlying vector of outputs for each
+    /// iteration of the Monte Carlo simulation.
     pub fn into_inner(self) -> Vec<T> {
         self.0
-    }
-}
-
-impl Output<Vec<crate::Output>> {
-    pub fn to_analysis<A: SupportedBy<Spectre>>(mut self) -> Output<A::Output> {
-        let out = self
-            .0
-            .into_iter()
-            .map(|out| A::from_output(&mut out.into_iter()))
-            .collect();
-        Output(out)
     }
 }
 
@@ -138,12 +121,12 @@ impl<A: SupportedBy<Spectre>> SupportedBy<Spectre> for MonteCarlo<A> {
         outputs: &mut impl Iterator<Item = <Spectre as Simulator>::Output>,
     ) -> <Self as Analysis>::Output {
         let item = outputs.next().unwrap();
-        let mut output: Output<Vec<crate::Output>> = item.try_into().unwrap();
+        let output: Output<Vec<crate::Output>> = item.try_into().unwrap();
         Output(
             output
                 .0
                 .into_iter()
-                .map(|mut out| A::from_output(&mut out.into_iter()))
+                .map(|out| A::from_output(&mut out.into_iter()))
                 .collect(),
         )
     }

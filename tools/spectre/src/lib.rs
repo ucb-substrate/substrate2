@@ -39,7 +39,7 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption};
-use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
+use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
@@ -401,7 +401,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             for (i, input) in input.iter().enumerate() {
                 raw_outputs.push(parse_analysis(
                     &output_path,
-                    &format!("analysis{i}"),
+                    &subanalysis_name("analysis", i),
                     input,
                 )?);
             }
@@ -497,7 +497,7 @@ impl Spectre {
         let conv = Arc::new(conv);
         let outputs = raw_outputs
             .into_iter()
-            .map(|mut raw_values| raw_values.into_output(ctx, &conv, &options.saves))
+            .map(|raw_values| raw_values.into_output(ctx, &conv, &options.saves))
             .collect();
 
         Ok(outputs)
@@ -736,6 +736,7 @@ impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for Input {
 pub enum Output {
     /// Transient simulation output.
     Tran(tran::Output),
+    /// Monte Carlo simulation output.
     MonteCarlo(montecarlo::Output<Vec<Output>>),
 }
 

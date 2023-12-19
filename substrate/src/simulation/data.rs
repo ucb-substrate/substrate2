@@ -2,9 +2,7 @@
 
 pub use codegen::FromSaved;
 use substrate::schematic::ExportsNestedData;
-use type_dispatch::impl_dispatch;
 
-use crate::io::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 use crate::schematic::Cell;
 use crate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 
@@ -19,7 +17,8 @@ pub trait FromSaved<S: Simulator, A: Analysis> {
     fn from_saved(output: &<A as Analysis>::Output, key: &Self::SavedKey) -> Self;
 }
 
-pub type SavedKey<S: Simulator, A: Analysis, T: FromSaved<S, A>> = <T as FromSaved<S, A>>::SavedKey;
+/// Gets the [`FromSaved::SavedKey`] corresponding to type `T`.
+pub type SavedKey<S, A, T> = <T as FromSaved<S, A>>::SavedKey;
 
 impl<S: Simulator, A: Analysis, T: FromSaved<S, A>> FromSaved<S, A> for Vec<T> {
     type SavedKey = Vec<<T as FromSaved<S, A>>::SavedKey>;
