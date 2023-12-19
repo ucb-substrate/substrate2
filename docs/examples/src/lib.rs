@@ -40,9 +40,8 @@ pub fn get_snippets(item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(item as GetSnippetsArgs);
 
     let path = PathBuf::from(EXAMPLES_DIR).join(format!("{}.rs", args.example));
-    let contents =
-        std::fs::read_to_string(&path)
-            .expect(&format!("could not read example file: {path:?}"));
+    let contents = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("could not read example file: {path:?}: {e}"));
 
     let mut in_snippet = false;
     let mut hidden = false;
