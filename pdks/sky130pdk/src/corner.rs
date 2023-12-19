@@ -46,15 +46,16 @@ impl SimOption<Spectre> for Sky130Corner {
             .ctx
             .get_installation::<Sky130Pdk>()
             .expect("Sky130 PDK must be installed");
-        opts.include(
-            pdk.commercial_root_dir
-                .as_ref()
-                .expect("Commercial root directory must be specified")
-                .join(format!(
-                    "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
-                    self.name()
-                )),
-        )
+        let design_wrapper_path = pdk
+            .commercial_root_dir
+            .as_ref()
+            .expect("Commercial root directory must be specified")
+            .join("MODELS/SPECTRE/s8phirs_10r/Models/design_wrapper.lib.scs");
+        opts.include_section(&design_wrapper_path, format!("{}_fet", self.name()));
+        opts.include_section(&design_wrapper_path, format!("{}_cell", self.name()));
+        opts.include_section(&design_wrapper_path, format!("{}_parRC", self.name()));
+        opts.include_section(&design_wrapper_path, format!("{}_rc", self.name()));
+        opts.include_section(&design_wrapper_path, "mc");
     }
 }
 
