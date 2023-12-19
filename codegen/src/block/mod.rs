@@ -15,7 +15,6 @@ pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
-    kind: syn::Ident,
     #[darling(multiple)]
     #[allow(unused)]
     layout: Vec<darling::util::Ignored>,
@@ -28,7 +27,6 @@ impl ToTokens for BlockInputReceiver {
             ref ident,
             ref generics,
             ref io,
-            ref kind,
             ..
         } = *self;
 
@@ -50,7 +48,6 @@ impl ToTokens for BlockInputReceiver {
         tokens.extend(quote! {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
-                type Kind = #substrate::block::#kind;
 
                 fn id() -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))

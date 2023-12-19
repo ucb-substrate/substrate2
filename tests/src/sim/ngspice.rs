@@ -1,15 +1,14 @@
 use approx::relative_eq;
 use ngspice::blocks::Vsource;
-use ngspice::tran::{Tran, TranCurrent, TranVoltage};
+use ngspice::tran::Tran;
 use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
 use substrate::io::{SchematicType, Signal, TestbenchIo};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
-use substrate::simulation::data::{FromSaved, Save};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;
 
@@ -19,7 +18,7 @@ use crate::shared::pdk::sky130_open_ctx;
 #[test]
 fn ngspice_can_save_voltages_and_currents() {
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "Cell")]
+    #[substrate(io = "TestbenchIo")]
     struct ResistorTb;
 
     #[derive(NestedData)]
@@ -60,36 +59,35 @@ fn ngspice_can_save_voltages_and_currents() {
 
     #[derive(FromSaved, Serialize, Deserialize)]
     struct ResistorTbOutput {
-        r1: TranCurrent,
-        r2: TranCurrent,
-        r3: TranCurrent,
-        vout: TranVoltage,
-        r3_terminal: TranCurrent,
+        r1: tran::Current,
+        r2: tran::Current,
+        r3: tran::Current,
+        vout: tran::Voltage,
+        r3_terminal: tran::Current,
     }
 
-    impl Save<Ngspice, Tran, &Cell<ResistorTb>> for ResistorTbOutput {
-        fn save(
+    impl SaveTb<Ngspice, Tran, ResistorTbOutput> for ResistorTb {
+        fn save_tb(
             ctx: &SimulationContext<Ngspice>,
-            to_save: &Cell<ResistorTb>,
+            to_save: &Cell<Self>,
             opts: &mut <Ngspice as Simulator>::Options,
-        ) -> Self::Key {
-            Self::Key {
-                r1: TranCurrent::save(ctx, &to_save.r1, opts),
-                r2: TranCurrent::save(ctx, &to_save.r2, opts),
-                r3: TranCurrent::save(ctx, &to_save.r3, opts),
-                vout: TranVoltage::save(ctx, to_save.data().r1.io().n, opts),
-                r3_terminal: TranCurrent::save(ctx, to_save.data().r3.io().p, opts),
+        ) -> <ResistorTbOutput as FromSaved<Ngspice, Tran>>::SavedKey {
+            ResistorTbOutputSavedKey {
+                r1: tran::Current::save(ctx, &to_save.r1, opts),
+                r2: tran::Current::save(ctx, &to_save.r2, opts),
+                r3: tran::Current::save(ctx, &to_save.r3, opts),
+                vout: tran::Voltage::save(ctx, to_save.data().r1.io().n, opts),
+                r3_terminal: tran::Current::save(ctx, to_save.data().r3.io().p, opts),
             }
         }
     }
 
-    impl Testbench<Sky130Pdk, Ngspice> for ResistorTb {
+    impl Testbench<Ngspice> for ResistorTb {
         type Output = ResistorTbOutput;
 
-        fn run(&self, sim: SimController<Sky130Pdk, Ngspice, Self>) -> Self::Output {
+        fn run(&self, sim: SimController<Ngspice, Self>) -> Self::Output {
             sim.simulate(
                 Options::default(),
-                None,
                 Tran {
                     step: dec!(2e-10),
                     stop: dec!(2e-9),

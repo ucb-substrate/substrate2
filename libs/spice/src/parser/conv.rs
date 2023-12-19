@@ -8,9 +8,11 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{Primitive, Spice};
 use arcstr::ArcStr;
+use regex::Regex;
 use rust_decimal::Decimal;
 use scir::ParamValue;
 use thiserror::Error;
+use unicase::UniCase;
 
 use super::{Ast, Component, Elem, Subckt, Substr};
 
@@ -120,7 +122,30 @@ impl<'a> ScirConverter<'a> {
 
         for component in subckt.components.iter() {
             match component {
-                Component::Mos(_mos) => todo!(),
+                Component::Mos(mos) => {
+                    let model = ArcStr::from(mos.model.as_str());
+                    let params = mos
+                        .params
+                        .iter()
+                        .map(|(k, v)| {
+                            Ok((
+                                UniCase::new(ArcStr::from(k.as_str())),
+                                match str_as_numeric_lit(v) {
+                                    Ok(v) => ParamValue::Numeric(v),
+                                    Err(_) => ParamValue::String(v.to_string().into()),
+                                },
+                            ))
+                        })
+                        .collect::<ConvResult<HashMap<_, _>>>()?;
+                    // TODO: Deduplicate primitives, though does not affect functionality
+                    let id = self.lib.add_primitive(Primitive::Mos { model, params });
+                    let mut sinst = scir::Instance::new(&mos.name[1..], id);
+                    sinst.connect("D", node(&mos.d, &mut cell));
+                    sinst.connect("G", node(&mos.g, &mut cell));
+                    sinst.connect("S", node(&mos.s, &mut cell));
+                    sinst.connect("B", node(&mos.b, &mut cell));
+                    cell.add_instance(sinst);
+                }
                 Component::Res(res) => {
                     let id = self.lib.add_primitive(Primitive::Res2 {
                         value: str_as_numeric_lit(&res.value)?,
@@ -152,8 +177,11 @@ impl<'a> ScirConverter<'a> {
                             .iter()
                             .map(|(k, v)| {
                                 Ok((
-                                    ArcStr::from(k.as_str()),
-                                    ParamValue::Numeric(str_as_numeric_lit(v)?),
+                                    UniCase::new(ArcStr::from(k.as_str())),
+                                    match str_as_numeric_lit(v) {
+                                        Ok(v) => ParamValue::Numeric(v),
+                                        Err(_) => ParamValue::String(v.to_string().into()),
+                                    },
                                 ))
                             })
                             .collect::<ConvResult<HashMap<_, _>>>()?;
@@ -189,5 +217,24 @@ impl<'a> ScirConverter<'a> {
 }
 
 fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
-    s.parse().map_err(|_| ConvError::InvalidLiteral(s.clone()))
+    let re = Regex::new(r"^([0-9]+\.?[0-9]*)(t|g|x|meg|k|m|u|n|p|f?)$").unwrap();
+    let caps = re.captures(s).ok_or(ConvError::InvalidLiteral(s.clone()))?;
+    let num: Decimal = caps.get(1).unwrap().as_str().parse().unwrap();
+    let multiplier = Decimal::from_scientific(
+        match caps.get(2).unwrap().as_str().to_lowercase().as_str() {
+            "t" => "1e12",
+            "g" => "1e9",
+            "x" | "meg" => "1e6",
+            "k" => "1e3",
+            "m" => "1e-3",
+            "u" => "1e-6",
+            "n" => "1e-9",
+            "p" => "1e-12",
+            "f" => "1e-15",
+            _ => "1e0",
+        },
+    )
+    .unwrap();
+
+    Ok(num * multiplier)
 }

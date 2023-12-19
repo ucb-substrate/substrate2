@@ -1,12 +1,7 @@
 //! PDK corner interface.
 
 use rust_decimal::Decimal;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-
-use crate::simulation::Simulator;
-
-use super::Pdk;
 
 /// A process-voltage-temperature corner.
 ///
@@ -31,21 +26,4 @@ impl<C> Pvt<C> {
             temp,
         }
     }
-}
-
-/// A corner in a given PDK.
-///
-/// Corners are expected to be cheaply cloneable, and ideally copy.
-/// For example, a corner may simply be an enum variant with no inner fields.
-pub trait Corner: Clone + Serialize + DeserializeOwned {}
-impl<T: Clone + Serialize + DeserializeOwned> Corner for T {}
-
-/// A PDK compatible with simulator `S`.
-pub trait SupportsSimulator<S: Simulator>: Pdk {
-    /// Install the given process corner in the given simulator.
-    ///
-    /// A typical corner installation involves telling the simulator to include
-    /// process-specific model files. However, corners are free to configure
-    /// other simulation options as well.
-    fn install_corner(&self, corner: &<Self as Pdk>::Corner, opts: &mut S::Options);
 }

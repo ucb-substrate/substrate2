@@ -1,0 +1,8 @@
+{
+  "label": "Schematics",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "This section provides an in-depth dive into how schematic generators are written in Substrate. We'll explore Substrate's many features for defining, manipulating, and exporting parametrized schematics. In later parts, we'll delve into how plugins and libraries can be built off of Substrate's APIs."
+  }
+}

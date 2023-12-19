@@ -189,6 +189,24 @@ impl Parser {
                 let kind = id.chars().next().unwrap().to_ascii_uppercase();
 
                 match kind {
+                    'M' => {
+                        let mut params = Params::default();
+                        for i in (6..self.buffer.len()).step_by(3) {
+                            let k = self.buffer[i].try_ident()?.clone();
+                            assert!(matches!(self.buffer[i + 1], Token::Equals));
+                            let v = self.buffer[i + 2].try_ident()?.clone();
+                            params.insert(k, v);
+                        }
+                        Line::Component(Component::Mos(Mos {
+                            name: self.buffer[0].try_ident()?.clone(),
+                            d: self.buffer[1].try_ident()?.clone(),
+                            g: self.buffer[2].try_ident()?.clone(),
+                            s: self.buffer[3].try_ident()?.clone(),
+                            b: self.buffer[4].try_ident()?.clone(),
+                            model: self.buffer[5].try_ident()?.clone(),
+                            params,
+                        }))
+                    }
                     'R' => Line::Component(Component::Res(Res {
                         name: self.buffer[0].try_ident()?.clone(),
                         pos: self.buffer[1].try_ident()?.clone(),
@@ -365,6 +383,8 @@ pub struct Mos {
     pub s: Node,
     /// The body/substrate.
     pub b: Node,
+    /// The name of the associated MOSFET model.
+    pub model: Substr,
     /// Parameters and their values.
     pub params: Params,
 }

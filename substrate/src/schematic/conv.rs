@@ -658,6 +658,7 @@ impl<S: Schema> RawCell<S> {
                     let port_map = match &instance.child.contents {
                         RawCellContents::Primitive(p) => p.port_map.clone(),
                         RawCellContents::ConvertedPrimitive(p) => p.port_map().clone(),
+                        RawCellContents::Scir(p) => p.port_map().clone(),
                         _ => HashMap::from_iter(instance.child.ports.iter().map(|port| {
                             (
                                 instance.child.node_name(port.node()).into(),

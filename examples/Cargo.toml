@@ -3,6 +3,7 @@
 resolver = "2"
 
 members = [
-  "sky130_inverter"
+  "sky130_inverter",
+  "spice_vdivider"
 ]
 

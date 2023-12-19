@@ -5,11 +5,12 @@ use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use substrate::schematic::ExportsNestedData;
 
+use crate::arcstr;
 use crate::arcstr::ArcStr;
 use crate::block::Block;
 use crate::io::{Array, InOut, Signal, TwoTerminalIo};
-use crate::{arcstr, block};
 
 /// An instance with a pre-defined cell.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,7 +56,6 @@ impl RawInstance {
     }
 }
 impl Block for RawInstance {
-    type Kind = block::Primitive;
     type Io = InOut<Array<Signal>>;
 
     fn id() -> ArcStr {
@@ -69,6 +69,9 @@ impl Block for RawInstance {
     fn io(&self) -> Self::Io {
         InOut(Array::new(self.ports.len(), Default::default()))
     }
+}
+impl ExportsNestedData for RawInstance {
+    type NestedData = ();
 }
 
 /// An ideal 2-terminal resistor.
@@ -93,7 +96,6 @@ impl Resistor {
     }
 }
 impl Block for Resistor {
-    type Kind = block::Primitive;
     type Io = TwoTerminalIo;
 
     fn id() -> ArcStr {
@@ -107,6 +109,10 @@ impl Block for Resistor {
     fn io(&self) -> Self::Io {
         Default::default()
     }
+}
+
+impl ExportsNestedData for Resistor {
+    type NestedData = ();
 }
 
 /// An ideal 2-terminal capacitor.
@@ -131,8 +137,8 @@ impl Capacitor {
         self.value
     }
 }
+
 impl Block for Capacitor {
-    type Kind = block::Primitive;
     type Io = TwoTerminalIo;
 
     fn id() -> ArcStr {
@@ -146,4 +152,50 @@ impl Block for Capacitor {
     fn io(&self) -> Self::Io {
         Default::default()
     }
+}
+impl ExportsNestedData for Capacitor {
+    type NestedData = ();
+}
+
+/// An ideal 2-terminal DC voltage source.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DcVsource {
+    /// The voltage of the source.
+    value: Decimal,
+}
+
+impl DcVsource {
+    /// Create a new DC voltage source.
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+
+    /// The value of the voltage source.
+    #[inline]
+    pub fn value(&self) -> Decimal {
+        self.value
+    }
+}
+
+impl Block for DcVsource {
+    type Io = TwoTerminalIo;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("vsource")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("vsource_{}", self.value)
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl ExportsNestedData for DcVsource {
+    type NestedData = ();
 }

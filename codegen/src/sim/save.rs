@@ -48,7 +48,7 @@ fn transform_field_decl(style: Style, idx: usize, field: &SavedField) -> TokenSt
     } = field;
     let FieldTokens { declare, .. } = field_tokens(style, vis, attrs, idx, ident);
     let substrate = substrate_ident();
-    let field_ty = quote!(<#ty as #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS>>::Key);
+    let field_ty = quote!(<#ty as #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS>>::SavedKey);
 
     quote!(#declare #field_ty,)
 }
@@ -195,8 +195,8 @@ impl ToTokens for FromSavedInputReceiver {
                     #vis struct #key_ident #struct_def
 
                     impl #key_imp #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS> for #ident #ty #key_wher {
-                        type Key = #key_ident #key_ty;
-                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: Self::Key) -> Self {
+                        type SavedKey = #key_ident #key_ty;
+                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: Self::SavedKey) -> Self {
                             #retval
                         }
                     }
@@ -223,8 +223,8 @@ impl ToTokens for FromSavedInputReceiver {
                         #( #decls )*
                     }
                     impl #key_imp #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS> for #ident #ty #key_wher {
-                        type Key = #key_ident #key_ty;
-                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: Self::Key) -> Self {
+                        type SavedKey = #key_ident #key_ty;
+                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: Self::SavedKey) -> Self {
                             match __substrate_derive_key {
                                 #(#arms)*
                             }

@@ -376,7 +376,10 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {value}")?;
                 name
             }
-            Primitive::Mos { mname } => {
+            Primitive::Mos {
+                model: mname,
+                params,
+            } => {
                 let name = arcstr::format!("M{}", name);
                 write!(out, "{}", name)?;
                 for port in ["D", "G", "S", "B"] {
@@ -385,6 +388,9 @@ impl HasSpiceLikeNetlist for Spice {
                     }
                 }
                 write!(out, " {}", mname)?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}={value}")?;
+                }
                 name
             }
             Primitive::RawInstance {

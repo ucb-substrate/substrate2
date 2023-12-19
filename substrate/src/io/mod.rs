@@ -240,6 +240,14 @@ pub struct Flipped<T>(pub T);
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Signal;
 
+impl Signal {
+    /// Creates a new [`Signal`].
+    #[inline]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// A type representing a single hardware layout port with a single [`Shape`](crate::layout::element::Shape) as
 /// its geometry.
 #[derive(Debug, Default, Clone, Copy)]
@@ -875,12 +883,20 @@ impl PortGeometryBuilder {
         }
     }
 
-    /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes.
+    /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes
+    /// and moving their old values to the collection of unnamed shapes.
     pub fn merge(&mut self, other: impl Into<PortGeometry>) {
         let other = other.into();
+        if let Some(old_primary) = self.primary.take() {
+            self.unnamed_shapes.push(old_primary);
+        }
         self.primary = Some(other.primary);
         self.unnamed_shapes.extend(other.unnamed_shapes);
-        self.named_shapes.extend(other.named_shapes);
+        for (name, shape) in other.named_shapes {
+            if let Some(old_shape) = self.named_shapes.insert(name, shape) {
+                self.unnamed_shapes.push(old_shape);
+            }
+        }
     }
 
     /// Sets the primary shape of this port.
@@ -988,6 +1004,24 @@ pub struct TwoTerminalIo {
     /// The positive terminal.
     pub p: InOut<Signal>,
     /// The negative terminal.
+    pub n: InOut<Signal>,
+}
+
+/// The interface for VDD and VSS rails.
+#[derive(Debug, Default, Clone, Io)]
+pub struct PowerIo {
+    /// The VDD rail.
+    pub vdd: InOut<Signal>,
+    /// The VSS rail.
+    pub vss: InOut<Signal>,
+}
+
+/// A pair of differential signals.
+#[derive(Debug, Default, Copy, Clone, Io)]
+pub struct DiffPair {
+    /// The positive signal.
+    pub p: InOut<Signal>,
+    /// The negative signal.
     pub n: InOut<Signal>,
 }
 

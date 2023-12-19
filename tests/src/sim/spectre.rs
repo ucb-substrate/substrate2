@@ -4,12 +4,12 @@ use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
 use cache::multi::MultiCache;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130Pdk;
 use spectre::blocks::Vsource;
-use spectre::tran::{Tran, TranCurrent};
+use spectre::tran::Tran;
 use spectre::{Options, Primitive, Spectre};
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
@@ -20,10 +20,9 @@ use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, PrimitiveSchematic,
-    Schematic, ScirBinding, ScirSchematic,
+    Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, Schematic,
 };
-use substrate::simulation::data::{FromSaved, HasSimData, Save};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use test_log::test;
 
@@ -34,6 +33,7 @@ use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 use substrate::schematic::primitives::{RawInstance, Resistor};
+use substrate::simulation::data::tran::{Current, Voltage};
 
 #[test]
 fn vdivider_tran() {
@@ -43,10 +43,10 @@ fn vdivider_tran() {
     let output = ctx.simulate(VdividerTb, sim_dir).unwrap();
 
     for (actual, expected) in [
-        (&*output.tran.current, 1.8 / 40.),
-        (&*output.tran.iprobe, 1.8 / 40.),
-        (&*output.tran.vdd, 1.8),
-        (&*output.tran.out, 0.9),
+        (&*output.current, 1.8 / 40.),
+        (&*output.iprobe, 1.8 / 40.),
+        (&*output.vdd, 1.8),
+        (&*output.out, 0.9),
     ] {
         assert!(actual
             .iter()
@@ -76,13 +76,21 @@ fn vdivider_array_tran() {
     let ctx = sky130_commercial_ctx();
     let output = ctx.simulate(VdividerArrayTb, sim_dir).unwrap();
 
-    for (expected, (out, out_nested)) in output
-        .expected
+    let cell = ctx.generate_schematic(crate::shared::vdivider::tb::VdividerArrayTb);
+
+    for (expected, (out, out_nested)) in cell
+        .cell()
         .iter()
+        .map(|inst| {
+            (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
+                .to_f64()
+                .unwrap()
+                * 1.8f64
+        })
         .zip(output.out.iter().zip(output.out_nested.iter()))
     {
-        assert!(out.iter().all(|val| relative_eq!(val, expected)));
-        assert_eq!(out, out_nested);
+        assert!(out.iter().all(|val| relative_eq!(*val, expected)));
+        assert!(out_nested.iter().all(|val| relative_eq!(*val, expected)));
     }
 
     assert!(output.vdd.iter().all(|val| relative_eq!(*val, 1.8)));
@@ -100,13 +108,21 @@ fn flattened_vdivider_array_tran() {
         )
         .unwrap();
 
-    for (expected, (out, out_nested)) in output
-        .expected
+    let cell = ctx.generate_schematic(crate::shared::vdivider::tb::FlattenedVdividerArrayTb);
+
+    for (expected, (out, out_nested)) in cell
+        .cell()
         .iter()
+        .map(|inst| {
+            (inst.block().r2.value() / (inst.block().r1.value() + inst.block().r2.value()))
+                .to_f64()
+                .unwrap()
+                * 1.8f64
+        })
         .zip(output.out.iter().zip(output.out_nested.iter()))
     {
-        assert!(out.iter().all(|val| relative_eq!(val, expected)));
-        assert_eq!(out, out_nested);
+        assert!(out.iter().all(|val| relative_eq!(*val, expected)));
+        assert!(out_nested.iter().all(|val| relative_eq!(*val, expected)));
     }
 
     assert!(output.vdd.iter().all(|val| relative_eq!(*val, 1.8)));
@@ -151,14 +167,11 @@ fn spectre_caches_simulations() {
     let executor = CountExecutor::default();
     let count = executor.count.clone();
 
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
     let ctx = Context::builder()
-        .with_simulator(Spectre::default())
+        .install(Spectre::default())
         .cache(Cache::new(MultiCache::builder().build()))
         .executor(executor)
-        .build()
-        .with_pdk(Sky130Pdk::commercial(pdk_root));
+        .build();
 
     ctx.simulate(VdividerTb, &sim_dir).unwrap();
     ctx.simulate(VdividerTb, &sim_dir).unwrap();
@@ -175,34 +188,40 @@ fn spectre_can_include_sections() {
     }
 
     #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "LibIncludeResistorIo", kind = "Primitive")]
+    #[substrate(io = "LibIncludeResistorIo")]
     struct LibIncludeResistor;
 
-    impl PrimitiveSchematic<Spectre> for LibIncludeResistor {
+    impl ExportsNestedData for LibIncludeResistor {
+        type NestedData = ();
+    }
+
+    impl Schematic<Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        ) -> PrimitiveBinding<Spectre> {
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
             let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
                 contents: BlackboxContents {
                     elems: vec![
                         BlackboxElement::InstanceName,
                         " ( ".into(),
-                        BlackboxElement::Port("pos".into()),
+                        BlackboxElement::Port("p".into()),
                         " ".into(),
-                        BlackboxElement::Port("neg".into()),
+                        BlackboxElement::Port("n".into()),
                         " ) example_resistor".into(),
                     ],
                 },
             });
-            prim.connect("pos", io.p);
-            prim.connect("neg", io.n);
-            prim
+            prim.connect("p", io.p);
+            prim.connect("n", io.n);
+            cell.set_primitive(prim);
+            Ok(())
         }
     }
 
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "Cell")]
+    #[substrate(io = "TestbenchIo")]
     struct LibIncludeTb(String);
 
     impl ExportsNestedData for LibIncludeTb {
@@ -231,16 +250,25 @@ fn spectre_can_include_sections() {
         }
     }
 
-    impl Testbench<Sky130Pdk, Spectre> for LibIncludeTb {
+    impl SaveTb<Spectre, Tran, tran::Voltage> for LibIncludeTb {
+        fn save_tb(
+            ctx: &SimulationContext<Spectre>,
+            cell: &Cell<Self>,
+            opts: &mut <Spectre as Simulator>::Options,
+        ) -> <Voltage as FromSaved<Spectre, Tran>>::SavedKey {
+            tran::Voltage::save(ctx, cell.data().io().n, opts)
+        }
+    }
+
+    impl Testbench<Spectre> for LibIncludeTb {
         type Output = f64;
 
-        fn run(&self, sim: SimController<Sky130Pdk, Spectre, Self>) -> Self::Output {
+        fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
             let mut opts = Options::default();
             opts.include_section(test_data("spectre/example_lib.scs"), &self.0);
-            let output = sim
-                .simulate_default(
+            let vout: tran::Voltage = sim
+                .simulate(
                     opts,
-                    Some(&Sky130Corner::Tt),
                     Tran {
                         stop: dec!(2e-9),
                         errpreset: Some(spectre::ErrPreset::Conservative),
@@ -248,11 +276,8 @@ fn spectre_can_include_sections() {
                     },
                 )
                 .expect("failed to run simulation");
-            *output
-                .get_data(&sim.tb.data().io().n)
-                .unwrap()
-                .first()
-                .unwrap()
+
+            *vout.first().unwrap()
         }
     }
 
@@ -274,15 +299,20 @@ fn spectre_can_include_sections() {
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TwoTerminalIo", kind = "Scir")]
+    #[substrate(io = "TwoTerminalIo")]
     pub struct ScirResistor;
 
-    impl ScirSchematic<Spectre> for ScirResistor {
+    impl ExportsNestedData for ScirResistor {
+        type NestedData = ();
+    }
+
+    impl Schematic<Spectre> for ScirResistor {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as SchematicType>::Bundle,
-        ) -> substrate::error::Result<ScirBinding<Spectre>> {
-            let mut cell = Spice::scir_cell_from_str(
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let mut scir = Spice::scir_cell_from_str(
                 r#"
             .subckt res p n
             R0 p n 100
@@ -292,15 +322,16 @@ fn spectre_can_save_paths_with_flattened_instances() {
             )
             .convert_schema::<Spectre>()?;
 
-            cell.connect("p", io.p);
-            cell.connect("n", io.n);
+            scir.connect("p", io.p);
+            scir.connect("n", io.n);
 
-            Ok(cell)
+            cell.set_scir(scir);
+            Ok(())
         }
     }
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TwoTerminalIo", kind = "Cell")]
+    #[substrate(io = "TwoTerminalIo")]
     pub struct VirtualResistor;
 
     impl ExportsNestedData for VirtualResistor {
@@ -328,7 +359,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     }
 
     #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-    #[substrate(io = "TestbenchIo", kind = "Cell")]
+    #[substrate(io = "TestbenchIo")]
     struct VirtualResistorTb;
 
     impl ExportsNestedData for VirtualResistorTb {
@@ -355,30 +386,22 @@ fn spectre_can_save_paths_with_flattened_instances() {
         }
     }
 
-    #[derive(FromSaved, Serialize, Deserialize)]
-    struct VirtualResistorOutput {
-        current_draw: TranCurrent,
-    }
-
-    impl Save<Spectre, Tran, &Cell<VirtualResistorTb>> for VirtualResistorOutput {
-        fn save(
+    impl SaveTb<Spectre, Tran, tran::Current> for VirtualResistorTb {
+        fn save_tb(
             ctx: &SimulationContext<Spectre>,
-            to_save: &Cell<VirtualResistorTb>,
+            cell: &Cell<Self>,
             opts: &mut <Spectre as Simulator>::Options,
-        ) -> Self::Key {
-            Self::Key {
-                current_draw: TranCurrent::save(ctx, to_save.data().io().p, opts),
-            }
+        ) -> <Current as FromSaved<Spectre, Tran>>::SavedKey {
+            tran::Current::save(ctx, cell.data().io().p, opts)
         }
     }
 
-    impl Testbench<Sky130Pdk, Spectre> for VirtualResistorTb {
-        type Output = VirtualResistorOutput;
+    impl Testbench<Spectre> for VirtualResistorTb {
+        type Output = tran::Current;
 
-        fn run(&self, sim: SimController<Sky130Pdk, Spectre, Self>) -> Self::Output {
+        fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
             sim.simulate(
                 Options::default(),
-                Some(&Sky130Corner::Tt),
                 Tran {
                     stop: dec!(2e-9),
                     errpreset: Some(spectre::ErrPreset::Conservative),
@@ -392,7 +415,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     let test_name = "spectre_can_save_paths_with_flattened_instances";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
-    let VirtualResistorOutput { current_draw } = ctx.simulate(VirtualResistorTb, sim_dir).unwrap();
+    let current_draw = ctx.simulate(VirtualResistorTb, sim_dir).unwrap();
 
     assert!(current_draw
         .iter()

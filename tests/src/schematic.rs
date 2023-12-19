@@ -10,7 +10,6 @@ use substrate::schematic::primitives::Resistor;
 use substrate::schematic::CellBuilder;
 use substrate::type_dispatch::impl_dispatch;
 use substrate::{
-    block,
     block::Block,
     context::PdkContext,
     io::{HasNameTree, InOut, NameTree, Output, Signal},
@@ -197,7 +196,6 @@ fn nested_node_naming() {
 pub struct Block1;
 
 impl Block for Block1 {
-    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {
@@ -234,7 +232,6 @@ impl<PDK> Schematic<PDK> for Block1 {
 pub struct Block2;
 
 impl Block for Block2 {
-    type Kind = block::Cell;
     type Io = ();
 
     fn id() -> arcstr::ArcStr {

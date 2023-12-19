@@ -7,24 +7,28 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
+use atoll::RoutingDir;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
-use substrate::pdk::corner::SupportsSimulator;
 use substrate::pdk::Pdk;
+use unicase::UniCase;
 
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
-use corner::*;
 use scir::schema::FromSchema;
 use scir::{Instance, ParamValue};
 use spice::Spice;
+use substrate::context::{ContextBuilder, Installation};
+use substrate::geometry::dir::Dir;
+use substrate::pdk::layers::Layer;
 
 pub mod atoll;
 pub mod corner;
 pub mod layers;
 pub mod mos;
+pub mod stdcells;
 
 /// A primitive of the Sky 130 PDK.
 #[derive(Debug, Clone)]
@@ -81,21 +85,23 @@ impl FromSchema<Spice> for Sky130Pdk {
                     params: MosParams {
                         w: i64::try_from(
                             *params
-                                .get("w")
+                                .get(&UniCase::new(arcstr::literal!("w")))
                                 .and_then(|expr| expr.get_numeric())
-                                .ok_or(ConvError::MissingParameter)?,
+                                .ok_or(ConvError::MissingParameter)?
+                                * dec!(1000),
                         )
                         .map_err(|_| ConvError::InvalidParameter)?,
                         l: i64::try_from(
                             *params
-                                .get("l")
+                                .get(&UniCase::new(arcstr::literal!("l")))
                                 .and_then(|expr| expr.get_numeric())
-                                .ok_or(ConvError::MissingParameter)?,
+                                .ok_or(ConvError::MissingParameter)?
+                                * dec!(1000),
                         )
                         .map_err(|_| ConvError::InvalidParameter)?,
                         nf: i64::try_from(
                             params
-                                .get("nf")
+                                .get(&UniCase::new(arcstr::literal!("nf")))
                                 .and_then(|expr| expr.get_numeric())
                                 .copied()
                                 .unwrap_or(dec!(1)),
@@ -107,7 +113,11 @@ impl FromSchema<Spice> for Sky130Pdk {
                 Primitive::RawInstance {
                     cell: cell.clone(),
                     ports: ports.clone(),
-                    params: params.clone(),
+                    params: params
+                        .clone()
+                        .into_iter()
+                        .map(|(k, v)| (k.into_inner(), v))
+                        .collect(),
                 }
             }),
             _ => Err(ConvError::UnsupportedPrimitive),
@@ -147,15 +157,27 @@ impl FromSchema<Sky130Pdk> for Spice {
             } => spice::Primitive::RawInstance {
                 cell,
                 ports,
-                params,
+                params: params
+                    .into_iter()
+                    .map(|(k, v)| (UniCase::new(k), v))
+                    .collect(),
             },
             Primitive::Mos { kind, params } => spice::Primitive::RawInstance {
                 cell: kind.open_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: HashMap::from_iter([
-                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
-                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
-                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                    (
+                        UniCase::new(arcstr::literal!("w")),
+                        Decimal::new(params.w, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("l")),
+                        Decimal::new(params.l, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("nf")),
+                        Decimal::from(params.nf).into(),
+                    ),
                 ]),
             },
         })
@@ -256,37 +278,84 @@ impl Sky130Pdk {
     }
 }
 
+impl Installation for Sky130Pdk {
+    fn post_install(&self, ctx: &mut ContextBuilder) {
+        let layers = ctx.install_pdk_layers::<Sky130Pdk>();
+        use atoll::grid::*;
+        let layers = LayerStack {
+            layers: vec![
+                PdkLayer {
+                    id: layers.li1.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Any {
+                            track_dir: Dir::Vert,
+                        },
+                        line: 170,
+                        space: 170,
+                        offset: 85,
+                        endcap: 75,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met1.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Horiz,
+                        line: 150,
+                        space: 190,
+                        offset: 75,
+                        endcap: 85,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met2.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Vert,
+                        line: 150,
+                        space: 190,
+                        offset: 75,
+                        endcap: 75,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met3.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Horiz,
+                        line: 340,
+                        space: 340,
+                        offset: 170,
+                        endcap: 75,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met4.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Vert,
+                        line: 340,
+                        space: 340,
+                        offset: 170,
+                        endcap: 170,
+                    },
+                },
+                PdkLayer {
+                    id: layers.met5.drawing.id(),
+                    inner: AbstractLayer {
+                        dir: RoutingDir::Horiz,
+                        line: 1_700,
+                        space: 1_700,
+                        offset: 850,
+                        endcap: 170,
+                    },
+                },
+            ],
+            offset_x: 0,
+            offset_y: 0,
+        };
+
+        ctx.install(layers);
+    }
+}
+
 impl Pdk for Sky130Pdk {
     type Layers = Sky130Layers;
-    type Corner = Sky130Corner;
-    const LAYOUT_DB_UNITS: Option<Decimal> = Some(dec!(1e-9));
-}
-
-impl SupportsSimulator<Spectre> for Sky130Pdk {
-    fn install_corner(
-        &self,
-        corner: &<Self as substrate::pdk::Pdk>::Corner,
-        opts: &mut <Spectre as substrate::simulation::Simulator>::Options,
-    ) {
-        opts.include(self.commercial_root_dir.as_ref().unwrap().join(format!(
-            "MODELS/SPECTRE/s8phirs_10r/Models/{}.cor",
-            corner.name()
-        )));
-    }
-}
-
-impl SupportsSimulator<Ngspice> for Sky130Pdk {
-    fn install_corner(
-        &self,
-        corner: &<Self as substrate::pdk::Pdk>::Corner,
-        opts: &mut <Ngspice as substrate::simulation::Simulator>::Options,
-    ) {
-        opts.include_section(
-            self.open_root_dir
-                .as_ref()
-                .unwrap()
-                .join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice"),
-            corner.name(),
-        );
-    }
+    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
 }

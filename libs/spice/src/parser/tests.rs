@@ -5,6 +5,12 @@ use std::path::PathBuf;
 
 pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
 
+pub const SPICE_MOS: &str = r#"
+.subckt my_mos d g s b
+M0 d g s b my_mos_model
+.ends
+"#;
+
 pub const SPICE_RESISTOR: &str = r#"
 .subckt my_resistor p n
 R1 p n 100
@@ -90,6 +96,29 @@ fn parse_dff() {
             }
         }
         _ => panic!("match failed"),
+    }
+}
+
+#[test]
+fn convert_mos_to_scir() {
+    let parsed = Parser::parse(SPICE_MOS).unwrap();
+    let converter = ScirConverter::new(&parsed.ast);
+    let lib = converter.convert().unwrap();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(lib.cells().count(), 1);
+    let cell = lib.cell_named("my_mos");
+    assert_eq!(cell.instances().count(), 1);
+
+    let (_, inst) = cell.instances().next().unwrap();
+    let prim = lib.primitive(inst.child().unwrap_primitive());
+    match prim {
+        Primitive::Mos { model, params } => {
+            assert_eq!(model, "my_mos_model");
+            assert_eq!(params.len(), 0);
+        }
+        _ => panic!("incorrect primitive kind"),
     }
 }
 

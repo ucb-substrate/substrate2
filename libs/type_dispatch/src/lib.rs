@@ -81,7 +81,7 @@ pub trait Dispatch {
 
 /// A dispatch of a static function.
 ///
-/// Prefer using the [`dispatch_fn`](crate::dispatch_fn) macro unless the dispatcher will
+/// Prefer using the [`dispatch_fn`] macro unless the dispatcher will
 /// be used several times.
 ///
 /// # Examples
@@ -153,7 +153,7 @@ pub trait DispatchFn {
 
 /// A dispatch of a constant.
 ///
-/// Prefer using the [`dispatch_const`](crate::dispatch_const) macro unless the dispatcher will
+/// Prefer using the [`dispatch_const`] macro unless the dispatcher will
 /// be used several times.
 ///
 /// # Examples

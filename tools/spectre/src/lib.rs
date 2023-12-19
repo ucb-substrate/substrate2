@@ -9,7 +9,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::tran::{Tran, TranCurrentKey, TranOutput, TranVoltageKey};
+use crate::tran::Tran;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -26,13 +26,16 @@ use spice::netlist::{
 };
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
+use substrate::context::Installation;
 use substrate::execute::Executor;
-use substrate::io::{NestedNode, NodePath, SchematicType};
+use substrate::io::{NodePath, SchematicType};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{PrimitiveBinding, PrimitiveSchematic};
-use substrate::simulation::{SetInitialCondition, SimulationContext, Simulator};
+use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
+use substrate::simulation::options::ic::InitialCondition;
+use substrate::simulation::options::{ic, SimOption};
+use substrate::simulation::{SimulationContext, Simulator};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
@@ -114,8 +117,12 @@ impl SimSignal {
     pub(crate) fn to_string(&self, lib: &Library<Spectre>, conv: &NetlistLibConversion) -> ArcStr {
         match self {
             SimSignal::Raw(raw) => raw.clone(),
-            SimSignal::ScirCurrent(scir) => ArcStr::from(node_current_path(lib, conv, scir)),
-            SimSignal::ScirVoltage(scir) => ArcStr::from(node_voltage_path(lib, conv, scir)),
+            SimSignal::ScirCurrent(scir) => {
+                ArcStr::from(Spectre::node_current_path(lib, conv, scir))
+            }
+            SimSignal::ScirVoltage(scir) => {
+                ArcStr::from(Spectre::node_voltage_path(lib, conv, scir))
+            }
         }
     }
 }
@@ -163,90 +170,81 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> TranVoltageKey {
-        TranVoltageKey(self.save_inner(save))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> tran::VoltageSavedKey {
+        tran::VoltageSavedKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> TranCurrentKey {
-        TranCurrentKey(vec![self.save_inner(save)])
+    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentSavedKey {
+        tran::CurrentSavedKey(vec![self.save_inner(save)])
     }
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
-impl<K> SetInitialCondition<K, Decimal, Spectre> for Options {
-    fn set_initial_condition(&mut self, key: K, value: Decimal, _ctx: &SimulationContext<Spectre>) {
-        self.set_ic_inner(key, value);
+impl<K> SimOption<Spectre> for InitialCondition<K, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        _ctx: &SimulationContext<Spectre>,
+    ) {
+        opts.set_ic_inner(self.path, *self.value);
     }
 }
 
-impl SetInitialCondition<&SliceOnePath, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &SliceOnePath,
-        value: Decimal,
+impl SimOption<Spectre> for InitialCondition<&SliceOnePath, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
         _ctx: &SimulationContext<Spectre>,
     ) {
-        self.set_ic_inner(SimSignal::ScirVoltage(key.clone()), value);
+        opts.set_ic_inner(SimSignal::ScirVoltage(self.path.clone()), *self.value);
     }
 }
 
-impl SetInitialCondition<&ConvertedNodePath, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &ConvertedNodePath,
-        value: Decimal,
+impl SimOption<Spectre> for InitialCondition<&ConvertedNodePath, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
         _ctx: &SimulationContext<Spectre>,
     ) {
-        self.set_ic_inner(
-            SimSignal::ScirVoltage(match key {
+        opts.set_ic_inner(
+            SimSignal::ScirVoltage(match self.path {
                 ConvertedNodePath::Cell(path) => path.clone(),
                 ConvertedNodePath::Primitive {
                     instances, port, ..
                 } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
             }),
-            value,
+            *self.value,
         );
     }
 }
 
-impl SetInitialCondition<&NodePath, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &NodePath,
-        value: Decimal,
+impl SimOption<Spectre> for InitialCondition<&NodePath, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
         ctx: &SimulationContext<Spectre>,
     ) {
-        self.set_initial_condition(ctx.lib.convert_node_path(key).unwrap(), value, ctx);
-    }
-}
-
-impl SetInitialCondition<&NestedNode, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: &NestedNode,
-        value: Decimal,
-        ctx: &SimulationContext<Spectre>,
-    ) {
-        self.set_initial_condition(key.path(), value, ctx);
-    }
-}
-
-impl SetInitialCondition<NestedNode, Decimal, Spectre> for Options {
-    fn set_initial_condition(
-        &mut self,
-        key: NestedNode,
-        value: Decimal,
-        ctx: &SimulationContext<Spectre>,
-    ) {
-        self.set_initial_condition(key.path(), value, ctx);
+        InitialCondition {
+            path: ctx.lib.convert_node_path(self.path).unwrap(),
+            value: self.value,
+        }
+        .set_option(opts, ctx)
     }
 }
 
 #[impl_dispatch({SliceOnePath; ConvertedNodePath; NodePath})]
-impl<T> SetInitialCondition<T, Decimal, Spectre> for Options {
-    fn set_initial_condition(&mut self, key: T, value: Decimal, ctx: &SimulationContext<Spectre>) {
-        self.set_initial_condition(&key, value, ctx);
+impl<T> SimOption<Spectre> for InitialCondition<T, ic::Voltage> {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        ctx: &SimulationContext<Spectre>,
+    ) {
+        InitialCondition {
+            path: &self.path,
+            value: self.value,
+        }
+        .set_option(opts, ctx)
     }
 }
 
@@ -407,9 +405,10 @@ impl Spectre {
         let log = ctx.work_dir.join("spectre.log");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
-        let executor = ctx.executor.clone();
+        let executor = ctx.ctx.executor.clone();
 
         let raw_outputs = ctx
+            .ctx
             .cache
             .get_with_state(
                 "spectre.simulation.outputs",
@@ -437,9 +436,7 @@ impl Spectre {
         let outputs = raw_outputs
             .into_iter()
             .map(|mut raw_values| {
-                TranOutput {
-                    lib: ctx.lib.clone(),
-                    conv: conv.clone(),
+                tran::Output {
                     time: Arc::new(raw_values.remove("time").unwrap()),
                     raw_values: raw_values
                         .into_iter()
@@ -456,6 +453,72 @@ impl Spectre {
             .collect();
 
         Ok(outputs)
+    }
+
+    /// Escapes the given identifier to be Spectre-compatible.
+    pub fn escape_identifier(node_name: &str) -> String {
+        let mut escaped_name = String::new();
+        for c in node_name.chars() {
+            if c.is_alphanumeric() || c == '_' {
+                escaped_name.push(c);
+            } else {
+                escaped_name.push('\\');
+                escaped_name.push(c);
+            }
+        }
+        escaped_name
+    }
+
+    /// Converts a [`scir::InstancePath`] to a Spectre path string corresponding to
+    /// the associated instance.
+    pub fn instance_path(
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+        path: &scir::InstancePath,
+    ) -> String {
+        lib.convert_instance_path_with_conv(conv, path.clone())
+            .join(".")
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spectre path string corresponding to the associated
+    /// node voltage.
+    pub fn node_voltage_path(
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+    ) -> String {
+        lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+            let name = Spectre::escape_identifier(name);
+            if let Some(index) = index {
+                arcstr::format!("{}\\[{}\\]", name, index)
+            } else {
+                name.into()
+            }
+        })
+        .join(".")
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spectre path string corresponding to the associated
+    /// terminal current.
+    pub fn node_current_path(
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+    ) -> String {
+        let mut named_path =
+            lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+                let name = Spectre::escape_identifier(name);
+                if let Some(index) = index {
+                    arcstr::format!("{}\\[{}\\]", name, index)
+                } else {
+                    name.into()
+                }
+            });
+        let signal = named_path.pop().unwrap();
+        let mut str_path = named_path.join(".");
+        str_path.push(':');
+        str_path.push_str(&signal);
+        str_path
     }
 }
 
@@ -502,18 +565,9 @@ impl FromSchema<Spice> for Spectre {
         primitive: <Spice as Schema>::Primitive,
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(match primitive {
-            spice::Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            } => Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            },
             spice::Primitive::Res2 { value } => Primitive::RawInstance {
                 cell: "resistor".into(),
-                ports: vec!["pos".into(), "neg".into()],
+                ports: vec!["1".into(), "2".into()],
                 params: HashMap::from_iter([("r".into(), value.into())]),
             },
             primitive => Primitive::Spice(primitive),
@@ -521,63 +575,61 @@ impl FromSchema<Spice> for Spectre {
     }
 
     fn convert_instance(
-        instance: &mut scir::Instance,
-        primitive: &<Spice as Schema>::Primitive,
+        _instance: &mut scir::Instance,
+        _primitive: &<Spice as Schema>::Primitive,
     ) -> std::result::Result<(), Self::Error> {
-        if let spice::Primitive::Res2 { .. } = primitive {
-            instance.map_connections(|port| match port.as_ref() {
-                "1" => "pos".into(),
-                "2" => "neg".into(),
-                _ => port,
-            });
-        }
         Ok(())
     }
 }
 
-impl PrimitiveSchematic<Spectre> for Resistor {
+impl Schematic<Spectre> for Resistor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("resistor"),
-            ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
             params: HashMap::from_iter([(
                 arcstr::literal!("r"),
                 ParamValue::Numeric(self.value()),
             )]),
         });
-        prim.connect("pos", io.p);
-        prim.connect("neg", io.n);
-        prim
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
-impl PrimitiveSchematic<Spectre> for Capacitor {
+impl Schematic<Spectre> for Capacitor {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("capacitor"),
-            ports: vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
+            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
             params: HashMap::from_iter([(
                 arcstr::literal!("c"),
                 ParamValue::Numeric(self.value()),
             )]),
         });
-        prim.connect("pos", io.p);
-        prim.connect("neg", io.n);
-        prim
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
 
-impl PrimitiveSchematic<Spectre> for RawInstance {
+impl Schematic<Spectre> for RawInstance {
     fn schematic(
         &self,
         io: &<<Self as Block>::Io as SchematicType>::Bundle,
-    ) -> PrimitiveBinding<Spectre> {
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: self.cell.clone(),
             ports: self.ports.clone(),
@@ -586,9 +638,12 @@ impl PrimitiveSchematic<Spectre> for RawInstance {
         for (i, port) in self.ports.iter().enumerate() {
             prim.connect(port, io[i]);
         }
-        prim
+        cell.set_primitive(prim);
+        Ok(())
     }
 }
+
+impl Installation for Spectre {}
 
 impl Simulator for Spectre {
     type Schema = Spectre;
@@ -605,50 +660,6 @@ impl Simulator for Spectre {
     ) -> Result<Vec<Self::Output>> {
         self.simulate(config, options, input)
     }
-}
-
-#[allow(dead_code)]
-pub(crate) fn instance_path(
-    lib: &Library<Spectre>,
-    conv: &NetlistLibConversion,
-    path: &scir::InstancePath,
-) -> String {
-    lib.convert_instance_path_with_conv(conv, path.clone())
-        .join(".")
-}
-
-pub(crate) fn node_voltage_path(
-    lib: &Library<Spectre>,
-    conv: &NetlistLibConversion,
-    path: &SliceOnePath,
-) -> String {
-    lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-        if let Some(index) = index {
-            arcstr::format!("{}\\[{}\\]", name, index)
-        } else {
-            name.clone()
-        }
-    })
-    .join(".")
-}
-
-pub(crate) fn node_current_path(
-    lib: &Library<Spectre>,
-    conv: &NetlistLibConversion,
-    path: &SliceOnePath,
-) -> String {
-    let mut named_path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
-        if let Some(index) = index {
-            arcstr::format!("{}\\[{}\\]", name, index)
-        } else {
-            name.clone()
-        }
-    });
-    let signal = named_path.pop().unwrap();
-    let mut str_path = named_path.join(".");
-    str_path.push(':');
-    str_path.push_str(&signal);
-    str_path
 }
 
 /// Inputs directly supported by Spectre.
@@ -668,16 +679,16 @@ impl From<Tran> for Input {
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
-    Tran(TranOutput),
+    Tran(tran::Output),
 }
 
-impl From<TranOutput> for Output {
-    fn from(value: TranOutput) -> Self {
+impl From<tran::Output> for Output {
+    fn from(value: tran::Output) -> Self {
         Self::Tran(value)
     }
 }
 
-impl TryFrom<Output> for TranOutput {
+impl TryFrom<Output> for tran::Output {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         match value {
@@ -759,7 +770,7 @@ impl HasSpiceLikeNetlist for Spectre {
         connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("x{}", name);
+        let name = ArcStr::from(Spectre::escape_identifier(&format!("x{}", name)));
         write!(out, "{} (", name)?;
 
         for connection in connections {
@@ -826,12 +837,13 @@ impl HasSpiceLikeNetlist for Spectre {
         slice: Slice,
         info: &SignalInfo,
     ) -> std::io::Result<()> {
+        let name = Spectre::escape_identifier(&info.name);
         if let Some(range) = slice.range() {
             for i in range.indices() {
-                write!(out, "{}\\[{}\\]", &info.name, i)?;
+                write!(out, "{}\\[{}\\]", &name, i)?;
             }
         } else {
-            write!(out, "{}", &info.name)?;
+            write!(out, "{}", &name)?;
         }
         Ok(())
     }

@@ -1,11 +1,13 @@
 //! PDK layer interface.
 
+use std::sync::RwLock;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
     sync::Arc,
 };
 
+use crate::pdk::Pdk;
 use arcstr::ArcStr;
 pub use codegen::{DerivedLayerFamily, DerivedLayers, Layer, LayerFamily, Layers};
 use serde::{Deserialize, Serialize};
@@ -34,6 +36,11 @@ impl AsRef<LayerId> for LayerId {
 new_key_type! {
     /// A key for layer families in a [`LayerContext`].
     pub(crate) struct LayerFamilyKey;
+}
+
+pub(crate) struct InstalledLayers<PDK: Pdk> {
+    pub(crate) layers: Arc<PDK::Layers>,
+    pub(crate) ctx: Arc<RwLock<LayerContext>>,
 }
 
 /// A context used for assigning identifiers to user-defined layers.
@@ -67,10 +74,6 @@ impl LayerContext {
             self.layers_gds_to_info.insert(gds, info);
         }
         id
-    }
-
-    pub(crate) fn new() -> Self {
-        Self::default()
     }
 
     pub(crate) fn install_layers<L: Layers>(&mut self) -> Arc<L> {
@@ -117,7 +120,7 @@ impl LayerContext {
 
 /// A GDS layer specification.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct GdsLayerSpec(pub u8, pub u8);
+pub struct GdsLayerSpec(pub u16, pub u16);
 
 /// A struct containing general information for a PDK layer family.
 #[derive(Debug, Clone)]
@@ -204,8 +207,8 @@ pub trait Layers: Any + Send + Sync {
 impl TryFrom<gds::GdsLayerSpec> for GdsLayerSpec {
     type Error = std::num::TryFromIntError;
     fn try_from(value: gds::GdsLayerSpec) -> Result<Self, Self::Error> {
-        let layer = u8::try_from(value.layer)?;
-        let xtype = u8::try_from(value.xtype)?;
+        let layer = u16::try_from(value.layer)?;
+        let xtype = u16::try_from(value.xtype)?;
         Ok(Self(layer, xtype))
     }
 }

@@ -1,24 +1,22 @@
 // begin-code-snippet imports
-use std::path::Path;
+use super::Inverter;
 
-use substrate::simulation::data::FromSaved;
+use ngspice::tran::Tran;
+use ngspice::Ngspice;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130CommercialPdk;
-use spectre::blocks::{Pulse, Vsource};
-use spectre::tran::{Tran, TranTime, TranVoltage};
-use spectre::{Options, Spectre};
+use sky130pdk::Sky130Pdk;
+use std::path::Path;
 use substrate::block::Block;
-use substrate::context::Context;
-use substrate::io::{Node, Signal, TestbenchIo};
+use substrate::context::{Context, PdkContext};
+use substrate::io::{Node, SchematicType, Signal, TestbenchIo};
 use substrate::pdk::corner::Pvt;
-use substrate::schematic::{Cell, HasSchematicData};
+use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{Testbench, HasSimSchematic};
-
-use super::Inverter;
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 // end-code-snippet imports
 
 // begin-code-snippet struct-and-impl
@@ -38,26 +36,26 @@ impl InverterTb {
 // end-code-snippet struct-and-impl
 
 // begin-code-snippet schematic
-impl HasSchematicData for InverterTb {
-    type Data = Node;
+impl ExportsNestedData for InverterTb {
+    type NestedData = Node;
 }
 
-impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
+impl Schematic<Ngspice> for InverterTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as substrate::io::SchematicType>::Bundle,
-        cell: &mut substrate::schematic::SimCellBuilder<Sky130CommercialPdk, Spectre, Self>,
-    ) -> substrate::error::Result<Self::Data> {
-        let inv = cell.instantiate(self.dut);
+        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
 
-        let vddsrc = cell.instantiate_tb(Vsource::dc(self.pvt.voltage));
+        let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate_tb(Vsource::pulse(Pulse {
+        let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
@@ -65,6 +63,7 @@ impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
             fall: Some(dec!(1e-12)),
             rise: Some(dec!(1e-12)),
             period: None,
+            num_pulses: Some(dec!(1)),
         }));
         cell.connect(inv.io().din, vin.io().p);
         cell.connect(vin.io().n, io.vss);
@@ -79,63 +78,39 @@ impl HasSimSchematic<Sky130CommercialPdk, Spectre> for InverterTb {
 // end-code-snippet schematic
 
 // begin-code-snippet testbench
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InverterTbData {
-    pub tr: f64,
-    pub tf: f64,
-}
-
-#[derive(Debug, Clone, FromSaved)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromSaved)]
 pub struct Vout {
-    t: TranTime,
-    v: TranVoltage,
+    t: tran::Time,
+    v: tran::Voltage,
 }
 
-impl substrate::simulation::data::Save<Spectre, Tran, &Cell<InverterTb>> for Vout {
-    fn save(ctx: &substrate::simulation::SimulationContext, to_save: &Cell<InverterTb>, opts: &mut <Spectre as substrate::simulation::Simulator>::Options)
-            -> Self::Key {
-        Self::Key {
-            t: TranTime::save(ctx, to_save, opts),
-            v: TranVoltage::save(ctx, to_save.data(), opts),
+impl SaveTb<Ngspice, ngspice::tran::Tran, Vout> for InverterTb {
+    fn save_tb(
+        ctx: &SimulationContext<Ngspice>,
+        cell: &Cell<Self>,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> <Vout as FromSaved<Ngspice, Tran>>::SavedKey {
+        VoutSavedKey {
+            t: tran::Time::save(ctx, (), opts),
+            v: tran::Voltage::save(ctx, cell.data(), opts),
         }
     }
 }
 
-impl Testbench<Sky130CommercialPdk, Spectre> for InverterTb {
-    type Output = InverterTbData;
-    fn run(
-        &self,
-        sim: substrate::simulation::SimController<Sky130CommercialPdk, Spectre, Self>,
-    ) -> Self::Output {
-        let opts = Options::default();
-        let output: Vout = sim
-            .simulate(
-                opts,
-                Some(&self.pvt.corner),
-                Tran {
-                    stop: dec!(2e-9),
-                    errpreset: Some(spectre::ErrPreset::Conservative),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation");
-
-        let vout = WaveformRef::new(&output.t, &output.v);
-        let mut trans = vout.transitions(
-            0.2 * self.pvt.voltage.to_f64().unwrap(),
-            0.8 * self.pvt.voltage.to_f64().unwrap(),
-        );
-        // The input waveform has a low -> high, then a high -> low transition.
-        // So the first transition of the inverter output is high -> low.
-        // The duration of this transition is the inverter fall time.
-        let falling_transition = trans.next().unwrap();
-        assert_eq!(falling_transition.dir(), EdgeDir::Falling);
-        let tf = falling_transition.duration();
-        let rising_transition = trans.next().unwrap();
-        assert_eq!(rising_transition.dir(), EdgeDir::Rising);
-        let tr = rising_transition.duration();
-
-        InverterTbData { tf, tr }
+impl Testbench<Ngspice> for InverterTb {
+    type Output = Vout;
+    fn run(&self, sim: substrate::simulation::SimController<Ngspice, Self>) -> Self::Output {
+        let mut opts = ngspice::Options::default();
+        sim.set_option(self.pvt.corner, &mut opts);
+        sim.simulate(
+            opts,
+            ngspice::tran::Tran {
+                stop: dec!(2e-9),
+                step: dec!(1e-11),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation")
     }
 }
 // end-code-snippet testbench
@@ -155,11 +130,14 @@ pub struct InverterDesign {
 }
 
 impl InverterDesign {
-    pub fn run(
+    pub fn run<S: Simulator>(
         &self,
-        ctx: &mut Context<Sky130CommercialPdk>,
+        ctx: &mut PdkContext<Sky130Pdk>,
         work_dir: impl AsRef<Path>,
-    ) -> Inverter {
+    ) -> Inverter
+    where
+        InverterTb: Testbench<S, Output = Vout>,
+    {
         let work_dir = work_dir.as_ref();
         let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
 
@@ -171,9 +149,27 @@ impl InverterDesign {
                 lch: self.lch,
             };
             let tb = InverterTb::new(pvt, dut);
-            let data = ctx.simulate(tb, work_dir.join(format!("pw{pw}"))).expect("failed to run simulation");
-            println!("Simulating with pw = {pw} gave:\n{:#?}", data);
-            let diff = (data.tr - data.tf).abs();
+            let output = ctx
+                .simulate(tb, work_dir.join(format!("pw{pw}")))
+                .expect("failed to run simulation");
+
+            let vout = WaveformRef::new(&output.t, &output.v);
+            let mut trans = vout.transitions(
+                0.2 * pvt.voltage.to_f64().unwrap(),
+                0.8 * pvt.voltage.to_f64().unwrap(),
+            );
+            // The input waveform has a low -> high, then a high -> low transition.
+            // So the first transition of the inverter output is high -> low.
+            // The duration of this transition is the inverter fall time.
+            let falling_transition = trans.next().unwrap();
+            assert_eq!(falling_transition.dir(), EdgeDir::Falling);
+            let tf = falling_transition.duration();
+            let rising_transition = trans.next().unwrap();
+            assert_eq!(rising_transition.dir(), EdgeDir::Rising);
+            let tr = rising_transition.duration();
+
+            println!("Simulating with pw = {pw} gave tf = {}, tr = {}", tf, tr);
+            let diff = (tr - tf).abs();
             if let Some((pdiff, _)) = opt {
                 if diff < pdiff {
                     opt = Some((diff, dut));
@@ -188,43 +184,154 @@ impl InverterDesign {
 }
 // end-code-snippet design
 
-// begin-code-snippet sky130-commercial-ctx
-/// Create a new Substrate context for the SKY130 commercial PDK.
+// begin-code-snippet sky130-open-ctx
+/// Create a new Substrate context for the SKY130 open PDK.
 ///
-/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
 /// environment variable and installs Spectre with default configuration.
 ///
 /// # Panics
 ///
-/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+/// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_commercial_ctx() -> Context<Sky130CommercialPdk> {
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+pub fn sky130_open_ctx() -> PdkContext<Sky130Pdk> {
+    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
+        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
-        .pdk(Sky130CommercialPdk::new(pdk_root))
-        .with_simulator(Spectre::default())
+        .install(Ngspice::default())
+        .install(Sky130Pdk::open(pdk_root))
         .build()
+        .with_pdk()
 }
-// end-code-snippet sky130-commercial-ctx
+// end-code-snippet sky130-open-ctx
 
-#[cfg(feature = "spectre")]
 // begin-code-snippet tests
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    pub fn design_inverter() {
-        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter");
-        let mut ctx = sky130_commercial_ctx();
+    pub fn design_inverter_ngspice() {
+        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_ngspice");
+        let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (1_200..=5_000).step_by(200).collect(),
             lch: 150,
         };
-        let inv = script.run(&mut ctx, work_dir);
+
+        let inv = script.run::<Ngspice>(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }
 }
 // end-code-snippet tests
+
+// begin-code-snippet spectre-support
+#[cfg(feature = "spectre")]
+pub mod spectre_support {
+    use super::*;
+    use spectre::Spectre;
+
+    impl Schematic<Spectre> for InverterTb {
+        fn schematic(
+            &self,
+            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
+
+            let vdd = cell.signal("vdd", Signal);
+            let dout = cell.signal("dout", Signal);
+
+            let vddsrc = cell.instantiate(spectre::blocks::Vsource::dc(self.pvt.voltage));
+            cell.connect(vddsrc.io().p, vdd);
+            cell.connect(vddsrc.io().n, io.vss);
+
+            let vin = cell.instantiate(spectre::blocks::Vsource::pulse(spectre::blocks::Pulse {
+                val0: 0.into(),
+                val1: self.pvt.voltage,
+                delay: Some(dec!(0.1e-9)),
+                width: Some(dec!(1e-9)),
+                fall: Some(dec!(1e-12)),
+                rise: Some(dec!(1e-12)),
+                period: None,
+            }));
+            cell.connect(inv.io().din, vin.io().p);
+            cell.connect(vin.io().n, io.vss);
+
+            cell.connect(inv.io().vdd, vdd);
+            cell.connect(inv.io().vss, io.vss);
+            cell.connect(inv.io().dout, dout);
+
+            Ok(dout)
+        }
+    }
+
+    impl substrate::simulation::data::SaveTb<Spectre, spectre::tran::Tran, Vout> for InverterTb {
+        fn save_tb(
+            ctx: &SimulationContext<Spectre>,
+            cell: &Cell<Self>,
+            opts: &mut <Spectre as Simulator>::Options,
+        ) -> <Vout as FromSaved<Spectre, spectre::tran::Tran>>::SavedKey {
+            VoutSavedKey {
+                t: tran::Time::save(ctx, (), opts),
+                v: tran::Voltage::save(ctx, cell.data(), opts),
+            }
+        }
+    }
+
+    impl Testbench<Spectre> for InverterTb {
+        type Output = Vout;
+        fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
+            let mut opts = spectre::Options::default();
+            sim.set_option(self.pvt.corner, &mut opts);
+            sim.simulate(
+                opts,
+                spectre::tran::Tran {
+                    stop: dec!(2e-9),
+                    errpreset: Some(spectre::ErrPreset::Conservative),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation")
+        }
+    }
+
+    /// Create a new Substrate context for the SKY130 commercial PDK.
+    ///
+    /// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+    /// environment variable and installs Spectre with default configuration.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+    /// or if the value of that variable is not a valid UTF-8 string.
+    pub fn sky130_commercial_ctx() -> PdkContext<Sky130Pdk> {
+        let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
+            .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+        Context::builder()
+            .install(Spectre::default())
+            .install(Sky130Pdk::commercial(pdk_root))
+            .build()
+            .with_pdk()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        pub fn design_inverter_spectre() {
+            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_spectre");
+            let mut ctx = sky130_commercial_ctx();
+            let script = InverterDesign {
+                nw: 1_200,
+                pw: (1_200..=5_000).step_by(200).collect(),
+                lch: 150,
+            };
+            let inv = script.run::<Spectre>(&mut ctx, work_dir);
+            println!("Designed inverter:\n{:#?}", inv);
+        }
+    }
+}
+// end-code-snippet spectre-support

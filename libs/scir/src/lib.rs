@@ -583,6 +583,14 @@ impl<S: Schema> Library<S> {
     }
 }
 
+impl<S: Schema<Primitive = impl Clone>> Library<S> {
+    /// Creates a new SCIR library containing only the named cell and its children
+    /// from an existing library.
+    pub fn from_cell_named(lib: &Self, cell: &str) -> Self {
+        LibraryBuilder::from_cell_named(lib, cell).build().unwrap()
+    }
+}
+
 /// Issues encountered when validating a SCIR library.
 #[derive(Debug, Clone)]
 pub struct Issues {
@@ -1393,6 +1401,30 @@ impl<S: Schema> LibraryBuilder<S> {
         C: FromSchema<S>,
     {
         self.convert_inner(C::convert_primitive, C::convert_instance)
+    }
+}
+
+impl<S: Schema<Primitive = impl Clone>> LibraryBuilder<S> {
+    /// Creates a new SCIR library builder containing only the named cell and its children
+    /// from an existing library builder.
+    pub fn from_cell_named(lib: &Self, cell: &str) -> Self {
+        let mut new_lib = LibraryBuilder::new();
+        let mut cells = vec![(lib.cell_id_named(cell), lib.cell_named(cell))];
+        while let Some((id, cell)) = cells.pop() {
+            for (_, inst) in cell.instances() {
+                match inst.child {
+                    ChildId::Primitive(id) => {
+                        let prim = lib.primitive(id);
+                        new_lib.add_primitive_with_id(id, prim.clone());
+                    }
+                    ChildId::Cell(cell) => {
+                        cells.push((cell, lib.cell(cell)));
+                    }
+                }
+            }
+            new_lib.add_cell_with_id(id, cell.clone());
+        }
+        new_lib
     }
 }
 

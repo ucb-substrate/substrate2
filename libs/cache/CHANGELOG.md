@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.4.0...cache-v0.5.0) (2023-11-25)
+
+
+### Features
+
+* **cache:** bump dependencies ([#325](https://github.com/ucb-substrate/substrate2/issues/325)) ([7506a8a](https://github.com/ucb-substrate/substrate2/commit/7506a8ad84d0101b8a8b654bd98face751beae81))
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.3.1...cache-v0.4.0) (2023-11-02)
 
 

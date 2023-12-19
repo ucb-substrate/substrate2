@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.3.1](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.3.0...ngspice-v0.3.1) (2023-11-26)
+
+
+### Bug Fixes
+
+* **simulation:** standardize ngspice and spectre transient data formats ([#327](https://github.com/ucb-substrate/substrate2/issues/327)) ([0aa42d6](https://github.com/ucb-substrate/substrate2/commit/0aa42d6000d28a8aecb655e06330f4545e155b9b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.8.0 to 0.8.1
+    * spice bumped from 0.7.0 to 0.7.1
+
+## [0.3.0](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.2.0...ngspice-v0.3.0) (2023-11-25)
+
+
+### Features
+
+* **simulation:** improve simulation APIs ([#320](https://github.com/ucb-substrate/substrate2/issues/320)) ([4ed59a1](https://github.com/ucb-substrate/substrate2/commit/4ed59a1283f9546e8336cc96015bd87c55682777))
+* **stdcells:** add standard cell support to Sky130 PDK ([#323](https://github.com/ucb-substrate/substrate2/issues/323)) ([0b2048e](https://github.com/ucb-substrate/substrate2/commit/0b2048ed44d89c5de87380cac48a4bbff2b4c20a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.4.0 to 0.5.0
+    * substrate bumped from 0.7.1 to 0.8.0
+    * spice bumped from 0.6.0 to 0.7.0
+
+## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.1.0...ngspice-v0.2.0) (2023-11-04)
+
+
+### Features
+
+* **spice:** refactor netlisting and fix voltage source netlist ([#316](https://github.com/ucb-substrate/substrate2/issues/316)) ([7a3df69](https://github.com/ucb-substrate/substrate2/commit/7a3df695cf9b38c837ff86d5a5da2417c4db7aa2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.6.0 to 0.7.0
+    * substrate bumped from 0.7.0 to 0.7.1
+    * spice bumped from 0.5.0 to 0.6.0
+
 ## 0.1.0 (2023-11-02)
 
 

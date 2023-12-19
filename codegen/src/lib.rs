@@ -217,19 +217,17 @@ pub fn derive_nested_data(input: TokenStream) -> TokenStream {
 
 /// Derives `substrate::block::Block` for a struct or enum.
 ///
-/// You must specify the block's IO and kind by adding a `#[substrate(io = "IoType", kind = "BlockKind)]` attribute:
+/// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
 /// ```
 /// use serde::{Serialize, Deserialize};
 /// use substrate::block::Block;
 ///
 /// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
-/// #[substrate(io = "substrate::io::TestbenchIo", kind="Cell")]
+/// #[substrate(io = "substrate::io::TestbenchIo")]
 /// pub struct MyBlock {
 ///   // ...
 /// }
 /// ```
-///
-/// The available kinds can be found by looking at implementors of `substrate::block::BlockKind`.
 ///
 /// This derive macro only works if you want to use the default value of the IO.
 /// If the IO type does not implement [`Default`], or you want to use a non-default
