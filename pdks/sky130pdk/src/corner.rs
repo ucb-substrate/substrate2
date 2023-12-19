@@ -55,7 +55,6 @@ impl SimOption<Spectre> for Sky130Corner {
         opts.include_section(&design_wrapper_path, format!("{}_cell", self.name()));
         opts.include_section(&design_wrapper_path, format!("{}_parRC", self.name()));
         opts.include_section(&design_wrapper_path, format!("{}_rc", self.name()));
-        opts.include_section(&design_wrapper_path, "mc");
     }
 }
 
