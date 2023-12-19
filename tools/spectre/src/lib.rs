@@ -15,6 +15,7 @@ use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use itertools::Itertools;
+use psfparser::analysis::transient::TransientData;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{
@@ -287,7 +288,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                     raw_output_path: &output_path,
                     log_path: &log,
                     bashrc: None,
-                    format: "nutbin",
+                    format: "psfbin",
                     flags: "",
                 },
                 &run_script,
@@ -306,38 +307,18 @@ impl CacheableWithState<CachedSimState> for CachedSim {
 
             let mut raw_outputs = Vec::with_capacity(input.len());
 
-            let file = std::fs::read(&output_path)?;
-            let ast = nutlex::parse(
-                &file,
-                nutlex::Options {
-                    endianness: nutlex::ByteOrder::BigEndian,
-                },
-            )
-            .map_err(|e| {
-                tracing::error!("error parsing raw output file: {}", e);
-                Error::Parse
-            })?;
-            assert_eq!(
-                ast.analyses.len(),
-                input.len(),
-                "the output file has more analyses than the input"
-            );
-
-            for (input, output) in input.iter().zip(ast.analyses) {
+            for (i, input) in input.iter().enumerate() {
+                let file_name = match input {
+                    Input::Tran(_) => {
+                        format!("analysis{i}.tran.tran")
+                    }
+                };
+                let psf_path = output_path.join(file_name);
+                let psf = std::fs::read(psf_path)?;
+                let ast = psfparser::binary::parse(&psf).map_err(|_| Error::Parse)?;
                 match input {
                     Input::Tran(_) => {
-                        let mut values = HashMap::new();
-
-                        let data = output.data.unwrap_real();
-                        for (idx, vec) in data.into_iter().enumerate() {
-                            let var_name = output
-                                .variables
-                                .get(idx)
-                                .ok_or(Error::Parse)?
-                                .name
-                                .to_string();
-                            values.insert(var_name, vec);
-                        }
+                        let values = TransientData::from_binary(ast).signals;
                         raw_outputs.push(values);
                     }
                 }
@@ -401,7 +382,7 @@ impl Spectre {
         }
         f.write_all(&w)?;
 
-        let output_path = ctx.work_dir.join("netlist.raw");
+        let output_path = ctx.work_dir.join("psf");
         let log = ctx.work_dir.join("spectre.log");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
