@@ -16,13 +16,15 @@ pub trait FromSaved<S: Simulator, A: Analysis> {
     type SavedKey;
 
     /// Recovers the desired simulation output from the analysis's output.
-    fn from_saved(output: &<A as Analysis>::Output, key: Self::SavedKey) -> Self;
+    fn from_saved(output: &<A as Analysis>::Output, key: &Self::SavedKey) -> Self;
 }
+
+pub type SavedKey<S: Simulator, A: Analysis, T: FromSaved<S, A>> = <T as FromSaved<S, A>>::SavedKey;
 
 impl<S: Simulator, A: Analysis, T: FromSaved<S, A>> FromSaved<S, A> for Vec<T> {
     type SavedKey = Vec<<T as FromSaved<S, A>>::SavedKey>;
 
-    fn from_saved(output: &<A as Analysis>::Output, key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<A as Analysis>::Output, key: &Self::SavedKey) -> Self {
         key.into_iter()
             .map(|key| T::from_saved(output, key))
             .collect()
@@ -33,7 +35,7 @@ impl<S: Simulator, A: Analysis, T: FromSaved<S, A>> FromSaved<S, A> for Vec<T> {
 ///
 /// `T` is any type that can be used as arguments for deciding what should be saved in
 /// this simulation output.
-pub trait Save<S: Simulator, A: Analysis + SupportedBy<S>, T>: FromSaved<S, A> {
+pub trait Save<S: Simulator, A: SupportedBy<S>, T>: FromSaved<S, A> {
     /// Marks the given output for saving, returning a key that can be used to recover
     /// the output once the simulation is complete.
     fn save(
@@ -51,43 +53,6 @@ pub trait SaveTb<S: Simulator, A: Analysis, T: FromSaved<S, A>>: ExportsNestedDa
         cell: &Cell<Self>,
         opts: &mut <S as Simulator>::Options,
     ) -> <T as FromSaved<S, A>>::SavedKey;
-}
-
-#[impl_dispatch({NestedNode; &NestedNode})]
-impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, NodePath>> Save<S, A, N> for T {
-    fn save(
-        ctx: &SimulationContext<S>,
-        to_save: N,
-        opts: &mut <S as Simulator>::Options,
-    ) -> Self::SavedKey {
-        T::save(ctx, to_save.path(), opts)
-    }
-}
-
-#[impl_dispatch({TerminalPath; &TerminalPath})]
-impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: for<'a> Save<S, A, &'a NodePath>>
-    Save<S, A, N> for T
-{
-    fn save(
-        ctx: &SimulationContext<S>,
-        to_save: N,
-        opts: &mut <S as Simulator>::Options,
-    ) -> Self::SavedKey {
-        T::save(ctx, to_save.as_ref(), opts)
-    }
-}
-
-#[impl_dispatch({NestedTerminal; &NestedTerminal})]
-impl<N, S: Simulator, A: Analysis + SupportedBy<S>, T: Save<S, A, TerminalPath>> Save<S, A, N>
-    for T
-{
-    fn save(
-        ctx: &SimulationContext<S>,
-        to_save: N,
-        opts: &mut <S as Simulator>::Options,
-    ) -> Self::SavedKey {
-        T::save(ctx, to_save.path(), opts)
-    }
 }
 
 /// Transient data definitions.

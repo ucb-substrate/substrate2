@@ -9,7 +9,10 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::tran::Tran;
+use crate::analysis::montecarlo;
+use crate::analysis::montecarlo::MonteCarlo;
+use analysis::tran;
+use analysis::tran::Tran;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -35,14 +38,14 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption};
-use substrate::simulation::{SimulationContext, Simulator};
+use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
+pub mod analysis;
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
-pub mod tran;
 
 /// Spectre primitives.
 #[derive(Debug, Clone)]
@@ -340,6 +343,9 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                         }
                         raw_outputs.push(values);
                     }
+                    Input::MonteCarlo(_) => {
+                        todo!()
+                    }
                 }
             }
             Ok(raw_outputs)
@@ -395,8 +401,7 @@ impl Spectre {
 
         writeln!(w)?;
         for (i, an) in input.iter().enumerate() {
-            write!(w, "analysis{i} ")?;
-            an.netlist(&mut w)?;
+            an.netlist(&mut w, &subanalysis_name("analysis", i))?;
             writeln!(w)?;
         }
         f.write_all(&w)?;
@@ -667,6 +672,8 @@ impl Simulator for Spectre {
 pub enum Input {
     /// Transient simulation input.
     Tran(Tran),
+    /// A Monte Carlo input.
+    MonteCarlo(MonteCarlo<Vec<Input>>),
 }
 
 impl From<Tran> for Input {
@@ -675,11 +682,18 @@ impl From<Tran> for Input {
     }
 }
 
+impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for Input {
+    fn from(value: MonteCarlo<A>) -> Self {
+        Self::MonteCarlo(value.into())
+    }
+}
+
 /// Outputs directly produced by Spectre.
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
     Tran(tran::Output),
+    MonteCarlo(montecarlo::Output<Vec<Output>>),
 }
 
 impl From<tran::Output> for Output {
@@ -693,14 +707,33 @@ impl TryFrom<Output> for tran::Output {
     fn try_from(value: Output) -> Result<Self> {
         match value {
             Output::Tran(t) => Ok(t),
+            _ => Err(Error::SpectreError),
+        }
+    }
+}
+
+impl From<montecarlo::Output<Vec<Output>>> for Output {
+    fn from(value: montecarlo::Output<Vec<Output>>) -> Self {
+        Self::MonteCarlo(value)
+    }
+}
+
+impl TryFrom<Output> for montecarlo::Output<Vec<Output>> {
+    type Error = Error;
+    fn try_from(value: Output) -> Result<Self> {
+        match value {
+            Output::MonteCarlo(mc) => Ok(mc),
+            _ => Err(Error::SpectreError),
         }
     }
 }
 
 impl Input {
-    fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
+    fn netlist<W: Write>(&self, out: &mut W, name: &str) -> Result<()> {
+        write!(out, "{name} ")?;
         match self {
             Self::Tran(t) => t.netlist(out),
+            Self::MonteCarlo(mc) => mc.netlist(out, name),
         }
     }
 }
@@ -714,6 +747,36 @@ impl Tran {
         if let Some(errpreset) = self.errpreset {
             write!(out, " errpreset={errpreset}")?;
         }
+        Ok(())
+    }
+}
+
+fn subanalysis_name(prefix: &str, idx: usize) -> String {
+    format!("{prefix}_{idx}")
+}
+
+impl MonteCarlo<Vec<Input>> {
+    fn netlist<W: Write>(&self, out: &mut W, prefix: &str) -> Result<()> {
+        write!(
+            out,
+            "montecarlo variations={} numruns={} savefamilyplots=yes",
+            self.variations, self.numruns
+        )?;
+        if let Some(seed) = self.seed {
+            write!(out, " seed={seed}")?;
+        }
+        if let Some(firstrun) = self.firstrun {
+            write!(out, " firstrun={firstrun}")?;
+        }
+        write!(out, "{{")?;
+
+        for (i, an) in self.analysis.iter().enumerate() {
+            let name = subanalysis_name(prefix, i);
+            write!(out, "\n\t")?;
+            an.netlist(out, &name)?;
+        }
+        write!(out, "\n}}")?;
+
         Ok(())
     }
 }

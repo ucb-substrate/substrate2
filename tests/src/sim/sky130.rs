@@ -62,7 +62,7 @@ impl<S> Schematic<S> for And2Tb {
     }
 }
 
-#[impl_dispatch({Spectre, spectre::tran::Tran; Ngspice, ngspice::tran::Tran})]
+#[impl_dispatch({Spectre, spectre::analysis::tran::Tran; Ngspice, ngspice::tran::Tran})]
 impl<S, A> SaveTb<S, A, tran::Voltage> for And2Tb {
     fn save_tb(
         ctx: &SimulationContext<S>,
@@ -98,7 +98,7 @@ impl Testbench<Spectre> for And2Tb {
         sim.set_option(Sky130Corner::Tt, &mut opts);
         sim.simulate(
             opts,
-            spectre::tran::Tran {
+            spectre::analysis::tran::Tran {
                 stop: dec!(2e-9),
                 errpreset: Some(spectre::ErrPreset::Conservative),
                 ..Default::default()

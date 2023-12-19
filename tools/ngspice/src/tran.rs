@@ -41,7 +41,7 @@ pub struct Output {
 
 impl FromSaved<Ngspice, Tran> for Output {
     type SavedKey = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: &Self::SavedKey) -> Self {
         (*output).clone()
     }
 }
@@ -57,7 +57,7 @@ impl Save<Ngspice, Tran, ()> for Output {
 
 impl FromSaved<Ngspice, Tran> for tran::Time {
     type SavedKey = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: &Self::SavedKey) -> Self {
         tran::Time(output.time.clone())
     }
 }
@@ -77,7 +77,7 @@ pub struct VoltageSavedKey(pub(crate) u64);
 
 impl FromSaved<Ngspice, Tran> for tran::Voltage {
     type SavedKey = VoltageSavedKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, key: &Self::SavedKey) -> Self {
         tran::Voltage(
             output
                 .raw_values
@@ -155,7 +155,7 @@ pub struct CurrentSavedKey(pub(crate) Vec<u64>);
 
 impl FromSaved<Ngspice, Tran> for tran::Current {
     type SavedKey = CurrentSavedKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, key: &Self::SavedKey) -> Self {
         let currents: Vec<Arc<Vec<f64>>> = key
             .0
             .iter()

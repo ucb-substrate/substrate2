@@ -1,15 +1,17 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use spectre::analysis::montecarlo;
+use spectre::analysis::montecarlo::{MonteCarlo, Variations};
+use spectre::analysis::tran::Tran;
 use spectre::blocks::{Iprobe, Vsource};
-use spectre::tran::Tran;
 use spectre::{Options, Spectre};
 use spice::Spice;
 use substrate::block::Block;
 use substrate::io::TestbenchIo;
 use substrate::io::{SchematicType, Signal};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
-use substrate::simulation::{SimulationContext, Simulator, Testbench};
+use substrate::simulation::data::{tran, FromSaved, Save, SaveTb, SavedKey};
+use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy, Testbench};
 
 use crate::hard_macro::VdividerDuplicateSubckt;
 use crate::shared::vdivider::{Resistor, Vdivider, VdividerArray};
@@ -121,25 +123,78 @@ impl Testbench<Spectre> for VdividerDuplicateSubcktTb {
         .expect("failed to run simulation")
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize, FromSaved)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VdividerTbOutput {
     pub current: tran::Current,
     pub iprobe: tran::Current,
     pub vdd: tran::Voltage,
     pub out: tran::Voltage,
+    pub mc_out: montecarlo::Output<tran::Voltage>,
 }
 
-impl SaveTb<Spectre, Tran, VdividerTbOutput> for VdividerTb {
+pub struct VdividerTbOutputSavedKey {
+    pub current: SavedKey<Spectre, Tran, tran::Current>,
+    pub iprobe: SavedKey<Spectre, Tran, tran::Current>,
+    pub vdd: SavedKey<Spectre, Tran, tran::Voltage>,
+    pub out: SavedKey<Spectre, Tran, tran::Voltage>,
+    pub mc_out: SavedKey<Spectre, MonteCarlo<Tran>, montecarlo::Output<tran::Voltage>>,
+}
+
+pub struct VdividerAnalysis {
+    tran: Tran,
+    mc: MonteCarlo<Tran>,
+}
+
+pub struct VdividerAnalysisOutput {
+    tran: spectre::analysis::tran::Output,
+    mc: Vec<spectre::analysis::tran::Output>,
+}
+impl Analysis for VdividerAnalysis {
+    type Output = VdividerAnalysisOutput;
+}
+
+impl SupportedBy<Spectre> for VdividerAnalysis {
+    fn into_input(self, inputs: &mut Vec<<Spectre as Simulator>::Input>) {
+        self.tran.into_input(inputs);
+        self.mc.into_input(inputs);
+    }
+
+    fn from_output(
+        outputs: &mut impl Iterator<Item = <Spectre as Simulator>::Output>,
+    ) -> Self::Output {
+        VdividerAnalysisOutput {
+            tran: outputs.next().unwrap().try_into().unwrap(),
+            mc: outputs.next().unwrap().try_into().unwrap(),
+        }
+    }
+}
+
+impl FromSaved<Spectre, VdividerAnalysis> for VdividerTbOutput {
+    type SavedKey = VdividerTbOutputSavedKey;
+
+    fn from_saved(output: &<VdividerAnalysis as Analysis>::Output, key: &Self::SavedKey) -> Self {
+        Self {
+            current: tran::Current::from_saved(&output.tran, &key.current),
+            iprobe: tran::Current::from_saved(&output.tran, &key.iprobe),
+            vdd: tran::Voltage::from_saved(&output.tran, &key.vdd),
+            out: tran::Voltage::from_saved(&output.tran, &key.out),
+            mc_out: montecarlo::Output::<_>::from_saved(&output.mc, &key.mc_out),
+        }
+    }
+}
+
+impl SaveTb<Spectre, VdividerAnalysis, VdividerTbOutput> for VdividerTb {
     fn save_tb(
         ctx: &SimulationContext<Spectre>,
         to_save: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> <VdividerTbOutput as FromSaved<Spectre, Tran>>::SavedKey {
+    ) -> SavedKey<Spectre, VdividerAnalysis, VdividerTbOutput> {
         VdividerTbOutputSavedKey {
             current: tran::Current::save(ctx, to_save.dut.io().pwr.vdd, opts),
             iprobe: tran::Current::save(ctx, to_save.iprobe.io().p, opts),
             vdd: tran::Voltage::save(ctx, to_save.dut.io().pwr.vdd, opts),
             out: tran::Voltage::save(ctx, to_save.dut.io().out, opts),
+            mc_out: tran::Voltage::save(ctx, to_save.dut.io().out, opts),
         }
     }
 }
@@ -149,9 +204,21 @@ impl Testbench<Spectre> for VdividerTb {
     fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
         sim.simulate(
             Options::default(),
-            Tran {
-                stop: dec!(1e-9),
-                ..Default::default()
+            VdividerAnalysis {
+                tran: Tran {
+                    stop: dec!(1e-9),
+                    ..Default::default()
+                },
+                mc: MonteCarlo {
+                    variations: Variations::All,
+                    numruns: 2,
+                    seed: None,
+                    firstrun: None,
+                    analysis: Tran {
+                        stop: dec!(1e-9),
+                        ..Default::default()
+                    },
+                },
             },
         )
         .expect("failed to run simulation")
