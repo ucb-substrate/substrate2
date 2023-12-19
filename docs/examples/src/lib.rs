@@ -39,9 +39,10 @@ impl Parse for GetSnippetsArgs {
 pub fn get_snippets(item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(item as GetSnippetsArgs);
 
+    let path = PathBuf::from(EXAMPLES_DIR).join(format!("{}.rs", args.example));
     let contents =
-        std::fs::read_to_string(PathBuf::from(EXAMPLES_DIR).join(format!("{}.rs", args.example)))
-            .expect("could not read example file");
+        std::fs::read_to_string(&path)
+            .expect(&format!("could not read example file: {path:?}"));
 
     let mut in_snippet = false;
     let mut hidden = false;
