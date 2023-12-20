@@ -24,9 +24,7 @@ impl<S: Simulator, A: Analysis, T: FromSaved<S, A>> FromSaved<S, A> for Vec<T> {
     type SavedKey = Vec<<T as FromSaved<S, A>>::SavedKey>;
 
     fn from_saved(output: &<A as Analysis>::Output, key: &Self::SavedKey) -> Self {
-        key.into_iter()
-            .map(|key| T::from_saved(output, key))
-            .collect()
+        key.iter().map(|key| T::from_saved(output, key)).collect()
     }
 }
 
