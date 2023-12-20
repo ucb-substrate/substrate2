@@ -108,7 +108,7 @@ fn transform_field_assign(
         ..
     } = field_tokens(style, vis, attrs, idx, ident);
     let refer = if as_enum { temp } else { refer };
-    quote!(#assign <#ty as #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS>>::from_saved(__substrate_derive_output, #refer),)
+    quote!(#assign <#ty as #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS>>::from_saved(__substrate_derive_output, &#refer),)
 }
 
 fn transform_variant_match_arm(key_ident: syn::Ident, variant: &SavedVariant) -> TokenStream {
@@ -196,7 +196,7 @@ impl ToTokens for FromSavedInputReceiver {
 
                     impl #key_imp #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS> for #ident #ty #key_wher {
                         type SavedKey = #key_ident #key_ty;
-                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: Self::SavedKey) -> Self {
+                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: &Self::SavedKey) -> Self {
                             #retval
                         }
                     }
@@ -224,7 +224,7 @@ impl ToTokens for FromSavedInputReceiver {
                     }
                     impl #key_imp #substrate::simulation::data::FromSaved<__SUBSTRATE_SIMULATOR, __SUBSTRATE_ANALYSIS> for #ident #ty #key_wher {
                         type SavedKey = #key_ident #key_ty;
-                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: Self::SavedKey) -> Self {
+                        fn from_saved(__substrate_derive_output: &<__SUBSTRATE_ANALYSIS as #substrate::simulation::Analysis>::Output, __substrate_derive_key: &Self::SavedKey) -> Self {
                             match __substrate_derive_key {
                                 #(#arms)*
                             }

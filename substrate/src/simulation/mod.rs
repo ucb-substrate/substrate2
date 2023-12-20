@@ -81,9 +81,9 @@ pub struct SimulationContext<S: Simulator + ?Sized> {
 /// Indicates that a particular analysis is supported by a simulator.
 pub trait SupportedBy<S: Simulator>: Analysis {
     /// Convert the analysis into inputs accepted by this simulator.
-    fn into_input(self, inputs: &mut Vec<S::Input>);
+    fn into_input(self, inputs: &mut Vec<<S as Simulator>::Input>);
     /// Convert this simulator's outputs to the analysis's expected output.
-    fn from_output(outputs: &mut impl Iterator<Item = S::Output>) -> Self::Output;
+    fn from_output(outputs: &mut impl Iterator<Item = <S as Simulator>::Output>) -> Self::Output;
 }
 
 /// Controls simulation options.
@@ -126,7 +126,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     {
         let key = T::save_tb(&self.ctx, &self.tb, &mut options);
         let output = self.simulate_default(options, input)?;
-        Ok(O::from_saved(&output, key))
+        Ok(O::from_saved(&output, &key))
     }
 
     /// Set an option by mutating the given options.

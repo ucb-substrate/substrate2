@@ -7,7 +7,7 @@ use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use substrate::io::{NodePath, TerminalPath};
+use substrate::io::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::NestedInstance;
@@ -41,7 +41,7 @@ pub struct Output {
 
 impl FromSaved<Ngspice, Tran> for Output {
     type SavedKey = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: &Self::SavedKey) -> Self {
         (*output).clone()
     }
 }
@@ -57,7 +57,7 @@ impl Save<Ngspice, Tran, ()> for Output {
 
 impl FromSaved<Ngspice, Tran> for tran::Time {
     type SavedKey = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, _key: &Self::SavedKey) -> Self {
         tran::Time(output.time.clone())
     }
 }
@@ -77,7 +77,7 @@ pub struct VoltageSavedKey(pub(crate) u64);
 
 impl FromSaved<Ngspice, Tran> for tran::Voltage {
     type SavedKey = VoltageSavedKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, key: &Self::SavedKey) -> Self {
         tran::Voltage(
             output
                 .raw_values
@@ -149,13 +149,35 @@ impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
     }
 }
 
+#[impl_dispatch({NestedNode; &NestedNode; NestedTerminal; &NestedTerminal})]
+impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
+    fn save(
+        ctx: &SimulationContext<Ngspice>,
+        to_save: T,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> Self::SavedKey {
+        Self::save(ctx, to_save.path(), opts)
+    }
+}
+
+#[impl_dispatch({TerminalPath; &TerminalPath})]
+impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
+    fn save(
+        ctx: &SimulationContext<Ngspice>,
+        to_save: T,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> Self::SavedKey {
+        Self::save(ctx, to_save.as_ref(), opts)
+    }
+}
+
 /// An identifier for a saved transient current.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrentSavedKey(pub(crate) Vec<u64>);
 
 impl FromSaved<Ngspice, Tran> for tran::Current {
     type SavedKey = CurrentSavedKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: Self::SavedKey) -> Self {
+    fn from_saved(output: &<Tran as Analysis>::Output, key: &Self::SavedKey) -> Self {
         let currents: Vec<Arc<Vec<f64>>> = key
             .0
             .iter()
@@ -259,6 +281,17 @@ impl<T> Save<Ngspice, Tran, T> for tran::Current {
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> Self::SavedKey {
         Self::save(ctx, &to_save, opts)
+    }
+}
+
+#[impl_dispatch({NestedTerminal; &NestedTerminal})]
+impl<T> Save<Ngspice, Tran, T> for tran::Current {
+    fn save(
+        ctx: &SimulationContext<Ngspice>,
+        to_save: T,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> Self::SavedKey {
+        Self::save(ctx, to_save.path(), opts)
     }
 }
 

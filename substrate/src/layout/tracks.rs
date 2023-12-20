@@ -40,7 +40,7 @@ impl UniformTracks {
     }
 
     /// Gets the coordinates of the `i`-th track.
-    fn get(&self, idx: i64) -> Span {
+    pub fn get(&self, idx: i64) -> Span {
         let start = self.offset + idx * self.pitch() - self.line / 2;
         Span::new(start, start + self.line)
     }
