@@ -32,7 +32,8 @@ use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::context::Installation;
 use substrate::execute::Executor;
-use substrate::io::{NodePath, SchematicType};
+use substrate::io::schematic::HardwareType;
+use substrate::io::schematic::NodePath;
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
@@ -633,7 +634,7 @@ impl FromSchema<Spice> for Spectre {
 impl Schematic<Spectre> for Resistor {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -654,7 +655,7 @@ impl Schematic<Spectre> for Resistor {
 impl Schematic<Spectre> for Capacitor {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -675,7 +676,7 @@ impl Schematic<Spectre> for Capacitor {
 impl Schematic<Spectre> for RawInstance {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use substrate::io::*;
 use substrate::schematic::*;
 
+use substrate::io::schematic::HardwareType;
 use substrate::schematic::schema::Schema;
 use substrate::{block::Block, schematic::Schematic};
 
@@ -42,7 +43,7 @@ impl ExportsNestedData for ArrayShort {
 impl<S: Schema> Schematic<S> for ArrayShort {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         for i in 0..self.width {

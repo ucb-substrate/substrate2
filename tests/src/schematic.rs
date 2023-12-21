@@ -5,7 +5,8 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
 use substrate::context::Context;
-use substrate::io::SchematicType;
+use substrate::io::schematic::HardwareType;
+use substrate::io::PowerIo;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::CellBuilder;
 use substrate::type_dispatch::impl_dispatch;
@@ -19,7 +20,7 @@ use substrate::{
 use crate::shared::{
     buffer::Buffer,
     pdk::ExamplePdkA,
-    vdivider::{PowerIo, Vdivider, VdividerIo},
+    vdivider::{Vdivider, VdividerIo},
 };
 use crate::shared::{buffer::BufferNxM, pdk::ExamplePdkB};
 
@@ -219,7 +220,7 @@ impl ExportsNestedData for Block1 {
 impl<PDK> Schematic<PDK> for Block1 {
     fn schematic(
         &self,
-        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        _io: &<<Self as Block>::Io as HardwareType>::Bundle,
         _cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
         Err(substrate::error::Error::Anyhow(
@@ -254,7 +255,7 @@ impl ExportsNestedData for Block2 {
 impl Schematic<ExamplePdkA> for Block2 {
     fn schematic(
         &self,
-        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        _io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate(Block1);
@@ -267,7 +268,7 @@ impl Schematic<ExamplePdkA> for Block2 {
 impl Schematic<ExamplePdkB> for Block2 {
     fn schematic(
         &self,
-        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        _io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::NestedData> {
         let handle = cell.generate_blocking(Block1)?;

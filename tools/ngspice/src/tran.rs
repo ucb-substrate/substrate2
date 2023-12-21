@@ -7,7 +7,7 @@ use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use substrate::io::{NestedNode, NestedTerminal, NodePath, TerminalPath};
+use substrate::io::schematic::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::NestedInstance;

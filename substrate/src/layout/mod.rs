@@ -23,7 +23,7 @@ use geometry::{
 };
 use once_cell::sync::OnceCell;
 
-use crate::io::LayoutType;
+use crate::io::layout::{Builder, HardwareType};
 use crate::pdk::Pdk;
 use crate::{block::Block, error::Error};
 use crate::{context::PdkContext, error::Result};
@@ -59,7 +59,7 @@ pub trait Layout<PDK: Pdk>: ExportsLayoutData {
     /// Generates the block's layout.
     fn layout(
         &self,
-        io: &mut <<Self as Block>::Io as LayoutType>::Builder,
+        io: &mut Builder<<Self as Block>::Io>,
         cell: &mut CellBuilder<PDK, Self>,
     ) -> Result<Self::LayoutData>;
 }
@@ -100,7 +100,7 @@ pub struct Cell<T: ExportsLayoutData> {
     block: Arc<T>,
     /// Extra data created during layout generation.
     data: T::LayoutData,
-    pub(crate) io: Arc<<T::Io as LayoutType>::Bundle>,
+    pub(crate) io: Arc<<T::Io as HardwareType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
 }
 
@@ -108,7 +108,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
         data: T::LayoutData,
-        io: Arc<<T::Io as LayoutType>::Bundle>,
+        io: Arc<<T::Io as HardwareType>::Bundle>,
         raw: Arc<RawCell>,
     ) -> Self {
         Self {
@@ -130,7 +130,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     }
 
     /// Returns the geometry of the cell's IO.
-    pub fn io(&self) -> &<T::Io as LayoutType>::Bundle {
+    pub fn io(&self) -> &<T::Io as HardwareType>::Bundle {
         self.io.as_ref()
     }
 }
@@ -184,7 +184,7 @@ pub struct TransformedCell<'a, T: ExportsLayoutData> {
     /// Extra data created during layout generation.
     data: Transformed<'a, T::LayoutData>,
     /// The geometry of the cell's IO.
-    io: Transformed<'a, <T::Io as LayoutType>::Bundle>,
+    io: Transformed<'a, <T::Io as HardwareType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
     pub(crate) trans: Transformation,
 }
@@ -314,7 +314,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as LayoutType>::Bundle>> {
+    pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as HardwareType>::Bundle>> {
         Ok(self.try_cell()?.io)
     }
 
@@ -325,7 +325,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> Transformed<'_, <T::Io as LayoutType>::Bundle> {
+    pub fn io(&self) -> Transformed<'_, <T::Io as HardwareType>::Bundle> {
         self.cell().io
     }
 }

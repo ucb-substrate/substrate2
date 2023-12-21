@@ -21,10 +21,9 @@ use crate::cache::Cache;
 use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
-use crate::io::{
-    Flatten, Flipped, HasNameTree, LayoutBundleBuilder, LayoutType, NodeContext, NodePriority,
-    Port, SchematicType,
-};
+use crate::io::layout::{BundleBuilder, HardwareType as LayoutType};
+use crate::io::schematic::{HardwareType as SchematicType, NodeContext, NodePriority, Port};
+use crate::io::{Flatten, Flipped, HasNameTree};
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};

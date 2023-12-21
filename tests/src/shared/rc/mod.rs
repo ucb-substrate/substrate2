@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use spectre::analysis::tran::Tran;
 use spectre::{Options, Spectre};
 use substrate::block::Block;
-use substrate::io::{Node, Signal};
-use substrate::io::{SchematicType, TestbenchIo};
+use substrate::io::schematic::{HardwareType, Node};
+use substrate::io::Signal;
+use substrate::io::TestbenchIo;
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
@@ -35,7 +36,7 @@ impl ExportsNestedData for RcTb {
 impl Schematic<Spectre> for RcTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vout = cell.signal("vout", Signal);

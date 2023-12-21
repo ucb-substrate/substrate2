@@ -16,9 +16,10 @@ use geometry::{
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+use crate::io::layout::PortGeometry;
 use crate::{
     error::{Error, Result},
-    io::{NameBuf, PortGeometry},
+    io::NameBuf,
     pdk::{layers::LayerId, Pdk},
 };
 

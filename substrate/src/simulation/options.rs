@@ -10,7 +10,7 @@ pub trait SimOption<S: Simulator> {
 
 /// Initial conditions.
 pub mod ic {
-    use crate::io::{NestedNode, NestedTerminal, NodePath, TerminalPath};
+    use crate::io::schematic::{NestedNode, NestedTerminal, NodePath, TerminalPath};
     use crate::simulation::{SimulationContext, Simulator};
     use rust_decimal::Decimal;
     use std::ops::{Deref, DerefMut};

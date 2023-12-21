@@ -1,10 +1,13 @@
 //! Built-in implementations of IO traits.
 
+use crate::io::layout::{
+    BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometryBuilder,
+};
+use crate::io::schematic::{Connect, HasTerminalView};
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
 
-use crate::layout::error::LayoutError;
 use crate::schematic::HasNestedView;
 
 use super::*;
@@ -44,7 +47,7 @@ impl Flatten<Direction> for () {
     }
 }
 
-impl SchematicType for () {
+impl schematic::HardwareType for () {
     type Bundle = ();
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         ((), ids)
@@ -65,14 +68,14 @@ impl Flatten<Node> for () {
     }
 }
 
-impl LayoutType for () {
+impl layout::HardwareType for () {
     type Bundle = ();
     type Builder = ();
 
     fn builder(&self) {}
 }
 
-impl LayoutBundleBuilder<()> for () {
+impl BundleBuilder<()> for () {
     fn build(self) -> Result<()> {
         Ok(())
     }
@@ -101,7 +104,7 @@ impl Flatten<Direction> for Signal {
     }
 }
 
-impl SchematicType for Signal {
+impl schematic::HardwareType for Signal {
     type Bundle = Node;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
         if let [id, rest @ ..] = ids {
@@ -112,7 +115,7 @@ impl SchematicType for Signal {
     }
 }
 
-impl LayoutType for Signal {
+impl layout::HardwareType for Signal {
     type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
 
@@ -124,271 +127,6 @@ impl LayoutType for Signal {
 impl HasNameTree for Signal {
     fn names(&self) -> Option<Vec<NameTree>> {
         Some(vec![])
-    }
-}
-
-impl FlatLen for ShapePort {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl LayoutType for ShapePort {
-    type Bundle = IoShape;
-    type Builder = OptionBuilder<IoShape>;
-
-    fn builder(&self) -> Self::Builder {
-        Default::default()
-    }
-}
-
-impl HasNameTree for ShapePort {
-    fn names(&self) -> Option<Vec<NameTree>> {
-        Some(vec![])
-    }
-}
-
-impl CustomLayoutType<Signal> for ShapePort {
-    fn from_layout_type(_other: &Signal) -> Self {
-        ShapePort
-    }
-}
-
-impl FlatLen for LayoutPort {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl LayoutType for LayoutPort {
-    type Bundle = PortGeometry;
-    type Builder = PortGeometryBuilder;
-
-    fn builder(&self) -> Self::Builder {
-        Default::default()
-    }
-}
-
-impl HasNameTree for LayoutPort {
-    fn names(&self) -> Option<Vec<NameTree>> {
-        Some(vec![])
-    }
-}
-
-impl CustomLayoutType<Signal> for LayoutPort {
-    fn from_layout_type(_other: &Signal) -> Self {
-        LayoutPort
-    }
-}
-
-impl FlatLen for Node {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl Flatten<Node> for Node {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        output.extend(std::iter::once(*self));
-    }
-}
-
-impl HasNestedView for Node {
-    type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedNode {
-            node: *self,
-            instances: parent.clone(),
-        }
-    }
-}
-
-impl HasTerminalView for Node {
-    type TerminalView = Terminal;
-
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView {
-        Terminal {
-            cell_id: cell,
-            cell_node: *cell_io,
-            instance_id: instance,
-            instance_node: *instance_io,
-        }
-    }
-}
-
-impl HasNestedView for NestedNode {
-    type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedNode {
-            node: self.node,
-            instances: self.instances.prepend(parent),
-        }
-    }
-}
-
-impl FlatLen for Vec<Node> {
-    fn len(&self) -> usize {
-        self.len()
-    }
-}
-
-impl Flatten<Node> for Vec<Node> {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        output.extend(self.iter().copied());
-    }
-}
-
-impl FlatLen for Terminal {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl Flatten<Node> for Terminal {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        self.instance_node.flatten(output);
-    }
-}
-
-impl HasNestedView for Terminal {
-    type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedTerminal(NestedNode {
-            instances: parent.append_segment(self.instance_id, self.cell_id),
-            node: self.cell_node,
-        })
-    }
-}
-
-impl HasNestedView for NestedTerminal {
-    type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedTerminal(self.0.nested_view(parent))
-    }
-}
-
-impl FlatLen for IoShape {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl Flatten<PortGeometry> for IoShape {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
-        output.extend(std::iter::once(PortGeometry {
-            primary: self.clone(),
-            unnamed_shapes: Vec::new(),
-            named_shapes: HashMap::new(),
-        }));
-    }
-}
-
-impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
-    fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
-        self.set(source.get(path).unwrap().primary.clone());
-    }
-}
-
-impl<T: LayoutBundle> LayoutBundleBuilder<T> for OptionBuilder<T> {
-    fn build(self) -> Result<T> {
-        self.build()
-    }
-}
-
-impl FlatLen for PortGeometry {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl Flatten<PortGeometry> for PortGeometry {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
-        output.extend(std::iter::once(self.clone()));
-    }
-}
-
-impl<'a> From<TransformedPortGeometry<'a>> for PortGeometry {
-    fn from(value: TransformedPortGeometry<'a>) -> Self {
-        Self {
-            primary: value.primary,
-            unnamed_shapes: value.unnamed_shapes.to_vec(),
-            named_shapes: value
-                .named_shapes
-                .to_hash_map()
-                .into_iter()
-                .map(|(name, shape)| (name.clone(), shape))
-                .collect(),
-        }
-    }
-}
-
-impl HasTransformedView for PortGeometry {
-    type TransformedView<'a> = TransformedPortGeometry<'a>;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
-        Self::TransformedView {
-            primary: self.primary.transformed_view(trans),
-            unnamed_shapes: self.unnamed_shapes.transformed_view(trans),
-            named_shapes: self.named_shapes.transformed_view(trans),
-        }
-    }
-}
-
-impl FlatLen for PortGeometryBuilder {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl LayoutBundleBuilder<PortGeometry> for PortGeometryBuilder {
-    fn build(self) -> Result<PortGeometry> {
-        Ok(PortGeometry {
-            primary: self.primary.ok_or_else(|| {
-                tracing::event!(
-                    Level::ERROR,
-                    "primary shape in port geometry was not specified"
-                );
-                LayoutError::IoDefinition
-            })?,
-            unnamed_shapes: self.unnamed_shapes,
-            named_shapes: self.named_shapes,
-        })
-    }
-}
-
-impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
-    fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
-        let source = source.get(path).unwrap();
-        self.primary = Some(source.primary.clone());
-        self.unnamed_shapes.clone_from(&source.unnamed_shapes);
-        self.named_shapes.clone_from(&source.named_shapes);
     }
 }
 
@@ -425,9 +163,9 @@ impl<T> Borrow<T> for Input<T> {
     }
 }
 
-impl<T> SchematicType for Input<T>
+impl<T> schematic::HardwareType for Input<T>
 where
-    T: SchematicType,
+    T: schematic::HardwareType,
 {
     type Bundle = T::Bundle;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
@@ -436,9 +174,9 @@ where
     }
 }
 
-impl<T> LayoutType for Input<T>
+impl<T> layout::HardwareType for Input<T>
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -448,12 +186,12 @@ where
     }
 }
 
-impl<T, U: CustomLayoutType<T>> CustomLayoutType<Input<T>> for U
+impl<T, U: CustomHardwareType<T>> CustomHardwareType<Input<T>> for U
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     fn from_layout_type(other: &Input<T>) -> Self {
-        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -508,9 +246,9 @@ impl<T: HasTerminalView> HasTerminalView for Input<T> {
     }
 }
 
-impl<T> SchematicType for Output<T>
+impl<T> schematic::HardwareType for Output<T>
 where
-    T: SchematicType,
+    T: schematic::HardwareType,
 {
     type Bundle = T::Bundle;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
@@ -519,9 +257,9 @@ where
     }
 }
 
-impl<T> LayoutType for Output<T>
+impl<T> layout::HardwareType for Output<T>
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -531,12 +269,12 @@ where
     }
 }
 
-impl<T, U: CustomLayoutType<T>> CustomLayoutType<Output<T>> for U
+impl<T, U: CustomHardwareType<T>> CustomHardwareType<Output<T>> for U
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     fn from_layout_type(other: &Output<T>) -> Self {
-        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -623,9 +361,9 @@ impl<T> Borrow<T> for Output<T> {
     }
 }
 
-impl<T> SchematicType for InOut<T>
+impl<T> schematic::HardwareType for InOut<T>
 where
-    T: SchematicType,
+    T: schematic::HardwareType,
 {
     type Bundle = T::Bundle;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
@@ -634,9 +372,9 @@ where
     }
 }
 
-impl<T> LayoutType for InOut<T>
+impl<T> layout::HardwareType for InOut<T>
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -646,12 +384,12 @@ where
     }
 }
 
-impl<T, U: CustomLayoutType<T>> CustomLayoutType<InOut<T>> for U
+impl<T, U: CustomHardwareType<T>> CustomHardwareType<InOut<T>> for U
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     fn from_layout_type(other: &InOut<T>) -> Self {
-        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -735,9 +473,9 @@ impl<T> Borrow<T> for InOut<T> {
     }
 }
 
-impl<T> SchematicType for Flipped<T>
+impl<T> schematic::HardwareType for Flipped<T>
 where
-    T: SchematicType,
+    T: schematic::HardwareType,
 {
     type Bundle = T::Bundle;
     fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
@@ -746,9 +484,9 @@ where
     }
 }
 
-impl<T> LayoutType for Flipped<T>
+impl<T> layout::HardwareType for Flipped<T>
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -758,12 +496,12 @@ where
     }
 }
 
-impl<T, U: CustomLayoutType<T>> CustomLayoutType<Flipped<T>> for U
+impl<T, U: CustomHardwareType<T>> CustomHardwareType<Flipped<T>> for U
 where
-    T: LayoutType,
+    T: layout::HardwareType,
 {
     fn from_layout_type(other: &Flipped<T>) -> Self {
-        <U as CustomLayoutType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
     }
 }
 
@@ -843,7 +581,7 @@ impl<T: FlatLen> FlatLen for Array<T> {
     }
 }
 
-impl<T: SchematicType> SchematicType for Array<T> {
+impl<T: schematic::HardwareType> schematic::HardwareType for Array<T> {
     type Bundle = ArrayData<T::Bundle>;
 
     fn instantiate<'n>(&self, mut ids: &'n [Node]) -> (Self::Bundle, &'n [Node]) {
@@ -864,7 +602,7 @@ impl<T: SchematicType> SchematicType for Array<T> {
     }
 }
 
-impl<T: LayoutType> LayoutType for Array<T> {
+impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
     type Bundle = ArrayData<T::Bundle>;
     type Builder = ArrayData<T::Builder>;
 
@@ -876,10 +614,10 @@ impl<T: LayoutType> LayoutType for Array<T> {
     }
 }
 
-impl<T: LayoutType, U: LayoutType + CustomLayoutType<T>> CustomLayoutType<Array<T>> for Array<U> {
+impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array<T>> for Array<U> {
     fn from_layout_type(other: &Array<T>) -> Self {
         Self {
-            ty: <U as CustomLayoutType<T>>::from_layout_type(&other.ty),
+            ty: <U as CustomHardwareType<T>>::from_layout_type(&other.ty),
             len: other.len,
         }
     }
@@ -935,9 +673,7 @@ impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
     }
 }
 
-impl<T: LayoutBundle, B: LayoutBundleBuilder<T>> LayoutBundleBuilder<ArrayData<T>>
-    for ArrayData<B>
-{
+impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayData<T>> for ArrayData<B> {
     fn build(self) -> Result<ArrayData<T>> {
         let mut elems = Vec::new();
         for e in self.elems {
@@ -1214,24 +950,6 @@ impl NameBuf {
     #[inline]
     pub fn pop(&mut self) -> Option<NameFragment> {
         self.fragments.pop()
-    }
-}
-
-impl Port {
-    #[inline]
-    pub(crate) fn new(node: Node, direction: Direction) -> Self {
-        Self { node, direction }
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn direction(&self) -> Direction {
-        self.direction
-    }
-
-    #[inline]
-    pub(crate) fn node(&self) -> Node {
-        self.node
     }
 }
 
