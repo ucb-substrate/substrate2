@@ -11,7 +11,8 @@ use sky130pdk::Sky130Pdk;
 use spectre::analysis::montecarlo::Variations;
 use spectre::Spectre;
 use substrate::block::Block;
-use substrate::io::{PowerIoSchematic, SchematicType, Terminal, TestbenchIo};
+use substrate::io::schematic::{Bundle, HardwareType, Terminal};
+use substrate::io::{PowerIo, TestbenchIo};
 use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
@@ -34,7 +35,7 @@ impl ExportsNestedData for And2Tb {
 impl<S> Schematic<S> for And2Tb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vddsrc = cell.instantiate(DcVsource::new(self.vdd));
@@ -45,7 +46,7 @@ impl<S> Schematic<S> for And2Tb {
             .instantiate_blocking(And2::S0)
             .unwrap();
 
-        let pwr = PowerIoSchematic {
+        let pwr = Bundle::<PowerIo> {
             vdd: *vddsrc.io().p,
             vss: *vddsrc.io().n,
         };
@@ -54,7 +55,7 @@ impl<S> Schematic<S> for And2Tb {
         cell.connect_multiple(&[vddsrc.io().n, asrc.io().n, bsrc.io().n]);
         cell.connect(
             &and2.io().pwr,
-            sky130pdk::stdcells::PowerIoSchematic::with_bodies_tied_to_rails(pwr),
+            Bundle::<sky130pdk::stdcells::PowerIo>::with_bodies_tied_to_rails(pwr),
         );
         cell.connect(and2.io().a, asrc.io().p);
         cell.connect(and2.io().b, bsrc.io().p);

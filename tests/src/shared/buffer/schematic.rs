@@ -1,7 +1,8 @@
 use crate::shared::buffer::{Buffer, BufferNxM};
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{MosIo, NestedTerminal, SchematicType, Terminal};
+use substrate::io::schematic::{HardwareType, NestedTerminal, Terminal};
+use substrate::io::MosIo;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, InstancePath, NestedInstance};
 use substrate::type_dispatch::impl_dispatch;
@@ -73,7 +74,7 @@ impl ExportsNestedData for InverterMos {
 impl Schematic<ExamplePdkA> for InverterMos {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         match self {
@@ -94,7 +95,7 @@ impl Schematic<ExamplePdkA> for InverterMos {
 impl Schematic<ExamplePdkB> for InverterMos {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::NestedData> {
         match self {
@@ -126,7 +127,7 @@ impl ExportsNestedData for Inverter {
 impl<PDK> Schematic<PDK> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(InverterMos::Nmos);
@@ -152,7 +153,7 @@ impl<PDK> Schematic<PDK> for Inverter {
 impl Schematic<ExamplePdkC> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkC>,
     ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(NmosC { w: 50, l: 50 });
@@ -189,7 +190,7 @@ impl ExportsNestedData for Buffer {
 impl<PDK> Schematic<PDK> for Buffer {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
         let inv1 = cell.instantiate(Inverter::new(self.strength));
@@ -232,7 +233,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut buffers = Vec::new();
@@ -275,7 +276,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut buffer_chains = Vec::new();

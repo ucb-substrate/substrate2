@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use substrate::io::{
-    Array, CustomLayoutType, InOut, Input, Io, LayoutPort, LayoutType, Output, ShapePort, Signal,
-};
+use substrate::io::{Array, InOut, Input, Io, Output, Signal};
 
 use substrate::block::Block;
+use substrate::io::layout::{CustomHardwareType, HardwareType, Port, ShapePort};
 
 pub mod layout;
 pub mod schematic;
@@ -84,19 +83,19 @@ pub struct BufferNIo {
     pub dout: Output<Signal>,
 }
 
-#[derive(LayoutType, Clone)]
+#[derive(HardwareType, Clone)]
 pub struct BufferNIoLayout {
-    pub vdd: LayoutPort,
-    pub vss: LayoutPort,
+    pub vdd: Port,
+    pub vss: Port,
     pub din: ShapePort,
     pub dout: ShapePort,
 }
 
-impl CustomLayoutType<BufferNIo> for BufferNIoLayout {
+impl CustomHardwareType<BufferNIo> for BufferNIoLayout {
     fn from_layout_type(_other: &BufferNIo) -> Self {
         Self {
-            vdd: LayoutPort,
-            vss: LayoutPort,
+            vdd: Port,
+            vss: Port,
             din: ShapePort,
             dout: ShapePort,
         }

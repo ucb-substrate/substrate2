@@ -11,7 +11,7 @@ use scir::{Instance, Library, ParamValue};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use substrate::block::Block;
-use substrate::io::SchematicType;
+use substrate::io::schematic::HardwareType;
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{CellBuilder, Schematic};
 use unicase::UniCase;
@@ -207,7 +207,7 @@ impl Primitive {
 impl Schematic<Spice> for Resistor {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spice>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {

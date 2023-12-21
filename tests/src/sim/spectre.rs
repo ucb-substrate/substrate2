@@ -16,7 +16,8 @@ use substrate::block::Block;
 use substrate::cache::Cache;
 use substrate::context::Context;
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::io::{InOut, SchematicType, Signal, TestbenchIo};
+use substrate::io::schematic::HardwareType;
+use substrate::io::{InOut, Signal, TestbenchIo};
 use substrate::io::{Io, TwoTerminalIo};
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{
@@ -198,7 +199,7 @@ fn spectre_can_include_sections() {
     impl Schematic<Spectre> for LibIncludeResistor {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
             let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
@@ -231,7 +232,7 @@ fn spectre_can_include_sections() {
     impl Schematic<Spectre> for LibIncludeTb {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);
@@ -309,7 +310,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     impl Schematic<Spectre> for ScirResistor {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
             let mut scir = Spice::scir_cell_from_str(
@@ -341,7 +342,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     impl Schematic<Spectre> for VirtualResistor {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
             cell.instantiate_connected(ScirResistor, io);
@@ -369,7 +370,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
     impl Schematic<Spectre> for VirtualResistorTb {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Spectre>,
         ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);

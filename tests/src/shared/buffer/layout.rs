@@ -5,9 +5,9 @@ use geometry::{
     union::BoundingUnion,
 };
 
+use substrate::io::layout::IoShape;
 use substrate::pdk::Pdk;
 use substrate::{
-    io::IoShape,
     layout::{
         element::Shape,
         tiling::{ArrayTiler, Tile, TileAlignMode},
@@ -28,7 +28,7 @@ impl ExportsLayoutData for Inverter {
 impl Layout<ExamplePdkA> for Inverter {
     fn layout(
         &self,
-        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(Shape::new(
@@ -63,7 +63,7 @@ impl Layout<ExamplePdkA> for Inverter {
 impl Layout<ExamplePdkB> for Inverter {
     fn layout(
         &self,
-        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
         cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(Shape::new(
@@ -169,7 +169,7 @@ where
 {
     fn layout(
         &self,
-        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let derived_layers: BufferDerivedLayers = cell.ctx.layers.as_ref().into();
@@ -223,7 +223,7 @@ where
 {
     fn layout(
         &self,
-        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let buffer = cell.generate(Buffer::new(self.strength));
@@ -276,7 +276,7 @@ where
 {
     fn layout(
         &self,
-        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::LayoutType>::Builder,
+        io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
         cell: &mut substrate::layout::CellBuilder<PDK, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let derived_layers: BufferDerivedLayers = cell.ctx.layers.as_ref().into();

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use cache::Cacheable;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use substrate::io::SchematicType;
+use substrate::io::schematic::HardwareType;
 use substrate::schematic::{CellBuilder, HasNestedView, InstancePath};
 use substrate::{
     block::Block,
@@ -70,7 +70,7 @@ impl ExportsNestedData for CacheBlock {
 impl Schematic<ExamplePdkA> for CacheBlock {
     fn schematic(
         &self,
-        _io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        _io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let design = *cell

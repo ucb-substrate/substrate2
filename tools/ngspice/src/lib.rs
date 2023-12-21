@@ -25,7 +25,7 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::context::Installation;
 use substrate::execute::Executor;
-use substrate::io::SchematicType;
+use substrate::io::schematic::HardwareType;
 use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
@@ -477,7 +477,7 @@ impl FromSchema<NoSchema> for Ngspice {
 impl Schematic<Ngspice> for RawInstance {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Ngspice>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
@@ -501,7 +501,7 @@ impl Schematic<Ngspice> for RawInstance {
 impl Schematic<Ngspice> for Resistor {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Ngspice>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
