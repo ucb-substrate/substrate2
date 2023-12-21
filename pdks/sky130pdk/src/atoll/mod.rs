@@ -10,10 +10,12 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
-use substrate::io::{Array, InOut, Input, Io, IoShape, LayoutType, Signal};
+use substrate::io::{Array, InOut, Input, Io, IoShape, LayoutType, MosIoSchematic, SchematicType, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::pdk::layers::{Layer, LayerId};
+use substrate::schematic::{ExportsNestedData, Schematic};
+use crate::mos::{MosParams, Nfet01v8};
 
 #[derive(Clone)]
 pub struct Sky130AtollLayer(PdkLayer);
@@ -179,7 +181,7 @@ pub struct MosTileIo {
     pub b: InOut<Signal>,
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MosTile {
     pub w: i64,
     pub len: MosLength,
@@ -298,6 +300,26 @@ impl Layout<Sky130Pdk> for MosTile {
         cell.draw(Shape::new(cell.ctx.layers.pwell, pwell))?;
         io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, pwell));
 
+        Ok(())
+    }
+}
+
+impl ExportsNestedData for MosTile { type NestedData = (); }
+
+impl Schematic<Sky130Pdk> for MosTile {
+    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle, cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>) -> substrate::error::Result<Self::NestedData> {
+        for i in 0..self.nf as usize {
+            cell.instantiate_connected(Nfet01v8::new(MosParams {
+                w: self.w,
+                nf: 1,
+                l: self.len.nm(),
+            }), MosIoSchematic {
+                d: io.sd[i],
+                g: io.g,
+                s: io.sd[i+1],
+                b: io.b,
+            })
+        }
         Ok(())
     }
 }
