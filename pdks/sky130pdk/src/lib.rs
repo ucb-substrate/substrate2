@@ -21,7 +21,7 @@ use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::{ContextBuilder, Installation};
 
-mod atoll;
+pub mod atoll;
 pub mod corner;
 pub mod layers;
 pub mod mos;
