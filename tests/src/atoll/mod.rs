@@ -5,7 +5,6 @@ use sky130pdk::atoll::{MosLength, Sky130AtollLayer};
 use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
 use spice::netlist::NetlistOptions;
-use spice::Spice;
 use substrate::block::Block;
 use substrate::io::layout::HardwareType;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
@@ -26,7 +25,7 @@ fn sky130_atoll_nmos_tile() {
     let spice_path = get_path("sky130_atoll_nmos_tile", "schematic.sp");
     let ctx = sky130_open_ctx();
 
-    let block = sky130pdk::atoll::MosTile {
+    let block = sky130pdk::atoll::NmosTile {
         w: 1_680,
         nf: 3,
         len: MosLength::L150,
@@ -35,8 +34,16 @@ fn sky130_atoll_nmos_tile() {
     ctx.write_layout(block, gds_path)
         .expect("failed to write layout");
 
+    let scir = ctx
+        .export_scir(block)
+        .unwrap()
+        .scir
+        .convert_schema::<Spectre>()
+        .unwrap()
+        .build()
+        .unwrap();
     Spectre::default()
-        .write_netlist_to_file(&ctx, block, spice_path, NetlistOptions::default())
+        .write_scir_netlist_to_file(&scir, spice_path, NetlistOptions::default())
         .expect("failed to write netlist");
 }
 

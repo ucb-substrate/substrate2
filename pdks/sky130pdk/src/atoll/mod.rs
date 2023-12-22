@@ -1,8 +1,10 @@
+//! SKY130 primitives for [ATOLL](atoll).
+
 use crate::layers::Sky130Layers;
 use crate::mos::{MosParams, Nfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
-use atoll::grid::{AbstractLayer, AtollLayer, DebugRoutingGrid, LayerStack, PdkLayer, RoutingGrid};
+use atoll::grid::{AbstractLayer, AtollLayer, LayerStack, PdkLayer, RoutingGrid};
 use atoll::RoutingDir;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
@@ -18,6 +20,7 @@ use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::pdk::layers::{Layer, LayerId};
 use substrate::schematic::{ExportsNestedData, Schematic};
 
+/// A SKY130 ATOLL routing layer.
 #[derive(Clone)]
 pub struct Sky130AtollLayer(PdkLayer);
 
@@ -302,6 +305,7 @@ impl Layout<Sky130Pdk> for NmosTile {
             .expand_dir(Dir::Horiz, 100);
         cell.draw(Shape::new(cell.ctx.layers.npc, npc))?;
 
+        #[allow(clippy::needless_range_loop)]
         for i in 1..self.nf as usize {
             let cut = Rect::from_spans(tracks[i].hspan(), poly_li.shrink_all(90).unwrap().vspan());
             cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
