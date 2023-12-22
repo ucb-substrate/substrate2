@@ -5,7 +5,8 @@ use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{SchematicType, Signal, TestbenchIo};
+use substrate::io::schematic::HardwareType;
+use substrate::io::{Signal, TestbenchIo};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
@@ -35,7 +36,7 @@ fn ngspice_can_save_voltages_and_currents() {
     impl Schematic<Ngspice> for ResistorTb {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Ngspice>,
         ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);

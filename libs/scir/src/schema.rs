@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 // TODO: Add method of validating primitive instances.
 pub trait Schema {
     /// A primitive used for storing arbitrary data that is opaque to SCIR.
-    type Primitive: Primitive;
+    type Primitive: Primitive + Sized;
 }
 
 /// A primitive of a SCIR schema.
@@ -18,7 +18,7 @@ pub trait Primitive {}
 impl<T> Primitive for T {}
 
 /// A schema that can be converted from another schema.
-pub trait FromSchema<S: Schema>: Schema {
+pub trait FromSchema<S: Schema + ?Sized>: Schema {
     /// The conversion error type.
     type Error;
 
@@ -35,7 +35,7 @@ pub trait FromSchema<S: Schema>: Schema {
     ) -> Result<(), Self::Error>;
 }
 
-impl<S: Schema> FromSchema<S> for S {
+impl<S: Schema + ?Sized> FromSchema<S> for S {
     type Error = ();
 
     fn convert_primitive(

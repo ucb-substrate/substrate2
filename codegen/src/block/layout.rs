@@ -276,7 +276,7 @@ impl ToTokens for HasLayoutInputReceiver {
                 impl #imp #substrate::layout::Layout<#pdk> for #ident #ty #wher {
                     fn layout(
                         &self,
-                        io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::LayoutType>::Builder,
+                        io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::layout::HardwareType>::Builder,
                         cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
                     ) -> #substrate::error::Result<Self::LayoutData> {
 
@@ -284,7 +284,7 @@ impl ToTokens for HasLayoutInputReceiver {
 
                         let raw_cell = { #raw_cell };
 
-                        #substrate::io::HierarchicalBuildFrom::<#substrate::layout::element::NamedPorts>::build_from_top(io, raw_cell.port_map());
+                        #substrate::io::layout::HierarchicalBuildFrom::<#substrate::layout::element::NamedPorts>::build_from_top(io, raw_cell.port_map());
                         let inst = #substrate::layout::element::RawInstance::new(raw_cell, #substrate::geometry::transform::Transformation::default());
                         cell.draw(inst)?;
 

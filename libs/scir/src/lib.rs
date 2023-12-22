@@ -490,7 +490,7 @@ pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
     top: Option<CellId>,
 }
 
-impl<S: Schema> Default for LibraryBuilder<S> {
+impl<S: Schema + ?Sized> Default for LibraryBuilder<S> {
     fn default() -> Self {
         Self {
             cell_id: 0,
@@ -503,7 +503,7 @@ impl<S: Schema> Default for LibraryBuilder<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl Clone>> Clone for LibraryBuilder<S> {
+impl<S: Schema<Primitive = impl Clone> + ?Sized> Clone for LibraryBuilder<S> {
     fn clone(&self) -> Self {
         Self {
             cell_id: self.cell_id,
@@ -516,7 +516,7 @@ impl<S: Schema<Primitive = impl Clone>> Clone for LibraryBuilder<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for LibraryBuilder<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for LibraryBuilder<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("LibraryBuilder");
         let _ = builder.field("cell_id", &self.cell_id);
@@ -535,7 +535,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for LibraryBui
 /// The contents of the library cannot be mutated.
 pub struct Library<S: Schema + ?Sized = NoSchema>(LibraryBuilder<S>);
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for Library<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for Library<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("Library");
         let _ = builder.field("0", &self.0);
@@ -543,7 +543,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for Library<S>
     }
 }
 
-impl<S: Schema> Clone for Library<S>
+impl<S: Schema + ?Sized> Clone for Library<S>
 where
     LibraryBuilder<S>: Clone,
 {
@@ -552,14 +552,14 @@ where
     }
 }
 
-impl<S: Schema> Deref for Library<S> {
+impl<S: Schema + ?Sized> Deref for Library<S> {
     type Target = LibraryBuilder<S>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<S: Schema> Library<S> {
+impl<S: Schema + ?Sized> Library<S> {
     /// Converts a [`Library<S>`] to a [`Library<NoSchema>`], throwing an error if there
     /// are any primitives.
     pub fn drop_schema(self) -> Result<Library<NoSchema>, NoSchemaError> {
@@ -570,7 +570,7 @@ impl<S: Schema> Library<S> {
     ///
     /// A [`LibraryBuilder`] is created to indicate that validation must be done again
     /// to ensure errors were not introduced during the conversion.
-    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, C::Error>
+    pub fn convert_schema<C: Schema + ?Sized>(self) -> Result<LibraryBuilder<C>, C::Error>
     where
         C: FromSchema<S>,
     {
@@ -583,7 +583,7 @@ impl<S: Schema> Library<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl Clone>> Library<S> {
+impl<S: Schema<Primitive = impl Clone> + ?Sized> Library<S> {
     /// Creates a new SCIR library containing only the named cell and its children
     /// from an existing library.
     pub fn from_cell_named(lib: &Self, cell: &str) -> Self {
@@ -833,7 +833,7 @@ impl NetlistCellConversion {
     }
 }
 
-impl<S: Schema> LibraryBuilder<S> {
+impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Creates a new, empty library.
     pub fn new() -> Self {
         Self::default()
@@ -1350,7 +1350,7 @@ impl<S: Schema> LibraryBuilder<S> {
         }
     }
 
-    fn convert_inner<C: Schema, E>(
+    fn convert_inner<C: Schema + ?Sized, E>(
         self,
         convert_primitive: fn(<S as Schema>::Primitive) -> Result<<C as Schema>::Primitive, E>,
         convert_instance: fn(&mut Instance, &<S as Schema>::Primitive) -> Result<(), E>,
@@ -1396,7 +1396,7 @@ impl<S: Schema> LibraryBuilder<S> {
     /// Converts a [`LibraryBuilder<S>`] into a [`LibraryBuilder<C>`].
     ///
     /// Instances associated with non-existent primitives will remain unchanged.
-    pub fn convert_schema<C: Schema>(self) -> Result<LibraryBuilder<C>, C::Error>
+    pub fn convert_schema<C: Schema + ?Sized>(self) -> Result<LibraryBuilder<C>, C::Error>
     where
         C: FromSchema<S>,
     {
@@ -1404,7 +1404,7 @@ impl<S: Schema> LibraryBuilder<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl Clone>> LibraryBuilder<S> {
+impl<S: Schema<Primitive = impl Clone> + ?Sized> LibraryBuilder<S> {
     /// Creates a new SCIR library builder containing only the named cell and its children
     /// from an existing library builder.
     pub fn from_cell_named(lib: &Self, cell: &str) -> Self {

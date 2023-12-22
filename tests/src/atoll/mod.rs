@@ -6,7 +6,7 @@ use sky130pdk::Sky130Pdk;
 use spice::netlist::NetlistOptions;
 use spice::Spice;
 use substrate::block::Block;
-use substrate::io::LayoutType;
+use substrate::io::layout::HardwareType;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 
 #[test]
@@ -52,7 +52,7 @@ impl ExportsLayoutData for Sky130DebugRoutingGrid {
 impl Layout<Sky130Pdk> for Sky130DebugRoutingGrid {
     fn layout(
         &self,
-        _io: &mut <<Self as Block>::Io as LayoutType>::Builder,
+        _io: &mut <<Self as Block>::Io as HardwareType>::Builder,
         cell: &mut CellBuilder<Sky130Pdk, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         use atoll::grid::*;

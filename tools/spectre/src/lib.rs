@@ -6,10 +6,13 @@ use std::fmt::Display;
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::prelude::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::tran::Tran;
+use crate::analysis::montecarlo;
+use crate::analysis::montecarlo::MonteCarlo;
+use analysis::tran;
+use analysis::tran::Tran;
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -29,21 +32,23 @@ use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
 use substrate::context::Installation;
 use substrate::execute::Executor;
-use substrate::io::{NodePath, SchematicType};
+use substrate::io::schematic::HardwareType;
+use substrate::io::schematic::NodePath;
 use substrate::schematic::conv::ConvertedNodePath;
+use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption};
-use substrate::simulation::{SimulationContext, Simulator};
+use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
 
+pub mod analysis;
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
-pub mod tran;
 
 /// Spectre primitives.
 #[derive(Debug, Clone)]
@@ -264,8 +269,96 @@ struct CachedSimState {
     executor: Arc<dyn Executor>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum CachedData {
+    Tran(HashMap<String, Vec<f64>>),
+    MonteCarlo(Vec<MonteCarloData>),
+}
+
+impl CachedData {
+    fn into_output(
+        self,
+        ctx: &SimulationContext<Spectre>,
+        conv: &NetlistLibConversion,
+        saves: &HashMap<SimSignal, u64>,
+    ) -> Output {
+        match self {
+            CachedData::Tran(mut raw_values) => tran::Output {
+                time: Arc::new(raw_values.remove("time").unwrap()),
+                raw_values: raw_values
+                    .into_iter()
+                    .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                    .collect(),
+                saved_values: saves
+                    .iter()
+                    .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, conv)))
+                    .collect(),
+            }
+            .into(),
+            CachedData::MonteCarlo(data) => Output::MonteCarlo(montecarlo::Output(
+                data.into_iter()
+                    .map(|data| data.into_output(ctx, conv, saves))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum MonteCarloData {
+    Tran(Vec<HashMap<String, Vec<f64>>>),
+    MonteCarlo(Vec<Vec<MonteCarloData>>),
+}
+
+impl MonteCarloData {
+    fn from_cached_data(data: Vec<CachedData>) -> Option<Self> {
+        Some(match data.get(0)? {
+            CachedData::Tran(_) => MonteCarloData::Tran(
+                data.into_iter()
+                    .map(|data| {
+                        if let CachedData::Tran(data) = data {
+                            Some(data)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Option<Vec<_>>>()?,
+            ),
+            CachedData::MonteCarlo(_) => MonteCarloData::MonteCarlo(
+                data.into_iter()
+                    .map(|data| {
+                        if let CachedData::MonteCarlo(data) = data {
+                            Some(data)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Option<Vec<_>>>()?,
+            ),
+        })
+    }
+
+    fn into_output(
+        self,
+        ctx: &SimulationContext<Spectre>,
+        conv: &NetlistLibConversion,
+        saves: &HashMap<SimSignal, u64>,
+    ) -> Vec<Output> {
+        match self {
+            MonteCarloData::Tran(data) => data
+                .into_iter()
+                .map(|data| CachedData::Tran(data).into_output(ctx, conv, saves))
+                .collect(),
+            MonteCarloData::MonteCarlo(data) => data
+                .into_iter()
+                .map(|data| CachedData::MonteCarlo(data).into_output(ctx, conv, saves))
+                .collect(),
+        }
+    }
+}
+
 impl CacheableWithState<CachedSimState> for CachedSim {
-    type Output = Vec<HashMap<String, Vec<f64>>>;
+    type Output = Vec<CachedData>;
     type Error = Arc<Error>;
 
     fn generate_with_state(
@@ -308,24 +401,29 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let mut raw_outputs = Vec::with_capacity(input.len());
 
             for (i, input) in input.iter().enumerate() {
-                let file_name = match input {
-                    Input::Tran(_) => {
-                        format!("analysis{i}.tran.tran")
-                    }
-                };
-                let psf_path = output_path.join(file_name);
-                let psf = std::fs::read(psf_path)?;
-                let ast = psfparser::binary::parse(&psf).map_err(|_| Error::Parse)?;
-                match input {
-                    Input::Tran(_) => {
-                        let values = TransientData::from_binary(ast).signals;
-                        raw_outputs.push(values);
-                    }
-                }
+                raw_outputs.push(parse_analysis(
+                    &output_path,
+                    &subanalysis_name("analysis", i),
+                    input,
+                )?);
             }
             Ok(raw_outputs)
         };
         inner().map_err(Arc::new)
+    }
+}
+
+impl ConvertibleNetlister<Spectre> for Spectre {
+    type Error = std::io::Error;
+    type Options<'a> = NetlistOptions<'a>;
+
+    fn write_scir_netlist<W: Write>(
+        &self,
+        lib: &Library<Spectre>,
+        out: &mut W,
+        opts: Self::Options<'_>,
+    ) -> std::result::Result<NetlistLibConversion, Self::Error> {
+        NetlisterInstance::new(self, lib, out, opts).export()
     }
 }
 
@@ -355,16 +453,14 @@ impl Spectre {
         saves.sort();
         ics.sort();
 
-        let netlister = NetlisterInstance::new(
-            self,
+        let conv = self.write_scir_netlist(
             &ctx.lib.scir,
             &mut w,
             NetlistOptions::new(
                 NetlistKind::Testbench(RenameGround::Yes("0".into())),
                 &includes,
             ),
-        );
-        let conv = netlister.export()?;
+        )?;
 
         writeln!(w)?;
         for save in saves {
@@ -376,8 +472,7 @@ impl Spectre {
 
         writeln!(w)?;
         for (i, an) in input.iter().enumerate() {
-            write!(w, "analysis{i} ")?;
-            an.netlist(&mut w)?;
+            an.netlist(&mut w, &subanalysis_name("analysis", i))?;
             writeln!(w)?;
         }
         f.write_all(&w)?;
@@ -416,21 +511,7 @@ impl Spectre {
         let conv = Arc::new(conv);
         let outputs = raw_outputs
             .into_iter()
-            .map(|mut raw_values| {
-                tran::Output {
-                    time: Arc::new(raw_values.remove("time").unwrap()),
-                    raw_values: raw_values
-                        .into_iter()
-                        .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
-                        .collect(),
-                    saved_values: options
-                        .saves
-                        .iter()
-                        .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, &conv)))
-                        .collect(),
-                }
-                .into()
-            })
+            .map(|raw_values| raw_values.into_output(ctx, &conv, &options.saves))
             .collect();
 
         Ok(outputs)
@@ -566,7 +647,7 @@ impl FromSchema<Spice> for Spectre {
 impl Schematic<Spectre> for Resistor {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -587,7 +668,7 @@ impl Schematic<Spectre> for Resistor {
 impl Schematic<Spectre> for Capacitor {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -608,7 +689,7 @@ impl Schematic<Spectre> for Capacitor {
 impl Schematic<Spectre> for RawInstance {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -648,6 +729,8 @@ impl Simulator for Spectre {
 pub enum Input {
     /// Transient simulation input.
     Tran(Tran),
+    /// A Monte Carlo input.
+    MonteCarlo(MonteCarlo<Vec<Input>>),
 }
 
 impl From<Tran> for Input {
@@ -656,11 +739,19 @@ impl From<Tran> for Input {
     }
 }
 
+impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for Input {
+    fn from(value: MonteCarlo<A>) -> Self {
+        Self::MonteCarlo(value.into())
+    }
+}
+
 /// Outputs directly produced by Spectre.
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Transient simulation output.
     Tran(tran::Output),
+    /// Monte Carlo simulation output.
+    MonteCarlo(montecarlo::Output<Vec<Output>>),
 }
 
 impl From<tran::Output> for Output {
@@ -674,14 +765,33 @@ impl TryFrom<Output> for tran::Output {
     fn try_from(value: Output) -> Result<Self> {
         match value {
             Output::Tran(t) => Ok(t),
+            _ => Err(Error::SpectreError),
+        }
+    }
+}
+
+impl From<montecarlo::Output<Vec<Output>>> for Output {
+    fn from(value: montecarlo::Output<Vec<Output>>) -> Self {
+        Self::MonteCarlo(value)
+    }
+}
+
+impl TryFrom<Output> for montecarlo::Output<Vec<Output>> {
+    type Error = Error;
+    fn try_from(value: Output) -> Result<Self> {
+        match value {
+            Output::MonteCarlo(mc) => Ok(mc),
+            _ => Err(Error::SpectreError),
         }
     }
 }
 
 impl Input {
-    fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
+    fn netlist<W: Write>(&self, out: &mut W, name: &str) -> Result<()> {
+        write!(out, "{name} ")?;
         match self {
             Self::Tran(t) => t.netlist(out),
+            Self::MonteCarlo(mc) => mc.netlist(out, name),
         }
     }
 }
@@ -695,6 +805,75 @@ impl Tran {
         if let Some(errpreset) = self.errpreset {
             write!(out, " errpreset={errpreset}")?;
         }
+        Ok(())
+    }
+}
+
+fn subanalysis_name(prefix: &str, idx: usize) -> String {
+    format!("{prefix}_{idx}")
+}
+
+fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<CachedData> {
+    Ok(if let Input::MonteCarlo(analysis) = analysis {
+        let mut data = Vec::new();
+        for i in 0..analysis.analysis.len() {
+            let mut mc_data = Vec::new();
+            for iter in 1..analysis.numruns + 1 {
+                let new_name = subanalysis_name(&format!("{}-{:0>3}_{}", name, iter, name), i);
+                mc_data.push(parse_analysis(
+                    output_dir,
+                    &new_name,
+                    &analysis.analysis[i],
+                )?)
+            }
+            data.push(MonteCarloData::from_cached_data(mc_data).unwrap());
+        }
+        CachedData::MonteCarlo(data)
+    } else {
+        let file_name = match analysis {
+            Input::Tran(_) => {
+                format!("{name}.tran.tran")
+            }
+            Input::MonteCarlo(_) => unreachable!(),
+        };
+        let psf_path = output_dir.join(file_name);
+        let psf = std::fs::read(psf_path)?;
+        let ast = psfparser::binary::parse(&psf).map_err(|_| Error::Parse)?;
+
+        match analysis {
+            Input::Tran(_) => {
+                let values = TransientData::from_binary(ast).signals;
+                CachedData::Tran(values)
+            }
+            Input::MonteCarlo(_) => {
+                unreachable!()
+            }
+        }
+    })
+}
+
+impl MonteCarlo<Vec<Input>> {
+    fn netlist<W: Write>(&self, out: &mut W, name: &str) -> Result<()> {
+        write!(
+            out,
+            "montecarlo variations={} numruns={} savefamilyplots=yes",
+            self.variations, self.numruns
+        )?;
+        if let Some(seed) = self.seed {
+            write!(out, " seed={seed}")?;
+        }
+        if let Some(firstrun) = self.firstrun {
+            write!(out, " firstrun={firstrun}")?;
+        }
+        write!(out, " {{")?;
+
+        for (i, an) in self.analysis.iter().enumerate() {
+            let name = subanalysis_name(name, i);
+            write!(out, "\n\t")?;
+            an.netlist(out, &name)?;
+        }
+        write!(out, "\n}}")?;
+
         Ok(())
     }
 }

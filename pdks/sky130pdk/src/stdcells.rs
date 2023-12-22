@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use spice::Spice;
 use std::path::PathBuf;
 use substrate::block::Block;
-use substrate::io::{InOut, Input, Io, Output, SchematicType, Signal};
+use substrate::io::schematic::HardwareType;
+use substrate::io::{InOut, Input, Io, Output, Signal};
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 impl Sky130Pdk {
@@ -99,7 +100,7 @@ paste! {
     impl Schematic<Sky130Pdk> for $typ {
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as SchematicType>::Bundle,
+            io: &<<Self as Block>::Io as HardwareType>::Bundle,
             cell: &mut CellBuilder<Sky130Pdk>,
         ) -> substrate::error::Result<Self::NestedData> {
             let pdk = cell
