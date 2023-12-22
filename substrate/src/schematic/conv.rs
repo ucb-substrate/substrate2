@@ -16,7 +16,7 @@ use crate::schematic::{ConvertPrimitive, InstancePath, RawCellContents, RawCellK
 use super::{CellId, InstanceId, RawCell};
 
 /// An SCIR library with associated conversion metadata.
-pub struct RawLib<S: Schema> {
+pub struct RawLib<S: Schema + ?Sized> {
     /// The SCIR library.
     pub scir: scir::Library<S>,
     /// Associated conversion metadata.
@@ -374,13 +374,13 @@ pub(crate) struct ScirInstanceConversion {
     instance: ConvertedScirInstance,
 }
 
-pub(crate) struct ScirLibExportContext<S: Schema> {
+pub(crate) struct ScirLibExportContext<S: Schema + ?Sized> {
     lib: LibraryBuilder<S>,
     conv: ScirLibConversionBuilder,
     cell_names: Names<CellId>,
 }
 
-impl<S: Schema> Default for ScirLibExportContext<S> {
+impl<S: Schema + ?Sized> Default for ScirLibExportContext<S> {
     fn default() -> Self {
         Self {
             lib: LibraryBuilder::new(),
@@ -390,7 +390,7 @@ impl<S: Schema> Default for ScirLibExportContext<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl Clone>> Clone for ScirLibExportContext<S> {
+impl<S: Schema<Primitive = impl Clone> + ?Sized> Clone for ScirLibExportContext<S> {
     fn clone(&self) -> Self {
         Self {
             lib: self.lib.clone(),
@@ -400,7 +400,9 @@ impl<S: Schema<Primitive = impl Clone>> Clone for ScirLibExportContext<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirLibExportContext<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug
+    for ScirLibExportContext<S>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("ScirLibExportContext");
         let _ = builder.field("lib", &self.lib);
@@ -410,7 +412,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirLibExp
     }
 }
 
-impl<S: Schema> ScirLibExportContext<S> {
+impl<S: Schema + ?Sized> ScirLibExportContext<S> {
     fn new() -> Self {
         Self::default()
     }
@@ -447,7 +449,7 @@ impl ScirCellExportContext {
     }
 }
 
-impl<S: Schema> RawCell<S> {
+impl<S: Schema + ?Sized> RawCell<S> {
     /// The name associated with the given node.
     ///
     /// # Panics

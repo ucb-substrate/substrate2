@@ -52,6 +52,12 @@ pub enum Error {
     UnsupportedPrimitive,
 }
 
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(Arc::new(value))
+    }
+}
+
 impl From<LayoutError> for Error {
     fn from(value: LayoutError) -> Self {
         Error::Layout(value)

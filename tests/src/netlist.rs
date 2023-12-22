@@ -5,6 +5,7 @@ use spectre::Spectre;
 use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use std::collections::HashMap;
+use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::schema::Schema;
 
 pub(crate) trait HasRes2: Schema {
