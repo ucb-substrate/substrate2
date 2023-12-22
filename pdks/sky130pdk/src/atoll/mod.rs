@@ -1,4 +1,5 @@
 use crate::layers::Sky130Layers;
+use crate::mos::{MosParams, Nfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
 use atoll::grid::{AbstractLayer, AtollLayer, DebugRoutingGrid, LayerStack, PdkLayer, RoutingGrid};
@@ -10,12 +11,12 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
-use substrate::io::{Array, InOut, Input, Io, IoShape, LayoutType, MosIoSchematic, SchematicType, Signal};
+use substrate::io::layout::IoShape;
+use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::pdk::layers::{Layer, LayerId};
 use substrate::schematic::{ExportsNestedData, Schematic};
-use crate::mos::{MosParams, Nfet01v8};
 
 #[derive(Clone)]
 pub struct Sky130AtollLayer(PdkLayer);
@@ -181,17 +182,29 @@ pub struct MosTileIo {
     pub b: InOut<Signal>,
 }
 
+/// A tile containing a set of NMOS transistors.
+///
+/// There are `nf` transistors, each of length `len` and width `w`.
+/// The gates of all transistors are connected.
+/// The `nf+1` sources and drains are not connected to anything else.
+///
+/// This tile does not contain internal taps.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MosTile {
+pub struct NmosTile {
+    /// Transistor width.
     pub w: i64,
+
+    /// Transistor length.
     pub len: MosLength,
+
+    /// Number of fingers.
     pub nf: i64,
 }
 
-impl Block for MosTile {
+impl Block for NmosTile {
     type Io = MosTileIo;
     fn id() -> ArcStr {
-        arcstr::literal!("mos_tile")
+        arcstr::literal!("nmos_tile")
     }
 
     fn name(&self) -> ArcStr {
@@ -207,14 +220,14 @@ impl Block for MosTile {
     }
 }
 
-impl ExportsLayoutData for MosTile {
+impl ExportsLayoutData for NmosTile {
     type LayoutData = ();
 }
 
-impl Layout<Sky130Pdk> for MosTile {
+impl Layout<Sky130Pdk> for NmosTile {
     fn layout(
         &self,
-        io: &mut <<Self as Block>::Io as LayoutType>::Builder,
+        io: &mut substrate::io::layout::Builder<MosTileIo>,
         cell: &mut CellBuilder<Sky130Pdk, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let stack = cell
@@ -222,8 +235,6 @@ impl Layout<Sky130Pdk> for MosTile {
             .get_installation::<LayerStack<Sky130AtollLayer>>()
             .unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2, self.nf + 3, 4);
-        let debug = DebugRoutingGrid::new(grid.clone());
-        // cell.draw(debug)?;
 
         let tracks = (0..self.nf + 1)
             .map(|i| {
@@ -304,21 +315,30 @@ impl Layout<Sky130Pdk> for MosTile {
     }
 }
 
-impl ExportsNestedData for MosTile { type NestedData = (); }
+impl ExportsNestedData for NmosTile {
+    type NestedData = ();
+}
 
-impl Schematic<Sky130Pdk> for MosTile {
-    fn schematic(&self, io: &<<Self as Block>::Io as SchematicType>::Bundle, cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>) -> substrate::error::Result<Self::NestedData> {
+impl Schematic<Sky130Pdk> for NmosTile {
+    fn schematic(
+        &self,
+        io: &substrate::io::schematic::Bundle<MosTileIo>,
+        cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
         for i in 0..self.nf as usize {
-            cell.instantiate_connected(Nfet01v8::new(MosParams {
-                w: self.w,
-                nf: 1,
-                l: self.len.nm(),
-            }), MosIoSchematic {
-                d: io.sd[i],
-                g: io.g,
-                s: io.sd[i+1],
-                b: io.b,
-            })
+            cell.instantiate_connected(
+                Nfet01v8::new(MosParams {
+                    w: self.w,
+                    nf: 1,
+                    l: self.len.nm(),
+                }),
+                MosIoSchematic {
+                    d: io.sd[i],
+                    g: io.g,
+                    s: io.sd[i + 1],
+                    b: io.b,
+                },
+            )
         }
         Ok(())
     }

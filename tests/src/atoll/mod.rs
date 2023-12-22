@@ -3,11 +3,13 @@ use crate::shared::pdk::sky130_open_ctx;
 use serde::{Deserialize, Serialize};
 use sky130pdk::atoll::{MosLength, Sky130AtollLayer};
 use sky130pdk::Sky130Pdk;
+use spectre::Spectre;
 use spice::netlist::NetlistOptions;
 use spice::Spice;
 use substrate::block::Block;
 use substrate::io::layout::HardwareType;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
+use substrate::schematic::netlist::ConvertibleNetlister;
 
 #[test]
 fn sky130_atoll_debug_routing_grid() {
@@ -24,21 +26,18 @@ fn sky130_atoll_nmos_tile() {
     let spice_path = get_path("sky130_atoll_nmos_tile", "schematic.sp");
     let ctx = sky130_open_ctx();
 
-    let block =
-        sky130pdk::atoll::MosTile {
-            w: 1_680,
-            nf: 3,
-            len: MosLength::L150,
-        };
+    let block = sky130pdk::atoll::MosTile {
+        w: 1_680,
+        nf: 3,
+        len: MosLength::L150,
+    };
 
-    ctx.write_layout(
-        block,
-        gds_path,
-    )
-    .expect("failed to write layout");
+    ctx.write_layout(block, gds_path)
+        .expect("failed to write layout");
 
-    let lib = ctx.export_scir(block).expect("failed to write scir").scir.convert_schema::<Spice>().unwrap().build().unwrap();
-    Spice.write_scir_netlist_to_file(&lib, spice_path, NetlistOptions::default()).expect("failed to write schematic");
+    Spectre::default()
+        .write_netlist_to_file(&ctx, block, spice_path, NetlistOptions::default())
+        .expect("failed to write netlist");
 }
 
 #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
