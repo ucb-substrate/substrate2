@@ -5,7 +5,8 @@ use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use substrate::block::Block;
-use substrate::io::{SchematicType, TwoTerminalIo};
+use substrate::io::schematic::HardwareType;
+use substrate::io::TwoTerminalIo;
 use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
@@ -74,7 +75,7 @@ impl ExportsNestedData for Vsource {
 impl Schematic<Spectre> for Vsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         use arcstr::literal;
@@ -121,7 +122,7 @@ impl Schematic<Spectre> for Vsource {
 impl Schematic<Spectre> for DcVsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         cell.flatten();
@@ -157,7 +158,7 @@ impl ExportsNestedData for Iprobe {
 impl Schematic<Spectre> for Iprobe {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {

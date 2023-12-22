@@ -8,9 +8,11 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::stdcells::And2;
 use sky130pdk::Sky130Pdk;
+use spectre::analysis::montecarlo::Variations;
 use spectre::Spectre;
 use substrate::block::Block;
-use substrate::io::{PowerIoSchematic, SchematicType, Terminal, TestbenchIo};
+use substrate::io::schematic::{Bundle, HardwareType, Terminal};
+use substrate::io::{PowerIo, TestbenchIo};
 use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
@@ -33,7 +35,7 @@ impl ExportsNestedData for And2Tb {
 impl<S> Schematic<S> for And2Tb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vddsrc = cell.instantiate(DcVsource::new(self.vdd));
@@ -44,7 +46,7 @@ impl<S> Schematic<S> for And2Tb {
             .instantiate_blocking(And2::S0)
             .unwrap();
 
-        let pwr = PowerIoSchematic {
+        let pwr = Bundle::<PowerIo> {
             vdd: *vddsrc.io().p,
             vss: *vddsrc.io().n,
         };
@@ -53,7 +55,7 @@ impl<S> Schematic<S> for And2Tb {
         cell.connect_multiple(&[vddsrc.io().n, asrc.io().n, bsrc.io().n]);
         cell.connect(
             &and2.io().pwr,
-            sky130pdk::stdcells::PowerIoSchematic::with_bodies_tied_to_rails(pwr),
+            Bundle::<sky130pdk::stdcells::PowerIo>::with_bodies_tied_to_rails(pwr),
         );
         cell.connect(and2.io().a, asrc.io().p);
         cell.connect(and2.io().b, bsrc.io().p);
@@ -62,7 +64,7 @@ impl<S> Schematic<S> for And2Tb {
     }
 }
 
-#[impl_dispatch({Spectre, spectre::tran::Tran; Ngspice, ngspice::tran::Tran})]
+#[impl_dispatch({Spectre, spectre::analysis::tran::Tran; Ngspice, ngspice::tran::Tran})]
 impl<S, A> SaveTb<S, A, tran::Voltage> for And2Tb {
     fn save_tb(
         ctx: &SimulationContext<S>,
@@ -70,6 +72,25 @@ impl<S, A> SaveTb<S, A, tran::Voltage> for And2Tb {
         opts: &mut <S as Simulator>::Options,
     ) -> <tran::Voltage as FromSaved<S, A>>::SavedKey {
         tran::Voltage::save(ctx, cell.data(), opts)
+    }
+}
+
+impl
+    SaveTb<
+        Spectre,
+        spectre::analysis::montecarlo::MonteCarlo<spectre::analysis::tran::Tran>,
+        spectre::analysis::montecarlo::Output<tran::Voltage>,
+    > for And2Tb
+{
+    fn save_tb(
+        ctx: &SimulationContext<Spectre>,
+        cell: &Cell<Self>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> <spectre::analysis::montecarlo::Output<tran::Voltage> as FromSaved<
+        Spectre,
+        spectre::analysis::montecarlo::MonteCarlo<spectre::analysis::tran::Tran>,
+    >>::SavedKey {
+        spectre::analysis::montecarlo::Output::<tran::Voltage>::save(ctx, cell.data(), opts)
     }
 }
 
@@ -91,17 +112,23 @@ impl Testbench<Ngspice> for And2Tb {
     }
 }
 impl Testbench<Spectre> for And2Tb {
-    type Output = tran::Voltage;
+    type Output = spectre::analysis::montecarlo::Output<tran::Voltage>;
 
     fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
         let mut opts = spectre::Options::default();
         sim.set_option(Sky130Corner::Tt, &mut opts);
         sim.simulate(
             opts,
-            spectre::tran::Tran {
-                stop: dec!(2e-9),
-                errpreset: Some(spectre::ErrPreset::Conservative),
-                ..Default::default()
+            spectre::analysis::montecarlo::MonteCarlo {
+                variations: Variations::All,
+                numruns: 2,
+                seed: None,
+                firstrun: None,
+                analysis: spectre::analysis::tran::Tran {
+                    stop: dec!(2e-9),
+                    errpreset: Some(spectre::ErrPreset::Conservative),
+                    ..Default::default()
+                },
             },
         )
         .expect("failed to run simulation")
@@ -144,7 +171,7 @@ fn sky130_and2_spectre() {
         (dec!(0), dec!(1.8), 0f64),
         (dec!(0), dec!(0), 0f64),
     ] {
-        let vout = ctx
+        let mc_vout = ctx
             .simulate::<spectre::Spectre, _>(
                 And2Tb {
                     vdd: dec!(1.8),
@@ -154,6 +181,8 @@ fn sky130_and2_spectre() {
                 &sim_dir,
             )
             .unwrap();
-        assert_abs_diff_eq!(*vout.last().unwrap(), expected, epsilon = 1e-6);
+        for vout in &*mc_vout {
+            assert_abs_diff_eq!(*vout.last().unwrap(), expected, epsilon = 1e-6);
+        }
     }
 }

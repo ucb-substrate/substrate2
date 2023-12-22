@@ -5,13 +5,14 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130Pdk;
+use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
-use spectre::tran::Tran;
 use spectre::{Options, Spectre};
 use substrate::block::Block;
 use substrate::context::PdkContext;
-use substrate::io::{Node, Signal};
-use substrate::io::{SchematicType, TestbenchIo};
+use substrate::io::schematic::{HardwareType, Node};
+use substrate::io::Signal;
+use substrate::io::TestbenchIo;
 use substrate::pdk::corner::Pvt;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
@@ -41,7 +42,7 @@ impl ExportsNestedData for InverterTb {
 impl Schematic<Spectre> for InverterTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut sub_cell = cell.sub_builder::<Sky130Pdk>();

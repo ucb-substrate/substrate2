@@ -9,7 +9,7 @@ use spectre::Spectre;
 use spice::netlist::NetlisterInstance;
 use spice::Spice;
 use substrate::block::Block;
-use substrate::io::SchematicType;
+use substrate::io::schematic::HardwareType;
 use substrate::layout::Layout;
 use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
@@ -32,7 +32,7 @@ impl ExportsNestedData for BufferHardMacro {
 impl Schematic<Sky130Pdk> for BufferHardMacro {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut scir = Spice::scir_cell_from_file(test_data("spice/buffer.spice"), "buffer")
@@ -59,7 +59,7 @@ impl ExportsNestedData for BufferInlineHardMacro {
 impl Schematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut scir = Spice::scir_cell_from_str(
@@ -101,7 +101,7 @@ impl ExportsNestedData for VdividerDuplicateSubckt {
 impl Schematic<Spice> for VdividerDuplicateSubckt {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spice>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut scir = Spice::scir_cell_from_file(

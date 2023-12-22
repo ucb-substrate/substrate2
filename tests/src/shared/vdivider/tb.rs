@@ -1,12 +1,13 @@
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use spectre::analysis::tran::Tran;
 use spectre::blocks::{Iprobe, Vsource};
-use spectre::tran::Tran;
 use spectre::{Options, Spectre};
 use spice::Spice;
 use substrate::block::Block;
+use substrate::io::schematic::HardwareType;
+use substrate::io::Signal;
 use substrate::io::TestbenchIo;
-use substrate::io::{SchematicType, Signal};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -31,7 +32,7 @@ impl ExportsNestedData for VdividerTb {
 impl Schematic<Spectre> for VdividerTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd_a = cell.signal("vdd_a", Signal);
@@ -69,7 +70,7 @@ impl ExportsNestedData for VdividerDuplicateSubcktTb {
 impl Schematic<Spectre> for VdividerDuplicateSubcktTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
@@ -169,7 +170,7 @@ impl ExportsNestedData for VdividerArrayTb {
 impl Schematic<Spectre> for VdividerArrayTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);
@@ -204,7 +205,7 @@ impl ExportsNestedData for FlattenedVdividerArrayTb {
 impl Schematic<Spectre> for FlattenedVdividerArrayTb {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Spectre>,
     ) -> substrate::error::Result<Self::NestedData> {
         let vdd = cell.signal("vdd", Signal);

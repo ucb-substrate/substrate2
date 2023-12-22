@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use substrate::schematic::{ConvertedPrimitive, ScirBinding};
 use uniquify::Names;
 
-use crate::io::{Node, NodePath, TerminalPath};
+use crate::io::schematic::{Node, NodePath, TerminalPath};
 use crate::schematic::schema::Schema;
 use crate::schematic::{ConvertPrimitive, InstancePath, RawCellContents, RawCellKind};
 

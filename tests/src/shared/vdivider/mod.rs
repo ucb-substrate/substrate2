@@ -2,20 +2,15 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::{Array, InOut, Output, Signal};
-use substrate::io::{Io, SchematicType};
+use substrate::io::schematic::HardwareType;
+use substrate::io::Io;
+use substrate::io::{Array, InOut, Output, PowerIo, Signal};
 use substrate::schematic::primitives::Resistor;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 
 pub mod flattened;
 pub mod tb;
-
-#[derive(Debug, Default, Clone, Io)]
-pub struct PowerIo {
-    pub vdd: InOut<Signal>,
-    pub vss: InOut<Signal>,
-}
 
 #[derive(Debug, Default, Clone, Io)]
 pub struct VdividerIo {
@@ -110,7 +105,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let r1 = cell.instantiate(self.r1);
@@ -130,7 +125,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut vdividers = Vec::new();

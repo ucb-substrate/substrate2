@@ -6,7 +6,8 @@ use sky130pdk::Sky130Pdk;
 use spectre::Spectre;
 use substrate::block::Block;
 use substrate::context::{Context, ContextBuilder, Installation, PdkContext};
-use substrate::io::{MosIo, SchematicType};
+use substrate::io::schematic::HardwareType;
+use substrate::io::MosIo;
 use substrate::pdk::Pdk;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 
@@ -98,7 +99,7 @@ impl ExportsNestedData for NmosA {
 impl Schematic<ExamplePdkA> for NmosA {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
@@ -141,7 +142,7 @@ impl ExportsNestedData for PmosA {
 impl Schematic<ExamplePdkA> for PmosA {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
@@ -184,7 +185,7 @@ impl ExportsNestedData for NmosB {
 impl Schematic<ExamplePdkB> for NmosB {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
@@ -227,7 +228,7 @@ impl ExportsNestedData for PmosB {
 impl Schematic<ExamplePdkB> for PmosB {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
@@ -270,7 +271,7 @@ impl ExportsNestedData for NmosC {
 impl Schematic<ExamplePdkC> for NmosC {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkC>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {
@@ -313,7 +314,7 @@ impl ExportsNestedData for PmosC {
 impl Schematic<ExamplePdkC> for PmosC {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<ExamplePdkC>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(ExamplePrimitive::Nmos {

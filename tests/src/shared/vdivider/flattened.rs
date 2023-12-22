@@ -2,7 +2,7 @@ use super::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::SchematicType;
+use substrate::io::schematic::HardwareType;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 
@@ -66,7 +66,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         cell.flatten();
@@ -88,7 +88,7 @@ where
 {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<S>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut vdividers = Vec::new();

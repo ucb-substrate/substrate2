@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
-use substrate::io::{InOut, Input, Io, Output, SchematicType, Signal};
+use substrate::io::schematic::HardwareType;
+use substrate::io::{InOut, Input, Io, Output, Signal};
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 
 pub mod tb;
@@ -32,7 +33,7 @@ impl ExportsNestedData for Inverter {
 impl Schematic<Sky130Pdk> for Inverter {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as SchematicType>::Bundle,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
         cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::NestedData> {
         let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));
