@@ -15,6 +15,7 @@ use scir::{
 };
 use substrate::context::Context;
 use substrate::schematic::conv::RawLib;
+use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::Schematic;
 
 /// A netlist include statement.
@@ -433,58 +434,16 @@ impl HasSpiceLikeNetlist for Spice {
     }
 }
 
-impl Spice {
-    /// Writes a nestlist of a SPICE library to the provided buffer.
-    pub fn write_scir_netlist<W: Write>(
-        &self,
-        lib: &Library<Spice>,
-        out: &mut W,
-        opts: NetlistOptions<'_>,
-    ) -> Result<NetlistLibConversion> {
-        NetlisterInstance::new(self, lib, out, opts).export()
-    }
-    /// Writes a netlist of a SPICE library to a file at the given path.
-    pub fn write_scir_netlist_to_file(
-        &self,
-        lib: &Library<Spice>,
-        path: impl AsRef<Path>,
-        opts: NetlistOptions<'_>,
-    ) -> Result<NetlistLibConversion> {
-        let path = path.as_ref();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let mut f = File::create(path)?;
-        self.write_scir_netlist(lib, &mut f, opts)
-    }
-    /// Writes a SPICE netlist of a Substrate block to the given buffer.
-    pub fn write_block_netlist<B: Schematic<Spice>, W: Write>(
-        &self,
-        ctx: &Context,
-        block: B,
-        out: &mut W,
-        opts: NetlistOptions<'_>,
-    ) -> substrate::error::Result<(RawLib<Spice>, NetlistLibConversion)> {
-        let raw_lib = ctx.export_scir::<Spice, _>(block)?;
+impl ConvertibleNetlister<Spice> for Spice {
+    type Error = std::io::Error;
+    type Options<'a> = NetlistOptions<'a>;
 
-        let conv = self
-            .write_scir_netlist(&raw_lib.scir, out, opts)
-            .map_err(Arc::new)?;
-        Ok((raw_lib, conv))
-    }
-    /// Writes a SPICE netlist of a Substrate block to a file at the given path.
-    pub fn write_block_netlist_to_file<B: Schematic<Spice>>(
+    fn write_scir_netlist<W: Write>(
         &self,
-        ctx: &Context,
-        block: B,
-        path: impl AsRef<Path>,
-        opts: NetlistOptions<'_>,
-    ) -> substrate::error::Result<(RawLib<Spice>, NetlistLibConversion)> {
-        let path = path.as_ref();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(Arc::new)?;
-        }
-        let mut f = File::create(path).map_err(Arc::new)?;
-        self.write_block_netlist(ctx, block, &mut f, opts)
+        lib: &Library<Spice>,
+        out: &mut W,
+        opts: Self::Options<'_>,
+    ) -> std::result::Result<NetlistLibConversion, Self::Error> {
+        NetlisterInstance::new(self, lib, out, opts).export()
     }
 }

@@ -1,6 +1,7 @@
 //! Substrate's schematic generator framework.
 
 pub mod conv;
+pub mod netlist;
 pub mod primitives;
 pub mod schema;
 
@@ -43,7 +44,7 @@ pub trait ExportsNestedData: Block {
 }
 
 /// A block that has a schematic associated with the given PDK and schema.
-pub trait Schematic<S: Schema>: ExportsNestedData {
+pub trait Schematic<S: Schema + ?Sized>: ExportsNestedData {
     /// Generates the block's schematic.
     fn schematic(
         &self,
@@ -53,7 +54,7 @@ pub trait Schematic<S: Schema>: ExportsNestedData {
 }
 
 /// A builder for creating a schematic cell.
-pub struct CellBuilder<S: Schema> {
+pub struct CellBuilder<S: Schema + ?Sized> {
     /// The current global context.
     pub(crate) ctx: Context,
     pub(crate) id: CellId,
@@ -72,7 +73,7 @@ pub struct CellBuilder<S: Schema> {
     pub(crate) contents: RawCellContentsBuilder<S>,
 }
 
-impl<S: Schema> CellBuilder<S> {
+impl<S: Schema + ?Sized> CellBuilder<S> {
     pub(crate) fn finish(self) -> RawCell<S> {
         let mut roots = HashMap::with_capacity(self.node_names.len());
         let mut uf = self.node_ctx.into_uf();
@@ -312,7 +313,7 @@ impl<S: Schema> CellBuilder<S> {
     }
 
     /// Creates a [`SubCellBuilder`] for instantiating blocks from schema `S2`.
-    pub fn sub_builder<S2: Schema>(&mut self) -> SubCellBuilder<S, S2>
+    pub fn sub_builder<S2: Schema + ?Sized>(&mut self) -> SubCellBuilder<S, S2>
     where
         S: FromSchema<S2>,
     {
@@ -321,9 +322,12 @@ impl<S: Schema> CellBuilder<S> {
 }
 
 /// A cell builder for instantiating blocks from schema `S2` in schema `S`.
-pub struct SubCellBuilder<'a, S: Schema, S2: Schema>(&'a mut CellBuilder<S>, PhantomData<S2>);
+pub struct SubCellBuilder<'a, S: Schema + ?Sized, S2: Schema + ?Sized>(
+    &'a mut CellBuilder<S>,
+    PhantomData<S2>,
+);
 
-impl<'a, S: FromSchema<S2>, S2: Schema> SubCellBuilder<'a, S, S2> {
+impl<'a, S: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> SubCellBuilder<'a, S, S2> {
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
     pub fn signal<TY: SchematicType>(
@@ -565,13 +569,13 @@ impl<T: ExportsNestedData> CellHandle<T> {
     }
 }
 
-pub(crate) struct SchemaCellCacheValue<S: Schema, B: ExportsNestedData> {
+pub(crate) struct SchemaCellCacheValue<S: Schema + ?Sized, B: ExportsNestedData> {
     pub(crate) raw: Arc<RawCell<S>>,
     pub(crate) cell: Arc<Cell<B>>,
 }
 
 /// A cell handle associated with a schema `S`.
-pub struct SchemaCellHandle<S: Schema, B: ExportsNestedData> {
+pub struct SchemaCellHandle<S: Schema + ?Sized, B: ExportsNestedData> {
     pub(crate) handle: CacheHandle<Result<SchemaCellCacheValue<S, B>>>,
     pub(crate) cell: CellHandle<B>,
 }
@@ -597,7 +601,7 @@ impl<S: Schema, B: ExportsNestedData> SchemaCellHandle<S, B> {
     }
 }
 
-impl<S: Schema, B: ExportsNestedData> Deref for SchemaCellHandle<S, B> {
+impl<S: Schema + ?Sized, B: ExportsNestedData> Deref for SchemaCellHandle<S, B> {
     type Target = CellHandle<B>;
 
     fn deref(&self) -> &Self::Target {
@@ -605,7 +609,7 @@ impl<S: Schema, B: ExportsNestedData> Deref for SchemaCellHandle<S, B> {
     }
 }
 
-impl<S: Schema, B: ExportsNestedData> Clone for SchemaCellHandle<S, B> {
+impl<S: Schema + ?Sized, B: ExportsNestedData> Clone for SchemaCellHandle<S, B> {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
@@ -814,12 +818,12 @@ impl<B: Block> Clone for CellMetadata<B> {
     }
 }
 
-pub(crate) struct CellCacheKey<B, S> {
+pub(crate) struct CellCacheKey<B, S: ?Sized> {
     pub(crate) block: Arc<B>,
     pub(crate) phantom: PhantomData<S>,
 }
 
-impl<B, S> Clone for CellCacheKey<B, S> {
+impl<B, S: ?Sized> Clone for CellCacheKey<B, S> {
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -828,22 +832,22 @@ impl<B, S> Clone for CellCacheKey<B, S> {
     }
 }
 
-impl<B: PartialEq, S> PartialEq for CellCacheKey<B, S> {
+impl<B: PartialEq, S: ?Sized> PartialEq for CellCacheKey<B, S> {
     fn eq(&self, other: &Self) -> bool {
         self.block.eq(&other.block)
     }
 }
 
-impl<B: Eq, S> Eq for CellCacheKey<B, S> {}
+impl<B: Eq, S: ?Sized> Eq for CellCacheKey<B, S> {}
 
-impl<B: Hash, S> Hash for CellCacheKey<B, S> {
+impl<B: Hash, S: ?Sized> Hash for CellCacheKey<B, S> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.block.hash(state)
     }
 }
 
 /// A key for a block that was generated in schema `S1` and converted to schema `S2`.
-pub(crate) type ConvCacheKey<B, S1, S2> = CellCacheKey<B, (S1, S2)>;
+pub(crate) type ConvCacheKey<B, S1: ?Sized, S2: ?Sized> = CellCacheKey<B, (PhantomData<S1>, S2)>;
 
 /// A path to an instance from a top level cell.
 ///
@@ -976,14 +980,16 @@ impl<T: HasNestedView> HasNestedView for Option<T> {
 
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
-pub(crate) struct RawInstanceBuilder<S: Schema> {
+pub(crate) struct RawInstanceBuilder<S: Schema + ?Sized> {
     id: InstanceId,
     name: ArcStr,
     connections: Vec<Node>,
     child: CacheHandle<Arc<RawCell<S>>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawInstanceBuilder<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug
+    for RawInstanceBuilder<S>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("RawInstanceBuilder");
         let _ = builder.field("id", &self.id);
@@ -994,7 +1000,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawInstanc
     }
 }
 
-impl<S: Schema> RawInstanceBuilder<S> {
+impl<S: Schema + ?Sized> RawInstanceBuilder<S> {
     fn build(self) -> RawInstance<S> {
         RawInstance {
             id: self.id,
@@ -1007,14 +1013,14 @@ impl<S: Schema> RawInstanceBuilder<S> {
 
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]
-pub(crate) struct RawInstance<S: Schema> {
+pub(crate) struct RawInstance<S: Schema + ?Sized> {
     id: InstanceId,
     name: ArcStr,
     connections: Vec<Node>,
     child: Arc<RawCell<S>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawInstance<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for RawInstance<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("RawInstance");
         let _ = builder.field("id", &self.id);
@@ -1025,7 +1031,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawInstanc
     }
 }
 
-impl<S: Schema> Clone for RawInstance<S> {
+impl<S: Schema + ?Sized> Clone for RawInstance<S> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -1036,8 +1042,8 @@ impl<S: Schema> Clone for RawInstance<S> {
     }
 }
 
-impl<S: Schema> RawInstance<S> {
-    fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawInstance<S2>> {
+impl<S: Schema + ?Sized> RawInstance<S> {
+    fn convert_schema<S2: FromSchema<S> + ?Sized>(self) -> Result<RawInstance<S2>> {
         Ok(RawInstance {
             id: self.id,
             name: self.name,
@@ -1053,7 +1059,7 @@ impl<S: Schema> RawInstance<S> {
 /// should not have any public methods.
 #[allow(dead_code)]
 #[doc(hidden)]
-pub struct RawCell<S: Schema> {
+pub struct RawCell<S: Schema + ?Sized> {
     id: CellId,
     pub(crate) name: ArcStr,
     ports: Vec<Port>,
@@ -1065,7 +1071,7 @@ pub struct RawCell<S: Schema> {
     contents: RawCellContents<S>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for RawCell<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("RawCell");
         let _ = builder.field("id", &self.id);
@@ -1080,7 +1086,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCell<S>
     }
 }
 
-impl<S: Schema> Clone for RawCell<S> {
+impl<S: Schema + ?Sized> Clone for RawCell<S> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -1095,8 +1101,8 @@ impl<S: Schema> Clone for RawCell<S> {
     }
 }
 
-impl<S: Schema> RawCell<S> {
-    pub(crate) fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCell<S2>> {
+impl<S: Schema + ?Sized> RawCell<S> {
+    pub(crate) fn convert_schema<S2: FromSchema<S> + ?Sized>(self) -> Result<RawCell<S2>> {
         Ok(RawCell {
             id: self.id,
             name: self.name,
@@ -1111,10 +1117,10 @@ impl<S: Schema> RawCell<S> {
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContentsBuilder<S> =
+pub(crate) type RawCellContentsBuilder<S: ?Sized> =
     RawCellKind<RawCellInnerBuilder<S>, ScirBinding<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
-impl<S: Schema> RawCellContentsBuilder<S> {
+impl<S: Schema + ?Sized> RawCellContentsBuilder<S> {
     fn build(self) -> RawCellContents<S> {
         match self {
             RawCellContentsBuilder::Cell(b) => RawCellContents::Cell(b.build()),
@@ -1126,11 +1132,11 @@ impl<S: Schema> RawCellContentsBuilder<S> {
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContents<S> =
+pub(crate) type RawCellContents<S: ?Sized> =
     RawCellKind<RawCellInner<S>, ScirBinding<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
-impl<S: Schema> RawCellContents<S> {
-    fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellContents<S2>> {
+impl<S: Schema + ?Sized> RawCellContents<S> {
+    fn convert_schema<S2: FromSchema<S> + ?Sized>(self) -> Result<RawCellContents<S2>> {
         Ok(match self {
             RawCellContents::Cell(c) => RawCellContents::Cell(c.convert_schema()?),
             RawCellContents::Scir(s) => RawCellContents::Scir(ScirBinding {
@@ -1165,13 +1171,15 @@ impl<S: Schema> RawCellContents<S> {
     }
 }
 
-pub(crate) trait ConvertPrimitive<S: Schema>: Any + Send + Sync {
+pub(crate) trait ConvertPrimitive<S: Schema + ?Sized>: Any + Send + Sync {
     fn convert_primitive(&self) -> Result<<S as Schema>::Primitive>;
     fn convert_instance(&self, inst: &mut scir::Instance) -> Result<()>;
     fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>>;
 }
 
-impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for PrimitiveBinding<S2> {
+impl<S1: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> ConvertPrimitive<S1>
+    for PrimitiveBinding<S2>
+{
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
         <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.primitive.clone())
@@ -1186,7 +1194,9 @@ impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for PrimitiveBinding<S
     }
 }
 
-impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive<S2> {
+impl<S1: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> ConvertPrimitive<S1>
+    for ConvertedPrimitive<S2>
+{
     // TODO: Improve error handling
     fn convert_primitive(&self) -> Result<<S1 as Schema>::Primitive> {
         <S1 as scir::schema::FromSchema<S2>>::convert_primitive(self.original.convert_primitive()?)
@@ -1204,12 +1214,12 @@ impl<S1: FromSchema<S2>, S2: Schema> ConvertPrimitive<S1> for ConvertedPrimitive
 
 /// A binding to a schema primitive that can be used to define
 /// a Substrate schematic.
-pub struct PrimitiveBinding<S: Schema> {
+pub struct PrimitiveBinding<S: Schema + ?Sized> {
     pub(crate) primitive: <S as Schema>::Primitive,
     pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for PrimitiveBinding<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for PrimitiveBinding<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("Primitive");
         let _ = builder.field("primitive", &self.primitive);
@@ -1218,7 +1228,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for PrimitiveB
     }
 }
 
-impl<S: Schema> Clone for PrimitiveBinding<S> {
+impl<S: Schema + ?Sized> Clone for PrimitiveBinding<S> {
     fn clone(&self) -> Self {
         Self {
             primitive: self.primitive.clone(),
@@ -1242,12 +1252,14 @@ impl<S: Schema> PrimitiveBinding<S> {
     }
 }
 
-pub(crate) struct ConvertedPrimitive<S: Schema> {
+pub(crate) struct ConvertedPrimitive<S: Schema + ?Sized> {
     converted: <S as Schema>::Primitive,
     original: Arc<dyn ConvertPrimitive<S>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ConvertedPrimitive<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug
+    for ConvertedPrimitive<S>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("ConvertedPrimitive");
         let _ = builder.field("converted", &self.converted);
@@ -1255,7 +1267,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ConvertedP
     }
 }
 
-impl<S: Schema> Clone for ConvertedPrimitive<S> {
+impl<S: Schema + ?Sized> Clone for ConvertedPrimitive<S> {
     fn clone(&self) -> Self {
         Self {
             converted: self.converted.clone(),
@@ -1264,7 +1276,7 @@ impl<S: Schema> Clone for ConvertedPrimitive<S> {
     }
 }
 
-impl<S: Schema> ConvertedPrimitive<S> {
+impl<S: Schema + ?Sized> ConvertedPrimitive<S> {
     pub(crate) fn port_map(&self) -> &HashMap<ArcStr, Vec<Node>> {
         self.original.port_map()
     }
@@ -1282,12 +1294,14 @@ pub(crate) enum RawCellKind<C, S, P, CP> {
     ConvertedPrimitive(CP),
 }
 
-pub(crate) struct RawCellInnerBuilder<S: Schema> {
+pub(crate) struct RawCellInnerBuilder<S: Schema + ?Sized> {
     pub(crate) next_instance_id: InstanceId,
     pub(crate) instances: Vec<RawInstanceBuilder<S>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCellInnerBuilder<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug
+    for RawCellInnerBuilder<S>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("RawCellInnerBuilder");
         let _ = builder.field("next_instance_id", &self.next_instance_id);
@@ -1296,7 +1310,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCellInn
     }
 }
 
-impl<S: Schema> Default for RawCellInnerBuilder<S> {
+impl<S: Schema + ?Sized> Default for RawCellInnerBuilder<S> {
     fn default() -> Self {
         Self {
             next_instance_id: Default::default(),
@@ -1305,7 +1319,7 @@ impl<S: Schema> Default for RawCellInnerBuilder<S> {
     }
 }
 
-impl<S: Schema> RawCellInnerBuilder<S> {
+impl<S: Schema + ?Sized> RawCellInnerBuilder<S> {
     fn build(self) -> RawCellInner<S> {
         RawCellInner {
             instances: self
@@ -1317,11 +1331,11 @@ impl<S: Schema> RawCellInnerBuilder<S> {
     }
 }
 
-pub(crate) struct RawCellInner<S: Schema> {
+pub(crate) struct RawCellInner<S: Schema + ?Sized> {
     pub(crate) instances: Vec<RawInstance<S>>,
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCellInner<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for RawCellInner<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("RawCellInner");
         let _ = builder.field("instances", &self.instances);
@@ -1329,7 +1343,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawCellInn
     }
 }
 
-impl<S: Schema> Clone for RawCellInner<S> {
+impl<S: Schema + ?Sized> Clone for RawCellInner<S> {
     fn clone(&self) -> Self {
         Self {
             instances: self.instances.clone(),
@@ -1337,8 +1351,8 @@ impl<S: Schema> Clone for RawCellInner<S> {
     }
 }
 
-impl<S: Schema> RawCellInner<S> {
-    fn convert_schema<S2: FromSchema<S>>(self) -> Result<RawCellInner<S2>> {
+impl<S: Schema + ?Sized> RawCellInner<S> {
+    fn convert_schema<S2: FromSchema<S> + ?Sized>(self) -> Result<RawCellInner<S2>> {
         Ok(RawCellInner {
             instances: self
                 .instances
@@ -1350,13 +1364,13 @@ impl<S: Schema> RawCellInner<S> {
 }
 
 /// A binding to a cell within a SCIR library that can be used to define a Substrate schematic.
-pub struct ScirBinding<S: Schema> {
+pub struct ScirBinding<S: Schema + ?Sized> {
     pub(crate) lib: scir::Library<S>,
     pub(crate) cell: scir::CellId,
     pub(crate) port_map: HashMap<ArcStr, Vec<Node>>,
 }
 
-impl<S: Schema<Primitive = impl Clone>> Clone for ScirBinding<S> {
+impl<S: Schema<Primitive = impl Clone> + ?Sized> Clone for ScirBinding<S> {
     fn clone(&self) -> Self {
         Self {
             lib: self.lib.clone(),
@@ -1366,7 +1380,7 @@ impl<S: Schema<Primitive = impl Clone>> Clone for ScirBinding<S> {
     }
 }
 
-impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirBinding<S> {
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for ScirBinding<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("ScirCellInner");
         let _ = builder.field("lib", &self.lib);
@@ -1375,7 +1389,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for ScirBindin
     }
 }
 
-impl<S: Schema> ScirBinding<S> {
+impl<S: Schema + ?Sized> ScirBinding<S> {
     /// Creates a new [`ScirBinding`] corresponding to the given cell in
     /// SCIR library `lib`.
     ///
@@ -1412,7 +1426,9 @@ impl<S: Schema> ScirBinding<S> {
     }
 
     /// Converts the underlying SCIR library to schema `S2`.
-    pub fn convert_schema<S2: FromSchema<S>>(self) -> substrate::error::Result<ScirBinding<S2>> {
+    pub fn convert_schema<S2: FromSchema<S> + ?Sized>(
+        self,
+    ) -> substrate::error::Result<ScirBinding<S2>> {
         Ok(ScirBinding {
             //  TODO: More descriptive error.
             lib: self

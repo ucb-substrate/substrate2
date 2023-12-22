@@ -27,6 +27,9 @@ impl<T: Clone + Send + Sync + Any> Primitive for T {}
 ///
 /// This trait should never be directly implemented. Implementing [`scir::schema::FromSchema`]
 /// should suffice provided that the necessary trait bounds are satisfied.
-pub trait FromSchema<S: Schema>: Schema + scir::schema::FromSchema<S> {}
+pub trait FromSchema<S: Schema + ?Sized>: Schema + scir::schema::FromSchema<S> {}
 
-impl<S1: Schema, S2: Schema + scir::schema::FromSchema<S1>> FromSchema<S1> for S2 {}
+impl<S1: Schema + ?Sized, S2: Schema + ?Sized + scir::schema::FromSchema<S1>> FromSchema<S1>
+    for S2
+{
+}

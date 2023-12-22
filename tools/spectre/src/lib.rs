@@ -31,6 +31,7 @@ use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::io::{NodePath, SchematicType};
 use substrate::schematic::conv::ConvertedNodePath;
+use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
@@ -329,6 +330,20 @@ impl CacheableWithState<CachedSimState> for CachedSim {
     }
 }
 
+impl ConvertibleNetlister<Spectre> for Spectre {
+    type Error = std::io::Error;
+    type Options<'a> = NetlistOptions<'a>;
+
+    fn write_scir_netlist<W: Write>(
+        &self,
+        lib: &Library<Spectre>,
+        out: &mut W,
+        opts: Self::Options<'_>,
+    ) -> std::result::Result<NetlistLibConversion, Self::Error> {
+        NetlisterInstance::new(self, &lib, out, opts).export()
+    }
+}
+
 impl Spectre {
     fn simulate(
         &self,
@@ -355,16 +370,14 @@ impl Spectre {
         saves.sort();
         ics.sort();
 
-        let netlister = NetlisterInstance::new(
-            self,
+        let conv = self.write_scir_netlist(
             &ctx.lib.scir,
             &mut w,
             NetlistOptions::new(
                 NetlistKind::Testbench(RenameGround::Yes("0".into())),
                 &includes,
             ),
-        );
-        let conv = netlister.export()?;
+        )?;
 
         writeln!(w)?;
         for save in saves {

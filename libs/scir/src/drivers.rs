@@ -183,7 +183,7 @@ impl Display for Cause {
     }
 }
 
-impl<S: Schema> LibraryBuilder<S> {
+impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Perform driver analysis on this library.
     pub fn validate_drivers(&self) -> IssueSet<DriverIssue> {
         let _guard = span!(Level::INFO, "performing driver analysis on SCIR Library").entered();
@@ -240,7 +240,7 @@ impl<S: Schema> LibraryBuilder<S> {
     }
 }
 
-fn analyze_instance<S: Schema>(
+fn analyze_instance<S: Schema + ?Sized>(
     lib: &LibraryBuilder<S>,
     net_states: &mut HashMap<SignalId, Vec<NetState>>,
     inst: &Instance,
