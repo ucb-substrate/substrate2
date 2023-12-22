@@ -22,7 +22,7 @@ fn sky130_atoll_debug_routing_grid() {
 #[test]
 fn sky130_atoll_nmos_tile() {
     let gds_path = get_path("sky130_atoll_nmos_tile", "layout.gds");
-    let spice_path = get_path("sky130_atoll_nmos_tile", "schematic.sp");
+    let netlist_path = get_path("sky130_atoll_nmos_tile", "schematic.scs");
     let ctx = sky130_open_ctx();
 
     let block = sky130pdk::atoll::NmosTile {
@@ -43,7 +43,7 @@ fn sky130_atoll_nmos_tile() {
         .build()
         .unwrap();
     Spectre::default()
-        .write_scir_netlist_to_file(&scir, spice_path, NetlistOptions::default())
+        .write_scir_netlist_to_file(&scir, netlist_path, NetlistOptions::default())
         .expect("failed to write netlist");
 }
 
