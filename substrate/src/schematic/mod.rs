@@ -847,7 +847,7 @@ impl<B: Hash, S: ?Sized> Hash for CellCacheKey<B, S> {
 }
 
 /// A key for a block that was generated in schema `S1` and converted to schema `S2`.
-pub(crate) type ConvCacheKey<B, S1: ?Sized, S2: ?Sized> = CellCacheKey<B, (PhantomData<S1>, S2)>;
+pub(crate) type ConvCacheKey<B, S1, S2> = CellCacheKey<B, (PhantomData<S1>, S2)>;
 
 /// A path to an instance from a top level cell.
 ///
@@ -1117,7 +1117,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContentsBuilder<S: ?Sized> =
+pub(crate) type RawCellContentsBuilder<S> =
     RawCellKind<RawCellInnerBuilder<S>, ScirBinding<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema + ?Sized> RawCellContentsBuilder<S> {
@@ -1132,7 +1132,7 @@ impl<S: Schema + ?Sized> RawCellContentsBuilder<S> {
 }
 
 /// The contents of a raw cell.
-pub(crate) type RawCellContents<S: ?Sized> =
+pub(crate) type RawCellContents<S> =
     RawCellKind<RawCellInner<S>, ScirBinding<S>, PrimitiveBinding<S>, ConvertedPrimitive<S>>;
 
 impl<S: Schema + ?Sized> RawCellContents<S> {

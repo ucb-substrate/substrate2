@@ -340,7 +340,7 @@ impl ConvertibleNetlister<Spectre> for Spectre {
         out: &mut W,
         opts: Self::Options<'_>,
     ) -> std::result::Result<NetlistLibConversion, Self::Error> {
-        NetlisterInstance::new(self, &lib, out, opts).export()
+        NetlisterInstance::new(self, lib, out, opts).export()
     }
 }
 

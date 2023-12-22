@@ -11,7 +11,14 @@ use substrate::schematic::schema::Schema;
 
 /// A netlister that tracks how cells and instances are translated between SCIR and the output netlist format.
 pub trait ConvertibleNetlister<S: Schema + ?Sized> {
+    /// The error type returned when writing out a SCIR netlist.
     type Error: Into<substrate::error::Error>;
+
+    /// The netlist options type.
+    ///
+    /// Many netlisters accept options, allowing the user to configure things like
+    /// netlist indentation, naming conventions, etc. This is the type of the object
+    /// that stores those options.
     type Options<'a>;
 
     /// Writes a netlist of a SCIR library to the provided output stream.

@@ -3,20 +3,17 @@
 use arcstr::ArcStr;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs::File;
+
 use std::io::{Result, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::PathBuf;
 
 use crate::{BlackboxElement, Primitive, Spice};
 use scir::schema::Schema;
 use scir::{
     Cell, ChildId, Library, NetlistCellConversion, NetlistLibConversion, SignalInfo, Slice,
 };
-use substrate::context::Context;
-use substrate::schematic::conv::RawLib;
+
 use substrate::schematic::netlist::ConvertibleNetlister;
-use substrate::schematic::Schematic;
 
 /// A netlist include statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
