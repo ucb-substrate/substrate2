@@ -174,7 +174,7 @@ impl MosLength {
     }
 }
 
-/// The IO of a [`MosTile`].
+/// The IO of an NMOS or PMOS tile.
 #[derive(Debug, Clone, Io)]
 pub struct MosTileIo {
     /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
