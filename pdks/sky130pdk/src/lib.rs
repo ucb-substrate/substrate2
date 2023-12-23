@@ -295,6 +295,7 @@ impl FromSchema<Sky130CommercialSchema> for Spice {
                         UniCase::new(arcstr::literal!("nf")),
                         Decimal::from(params.nf).into(),
                     ),
+                    (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
                 ]),
             },
         })
