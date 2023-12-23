@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
@@ -16,7 +17,7 @@ use unicase::UniCase;
 
 use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
-use scir::schema::FromSchema;
+use scir::schema::{FromSchema, Schema};
 use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::{ContextBuilder, Installation};
@@ -142,7 +143,7 @@ impl FromSchema<Spice> for Sky130Pdk {
 }
 
 impl FromSchema<Sky130Pdk> for Spice {
-    type Error = ();
+    type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
@@ -188,7 +189,7 @@ impl FromSchema<Sky130Pdk> for Spice {
 }
 
 impl FromSchema<Sky130Pdk> for Ngspice {
-    type Error = ();
+    type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
@@ -207,7 +208,108 @@ impl FromSchema<Sky130Pdk> for Ngspice {
 }
 
 impl FromSchema<Sky130Pdk> for Spectre {
-    type Error = ();
+    type Error = Infallible;
+    fn convert_primitive(
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
+        Ok(match primitive {
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => spectre::Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            },
+            Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
+                cell: kind.commercial_subckt(),
+                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+                params: HashMap::from_iter([
+                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
+                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                ]),
+            },
+        })
+    }
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl scir::schema::Schema for Sky130CommercialSchema {
+    type Primitive = Primitive;
+}
+
+impl FromSchema<Sky130Pdk> for Sky130CommercialSchema {
+    type Error = Infallible;
+
+    fn convert_primitive(
+        primitive: <Sky130Pdk as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130CommercialSchema> for Spice {
+    type Error = Infallible;
+    fn convert_primitive(
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
+        Ok(match primitive {
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => spice::Primitive::RawInstance {
+                cell,
+                ports,
+                params: params
+                    .into_iter()
+                    .map(|(k, v)| (UniCase::new(k), v))
+                    .collect(),
+            },
+            Primitive::Mos { kind, params } => spice::Primitive::RawInstance {
+                cell: kind.commercial_subckt(),
+                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+                params: HashMap::from_iter([
+                    (
+                        UniCase::new(arcstr::literal!("w")),
+                        Decimal::new(params.w, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("l")),
+                        Decimal::new(params.l, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("nf")),
+                        Decimal::from(params.nf).into(),
+                    ),
+                ]),
+            },
+        })
+    }
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130CommercialSchema> for Spectre {
+    type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
@@ -246,6 +348,10 @@ pub struct Sky130Pdk {
     open_root_dir: Option<PathBuf>,
     commercial_root_dir: Option<PathBuf>,
 }
+
+/// A schema for the commercial PDK.
+#[derive(Debug, Clone)]
+pub struct Sky130CommercialSchema;
 
 impl Sky130Pdk {
     /// Creates an instantiation of the open PDK.
