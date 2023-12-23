@@ -2,9 +2,9 @@ use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
 use serde::{Deserialize, Serialize};
 use sky130pdk::atoll::{MosLength, Sky130AtollLayer};
-use sky130pdk::Sky130Pdk;
-use spectre::Spectre;
+use sky130pdk::{Sky130CommercialSchema, Sky130Pdk};
 use spice::netlist::NetlistOptions;
+use spice::Spice;
 use substrate::block::Block;
 use substrate::io::layout::HardwareType;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
@@ -38,11 +38,15 @@ fn sky130_atoll_nmos_tile() {
         .export_scir(block)
         .unwrap()
         .scir
-        .convert_schema::<Spectre>()
+        .convert_schema::<Sky130CommercialSchema>()
+        .unwrap()
+        .build()
+        .unwrap()
+        .convert_schema::<Spice>()
         .unwrap()
         .build()
         .unwrap();
-    Spectre::default()
+    Spice
         .write_scir_netlist_to_file(&scir, netlist_path, NetlistOptions::default())
         .expect("failed to write netlist");
 }
