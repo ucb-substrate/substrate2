@@ -4,6 +4,7 @@
 use crate::Instance;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 
 /// A data format for storing SCIR libraries.
 // TODO: Add method of validating primitive instances.
@@ -36,7 +37,7 @@ pub trait FromSchema<S: Schema + ?Sized>: Schema {
 }
 
 impl<S: Schema + ?Sized> FromSchema<S> for S {
-    type Error = ();
+    type Error = Infallible;
 
     fn convert_primitive(
         primitive: <S as Schema>::Primitive,
