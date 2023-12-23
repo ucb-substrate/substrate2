@@ -595,6 +595,20 @@ pub enum TransitionKind {
     Interlayer,
 }
 
+pub struct AtollTileBuilder<S: Schema + ?Sized, PDK: Pdk> {
+    connections: Vec<(AtollPort, AtollPort)>,
+    schematic: schematic::CellBuilder<S>,
+    layout: layout::CellBuilder<PDK>,
+}
+
+pub trait AtollTile {
+    fn tile(&self, io: <<Self as Block>::Io as AtollHardwareType>::Bundle, cell: &mut AtollTileBuilder<S, PDK>);
+}
+
+impl<T> Schematic for T where T: AtollTile {
+
+}
+
 impl RoutingVolume {
     /// Create a [`RoutingVolume`] from the given configuration.
     pub fn new(cfg: RoutingVolumeConfig) -> Self {
