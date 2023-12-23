@@ -280,9 +280,8 @@ impl FromSchema<Sky130CommercialSchema> for Spice {
                     .map(|(k, v)| (UniCase::new(k), v))
                     .collect(),
             },
-            Primitive::Mos { kind, params } => spice::Primitive::RawInstance {
-                cell: kind.commercial_subckt(),
-                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+            Primitive::Mos { kind, params } => spice::Primitive::Mos {
+                model: kind.commercial_subckt(),
                 params: HashMap::from_iter([
                     (
                         UniCase::new(arcstr::literal!("w")),
