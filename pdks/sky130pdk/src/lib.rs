@@ -22,7 +22,7 @@ use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::{ContextBuilder, Installation};
 
-mod atoll;
+pub mod atoll;
 pub mod corner;
 pub mod layers;
 pub mod mos;
@@ -280,9 +280,8 @@ impl FromSchema<Sky130CommercialSchema> for Spice {
                     .map(|(k, v)| (UniCase::new(k), v))
                     .collect(),
             },
-            Primitive::Mos { kind, params } => spice::Primitive::RawInstance {
-                cell: kind.commercial_subckt(),
-                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+            Primitive::Mos { kind, params } => spice::Primitive::Mos {
+                model: kind.commercial_subckt(),
                 params: HashMap::from_iter([
                     (
                         UniCase::new(arcstr::literal!("w")),
@@ -296,6 +295,7 @@ impl FromSchema<Sky130CommercialSchema> for Spice {
                         UniCase::new(arcstr::literal!("nf")),
                         Decimal::from(params.nf).into(),
                     ),
+                    (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
                 ]),
             },
         })

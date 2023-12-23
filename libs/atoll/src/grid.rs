@@ -301,12 +301,20 @@ impl<L: AtollLayer> RoutingGrid<L> {
         }
     }
 
+    /// Calculates the span of a particular track on the given layer.
+    pub fn track_span(&self, layer: usize, track: i64) -> Span {
+        let slice = self.stack.slice(self.start..self.end);
+        let tracks = slice.tracks(layer);
+
+        tracks.track(track)
+    }
+
     /// Calculates the bounds of a particular track on the given layer.
     ///
     /// The start and end coordinates are with respect to tracks on the grid defining layer.
     pub fn track(&self, layer: usize, track: i64, start: i64, end: i64) -> Rect {
         let slice = self.stack.slice(self.start..self.end);
-        let tracks = slice.tracks(layer);
+
         // note that the grid defining layer may be outside the slice,
         // e.g. if the slice contains layers 2 through 5, the grid defining layer of 2 is 1.
         let adj_tracks = self.stack.tracks(self.grid_defining_layer(layer));
@@ -314,7 +322,7 @@ impl<L: AtollLayer> RoutingGrid<L> {
         // This allows `start` to be larger than `end`.
         let (start, end) = sorted2(start, end);
 
-        let track = tracks.track(track);
+        let track = self.track_span(layer, track);
         let endcap = slice.layer(layer).endcap();
         let start = adj_tracks.track(start).center() - endcap;
         let end = adj_tracks.track(end).center() + endcap;
