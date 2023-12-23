@@ -11,6 +11,7 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::io::schematic::HardwareType;
 use substrate::layout::Layout;
+use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
 use test_log::test;
 

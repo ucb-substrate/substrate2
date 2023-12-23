@@ -281,7 +281,7 @@ impl Context {
     /// - If yes:
     ///     - Retrieve created cell ID, io_data, and handle to cell
     ///     - being generated and return immediately
-    pub(crate) fn generate_schematic_inner<S: Schema, B: Schematic<S>>(
+    pub(crate) fn generate_schematic_inner<S: Schema + ?Sized, B: Schematic<S>>(
         &self,
         block: Arc<B>,
     ) -> SchemaCellHandle<S, B> {
@@ -337,7 +337,11 @@ impl Context {
         }
     }
 
-    fn generate_cross_schematic_inner<S1: Schema, S2: FromSchema<S1>, B: Schematic<S1>>(
+    fn generate_cross_schematic_inner<
+        S1: Schema + ?Sized,
+        S2: FromSchema<S1> + ?Sized,
+        B: Schematic<S1>,
+    >(
         &self,
         block: Arc<B>,
     ) -> SchemaCellHandle<S2, B> {
@@ -369,7 +373,11 @@ impl Context {
     /// Generates a schematic of a block in schema `S1` for use in schema `S2`.
     ///
     /// Can only generate a cross schematic with one layer of [`FromSchema`] indirection.
-    pub fn generate_cross_schematic<S1: Schema, S2: FromSchema<S1>, B: Schematic<S1>>(
+    pub fn generate_cross_schematic<
+        S1: Schema + ?Sized,
+        S2: FromSchema<S1> + ?Sized,
+        B: Schematic<S1>,
+    >(
         &self,
         block: B,
     ) -> SchemaCellHandle<S2, B> {
@@ -379,7 +387,7 @@ impl Context {
     /// Generates a schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_schematic<S: Schema, T: Schematic<S>>(
+    pub fn generate_schematic<S: Schema + ?Sized, T: Schematic<S>>(
         &self,
         block: T,
     ) -> SchemaCellHandle<S, T> {
@@ -390,7 +398,7 @@ impl Context {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<S: Schema, T: Schematic<S>>(
+    pub fn export_scir<S: Schema + ?Sized, T: Schematic<S>>(
         &self,
         block: T,
     ) -> Result<RawLib<S>, ConvError> {
@@ -558,7 +566,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
     }
 }
 
-fn prepare_cell_builder<S: Schema, T: Block>(
+fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
     id: CellId,
     context: Context,
     block: &T,

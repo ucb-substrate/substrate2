@@ -253,7 +253,7 @@ impl Display for Cause {
     }
 }
 
-impl<S: Schema> LibraryBuilder<S> {
+impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Check whether or not this library is valid.
     pub fn validate(&self) -> IssueSet<ValidatorIssue> {
         let _guard = span!(Level::INFO, "validating SCIR Library").entered();

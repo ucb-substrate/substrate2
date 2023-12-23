@@ -10,7 +10,7 @@ pub struct MergedMapping {
     primitives: HashMap<PrimitiveId, PrimitiveId>,
 }
 
-struct Merger<'a, S: Schema> {
+struct Merger<'a, S: Schema + ?Sized> {
     /// Source cell ID -> destination cell ID
     cell_mapping: HashMap<CellId, CellId>,
     /// Source primitive ID -> destination primitive ID
@@ -21,7 +21,7 @@ struct Merger<'a, S: Schema> {
     src: LibraryBuilder<S>,
 }
 
-impl<'a, S: Schema> Merger<'a, S> {
+impl<'a, S: Schema + ?Sized> Merger<'a, S> {
     #[inline]
     fn new(dst: &'a mut LibraryBuilder<S>, src: LibraryBuilder<S>) -> Self {
         Self {
@@ -114,7 +114,7 @@ impl MergedMapping {
     }
 }
 
-impl<S: Schema> LibraryBuilder<S> {
+impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Merges another SCIR library into the current library.
     pub fn merge(&mut self, other: Self) -> MergedMapping {
         Merger::new(self, other).merge()

@@ -1,16 +1,16 @@
 //! Traits and definitions associated with schemas, or data formats
 //! used for storing SCIR libraries.
 
+use std::convert::Infallible;
 use crate::Instance;
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
 
 /// A data format for storing SCIR libraries.
 // TODO: Add method of validating primitive instances.
 pub trait Schema {
     /// A primitive used for storing arbitrary data that is opaque to SCIR.
-    type Primitive: Primitive;
+    type Primitive: Primitive + Sized;
 }
 
 /// A primitive of a SCIR schema.
@@ -19,7 +19,7 @@ pub trait Primitive {}
 impl<T> Primitive for T {}
 
 /// A schema that can be converted from another schema.
-pub trait FromSchema<S: Schema>: Schema {
+pub trait FromSchema<S: Schema + ?Sized>: Schema {
     /// The conversion error type.
     type Error;
 
@@ -36,8 +36,8 @@ pub trait FromSchema<S: Schema>: Schema {
     ) -> Result<(), Self::Error>;
 }
 
-impl<S: Schema> FromSchema<S> for S {
-    type Error = Infallible;
+impl<S: Schema + ?Sized> FromSchema<S> for S {
+    type Error = Infallible
 
     fn convert_primitive(
         primitive: <S as Schema>::Primitive,
