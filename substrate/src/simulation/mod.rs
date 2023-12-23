@@ -57,7 +57,7 @@ pub trait Simulator: Installation + Any + Send + Sync {
         input: A,
     ) -> Result<A::Output, Self::Error>
     where
-        A: Analysis + SupportedBy<Self>,
+        A: SupportedBy<Self>,
         Self: Sized,
     {
         let mut inputs = Vec::new();
@@ -101,7 +101,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate_default<A: Analysis + SupportedBy<S>>(
+    pub fn simulate_default<A: SupportedBy<S>>(
         &self,
         options: S::Options,
         input: A,
@@ -115,7 +115,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// potentially causing simulator errors due to missing models.
     ///
     /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<A: Analysis + SupportedBy<S>, O>(
+    pub fn simulate<A: SupportedBy<S>, O>(
         &self,
         mut options: S::Options,
         input: A,
