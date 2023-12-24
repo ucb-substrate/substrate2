@@ -1,7 +1,9 @@
 //! Uniform routing grids and layer stacks.
-use crate::RoutingDir;
+use crate::{RoutingDir, PointState};
 use std::any::Any;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut, Range};
+use grid::Grid;
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
@@ -411,6 +413,19 @@ fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
         (b, a)
     }
 }
+
+/// A fixed-size routing grid.
+#[derive(Clone)]
+pub struct RoutingState<L> {
+    layers: HashMap<usize, Grid<PointState>>
+}
+
+impl<L> RoutingState<L> {
+    pub fn new(nx: i64, ny: i64) -> Self {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::grid::*;
