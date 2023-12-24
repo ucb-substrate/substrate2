@@ -63,7 +63,7 @@ impl Layout<Sky130Pdk> for Sky130DebugRoutingGrid {
     fn layout(
         &self,
         _io: &mut <<Self as Block>::Io as HardwareType>::Builder,
-        cell: &mut CellBuilder<Sky130Pdk, Self>,
+        cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::LayoutData> {
         use atoll::grid::*;
         let stack = cell

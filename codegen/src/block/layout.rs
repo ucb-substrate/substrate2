@@ -277,7 +277,7 @@ impl ToTokens for HasLayoutInputReceiver {
                     fn layout(
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::layout::HardwareType>::Builder,
-                        cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
+                        cell: &mut #substrate::layout::CellBuilder<#pdk>,
                     ) -> #substrate::error::Result<Self::LayoutData> {
 
                         let source = { #source };

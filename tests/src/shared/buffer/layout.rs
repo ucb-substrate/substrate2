@@ -29,7 +29,7 @@ impl Layout<ExamplePdkA> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(Shape::new(
             cell.ctx.layers.polya,
@@ -64,7 +64,7 @@ impl Layout<ExamplePdkB> for Inverter {
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(Shape::new(
             cell.ctx.layers.polyb,
@@ -170,7 +170,7 @@ where
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let derived_layers: BufferDerivedLayers = cell.ctx.layers.as_ref().into();
         let installed_layers = cell.ctx.install_layers::<ExtraLayers>();
@@ -224,7 +224,7 @@ where
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let buffer = cell.generate(Buffer::new(self.strength));
 
@@ -277,7 +277,7 @@ where
     fn layout(
         &self,
         io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let derived_layers: BufferDerivedLayers = cell.ctx.layers.as_ref().into();
         let buffern = cell.generate::<BufferN>(BufferN::new(self.strength, self.n));

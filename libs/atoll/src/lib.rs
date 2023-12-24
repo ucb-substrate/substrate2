@@ -145,13 +145,29 @@
 pub mod grid;
 
 use ::grid::Grid;
+use derive_where::derive_where;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
-use substrate::geometry::prelude::{Dir, Point};
+use std::marker::PhantomData;
+use substrate::arcstr::ArcStr;
+use substrate::block::Block;
+use substrate::geometry::prelude::{Dir, Point, Transformation};
+use substrate::geometry::transform::HasTransformedView;
+use substrate::io::layout::{Builder, PortGeometry, PortGeometryBuilder, TransformedPortGeometry};
+use substrate::io::schematic::{Bundle, Node, Terminal};
+use substrate::io::{FlatLen, Flatten, Signal};
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
+use substrate::layout::{ExportsLayoutData, Layout};
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{
+    CellId, ExportsNestedData, HasNestedView, InstanceId, InstancePath, Schematic,
+};
+use substrate::serde::Deserialize;
+use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
 pub type NetId = usize;
-
 
 /// Identifies a routing layer.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -177,7 +193,6 @@ pub struct Coordinate {
     /// Indexes the horizontal-traveling tracks.
     pub y: i64,
 }
-
 
 /// A type that contains an x-y coordinate.
 pub trait Xy {
@@ -336,14 +351,7 @@ impl Pos {
     }
 }
 
-
 // todo: how to connect by abutment (eg body terminals)
-
-pub struct AtollTileBuilder<S: Schema + ?Sized, PDK: Pdk> {
-    connections: Vec<(AtollPort, AtollPort)>,
-    schematic: schematic::CellBuilder<S>,
-    layout: layout::CellBuilder<PDK>,
-}
 
 /// The abstract view of an ATOLL tile.
 pub struct AtollAbstract {
@@ -360,17 +368,15 @@ pub struct AtollAbstract {
 /// The abstracted state of a single routing layer.
 pub enum LayerAbstract {
     /// The layer is fully blocked.
-    /// 
+    ///
     /// No routing on this layer is permitted.
     Blocked,
-    /// The layer is available for routing and exposes the state of each point on the routing grid.
-    Detailed {
-        Grid<PointState>,
-    }
 }
 
-impl<S, PDK> AtollTileBuilder<S, PDK> {
-    fn manually_say_that_grid_point_should_have_net(net: AtollNet, point: RoutingPoint);
+pub struct AtollTileBuilder<S: Schema + ?Sized, PDK: Pdk> {
+    connections: Vec<(PortGeometry, PortGeometry)>,
+    schematic: schematic::CellBuilder<S>,
+    layout: layout::CellBuilder<PDK>,
 }
 
 pub trait HardwareType {
@@ -379,72 +385,202 @@ pub trait HardwareType {
     /// A builder for creating [`HardwareType::Bundle`].
     type Builder: BundleBuilder<Self::Bundle>;
 
-    /// Instantiates a schematic data struct with populated nodes.
-    fn builder(&self) -> Self::Builder;
-
+    /// Instantiates a builder for this hardware type's bundle.
+    fn builder<'n>(&self, ids: &'n [Node]) -> (Self::Builder, &'n [Node]);
 }
 
 /// A bundle of schematic nodes.
 ///
 /// An instance of a [`HardwareType`].
-pub trait IsBundle:
-    FlatLen + Flatten<AtollNode> + HasTerminalView + HasNestedView + Clone + Send + Sync
+pub trait IsBundle: FlatLen + Flatten<AtollNode> + HasTerminalView + Clone + Send + Sync {}
+
+impl<T> IsBundle for T where T: FlatLen + Flatten<AtollNode> + HasTerminalView + Clone + Send + Sync {}
+
+pub trait HasTerminalView:
+    io::schematic::HasTerminalView<TerminalView = <Self as HasTerminalView>::TerminalView>
 {
+    type TerminalView: HasTransformedView;
 }
 
-impl<T> IsBundle for T where
-    T: FlatLen + Flatten<AtollNode> + HasTerminalView + HasNestedView + Clone + Send + Sync
+impl<T: io::schematic::HasTerminalView<TerminalView = impl HasTransformedView>> HasTerminalView
+    for T
 {
+    type TerminalView = <T as io::schematic::HasTerminalView>::TerminalView;
 }
-
-pub trait HasTerminalView: schematic::HasTerminalView<TerminalView = impl HasTransformedView> {
-}
-
-impl <T: schematic::HasTerminalView = impl HasTransformedView> for T {}
-
 
 /// ATOLL bundle builder.
 ///
 /// A builder for an instance of bundle `T`.
 pub trait BundleBuilder<T: IsBundle> {
     /// Builds an instance of bundle `T`.
-    fn build(self) -> Result<T>;
+    fn build(self) -> substrate::error::Result<T>;
 }
 
+#[derive(Debug, Clone)]
 pub struct AtollNode(Node, PortGeometry);
+#[derive(Debug, Clone)]
 pub struct AtollNodeBuilder(Node, PortGeometryBuilder);
+#[derive(Debug, Clone)]
 pub struct AtollTerminal(Terminal, PortGeometry);
+#[derive(Clone)]
 pub struct TransformedAtollTerminal<'a>(Terminal, TransformedPortGeometry<'a>);
 
-impl HasTerminalView for AtollNode {
+impl FlatLen for AtollNode {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<AtollNode> for AtollNode {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<AtollNode>,
+    {
+        output.extend(std::iter::once(self.clone()))
+    }
+}
+
+impl io::schematic::HasTerminalView for AtollNode {
     type TerminalView = AtollTerminal;
+
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &Self,
+        instance: InstanceId,
+        instance_io: &Self,
+    ) -> Self::TerminalView {
+        AtollTerminal(
+            <Node as io::schematic::HasTerminalView>::terminal_view(
+                cell,
+                &cell_io.0,
+                instance,
+                &instance_io.0,
+            ),
+            cell_io.1.clone(),
+        )
+    }
+}
+
+impl BundleBuilder<AtollNode> for AtollNodeBuilder {
+    fn build(self) -> substrate::error::Result<AtollNode> {
+        Ok(AtollNode(
+            self.0,
+            <PortGeometryBuilder as io::layout::BundleBuilder<PortGeometry>>::build(self.1)?,
+        ))
+    }
 }
 
 impl HasTransformedView for AtollTerminal {
     type TransformedView<'a> = TransformedAtollTerminal<'a>;
+
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+        TransformedAtollTerminal(self.0, self.1.transformed_view(trans))
+    }
 }
 
-impl HasNestedView for AtollNode {
-    type NestedView = NestedNode;
+// TODO: fix
+impl HasNestedView for AtollTerminal {
+    type NestedView = ();
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        ()
+    }
+}
+
+impl FlatLen for AtollTerminal {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Node> for AtollTerminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        self.0.flatten(output)
+    }
 }
 
 impl HardwareType for Signal {
     type Bundle = AtollNode;
     type Builder = AtollNodeBuilder;
+
+    fn builder<'n>(&self, ids: &'n [Node]) -> (Self::Builder, &'n [Node]) {
+        (
+            AtollNodeBuilder(ids[0], PortGeometryBuilder::default()),
+            &ids[1..],
+        )
+    }
 }
 
-pub trait AtollTile<S, PDK>: ExportsNestedData + ExportsLayoutData {
-    fn tile(&self, io: <<Self as Block>::Io as HardwareType>::Builder, cell: &mut AtollTileBuilder<S, PDK>) -> Result<(<Self as ExportsNestedData>::NestedData, <Self as ExportsLayoutData>::LayoutData)>;
+pub trait AtollTile<S: Schema, PDK: Pdk>: ExportsNestedData + ExportsLayoutData {
+    type Io: HardwareType;
+
+    fn tile(
+        &self,
+        io: <<Self as AtollTile<S, PDK>>::Io as HardwareType>::Builder,
+        cell: &mut AtollTileBuilder<S, PDK>,
+    ) -> substrate::error::Result<(
+        <Self as ExportsNestedData>::NestedData,
+        <Self as ExportsLayoutData>::LayoutData,
+    )>;
 }
 
+#[derive_where(Debug, Clone, Hash, PartialEq, Eq; T)]
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "T: Serialize", deserialize = "T: Deserialize<'de>"))]
 pub struct AtollTileWrapper<T, S, PDK> {
     inner: T,
-    phantom: PhantomData<S, PDK>,
+    phantom: PhantomData<(S, PDK)>,
 }
 
-impl<T, S, PDK> Schematic<S> for AtollTileWrapper<T, S, PDK> where T: AtollTile<S, PDK> {
+impl<T: Block, S: Schema, PDK: Pdk> Block for AtollTileWrapper<T, S, PDK> {
+    type Io = <T as Block>::Io;
+
+    fn id() -> ArcStr {
+        <T as Block>::id()
+    }
+
+    fn name(&self) -> ArcStr {
+        <T as Block>::name(&self.inner)
+    }
+
+    fn io(&self) -> Self::Io {
+        <T as Block>::io(&self.inner)
+    }
 }
 
-impl<T, S, PDK> Layout<PDK> for AtollTileWrapper<T, S, PDK> where T: AtollTile<S, PDK> {
+impl<T: ExportsNestedData, S: Schema, PDK: Pdk> ExportsNestedData for AtollTileWrapper<T, S, PDK> {
+    type NestedData = <T as ExportsNestedData>::NestedData;
 }
 
+impl<T: ExportsLayoutData, S: Schema, PDK: Pdk> ExportsLayoutData for AtollTileWrapper<T, S, PDK> {
+    type LayoutData = <T as ExportsLayoutData>::LayoutData;
+}
+
+impl<T, S: Schema, PDK: Pdk> Schematic<S> for AtollTileWrapper<T, S, PDK>
+where
+    T: AtollTile<S, PDK>,
+{
+    fn schematic(
+        &self,
+        io: &Bundle<<Self as Block>::Io>,
+        cell: &mut schematic::CellBuilder<S>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        todo!()
+    }
+}
+
+impl<T, S: Schema, PDK: Pdk> Layout<PDK> for AtollTileWrapper<T, S, PDK>
+where
+    T: AtollTile<S, PDK>,
+{
+    fn layout(
+        &self,
+        io: &mut Builder<<Self as Block>::Io>,
+        cell: &mut layout::CellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        todo!()
+    }
+}

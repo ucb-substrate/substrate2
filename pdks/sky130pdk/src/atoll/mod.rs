@@ -231,7 +231,7 @@ impl Layout<Sky130Pdk> for NmosTile {
     fn layout(
         &self,
         io: &mut substrate::io::layout::Builder<MosTileIo>,
-        cell: &mut CellBuilder<Sky130Pdk, Self>,
+        cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let stack = cell
             .ctx

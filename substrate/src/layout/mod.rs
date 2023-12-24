@@ -60,7 +60,7 @@ pub trait Layout<PDK: Pdk>: ExportsLayoutData {
     fn layout(
         &self,
         io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut CellBuilder<PDK, Self>,
+        cell: &mut CellBuilder<PDK>,
     ) -> Result<Self::LayoutData>;
 }
 
@@ -366,17 +366,15 @@ impl<PDK: Pdk, I: Layout<PDK>> Draw<PDK> for Instance<I> {
 /// A layout cell builder.
 ///
 /// Constructed once for each invocation of [`Layout::layout`].
-pub struct CellBuilder<PDK: Pdk, T> {
-    phantom: PhantomData<T>,
+pub struct CellBuilder<PDK: Pdk> {
     container: Container<PDK>,
     /// The current global context.
     pub ctx: PdkContext<PDK>,
 }
 
-impl<PDK: Pdk, T> CellBuilder<PDK, T> {
+impl<PDK: Pdk> CellBuilder<PDK> {
     pub(crate) fn new(ctx: PdkContext<PDK>) -> Self {
         Self {
-            phantom: PhantomData,
             container: Container::new(),
             ctx,
         }
@@ -441,7 +439,7 @@ impl<PDK: Pdk, T> CellBuilder<PDK, T> {
     }
 }
 
-impl<PDK: Pdk, T> Bbox for CellBuilder<PDK, T> {
+impl<PDK: Pdk> Bbox for CellBuilder<PDK> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.container.bbox()
     }

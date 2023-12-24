@@ -1,9 +1,10 @@
 //! Uniform routing grids and layer stacks.
-use crate::{RoutingDir, PointState};
+use crate::{PointState, RoutingDir};
+use grid::Grid;
 use std::any::Any;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, Range};
-use grid::Grid;
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
@@ -417,7 +418,8 @@ fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
 /// A fixed-size routing grid.
 #[derive(Clone)]
 pub struct RoutingState<L> {
-    layers: HashMap<usize, Grid<PointState>>
+    layers: HashMap<usize, Grid<PointState>>,
+    phantom: PhantomData<L>,
 }
 
 impl<L> RoutingState<L> {
