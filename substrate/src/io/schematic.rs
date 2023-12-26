@@ -38,6 +38,9 @@ pub type Bundle<T> = <T as HardwareType>::Bundle;
 /// The associated terminal view of an object.
 pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
 
+/// The associated nested terminal view of an object.
+pub type NestedTerminalView<T> = <T as HasTerminalView>::NestedTerminalView;
+
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub(crate) enum NodePriority {
@@ -69,13 +72,28 @@ pub trait Connect<T> {}
 ///
 /// An instance of a [`HardwareType`].
 pub trait IsBundle:
-    FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
+    FlatLen
+    + Flatten<Node>
+    + HasTerminalView
+    + HasNestedView<NestedView = <Self as IsBundle>::NestedView>
+    + Clone
+    + Send
+    + Sync
 {
+    type NestedView: Flatten<NestedNode> + Send + Sync;
 }
 
-impl<T> IsBundle for T where
-    T: FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
+impl<
+        T: FlatLen
+            + Flatten<Node>
+            + HasTerminalView
+            + HasNestedView<NestedView = impl Flatten<NestedNode> + Send + Sync>
+            + Clone
+            + Send
+            + Sync,
+    > IsBundle for T
 {
+    type NestedView = <Self as HasNestedView>::NestedView;
 }
 
 /// A single node in a circuit.
@@ -163,6 +181,7 @@ impl AsRef<Node> for Terminal {
 
 impl HasTerminalView for Node {
     type TerminalView = Terminal;
+    type NestedTerminalView = NestedTerminal;
 
     fn terminal_view(
         cell: CellId,
@@ -202,6 +221,21 @@ impl HasNestedView for Node {
             node: *self,
             instances: parent.clone(),
         }
+    }
+}
+
+impl FlatLen for NestedNode {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<NestedNode> for NestedNode {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedNode>,
+    {
+        output.extend(std::iter::once(self.clone()));
     }
 }
 
@@ -283,6 +317,21 @@ impl AsRef<NestedNode> for NestedTerminal {
     }
 }
 
+impl FlatLen for NestedTerminal {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<NestedNode> for NestedTerminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedNode>,
+    {
+        self.0.flatten(output)
+    }
+}
+
 impl NestedTerminal {
     /// Returns the path to this [`NestedTerminal`].
     pub fn path(&self) -> TerminalPath {
@@ -323,7 +372,11 @@ impl From<&NestedTerminal> for TerminalPath {
 /// A view of the terminals in an interface.
 pub trait HasTerminalView {
     /// A view of the terminals in an interface.
-    type TerminalView: HasNestedView + Flatten<Node> + Send + Sync;
+    type TerminalView: HasNestedView<NestedView = <Self as HasTerminalView>::NestedTerminalView>
+        + Flatten<Node>
+        + Send
+        + Sync;
+    type NestedTerminalView: Flatten<NestedNode> + Send + Sync;
 
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
@@ -339,6 +392,7 @@ where
     T: HasTerminalView,
 {
     type TerminalView = T::TerminalView;
+    type NestedTerminalView = T::NestedTerminalView;
 
     fn terminal_view(
         cell: CellId,
@@ -352,6 +406,7 @@ where
 
 impl HasTerminalView for () {
     type TerminalView = ();
+    type NestedTerminalView = ();
     fn terminal_view(
         _cell: CellId,
         _cell_io: &Self,

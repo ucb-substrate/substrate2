@@ -8,6 +8,7 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::context::{ContextBuilder, Installation, PdkContext};
 use substrate::geometry::prelude::*;
+use substrate::geometry::transform::TransformMut;
 use substrate::io::layout::{Builder, CustomHardwareType, IoShape, Port, PortGeometry, ShapePort};
 use substrate::io::schematic::{Bundle, Node};
 use substrate::io::{Array, Flipped, InOut, Input, Io, Output, Signal};
@@ -431,7 +432,7 @@ impl Block for Buffer {
     }
 }
 
-#[derive(LayoutData)]
+#[derive(Clone, TransformMut)]
 pub struct BufferData {
     pub inv1: Instance<Inverter>,
     pub inv2: Instance<Inverter>,
@@ -475,12 +476,12 @@ mod single_process_buffer {
             cell.draw(inv1.clone())?;
             cell.draw(inv2.clone())?;
 
-            io.vdd.merge(inv1.io().vdd);
-            io.vdd.merge(inv2.io().vdd);
-            io.vss.merge(inv1.io().vss);
-            io.vss.merge(inv2.io().vss);
-            io.din.merge(inv1.io().din);
-            io.dout.merge(inv2.io().dout);
+            io.vdd.merge(inv1.io().vdd.clone());
+            io.vdd.merge(inv2.io().vdd.clone());
+            io.vss.merge(inv1.io().vss.clone());
+            io.vss.merge(inv2.io().vss.clone());
+            io.din.merge(inv1.io().din.clone());
+            io.dout.merge(inv2.io().dout.clone());
 
             Ok(BufferData { inv1, inv2 })
         }
@@ -505,12 +506,12 @@ where
         cell.draw(inv1.clone())?;
         cell.draw(inv2.clone())?;
 
-        io.vdd.merge(inv1.io().vdd);
-        io.vdd.merge(inv2.io().vdd);
-        io.vss.merge(inv1.io().vss);
-        io.vss.merge(inv2.io().vss);
-        io.din.merge(inv1.io().din);
-        io.dout.merge(inv2.io().dout);
+        io.vdd.merge(inv1.io().vdd.clone());
+        io.vdd.merge(inv2.io().vdd.clone());
+        io.vss.merge(inv1.io().vss.clone());
+        io.vss.merge(inv2.io().vss.clone());
+        io.din.merge(inv1.io().din.clone());
+        io.dout.merge(inv2.io().dout.clone());
 
         Ok(BufferData { inv1, inv2 })
     }
@@ -562,7 +563,7 @@ impl Schematic<Sky130Pdk> for BufferInlineHardMacro {
 // end-code-snippet buffer_hard_macro
 
 // begin-code-snippet buffern_data
-#[derive(Default, LayoutData)]
+#[derive(Default, Clone, TransformMut)]
 pub struct BufferNData {
     pub buffers: Vec<Instance<Buffer>>,
 }

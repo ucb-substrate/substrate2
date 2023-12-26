@@ -394,12 +394,6 @@ pub trait HasTransformedView {
 /// The type of the transformed view of `T`.
 pub type Transformed<'a, T> = <T as HasTransformedView>::TransformedView<'a>;
 
-impl HasTransformedView for () {
-    type TransformedView<'a> = ();
-
-    fn transformed_view(&self, _trans: Transformation) -> Self::TransformedView<'_> {}
-}
-
 /// A transformed view of a vector.
 pub struct TransformedVec<'a, T> {
     inner: &'a [T],

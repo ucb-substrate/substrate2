@@ -16,9 +16,7 @@ pub use codegen::{Layout, LayoutData};
 use examples::get_snippets;
 use geometry::{
     prelude::{Bbox, Point},
-    transform::{
-        HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
-    },
+    transform::{Transform, TransformMut, Transformation, TranslateMut},
     union::BoundingUnion,
 };
 use once_cell::sync::OnceCell;
@@ -37,11 +35,8 @@ pub mod tiling;
 pub mod tracks;
 
 /// Data exported from a generated layout.
-///
-/// Contained data is transformed with the containing instance
-/// according to its [`HasTransformedView`] implementation.
-pub trait LayoutData: HasTransformedView + Send + Sync {}
-impl<T: HasTransformedView + Send + Sync> LayoutData for T {}
+pub trait LayoutData: Clone + Transform + Send + Sync {}
+impl<T: Clone + Transform + Send + Sync> LayoutData for T {}
 
 /// A block that exports data from its layout.
 ///
@@ -93,7 +88,6 @@ impl LayoutContext {
 /// # Examples
 ///
 #[doc = get_snippets!("core", "generate")]
-#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Cell<T: ExportsLayoutData> {
     /// Block whose layout this cell represents.
@@ -102,6 +96,25 @@ pub struct Cell<T: ExportsLayoutData> {
     data: T::LayoutData,
     pub(crate) io: Arc<<T::Io as HardwareType>::Bundle>,
     pub(crate) raw: Arc<RawCell>,
+}
+
+impl<T: ExportsLayoutData> Clone for Cell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            data: self.data.clone(),
+            io: self.io.clone(),
+            raw: self.raw.clone(),
+        }
+    }
+}
+
+impl<T: ExportsLayoutData> TransformMut for Cell<T> {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.io = Arc::new((*self.io).clone().transform(trans));
+        self.raw = Arc::new((*self.raw).clone().transform(trans));
+        self.data.transform_mut(trans);
+    }
 }
 
 impl<T: ExportsLayoutData> Cell<T> {
@@ -177,50 +190,6 @@ impl<T: ExportsLayoutData> CellHandle<T> {
     }
 }
 
-/// A transformed view of a cell, usually created by accessing the cell of an instance.
-pub struct TransformedCell<'a, T: ExportsLayoutData> {
-    /// Block whose layout this cell represents.
-    block: &'a T,
-    /// Extra data created during layout generation.
-    data: Transformed<'a, T::LayoutData>,
-    /// The geometry of the cell's IO.
-    io: Transformed<'a, <T::Io as HardwareType>::Bundle>,
-    pub(crate) raw: Arc<RawCell>,
-    pub(crate) trans: Transformation,
-}
-
-impl<'a, T: ExportsLayoutData> TransformedCell<'a, T> {
-    /// Returns the block whose layout this cell represents.
-    pub fn block(&self) -> &T {
-        self.block
-    }
-
-    /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&'a self) -> &Transformed<'a, T::LayoutData> {
-        &self.data
-    }
-}
-
-impl<T: ExportsLayoutData> HasTransformedView for Cell<T> {
-    type TransformedView<'a> = TransformedCell<'a, T>;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        Self::TransformedView {
-            block: &self.block,
-            data: self.data.transformed_view(trans),
-            io: self.io.transformed_view(trans),
-            raw: self.raw.clone(),
-            trans,
-        }
-    }
-}
-
-impl<'a, T: ExportsLayoutData> Bbox for TransformedCell<'a, T> {
-    fn bbox(&self) -> Option<geometry::rect::Rect> {
-        self.raw.bbox().transform(self.trans)
-    }
-}
-
 /// A generic layout instance.
 ///
 /// Stores a pointer to its underlying cell and its instantiated transformation.
@@ -228,12 +197,16 @@ impl<'a, T: ExportsLayoutData> Bbox for TransformedCell<'a, T> {
 pub struct Instance<T: ExportsLayoutData> {
     cell: CellHandle<T>,
     pub(crate) trans: Transformation,
+
+    /// Stored transformed child cell.
+    transformed_child: OnceCell<Arc<Cell<T>>>,
 }
 
 impl<T: ExportsLayoutData> Clone for Instance<T> {
     fn clone(&self) -> Self {
         Self {
             cell: self.cell.clone(),
+            transformed_child: self.transformed_child.clone(),
             ..*self
         }
     }
@@ -244,6 +217,7 @@ impl<T: ExportsLayoutData> Instance<T> {
         Instance {
             cell,
             trans: Transformation::default(),
+            transformed_child: OnceCell::new(),
         }
     }
 
@@ -252,10 +226,14 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<Transformed<'_, Cell<T>>> {
-        self.cell
-            .try_cell()
-            .map(|cell| cell.transformed_view(self.trans))
+    pub fn try_cell(&self) -> Result<&Cell<T>> {
+        self.transformed_child
+            .get_or_try_init(|| {
+                self.cell
+                    .try_cell()
+                    .map(|cell| Arc::new((*cell).clone().transform(self.trans)))
+            })
+            .map(|cell| cell.as_ref())
     }
 
     /// Returns a transformed view of the underlying [`Cell`].
@@ -265,7 +243,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> Transformed<'_, Cell<T>> {
+    pub fn cell(&self) -> &Cell<T> {
         self.try_cell().expect("cell generation failed")
     }
 
@@ -274,8 +252,8 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<Transformed<'_, T::LayoutData>> {
-        Ok(self.try_cell()?.data)
+    pub fn try_data(&self) -> Result<&T::LayoutData> {
+        Ok(&self.try_cell()?.data)
     }
 
     /// Tries to access extra data created by the cell's schematic generator.
@@ -285,8 +263,8 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> Transformed<'_, T::LayoutData> {
-        self.cell().data
+    pub fn data(&self) -> &T::LayoutData {
+        &self.cell().data
     }
 
     /// Tries to access the underlying block used to create this instance's cell.
@@ -295,7 +273,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     ///
     /// Returns an error if one was thrown during generation.
     pub fn try_block(&self) -> Result<&T> {
-        Ok(self.try_cell()?.block)
+        Ok(&self.try_cell()?.block)
     }
 
     /// Tries to access the underlying block used to create this instance's cell.
@@ -306,7 +284,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     ///
     /// Panics if an error was thrown during generation.
     pub fn block(&self) -> &T {
-        self.cell().block
+        &self.cell().block
     }
 
     /// Returns a transformed view of the underlying [`Cell`]'s IO.
@@ -314,8 +292,8 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<Transformed<'_, <T::Io as HardwareType>::Bundle>> {
-        Ok(self.try_cell()?.io)
+    pub fn try_io(&self) -> Result<&<T::Io as HardwareType>::Bundle> {
+        Ok(&self.try_cell()?.io)
     }
 
     /// Returns a transformed view of the underlying [`Cell`]'s IO.
@@ -325,8 +303,8 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> Transformed<'_, <T::Io as HardwareType>::Bundle> {
-        self.cell().io
+    pub fn io(&self) -> &<T::Io as HardwareType>::Bundle {
+        &self.cell().io
     }
 }
 
@@ -344,15 +322,8 @@ impl<T: ExportsLayoutData> TranslateMut for Instance<T> {
 
 impl<T: ExportsLayoutData> TransformMut for Instance<T> {
     fn transform_mut(&mut self, trans: Transformation) {
+        self.transformed_child.take();
         self.trans = Transformation::cascade(trans, self.trans);
-    }
-}
-
-impl<T: ExportsLayoutData> HasTransformedView for Instance<T> {
-    type TransformedView<'a> = Instance<T>;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        self.clone().transform(trans)
     }
 }
 
@@ -524,13 +495,7 @@ impl<PDK: Pdk> DrawReceiver<PDK> {
         let instance = Arc::new(OnceCell::new());
         self.instances.push(instance.clone());
 
-        let cell = inst.cell.clone();
-        thread::spawn(move || {
-            instance.set(cell.try_cell().ok().map(|cell| RawInstance {
-                cell: cell.raw.clone(),
-                trans: inst.trans,
-            }))
-        });
+        thread::spawn(move || instance.set(RawInstance::try_from(inst).ok()));
     }
 
     /// Draw layout object `obj`.

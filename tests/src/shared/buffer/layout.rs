@@ -1,3 +1,4 @@
+use geometry::transform::TransformMut;
 use geometry::{
     prelude::{AlignBbox, AlignMode, Bbox},
     rect::Rect,
@@ -152,7 +153,7 @@ pub struct ExtraLayers {
     marker2: Marker2,
 }
 
-#[derive(LayoutData)]
+#[derive(Clone, TransformMut)]
 pub struct BufferData {
     pub inv1: Instance<Inverter>,
     pub inv2: Instance<Inverter>,
@@ -186,8 +187,8 @@ where
             inv1.io().dout.bounding_union(&inv2.io().din),
         ))?;
 
-        io.din.set(inv1.io().din);
-        io.dout.set(inv2.io().dout);
+        io.din.set(inv1.io().din.clone());
+        io.dout.set(inv2.io().dout.clone());
 
         io.vdd.set(IoShape::with_layers(
             derived_layers.m1,
@@ -208,7 +209,7 @@ where
     }
 }
 
-#[derive(Default, LayoutData)]
+#[derive(Default, Clone, TransformMut)]
 pub struct BufferNData {
     pub buffers: Vec<Instance<Buffer>>,
 }
@@ -254,8 +255,8 @@ where
             io.vss.push(buffers[i].io().vss.clone());
         }
 
-        io.din.set(buffers[0].io().din);
-        io.dout.set(buffers[self.n - 1].io().dout);
+        io.din.set(buffers[0].io().din.clone());
+        io.dout.set(buffers[self.n - 1].io().dout.clone());
 
         data.buffers = buffers;
 
@@ -285,10 +286,10 @@ where
 
         for i in 0..self.m {
             let key = tiler.push(Tile::from_bbox(buffern.clone()).with_padding(Sides::uniform(10)));
-            io.vdd.merge(tiler[key].io().vdd);
-            io.vss.merge(tiler[key].io().vss);
-            io.din[i].set(tiler[key].io().din);
-            io.dout[i].set(tiler[key].io().dout);
+            io.vdd.merge(tiler[key].io().vdd.clone());
+            io.vss.merge(tiler[key].io().vss.clone());
+            io.din[i].set(tiler[key].io().din.clone());
+            io.dout[i].set(tiler[key].io().dout.clone());
         }
 
         cell.draw(tiler)?;

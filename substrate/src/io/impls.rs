@@ -4,9 +4,12 @@ use crate::io::layout::{
     BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometryBuilder,
 };
 use crate::io::schematic::{Connect, HasTerminalView};
+use geometry::prelude::Transformation;
+use geometry::transform::TransformMut;
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
+use substrate::io::schematic::NestedNode;
 
 use crate::schematic::HasNestedView;
 
@@ -28,6 +31,18 @@ where
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Node>,
+    {
+        (*self).flatten(output)
+    }
+}
+
+impl<T> Flatten<NestedNode> for &T
+where
+    T: Flatten<NestedNode>,
+{
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedNode>,
     {
         (*self).flatten(output)
     }
@@ -64,6 +79,14 @@ impl Flatten<Node> for () {
     fn flatten<E>(&self, _output: &mut E)
     where
         E: Extend<Node>,
+    {
+    }
+}
+
+impl Flatten<NestedNode> for () {
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<NestedNode>,
     {
     }
 }
@@ -235,6 +258,7 @@ impl<T: HasNestedView> HasNestedView for Input<T> {
 
 impl<T: HasTerminalView> HasTerminalView for Input<T> {
     type TerminalView = T::TerminalView;
+    type NestedTerminalView = T::NestedTerminalView;
 
     fn terminal_view(
         cell: CellId,
@@ -319,6 +343,7 @@ impl<T: HasNestedView> HasNestedView for Output<T> {
 
 impl<T: HasTerminalView> HasTerminalView for Output<T> {
     type TerminalView = T::TerminalView;
+    type NestedTerminalView = T::NestedTerminalView;
 
     fn terminal_view(
         cell: CellId,
@@ -432,6 +457,7 @@ impl<T: HasNestedView> HasNestedView for InOut<T> {
 
 impl<T: HasTerminalView> HasTerminalView for InOut<T> {
     type TerminalView = T::TerminalView;
+    type NestedTerminalView = T::NestedTerminalView;
 
     fn terminal_view(
         cell: CellId,
@@ -653,26 +679,6 @@ where
     }
 }
 
-// TODO: Maybe do lazy transformation here.
-impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
-    type TransformedView<'a>
-    = ArrayData<Transformed<'a, T>> where T: 'a;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
-        Self::TransformedView {
-            elems: self
-                .elems
-                .iter()
-                .map(|elem: &T| elem.transformed_view(trans))
-                .collect(),
-            ty_len: self.ty_len,
-        }
-    }
-}
-
 impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayData<T>> for ArrayData<B> {
     fn build(self) -> Result<ArrayData<T>> {
         let mut elems = Vec::new();
@@ -712,6 +718,15 @@ impl<T: Flatten<Node>> Flatten<Node> for ArrayData<T> {
     }
 }
 
+impl<T: Flatten<NestedNode>> Flatten<NestedNode> for ArrayData<T> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedNode>,
+    {
+        self.elems.iter().for_each(|e| e.flatten(output));
+    }
+}
+
 impl<T: HasNestedView> HasNestedView for ArrayData<T> {
     type NestedView = ArrayData<T::NestedView>;
 
@@ -729,6 +744,7 @@ impl<T: HasNestedView> HasNestedView for ArrayData<T> {
 
 impl<T: HasTerminalView> HasTerminalView for ArrayData<T> {
     type TerminalView = ArrayData<T::TerminalView>;
+    type NestedTerminalView = ArrayData<T::NestedTerminalView>;
 
     fn terminal_view(
         cell: CellId,
@@ -756,6 +772,12 @@ impl<T: Flatten<PortGeometry>> Flatten<PortGeometry> for ArrayData<T> {
         E: Extend<PortGeometry>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
+    }
+}
+
+impl<T: TransformMut> TransformMut for ArrayData<T> {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.elems.iter_mut().for_each(|e| e.transform_mut(trans));
     }
 }
 

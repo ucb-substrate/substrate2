@@ -205,7 +205,7 @@ fn transform_point_enum() {
 }
 
 // Test LayoutData proc macro
-#[derive(LayoutData)]
+#[derive(TransformMut)]
 pub enum MyData {
     Unit,
     Tuple(Instance<Inverter>),

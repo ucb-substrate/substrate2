@@ -81,6 +81,13 @@ impl From<Rect> for Shape {
     }
 }
 
+impl From<Polygon> for Shape {
+    #[inline]
+    fn from(value: Polygon) -> Self {
+        Self::Polygon(value)
+    }
+}
+
 impl<T: Bbox> BoundingUnion<T> for Shape {
     type Output = Option<Rect>;
 

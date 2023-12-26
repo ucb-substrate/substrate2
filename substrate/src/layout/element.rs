@@ -8,12 +8,11 @@ use arcstr::ArcStr;
 use geometry::{
     prelude::{Bbox, Point},
     rect::Rect,
-    transform::{
-        HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
-    },
+    transform::{Transform, TransformMut, Transformation, TranslateMut},
     union::BoundingUnion,
 };
 use indexmap::IndexMap;
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
 use crate::io::layout::PortGeometry;
@@ -49,6 +48,20 @@ pub struct RawCell {
     pub(crate) blockages: Vec<Shape>,
     ports: NamedPorts,
     port_names: HashMap<String, NameBuf>,
+}
+
+impl TransformMut for RawCell {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.elements
+            .iter_mut()
+            .for_each(|e| e.transform_mut(trans));
+        self.blockages
+            .iter_mut()
+            .for_each(|s| s.transform_mut(trans));
+        self.ports
+            .iter_mut()
+            .for_each(|(_, s)| s.transform_mut(trans));
+    }
 }
 
 impl RawCell {
@@ -133,48 +146,6 @@ impl Bbox for RawCell {
     }
 }
 
-/// A transformed view of a raw cell, usually created by accessing the cell of an instance.
-pub struct TransformedRawCell<'a> {
-    id: CellId,
-    #[allow(dead_code)]
-    name: ArcStr,
-    elements: Transformed<'a, Vec<Element>>,
-    #[allow(dead_code)]
-    blockages: Transformed<'a, Vec<Shape>>,
-    ports: Transformed<'a, NamedPorts>,
-}
-
-impl HasTransformedView for RawCell {
-    type TransformedView<'a> = TransformedRawCell<'a>;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedRawCell {
-            id: self.id,
-            name: self.name.clone(),
-            elements: self.elements.transformed_view(trans),
-            blockages: self.blockages.transformed_view(trans),
-            ports: self.ports.transformed_view(trans),
-        }
-    }
-}
-
-impl<'a> TransformedRawCell<'a> {
-    /// The ID of this cell.
-    pub fn id(&self) -> CellId {
-        self.id
-    }
-
-    /// Returns an iterator over the elements of this cell.
-    pub fn elements(&self) -> impl Iterator<Item = Transformed<Element>> {
-        self.elements.iter()
-    }
-
-    /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
-    pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, Transformed<PortGeometry>)> {
-        self.ports.iter()
-    }
-}
-
 /// A raw layout instance.
 ///
 /// Consists of a pointer to an underlying cell and its instantiated transformation.
@@ -183,6 +154,9 @@ impl<'a> TransformedRawCell<'a> {
 pub struct RawInstance {
     pub(crate) cell: Arc<RawCell>,
     pub(crate) trans: Transformation,
+
+    /// Stored transformed child cell.
+    transformed_child: OnceCell<Arc<RawCell>>,
 }
 
 impl RawInstance {
@@ -191,13 +165,17 @@ impl RawInstance {
         Self {
             cell: cell.into(),
             trans,
+
+            transformed_child: OnceCell::new(),
         }
     }
 
     /// Returns a reference to the child cell.
     #[inline]
-    pub fn cell(&self) -> Transformed<'_, RawCell> {
-        self.cell.transformed_view(self.trans)
+    pub fn cell(&self) -> &RawCell {
+        self.transformed_child
+            .get_or_init(|| Arc::new((*self.cell).clone().transform(self.trans)))
+            .as_ref()
     }
 }
 
@@ -212,8 +190,10 @@ impl<T: ExportsLayoutData> TryFrom<Instance<T>> for RawInstance {
 
     fn try_from(value: Instance<T>) -> Result<Self> {
         Ok(Self {
-            cell: value.try_cell()?.raw,
+            cell: value.cell.try_cell()?.raw.clone(),
             trans: value.trans,
+
+            transformed_child: OnceCell::new(),
         })
     }
 }
@@ -233,15 +213,8 @@ impl TranslateMut for RawInstance {
 
 impl TransformMut for RawInstance {
     fn transform_mut(&mut self, trans: Transformation) {
+        self.transformed_child.take();
         self.trans = Transformation::cascade(trans, self.trans);
-    }
-}
-
-impl HasTransformedView for RawInstance {
-    type TransformedView<'a> = RawInstance;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        self.clone().transform(trans)
     }
 }
 
@@ -284,17 +257,6 @@ impl<T: Bbox> BoundingUnion<T> for Shape {
 
     fn bounding_union(&self, other: &T) -> Self::Output {
         self.bbox().unwrap().bounding_union(&other.bbox())
-    }
-}
-
-impl HasTransformedView for Shape {
-    type TransformedView<'a> = Shape;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        Shape {
-            layer: self.layer,
-            shape: self.shape.transformed_view(trans),
-        }
     }
 }
 
@@ -344,14 +306,6 @@ impl Text {
     /// Gets the text of this annotation.
     pub fn text(&self) -> &ArcStr {
         &self.text
-    }
-}
-
-impl HasTransformedView for Text {
-    type TransformedView<'a> = Text;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        self.clone().transform(trans)
     }
 }
 
@@ -491,14 +445,6 @@ impl From<Shape> for Element {
 impl From<Text> for Element {
     fn from(value: Text) -> Self {
         Self::Text(value)
-    }
-}
-
-impl HasTransformedView for Element {
-    type TransformedView<'a> = Element;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        self.clone().transform(trans)
     }
 }
 

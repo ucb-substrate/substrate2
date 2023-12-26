@@ -26,8 +26,8 @@ use crate::context::Context;
 use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::io::schematic::{
-    Bundle, Connect, HardwareType, HasTerminalView, IsBundle, Node, NodeContext, NodePriority,
-    NodeUf, Port, TerminalView,
+    Bundle, Connect, HardwareType, HasTerminalView, IsBundle, NestedNode, Node, NodeContext,
+    NodePriority, NodeUf, Port, TerminalView,
 };
 use crate::io::{Flatten, HasNameTree, NameBuf};
 use crate::schematic::conv::ConvError;
@@ -456,14 +456,13 @@ impl<'a, S: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> SubCellBuilder<'a, S, 
 
 /// A schematic cell.
 pub struct Cell<T: ExportsNestedData> {
+    id: CellId,
     /// The block from which this cell was generated.
     block: Arc<T>,
     /// Data returned by the cell's schematic generator.
     nodes: Arc<T::NestedData>,
     /// The cell's input/output interface.
     io: Arc<<T::Io as HardwareType>::Bundle>,
-    /// The path corresponding to this cell.
-    path: InstancePath,
 
     /// Stored nested data for deref purposes.
     nested_data: OnceCell<Arc<NestedView<T::NestedData>>>,
@@ -482,10 +481,10 @@ impl<T: ExportsNestedData> Deref for Cell<T> {
 impl<T: ExportsNestedData> Clone for Cell<T> {
     fn clone(&self) -> Self {
         Self {
+            id: self.id,
             block: self.block.clone(),
             nodes: self.nodes.clone(),
             io: self.io.clone(),
-            path: self.path.clone(),
 
             nested_data: self.nested_data.clone(),
         }
@@ -500,10 +499,10 @@ impl<T: ExportsNestedData> Cell<T> {
         data: Arc<T::NestedData>,
     ) -> Self {
         Self {
+            id,
             io,
             block,
             nodes: data,
-            path: InstancePath::new(id),
             nested_data: OnceCell::new(),
         }
     }
@@ -515,12 +514,14 @@ impl<T: ExportsNestedData> Cell<T> {
 
     /// Returns nested data propagated by the cell's schematic generator.
     pub fn data(&self) -> NestedView<T::NestedData> {
-        self.nodes.nested_view(&self.path)
+        // Nested in order to prevent connections to nodes in the type system.
+        self.nodes.nested_view(&InstancePath::new(self.id))
     }
 
     /// Returns this cell's IO.
     pub fn io(&self) -> NestedView<<T::Io as HardwareType>::Bundle> {
-        self.io.nested_view(&self.path)
+        // Nested in order to prevent connections to nodes in the type system.
+        self.io.nested_view(&InstancePath::new(self.id))
     }
 }
 
@@ -600,6 +601,31 @@ impl<S: Schema, B: ExportsNestedData> SchemaCellHandle<S, B> {
     pub fn cell(&self) -> &Cell<B> {
         self.cell.cell()
     }
+
+    /// Tries to access the underlying [`RawCell`].
+    ///
+    /// Blocks until cell generation completes and returns an error if one was thrown during generation.
+    pub fn try_raw_cell(&self) -> Result<&RawCell<S>> {
+        // TODO: Handle cache errors with more granularity.
+        self.handle
+            .try_get()
+            .as_ref()
+            .map_err(|_| Error::Internal)?
+            .as_ref()
+            .map(|cell| cell.raw.as_ref())
+            .map_err(|e| e.clone())
+    }
+
+    /// Returns the underlying [`RawCell`].
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if generation fails.
+    pub fn raw_cell(&self) -> &RawCell<S> {
+        self.try_raw_cell().expect("cell generation failed")
+    }
 }
 
 impl<S: Schema + ?Sized, B: ExportsNestedData> Deref for SchemaCellHandle<S, B> {
@@ -641,9 +667,7 @@ impl<T: ExportsNestedData> Deref for Instance<T> {
     type Target = NestedView<T::NestedData>;
 
     fn deref(&self) -> &Self::Target {
-        self.nested_data
-            .get_or_init(|| Arc::new(self.data()))
-            .as_ref()
+        self.data()
     }
 }
 
@@ -694,10 +718,14 @@ impl<T: ExportsNestedData> Instance<T> {
     /// Tries to access the underlying cell data.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<NestedView<T::NestedData>> {
-        self.cell
-            .try_cell()
-            .map(|data| data.nodes.nested_view(&self.path))
+    pub fn try_data(&self) -> Result<&NestedView<T::NestedData>> {
+        self.nested_data
+            .get_or_try_init(|| {
+                self.cell
+                    .try_cell()
+                    .map(|data| Arc::new(data.nodes.nested_view(&self.path)))
+            })
+            .map(|data| data.as_ref())
     }
 
     /// Tries to access the underlying cell data.
@@ -705,8 +733,8 @@ impl<T: ExportsNestedData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> NestedView<T::NestedData> {
-        self.cell.cell().nodes.nested_view(&self.path)
+    pub fn data(&self) -> &NestedView<T::NestedData> {
+        self.try_data().expect("cell generation failed")
     }
 
     /// Tries to access the underlying block used to create this instance's cell.
@@ -757,6 +785,13 @@ impl<T: ExportsNestedData> NestedInstance<T> {
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
+    pub fn io_test(&self) -> NestedView<<T::Io as HardwareType>::Bundle> {
+        self.0.io.nested_view(&self.0.parent)
+    }
+
+    /// The ports of this instance.
+    ///
+    /// Used for node connection purposes.
     pub fn io(&self) -> NestedView<TerminalView<<T::Io as HardwareType>::Bundle>> {
         self.0.io().nested_view(&self.0.parent)
     }
@@ -764,7 +799,7 @@ impl<T: ExportsNestedData> NestedInstance<T> {
     /// Tries to access the underlying cell data.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<NestedView<T::NestedData>> {
+    pub fn try_data(&self) -> Result<&NestedView<T::NestedData>> {
         self.0.try_data()
     }
 
@@ -773,7 +808,7 @@ impl<T: ExportsNestedData> NestedInstance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> NestedView<T::NestedData> {
+    pub fn data(&self) -> &NestedView<T::NestedData> {
         self.0.data()
     }
 
@@ -1055,11 +1090,6 @@ impl<S: Schema + ?Sized> RawInstance<S> {
 }
 
 /// A raw (weakly-typed) cell.
-///
-/// Only public for the sake of making the [`Schematic`] trait public,
-/// should not have any public methods.
-#[allow(dead_code)]
-#[doc(hidden)]
 pub struct RawCell<S: Schema + ?Sized> {
     id: CellId,
     pub(crate) name: ArcStr,
@@ -1071,6 +1101,9 @@ pub struct RawCell<S: Schema + ?Sized> {
     flatten: bool,
     contents: RawCellContents<S>,
 }
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct NodeGroup(Node);
 
 impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for RawCell<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1114,6 +1147,18 @@ impl<S: Schema + ?Sized> RawCell<S> {
             flatten: self.flatten,
             contents: self.contents.convert_schema()?,
         })
+    }
+
+    /// Returns the group of a [`NestedNode`]. `NestedNode`s in the same group
+    /// are connected to one another.
+    pub fn node_group(&self, node: &NestedNode) -> NodeGroup {
+        if let Some(bot) = node.instances.bot {
+            assert_eq!(self.id, bot);
+        } else {
+            assert_eq!(self.id, node.instances.top);
+        }
+
+        NodeGroup(self.roots[&node.node])
     }
 }
 
