@@ -142,16 +142,17 @@
 //!
 #![warn(missing_docs)]
 
+pub mod abs;
 pub mod grid;
 
 use ::grid::Grid;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use substrate::geometry::prelude::{Dir, Point};
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 
 /// Identifies nets in a routing solver.
 pub type NetId = usize;
-
 
 /// Identifies a routing layer.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -177,7 +178,6 @@ pub struct Coordinate {
     /// Indexes the horizontal-traveling tracks.
     pub y: i64,
 }
-
 
 /// A type that contains an x-y coordinate.
 pub trait Xy {
@@ -210,14 +210,21 @@ impl Xy for (i64, i64) {
 }
 
 /// The state of a point on a routing grid.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PointState {
     /// The grid point is available for routing.
     Available,
     /// The grid point is obstructed.
     Obstructed,
     /// The grid point is occupied by a known net.
-    Routed(NetId),
+    Routed {
+        /// The net occupying this routing space.
+        net: NetId,
+        /// Indicates if there is a via to the layer immediately below.
+        via_up: bool,
+        /// Indicates if there is a via to the layer immediately above.
+        via_down: bool,
+    },
 }
 
 impl PointState {
@@ -225,7 +232,7 @@ impl PointState {
     pub fn is_available_for_net(&self, net: NetId) -> bool {
         match self {
             Self::Available => true,
-            Self::Routed(n) => *n == net,
+            Self::Routed { net: n, .. } => *n == net,
             Self::Obstructed => false,
         }
     }
@@ -234,7 +241,7 @@ impl PointState {
 /// Allowed track directions on a routing layer.
 ///
 /// Adjacent routing layers must have alternating track directions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RoutingDir {
     /// Layer should be used for vertical routing.
     Vert,
@@ -335,116 +342,3 @@ impl Pos {
         }
     }
 }
-
-
-// todo: how to connect by abutment (eg body terminals)
-
-pub struct AtollTileBuilder<S: Schema + ?Sized, PDK: Pdk> {
-    connections: Vec<(AtollPort, AtollPort)>,
-    schematic: schematic::CellBuilder<S>,
-    layout: layout::CellBuilder<PDK>,
-}
-
-/// The abstract view of an ATOLL tile.
-pub struct AtollAbstract {
-    /// The topmost ATOLL layer used within the tile.
-    top_layer: usize,
-    /// The lower left corner of the tile, in LCM units with respect to `top_layer`.
-    ll: Point,
-    /// The upper right corner of the tile, in LCM units with respect to `top_layer`.
-    ur: Point,
-    /// The state of each layer, up to and including `top_layer`.
-    layers: Vec<LayerAbstract>,
-}
-
-/// The abstracted state of a single routing layer.
-pub enum LayerAbstract {
-    /// The layer is fully blocked.
-    /// 
-    /// No routing on this layer is permitted.
-    Blocked,
-    /// The layer is available for routing and exposes the state of each point on the routing grid.
-    Detailed {
-        Grid<PointState>,
-    }
-}
-
-impl<S, PDK> AtollTileBuilder<S, PDK> {
-    fn manually_say_that_grid_point_should_have_net(net: AtollNet, point: RoutingPoint);
-}
-
-pub trait HardwareType {
-    /// The **Rust** type representing ATOLL instances of this **hardware** type.
-    type Bundle: IsBundle;
-    /// A builder for creating [`HardwareType::Bundle`].
-    type Builder: BundleBuilder<Self::Bundle>;
-
-    /// Instantiates a schematic data struct with populated nodes.
-    fn builder(&self) -> Self::Builder;
-
-}
-
-/// A bundle of schematic nodes.
-///
-/// An instance of a [`HardwareType`].
-pub trait IsBundle:
-    FlatLen + Flatten<AtollNode> + HasTerminalView + HasNestedView + Clone + Send + Sync
-{
-}
-
-impl<T> IsBundle for T where
-    T: FlatLen + Flatten<AtollNode> + HasTerminalView + HasNestedView + Clone + Send + Sync
-{
-}
-
-pub trait HasTerminalView: schematic::HasTerminalView<TerminalView = impl HasTransformedView> {
-}
-
-impl <T: schematic::HasTerminalView = impl HasTransformedView> for T {}
-
-
-/// ATOLL bundle builder.
-///
-/// A builder for an instance of bundle `T`.
-pub trait BundleBuilder<T: IsBundle> {
-    /// Builds an instance of bundle `T`.
-    fn build(self) -> Result<T>;
-}
-
-pub struct AtollNode(Node, PortGeometry);
-pub struct AtollNodeBuilder(Node, PortGeometryBuilder);
-pub struct AtollTerminal(Terminal, PortGeometry);
-pub struct TransformedAtollTerminal<'a>(Terminal, TransformedPortGeometry<'a>);
-
-impl HasTerminalView for AtollNode {
-    type TerminalView = AtollTerminal;
-}
-
-impl HasTransformedView for AtollTerminal {
-    type TransformedView<'a> = TransformedAtollTerminal<'a>;
-}
-
-impl HasNestedView for AtollNode {
-    type NestedView = NestedNode;
-}
-
-impl HardwareType for Signal {
-    type Bundle = AtollNode;
-    type Builder = AtollNodeBuilder;
-}
-
-pub trait AtollTile<S, PDK>: ExportsNestedData + ExportsLayoutData {
-    fn tile(&self, io: <<Self as Block>::Io as HardwareType>::Builder, cell: &mut AtollTileBuilder<S, PDK>) -> Result<(<Self as ExportsNestedData>::NestedData, <Self as ExportsLayoutData>::LayoutData)>;
-}
-
-pub struct AtollTileWrapper<T, S, PDK> {
-    inner: T,
-    phantom: PhantomData<S, PDK>,
-}
-
-impl<T, S, PDK> Schematic<S> for AtollTileWrapper<T, S, PDK> where T: AtollTile<S, PDK> {
-}
-
-impl<T, S, PDK> Layout<PDK> for AtollTileWrapper<T, S, PDK> where T: AtollTile<S, PDK> {
-}
-

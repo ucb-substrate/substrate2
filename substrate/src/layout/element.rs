@@ -195,9 +195,23 @@ impl RawInstance {
     }
 
     /// Returns a reference to the child cell.
+    ///
+    /// The returned object provides coordinates in the parent cell's coordinate system.
+    /// If you want coordinates in the child cell's coordinate system,
+    /// consider using [`RawInstance::raw_cell`] instead.
     #[inline]
     pub fn cell(&self) -> Transformed<'_, RawCell> {
         self.cell.transformed_view(self.trans)
+    }
+
+    /// Returns a raw reference to the child cell.
+    ///
+    /// The returned cell does not store any information related
+    /// to this instance's transformation.
+    /// Consider using [`RawInstance::cell`] instead.
+    #[inline]
+    pub fn raw_cell(&self) -> &RawCell {
+        &self.cell
     }
 }
 

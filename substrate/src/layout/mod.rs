@@ -133,6 +133,11 @@ impl<T: ExportsLayoutData> Cell<T> {
     pub fn io(&self) -> &<T::Io as HardwareType>::Bundle {
         self.io.as_ref()
     }
+
+    /// The raw layout geometry contained by this cell.
+    pub fn raw(&self) -> &RawCell {
+        &self.raw
+    }
 }
 
 impl<T: ExportsLayoutData> Bbox for Cell<T> {

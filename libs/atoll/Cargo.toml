@@ -7,5 +7,6 @@ license = "BSD-3-Clause"
 
 [dependencies]
 substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
-grid = "0.11"
+grid = { version = "0.13.0", features = ["serde"] }
 num = "0.4.1"
+serde = { version = "1.0.192", features = ["derive"] }
