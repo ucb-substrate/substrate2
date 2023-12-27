@@ -207,10 +207,12 @@ name = "atoll"
 version = "0.1.3"
 dependencies = [
  "derive-where",
+ "ena",
  "grid",
  "num",
  "serde",
  "substrate",
+ "tracing",
 ]
 
 [[package]]

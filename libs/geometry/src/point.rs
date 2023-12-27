@@ -96,9 +96,9 @@ impl TransformMut for Point {
 }
 
 impl HasTransformedView for Point {
-    type TransformedView<'a> = Point;
+    type TransformedView = Point;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.transform(trans)
     }
 }
