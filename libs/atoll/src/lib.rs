@@ -145,6 +145,7 @@
 pub mod abs;
 pub mod grid;
 
+use crate::abs::AtollAbstract;
 use ::grid::Grid;
 use derive_where::derive_where;
 use ena::unify::{UnifyKey, UnifyValue};
@@ -367,26 +368,6 @@ impl Pos {
 
 // todo: how to connect by abutment (eg body terminals)
 
-/// The abstract view of an ATOLL tile.
-pub struct AtollAbstract {
-    /// The topmost ATOLL layer used within the tile.
-    top_layer: usize,
-    /// The lower left corner of the tile, in LCM units with respect to `top_layer`.
-    ll: Point,
-    /// The upper right corner of the tile, in LCM units with respect to `top_layer`.
-    ur: Point,
-    /// The state of each layer, up to and including `top_layer`.
-    layers: Vec<LayerAbstract>,
-}
-
-/// The abstracted state of a single routing layer.
-pub enum LayerAbstract {
-    /// The layer is fully blocked.
-    ///
-    /// No routing on this layer is permitted.
-    Blocked,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct NodeKey(u32);
 
@@ -427,6 +408,7 @@ pub struct Loc {
 }
 pub struct Instance<T: ExportsLayoutData> {
     inst: layout::Instance<T>,
+    abs: AtollAbstract,
     loc: Loc,
     orientation: Orientation,
 }
@@ -464,7 +446,7 @@ impl<'a, S: Schema, PDK: Pdk> AtollTileBuilder<'a, S, PDK> {
             layout,
         }
     }
-    pub fn generate<B: Clone + Schematic<S> + Layout<PDK>>(
+    pub fn generate_primitive<B: Clone + Schematic<S> + Layout<PDK>>(
         &mut self,
         block: B,
     ) -> layout::Instance<B> {
