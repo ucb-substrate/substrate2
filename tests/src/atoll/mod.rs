@@ -56,7 +56,7 @@ fn sky130_atoll_nmos_tile() {
     let handle = ctx.generate_layout(block);
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
-    let abs = generate_abstract(handle.cell(), &*stack);
+    let abs = generate_abstract(handle.cell(), &stack);
     ctx.write_layout(
         DebugAbstract {
             abs,

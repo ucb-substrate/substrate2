@@ -8,19 +8,19 @@ use std::collections::HashMap;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
-use substrate::geometry::corner::Corner;
+
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::transform::Transformation;
 use substrate::io::layout::Builder;
 use substrate::layout::element::{CellId, Element, RawCell};
 use substrate::layout::element::{Shape, Text};
-use substrate::layout::tracks::RoundingMode;
+
 use substrate::layout::{CellBuilder, Draw, DrawReceiver, ExportsLayoutData, Layout};
 use substrate::pdk::layers::HasPin;
 use substrate::pdk::Pdk;
 use substrate::schematic::ExportsNestedData;
-use substrate::{arcstr, layout, schematic};
+use substrate::{arcstr, layout};
 
 /// The abstract view of an ATOLL tile.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]

@@ -145,11 +145,9 @@
 pub mod abs;
 pub mod grid;
 
-use ::grid::Grid;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+
 use substrate::geometry::prelude::{Dir, Point};
-use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 
 /// Identifies nets in a routing solver.
 pub type NetId = usize;
