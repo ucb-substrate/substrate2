@@ -2,6 +2,7 @@
 use crate::grid::{LayerSlice, LayerStack, PdkLayer, RoutingGrid, RoutingState};
 use crate::PointState;
 use grid::Grid;
+use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use substrate::arcstr::ArcStr;
@@ -10,9 +11,10 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::corner::Corner;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
+use substrate::geometry::transform::Transformation;
 use substrate::io::layout::Builder;
-use substrate::layout::element::Shape;
 use substrate::layout::element::{CellId, Element, RawCell};
+use substrate::layout::element::{Shape, Text};
 use substrate::layout::tracks::RoundingMode;
 use substrate::layout::{CellBuilder, Draw, DrawReceiver, ExportsLayoutData, Layout};
 use substrate::pdk::layers::HasPin;
@@ -106,10 +108,6 @@ fn top_layer_inner(
     top
 }
 
-fn div_ceil(a: i64, b: i64) -> i64 {
-    (a + b - 1) / b
-}
-
 pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
     layout: &layout::Cell<T>,
     stack: &LayerStack<PdkLayer>,
@@ -123,9 +121,9 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
 
     let slice = stack.slice(0..top + 1);
 
-    let xmin = bbox.left() / slice.lcm_unit_width();
+    let xmin = div_floor(bbox.left(), slice.lcm_unit_width());
     let xmax = div_ceil(bbox.right(), slice.lcm_unit_width());
-    let ymin = bbox.bot() / slice.lcm_unit_height();
+    let ymin = div_floor(bbox.bot(), slice.lcm_unit_height());
     let ymax = div_ceil(bbox.top(), slice.lcm_unit_height());
     let lcm_bounds = Rect::from_sides(xmin, ymin, xmax, ymax);
 
@@ -142,11 +140,14 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
                     p.bbox().expect("empty polygons are unsupported")
                 }
             };
+            println!("source rect = {rect:?}");
             if let Some(rect) = grid.shrink_to_grid(rect, layer) {
+                println!("grid rect = {rect:?}");
                 for x in rect.left()..=rect.right() {
                     for y in rect.bot()..=rect.top() {
                         let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                         let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
+                        println!("assigning ({}, {}) to net {}", x - xofs, y - yofs, name);
                         state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
                             PointState::Obstructed;
                     }
@@ -230,6 +231,12 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                                 PointState::Routed { .. } => Rect::from_point(pt).expand_all(30),
                             };
                             recv.draw(Shape::new(layer_id, rect))?;
+                            let text = Text::new(
+                                layer_id,
+                                format!("({x},{y})"),
+                                Transformation::translate(pt.x as f64, pt.y as f64),
+                            );
+                            recv.draw(text)?;
                         }
                     }
                 }
