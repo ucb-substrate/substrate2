@@ -4,10 +4,10 @@ use crate::layers::Sky130Layers;
 use crate::mos::{MosParams, Nfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
-use atoll::grid::{AbstractLayer, AtollLayer, LayerStack, PdkLayer, RoutingGrid};
+use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid};
 use atoll::RoutingDir;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
@@ -17,7 +17,7 @@ use substrate::io::layout::IoShape;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
-use substrate::pdk::layers::{Layer, LayerId};
+use substrate::pdk::layers::Layer;
 use substrate::schematic::{ExportsNestedData, Schematic};
 
 impl Sky130Layers {
@@ -36,8 +36,7 @@ impl Sky130Layers {
                         offset: 85,
                         endcap: 0,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met1.drawing.id(),
                     inner: AbstractLayer {
@@ -47,8 +46,7 @@ impl Sky130Layers {
                         offset: 130,
                         endcap: 100,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met2.drawing.id(),
                     inner: AbstractLayer {
@@ -58,8 +56,7 @@ impl Sky130Layers {
                         offset: 150,
                         endcap: 130,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met3.drawing.id(),
                     inner: AbstractLayer {
@@ -69,8 +66,7 @@ impl Sky130Layers {
                         offset: 200,
                         endcap: 150,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met4.drawing.id(),
                     inner: AbstractLayer {
@@ -80,8 +76,7 @@ impl Sky130Layers {
                         offset: 600,
                         endcap: 200,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met5.drawing.id(),
                     inner: AbstractLayer {
@@ -91,8 +86,7 @@ impl Sky130Layers {
                         offset: 900,
                         endcap: 600,
                     },
-                }
-                .into(),
+                },
             ],
             offset_x: 0,
             offset_y: 0,

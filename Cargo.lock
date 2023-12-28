@@ -2506,6 +2506,7 @@ dependencies = [
  "geometry",
  "impl-trait-for-tuples",
  "indexmap 2.1.0",
+ "num",
  "once_cell",
  "pathtree",
  "rust_decimal",

@@ -1,6 +1,7 @@
 //! Routing track management.
 
 use geometry::span::Span;
+use num::integer::div_floor;
 use serde::{Deserialize, Serialize};
 
 /// A uniform set of tracks.
@@ -69,9 +70,15 @@ impl UniformTracks {
     /// Converts a geometric coordinate to the index of the nearest track.
     pub fn to_track_idx(&self, coord: i64, mode: RoundingMode) -> i64 {
         match mode {
-            RoundingMode::Down => (coord - self.offset) / self.pitch(),
-            RoundingMode::Up => (coord - self.offset + self.pitch() - 1) / self.pitch(),
-            RoundingMode::Nearest => (coord - self.offset + self.pitch() / 2) / self.pitch(),
+            RoundingMode::Down => div_floor(coord - self.offset + self.line / 2, self.pitch()),
+            RoundingMode::Up => div_floor(
+                coord - self.offset + self.pitch() - 1 + self.line / 2,
+                self.pitch(),
+            ),
+            RoundingMode::Nearest => div_floor(
+                coord - self.offset + self.pitch() / 2 + self.line / 2,
+                self.pitch(),
+            ),
         }
     }
 }
@@ -257,5 +264,15 @@ mod tests {
     #[should_panic]
     fn uniform_tracks_requires_even_spacing() {
         UniformTracks::new(320, 645);
+    }
+
+    #[test]
+    fn uniform_tracks_to_track_idx() {
+        let tracks = UniformTracks::with_offset(260, 140, 130);
+        assert_eq!(tracks.to_track_idx(-20, RoundingMode::Down), -1);
+        assert_eq!(tracks.to_track_idx(-550, RoundingMode::Down), -2);
+        assert_eq!(tracks.to_track_idx(-200, RoundingMode::Down), -1);
+        assert_eq!(tracks.to_track_idx(-20, RoundingMode::Up), 0);
+        assert_eq!(tracks.to_track_idx(-550, RoundingMode::Up), -1);
     }
 }
