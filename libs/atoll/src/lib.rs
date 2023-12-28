@@ -405,6 +405,18 @@ struct NodeInfo {
     geometry: Vec<PortGeometry>,
 }
 
+pub enum Orientation {
+    R0,
+    R180,
+    MX,
+    MY,
+}
+
+pub struct Loc {
+    top: 
+}
+pub struct Instance {}
+
 pub struct AtollTileBuilder<'a, S: Schema + ?Sized, PDK: Pdk> {
     nodes: HashMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
@@ -421,7 +433,6 @@ impl<'a, S: Schema, PDK: Pdk> AtollTileBuilder<'a, S, PDK> {
         let mut nodes = HashMap::new();
         let mut connections = ena::unify::InPlaceUnificationTable::new();
         let io_nodes: Vec<Node> = schematic_io.flatten_vec();
-        println!("{:?}", io_nodes);
         let keys: Vec<NodeKey> = io_nodes.iter().map(|_| connections.new_key(())).collect();
         nodes.extend(
             io_nodes
@@ -431,7 +442,6 @@ impl<'a, S: Schema, PDK: Pdk> AtollTileBuilder<'a, S, PDK> {
                     geometry: vec![],
                 })),
         );
-        println!("{:?}", nodes);
 
         Self {
             nodes,
