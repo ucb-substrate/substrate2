@@ -1,6 +1,6 @@
 //! Generate abstract views of layout cells.
 use crate::grid::{LayerSlice, LayerStack, PdkLayer, RoutingGrid, RoutingState};
-use crate::PointState;
+use crate::{NetId, PointState};
 use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,10 @@ pub struct AtollAbstract {
     ///
     /// Ports on layers not supported by ATOLL are ignored.
     layers: Vec<LayerAbstract>,
+    /// A list of port net IDs.
+    ///
+    /// The order of net IDs matches that provided by [`layout::Cell::ports`].
+    ports: Vec<NetId>,
     /// The routing grid used to produce this abstract view.
     pub(crate) grid: RoutingGrid<PdkLayer>,
 }
@@ -132,7 +136,10 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
 
     let grid = RoutingGrid::new(stack.clone(), 0..top + 1, nx, ny);
     let mut state = RoutingState::new(stack.clone(), top, nx, ny);
-    for (name, geom) in cell.ports() {
+    let mut ports = Vec::new();
+    for (i, (name, geom)) in cell.ports().enumerate() {
+        let net = NetId(i);
+        ports.push(net);
         if let Some(layer) = stack.layer_idx(geom.primary.layer().drawing()) {
             let rect = match geom.primary.shape() {
                 substrate::geometry::shape::Shape::Rect(r) => *r,
@@ -149,7 +156,11 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
                         let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
                         println!("assigning ({}, {}) to net {}", x - xofs, y - yofs, name);
                         state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
-                            PointState::Obstructed;
+                            PointState::Routed {
+                                net,
+                                via_down: false,
+                                via_up: false,
+                            };
                     }
                 }
             }
@@ -166,6 +177,7 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
         top_layer: top,
         lcm_bounds,
         grid: RoutingGrid::new(stack.clone(), 0..top + 1, nx, ny),
+        ports,
         layers,
     }
 }
