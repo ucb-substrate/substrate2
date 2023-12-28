@@ -142,12 +142,13 @@
 //!
 #![warn(missing_docs)]
 
+pub mod abs;
 pub mod grid;
 
 use ::grid::Grid;
 use derive_where::derive_where;
 use ena::unify::{UnifyKey, UnifyValue};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -170,7 +171,6 @@ use substrate::schematic::schema::Schema;
 use substrate::schematic::{
     CellId, ExportsNestedData, HasNestedView, InstanceId, InstancePath, SchemaCellHandle, Schematic,
 };
-use substrate::serde::Deserialize;
 use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
@@ -232,14 +232,21 @@ impl Xy for (i64, i64) {
 }
 
 /// The state of a point on a routing grid.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PointState {
     /// The grid point is available for routing.
     Available,
     /// The grid point is obstructed.
     Obstructed,
     /// The grid point is occupied by a known net.
-    Routed(NetId),
+    Routed {
+        /// The net occupying this routing space.
+        net: NetId,
+        /// Indicates if there is a via to the layer immediately below.
+        via_up: bool,
+        /// Indicates if there is a via to the layer immediately above.
+        via_down: bool,
+    },
 }
 
 impl PointState {
@@ -247,7 +254,7 @@ impl PointState {
     pub fn is_available_for_net(&self, net: NetId) -> bool {
         match self {
             Self::Available => true,
-            Self::Routed(n) => *n == net,
+            Self::Routed { net: n, .. } => *n == net,
             Self::Obstructed => false,
         }
     }
@@ -256,7 +263,7 @@ impl PointState {
 /// Allowed track directions on a routing layer.
 ///
 /// Adjacent routing layers must have alternating track directions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RoutingDir {
     /// Layer should be used for vertical routing.
     Vert,
@@ -413,9 +420,16 @@ pub enum Orientation {
 }
 
 pub struct Loc {
-    top: 
+    /// The topmost ATOLL layer used within the tile.
+    top: usize,
+    /// The lower left corner of the tile, in LCM units with respect to `top_layer`.
+    xy: Point,
 }
-pub struct Instance {}
+pub struct Instance<T: ExportsLayoutData> {
+    inst: layout::Instance<T>,
+    loc: Loc,
+    orientation: Orientation,
+}
 
 pub struct AtollTileBuilder<'a, S: Schema + ?Sized, PDK: Pdk> {
     nodes: HashMap<Node, NodeInfo>,

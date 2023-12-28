@@ -1,16 +1,20 @@
 //! Uniform routing grids and layer stacks.
 use crate::{PointState, RoutingDir};
 use grid::Grid;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, Range};
 use substrate::context::{ContextBuilder, Installation};
+use substrate::geometry::corner::Corner;
+use substrate::geometry::dims::Dims;
 use substrate::geometry::dir::Dir;
+use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{Tracks, UniformTracks};
+use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::layout::{Draw, DrawReceiver};
 use substrate::pdk::layers::LayerId;
 use substrate::pdk::Pdk;
@@ -41,7 +45,7 @@ pub trait AtollLayer {
 /// An abstract layer with no relation to a physical layer in any process.
 ///
 /// Just a set of numeric constants.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AbstractLayer {
     /// The preferred routing direction.
     pub dir: RoutingDir,
@@ -56,7 +60,7 @@ pub struct AbstractLayer {
 }
 
 /// An ATOLL-layer associated with a layer provided by a PDK.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct PdkLayer {
     /// The [`LayerId`] of the PDK layer.
     pub id: LayerId,
@@ -78,7 +82,7 @@ impl AbstractLayer {
 }
 
 /// A stack of layers with alternating track directions
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct LayerStack<L> {
     /// The list of layers, ordered from bottom to top.
     pub layers: Vec<L>,
@@ -213,6 +217,17 @@ impl<L: AtollLayer> LayerStack<L> {
     }
 }
 
+impl LayerStack<PdkLayer> {
+    pub fn layer_idx(&self, id: LayerId) -> Option<usize> {
+        for (i, layer) in self.layers.iter().enumerate() {
+            if layer.id == id {
+                return Some(i);
+            }
+        }
+        None
+    }
+}
+
 impl<'a, L: AtollLayer> LayerSlice<'a, L> {
     /// A single LCM unit in the given direction.
     pub fn lcm_unit(&self, dir: Dir) -> i64 {
@@ -231,6 +246,11 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
     /// A single LCM unit height.
     pub fn lcm_unit_height(&self) -> i64 {
         self.lcm_unit(Dir::Vert)
+    }
+
+    /// The LCM units in both directions.
+    pub fn lcm_units(&self) -> Dims {
+        Dims::new(self.lcm_unit_width(), self.lcm_unit_height())
     }
 
     /// The range of layer indices in this slice.
@@ -265,9 +285,9 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
 }
 
 /// A fixed-size routing grid.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RoutingGrid<L> {
-    stack: LayerStack<L>,
+    pub(crate) stack: LayerStack<L>,
     start: usize,
     end: usize,
     nx: i64,
@@ -290,11 +310,16 @@ impl<L> RoutingGrid<L> {
     pub fn layers(&self) -> Range<usize> {
         self.start..self.end
     }
+
+    /// The layer slice representing the layers used by this routing grid.
+    pub fn slice(&self) -> LayerSlice<'_, L> {
+        self.stack.slice(self.start..self.end)
+    }
 }
 
 impl<L: AtollLayer> RoutingGrid<L> {
     /// The layer that defines the cross tracks for `layer`.
-    fn grid_defining_layer(&self, layer: usize) -> usize {
+    pub(crate) fn grid_defining_layer(&self, layer: usize) -> usize {
         // The grid for layer N is formed by the tracks for layer N and the tracks for layer N-1,
         // except for N=0. For layer 0, the grid is formed by layers 0 and 1.
         if layer == 0 {
@@ -337,6 +362,32 @@ impl<L: AtollLayer> RoutingGrid<L> {
         )
     }
 
+    pub fn track_point(&self, layer: usize, track: i64, cross_track: i64) -> Point {
+        let tracks = self.stack.tracks(layer);
+        let cross_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        let track = tracks.track(track).center();
+        let cross = cross_tracks.track(cross_track).center();
+
+        Point::from_dir_coords(self.stack.layer(layer).dir().track_dir(), cross, track)
+    }
+
+    pub fn xy_track_point(&self, layer: usize, x_track: i64, y_track: i64) -> Point {
+        let tracks = self.stack.tracks(layer);
+        let gdl_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => Point::new(
+                gdl_tracks.track(x_track).center(),
+                tracks.track(y_track).center(),
+            ),
+            Dir::Vert => Point::new(
+                tracks.track(x_track).center(),
+                gdl_tracks.track(y_track).center(),
+            ),
+        }
+    }
+
     /// The coordinate of the first track on the given layer.
     fn min_coord(&self, _layer: usize) -> i64 {
         // the first track is always labeled 0
@@ -362,6 +413,86 @@ impl<L: AtollLayer> RoutingGrid<L> {
         match dir {
             Dir::Horiz => self.nx,
             Dir::Vert => self.ny,
+        }
+    }
+
+    /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    pub fn point_to_grid(
+        &self,
+        p: Point,
+        layer: usize,
+        round_x: RoundingMode,
+        round_y: RoundingMode,
+    ) -> Point {
+        let gdl = self.grid_defining_layer(layer);
+        let trk = self.stack.tracks(layer);
+        let gdtrk = self.stack.tracks(gdl);
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Vert => Point::new(
+                trk.to_track_idx(p.x, round_x),
+                gdtrk.to_track_idx(p.y, round_y),
+            ),
+            Dir::Horiz => Point::new(
+                gdtrk.to_track_idx(p.x, round_x),
+                trk.to_track_idx(p.y, round_y),
+            ),
+        }
+    }
+
+    /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    pub fn shrink_to_grid(&self, rect: Rect, layer: usize) -> Option<Rect> {
+        let ll = self.point_to_grid(
+            rect.corner(Corner::LowerLeft),
+            layer,
+            RoundingMode::Up,
+            RoundingMode::Up,
+        );
+        let ur = self.point_to_grid(
+            rect.corner(Corner::UpperRight),
+            layer,
+            RoundingMode::Down,
+            RoundingMode::Down,
+        );
+        Rect::from_corners_option(ll, ur)
+    }
+
+    pub fn expand_to_grid(&self, rect: Rect, layer: usize) -> Rect {
+        let ll = self.point_to_grid(
+            rect.corner(Corner::LowerLeft),
+            layer,
+            RoundingMode::Down,
+            RoundingMode::Down,
+        );
+        let ur = self.point_to_grid(
+            rect.corner(Corner::UpperRight),
+            layer,
+            RoundingMode::Up,
+            RoundingMode::Up,
+        );
+        Rect::new(ll, ur)
+    }
+
+    /// The number of PDK units in one horizontal grid coordinate on this layer.
+    pub(crate) fn xpitch(&self, layer: usize) -> i64 {
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Vert => self.stack.layer(layer).pitch(),
+            Dir::Horiz => self.stack.layer(self.grid_defining_layer(layer)).pitch(),
+        }
+    }
+
+    /// The number of PDK units in one vertical grid coordinate on this layer.
+    pub(crate) fn ypitch(&self, layer: usize) -> i64 {
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => self.stack.layer(layer).pitch(),
+            Dir::Vert => self.stack.layer(self.grid_defining_layer(layer)).pitch(),
+        }
+    }
+
+    /// The number of PDK units in one grid coordinate in the given direction on this layer.
+    pub(crate) fn dir_pitch(&self, layer: usize, dir: Dir) -> i64 {
+        match dir {
+            Dir::Horiz => self.xpitch(layer),
+            Dir::Vert => self.ypitch(layer),
         }
     }
 }
@@ -407,6 +538,7 @@ impl<L: AsRef<LayerId> + AtollLayer, PDK: Pdk> Draw<PDK> for DebugRoutingGrid<L>
         Ok(())
     }
 }
+
 fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
     if a <= b {
         (a, b)
@@ -418,13 +550,58 @@ fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
 /// A fixed-size routing grid.
 #[derive(Clone)]
 pub struct RoutingState<L> {
-    layers: HashMap<usize, Grid<PointState>>,
-    phantom: PhantomData<L>,
+    pub(crate) grid: RoutingGrid<L>,
+    pub(crate) layers: Vec<Grid<PointState>>,
 }
 
 impl<L> RoutingState<L> {
-    pub fn new(nx: i64, ny: i64) -> Self {
-        todo!()
+    pub fn layer(&self, layer: usize) -> &Grid<PointState> {
+        &self.layers[layer]
+    }
+
+    pub fn layer_mut(&mut self, layer: usize) -> &mut Grid<PointState> {
+        &mut self.layers[layer]
+    }
+}
+
+impl<L: AtollLayer + Clone> RoutingState<L> {
+    pub fn new(stack: LayerStack<L>, top: usize, nx: i64, ny: i64) -> Self {
+        assert!(nx >= 0);
+        assert!(ny >= 0);
+
+        let grid = RoutingGrid::new(stack.clone(), 0..top + 1, nx, ny);
+        let slice = stack.slice(0..top + 1);
+        let mut layers = Vec::new();
+        for i in 0..=top {
+            let layer = stack.layer(i);
+            let dim = slice.lcm_unit(!layer.dir().track_dir());
+            let num_tracks = dim / layer.pitch();
+            println!(
+                "dim = {dim}, layer pitch = {}, num tracks = {}, nx = {}, ny = {}",
+                layer.pitch(),
+                num_tracks,
+                nx,
+                ny
+            );
+            let perp_layer = stack.layer(grid.grid_defining_layer(i));
+            let perp_dim = slice.lcm_unit(!perp_layer.dir().track_dir());
+            let perp_tracks = perp_dim / perp_layer.pitch();
+            let grid = if layer.dir().track_dir() == Dir::Vert {
+                Grid::init(
+                    (nx * num_tracks) as usize,
+                    (ny * perp_tracks) as usize,
+                    PointState::Available,
+                )
+            } else {
+                Grid::init(
+                    (nx * perp_tracks) as usize,
+                    (ny * num_tracks) as usize,
+                    PointState::Available,
+                )
+            };
+            layers.push(grid);
+        }
+        Self { grid, layers }
     }
 }
 

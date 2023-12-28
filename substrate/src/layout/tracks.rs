@@ -65,6 +65,27 @@ impl UniformTracks {
     pub fn enumerate(&self, range: impl Into<std::ops::Range<i64>>) -> EnumeratedTracks {
         self.get_tracks(range).collect()
     }
+
+    /// Converts a geometric coordinate to the index of the nearest track.
+    pub fn to_track_idx(&self, coord: i64, mode: RoundingMode) -> i64 {
+        match mode {
+            RoundingMode::Down => (coord - self.offset) / self.pitch(),
+            RoundingMode::Up => (coord - self.offset + self.pitch() - 1) / self.pitch(),
+            RoundingMode::Nearest => (coord - self.offset + self.pitch() / 2) / self.pitch(),
+        }
+    }
+}
+
+/// Rounding options.
+#[derive(Copy, Clone, Eq, PartialEq, Default, Debug, Serialize, Deserialize)]
+pub enum RoundingMode {
+    /// Round to the nearest number.
+    #[default]
+    Nearest,
+    /// Round down.
+    Down,
+    /// Round up.
+    Up,
 }
 
 /// A set of explicitly listed, ordered tracks.

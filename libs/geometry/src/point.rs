@@ -1,6 +1,7 @@
 //! 2-D points.
 
 use serde::{Deserialize, Serialize};
+use std::ops::Mul;
 
 use crate::dims::Dims;
 use crate::dir::Dir;
@@ -9,7 +10,9 @@ use crate::snap::snap_to_grid;
 use crate::transform::{HasTransformedView, TransformMut, Transformation, TranslateMut};
 
 /// A point in two-dimensional space.
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Copy, Clone, Default, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub struct Point {
     /// The x-coordinate of the point.
     pub x: i64,
@@ -151,5 +154,24 @@ impl From<(i64, i64)> for Point {
             x: value.0,
             y: value.1,
         }
+    }
+}
+
+impl Mul<Point> for Point {
+    type Output = Self;
+
+    /// Multiplies the two points element wise.
+    fn mul(self, rhs: Point) -> Self::Output {
+        Self::new(self.x * rhs.x, self.y * rhs.y)
+    }
+}
+
+impl Mul<Dims> for Point {
+    type Output = Self;
+
+    /// Multiplies the x-coordinate of the point by the dimension's width,
+    /// and the y-coordinate of the point by the dimension's height.
+    fn mul(self, rhs: Dims) -> Self::Output {
+        Self::new(self.x * rhs.w(), self.y * rhs.h())
     }
 }
