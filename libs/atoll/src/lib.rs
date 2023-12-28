@@ -175,7 +175,8 @@ use substrate::schematic::{
 use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
-pub type NetId = usize;
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct NetId(pub(crate) usize);
 
 /// Identifies a routing layer.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
