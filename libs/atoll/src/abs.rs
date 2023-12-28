@@ -22,7 +22,37 @@ use substrate::pdk::Pdk;
 use substrate::schematic::ExportsNestedData;
 use substrate::{arcstr, layout};
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct TrackCoord {
+    pub layer: usize,
+    pub x: i64,
+    pub y: i64,
+}
+
+pub struct GridCoord {
+    pub layer: usize,
+    pub x: usize,
+    pub y: usize,
+}
+
 /// The abstract view of an ATOLL tile.
+///
+/// # Coordinates
+///
+/// There are three coordinate systems used within the abstract view.
+/// * Physical coordinates: the raw physical coordinate system of the cell, expressed in PDK database units.
+/// * Track coordinates: track indices indexing the ATOLL [`LayerStack`]. Track is 0 is typically centered at the origin, or immediately to the upper left of the origin.
+/// * Grid coordinates: these have the same spacing as track coordinates, but are shifted so that (0, 0) is always at the lower left. These are used to index [`LayerAbstract`]s.
+///
+/// ATOLL provides the following utilities for converting between these coordinate systems:
+/// * Grid to physical: [`AtollAbstract::grid_to_physical`]
+/// * Track to physical: [`AtollAbstract::track_to_physical`]
+/// * Grid to track: [`AtollAbstract::grid_to_track`]
+/// * Track to grid: [`AtollAbstract::track_to_grid`]
+/// * Physical to track: [`RoutingGrid::point_to_grid`]
+///
+/// For converting physical to grid: convert the physical coordinates to track coordinates,
+/// then convert track coordinates to physical coordinates.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AtollAbstract {
     /// The topmost ATOLL layer used within the tile.
@@ -54,6 +84,61 @@ impl AtollAbstract {
             self.lcm_bounds.right() * w,
             self.lcm_bounds.top() * h,
         )
+    }
+
+    /// Converts a grid point to a physical point in the coordinates of the cell.
+    ///
+    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    pub fn grid_to_physical(&self, coord: GridCoord) -> Point {
+        let coord = self.grid_to_track(coord);
+        self.track_to_physical(coord)
+    }
+
+    /// Converts a track point to a physical point in the coordinates of the cell.
+    ///
+    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    pub fn track_to_physical(&self, coord: TrackCoord) -> Point {
+        self.grid.xy_track_point(coord.layer, coord.x, coord.y)
+    }
+
+    fn xofs(&self, layer: usize) -> i64 {
+        self.lcm_bounds.left() * self.slice().lcm_unit_width() / self.grid.xpitch(layer)
+    }
+
+    fn yofs(&self, layer: usize) -> i64 {
+        self.lcm_bounds.bot() * self.slice().lcm_unit_height() / self.grid.ypitch(layer)
+    }
+
+    /// Converts a grid point to a track point in the coordinates of the cell.
+    ///
+    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    pub fn grid_to_track(&self, coord: GridCoord) -> TrackCoord {
+        TrackCoord {
+            layer: coord.layer,
+            x: coord.x as i64 + self.xofs(coord.layer),
+            y: coord.y as i64 + self.yofs(coord.layer),
+        }
+    }
+
+    /// Converts a track point to a grid point in the coordinates of the cell.
+    ///
+    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    pub fn track_to_grid(&self, coord: TrackCoord) -> GridCoord {
+        let x = coord.x - self.xofs(coord.layer);
+        let y = coord.y - self.yofs(coord.layer);
+        assert!(
+            x >= 0,
+            "track_to_grid: negative grid coordinates are not permitted: {x}"
+        );
+        assert!(
+            y >= 0,
+            "track_to_grid: negative grid coordinates are not permitted: {y}"
+        );
+        GridCoord {
+            layer: coord.layer,
+            x: x as usize,
+            y: y as usize,
+        }
     }
 
     fn slice(&self) -> LayerSlice<'_, PdkLayer> {
@@ -112,6 +197,7 @@ fn top_layer_inner(
     top
 }
 
+/// Generates an abstract view of a layout cell.
 pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
     layout: &layout::Cell<T>,
     stack: &LayerStack<PdkLayer>,
@@ -227,16 +313,9 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                 }
                 LayerAbstract::Detailed { states } => {
                     let (tx, ty) = states.size();
-                    let xofs = self.abs.lcm_bounds.left() * self.abs.slice().lcm_unit_width()
-                        / self.abs.grid.xpitch(i);
-                    let yofs = self.abs.lcm_bounds.bot() * self.abs.slice().lcm_unit_height()
-                        / self.abs.grid.ypitch(i);
                     for x in 0..tx {
                         for y in 0..ty {
-                            let pt =
-                                self.abs
-                                    .grid
-                                    .xy_track_point(i, x as i64 + xofs, y as i64 + yofs);
+                            let pt = self.abs.grid_to_physical(GridCoord { layer: i, x, y });
                             let rect = match states[(x, y)] {
                                 PointState::Available => Rect::from_point(pt).expand_all(20),
                                 PointState::Obstructed => Rect::from_point(pt).expand_all(40),

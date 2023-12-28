@@ -439,6 +439,9 @@ impl<L: AtollLayer> RoutingGrid<L> {
     }
 
     /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    ///
+    /// Rounds in the direction that makes the rectangle smaller.
+    /// If the resulting rectangle contains no track points, returns [`None`].
     pub fn shrink_to_grid(&self, rect: Rect, layer: usize) -> Option<Rect> {
         let ll = self.point_to_grid(
             rect.corner(Corner::LowerLeft),
@@ -455,6 +458,9 @@ impl<L: AtollLayer> RoutingGrid<L> {
         Rect::from_corners_option(ll, ur)
     }
 
+    /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    ///
+    /// Rounds in the direction that makes the rectangle larger.
     pub fn expand_to_grid(&self, rect: Rect, layer: usize) -> Rect {
         let ll = self.point_to_grid(
             rect.corner(Corner::LowerLeft),
