@@ -2,7 +2,6 @@ use darling::ast::{Fields, Style};
 use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse_quote;
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};

@@ -3,6 +3,7 @@ use crate::shared::pdk::sky130_open_ctx;
 use atoll::abs::{generate_abstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
 use atoll::{AtollIo, AtollTile, AtollTileBuilder, AtollTileWrapper};
+use geometry::point::Point;
 use geometry::rect::Rect;
 use serde::{Deserialize, Serialize};
 use sky130pdk::atoll::{MosLength, NmosTile};
@@ -31,7 +32,7 @@ fn sky130_atoll_debug_routing_grid() {
 fn sky130_atoll_nmos_tile() {
     let gds_path = get_path("sky130_atoll_nmos_tile", "layout.gds");
     let abs_path = get_path("sky130_atoll_nmos_tile", "abs.gds");
-    let netlist_path = get_path("sky130_atoll_nmos_tile", "schematic.scs");
+    let netlist_path = get_path("sky130_atoll_nmos_tile", "schematic.sp");
     let ctx = sky130_open_ctx();
 
     let block = sky130pdk::atoll::NmosTile {
@@ -58,6 +59,8 @@ fn sky130_atoll_nmos_tile() {
         .expect("failed to write netlist");
 
     let handle = ctx.generate_layout(block);
+
+    // todo: add mechanism to have multiple ATOLL layer stacks (one per PDK)
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
     let abs = generate_abstract(handle.cell(), &*stack);
@@ -90,11 +93,11 @@ impl ExportsLayoutData for Sky130NmosTileAutoroute {
     type LayoutData = ();
 }
 
-impl AtollTile<Sky130Pdk, Sky130Pdk> for Sky130NmosTileAutoroute {
+impl AtollTile<Sky130Pdk> for Sky130NmosTileAutoroute {
     fn tile<'a>(
         &self,
         io: AtollIo<'a, Self>,
-        cell: &mut AtollTileBuilder<'a, Sky130Pdk, Sky130Pdk>,
+        cell: &mut AtollTileBuilder<'a, Sky130Pdk>,
     ) -> substrate::error::Result<(
         <Self as ExportsNestedData>::NestedData,
         <Self as ExportsLayoutData>::LayoutData,
@@ -105,43 +108,26 @@ impl AtollTile<Sky130Pdk, Sky130Pdk> for Sky130NmosTileAutoroute {
             len: MosLength::L150,
         };
 
-        let mut tiler = GridTiler::new();
-        let mut keys = Vec::new();
-
-        for i in 0..6 {
-            let atoll_inst = cell.generate(block.clone());
-            keys.push(tiler.push(Tile::from_bbox(atoll_inst)));
-            if i == 2 {
-                tiler.end_row();
-            }
-        }
-
-        let tiler = tiler.tile();
-
         let mut instances = Vec::new();
-        for key in keys {
-            instances.push(cell.draw((*tiler.get(key).unwrap()).clone())?);
-        }
 
-        instances.iter().for_each(|inst| {
+        for i in 0..3 {
+            let mut inst = cell.generate_primitive(block.clone());
+            inst.translate_mut(Point::new(5 * i, 0));
+            cell.draw(&inst)?;
+
+            let (schematic, layout) = inst.into_instances();
+
             for i in 0..4 {
-                cell.connect(io.schematic.sd, inst.io().sd[i]);
+                cell.connect(io.schematic.sd, schematic.io().sd[i]);
+                io.layout.sd.merge(layout.io().sd[i].clone());
             }
-            cell.connect(io.schematic.g, inst.io().g);
-            cell.connect(io.schematic.b, inst.io().b);
-        });
+            cell.connect(io.schematic.g, schematic.io().g);
+            cell.connect(io.schematic.b, schematic.io().b);
+            io.layout.g.merge(layout.io().g.clone());
+            io.layout.b.merge(layout.io().b.clone());
 
-        let sd = IoShape::with_layers(cell.ctx().layers.li1, Rect::from_sides(0, 0, 100, 100));
-        let g = IoShape::with_layers(cell.ctx().layers.li1, Rect::from_sides(100, 0, 200, 100));
-        let b = IoShape::with_layers(cell.ctx().layers.li1, Rect::from_sides(200, 0, 300, 100));
-
-        cell.match_geometry(io.schematic.sd, sd.clone());
-        cell.match_geometry(io.schematic.g, g.clone());
-        cell.match_geometry(io.schematic.b, b.clone());
-
-        io.layout.sd.set_primary(sd);
-        io.layout.g.set_primary(g);
-        io.layout.b.set_primary(b);
+            instances.push(schematic);
+        }
 
         Ok((instances, ()))
     }
@@ -151,14 +137,26 @@ impl AtollTile<Sky130Pdk, Sky130Pdk> for Sky130NmosTileAutoroute {
 fn sky130_atoll_nmos_tile_autoroute() {
     let gds_path = get_path("sky130_atoll_nmos_tile_autoroute", "layout.gds");
     let ctx = sky130_open_ctx();
+    let netlist_path = get_path("sky130_atoll_nmos_tile_autoroute", "schematic.sp");
 
-    ctx.write_layout(
-        AtollTileWrapper::<Sky130NmosTileAutoroute, Sky130Pdk, Sky130Pdk>::new(
-            Sky130NmosTileAutoroute,
-        ),
-        gds_path,
-    )
-    .expect("failed to write layout");
+    let block = AtollTileWrapper::new(Sky130NmosTileAutoroute);
+
+    ctx.write_layout(block, gds_path)
+        .expect("failed to write layout");
+
+    let scir = ctx
+        .export_scir(block)
+        .unwrap()
+        .scir
+        .convert_schema::<Sky130CommercialSchema>()
+        .unwrap()
+        .convert_schema::<Spice>()
+        .unwrap()
+        .build()
+        .unwrap();
+    Spice
+        .write_scir_netlist_to_file(&scir, netlist_path, NetlistOptions::default())
+        .expect("failed to write netlist");
 }
 
 #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]

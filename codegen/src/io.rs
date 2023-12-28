@@ -375,12 +375,10 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
 
     let mut ty_len = Vec::new();
     let mut layout_data_len = Vec::new();
-    let mut transformed_layout_data_len = Vec::new();
     let mut layout_data_fields = Vec::new();
     let mut layout_builder_fields = Vec::new();
     let mut transformed_layout_data_fields = Vec::new();
     let mut flatten_port_geometry_fields = Vec::new();
-    let mut flatten_transformed_port_geometry_fields = Vec::new();
     let mut create_builder_fields = Vec::new();
     let mut transformed_view_fields = Vec::new();
     let mut build_data_fields = Vec::new();
@@ -411,9 +409,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         layout_data_len.push(quote! {
                 <<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::FlatLen>::len(&#refer)
             });
-        transformed_layout_data_len.push(quote! {
-                <<<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::layout::HasTransformedView>::TransformedView as #substrate::io::FlatLen>::len(&#refer)
-            });
         layout_data_fields.push(quote! {
             #declare <#field_ty as #substrate::io::layout::HardwareType>::Bundle,
         });
@@ -425,9 +420,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             });
         flatten_port_geometry_fields.push(quote! {
                 <<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::Flatten<#substrate::io::layout::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
-            });
-        flatten_transformed_port_geometry_fields.push(quote! {
-                <<<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::layout::HasTransformedView>::TransformedView as #substrate::io::Flatten<#substrate::io::layout::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
             });
         if switch_type {
             create_builder_fields.push(quote! {
@@ -519,20 +511,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
                 trans: #substrate::geometry::transform::Transformation,
             ) -> Self::TransformedView {
                 #transformed_layout_data_ident #transformed_view_body
-            }
-        }
-
-        impl #lt_imp #substrate::io::FlatLen for #transformed_layout_data_ident #lt_ty #lt_where {
-            fn len(&self) -> usize {
-                #( #transformed_layout_data_len )+*
-            }
-        }
-
-        impl #lt_imp #substrate::io::Flatten<#substrate::io::layout::PortGeometry> for #transformed_layout_data_ident #lt_ty #lt_where {
-            fn flatten<E>(&self, __substrate_output_sink: &mut E)
-            where
-                E: ::std::iter::Extend<#substrate::io::layout::PortGeometry> {
-                #( #flatten_transformed_port_geometry_fields )*
             }
         }
 

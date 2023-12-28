@@ -272,6 +272,10 @@ impl<T: ExportsLayoutData> Instance<T> {
     ///
     /// Blocks until cell generation completes.
     ///
+    /// The returned object provides coordinates in the parent cell's coordinate system.
+    /// If you want coordinates in the child cell's coordinate system,
+    /// consider using [`Instance::try_raw_cell`] instead.
+    ///
     /// Returns an error if one was thrown during generation.
     pub fn try_cell(&self) -> Result<Transformed<Cell<T>>> {
         self.cell
@@ -283,11 +287,43 @@ impl<T: ExportsLayoutData> Instance<T> {
     ///
     /// Blocks until cell generation completes.
     ///
+    /// The returned object provides coordinates in the parent cell's coordinate system.
+    /// If you want coordinates in the child cell's coordinate system,
+    /// consider using [`Instance::raw_cell`] instead.
+    ///
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
     pub fn cell(&self) -> Transformed<Cell<T>> {
         self.try_cell().expect("cell generation failed")
+    }
+
+    /// Tries to access a transformed view of the underlying [`Cell`], blocking on generation.
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// The returned cell does not store any information related
+    /// to this instance's transformation.
+    /// Consider using [`Instance::try_cell`] instead.
+    ///
+    /// Returns an error if one was thrown during generation.
+    pub fn try_raw_cell(&self) -> Result<&Cell<T>> {
+        self.cell.try_cell()
+    }
+
+    /// Returns a transformed view of the underlying [`Cell`].
+    ///
+    /// Blocks until cell generation completes.
+    ///
+    /// The returned cell does not store any information related
+    /// to this instance's transformation.
+    /// Consider using [`Instance::cell`] instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error was thrown during generation.
+    pub fn raw_cell(&self) -> &Cell<T> {
+        self.try_raw_cell().expect("cell generation failed")
     }
 
     /// Tries to access extra data created by the cell's schematic generator.
@@ -386,7 +422,8 @@ pub struct CellBuilder<PDK: Pdk> {
 }
 
 impl<PDK: Pdk> CellBuilder<PDK> {
-    pub(crate) fn new(ctx: PdkContext<PDK>) -> Self {
+    /// Creates a new layout builder.
+    pub fn new(ctx: PdkContext<PDK>) -> Self {
         Self {
             container: Container::new(),
             ctx,

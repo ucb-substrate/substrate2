@@ -10,6 +10,7 @@ pub use codegen::LayoutType as HardwareType;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
 use geometry::transform;
+use geometry::transform::HasTransformedView;
 use geometry::union::BoundingUnion;
 use std::collections::HashMap;
 use tracing::Level;
@@ -94,20 +95,6 @@ pub struct PortGeometry {
 pub trait IsBundle: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
 
 impl<T> IsBundle for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
-
-pub trait HasTransformedView:
-    transform::HasTransformedView<TransformedView = <Self as HasTransformedView>::TransformedView>
-{
-    type TransformedView: Flatten<PortGeometry>;
-}
-
-impl<T: transform::HasTransformedView<TransformedView = impl Flatten<PortGeometry>>>
-    HasTransformedView for T
-{
-    type TransformedView = <Self as transform::HasTransformedView>::TransformedView;
-}
-
-pub type Transformed<T> = <T as HasTransformedView>::TransformedView;
 
 /// A layer ID that describes where the components of an [`IoShape`] are drawn.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

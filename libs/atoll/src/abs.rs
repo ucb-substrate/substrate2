@@ -24,7 +24,7 @@ use substrate::{arcstr, layout, schematic};
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AtollAbstract {
     /// The topmost ATOLL layer used within the tile.
-    top_layer: usize,
+    pub(crate) top_layer: usize,
     /// The bounds of the tile, in LCM units with respect to `top_layer`.
     ///
     /// The "origin" of the tile, in LCM units, is the lower left of this rectangle.
@@ -54,7 +54,7 @@ impl AtollAbstract {
         )
     }
 
-    fn slice(&self) -> LayerSlice<'_, PdkLayer> {
+    pub(crate) fn slice(&self) -> LayerSlice<'_, PdkLayer> {
         self.grid.slice()
     }
 

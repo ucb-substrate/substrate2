@@ -1,13 +1,8 @@
 //! Transformation types and traits.
 
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::slice::SliceIndex;
-
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
 pub use geometry_macros::{TransformMut, TranslateMut};
 use impl_trait_for_tuples::impl_for_tuples;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::orientation::Orientation;
