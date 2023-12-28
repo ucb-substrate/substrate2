@@ -58,9 +58,9 @@ impl TransformMut for Shape {
 }
 
 impl HasTransformedView for Shape {
-    type TransformedView<'a> = Shape;
+    type TransformedView = Shape;
 
-    fn transformed_view(&self, trans: crate::prelude::Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: crate::prelude::Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }
@@ -78,6 +78,13 @@ impl From<Rect> for Shape {
     #[inline]
     fn from(value: Rect) -> Self {
         Self::Rect(value)
+    }
+}
+
+impl From<Polygon> for Shape {
+    #[inline]
+    fn from(value: Polygon) -> Self {
+        Self::Polygon(value)
     }
 }
 

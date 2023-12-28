@@ -133,45 +133,22 @@ impl Bbox for RawCell {
     }
 }
 
-/// A transformed view of a raw cell, usually created by accessing the cell of an instance.
-pub struct TransformedRawCell<'a> {
-    id: CellId,
-    #[allow(dead_code)]
-    name: ArcStr,
-    elements: Transformed<'a, Vec<Element>>,
-    #[allow(dead_code)]
-    blockages: Transformed<'a, Vec<Shape>>,
-    ports: Transformed<'a, NamedPorts>,
-}
-
 impl HasTransformedView for RawCell {
-    type TransformedView<'a> = TransformedRawCell<'a>;
+    type TransformedView = RawCell;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedRawCell {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+        RawCell {
             id: self.id,
             name: self.name.clone(),
             elements: self.elements.transformed_view(trans),
             blockages: self.blockages.transformed_view(trans),
-            ports: self.ports.transformed_view(trans),
+            ports: self
+                .ports
+                .iter()
+                .map(|(k, v)| (k.clone(), v.transformed_view(trans)))
+                .collect(),
+            port_names: self.port_names.clone(),
         }
-    }
-}
-
-impl<'a> TransformedRawCell<'a> {
-    /// The ID of this cell.
-    pub fn id(&self) -> CellId {
-        self.id
-    }
-
-    /// Returns an iterator over the elements of this cell.
-    pub fn elements(&self) -> impl Iterator<Item = Transformed<Element>> {
-        self.elements.iter()
-    }
-
-    /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
-    pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, Transformed<PortGeometry>)> {
-        self.ports.iter()
     }
 }
 
@@ -195,9 +172,23 @@ impl RawInstance {
     }
 
     /// Returns a reference to the child cell.
+    ///
+    /// The returned object provides coordinates in the parent cell's coordinate system.
+    /// If you want coordinates in the child cell's coordinate system,
+    /// consider using [`RawInstance::raw_cell`] instead.
     #[inline]
-    pub fn cell(&self) -> Transformed<'_, RawCell> {
+    pub fn cell(&self) -> Transformed<RawCell> {
         self.cell.transformed_view(self.trans)
+    }
+
+    /// Returns a raw reference to the child cell.
+    ///
+    /// The returned cell does not store any information related
+    /// to this instance's transformation.
+    /// Consider using [`RawInstance::cell`] instead.
+    #[inline]
+    pub fn raw_cell(&self) -> &RawCell {
+        &self.cell
     }
 }
 
@@ -238,9 +229,9 @@ impl TransformMut for RawInstance {
 }
 
 impl HasTransformedView for RawInstance {
-    type TransformedView<'a> = RawInstance;
+    type TransformedView = RawInstance;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }
@@ -288,9 +279,9 @@ impl<T: Bbox> BoundingUnion<T> for Shape {
 }
 
 impl HasTransformedView for Shape {
-    type TransformedView<'a> = Shape;
+    type TransformedView = Shape;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         Shape {
             layer: self.layer,
             shape: self.shape.transformed_view(trans),
@@ -348,9 +339,9 @@ impl Text {
 }
 
 impl HasTransformedView for Text {
-    type TransformedView<'a> = Text;
+    type TransformedView = Text;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }
@@ -495,9 +486,9 @@ impl From<Text> for Element {
 }
 
 impl HasTransformedView for Element {
-    type TransformedView<'a> = Element;
+    type TransformedView = Element;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }

@@ -476,6 +476,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
         .or_current();
 
         LayoutCellHandle {
+            block: block.clone(),
             cell: inner_mut.layout.cell_cache.generate(block, move |block| {
                 let mut io_builder = block.io().builder();
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
@@ -566,7 +567,9 @@ impl<PDK: Pdk> PdkContext<PDK> {
     }
 }
 
-fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
+/// Only public for use in ATOLL. Do NOT use externally.
+#[doc(hidden)]
+pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
     id: CellId,
     context: Context,
     block: &T,

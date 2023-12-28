@@ -4,10 +4,10 @@ use crate::layers::Sky130Layers;
 use crate::mos::{MosParams, Nfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
-use atoll::grid::{AbstractLayer, AtollLayer, LayerStack, PdkLayer, RoutingGrid};
+use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid};
 use atoll::RoutingDir;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
@@ -17,65 +17,12 @@ use substrate::io::layout::IoShape;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
-use substrate::pdk::layers::{Layer, LayerId};
+use substrate::pdk::layers::Layer;
 use substrate::schematic::{ExportsNestedData, Schematic};
-
-/// A SKY130 ATOLL routing layer.
-#[derive(Clone)]
-pub struct Sky130AtollLayer(PdkLayer);
-
-impl AsRef<LayerId> for Sky130AtollLayer {
-    fn as_ref(&self) -> &LayerId {
-        self.0.as_ref()
-    }
-}
-
-impl Deref for Sky130AtollLayer {
-    type Target = PdkLayer;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Sky130AtollLayer {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl AtollLayer for Sky130AtollLayer {
-    fn dir(&self) -> RoutingDir {
-        self.0.dir()
-    }
-
-    fn line(&self) -> i64 {
-        self.0.line()
-    }
-
-    fn space(&self) -> i64 {
-        self.0.space()
-    }
-
-    fn offset(&self) -> i64 {
-        self.0.offset()
-    }
-}
-
-impl From<PdkLayer> for Sky130AtollLayer {
-    fn from(value: PdkLayer) -> Self {
-        Self(value)
-    }
-}
-
-impl From<Sky130AtollLayer> for PdkLayer {
-    fn from(value: Sky130AtollLayer) -> Self {
-        value.0
-    }
-}
 
 impl Sky130Layers {
     /// Returns the ATOLL-compatible routing layer stack.
-    pub fn atoll_layer_stack(&self) -> LayerStack<Sky130AtollLayer> {
+    pub fn atoll_layer_stack(&self) -> LayerStack<PdkLayer> {
         LayerStack {
             layers: vec![
                 PdkLayer {
@@ -89,8 +36,7 @@ impl Sky130Layers {
                         offset: 85,
                         endcap: 0,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met1.drawing.id(),
                     inner: AbstractLayer {
@@ -100,8 +46,7 @@ impl Sky130Layers {
                         offset: 130,
                         endcap: 100,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met2.drawing.id(),
                     inner: AbstractLayer {
@@ -111,8 +56,7 @@ impl Sky130Layers {
                         offset: 150,
                         endcap: 130,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met3.drawing.id(),
                     inner: AbstractLayer {
@@ -122,8 +66,7 @@ impl Sky130Layers {
                         offset: 200,
                         endcap: 150,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met4.drawing.id(),
                     inner: AbstractLayer {
@@ -133,8 +76,7 @@ impl Sky130Layers {
                         offset: 600,
                         endcap: 200,
                     },
-                }
-                .into(),
+                },
                 PdkLayer {
                     id: self.met5.drawing.id(),
                     inner: AbstractLayer {
@@ -144,8 +86,7 @@ impl Sky130Layers {
                         offset: 900,
                         endcap: 600,
                     },
-                }
-                .into(),
+                },
             ],
             offset_x: 0,
             offset_y: 0,
@@ -233,10 +174,7 @@ impl Layout<Sky130Pdk> for NmosTile {
         io: &mut substrate::io::layout::Builder<MosTileIo>,
         cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::LayoutData> {
-        let stack = cell
-            .ctx
-            .get_installation::<LayerStack<Sky130AtollLayer>>()
-            .unwrap();
+        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2, self.nf + 3, 4);
 
         let tracks = (0..self.nf + 1)
