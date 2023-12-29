@@ -1,13 +1,8 @@
 //! Transformation types and traits.
 
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::slice::SliceIndex;
-
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
 pub use geometry_macros::{TransformMut, TranslateMut};
 use impl_trait_for_tuples::impl_for_tuples;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::orientation::Orientation;
@@ -383,315 +378,32 @@ impl<T: TranslateMut + Sized> Translate for T {}
 /// rectangles when they are queried.
 pub trait HasTransformedView {
     /// An object storing a transformed view of `Self`.
-    type TransformedView<'a>
-    where
-        Self: 'a;
+    type TransformedView;
 
     /// Produces a transformed view of `self`.
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_>;
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView;
 }
 
 /// The type of the transformed view of `T`.
-pub type Transformed<'a, T> = <T as HasTransformedView>::TransformedView<'a>;
+pub type Transformed<T> = <T as HasTransformedView>::TransformedView;
 
 impl HasTransformedView for () {
-    type TransformedView<'a> = ();
+    type TransformedView = ();
 
-    fn transformed_view(&self, _trans: Transformation) -> Self::TransformedView<'_> {}
+    fn transformed_view(&self, _trans: Transformation) -> Self::TransformedView {}
 }
-
-/// A transformed view of a vector.
-pub struct TransformedVec<'a, T> {
-    inner: &'a [T],
-    trans: Transformation,
-}
-
-impl<'a, T> Clone for TransformedVec<'a, T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<'a, T> Copy for TransformedVec<'a, T> {}
 
 impl<T: HasTransformedView> HasTransformedView for Vec<T> {
-    type TransformedView<'a> = TransformedVec<'a, T> where T: 'a;
+    type TransformedView = Vec<Transformed<T>>;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedVec { inner: self, trans }
-    }
-}
-
-impl<T: HasTransformedView> HasTransformedView for [T] {
-    type TransformedView<'a> = TransformedVec<'a, T> where T: 'a;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedVec { inner: self, trans }
-    }
-}
-
-impl<'a, T: HasTransformedView> TransformedVec<'a, T> {
-    /// Creates transform views of the contained elements and returns them in a vector.
-    pub fn to_vec(&self) -> Vec<Transformed<T>> {
-        self.iter().collect()
-    }
-
-    /// Returns an iterator the transformed views of the contained elements.
-    pub fn iter(&self) -> impl Iterator<Item = Transformed<T>> {
-        self.inner
-            .iter()
-            .map(|elem| elem.transformed_view(self.trans))
-    }
-}
-
-impl<'a, T: Transform + Clone> TransformedVec<'a, T> {
-    /// Copies `self` into a new `Vec` with transformed contents.
-    pub fn to_transformed_vec(&self) -> Vec<T> {
-        (*self.inner)
-            .iter()
-            .map(|elem| elem.clone().transform(self.trans))
-            .collect()
-    }
-}
-
-impl<'a, T> TransformedVec<'a, T> {
-    /// Returns `true` if the vector contains no elements.
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    /// Returns the number of elements in the vector.
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    /// Returns the element or elements at the given index or `None` if out of bounds.
-    pub fn get<I>(&self, index: I) -> Option<Transformed<I::Output>>
-    where
-        I: SliceIndex<[T]>,
-        I::Output: HasTransformedView,
-    {
-        self.inner
-            .get(index)
-            .map(|elem| elem.transformed_view(self.trans))
-    }
-
-    /// Returns the element or elements at the given index or panics if out of bounds.
-    pub fn index<I>(&self, index: I) -> Transformed<I::Output>
-    where
-        I: SliceIndex<[T]>,
-        I::Output: HasTransformedView,
-    {
-        self.get(index).unwrap()
-    }
-
-    /// Gets an owned copy of the transformed underlying data or `None` if out of bounds.
-    pub fn get_transformed<I>(&self, index: I) -> Option<I::Output>
-    where
-        I: SliceIndex<[T]>,
-        I::Output: Transform + Clone,
-    {
-        self.inner
-            .get(index)
-            .map(|elem| elem.clone().transform(self.trans))
-    }
-
-    /// Gets an owned copy of the transformed underlying data or panics if out of bounds.
-    pub fn index_transformed<I>(&self, index: I) -> I::Output
-    where
-        I: SliceIndex<[T]>,
-        I::Output: Transform + Clone,
-    {
-        self.get_transformed(index).unwrap()
-    }
-}
-
-/// A transformed view of a hash map.
-///
-/// Note that keys are not transformed by default and should be handled separately. If keys must be
-/// transformed, it might make sense to implement [`HasTransformedView`] on a new type that derefs
-/// to a [`HashMap`].
-#[derive(Clone, Copy)]
-pub struct TransformedHashMap<'a, K, V> {
-    inner: &'a HashMap<K, V>,
-    trans: Transformation,
-}
-
-impl<K, V: HasTransformedView> HasTransformedView for HashMap<K, V> {
-    type TransformedView<'a> = TransformedHashMap<'a, K, V> where K: 'a, V: 'a;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedHashMap { inner: self, trans }
-    }
-}
-
-impl<'a, K, V: HasTransformedView> TransformedHashMap<'a, K, V> {
-    /// Returns an iterator the transformed views of the contained elements.
-    pub fn iter(&self) -> impl Iterator<Item = (&K, Transformed<V>)> {
-        self.inner
-            .iter()
-            .map(|(k, v)| (k, v.transformed_view(self.trans)))
-    }
-}
-
-impl<'a, K: Hash + Eq, V: HasTransformedView> TransformedHashMap<'a, K, V> {
-    /// Creates transformed views of the contained elements and returns a HashMap mapping the
-    /// original keys to the transformed views.
-    pub fn to_hash_map(&self) -> HashMap<&K, Transformed<V>> {
-        self.inner
-            .iter()
-            .map(|(k, v)| (k, v.transformed_view(self.trans)))
-            .collect()
-    }
-
-    /// Returns the element or elements at the given index or `None` if the key does not exist.
-    pub fn get(&self, k: &K) -> Option<Transformed<V>> {
-        self.inner
-            .get(k)
-            .map(|elem| elem.transformed_view(self.trans))
-    }
-
-    /// Returns the element or elements at the given key or panics if the key does not exist.
-    pub fn index(&self, k: &K) -> Transformed<V> {
-        self.get(k).unwrap()
-    }
-}
-
-impl<'a, K: Hash + Eq, V: Transform + Clone> TransformedHashMap<'a, K, V> {
-    /// Copies `self` into a new `Vec` with transformed contents.
-    pub fn to_transformed_hash_map(&self) -> HashMap<&K, V> {
-        (*self.inner)
-            .iter()
-            .map(|(k, v)| (k, v.clone().transform(self.trans)))
-            .collect()
-    }
-
-    /// Gets an owned copy of the transformed underlying data or `None` if the key does not exist.
-    pub fn get_transformed(&self, k: &K) -> Option<V> {
-        self.inner
-            .get(k)
-            .map(|elem| elem.clone().transform(self.trans))
-    }
-
-    /// Gets an owned copy of the transformed underlying data or panics if the key does not exist.
-    pub fn index_transformed(&self, k: &K) -> V {
-        self.get_transformed(k).unwrap()
-    }
-}
-
-impl<'a, K, V> TransformedHashMap<'a, K, V> {
-    /// Returns `true` if the map contains no elements.
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    /// Returns the number of elements in the map.
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-}
-
-impl<'a, K: Hash + Eq, V> TransformedHashMap<'a, K, V> {
-    /// Returns `true` if the map contains a value for the specified key.
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.inner.contains_key(k)
-    }
-}
-
-/// A transformed view of an [`IndexMap`].
-///
-/// Note that keys are not transformed by default and should be handled separately. If keys must be
-/// transformed, it might make sense to implement [`HasTransformedView`] on a new type that derefs
-/// to a [`HashMap`].
-#[derive(Clone, Copy)]
-pub struct TransformedIndexMap<'a, K, V> {
-    inner: &'a IndexMap<K, V>,
-    trans: Transformation,
-}
-
-impl<K, V: HasTransformedView> HasTransformedView for IndexMap<K, V> {
-    type TransformedView<'a> = TransformedIndexMap<'a, K, V> where K: 'a, V: 'a;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedIndexMap { inner: self, trans }
-    }
-}
-
-impl<'a, K, V: HasTransformedView> TransformedIndexMap<'a, K, V> {
-    /// Returns an iterator the transformed views of the contained elements.
-    pub fn iter(&self) -> impl Iterator<Item = (&K, Transformed<V>)> {
-        self.inner
-            .iter()
-            .map(|(k, v)| (k, v.transformed_view(self.trans)))
-    }
-}
-
-impl<'a, K: Hash + Eq, V: HasTransformedView> TransformedIndexMap<'a, K, V> {
-    /// Creates transformed views of the contained elements and returns a HashMap mapping the
-    /// original keys to the transformed views.
-    pub fn to_index_map(&self) -> IndexMap<&K, Transformed<V>> {
-        self.inner
-            .iter()
-            .map(|(k, v)| (k, v.transformed_view(self.trans)))
-            .collect()
-    }
-
-    /// Returns the element or elements at the given index or `None` if the key does not exist.
-    pub fn get(&self, k: &K) -> Option<Transformed<V>> {
-        self.inner
-            .get(k)
-            .map(|elem| elem.transformed_view(self.trans))
-    }
-
-    /// Returns the element or elements at the given key or panics if the key does not exist.
-    pub fn index(&self, k: &K) -> Transformed<V> {
-        self.get(k).unwrap()
-    }
-}
-
-impl<'a, K: Hash + Eq, V: Transform + Clone> TransformedIndexMap<'a, K, V> {
-    /// Copies `self` into a new `Vec` with transformed contents.
-    pub fn to_transformed_index_map(&self) -> IndexMap<&K, V> {
-        (*self.inner)
-            .iter()
-            .map(|(k, v)| (k, v.clone().transform(self.trans)))
-            .collect()
-    }
-
-    /// Gets an owned copy of the transformed underlying data or `None` if the key does not exist.
-    pub fn get_transformed(&self, k: &K) -> Option<V> {
-        self.inner
-            .get(k)
-            .map(|elem| elem.clone().transform(self.trans))
-    }
-
-    /// Gets an owned copy of the transformed underlying data or panics if the key does not exist.
-    pub fn index_transformed(&self, k: &K) -> V {
-        self.get_transformed(k).unwrap()
-    }
-}
-
-impl<'a, K, V> TransformedIndexMap<'a, K, V> {
-    /// Returns `true` if the map contains no elements.
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    /// Returns the number of elements in the map.
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-}
-
-impl<'a, K: Hash + Eq, V> TransformedIndexMap<'a, K, V> {
-    /// Returns `true` if the map contains a value for the specified key.
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.inner.contains_key(k)
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+        self.iter().map(|e| e.transformed_view(trans)).collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
     use approx::assert_relative_eq;
@@ -894,85 +606,5 @@ mod tests {
                 Rect::from_sides(0, 50, 50, 150)
             ]
         );
-    }
-
-    #[derive(Debug, Clone)]
-    struct LazyRect(Rect, Arc<Mutex<usize>>);
-
-    impl TransformMut for LazyRect {
-        fn transform_mut(&mut self, trans: Transformation) {
-            *self.1.lock().unwrap() += 1;
-            self.0.transform_mut(trans);
-        }
-    }
-
-    impl HasTransformedView for LazyRect {
-        type TransformedView<'a> = LazyRect;
-
-        fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-            self.clone().transform(trans)
-        }
-    }
-
-    #[test]
-    fn transformed_vecs_lazily_evaluate_views() {
-        let count = Arc::new(Mutex::new(0));
-        let v = vec![
-            LazyRect(Rect::from_sides(0, 0, 100, 200), count.clone()),
-            LazyRect(Rect::from_sides(50, 50, 200, 100), count.clone()),
-        ];
-
-        let transformed_v = v.transformed_view(Transformation::translate(50f64, 50f64));
-
-        assert_eq!(*count.lock().unwrap(), 0);
-
-        let r1 = transformed_v.index(0);
-        assert_eq!(*count.lock().unwrap(), 1);
-        assert_eq!(r1.0, Rect::from_sides(50, 50, 150, 250));
-
-        let r2 = transformed_v.index(1);
-        assert_eq!(*count.lock().unwrap(), 2);
-        assert_eq!(r2.0, Rect::from_sides(100, 100, 250, 150));
-
-        let r12 = transformed_v.index(0..2);
-        assert_eq!(
-            r12.to_transformed_vec()
-                .into_iter()
-                .map(|r| r.0)
-                .collect::<Vec<_>>(),
-            vec![
-                Rect::from_sides(50, 50, 150, 250),
-                Rect::from_sides(100, 100, 250, 150)
-            ]
-        );
-        assert_eq!(*count.lock().unwrap(), 4);
-    }
-
-    #[test]
-    fn transformed_hash_maps_lazily_evaluate_views() {
-        let count = Arc::new(Mutex::new(0));
-        let v = HashMap::from_iter([
-            (5, LazyRect(Rect::from_sides(0, 0, 100, 200), count.clone())),
-            (
-                7,
-                LazyRect(Rect::from_sides(50, 50, 200, 100), count.clone()),
-            ),
-        ]);
-
-        let transformed_map = v.transformed_view(Transformation::translate(50f64, 50f64));
-
-        assert_eq!(*count.lock().unwrap(), 0);
-
-        let r1 = transformed_map.get(&5).unwrap();
-        assert_eq!(*count.lock().unwrap(), 1);
-        assert_eq!(r1.0, Rect::from_sides(50, 50, 150, 250));
-
-        let r2 = transformed_map.get(&7).unwrap();
-        assert_eq!(*count.lock().unwrap(), 2);
-        assert_eq!(r2.0, Rect::from_sides(100, 100, 250, 150));
-
-        let r12 = transformed_map.get(&8);
-        assert_eq!(*count.lock().unwrap(), 2);
-        assert!(r12.is_none());
     }
 }

@@ -145,9 +145,34 @@
 pub mod abs;
 pub mod grid;
 
+use crate::abs::{generate_abstract, AtollAbstract};
+use crate::grid::{LayerStack, PdkLayer};
+use ::grid::Grid;
+use ena::unify::{UnifyKey, UnifyValue};
 use serde::{Deserialize, Serialize};
-
-use substrate::geometry::prelude::{Dir, Point};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::marker::PhantomData;
+use std::ops::Deref;
+use std::sync::Arc;
+use substrate::arcstr::ArcStr;
+use substrate::block::Block;
+use substrate::context::{prepare_cell_builder, Context, PdkContext};
+use substrate::geometry::polygon::Polygon;
+use substrate::geometry::prelude::{Bbox, Dir, Point, Transformation};
+use substrate::geometry::transform::{HasTransformedView, Translate, TranslateMut};
+use substrate::io::layout::{Builder, PortGeometry, PortGeometryBuilder};
+use substrate::io::schematic::{Bundle, Connect, Node, Terminal, TerminalView};
+use substrate::io::{FlatLen, Flatten, Signal};
+use substrate::layout::element::Shape;
+use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
+use substrate::layout::{ExportsLayoutData, Layout};
+use substrate::pdk::layers::HasPin;
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{
+    CellId, ExportsNestedData, HasNestedView, InstanceId, InstancePath, SchemaCellHandle, Schematic,
+};
+use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -339,5 +364,348 @@ impl Pos {
             Dir::Horiz => Self { layer, x: coord, y },
             Dir::Vert => Self { layer, x, y: coord },
         }
+    }
+}
+
+// todo: how to connect by abutment (eg body terminals)
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct NodeKey(u32);
+
+impl UnifyKey for NodeKey {
+    type Value = ();
+
+    fn index(&self) -> u32 {
+        self.0
+    }
+
+    fn from_index(u: u32) -> Self {
+        Self(u)
+    }
+
+    fn tag() -> &'static str {
+        "NodeKey"
+    }
+}
+
+#[derive(Clone, Debug)]
+struct NodeInfo {
+    key: NodeKey,
+    geometry: Vec<PortGeometry>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum Orientation {
+    #[default]
+    R0,
+    R180,
+    MX,
+    MY,
+}
+
+pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
+    schematic: schematic::Instance<T>,
+    layout: layout::Instance<T>,
+    abs: AtollAbstract,
+    /// The location of the instance in LCM units according to the
+    /// top layer in the associated [`AtollAbstract`].
+    loc: Point,
+    orientation: Orientation,
+}
+
+impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
+    /// Translates this instance by the given XY-coordinates in LCM units.
+    pub fn translate_mut(&mut self, p: Point) {
+        self.loc += p;
+    }
+
+    /// Translates this instance by the given XY-coordinates in LCM units.
+    pub fn translate(mut self, p: Point) -> Self {
+        self.translate_mut(p);
+        self
+    }
+
+    /// The ports of this instance.
+    ///
+    /// Used for node connection purposes.
+    pub fn io(&self) -> &TerminalView<<T::Io as io::schematic::HardwareType>::Bundle> {
+        self.schematic.io()
+    }
+
+    pub fn into_instances(self) -> (schematic::Instance<T>, layout::Instance<T>) {
+        // todo: apply loc and orientation to layout instance
+        let loc = self.physical_loc();
+        (self.schematic, self.layout.translate(loc))
+    }
+
+    pub fn physical_loc(&self) -> Point {
+        let slice = self.abs.slice();
+        let w = slice.lcm_unit_width();
+        let h = slice.lcm_unit_height();
+        Point::new(self.loc.x * w, self.loc.y * h)
+    }
+}
+
+pub struct AtollTileBuilder<'a, PDK: Pdk + Schema> {
+    nodes: HashMap<Node, NodeInfo>,
+    connections: ena::unify::InPlaceUnificationTable<NodeKey>,
+    schematic: &'a mut schematic::CellBuilder<PDK>,
+    layout: &'a mut layout::CellBuilder<PDK>,
+    layer_stack: Arc<LayerStack<PdkLayer>>,
+}
+
+impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
+    fn new<T: io::schematic::IsBundle>(
+        schematic_io: &'a T,
+        schematic: &'a mut schematic::CellBuilder<PDK>,
+        layout: &'a mut layout::CellBuilder<PDK>,
+    ) -> Self {
+        let mut nodes = HashMap::new();
+        let mut connections = ena::unify::InPlaceUnificationTable::new();
+        let io_nodes: Vec<Node> = schematic_io.flatten_vec();
+        let keys: Vec<NodeKey> = io_nodes.iter().map(|_| connections.new_key(())).collect();
+        nodes.extend(
+            io_nodes
+                .into_iter()
+                .zip(keys.into_iter().map(|key| NodeInfo {
+                    key,
+                    geometry: vec![],
+                })),
+        );
+        /// todo: fix how layer is provided
+        let layer_stack = layout
+            .ctx()
+            .get_installation::<LayerStack<PdkLayer>>()
+            .unwrap();
+
+        Self {
+            nodes,
+            connections,
+            schematic,
+            layout,
+            layer_stack,
+        }
+    }
+
+    pub fn generate_primitive<B: Clone + Schematic<PDK> + Layout<PDK>>(
+        &mut self,
+        block: B,
+    ) -> Instance<B> {
+        let layout = self.layout.generate(block.clone());
+        let schematic = self.schematic.instantiate(block);
+        let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
+        let top = abs.top_layer;
+        Instance {
+            layout,
+            schematic,
+            abs,
+            loc: Default::default(),
+            orientation: Default::default(),
+        }
+    }
+
+    pub fn generate<B: Clone + AtollTile<PDK>>(
+        &mut self,
+        block: B,
+    ) -> Instance<AtollTileWrapper<B>> {
+        let wrapper = AtollTileWrapper::new(block);
+        let layout = self.layout.generate(wrapper.clone());
+        let schematic = self.schematic.instantiate(wrapper);
+        // todo: generate abstract from AtollTile trait directly
+        let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
+        let top = abs.top_layer;
+        Instance {
+            layout,
+            schematic,
+            abs,
+            loc: Default::default(),
+            orientation: Default::default(),
+        }
+    }
+
+    pub fn draw<B: ExportsNestedData + Layout<PDK>>(
+        &mut self,
+        instance: &Instance<B>,
+    ) -> substrate::error::Result<()> {
+        self.layout
+            .draw(instance.layout.clone().translate(instance.physical_loc()))?;
+
+        Ok(())
+    }
+
+    /// Connect all signals in the given data instances.
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
+    where
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
+        D1: Connect<D2>,
+    {
+        // todo: fix
+        // let s1f: Vec<Node> = s1.flatten_vec();
+        // let s2f: Vec<Node> = s2.flatten_vec();
+        // assert_eq!(s1f.len(), s2f.len());
+        // s1f.into_iter().zip(s2f).for_each(|(a, b)| {
+        //     self.connections
+        //         .union(self.nodes[&a].key, self.nodes[&b].key);
+        // });
+        self.schematic.connect(s1, s2);
+    }
+
+    /// Create a new signal with the given name and hardware type.
+    #[track_caller]
+    pub fn signal<TY: io::schematic::HardwareType>(
+        &mut self,
+        name: impl Into<ArcStr>,
+        ty: TY,
+    ) -> <TY as io::schematic::HardwareType>::Bundle {
+        let bundle = self.schematic.signal(name, ty);
+
+        let nodes: Vec<Node> = bundle.flatten_vec();
+        let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
+        self.nodes
+            .extend(nodes.into_iter().zip(keys.into_iter().map(|key| NodeInfo {
+                key,
+                geometry: vec![],
+            })));
+
+        bundle
+    }
+
+    /// Match the given nodes and port geometry.
+    pub fn match_geometry<D1, D2>(&mut self, s1: D1, s2: D2)
+    where
+        D1: Flatten<Node>,
+        D2: Flatten<PortGeometry>,
+    {
+        // todo: fix
+        // let s1f: Vec<Node> = s1.flatten_vec();
+        // let s2f: Vec<PortGeometry> = s2.flatten_vec();
+        // assert_eq!(s1f.len(), s2f.len());
+        // s1f.into_iter().zip(s2f).for_each(|(a, b)| {
+        //     self.nodes.get_mut(&a).unwrap().geometry.push(b);
+        // });
+    }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &PdkContext<PDK> {
+        self.layout.ctx()
+    }
+}
+
+pub struct AtollIo<'a, B: Block> {
+    pub schematic: &'a Bundle<<B as Block>::Io>,
+    pub layout: &'a mut Builder<<B as Block>::Io>,
+}
+
+pub trait AtollTile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
+    fn tile<'a>(
+        &self,
+        io: AtollIo<'a, Self>,
+        cell: &mut AtollTileBuilder<'a, PDK>,
+    ) -> substrate::error::Result<(
+        <Self as ExportsNestedData>::NestedData,
+        <Self as ExportsLayoutData>::LayoutData,
+    )>;
+}
+
+#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AtollTileWrapper<T>(T);
+
+impl<T> AtollTileWrapper<T> {
+    pub fn new(block: T) -> Self {
+        Self(block)
+    }
+}
+
+impl<T: Block> Block for AtollTileWrapper<T> {
+    type Io = <T as Block>::Io;
+
+    fn id() -> ArcStr {
+        <T as Block>::id()
+    }
+
+    fn name(&self) -> ArcStr {
+        <T as Block>::name(&self.0)
+    }
+
+    fn io(&self) -> Self::Io {
+        <T as Block>::io(&self.0)
+    }
+}
+
+impl<T: ExportsNestedData> ExportsNestedData for AtollTileWrapper<T> {
+    type NestedData = <T as ExportsNestedData>::NestedData;
+}
+
+impl<T: ExportsLayoutData> ExportsLayoutData for AtollTileWrapper<T> {
+    type LayoutData = <T as ExportsLayoutData>::LayoutData;
+}
+
+impl<T, PDK: Pdk + Schema> Schematic<PDK> for AtollTileWrapper<T>
+where
+    T: AtollTile<PDK>,
+{
+    fn schematic(
+        &self,
+        io: &Bundle<<Self as Block>::Io>,
+        cell: &mut schematic::CellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut layout_io = io::layout::HardwareType::builder(&self.io());
+        let mut layout_cell = layout::CellBuilder::new(cell.ctx().with_pdk());
+        let atoll_io = AtollIo {
+            schematic: io,
+            layout: &mut layout_io,
+        };
+        let mut cell = AtollTileBuilder::new(io, cell, &mut layout_cell);
+        let (schematic_data, _) = <T as AtollTile<PDK>>::tile(&self.0, atoll_io, &mut cell)?;
+        Ok(schematic_data)
+    }
+}
+
+impl<T, PDK: Pdk + Schema> Layout<PDK> for AtollTileWrapper<T>
+where
+    T: AtollTile<PDK>,
+{
+    fn layout(
+        &self,
+        io: &mut Builder<<Self as Block>::Io>,
+        cell: &mut layout::CellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        let (mut schematic_cell, schematic_io) =
+            prepare_cell_builder(CellId::default(), (**cell.ctx()).clone(), self);
+        let io = AtollIo {
+            schematic: &schematic_io,
+            layout: io,
+        };
+        let mut cell = AtollTileBuilder::new(&schematic_io, &mut schematic_cell, cell);
+        let (_, layout_data) = <T as AtollTile<PDK>>::tile(&self.0, io, &mut cell)?;
+
+        let mut to_connect = HashMap::new();
+        for (_, port) in cell.nodes {
+            to_connect
+                .entry(cell.connections.find(port.key))
+                .or_insert(Vec::new())
+                .extend(port.geometry);
+        }
+
+        for (_, ports) in to_connect {
+            for pair in ports.windows(2) {
+                let a = &pair[0];
+                let b = &pair[1];
+                let a_center = a.primary.shape().bbox().unwrap().center();
+                let b_center = b.primary.shape().bbox().unwrap().center();
+                cell.layout.draw(Shape::new(
+                    a.primary.layer().drawing(),
+                    Polygon::from_verts(vec![
+                        a_center,
+                        b_center,
+                        b_center - Point::new(20, 20),
+                        a_center - Point::new(20, 20),
+                    ]),
+                ))?;
+            }
+        }
+
+        Ok(layout_data)
     }
 }

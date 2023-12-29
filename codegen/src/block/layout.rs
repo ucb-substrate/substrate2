@@ -2,7 +2,6 @@ use darling::ast::{Fields, Style};
 use darling::{ast, FromDeriveInput, FromField, FromMeta, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse_quote;
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
@@ -93,8 +92,7 @@ fn transform_field_decl(_idx: usize, field: &DataField) -> TokenStream {
         ref attrs,
     } = field;
     let substrate = substrate_ident();
-    let field_ty =
-        quote!(#substrate::geometry::transform::Transformed<'__substrate_derive_lifetime, #ty>);
+    let field_ty = quote!(#substrate::geometry::transform::Transformed<#ty>);
 
     match ident {
         Some(ident) => {
@@ -151,12 +149,7 @@ impl ToTokens for DataInputReceiver {
             quote!(#substrate::geometry::transform::HasTransformedView),
         );
 
-        let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
-        let mut ref_generics = generics.clone();
-        ref_generics.params.push(lifetime.clone());
-
         let (imp, ty, wher) = generics.split_for_impl();
-        let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
         let transformed_ident = format_ident!("{}TransformedView", ident);
 
         let expanded = match data {
@@ -179,15 +172,15 @@ impl ToTokens for DataInputReceiver {
 
                 quote! {
                     #(#attrs)*
-                    #vis struct #transformed_ident #ref_generics #body
+                    #vis struct #transformed_ident #generics #body
 
                     impl #imp #substrate::geometry::transform::HasTransformedView for #ident #ty #wher {
-                        type TransformedView<#lifetime> = #transformed_ident #ref_ty;
+                        type TransformedView = #transformed_ident #ty;
 
                         fn transformed_view(
                             &self,
                             __substrate_derive_transformation: #substrate::geometry::transform::Transformation,
-                        ) -> Self::TransformedView<'_> {
+                        ) -> Self::TransformedView {
                             #retval
                         }
                     }
@@ -200,16 +193,16 @@ impl ToTokens for DataInputReceiver {
                     .map(|v| transform_variant_match_arm(transformed_ident.clone(), v));
                 quote! {
                     #(#attrs)*
-                    #vis enum #transformed_ident #ref_generics {
+                    #vis enum #transformed_ident #generics {
                         #( #decls )*
                     }
                     impl #imp #substrate::geometry::transform::HasTransformedView for #ident #ty #wher {
-                        type TransformedView<#lifetime> = #transformed_ident #ref_ty;
+                        type TransformedView = #transformed_ident #ty;
 
                         fn transformed_view(
                             &self,
                             __substrate_derive_transformation: #substrate::geometry::transform::Transformation,
-                        ) -> Self::TransformedView<'_> {
+                        ) -> Self::TransformedView {
                             match self {
                                 #(#arms)*
                             }
@@ -277,7 +270,7 @@ impl ToTokens for HasLayoutInputReceiver {
                     fn layout(
                         &self,
                         io: &mut <<Self as #substrate::block::Block>::Io as #substrate::io::layout::HardwareType>::Builder,
-                        cell: &mut #substrate::layout::CellBuilder<#pdk, Self>,
+                        cell: &mut #substrate::layout::CellBuilder<#pdk>,
                     ) -> #substrate::error::Result<Self::LayoutData> {
 
                         let source = { #source };

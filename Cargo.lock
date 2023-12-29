@@ -206,10 +206,12 @@ dependencies = [
 name = "atoll"
 version = "0.1.3"
 dependencies = [
+ "ena",
  "grid",
  "num",
  "serde",
  "substrate",
+ "tracing",
 ]
 
 [[package]]
@@ -1035,7 +1037,6 @@ dependencies = [
  "array_map",
  "geometry_macros",
  "impl-trait-for-tuples",
- "indexmap 2.1.0",
  "num-rational",
  "serde",
 ]

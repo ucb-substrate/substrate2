@@ -43,7 +43,7 @@ impl Layout<ExamplePdkA> for GridTilerExample {
     fn layout(
         &self,
         _io: &mut <<Self as substrate::block::Block>::Io as substrate::io::layout::HardwareType>::Builder,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let mut tiler = GridTiler::new();
 

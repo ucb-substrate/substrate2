@@ -320,11 +320,9 @@ impl From<&NestedTerminal> for TerminalPath {
     }
 }
 
-/// A view of the nested terminals in an interface.
-///
-/// Stores a path of instances up to each terminal using an [`InstancePath`].
+/// A view of the terminals in an interface.
 pub trait HasTerminalView {
-    /// A view of the nested terminals.
+    /// A view of the terminals in an interface.
     type TerminalView: HasNestedView + Flatten<Node> + Send + Sync;
 
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.

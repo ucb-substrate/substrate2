@@ -8,14 +8,14 @@ use std::collections::HashMap;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
+use substrate::geometry::transform::Transformation;
+use substrate::layout::element::Text;
 
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
-use substrate::geometry::transform::Transformation;
 use substrate::io::layout::Builder;
+use substrate::layout::element::Shape;
 use substrate::layout::element::{CellId, Element, RawCell};
-use substrate::layout::element::{Shape, Text};
-
 use substrate::layout::{CellBuilder, Draw, DrawReceiver, ExportsLayoutData, Layout};
 use substrate::pdk::layers::HasPin;
 use substrate::pdk::Pdk;
@@ -56,7 +56,7 @@ pub struct GridCoord {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AtollAbstract {
     /// The topmost ATOLL layer used within the tile.
-    top_layer: usize,
+    pub(crate) top_layer: usize,
     /// The bounds of the tile, in LCM units with respect to `top_layer`.
     ///
     /// The "origin" of the tile, in LCM units, is the lower left of this rectangle.
@@ -141,7 +141,7 @@ impl AtollAbstract {
         }
     }
 
-    fn slice(&self) -> LayerSlice<'_, PdkLayer> {
+    pub(crate) fn slice(&self) -> LayerSlice<'_, PdkLayer> {
         self.grid.slice()
     }
 
@@ -240,7 +240,6 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
                     for y in rect.bot()..=rect.top() {
                         let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                         let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
-                        println!("assigning ({}, {}) to net {}", x - xofs, y - yofs, name);
                         state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
                             PointState::Routed {
                                 net,
@@ -296,7 +295,7 @@ impl<PDK: Pdk> Layout<PDK> for DebugAbstract {
     fn layout(
         &self,
         _io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut CellBuilder<PDK, Self>,
+        cell: &mut CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::LayoutData> {
         cell.draw(self)?;
         Ok(())

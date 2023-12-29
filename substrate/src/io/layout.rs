@@ -9,7 +9,8 @@ use arcstr::ArcStr;
 pub use codegen::LayoutType as HardwareType;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
-use geometry::transform::{HasTransformedView, Transformed};
+use geometry::transform;
+use geometry::transform::HasTransformedView;
 use geometry::union::BoundingUnion;
 use std::collections::HashMap;
 use tracing::Level;
@@ -86,21 +87,6 @@ pub struct PortGeometry {
     pub unnamed_shapes: Vec<IoShape>,
     /// A set of named shapes contained by the port.
     pub named_shapes: HashMap<ArcStr, IoShape>,
-}
-
-/// A set of transformed geometry associated with a layout port.
-#[allow(dead_code)]
-#[derive(Clone)]
-pub struct TransformedPortGeometry<'a> {
-    /// The primary shape of the port.
-    ///
-    /// This field is a copy of a shape contained in one of the other fields, so it is not drawn
-    /// explicitly. It is kept separately for ease of access.
-    pub primary: IoShape,
-    /// A set of unnamed shapes contained by the port.
-    pub unnamed_shapes: Transformed<'a, [IoShape]>,
-    /// A set of named shapes contained by the port.
-    pub named_shapes: Transformed<'a, HashMap<ArcStr, IoShape>>,
 }
 
 /// A type that can is a bundle of layout ports.
@@ -193,10 +179,10 @@ impl<T: Bbox> BoundingUnion<T> for IoShape {
     }
 }
 
-impl HasTransformedView for IoShape {
-    type TransformedView<'a> = IoShape;
+impl transform::HasTransformedView for IoShape {
+    type TransformedView = IoShape;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         IoShape {
             shape: self.shape.transformed_view(trans),
             ..*self
@@ -383,32 +369,21 @@ impl Flatten<PortGeometry> for PortGeometry {
     }
 }
 
-impl<'a> From<TransformedPortGeometry<'a>> for PortGeometry {
-    fn from(value: TransformedPortGeometry<'a>) -> Self {
-        Self {
-            primary: value.primary,
-            unnamed_shapes: value.unnamed_shapes.to_vec(),
-            named_shapes: value
-                .named_shapes
-                .to_hash_map()
-                .into_iter()
-                .map(|(name, shape)| (name.clone(), shape))
-                .collect(),
-        }
-    }
-}
-
-impl HasTransformedView for PortGeometry {
-    type TransformedView<'a> = TransformedPortGeometry<'a>;
+impl transform::HasTransformedView for PortGeometry {
+    type TransformedView = PortGeometry;
 
     fn transformed_view(
         &self,
         trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
+    ) -> Self::TransformedView {
         Self::TransformedView {
             primary: self.primary.transformed_view(trans),
             unnamed_shapes: self.unnamed_shapes.transformed_view(trans),
-            named_shapes: self.named_shapes.transformed_view(trans),
+            named_shapes: self
+                .named_shapes
+                .iter()
+                .map(|(k, v)| (k.clone(), v.transformed_view(trans)))
+                .collect(),
         }
     }
 }

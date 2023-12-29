@@ -1369,9 +1369,9 @@ impl TransformMut for Rect {
 }
 
 impl HasTransformedView for Rect {
-    type TransformedView<'a> = Rect;
+    type TransformedView = Rect;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.transform(trans)
     }
 }
