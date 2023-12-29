@@ -147,31 +147,25 @@ pub mod grid;
 
 use crate::abs::{generate_abstract, AtollAbstract};
 use crate::grid::{LayerStack, PdkLayer};
-use ::grid::Grid;
-use ena::unify::{UnifyKey, UnifyValue};
+use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
-use std::ops::Deref;
+use std::collections::HashMap;
 use std::sync::Arc;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::context::{prepare_cell_builder, Context, PdkContext};
+use substrate::context::{prepare_cell_builder, PdkContext};
 use substrate::geometry::polygon::Polygon;
-use substrate::geometry::prelude::{Bbox, Dir, Point, Transformation};
-use substrate::geometry::transform::{HasTransformedView, Translate, TranslateMut};
-use substrate::io::layout::{Builder, PortGeometry, PortGeometryBuilder};
-use substrate::io::schematic::{Bundle, Connect, Node, Terminal, TerminalView};
-use substrate::io::{FlatLen, Flatten, Signal};
+use substrate::geometry::prelude::{Bbox, Dir, Point};
+use substrate::geometry::transform::Translate;
+use substrate::io::layout::{Builder, PortGeometry};
+use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
+use substrate::io::Flatten;
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::HasPin;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{
-    CellId, ExportsNestedData, HasNestedView, InstanceId, InstancePath, SchemaCellHandle, Schematic,
-};
+use substrate::schematic::{CellId, ExportsNestedData, Schematic};
 use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
@@ -394,15 +388,21 @@ struct NodeInfo {
     geometry: Vec<PortGeometry>,
 }
 
+/// The orientation of an [`Instance`].
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Orientation {
+    /// The default orientation with no transformations applied.
     #[default]
     R0,
+    /// Rotated by 180 degrees.
     R180,
+    /// Mirrored about the x-axis.
     MX,
+    /// Mirrored about the y-axis.
     MY,
 }
 
+/// An ATOLL instance that represents both a schematic and layout instance.
 pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
     schematic: schematic::Instance<T>,
     layout: layout::Instance<T>,
@@ -425,6 +425,17 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         self
     }
 
+    /// Orients this instance in the given orientation.
+    pub fn orient_mut(&mut self, orientation: Orientation) {
+        self.orientation = orientation;
+    }
+
+    /// Orients this instance in the given orientation.
+    pub fn orient(mut self, orientation: Orientation) -> Self {
+        self.orient_mut(orientation);
+        self
+    }
+
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
@@ -432,12 +443,14 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         self.schematic.io()
     }
 
+    /// Converts this ATOLL instance into Substrate schematic and layout instances.
     pub fn into_instances(self) -> (schematic::Instance<T>, layout::Instance<T>) {
         // todo: apply loc and orientation to layout instance
         let loc = self.physical_loc();
         (self.schematic, self.layout.translate(loc))
     }
 
+    /// Returns the location of the instance in physical coordinates.
     pub fn physical_loc(&self) -> Point {
         let slice = self.abs.slice();
         let w = slice.lcm_unit_width();
@@ -446,6 +459,7 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     }
 }
 
+/// A builder for ATOLL tiles.
 pub struct AtollTileBuilder<'a, PDK: Pdk + Schema> {
     nodes: HashMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
@@ -472,7 +486,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
                     geometry: vec![],
                 })),
         );
-        /// todo: fix how layer is provided
+        // todo: fix how layer is provided
         let layer_stack = layout
             .ctx()
             .get_installation::<LayerStack<PdkLayer>>()
@@ -487,6 +501,8 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         }
     }
 
+    /// Generates an ATOLL instance of a primitive (a block that directly implements
+    /// Substrate's [`Schematic`] and [`Layout`] traits).
     pub fn generate_primitive<B: Clone + Schematic<PDK> + Layout<PDK>>(
         &mut self,
         block: B,
@@ -494,7 +510,6 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         let layout = self.layout.generate(block.clone());
         let schematic = self.schematic.instantiate(block);
         let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
-        let top = abs.top_layer;
         Instance {
             layout,
             schematic,
@@ -504,6 +519,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         }
     }
 
+    /// Generates an instance of an ATOLL tile.
     pub fn generate<B: Clone + AtollTile<PDK>>(
         &mut self,
         block: B,
@@ -513,7 +529,6 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         let schematic = self.schematic.instantiate(wrapper);
         // todo: generate abstract from AtollTile trait directly
         let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
-        let top = abs.top_layer;
         Instance {
             layout,
             schematic,
@@ -523,6 +538,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         }
     }
 
+    /// Draws an ATOLL instance.
     pub fn draw<B: ExportsNestedData + Layout<PDK>>(
         &mut self,
         instance: &Instance<B>,
@@ -533,7 +549,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         Ok(())
     }
 
-    /// Connect all signals in the given data instances.
+    /// Connects all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
         D1: Flatten<Node>,
@@ -551,7 +567,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         self.schematic.connect(s1, s2);
     }
 
-    /// Create a new signal with the given name and hardware type.
+    /// Creates a new signal with the given name and hardware type.
     #[track_caller]
     pub fn signal<TY: io::schematic::HardwareType>(
         &mut self,
@@ -569,21 +585,6 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
             })));
 
         bundle
-    }
-
-    /// Match the given nodes and port geometry.
-    pub fn match_geometry<D1, D2>(&mut self, s1: D1, s2: D2)
-    where
-        D1: Flatten<Node>,
-        D2: Flatten<PortGeometry>,
-    {
-        // todo: fix
-        // let s1f: Vec<Node> = s1.flatten_vec();
-        // let s2f: Vec<PortGeometry> = s2.flatten_vec();
-        // assert_eq!(s1f.len(), s2f.len());
-        // s1f.into_iter().zip(s2f).for_each(|(a, b)| {
-        //     self.nodes.get_mut(&a).unwrap().geometry.push(b);
-        // });
     }
 
     /// Gets the global context.

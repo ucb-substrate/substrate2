@@ -3,8 +3,6 @@ use crate::{PointState, RoutingDir};
 use grid::Grid;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, Range};
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::corner::Corner;

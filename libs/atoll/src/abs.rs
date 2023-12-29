@@ -7,18 +7,16 @@ use std::collections::HashMap;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
-use substrate::geometry::corner::Corner;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
 use substrate::io::layout::Builder;
 use substrate::layout::element::Shape;
 use substrate::layout::element::{CellId, Element, RawCell};
-use substrate::layout::tracks::RoundingMode;
 use substrate::layout::{CellBuilder, Draw, DrawReceiver, ExportsLayoutData, Layout};
 use substrate::pdk::layers::HasPin;
 use substrate::pdk::Pdk;
 use substrate::schematic::ExportsNestedData;
-use substrate::{arcstr, layout, schematic};
+use substrate::{arcstr, layout};
 
 /// The abstract view of an ATOLL tile.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -61,6 +59,10 @@ impl AtollAbstract {
     pub fn physical_origin(&self) -> Point {
         self.lcm_bounds.lower_left() * self.slice().lcm_units()
     }
+
+    pub fn merge(&mut self, other: AtollAbstract) {
+        let new_bounds = self.physical_bounds().union(other.physical_bounds());
+    }
 }
 
 /// The abstracted state of a single routing layer.
@@ -72,6 +74,10 @@ pub enum LayerAbstract {
     Blocked,
     /// The layer is available for routing and exposes the state of each point on the routing grid.
     Detailed { states: Grid<PointState> },
+}
+
+impl LayerAbstract {
+    pub fn merge(&mut self, other: LayerAbstract) {}
 }
 
 fn top_layer(cell: &RawCell, stack: &LayerStack<PdkLayer>) -> Option<usize> {
