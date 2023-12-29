@@ -175,7 +175,7 @@ impl Layout<Sky130Pdk> for NmosTile {
         cell: &mut CellBuilder<Sky130Pdk, Self>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
-        let grid = RoutingGrid::new((*stack).clone(), 0..2, self.nf + 3, 4);
+        let grid = RoutingGrid::new((*stack).clone(), 0..2);
 
         let tracks = (0..self.nf + 1)
             .map(|i| {

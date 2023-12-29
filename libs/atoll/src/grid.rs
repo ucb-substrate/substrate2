@@ -289,19 +289,15 @@ pub struct RoutingGrid<L> {
     pub(crate) stack: LayerStack<L>,
     start: usize,
     end: usize,
-    nx: i64,
-    ny: i64,
 }
 
 impl<L> RoutingGrid<L> {
     /// Creates a new routing grid with the given properties.
-    pub fn new(stack: LayerStack<L>, layers: Range<usize>, nx: i64, ny: i64) -> Self {
+    pub fn new(stack: LayerStack<L>, layers: Range<usize>) -> Self {
         Self {
             stack,
             start: layers.start,
             end: layers.end,
-            nx,
-            ny,
         }
     }
 
@@ -384,34 +380,6 @@ impl<L: AtollLayer> RoutingGrid<L> {
                 tracks.track(x_track).center(),
                 gdl_tracks.track(y_track).center(),
             ),
-        }
-    }
-
-    /// The coordinate of the first track on the given layer.
-    fn min_coord(&self, _layer: usize) -> i64 {
-        // the first track is always labeled 0
-        0
-    }
-
-    /// The coordinate of the last track on the given layer.
-    fn max_coord(&self, layer: usize) -> i64 {
-        let slice = self.stack.slice(self.start..self.end);
-        let layer = slice.layer(layer);
-        let lcm = slice.lcm_unit(!layer.dir().track_dir());
-        let pitch = layer.pitch();
-        let (units, rem) = (lcm / pitch, lcm % pitch);
-        assert_eq!(
-            rem, 0,
-            "expected lcm ({lcm}) to be an integer multiple of the layer pitch ({pitch})"
-        );
-        units * self.ndir(!layer.dir().track_dir())
-    }
-
-    /// The number of repeated LCM units in the given direction.
-    fn ndir(&self, dir: Dir) -> i64 {
-        match dir {
-            Dir::Horiz => self.nx,
-            Dir::Vert => self.ny,
         }
     }
 
@@ -503,40 +471,53 @@ impl<L: AtollLayer> RoutingGrid<L> {
 }
 
 /// A struct that draws all tracks on a routing grid for debugging or visualization.
-pub struct DebugRoutingGrid<L>(RoutingGrid<L>);
+pub struct DebugRoutingGrid<L> {
+    grid: RoutingGrid<L>,
+    nx: i64,
+    ny: i64,
+}
 
 impl<L> DebugRoutingGrid<L> {
     /// Create a new debugging grid from the given routing grid.
-    pub fn new(grid: RoutingGrid<L>) -> Self {
-        Self(grid)
+    pub fn new(grid: RoutingGrid<L>, nx: i64, ny: i64) -> Self {
+        Self { grid, nx, ny }
     }
-}
 
-impl<L> Deref for DebugRoutingGrid<L> {
-    type Target = RoutingGrid<L>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    /// The number of repeated LCM units in the given direction.
+    fn ndir(&self, dir: Dir) -> i64 {
+        match dir {
+            Dir::Horiz => self.nx,
+            Dir::Vert => self.ny,
+        }
     }
-}
 
-impl<L> DerefMut for DebugRoutingGrid<L> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+    /// The coordinate of the last track on the given layer.
+    fn max_coord(&self, layer: usize) -> i64
+    where
+        L: AtollLayer,
+    {
+        let slice = self.grid.stack.slice(self.grid.start..self.grid.end);
+        let layer = slice.layer(layer);
+        let lcm = slice.lcm_unit(!layer.dir().track_dir());
+        let pitch = layer.pitch();
+        let (units, rem) = (lcm / pitch, lcm % pitch);
+        assert_eq!(
+            rem, 0,
+            "expected lcm ({lcm}) to be an integer multiple of the layer pitch ({pitch})"
+        );
+        units * self.ndir(!layer.dir().track_dir())
     }
 }
 
 impl<L: AsRef<LayerId> + AtollLayer, PDK: Pdk> Draw<PDK> for DebugRoutingGrid<L> {
     fn draw(self, recv: &mut DrawReceiver<PDK>) -> substrate::error::Result<()> {
-        for layer in self.start..self.end {
-            for track in self.min_coord(layer)..self.max_coord(layer) {
-                let cross_layer = self.grid_defining_layer(layer);
-                let r = self.track(
-                    layer,
-                    track,
-                    self.min_coord(cross_layer),
-                    self.max_coord(cross_layer),
-                );
-                let shape = Shape::new(self.stack.layer(layer), r);
+        for layer in self.grid.start..self.grid.end {
+            for track in 0..self.max_coord(layer) {
+                let cross_layer = self.grid.grid_defining_layer(layer);
+                let r = self
+                    .grid
+                    .track(layer, track, 0, self.max_coord(cross_layer));
+                let shape = Shape::new(self.grid.stack.layer(layer), r);
                 recv.draw(shape)?;
             }
         }
@@ -574,7 +555,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         assert!(nx >= 0);
         assert!(ny >= 0);
 
-        let grid = RoutingGrid::new(stack.clone(), 0..top + 1, nx, ny);
+        let grid = RoutingGrid::new(stack.clone(), 0..top + 1);
         let slice = stack.slice(0..top + 1);
         let mut layers = Vec::new();
         for i in 0..=top {

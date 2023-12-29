@@ -220,7 +220,7 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
     let nx = lcm_bounds.width();
     let ny = lcm_bounds.height();
 
-    let grid = RoutingGrid::new(stack.clone(), 0..top + 1, nx, ny);
+    let grid = RoutingGrid::new(stack.clone(), 0..top + 1);
     let mut state = RoutingState::new(stack.clone(), top, nx, ny);
     let mut ports = Vec::new();
     for (i, (name, geom)) in cell.ports().enumerate() {
@@ -262,7 +262,7 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
     AtollAbstract {
         top_layer: top,
         lcm_bounds,
-        grid: RoutingGrid::new(stack.clone(), 0..top + 1, nx, ny),
+        grid: RoutingGrid::new(stack.clone(), 0..top + 1),
         ports,
         layers,
     }
