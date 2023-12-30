@@ -1,6 +1,7 @@
 //! Uniform routing grids and layer stacks.
 use crate::{PointState, RoutingDir};
 use grid::Grid;
+use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
@@ -281,6 +282,37 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
             "layer {layer} out of bounds for layer slice"
         );
         self.stack.layer(layer)
+    }
+
+    /// Expands a rectangle in physical coordinates to LCM units.
+    pub fn expand_to_lcm_units(&self, rect: Rect) -> Rect {
+        let xmin = div_floor(rect.left(), self.lcm_unit_width());
+        let xmax = div_ceil(rect.right(), self.lcm_unit_width());
+        let ymin = div_floor(rect.bot(), self.lcm_unit_height());
+        let ymax = div_ceil(rect.top(), self.lcm_unit_height());
+        Rect::from_sides(xmin, ymin, xmax, ymax)
+    }
+
+    /// Shrinks a rectangle in physical coordinates to LCM units.
+    pub fn shrink_to_lcm_units(&self, rect: Rect) -> Option<Rect> {
+        let xmin = div_ceil(rect.left(), self.lcm_unit_width());
+        let xmax = div_floor(rect.right(), self.lcm_unit_width());
+        let ymin = div_ceil(rect.bot(), self.lcm_unit_height());
+        let ymax = div_floor(rect.top(), self.lcm_unit_height());
+        Rect::from_sides_option(xmin, ymin, xmax, ymax)
+    }
+
+    /// Converts a point in LCM units to a point in physical units.
+    pub fn lcm_to_physical(&self, pt: Point) -> Point {
+        Point::new(pt.x * self.lcm_unit_width(), pt.y * self.lcm_unit_height())
+    }
+
+    /// Converts a rectangle in LCM units to a point in physical units.
+    pub fn lcm_to_physical_rect(&self, rect: Rect) -> Rect {
+        Rect::new(
+            self.lcm_to_physical(rect.lower_left()),
+            self.lcm_to_physical(rect.upper_right()),
+        )
     }
 }
 
