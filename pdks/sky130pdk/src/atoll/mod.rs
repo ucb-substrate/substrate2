@@ -126,7 +126,7 @@ pub struct MosTileIo {
     pub b: InOut<Signal>,
 }
 
-/// A tile containing a set of NMOS transistors.
+/// A tile containing a set of MOS transistors.
 ///
 /// There are `nf` transistors, each of length `len` and width `w`.
 /// The gates of all transistors are connected.
@@ -134,21 +134,28 @@ pub struct MosTileIo {
 ///
 /// This tile does not contain internal taps.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NmosTile {
+struct MosTile {
     /// Transistor width.
-    pub w: i64,
+    w: i64,
 
     /// Transistor length.
-    pub len: MosLength,
+    len: MosLength,
 
     /// Number of fingers.
-    pub nf: i64,
+    nf: i64,
 }
 
-impl Block for NmosTile {
+impl MosTile {
+    /// Create a new MOS tile with the given physical transistor dimensions.
+    fn new(w: i64, len: MosLength, nf: i64) -> Self {
+        Self { w, len, nf }
+    }
+}
+
+impl Block for MosTile {
     type Io = MosTileIo;
     fn id() -> ArcStr {
-        arcstr::literal!("nmos_tile")
+        arcstr::literal!("mos_tile")
     }
 
     fn name(&self) -> ArcStr {
@@ -164,11 +171,11 @@ impl Block for NmosTile {
     }
 }
 
-impl ExportsLayoutData for NmosTile {
+impl ExportsLayoutData for MosTile {
     type LayoutData = ();
 }
 
-impl Layout<Sky130Pdk> for NmosTile {
+impl Layout<Sky130Pdk> for MosTile {
     fn layout(
         &self,
         io: &mut substrate::io::layout::Builder<MosTileIo>,
@@ -176,7 +183,6 @@ impl Layout<Sky130Pdk> for NmosTile {
     ) -> substrate::error::Result<Self::LayoutData> {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
-        let slice = stack.slice(0..2);
 
         let tracks = (0..self.nf + 1)
             .map(|i| {
@@ -248,21 +254,15 @@ impl Layout<Sky130Pdk> for NmosTile {
             cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
         }
 
-        let bbox = cell.bbox().unwrap();
-        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
-        cell.draw(Shape::new(cell.ctx.layers.nsdm, lcm_bbox))?;
-        cell.draw(Shape::new(cell.ctx.layers.pwell, lcm_bbox))?;
-        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, lcm_bbox));
-
         Ok(())
     }
 }
 
-impl ExportsNestedData for NmosTile {
+impl ExportsNestedData for MosTile {
     type NestedData = ();
 }
 
-impl Schematic<Sky130Pdk> for NmosTile {
+impl Schematic<Sky130Pdk> for MosTile {
     fn schematic(
         &self,
         io: &substrate::io::schematic::Bundle<MosTileIo>,
@@ -284,5 +284,147 @@ impl Schematic<Sky130Pdk> for NmosTile {
             )
         }
         Ok(())
+    }
+}
+
+/// A tile containing a set of NMOS transistors.
+///
+/// See [`MosTile`] for more information.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NmosTile {
+    tile: MosTile,
+}
+
+impl NmosTile {
+    /// Create a new NMOS tile with the given physical transistor dimensions.
+    pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
+        Self {
+            tile: MosTile::new(w, len, nf),
+        }
+    }
+}
+
+impl Block for NmosTile {
+    type Io = MosTileIo;
+    fn id() -> ArcStr {
+        arcstr::literal!("nmos_tile")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("n{}", self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        self.tile.io()
+    }
+}
+
+impl ExportsLayoutData for NmosTile {
+    type LayoutData = ();
+}
+
+impl Layout<Sky130Pdk> for NmosTile {
+    fn layout(
+        &self,
+        io: &mut substrate::io::layout::Builder<MosTileIo>,
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
+        let slice = stack.slice(0..2);
+        self.tile.layout(io, cell)?;
+
+        let bbox = cell.bbox().unwrap();
+        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
+        cell.draw(Shape::new(cell.ctx.layers.nsdm, lcm_bbox))?;
+        cell.draw(Shape::new(cell.ctx.layers.pwell, lcm_bbox))?;
+        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, lcm_bbox));
+
+        Ok(())
+    }
+}
+
+impl ExportsNestedData for NmosTile {
+    type NestedData = ();
+}
+
+impl Schematic<Sky130Pdk> for NmosTile {
+    fn schematic(
+        &self,
+        io: &substrate::io::schematic::Bundle<MosTileIo>,
+        cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        cell.instantiate_connected(self.tile.clone(), io);
+        Ok(())
+    }
+}
+
+/// A tile containing a set of PMOS transistors.
+///
+/// See [`MosTile`] for more information.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PmosTile {
+    tile: MosTile,
+}
+
+impl PmosTile {
+    /// Create a new PMOS tile with the given physical transistor dimensions.
+    pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
+        Self {
+            tile: MosTile::new(w, len, nf),
+        }
+    }
+}
+
+impl Block for PmosTile {
+    type Io = MosTileIo;
+    fn id() -> ArcStr {
+        arcstr::literal!("pmos_tile")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("p{}", self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        self.tile.io()
+    }
+}
+
+impl ExportsLayoutData for PmosTile {
+    type LayoutData = ();
+}
+
+impl Layout<Sky130Pdk> for PmosTile {
+    fn layout(
+        &self,
+        io: &mut substrate::io::layout::Builder<MosTileIo>,
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
+        let slice = stack.slice(0..2);
+
+        self.tile.layout(io, cell)?;
+
+        let bbox = cell.bbox().unwrap();
+        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
+        cell.draw(Shape::new(cell.ctx.layers.psdm, lcm_bbox))?;
+        cell.draw(Shape::new(cell.ctx.layers.nwell, lcm_bbox))?;
+        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, lcm_bbox));
+
+        Ok(())
+    }
+}
+
+impl ExportsNestedData for PmosTile {
+    type NestedData = ();
+}
+
+impl Schematic<Sky130Pdk> for PmosTile {
+    fn schematic(
+        &self,
+        io: &substrate::io::schematic::Bundle<MosTileIo>,
+        cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        self.tile.schematic(io, cell)
     }
 }
