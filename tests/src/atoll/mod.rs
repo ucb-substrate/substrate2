@@ -2,18 +2,16 @@ use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
 use atoll::abs::{generate_abstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
-use atoll::{AtollIo, AtollTile, AtollTileBuilder, AtollTileWrapper};
+use atoll::{IoBuilder, Tile, TileBuilder, TileWrapper};
 use geometry::point::Point;
-use geometry::rect::Rect;
 use serde::{Deserialize, Serialize};
 use sky130pdk::atoll::{MosLength, NmosTile};
 use sky130pdk::{Sky130CommercialSchema, Sky130Pdk};
 use spice::netlist::NetlistOptions;
 use spice::Spice;
 use substrate::block::Block;
-use substrate::io::layout::{HardwareType, IoShape};
+use substrate::io::layout::HardwareType;
 use substrate::io::{InOut, Io, Signal};
-use substrate::layout::tiling::{GridTiler, Tile};
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::schematic;
 use substrate::schematic::netlist::ConvertibleNetlister;
@@ -93,11 +91,11 @@ impl ExportsLayoutData for Sky130NmosTileAutoroute {
     type LayoutData = ();
 }
 
-impl AtollTile<Sky130Pdk> for Sky130NmosTileAutoroute {
+impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
     fn tile<'a>(
         &self,
-        io: AtollIo<'a, Self>,
-        cell: &mut AtollTileBuilder<'a, Sky130Pdk>,
+        io: IoBuilder<'a, Self>,
+        cell: &mut TileBuilder<'a, Sky130Pdk>,
     ) -> substrate::error::Result<(
         <Self as ExportsNestedData>::NestedData,
         <Self as ExportsLayoutData>::LayoutData,
@@ -140,7 +138,7 @@ fn sky130_atoll_nmos_tile_autoroute() {
     let ctx = sky130_open_ctx();
     let netlist_path = get_path("sky130_atoll_nmos_tile_autoroute", "schematic.sp");
 
-    let block = AtollTileWrapper::new(Sky130NmosTileAutoroute);
+    let block = TileWrapper::new(Sky130NmosTileAutoroute);
 
     ctx.write_layout(block, gds_path)
         .expect("failed to write layout");

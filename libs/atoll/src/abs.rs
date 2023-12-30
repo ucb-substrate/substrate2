@@ -45,18 +45,18 @@ pub struct GridCoord {
 /// * Grid coordinates: these have the same spacing as track coordinates, but are shifted so that (0, 0) is always at the lower left. These are used to index [`LayerAbstract`]s.
 ///
 /// ATOLL provides the following utilities for converting between these coordinate systems:
-/// * Grid to physical: [`AtollAbstract::grid_to_physical`]
-/// * Track to physical: [`AtollAbstract::track_to_physical`]
-/// * Grid to track: [`AtollAbstract::grid_to_track`]
-/// * Track to grid: [`AtollAbstract::track_to_grid`]
+/// * Grid to physical: [`Abstract::grid_to_physical`]
+/// * Track to physical: [`Abstract::track_to_physical`]
+/// * Grid to track: [`Abstract::grid_to_track`]
+/// * Track to grid: [`Abstract::track_to_grid`]
 /// * Physical to track: [`RoutingGrid::point_to_grid`]
 ///
 /// For converting physical to grid: convert the physical coordinates to track coordinates,
 /// then convert track coordinates to physical coordinates.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct AtollAbstract {
+pub struct Abstract {
     /// The topmost ATOLL layer used within the tile.
-    pub(crate) top_layer: usize,
+    top_layer: usize,
     /// The bounds of the tile, in LCM units with respect to `top_layer`.
     ///
     /// The "origin" of the tile, in LCM units, is the lower left of this rectangle.
@@ -73,7 +73,7 @@ pub struct AtollAbstract {
     pub(crate) grid: RoutingGrid<PdkLayer>,
 }
 
-impl AtollAbstract {
+impl Abstract {
     pub fn physical_bounds(&self) -> Rect {
         let slice = self.slice();
         let w = slice.lcm_unit_width();
@@ -88,7 +88,7 @@ impl AtollAbstract {
 
     /// Converts a grid point to a physical point in the coordinates of the cell.
     ///
-    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    /// See [coordinate systems](Abstract#coordinates) for more information.
     pub fn grid_to_physical(&self, coord: GridCoord) -> Point {
         let coord = self.grid_to_track(coord);
         self.track_to_physical(coord)
@@ -96,7 +96,7 @@ impl AtollAbstract {
 
     /// Converts a track point to a physical point in the coordinates of the cell.
     ///
-    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    /// See [coordinate systems](Abstract#coordinates) for more information.
     pub fn track_to_physical(&self, coord: TrackCoord) -> Point {
         self.grid.xy_track_point(coord.layer, coord.x, coord.y)
     }
@@ -111,7 +111,7 @@ impl AtollAbstract {
 
     /// Converts a grid point to a track point in the coordinates of the cell.
     ///
-    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    /// See [coordinate systems](Abstract#coordinates) for more information.
     pub fn grid_to_track(&self, coord: GridCoord) -> TrackCoord {
         TrackCoord {
             layer: coord.layer,
@@ -122,7 +122,7 @@ impl AtollAbstract {
 
     /// Converts a track point to a grid point in the coordinates of the cell.
     ///
-    /// See [coordinate systems](AtollAbstract#coordinates) for more information.
+    /// See [coordinate systems](Abstract#coordinates) for more information.
     pub fn track_to_grid(&self, coord: TrackCoord) -> GridCoord {
         let x = coord.x - self.xofs(coord.layer);
         let y = coord.y - self.yofs(coord.layer);
@@ -153,6 +153,8 @@ impl AtollAbstract {
 /// The abstracted state of a single routing layer.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum LayerAbstract {
+    /// The layer is fully available.
+    Available,
     /// The layer is fully blocked.
     ///
     /// No routing on this layer is permitted.
@@ -201,7 +203,7 @@ fn top_layer_inner(
 pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
     layout: &layout::Cell<T>,
     stack: &LayerStack<PdkLayer>,
-) -> AtollAbstract {
+) -> Abstract {
     let cell = layout.raw();
     let bbox = cell.bbox().unwrap();
 
@@ -258,7 +260,7 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
         .map(|states| LayerAbstract::Detailed { states })
         .collect();
 
-    AtollAbstract {
+    Abstract {
         top_layer: top,
         lcm_bounds,
         grid: RoutingGrid::new(stack.clone(), 0..top + 1),
@@ -269,7 +271,7 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DebugAbstract {
-    pub abs: AtollAbstract,
+    pub abs: Abstract,
     pub stack: LayerStack<PdkLayer>,
 }
 
@@ -317,7 +319,7 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                             let pt = self.abs.grid_to_physical(GridCoord { layer: i, x, y });
                             let rect = match states[(x, y)] {
                                 PointState::Available => Rect::from_point(pt).expand_all(20),
-                                PointState::Obstructed => Rect::from_point(pt).expand_all(40),
+                                PointState::Blocked => Rect::from_point(pt).expand_all(40),
                                 PointState::Routed { .. } => Rect::from_point(pt).expand_all(30),
                             };
                             recv.draw(Shape::new(layer_id, rect))?;

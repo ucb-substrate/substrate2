@@ -145,33 +145,28 @@
 pub mod abs;
 pub mod grid;
 
-use crate::abs::{generate_abstract, AtollAbstract};
+use crate::abs::{generate_abstract, Abstract};
 use crate::grid::{LayerStack, PdkLayer};
-use ::grid::Grid;
-use ena::unify::{UnifyKey, UnifyValue};
+use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::context::{prepare_cell_builder, Context, PdkContext};
+use substrate::context::{prepare_cell_builder, PdkContext};
 use substrate::geometry::polygon::Polygon;
-use substrate::geometry::prelude::{Bbox, Dir, Point, Transformation};
-use substrate::geometry::transform::{HasTransformedView, Translate, TranslateMut};
-use substrate::io::layout::{Builder, PortGeometry, PortGeometryBuilder};
-use substrate::io::schematic::{Bundle, Connect, Node, Terminal, TerminalView};
-use substrate::io::{FlatLen, Flatten, Signal};
+use substrate::geometry::prelude::{Bbox, Dir, Point};
+use substrate::geometry::transform::Translate;
+use substrate::io::layout::{Builder, PortGeometry};
+use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
+use substrate::io::Flatten;
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::HasPin;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{
-    CellId, ExportsNestedData, HasNestedView, InstanceId, InstancePath, SchemaCellHandle, Schematic,
-};
+use substrate::schematic::{CellId, ExportsNestedData, Schematic};
 use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
@@ -238,8 +233,8 @@ impl Xy for (i64, i64) {
 pub enum PointState {
     /// The grid point is available for routing.
     Available,
-    /// The grid point is obstructed.
-    Obstructed,
+    /// The grid point is blocked.
+    Blocked,
     /// The grid point is occupied by a known net.
     Routed {
         /// The net occupying this routing space.
@@ -257,7 +252,7 @@ impl PointState {
         match self {
             Self::Available => true,
             Self::Routed { net: n, .. } => *n == net,
-            Self::Obstructed => false,
+            Self::Blocked => false,
         }
     }
 }
@@ -394,21 +389,29 @@ struct NodeInfo {
     geometry: Vec<PortGeometry>,
 }
 
+/// The orientation of an instance.
+///
+/// Orientations are applied relative to the child cell's coordinate frame.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Orientation {
+    /// The default orientation.
     #[default]
     R0,
+    /// Rotated 180 degrees.
     R180,
+    /// Mirrored about the x-axis.
     MX,
+    /// Mirrored about the y-axis.
     MY,
 }
 
+/// An ATOLL instance representing both a schematic and layout instance.
 pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
     schematic: schematic::Instance<T>,
     layout: layout::Instance<T>,
-    abs: AtollAbstract,
+    abs: Abstract,
     /// The location of the instance in LCM units according to the
-    /// top layer in the associated [`AtollAbstract`].
+    /// top layer in the associated [`Abstract`].
     loc: Point,
     orientation: Orientation,
 }
@@ -425,6 +428,17 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         self
     }
 
+    /// Orients this instance in the given orientation.
+    pub fn orient_mut(&mut self, orientation: Orientation) {
+        self.orientation = orientation;
+    }
+
+    /// Orients this instance in the given orientation.
+    pub fn orient(mut self, orientation: Orientation) -> Self {
+        self.orient_mut(orientation);
+        self
+    }
+
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
@@ -432,12 +446,14 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         self.schematic.io()
     }
 
+    /// Decomposes this ATOLL instance into Substrate schematic and layout instances.
     pub fn into_instances(self) -> (schematic::Instance<T>, layout::Instance<T>) {
         // todo: apply loc and orientation to layout instance
         let loc = self.physical_loc();
         (self.schematic, self.layout.translate(loc))
     }
 
+    /// Returns the physical location of this instance.
     pub fn physical_loc(&self) -> Point {
         let slice = self.abs.slice();
         let w = slice.lcm_unit_width();
@@ -446,7 +462,8 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     }
 }
 
-pub struct AtollTileBuilder<'a, PDK: Pdk + Schema> {
+/// A builder for ATOLL tiles.
+pub struct TileBuilder<'a, PDK: Pdk + Schema> {
     nodes: HashMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     schematic: &'a mut schematic::CellBuilder<PDK>,
@@ -454,7 +471,7 @@ pub struct AtollTileBuilder<'a, PDK: Pdk + Schema> {
     layer_stack: Arc<LayerStack<PdkLayer>>,
 }
 
-impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
+impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     fn new<T: io::schematic::IsBundle>(
         schematic_io: &'a T,
         schematic: &'a mut schematic::CellBuilder<PDK>,
@@ -472,7 +489,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
                     geometry: vec![],
                 })),
         );
-        /// todo: fix how layer is provided
+        // todo: fix how layer is provided
         let layer_stack = layout
             .ctx()
             .get_installation::<LayerStack<PdkLayer>>()
@@ -487,6 +504,8 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         }
     }
 
+    /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
+    /// and [`Layout`].
     pub fn generate_primitive<B: Clone + Schematic<PDK> + Layout<PDK>>(
         &mut self,
         block: B,
@@ -494,7 +513,6 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         let layout = self.layout.generate(block.clone());
         let schematic = self.schematic.instantiate(block);
         let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
-        let top = abs.top_layer;
         Instance {
             layout,
             schematic,
@@ -504,16 +522,13 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         }
     }
 
-    pub fn generate<B: Clone + AtollTile<PDK>>(
-        &mut self,
-        block: B,
-    ) -> Instance<AtollTileWrapper<B>> {
-        let wrapper = AtollTileWrapper::new(block);
+    /// Generates an ATOLL instance from a block that implements [`Tile`].
+    pub fn generate<B: Clone + Tile<PDK>>(&mut self, block: B) -> Instance<TileWrapper<B>> {
+        let wrapper = TileWrapper::new(block);
         let layout = self.layout.generate(wrapper.clone());
         let schematic = self.schematic.instantiate(wrapper);
         // todo: generate abstract from AtollTile trait directly
         let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
-        let top = abs.top_layer;
         Instance {
             layout,
             schematic,
@@ -523,6 +538,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         }
     }
 
+    /// Draws an ATOLL instance in layout.
     pub fn draw<B: ExportsNestedData + Layout<PDK>>(
         &mut self,
         instance: &Instance<B>,
@@ -571,20 +587,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         bundle
     }
 
-    /// Match the given nodes and port geometry.
-    pub fn match_geometry<D1, D2>(&mut self, s1: D1, s2: D2)
-    where
-        D1: Flatten<Node>,
-        D2: Flatten<PortGeometry>,
-    {
-        // todo: fix
-        // let s1f: Vec<Node> = s1.flatten_vec();
-        // let s2f: Vec<PortGeometry> = s2.flatten_vec();
-        // assert_eq!(s1f.len(), s2f.len());
-        // s1f.into_iter().zip(s2f).for_each(|(a, b)| {
-        //     self.nodes.get_mut(&a).unwrap().geometry.push(b);
-        // });
-    }
+    // todo: add function for matching geometry
 
     /// Gets the global context.
     pub fn ctx(&self) -> &PdkContext<PDK> {
@@ -592,32 +595,48 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
     }
 }
 
-pub struct AtollIo<'a, B: Block> {
+/// A builder for an ATOLL tile's IOs.
+pub struct IoBuilder<'a, B: Block> {
+    /// The schematic bundle representation of the block's IO.
     pub schematic: &'a Bundle<<B as Block>::Io>,
+    /// The layout builder representation of the block's IO.
     pub layout: &'a mut Builder<<B as Block>::Io>,
 }
 
-pub trait AtollTile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
+/// A tile that can be instantiated in ATOLL.
+pub trait Tile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
+    /// Builds a block's ATOLL tile.
     fn tile<'a>(
         &self,
-        io: AtollIo<'a, Self>,
-        cell: &mut AtollTileBuilder<'a, PDK>,
+        io: IoBuilder<'a, Self>,
+        cell: &mut TileBuilder<'a, PDK>,
     ) -> substrate::error::Result<(
         <Self as ExportsNestedData>::NestedData,
         <Self as ExportsLayoutData>::LayoutData,
     )>;
 }
 
+/// A wrapper of a block implementing [`Tile`] that can be instantiated in Substrate
+/// schematics and layouts.
 #[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AtollTileWrapper<T>(T);
+pub struct TileWrapper<T>(T);
 
-impl<T> AtollTileWrapper<T> {
+impl<T> TileWrapper<T> {
+    /// Creates a new wrapper of `block`.
     pub fn new(block: T) -> Self {
         Self(block)
     }
 }
 
-impl<T: Block> Block for AtollTileWrapper<T> {
+impl<T> Deref for TileWrapper<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Block> Block for TileWrapper<T> {
     type Io = <T as Block>::Io;
 
     fn id() -> ArcStr {
@@ -633,17 +652,17 @@ impl<T: Block> Block for AtollTileWrapper<T> {
     }
 }
 
-impl<T: ExportsNestedData> ExportsNestedData for AtollTileWrapper<T> {
+impl<T: ExportsNestedData> ExportsNestedData for TileWrapper<T> {
     type NestedData = <T as ExportsNestedData>::NestedData;
 }
 
-impl<T: ExportsLayoutData> ExportsLayoutData for AtollTileWrapper<T> {
+impl<T: ExportsLayoutData> ExportsLayoutData for TileWrapper<T> {
     type LayoutData = <T as ExportsLayoutData>::LayoutData;
 }
 
-impl<T, PDK: Pdk + Schema> Schematic<PDK> for AtollTileWrapper<T>
+impl<T, PDK: Pdk + Schema> Schematic<PDK> for TileWrapper<T>
 where
-    T: AtollTile<PDK>,
+    T: Tile<PDK>,
 {
     fn schematic(
         &self,
@@ -652,19 +671,19 @@ where
     ) -> substrate::error::Result<Self::NestedData> {
         let mut layout_io = io::layout::HardwareType::builder(&self.io());
         let mut layout_cell = layout::CellBuilder::new(cell.ctx().with_pdk());
-        let atoll_io = AtollIo {
+        let atoll_io = IoBuilder {
             schematic: io,
             layout: &mut layout_io,
         };
-        let mut cell = AtollTileBuilder::new(io, cell, &mut layout_cell);
-        let (schematic_data, _) = <T as AtollTile<PDK>>::tile(&self.0, atoll_io, &mut cell)?;
+        let mut cell = TileBuilder::new(io, cell, &mut layout_cell);
+        let (schematic_data, _) = <T as Tile<PDK>>::tile(&self.0, atoll_io, &mut cell)?;
         Ok(schematic_data)
     }
 }
 
-impl<T, PDK: Pdk + Schema> Layout<PDK> for AtollTileWrapper<T>
+impl<T, PDK: Pdk + Schema> Layout<PDK> for TileWrapper<T>
 where
-    T: AtollTile<PDK>,
+    T: Tile<PDK>,
 {
     fn layout(
         &self,
@@ -673,12 +692,12 @@ where
     ) -> substrate::error::Result<Self::LayoutData> {
         let (mut schematic_cell, schematic_io) =
             prepare_cell_builder(CellId::default(), (**cell.ctx()).clone(), self);
-        let io = AtollIo {
+        let io = IoBuilder {
             schematic: &schematic_io,
             layout: io,
         };
-        let mut cell = AtollTileBuilder::new(&schematic_io, &mut schematic_cell, cell);
-        let (_, layout_data) = <T as AtollTile<PDK>>::tile(&self.0, io, &mut cell)?;
+        let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
+        let (_, layout_data) = <T as Tile<PDK>>::tile(&self.0, io, &mut cell)?;
 
         let mut to_connect = HashMap::new();
         for (_, port) in cell.nodes {
