@@ -176,6 +176,7 @@ impl Layout<Sky130Pdk> for NmosTile {
     ) -> substrate::error::Result<Self::LayoutData> {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
+        let slice = stack.slice(0..2);
 
         let tracks = (0..self.nf + 1)
             .map(|i| {
@@ -219,8 +220,6 @@ impl Layout<Sky130Pdk> for NmosTile {
             self.w,
         );
         cell.draw(Shape::new(cell.ctx.layers.diff, diff))?;
-        let nsdm = diff.expand_all(130);
-        cell.draw(Shape::new(cell.ctx.layers.nsdm, nsdm))?;
 
         let poly = Rect::from_sides(
             gates[0].left(),
@@ -249,9 +248,11 @@ impl Layout<Sky130Pdk> for NmosTile {
             cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
         }
 
-        let pwell = cell.bbox().unwrap();
-        cell.draw(Shape::new(cell.ctx.layers.pwell, pwell))?;
-        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, pwell));
+        let bbox = cell.bbox().unwrap();
+        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
+        cell.draw(Shape::new(cell.ctx.layers.nsdm, lcm_bbox))?;
+        cell.draw(Shape::new(cell.ctx.layers.pwell, lcm_bbox))?;
+        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, lcm_bbox));
 
         Ok(())
     }
