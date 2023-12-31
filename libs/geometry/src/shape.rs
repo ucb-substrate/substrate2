@@ -29,7 +29,7 @@ impl Shape {
         }
     }
 
-    /// If this shape is a rectangle, returns the contained polygon.
+    /// If this shape is a polygon, returns the contained polygon.
     /// Otherwise, returns [`None`].
     pub fn polygon(&self) -> Option<&Polygon> {
         match self {
