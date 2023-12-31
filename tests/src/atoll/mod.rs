@@ -1,6 +1,6 @@
 use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
-use atoll::abs::{DebugAbstract, AtollAbstract};
+use atoll::abs::{AtollAbstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
 use atoll::{AtollIo, AtollTile, AtollTileBuilder, AtollTileWrapper};
 use geometry::point::Point;
