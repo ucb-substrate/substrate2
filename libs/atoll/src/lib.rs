@@ -145,7 +145,7 @@
 pub mod abs;
 pub mod grid;
 
-use crate::abs::{generate_abstract, AtollAbstract};
+use crate::abs::AtollAbstract;
 use crate::grid::{LayerStack, PdkLayer};
 use ::grid::Grid;
 use ena::unify::{UnifyKey, UnifyValue};
@@ -503,7 +503,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
     ) -> Instance<B> {
         let layout = self.layout.generate(block.clone());
         let schematic = self.schematic.instantiate(block);
-        let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
+        let abs = AtollAbstract::generate(&self.layout.ctx, layout.raw_cell());
         let top = abs.top_layer;
         Instance {
             layout,
@@ -522,7 +522,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         let layout = self.layout.generate(wrapper.clone());
         let schematic = self.schematic.instantiate(wrapper);
         // todo: generate abstract from AtollTile trait directly
-        let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
+        let abs = AtollAbstract::generate(&self.layout.ctx, layout.raw_cell());
         let top = abs.top_layer;
         Instance {
             layout,

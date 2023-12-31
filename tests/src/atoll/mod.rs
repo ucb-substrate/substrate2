@@ -1,6 +1,6 @@
 use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
-use atoll::abs::{generate_abstract, DebugAbstract};
+use atoll::abs::{DebugAbstract, AtollAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
 use atoll::{AtollIo, AtollTile, AtollTileBuilder, AtollTileWrapper};
 use geometry::point::Point;
@@ -59,7 +59,7 @@ fn sky130_atoll_nmos_tile() {
     // todo: add mechanism to have multiple ATOLL layer stacks (one per PDK)
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
-    let abs = generate_abstract(handle.cell(), &*stack);
+    let abs = AtollAbstract::generate(&ctx, handle.cell());
     ctx.write_layout(
         DebugAbstract {
             abs,
@@ -100,7 +100,7 @@ fn sky130_atoll_pmos_tile() {
 
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
-    let abs = generate_abstract(handle.cell(), &*stack);
+    let abs = AtollAbstract::generate(&ctx, handle.cell());
     ctx.write_layout(
         DebugAbstract {
             abs,
@@ -195,7 +195,7 @@ fn sky130_atoll_nmos_tile_autoroute() {
     let handle = ctx.generate_layout(block);
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
-    let abs = generate_abstract(handle.cell(), &stack);
+    let abs = AtollAbstract::generate(&ctx, handle.cell());
     ctx.write_layout(
         DebugAbstract {
             abs,
