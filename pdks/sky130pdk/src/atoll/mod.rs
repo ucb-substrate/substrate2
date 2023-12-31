@@ -16,6 +16,7 @@ use substrate::geometry::span::Span;
 use substrate::io::layout::IoShape;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
+use substrate::layout::tracks::{RoundingMode, Tracks};
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::pdk::layers::Layer;
 use substrate::schematic::{ExportsNestedData, Schematic};
@@ -240,22 +241,30 @@ impl MosTile {
         );
         cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
 
+        let trk = grid.tracks(1).to_track_idx(poly.bot(), RoundingMode::Down);
+        let bot = grid.tracks(1).track(trk).center() - 100;
         let poly_li = Rect::from_sides(
             tracks[1].left(),
-            poly.bot(),
+            bot,
             tracks[tracks.len() - 2].right(),
             poly.top(),
         );
         cell.draw(Shape::new(cell.ctx.layers.li1, poly_li))?;
         io.g.push(IoShape::with_layers(cell.ctx.layers.li1, poly_li));
-        let npc = poly_li
-            .expand_dir(Dir::Vert, 10)
-            .expand_dir(Dir::Horiz, 100);
+        let npc = Rect::from_spans(
+            poly_li.hspan(),
+            Span::new(poly_li.top(), poly_li.top() - 350),
+        )
+        .expand_dir(Dir::Vert, 10)
+        .expand_dir(Dir::Horiz, 100);
         cell.draw(Shape::new(cell.ctx.layers.npc, npc))?;
 
         #[allow(clippy::needless_range_loop)]
         for i in 1..self.nf as usize {
-            let cut = Rect::from_spans(tracks[i].hspan(), poly_li.shrink_all(90).unwrap().vspan());
+            let cut = Rect::from_spans(
+                tracks[i].hspan(),
+                Span::new(poly_li.top() - 90, poly_li.top() - 260),
+            );
             cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
         }
 
