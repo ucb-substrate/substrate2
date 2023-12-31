@@ -2,6 +2,7 @@ use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
 use atoll::abs::{generate_abstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
+use atoll::route::GreedyBfsRouter;
 use atoll::{IoBuilder, Tile, TileBuilder, TileWrapper};
 use geometry::point::Point;
 use serde::{Deserialize, Serialize};
@@ -111,9 +112,7 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
         for i in 0..3 {
             let mut inst = cell.generate_primitive(block.clone());
             inst.translate_mut(Point::new(5 * i, 0));
-            cell.draw(&inst)?;
-
-            let (schematic, layout) = inst.into_instances();
+            let (schematic, layout) = cell.draw(inst)?;
 
             for i in 0..4 {
                 cell.connect(io.schematic.sd, schematic.io().sd[i]);
@@ -126,6 +125,8 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
 
             instances.push(schematic);
         }
+
+        cell.set_router(GreedyBfsRouter);
 
         Ok((instances, ()))
     }

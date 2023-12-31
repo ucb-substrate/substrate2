@@ -319,7 +319,7 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
 /// A fixed-size routing grid.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RoutingGrid<L> {
-    pub(crate) stack: LayerStack<L>,
+    pub stack: LayerStack<L>,
     start: usize,
     end: usize,
 }
@@ -595,13 +595,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let layer = stack.layer(i);
             let dim = slice.lcm_unit(!layer.dir().track_dir());
             let num_tracks = dim / layer.pitch();
-            println!(
-                "dim = {dim}, layer pitch = {}, num tracks = {}, nx = {}, ny = {}",
-                layer.pitch(),
-                num_tracks,
-                nx,
-                ny
-            );
             let perp_layer = stack.layer(grid.grid_defining_layer(i));
             let perp_dim = slice.lcm_unit(!perp_layer.dir().track_dir());
             let perp_tracks = perp_dim / perp_layer.pitch();

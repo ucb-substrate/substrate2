@@ -1,6 +1,6 @@
 //! Generate abstract views of layout cells.
-use crate::grid::{LayerSlice, LayerStack, PdkLayer, RoutingGrid, RoutingState};
-use crate::{NetId, PointState};
+use crate::grid::{AtollLayer, LayerSlice, LayerStack, PdkLayer, RoutingGrid, RoutingState};
+use crate::{NetId, Orientation, PointState};
 use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
@@ -8,9 +8,10 @@ use std::collections::HashMap;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
-use substrate::geometry::transform::Transformation;
+use substrate::geometry::transform::{Transformation, Translate, TranslateMut};
 use substrate::layout::element::Text;
 
+use substrate::geometry::dir::Dir;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
 use substrate::io::layout::Builder;
@@ -29,6 +30,7 @@ pub struct TrackCoord {
     pub y: i64,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct GridCoord {
     pub layer: usize,
     pub x: usize,
@@ -84,6 +86,27 @@ impl Abstract {
             self.lcm_bounds.right() * w,
             self.lcm_bounds.top() * h,
         )
+    }
+
+    pub fn routing_state(&self) -> RoutingState<PdkLayer> {
+        let mut state = RoutingState::new(
+            self.grid.stack.clone(),
+            self.top_layer,
+            self.lcm_bounds.width(),
+            self.lcm_bounds.height(),
+        );
+        for (i, layer) in self.layers.iter().enumerate() {
+            match layer {
+                LayerAbstract::Available => {}
+                LayerAbstract::Blocked => {
+                    state.layer_mut(i).fill(PointState::Blocked);
+                }
+                LayerAbstract::Detailed { states } => {
+                    *state.layer_mut(i) = states.clone();
+                }
+            }
+        }
+        state
     }
 
     /// Converts a grid point to a physical point in the coordinates of the cell.
@@ -147,6 +170,159 @@ impl Abstract {
 
     pub fn physical_origin(&self) -> Point {
         self.lcm_bounds.lower_left() * self.slice().lcm_units()
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct InstanceAbstract {
+    // todo: Arc and have instances reference same abstract if corresponding to same cell.
+    abs: Abstract,
+    orientation: Orientation,
+    parent_net_ids: Vec<NetId>,
+}
+
+impl InstanceAbstract {
+    pub(crate) fn new(
+        mut abs: Abstract,
+        loc: Point,
+        orientation: Orientation,
+        parent_net_ids: Vec<NetId>,
+    ) -> Self {
+        abs.lcm_bounds.translate_mut(loc);
+        Self {
+            abs,
+            orientation,
+            parent_net_ids,
+        }
+    }
+}
+
+impl InstanceAbstract {
+    pub fn physical_bounds(&self) -> Rect {
+        self.abs.physical_bounds()
+    }
+
+    pub fn lcm_bounds(&self) -> Rect {
+        self.abs.lcm_bounds
+    }
+
+    pub fn merge(mut others: Vec<Self>) -> Abstract {
+        assert!(!others.is_empty());
+        // Guarantee that `primary` always has the max top layer.
+        let mut primary = others.pop().unwrap();
+        for other in &mut others {
+            if other.abs.top_layer > primary.abs.top_layer {
+                std::mem::swap(&mut primary, other);
+            }
+        }
+
+        let stack = &primary.abs.grid.stack;
+        let physical_bounds = others
+            .iter()
+            .fold(primary.physical_bounds(), |bounds, other| {
+                bounds.union(other.physical_bounds())
+            });
+        let new_bounds = primary
+            .abs
+            .grid
+            .slice()
+            .expand_to_lcm_units(physical_bounds);
+        let new_physical_bounds = primary.abs.grid.slice().lcm_to_physical_rect(new_bounds);
+        let mut state = RoutingState::new(
+            stack.clone(),
+            primary.abs.top_layer,
+            new_bounds.width(),
+            new_bounds.height(),
+        );
+
+        for inst in std::iter::once(&primary).chain(&others) {
+            let net_translation: HashMap<_, _> = inst
+                .abs
+                .ports
+                .iter()
+                .copied()
+                .zip(inst.parent_net_ids.iter().copied())
+                .collect();
+            for i in 0..=inst.abs.top_layer {
+                let layer = stack.layer(i);
+                let parallel_pitch = layer.pitch();
+                let perp_pitch = stack.layer(primary.abs.grid.grid_defining_layer(i)).pitch();
+
+                let (xpitch, ypitch) = match layer.dir().track_dir() {
+                    Dir::Horiz => (perp_pitch, parallel_pitch),
+                    Dir::Vert => (parallel_pitch, perp_pitch),
+                };
+
+                let left_offset =
+                    (inst.physical_bounds().left() - new_physical_bounds.left()) / xpitch;
+                let bot_offset =
+                    (inst.physical_bounds().bot() - new_physical_bounds.bot()) / ypitch;
+                let track_width = inst.physical_bounds().width() / xpitch;
+                let track_height = inst.physical_bounds().height() / ypitch;
+
+                for x in left_offset..left_offset + track_width {
+                    for y in bot_offset..bot_offset + track_height {
+                        let point_state = &mut state.layer_mut(i)[(x as usize, y as usize)];
+                        match &inst.abs.layers[i] {
+                            LayerAbstract::Available => {}
+                            abs @ LayerAbstract::Blocked => {
+                                assert_eq!(point_state, &PointState::Available);
+                                *point_state = PointState::Blocked;
+                            }
+                            LayerAbstract::Detailed { states } => {
+                                let new_state = states[match inst.orientation {
+                                    Orientation::R0 => {
+                                        ((x - left_offset) as usize, (y - bot_offset) as usize)
+                                    }
+                                    Orientation::R180 => (
+                                        (2 * left_offset + track_width - x) as usize,
+                                        (2 * bot_offset + track_height - y) as usize,
+                                    ),
+                                    Orientation::ReflectVert => (
+                                        (x - left_offset) as usize,
+                                        (2 * bot_offset + track_height - y) as usize,
+                                    ),
+                                    Orientation::ReflectHoriz => (
+                                        (2 * left_offset + track_width - x) as usize,
+                                        (y - bot_offset) as usize,
+                                    ),
+                                }];
+
+                                match new_state {
+                                    PointState::Available => {}
+                                    PointState::Blocked => {
+                                        assert_eq!(point_state, &PointState::Available);
+                                        *point_state = PointState::Blocked;
+                                    }
+                                    PointState::Routed {
+                                        net,
+                                        via_up,
+                                        via_down,
+                                    } => {
+                                        assert_eq!(point_state, &PointState::Available);
+                                        *point_state = PointState::Routed {
+                                            net: net_translation[&net],
+                                            via_up,
+                                            via_down,
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Abstract {
+            lcm_bounds: new_bounds,
+            layers: state
+                .layers
+                .into_iter()
+                .map(|states| LayerAbstract::Detailed { states })
+                .collect(),
+            ..primary.abs
+        }
     }
 }
 
@@ -235,9 +411,7 @@ pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
                     p.bbox().expect("empty polygons are unsupported")
                 }
             };
-            println!("source rect = {rect:?}");
             if let Some(rect) = grid.shrink_to_grid(rect, layer) {
-                println!("grid rect = {rect:?}");
                 for x in rect.left()..=rect.right() {
                     for y in rect.bot()..=rect.top() {
                         let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
@@ -309,6 +483,7 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
         for (i, layer) in self.abs.layers.iter().enumerate() {
             let layer_id = self.abs.grid.stack.layer(i).id;
             match layer {
+                LayerAbstract::Available => {}
                 LayerAbstract::Blocked => {
                     recv.draw(Shape::new(layer_id, self.abs.physical_bounds()))?;
                 }
