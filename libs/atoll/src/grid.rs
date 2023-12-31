@@ -365,6 +365,26 @@ impl<L: AtollLayer> RoutingGrid<L> {
         tracks.track(track)
     }
 
+    /// The tracks on the given layer.
+    pub fn tracks(&self, layer: usize) -> UniformTracks {
+        self.stack.tracks(layer)
+    }
+
+    /// Returns the track grid for the given layer.
+    ///
+    /// Returns a tuple containing the vertical going tracks followed by the horizontal going tracks.
+    /// In other words, the first element of the tuple is indexed by an x-coordinate,
+    /// and the second element of the tuple is indexed by a y-coordinate.
+    pub fn track_grid(&self, layer: usize) -> (UniformTracks, UniformTracks) {
+        let tracks = self.tracks(layer);
+        let adj_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => (adj_tracks, tracks),
+            Dir::Vert => (tracks, adj_tracks),
+        }
+    }
+
     /// Calculates the bounds of a particular track on the given layer.
     ///
     /// The start and end coordinates are with respect to tracks on the grid defining layer.

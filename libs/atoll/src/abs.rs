@@ -41,7 +41,7 @@ pub struct GridCoord {
 ///
 /// There are three coordinate systems used within the abstract view.
 /// * Physical coordinates: the raw physical coordinate system of the cell, expressed in PDK database units.
-/// * Track coordinates: track indices indexing the ATOLL [`LayerStack`]. Track is 0 is typically centered at the origin, or immediately to the upper left of the origin.
+/// * Track coordinates: track indices indexing the ATOLL [`LayerStack`]. Track 0 is typically centered at the origin, or immediately to the upper left of the origin.
 /// * Grid coordinates: these have the same spacing as track coordinates, but are shifted so that (0, 0) is always at the lower left. These are used to index [`LayerAbstract`]s.
 ///
 /// ATOLL provides the following utilities for converting between these coordinate systems:
