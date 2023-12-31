@@ -1,7 +1,7 @@
 //! SKY130 primitives for [ATOLL](atoll).
 
 use crate::layers::Sky130Layers;
-use crate::mos::{MosParams, Nfet01v8};
+use crate::mos::{MosParams, Nfet01v8, Pfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
 use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid};
@@ -175,12 +175,17 @@ impl ExportsLayoutData for MosTile {
     type LayoutData = ();
 }
 
-impl Layout<Sky130Pdk> for MosTile {
+struct MosTileData {
+    diff: Rect,
+    lcm_bbox: Rect,
+}
+
+impl MosTile {
     fn layout(
         &self,
         io: &mut substrate::io::layout::Builder<MosTileIo>,
         cell: &mut CellBuilder<Sky130Pdk>,
-    ) -> substrate::error::Result<Self::LayoutData> {
+    ) -> substrate::error::Result<MosTileData> {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
 
@@ -254,7 +259,13 @@ impl Layout<Sky130Pdk> for MosTile {
             cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
         }
 
-        Ok(())
+        let virtual_layers = cell.ctx.install_layers::<atoll::VirtualLayers>();
+        let slice = stack.slice(0..2);
+        let bbox = cell.bbox().unwrap();
+        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
+        cell.draw(Shape::new(virtual_layers.outline, lcm_bbox))?;
+
+        Ok(MosTileData { diff, lcm_bbox })
     }
 }
 
@@ -329,15 +340,13 @@ impl Layout<Sky130Pdk> for NmosTile {
         io: &mut substrate::io::layout::Builder<MosTileIo>,
         cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::LayoutData> {
-        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
-        let slice = stack.slice(0..2);
-        self.tile.layout(io, cell)?;
+        let data = self.tile.layout(io, cell)?;
+        let nsdm = data.diff.expand_all(130);
+        let nsdm = nsdm.with_hspan(data.lcm_bbox.hspan().union(nsdm.hspan()));
+        cell.draw(Shape::new(cell.ctx.layers.nsdm, nsdm))?;
 
-        let bbox = cell.bbox().unwrap();
-        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
-        cell.draw(Shape::new(cell.ctx.layers.nsdm, lcm_bbox))?;
-        cell.draw(Shape::new(cell.ctx.layers.pwell, lcm_bbox))?;
-        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, lcm_bbox));
+        cell.draw(Shape::new(cell.ctx.layers.pwell, data.lcm_bbox))?;
+        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, data.lcm_bbox));
 
         Ok(())
     }
@@ -353,7 +362,21 @@ impl Schematic<Sky130Pdk> for NmosTile {
         io: &substrate::io::schematic::Bundle<MosTileIo>,
         cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::NestedData> {
-        cell.instantiate_connected(self.tile.clone(), io);
+        for i in 0..self.tile.nf as usize {
+            cell.instantiate_connected(
+                Nfet01v8::new(MosParams {
+                    w: self.tile.w,
+                    nf: 1,
+                    l: self.tile.len.nm(),
+                }),
+                MosIoSchematic {
+                    d: io.sd[i],
+                    g: io.g,
+                    s: io.sd[i + 1],
+                    b: io.b,
+                },
+            )
+        }
         Ok(())
     }
 }
@@ -400,16 +423,14 @@ impl Layout<Sky130Pdk> for PmosTile {
         io: &mut substrate::io::layout::Builder<MosTileIo>,
         cell: &mut CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::LayoutData> {
-        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
-        let slice = stack.slice(0..2);
+        let data = self.tile.layout(io, cell)?;
+        let psdm = data.diff.expand_all(130);
+        let psdm = psdm.with_hspan(data.lcm_bbox.hspan().union(psdm.hspan()));
+        cell.draw(Shape::new(cell.ctx.layers.psdm, psdm))?;
 
-        self.tile.layout(io, cell)?;
-
-        let bbox = cell.bbox().unwrap();
-        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
-        cell.draw(Shape::new(cell.ctx.layers.psdm, lcm_bbox))?;
-        cell.draw(Shape::new(cell.ctx.layers.nwell, lcm_bbox))?;
-        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, lcm_bbox));
+        let nwell = data.diff.expand_all(180).union(data.lcm_bbox);
+        cell.draw(Shape::new(cell.ctx.layers.nwell, nwell))?;
+        io.b.push(IoShape::with_layers(cell.ctx.layers.nwell, nwell));
 
         Ok(())
     }
@@ -425,6 +446,21 @@ impl Schematic<Sky130Pdk> for PmosTile {
         io: &substrate::io::schematic::Bundle<MosTileIo>,
         cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
     ) -> substrate::error::Result<Self::NestedData> {
-        self.tile.schematic(io, cell)
+        for i in 0..self.tile.nf as usize {
+            cell.instantiate_connected(
+                Pfet01v8::new(MosParams {
+                    w: self.tile.w,
+                    nf: 1,
+                    l: self.tile.len.nm(),
+                }),
+                MosIoSchematic {
+                    d: io.sd[i],
+                    g: io.g,
+                    s: io.sd[i + 1],
+                    b: io.b,
+                },
+            )
+        }
+        Ok(())
     }
 }

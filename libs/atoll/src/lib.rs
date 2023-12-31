@@ -166,7 +166,7 @@ use substrate::io::{FlatLen, Flatten, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
 use substrate::layout::{ExportsLayoutData, Layout};
-use substrate::pdk::layers::HasPin;
+use substrate::pdk::layers::{HasPin, Layers};
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{
@@ -187,6 +187,16 @@ impl From<usize> for LayerId {
     fn from(value: usize) -> Self {
         Self(value)
     }
+}
+
+/// Virtual layers for use in ATOLL.
+#[derive(Layers)]
+pub struct VirtualLayers {
+    /// The layer indicating the outline of an ATOLL tile.
+    ///
+    /// Must be aligned to the LCM grid of the cell's top layer or,
+    /// if the cell's top layer is layer 0, layer 1.
+    pub outline: Outline,
 }
 
 /// A coordinate identifying a track position in a routing volume.
