@@ -13,6 +13,7 @@ use geometry::transform;
 use geometry::transform::HasTransformedView;
 use geometry::union::BoundingUnion;
 use std::collections::HashMap;
+use substrate::layout::bbox::LayerBbox;
 use tracing::Level;
 
 /// A layout hardware type.
@@ -126,6 +127,16 @@ pub struct IoShape {
 impl Bbox for IoShape {
     fn bbox(&self) -> Option<Rect> {
         self.shape.bbox()
+    }
+}
+
+impl LayerBbox for IoShape {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        if self.layer.pin == layer || self.layer.drawing == layer {
+            self.shape.bbox()
+        } else {
+            None
+        }
     }
 }
 

@@ -17,6 +17,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::io::layout::PortGeometry;
+use crate::layout::bbox::LayerBbox;
 use crate::{
     error::{Error, Result},
     io::NameBuf,
@@ -133,6 +134,12 @@ impl Bbox for RawCell {
     }
 }
 
+impl LayerBbox for RawCell {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.elements.layer_bbox(layer)
+    }
+}
+
 impl HasTransformedView for RawCell {
     type TransformedView = RawCell;
 
@@ -195,6 +202,14 @@ impl RawInstance {
 impl Bbox for RawInstance {
     fn bbox(&self) -> Option<Rect> {
         self.cell.bbox().map(|rect| rect.transform(self.trans))
+    }
+}
+
+impl LayerBbox for RawInstance {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.cell
+            .layer_bbox(layer)
+            .map(|rect| rect.transform(self.trans))
     }
 }
 
@@ -267,6 +282,16 @@ impl Shape {
 impl Bbox for Shape {
     fn bbox(&self) -> Option<Rect> {
         self.shape.bbox()
+    }
+}
+
+impl LayerBbox for Shape {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        if self.layer == layer {
+            self.bbox()
+        } else {
+            None
+        }
     }
 }
 
@@ -467,6 +492,16 @@ impl Bbox for Element {
     }
 }
 
+impl LayerBbox for Element {
+    fn layer_bbox(&self, layer: LayerId) -> Option<geometry::rect::Rect> {
+        match self {
+            Element::Instance(inst) => inst.layer_bbox(layer),
+            Element::Shape(shape) => shape.layer_bbox(layer),
+            Element::Text(_) => None,
+        }
+    }
+}
+
 impl From<RawInstance> for Element {
     fn from(value: RawInstance) -> Self {
         Self::Instance(value)
@@ -525,6 +560,16 @@ impl Bbox for ElementRef<'_> {
         match self {
             ElementRef::Instance(inst) => inst.bbox(),
             ElementRef::Shape(shape) => shape.bbox(),
+            ElementRef::Text(_) => None,
+        }
+    }
+}
+
+impl LayerBbox for ElementRef<'_> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        match self {
+            ElementRef::Instance(inst) => inst.layer_bbox(layer),
+            ElementRef::Shape(shape) => shape.layer_bbox(layer),
             ElementRef::Text(_) => None,
         }
     }

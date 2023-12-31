@@ -4,9 +4,8 @@ use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut, Range};
+
+use std::ops::Range;
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::corner::Corner;
 use substrate::geometry::dims::Dims;
@@ -363,6 +362,26 @@ impl<L: AtollLayer> RoutingGrid<L> {
         let tracks = slice.tracks(layer);
 
         tracks.track(track)
+    }
+
+    /// The tracks on the given layer.
+    pub fn tracks(&self, layer: usize) -> UniformTracks {
+        self.stack.tracks(layer)
+    }
+
+    /// Returns the track grid for the given layer.
+    ///
+    /// Returns a tuple containing the vertical going tracks followed by the horizontal going tracks.
+    /// In other words, the first element of the tuple is indexed by an x-coordinate,
+    /// and the second element of the tuple is indexed by a y-coordinate.
+    pub fn track_grid(&self, layer: usize) -> (UniformTracks, UniformTracks) {
+        let tracks = self.tracks(layer);
+        let adj_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => (adj_tracks, tracks),
+            Dir::Vert => (tracks, adj_tracks),
+        }
     }
 
     /// Calculates the bounds of a particular track on the given layer.

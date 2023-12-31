@@ -1,10 +1,11 @@
 use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
-use atoll::abs::{generate_abstract, DebugAbstract};
+use atoll::abs::{Abstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
 use atoll::route::GreedyBfsRouter;
 use atoll::{IoBuilder, Tile, TileBuilder, TileWrapper};
 use geometry::point::Point;
+
 use serde::{Deserialize, Serialize};
 use sky130pdk::atoll::{MosLength, NmosTile};
 use sky130pdk::{Sky130CommercialSchema, Sky130Pdk};
@@ -13,6 +14,7 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::io::layout::HardwareType;
 use substrate::io::{InOut, Io, Signal};
+
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::schematic;
 use substrate::schematic::netlist::ConvertibleNetlister;
@@ -34,11 +36,7 @@ fn sky130_atoll_nmos_tile() {
     let netlist_path = get_path("sky130_atoll_nmos_tile", "schematic.sp");
     let ctx = sky130_open_ctx();
 
-    let block = sky130pdk::atoll::NmosTile {
-        w: 1_680,
-        nf: 3,
-        len: MosLength::L150,
-    };
+    let block = sky130pdk::atoll::NmosTile::new(1_680, MosLength::L150, 3);
 
     ctx.write_layout(block, gds_path)
         .expect("failed to write layout");
@@ -62,7 +60,48 @@ fn sky130_atoll_nmos_tile() {
     // todo: add mechanism to have multiple ATOLL layer stacks (one per PDK)
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
-    let abs = generate_abstract(handle.cell(), &*stack);
+    let abs = Abstract::generate(&ctx, handle.cell());
+    ctx.write_layout(
+        DebugAbstract {
+            abs,
+            stack: (*stack).clone(),
+        },
+        abs_path,
+    )
+    .expect("failed to write abstract");
+}
+
+#[test]
+fn sky130_atoll_pmos_tile() {
+    let gds_path = get_path("sky130_atoll_pmos_tile", "layout.gds");
+    let abs_path = get_path("sky130_atoll_pmos_tile", "abs.gds");
+    let netlist_path = get_path("sky130_atoll_pmos_tile", "schematic.sp");
+    let ctx = sky130_open_ctx();
+
+    let block = sky130pdk::atoll::PmosTile::new(1_680, MosLength::L150, 3);
+
+    ctx.write_layout(block, gds_path)
+        .expect("failed to write layout");
+
+    let scir = ctx
+        .export_scir(block)
+        .unwrap()
+        .scir
+        .convert_schema::<Sky130CommercialSchema>()
+        .unwrap()
+        .convert_schema::<Spice>()
+        .unwrap()
+        .build()
+        .unwrap();
+    Spice
+        .write_scir_netlist_to_file(&scir, netlist_path, NetlistOptions::default())
+        .expect("failed to write netlist");
+
+    let handle = ctx.generate_layout(block);
+
+    let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
+
+    let abs = Abstract::generate(&ctx, handle.cell());
     ctx.write_layout(
         DebugAbstract {
             abs,
@@ -101,16 +140,12 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
         <Self as ExportsNestedData>::NestedData,
         <Self as ExportsLayoutData>::LayoutData,
     )> {
-        let block = sky130pdk::atoll::NmosTile {
-            w: 1_680,
-            nf: 3,
-            len: MosLength::L150,
-        };
+        let block = sky130pdk::atoll::NmosTile::new(1_680, MosLength::L150, 3);
 
         let mut instances = Vec::new();
 
         for i in 0..3 {
-            let mut inst = cell.generate_primitive(block.clone());
+            let mut inst = cell.generate_primitive(block);
             inst.translate_mut(Point::new(5 * i, 0));
             let (schematic, layout) = cell.draw(inst)?;
 
@@ -161,7 +196,7 @@ fn sky130_atoll_nmos_tile_autoroute() {
     let handle = ctx.generate_layout(block);
     let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
 
-    let abs = generate_abstract(handle.cell(), &stack);
+    let abs = Abstract::generate(&ctx, handle.cell());
     ctx.write_layout(
         DebugAbstract {
             abs,

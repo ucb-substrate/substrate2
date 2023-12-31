@@ -14,6 +14,7 @@ use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
 pub use codegen::{Layout, LayoutData};
 use examples::get_snippets;
+use geometry::prelude::Rect;
 use geometry::{
     prelude::{Bbox, Point},
     transform::{
@@ -24,12 +25,15 @@ use geometry::{
 use once_cell::sync::OnceCell;
 
 use crate::io::layout::{Builder, HardwareType};
+use crate::layout::bbox::LayerBbox;
+use crate::pdk::layers::LayerId;
 use crate::pdk::Pdk;
 use crate::{block::Block, error::Error};
 use crate::{context::PdkContext, error::Result};
 
 use self::element::{CellId, Element, RawCell, RawInstance, Shape};
 
+pub mod bbox;
 pub mod element;
 pub mod error;
 pub mod gds;
@@ -160,6 +164,12 @@ impl<T: ExportsLayoutData> Bbox for Cell<T> {
     }
 }
 
+impl<T: ExportsLayoutData> LayerBbox for Cell<T> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.raw.layer_bbox(layer)
+    }
+}
+
 /// A handle to a schematic cell that is being generated.
 pub struct CellHandle<T: ExportsLayoutData> {
     pub(crate) block: Arc<T>,
@@ -239,6 +249,12 @@ impl<T: ExportsLayoutData> HasTransformedView for Cell<T> {
 impl<T: ExportsLayoutData> Bbox for TransformedCell<T> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.raw.bbox().transform(self.trans)
+    }
+}
+
+impl<T: ExportsLayoutData> LayerBbox for TransformedCell<T> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.raw.layer_bbox(layer).transform(self.trans)
     }
 }
 
@@ -378,6 +394,12 @@ impl<T: ExportsLayoutData> Bbox for Instance<T> {
     }
 }
 
+impl<T: ExportsLayoutData> LayerBbox for Instance<T> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.cell().layer_bbox(layer)
+    }
+}
+
 impl<T: ExportsLayoutData> TranslateMut for Instance<T> {
     fn translate_mut(&mut self, p: Point) {
         self.transform_mut(Transformation::from_offset(p))
@@ -492,6 +514,12 @@ impl<PDK: Pdk> CellBuilder<PDK> {
 impl<PDK: Pdk> Bbox for CellBuilder<PDK> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.container.bbox()
+    }
+}
+
+impl<PDK: Pdk> LayerBbox for CellBuilder<PDK> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.container.layer_bbox(layer)
     }
 }
 
@@ -618,6 +646,14 @@ impl<PDK> Bbox for DrawReceiver<PDK> {
     }
 }
 
+impl<PDK> LayerBbox for DrawReceiver<PDK> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.get_instances()
+            .layer_bbox(layer)
+            .bounding_union(&self.elements.layer_bbox(layer))
+    }
+}
+
 /// An object that can be drawn in a [`CellBuilder`].
 pub trait Draw<PDK: Pdk>: DrawBoxed<PDK> {
     /// Draws `self` inside `recv`.
@@ -714,6 +750,12 @@ impl<PDK: Pdk> Container<PDK> {
 impl<PDK> Bbox for Container<PDK> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.recvs.bbox().transform(self.trans)
+    }
+}
+
+impl<PDK> LayerBbox for Container<PDK> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.recvs.layer_bbox(layer).transform(self.trans)
     }
 }
 

@@ -146,7 +146,7 @@ pub mod abs;
 pub mod grid;
 pub mod route;
 
-use crate::abs::{generate_abstract, Abstract, DebugAbstract, InstanceAbstract};
+use crate::abs::{Abstract, DebugAbstract, InstanceAbstract};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::Router;
 use ena::unify::UnifyKey;
@@ -154,6 +154,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
 use std::ops::Deref;
+
 use std::sync::Arc;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
@@ -166,8 +167,9 @@ use substrate::io::layout::{Builder, PortGeometry};
 use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
 use substrate::io::{FlatLen, Flatten};
 use substrate::layout::element::Shape;
+
 use substrate::layout::{ExportsLayoutData, Layout};
-use substrate::pdk::layers::HasPin;
+use substrate::pdk::layers::{HasPin, Layers};
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellId, ExportsNestedData, Schematic};
@@ -176,6 +178,16 @@ use substrate::{geometry, io, layout, schematic};
 /// Identifies nets in a routing solver.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct NetId(pub(crate) usize);
+
+/// Virtual layers for use in ATOLL.
+#[derive(Layers)]
+pub struct VirtualLayers {
+    /// The layer indicating the outline of an ATOLL tile.
+    ///
+    /// Must be aligned to the LCM grid of the cell's top layer or,
+    /// if the cell's top layer is layer 0, layer 1.
+    pub outline: Outline,
+}
 
 /// The state of a point on a routing grid.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -421,7 +433,8 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         let layout = self.layout.generate(block.clone());
         let schematic = self.schematic.instantiate(block);
         self.register_bundle(schematic.io());
-        let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
+        let abs = Abstract::generate(&self.layout.ctx, layout.raw_cell());
+
         Instance {
             layout,
             schematic,
@@ -438,7 +451,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         let schematic = self.schematic.instantiate(wrapper);
         self.register_bundle(schematic.io());
         // todo: generate abstract from AtollTile trait directly
-        let abs = generate_abstract(layout.raw_cell(), self.layer_stack.as_ref());
+        let abs = Abstract::generate(&self.layout.ctx, layout.raw_cell());
         Instance {
             layout,
             schematic,

@@ -403,8 +403,6 @@ impl<T: HasTransformedView> HasTransformedView for Vec<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
 
     use approx::assert_relative_eq;
 

@@ -11,14 +11,16 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::transform::{Transformation, Translate, TranslateMut};
 use substrate::layout::element::Text;
 
+use substrate::context::PdkContext;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
 use substrate::io::layout::Builder;
+use substrate::layout::bbox::LayerBbox;
 use substrate::layout::element::Shape;
 use substrate::layout::element::{CellId, Element, RawCell};
 use substrate::layout::{CellBuilder, Draw, DrawReceiver, ExportsLayoutData, Layout};
-use substrate::pdk::layers::HasPin;
+use substrate::pdk::layers::{HasPin, Layer};
 use substrate::pdk::Pdk;
 use substrate::schematic::ExportsNestedData;
 use substrate::{arcstr, layout};
@@ -43,7 +45,7 @@ pub struct GridCoord {
 ///
 /// There are three coordinate systems used within the abstract view.
 /// * Physical coordinates: the raw physical coordinate system of the cell, expressed in PDK database units.
-/// * Track coordinates: track indices indexing the ATOLL [`LayerStack`]. Track is 0 is typically centered at the origin, or immediately to the upper left of the origin.
+/// * Track coordinates: track indices indexing the ATOLL [`LayerStack`]. Track 0 is typically centered at the origin, or immediately to the upper left of the origin.
 /// * Grid coordinates: these have the same spacing as track coordinates, but are shifted so that (0, 0) is always at the lower left. These are used to index [`LayerAbstract`]s.
 ///
 /// ATOLL provides the following utilities for converting between these coordinate systems:
@@ -170,6 +172,83 @@ impl Abstract {
 
     pub fn physical_origin(&self) -> Point {
         self.lcm_bounds.lower_left() * self.slice().lcm_units()
+    }
+
+    /// Generates an abstract view of a layout cell.
+    pub fn generate<PDK: Pdk, T: ExportsNestedData + ExportsLayoutData>(
+        ctx: &PdkContext<PDK>,
+        layout: &layout::Cell<T>,
+    ) -> Abstract {
+        let stack = ctx
+            .get_installation::<LayerStack<PdkLayer>>()
+            .expect("must install ATOLL layer stack");
+        let virtual_layers = ctx.install_layers::<crate::VirtualLayers>();
+
+        let cell = layout.raw();
+        let bbox = cell
+            .layer_bbox(virtual_layers.outline.id())
+            .expect("cell must provide an outline on ATOLL virtual layer");
+
+        let top = top_layer(cell, &stack)
+            .expect("cell did not have any ATOLL routing layers; cannot produce an abstract");
+        let top = if top == 0 { 1 } else { top };
+
+        let slice = stack.slice(0..top + 1);
+
+        let xmin = div_floor(bbox.left(), slice.lcm_unit_width());
+        let xmax = div_ceil(bbox.right(), slice.lcm_unit_width());
+        let ymin = div_floor(bbox.bot(), slice.lcm_unit_height());
+        let ymax = div_ceil(bbox.top(), slice.lcm_unit_height());
+        let lcm_bounds = Rect::from_sides(xmin, ymin, xmax, ymax);
+
+        let nx = lcm_bounds.width();
+        let ny = lcm_bounds.height();
+
+        let grid = RoutingGrid::new((*stack).clone(), 0..top + 1);
+        let mut state = RoutingState::new((*stack).clone(), top, nx, ny);
+        let mut ports = Vec::new();
+        for (i, (_name, geom)) in cell.ports().enumerate() {
+            let net = NetId(i);
+            ports.push(net);
+            if let Some(layer) = stack.layer_idx(geom.primary.layer().drawing()) {
+                let rect = match geom.primary.shape() {
+                    substrate::geometry::shape::Shape::Rect(r) => *r,
+                    substrate::geometry::shape::Shape::Polygon(p) => {
+                        p.bbox().expect("empty polygons are unsupported")
+                    }
+                };
+                println!("source rect = {rect:?}");
+                if let Some(rect) = grid.shrink_to_grid(rect, layer) {
+                    println!("grid rect = {rect:?}");
+                    for x in rect.left()..=rect.right() {
+                        for y in rect.bot()..=rect.top() {
+                            let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
+                            let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
+                            state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
+                                PointState::Routed {
+                                    net,
+                                    via_down: false,
+                                    via_up: false,
+                                };
+                        }
+                    }
+                }
+            }
+        }
+
+        let layers = state
+            .layers
+            .into_iter()
+            .map(|states| LayerAbstract::Detailed { states })
+            .collect();
+
+        Abstract {
+            top_layer: top,
+            lcm_bounds,
+            grid: RoutingGrid::new((*stack).clone(), 0..top + 1),
+            ports,
+            layers,
+        }
     }
 }
 
@@ -373,74 +452,6 @@ fn top_layer_inner(
 
     state.insert(cell.id(), top);
     top
-}
-
-/// Generates an abstract view of a layout cell.
-pub fn generate_abstract<T: ExportsNestedData + ExportsLayoutData>(
-    layout: &layout::Cell<T>,
-    stack: &LayerStack<PdkLayer>,
-) -> Abstract {
-    let cell = layout.raw();
-    let bbox = cell.bbox().unwrap();
-
-    let top = top_layer(cell, stack)
-        .expect("cell did not have any ATOLL routing layers; cannot produce an abstract");
-    let top = if top == 0 { 1 } else { top };
-
-    let slice = stack.slice(0..top + 1);
-
-    let xmin = div_floor(bbox.left(), slice.lcm_unit_width());
-    let xmax = div_ceil(bbox.right(), slice.lcm_unit_width());
-    let ymin = div_floor(bbox.bot(), slice.lcm_unit_height());
-    let ymax = div_ceil(bbox.top(), slice.lcm_unit_height());
-    let lcm_bounds = Rect::from_sides(xmin, ymin, xmax, ymax);
-
-    let nx = lcm_bounds.width();
-    let ny = lcm_bounds.height();
-
-    let grid = RoutingGrid::new(stack.clone(), 0..top + 1);
-    let mut state = RoutingState::new(stack.clone(), top, nx, ny);
-    let mut ports = Vec::new();
-    for (i, (name, geom)) in cell.ports().enumerate() {
-        let net = NetId(i);
-        ports.push(net);
-        if let Some(layer) = stack.layer_idx(geom.primary.layer().drawing()) {
-            let rect = match geom.primary.shape() {
-                substrate::geometry::shape::Shape::Rect(r) => *r,
-                substrate::geometry::shape::Shape::Polygon(p) => {
-                    p.bbox().expect("empty polygons are unsupported")
-                }
-            };
-            if let Some(rect) = grid.shrink_to_grid(rect, layer) {
-                for x in rect.left()..=rect.right() {
-                    for y in rect.bot()..=rect.top() {
-                        let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
-                        let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
-                        state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
-                            PointState::Routed {
-                                net,
-                                via_down: false,
-                                via_up: false,
-                            };
-                    }
-                }
-            }
-        }
-    }
-
-    let layers = state
-        .layers
-        .into_iter()
-        .map(|states| LayerAbstract::Detailed { states })
-        .collect();
-
-    Abstract {
-        top_layer: top,
-        lcm_bounds,
-        grid: RoutingGrid::new(stack.clone(), 0..top + 1),
-        ports,
-        layers,
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
