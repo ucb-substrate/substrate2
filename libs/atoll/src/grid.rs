@@ -4,9 +4,8 @@ use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut, Range};
+
+use std::ops::Range;
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::corner::Corner;
 use substrate::geometry::dims::Dims;

@@ -166,7 +166,7 @@ impl AtollAbstract {
             .layer_bbox(virtual_layers.outline.id())
             .expect("cell must provide an outline on ATOLL virtual layer");
 
-        let top = top_layer(cell, &*stack)
+        let top = top_layer(cell, &stack)
             .expect("cell did not have any ATOLL routing layers; cannot produce an abstract");
         let top = if top == 0 { 1 } else { top };
 
@@ -184,7 +184,7 @@ impl AtollAbstract {
         let grid = RoutingGrid::new((*stack).clone(), 0..top + 1);
         let mut state = RoutingState::new((*stack).clone(), top, nx, ny);
         let mut ports = Vec::new();
-        for (i, (name, geom)) in cell.ports().enumerate() {
+        for (i, (_name, geom)) in cell.ports().enumerate() {
             let net = NetId(i);
             ports.push(net);
             if let Some(layer) = stack.layer_idx(geom.primary.layer().drawing()) {

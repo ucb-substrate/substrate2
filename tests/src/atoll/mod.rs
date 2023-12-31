@@ -4,16 +4,16 @@ use atoll::abs::{AtollAbstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
 use atoll::{AtollIo, AtollTile, AtollTileBuilder, AtollTileWrapper};
 use geometry::point::Point;
-use geometry::rect::Rect;
+
 use serde::{Deserialize, Serialize};
 use sky130pdk::atoll::{MosLength, NmosTile};
 use sky130pdk::{Sky130CommercialSchema, Sky130Pdk};
 use spice::netlist::NetlistOptions;
 use spice::Spice;
 use substrate::block::Block;
-use substrate::io::layout::{HardwareType, IoShape};
+use substrate::io::layout::HardwareType;
 use substrate::io::{InOut, Io, Signal};
-use substrate::layout::tiling::{GridTiler, Tile};
+
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::schematic;
 use substrate::schematic::netlist::ConvertibleNetlister;
@@ -144,7 +144,7 @@ impl AtollTile<Sky130Pdk> for Sky130NmosTileAutoroute {
         let mut instances = Vec::new();
 
         for i in 0..3 {
-            let mut inst = cell.generate_primitive(block.clone());
+            let mut inst = cell.generate_primitive(block);
             inst.translate_mut(Point::new(5 * i, 0));
             cell.draw(&inst)?;
 

@@ -47,6 +47,6 @@ impl<T: Block> Block for Arc<T> {
     }
 
     fn io(&self) -> Self::Io {
-        T::io(&self)
+        T::io(self)
     }
 }

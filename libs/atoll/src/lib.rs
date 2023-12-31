@@ -147,31 +147,28 @@ pub mod grid;
 
 use crate::abs::AtollAbstract;
 use crate::grid::{LayerStack, PdkLayer};
-use ::grid::Grid;
-use ena::unify::{UnifyKey, UnifyValue};
+
+use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
-use std::ops::Deref;
+use std::collections::HashMap;
+
 use std::sync::Arc;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::context::{prepare_cell_builder, Context, PdkContext};
+use substrate::context::{prepare_cell_builder, PdkContext};
 use substrate::geometry::polygon::Polygon;
-use substrate::geometry::prelude::{Bbox, Dir, Point, Transformation};
-use substrate::geometry::transform::{HasTransformedView, Translate, TranslateMut};
-use substrate::io::layout::{Builder, PortGeometry, PortGeometryBuilder};
-use substrate::io::schematic::{Bundle, Connect, Node, Terminal, TerminalView};
-use substrate::io::{FlatLen, Flatten, Signal};
+use substrate::geometry::prelude::{Bbox, Dir, Point};
+use substrate::geometry::transform::{Translate, TranslateMut};
+use substrate::io::layout::{Builder, PortGeometry};
+use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
+use substrate::io::{FlatLen, Flatten};
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
+
 use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::{HasPin, Layers};
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{
-    CellId, ExportsNestedData, HasNestedView, InstanceId, InstancePath, SchemaCellHandle, Schematic,
-};
+use substrate::schematic::{CellId, ExportsNestedData, Schematic};
 use substrate::{io, layout, schematic};
 
 /// Identifies nets in a routing solver.
@@ -504,7 +501,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         let layout = self.layout.generate(block.clone());
         let schematic = self.schematic.instantiate(block);
         let abs = AtollAbstract::generate(&self.layout.ctx, layout.raw_cell());
-        let top = abs.top_layer;
+        let _top = abs.top_layer;
         Instance {
             layout,
             schematic,
@@ -523,7 +520,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
         let schematic = self.schematic.instantiate(wrapper);
         // todo: generate abstract from AtollTile trait directly
         let abs = AtollAbstract::generate(&self.layout.ctx, layout.raw_cell());
-        let top = abs.top_layer;
+        let _top = abs.top_layer;
         Instance {
             layout,
             schematic,
@@ -582,7 +579,7 @@ impl<'a, PDK: Pdk + Schema> AtollTileBuilder<'a, PDK> {
     }
 
     /// Match the given nodes and port geometry.
-    pub fn match_geometry<D1, D2>(&mut self, s1: D1, s2: D2)
+    pub fn match_geometry<D1, D2>(&mut self, _s1: D1, _s2: D2)
     where
         D1: Flatten<Node>,
         D2: Flatten<PortGeometry>,
