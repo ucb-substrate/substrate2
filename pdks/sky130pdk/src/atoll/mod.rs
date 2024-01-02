@@ -240,7 +240,7 @@ impl MosTile {
         let tracks = (0..self.nf + 1)
             .map(|i| {
                 let span = grid.track_span(0, i);
-                Rect::from_spans(span, Span::new(-20, self.w + 20))
+                Rect::from_spans(span, Span::new(-10, self.w + 10))
             })
             .collect::<Vec<_>>();
 
@@ -264,9 +264,9 @@ impl MosTile {
         for (i, &rect) in tracks.iter().enumerate() {
             io.sd[i].push(IoShape::with_layers(cell.ctx.layers.li1, rect));
             cell.draw(Shape::new(cell.ctx.layers.li1, rect))?;
-            let num_cuts = (self.w + 40 - 160 + 170) / 340;
+            let num_cuts = (self.w + 20 - 160 + 170) / 340;
             for j in 0..num_cuts {
-                let base = rect.bot() + 20 + 80 + 340 * j;
+                let base = rect.bot() + 10 + 80 + 340 * j;
                 let cut = Rect::from_spans(rect.hspan(), Span::with_start_and_length(base, 170));
                 cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
             }
