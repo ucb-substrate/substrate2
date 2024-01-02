@@ -1,7 +1,7 @@
 //! Routing track management.
 
 use geometry::span::Span;
-use num::integer::div_floor;
+use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 
 /// A uniform set of tracks.
@@ -71,10 +71,7 @@ impl UniformTracks {
     pub fn to_track_idx(&self, coord: i64, mode: RoundingMode) -> i64 {
         match mode {
             RoundingMode::Down => div_floor(coord - self.offset + self.line / 2, self.pitch()),
-            RoundingMode::Up => div_floor(
-                coord - self.offset + self.pitch() - 1 + self.line / 2,
-                self.pitch(),
-            ),
+            RoundingMode::Up => div_ceil(coord - self.offset - self.line / 2, self.pitch()),
             RoundingMode::Nearest => div_floor(
                 coord - self.offset + self.pitch() / 2 + self.line / 2,
                 self.pitch(),
