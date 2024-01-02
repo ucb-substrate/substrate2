@@ -16,20 +16,6 @@ new_key_type! {
     struct RawTileKey;
 }
 
-/// A key for indexing a [`Tile`] within an [`ArrayTiler`].
-pub struct ArrayTileKey<T> {
-    key: RawTileKey,
-    phantom: PhantomData<T>,
-}
-
-impl<T> Clone for ArrayTileKey<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for ArrayTileKey<T> {}
-
 /// A tile container for a [`Tileable`] object.
 #[derive(Debug, Clone, Copy)]
 pub struct Tile<T> {
@@ -39,7 +25,7 @@ pub struct Tile<T> {
     pub rect: Rect,
 }
 
-struct RawTile<PDK: Pdk> {
+struct RawTile {
     inner: Box<dyn Tileable<PDK>>,
     rect: Rect,
 }
