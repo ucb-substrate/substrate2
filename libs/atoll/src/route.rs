@@ -1,7 +1,9 @@
 /// Routing interfaces and implementations.
-use crate::abs::{Abstract, GridCoord};
+use crate::abs::{Abstract, GridCoord, TrackCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::NetId;
+use substrate::layout;
+use substrate::pdk::Pdk;
 
 pub type Path = Vec<GridCoord>;
 
@@ -21,6 +23,11 @@ impl Router for GreedyBfsRouter {
         vec![vec![
             GridCoord {
                 layer: 0,
+                x: 2,
+                y: 0,
+            },
+            GridCoord {
+                layer: 0,
                 x: 0,
                 y: 0,
             },
@@ -29,6 +36,34 @@ impl Router for GreedyBfsRouter {
                 x: 0,
                 y: 4,
             },
+            GridCoord {
+                layer: 1,
+                x: 0,
+                y: 4,
+            },
+            GridCoord {
+                layer: 1,
+                x: 3,
+                y: 4,
+            },
+            GridCoord {
+                layer: 2,
+                x: 3,
+                y: 4,
+            },
+            GridCoord {
+                layer: 2,
+                x: 3,
+                y: 0,
+            },
         ]]
     }
+}
+
+pub trait ViaMaker<PDK: Pdk> {
+    fn draw_via(
+        &self,
+        cell: &mut layout::CellBuilder<PDK>,
+        track_coord: TrackCoord,
+    ) -> substrate::error::Result<()>;
 }

@@ -60,11 +60,11 @@ pub struct GridCoord {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Abstract {
     /// The topmost ATOLL layer used within the tile.
-    top_layer: usize,
+    pub(crate) top_layer: usize,
     /// The bounds of the tile, in LCM units with respect to `top_layer`.
     ///
     /// The "origin" of the tile, in LCM units, is the lower left of this rectangle.
-    lcm_bounds: Rect,
+    pub(crate) lcm_bounds: Rect,
     /// The state of each layer, up to and including `top_layer`.
     ///
     /// Ports on layers not supported by ATOLL are ignored.
@@ -217,9 +217,7 @@ impl Abstract {
                         p.bbox().expect("empty polygons are unsupported")
                     }
                 };
-                println!("source rect = {rect:?}");
                 if let Some(rect) = grid.shrink_to_grid(rect, layer) {
-                    println!("grid rect = {rect:?}");
                     for x in rect.left()..=rect.right() {
                         for y in rect.bot()..=rect.top() {
                             let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
@@ -285,36 +283,30 @@ impl InstanceAbstract {
         self.abs.lcm_bounds
     }
 
-    pub fn merge(mut others: Vec<Self>) -> Abstract {
-        assert!(!others.is_empty());
-        // Guarantee that `primary` always has the max top layer.
-        let mut primary = others.pop().unwrap();
-        for other in &mut others {
-            if other.abs.top_layer > primary.abs.top_layer {
-                std::mem::swap(&mut primary, other);
-            }
-        }
+    pub fn merge(mut abstracts: Vec<Self>, mut top_layer: usize) -> Abstract {
+        assert!(!abstracts.is_empty());
 
-        let stack = &primary.abs.grid.stack;
-        let physical_bounds = others
+        for abs in &abstracts {
+            top_layer = std::cmp::max(top_layer, abs.abs.top_layer);
+        }
+        let physical_bounds = abstracts
             .iter()
-            .fold(primary.physical_bounds(), |bounds, other| {
-                bounds.union(other.physical_bounds())
-            });
-        let new_bounds = primary
-            .abs
-            .grid
-            .slice()
-            .expand_to_lcm_units(physical_bounds);
-        let new_physical_bounds = primary.abs.grid.slice().lcm_to_physical_rect(new_bounds);
+            .map(|abs| abs.physical_bounds())
+            .reduce(|acc, next| acc.union(next))
+            .unwrap();
+
+        let grid = RoutingGrid::new(abstracts[0].abs.grid.stack.clone(), 0..top_layer + 1);
+
+        let new_bounds = grid.slice().expand_to_lcm_units(physical_bounds);
+        let new_physical_bounds = grid.slice().lcm_to_physical_rect(new_bounds);
         let mut state = RoutingState::new(
-            stack.clone(),
-            primary.abs.top_layer,
+            grid.stack.clone(),
+            top_layer,
             new_bounds.width(),
             new_bounds.height(),
         );
 
-        for inst in std::iter::once(&primary).chain(&others) {
+        for inst in &abstracts {
             let net_translation: HashMap<_, _> = inst
                 .abs
                 .ports
@@ -323,9 +315,9 @@ impl InstanceAbstract {
                 .zip(inst.parent_net_ids.iter().copied())
                 .collect();
             for i in 0..=inst.abs.top_layer {
-                let layer = stack.layer(i);
+                let layer = grid.stack.layer(i);
                 let parallel_pitch = layer.pitch();
-                let perp_pitch = stack.layer(primary.abs.grid.grid_defining_layer(i)).pitch();
+                let perp_pitch = grid.stack.layer(grid.grid_defining_layer(i)).pitch();
 
                 let (xpitch, ypitch) = match layer.dir().track_dir() {
                     Dir::Horiz => (perp_pitch, parallel_pitch),
@@ -393,14 +385,17 @@ impl InstanceAbstract {
             }
         }
 
+        // todo: handle ports
         Abstract {
+            top_layer,
             lcm_bounds: new_bounds,
             layers: state
                 .layers
                 .into_iter()
                 .map(|states| LayerAbstract::Detailed { states })
                 .collect(),
-            ..primary.abs
+            ports: Vec::new(),
+            grid,
         }
     }
 }

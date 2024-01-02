@@ -210,6 +210,7 @@ dependencies = [
  "grid",
  "num",
  "serde",
+ "slotmap",
  "substrate",
  "tracing",
 ]

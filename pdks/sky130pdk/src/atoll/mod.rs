@@ -4,7 +4,9 @@ use crate::layers::Sky130Layers;
 use crate::mos::{MosParams, Nfet01v8, Pfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
+use atoll::abs::TrackCoord;
 use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid};
+use atoll::route::ViaMaker;
 use atoll::RoutingDir;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +15,7 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
+use substrate::geometry::transform::Translate;
 use substrate::io::layout::IoShape;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
@@ -35,7 +38,7 @@ impl Sky130Layers {
                         line: 170,
                         space: 260,
                         offset: 85,
-                        endcap: 0,
+                        endcap: 85,
                     },
                 },
                 PdkLayer {
@@ -92,6 +95,49 @@ impl Sky130Layers {
             offset_x: 0,
             offset_y: 0,
         }
+    }
+}
+
+pub struct Sky130ViaMaker;
+
+impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
+    fn draw_via(
+        &self,
+        cell: &mut CellBuilder<Sky130Pdk>,
+        track_coord: TrackCoord,
+    ) -> substrate::error::Result<()> {
+        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
+        let grid = RoutingGrid::new((*stack).clone(), 0..track_coord.layer + 1);
+        let top_layer = stack.layer(track_coord.layer);
+        let bot_layer = stack.layer(track_coord.layer - 1);
+
+        let via_center = grid.xy_track_point(track_coord.layer, track_coord.x, track_coord.y);
+
+        let (via_layer, bot_rect, via_rect, top_rect) = match track_coord.layer {
+            1 => (
+                cell.ctx.layers.mcon.drawing.id(),
+                Rect::from_sides(0, 0, 170, 170),
+                Rect::from_sides(0, 0, 170, 170),
+                Rect::from_sides(-60, -45, 230, 215),
+            ),
+            2 => (
+                cell.ctx.layers.via.drawing.id(),
+                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(0, 0, 150, 150),
+                Rect::from_sides(-125, -55, 275, 205),
+            ),
+            _ => todo!(),
+        };
+        let translation = via_center - via_rect.center();
+
+        for (layer, shape) in [
+            (bot_layer.id, bot_rect),
+            (via_layer, via_rect),
+            (top_layer.id, top_rect),
+        ] {
+            cell.draw(Shape::new(layer, shape).translate(translation))?;
+        }
+        Ok(())
     }
 }
 

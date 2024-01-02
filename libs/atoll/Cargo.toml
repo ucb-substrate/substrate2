@@ -12,3 +12,4 @@ ena = "0.14"
 tracing = "0.1"
 num = "0.4.1"
 serde = { version = "1.0.192", features = ["derive"] }
+slotmap = "1"

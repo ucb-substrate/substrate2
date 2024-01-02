@@ -146,9 +146,9 @@ pub mod abs;
 pub mod grid;
 pub mod route;
 
-use crate::abs::{Abstract, DebugAbstract, InstanceAbstract};
+use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
-use crate::route::Router;
+use crate::route::{Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -168,6 +168,7 @@ use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
 use substrate::io::{FlatLen, Flatten};
 use substrate::layout::element::Shape;
 
+use substrate::geometry::rect::Rect;
 use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::{HasPin, Layers};
 use substrate::pdk::Pdk;
@@ -369,6 +370,18 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         let h = slice.lcm_unit_height();
         Point::new(self.loc.x * w, self.loc.y * h)
     }
+
+    pub fn top_layer(&self) -> usize {
+        self.abs.top_layer
+    }
+
+    pub fn lcm_bounds(&self) -> Rect {
+        self.abs.lcm_bounds.translate(self.loc)
+    }
+
+    pub fn physical_bounds(&self) -> Rect {
+        self.abs.physical_bounds().translate(self.physical_loc())
+    }
 }
 
 /// A builder for ATOLL tiles.
@@ -380,8 +393,10 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema> {
     layer_stack: Arc<LayerStack<PdkLayer>>,
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
+    top_layer: usize,
     next_net_id: usize,
     router: Option<Arc<dyn Router>>,
+    via_maker: Option<Arc<dyn ViaMaker<PDK>>>,
 }
 
 impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
@@ -414,9 +429,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             schematic,
             layout,
             layer_stack,
+            top_layer: 0,
             abs: Vec::new(),
             next_net_id: 0,
             router: None,
+            via_maker: None,
         };
 
         builder.register_bundle(schematic_io);
@@ -484,6 +501,8 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             .zip(parent_net_ids.iter())
             .for_each(|(node, net)| self.nodes.get_mut(node).unwrap().nets.push(*net));
 
+        self.set_top_layer(instance.abs.top_layer);
+
         self.abs.push(InstanceAbstract::new(
             instance.abs,
             instance.loc,
@@ -550,8 +569,20 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         self.layout.ctx()
     }
 
+    /// Sets the top layer of this tile, dictating the layers available for routing.
+    ///
+    /// If the top layer is set to below the top layer of a constituent tile, it will be
+    /// overwritten to the top layer of the constituent tile with the highest top layer.
+    pub fn set_top_layer(&mut self, top_layer: usize) {
+        self.top_layer = std::cmp::max(self.top_layer, top_layer);
+    }
+
     pub fn set_router<T: Any + Router>(&mut self, router: T) {
         self.router = Some(Arc::new(router));
+    }
+
+    pub fn set_via_maker<T: Any + ViaMaker<PDK>>(&mut self, via_maker: T) {
+        self.via_maker = Some(Arc::new(via_maker));
     }
 }
 
@@ -659,7 +690,7 @@ where
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
         let (_, layout_data) = <T as Tile<PDK>>::tile(&self.0, io, &mut cell)?;
 
-        let abs = InstanceAbstract::merge(cell.abs);
+        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer);
 
         if let Some(router) = cell.router {
             let mut to_connect = HashMap::new();
@@ -677,16 +708,68 @@ where
                     let (a, b) = (abs.grid_to_track(segment[0]), abs.grid_to_track(segment[1]));
                     if a.layer == b.layer {
                         // todo: handle multiple routing directions
-                        cell.layout.draw(Shape::new(
-                            abs.grid.stack.layer(a.layer).id,
-                            if a.x == b.x {
-                                abs.grid.track(a.layer, a.x, a.y, b.y)
-                            } else if a.y == b.y {
-                                abs.grid.track(a.layer, a.y, a.x, b.x)
+                        assert!(a.x == b.x || a.y == b.y);
+                        let layer = abs.grid.stack.layer(a.layer);
+                        let (start_track, start_cross_track, end_track, end_cross_track) =
+                            if layer.dir().track_dir() == Dir::Vert {
+                                (a.x, a.y, b.x, b.y)
+                            } else {
+                                (a.y, a.x, b.y, b.x)
+                            };
+                        let start = abs
+                            .grid
+                            .track_point(a.layer, start_track, start_cross_track);
+                        let end = abs.grid.track_point(b.layer, end_track, end_cross_track);
+                        let track = Rect::from_point(start)
+                            .union(Rect::from_point(end))
+                            .expand_dir(
+                                if a.x == b.x { Dir::Horiz } else { Dir::Vert },
+                                abs.grid.stack.layer(a.layer).line() / 2,
+                            )
+                            .expand_dir(
+                                if a.y == b.y { Dir::Horiz } else { Dir::Vert },
+                                abs.grid.stack.layer(a.layer).endcap(),
+                            );
+
+                        cell.layout
+                            .draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
+                    } else if a.layer == b.layer + 1 || b.layer == a.layer + 1 {
+                        let (a, b) = if b.layer > a.layer { (b, a) } else { (a, b) };
+                        let (in_track, out_track) =
+                            if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Horiz
+                                && a.x == b.x
+                            {
+                                (
+                                    abs.grid.track(b.layer, b.x, b.y, b.y),
+                                    abs.grid.track_point(a.layer, a.y, a.x),
+                                )
+                            } else if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Vert
+                                && a.y == b.y
+                            {
+                                (
+                                    abs.grid.track(b.layer, b.y, b.x, b.x),
+                                    abs.grid.track_point(a.layer, a.x, a.y),
+                                )
                             } else {
                                 panic!("cannot have a diagonal segment");
-                            },
-                        ))?;
+                            };
+
+                        let track = Rect::from_spans(
+                            in_track.hspan().add_point(out_track.x),
+                            in_track.vspan().add_point(out_track.y),
+                        );
+                        cell.layout
+                            .draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
+                        if let Some(maker) = &cell.via_maker {
+                            maker.draw_via(
+                                cell.layout,
+                                TrackCoord {
+                                    layer: a.layer,
+                                    x: a.x,
+                                    y: a.y,
+                                },
+                            )?;
+                        }
                     }
                 }
             }
