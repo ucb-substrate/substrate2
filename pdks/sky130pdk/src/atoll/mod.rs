@@ -606,7 +606,7 @@ impl NtapTile {
 /// The IO of an [`NtapTile`].
 #[derive(Io, Clone, Default, Debug)]
 pub struct NtapIo {
-    vpb: InOut<Signal>,
+    pub vpb: InOut<Signal>,
 }
 
 impl Block for NtapTile {
@@ -684,7 +684,7 @@ impl PtapTile {
 /// The IO of a [`PtapTile`].
 #[derive(Io, Clone, Default, Debug)]
 pub struct PtapIo {
-    vnb: InOut<Signal>,
+    pub vnb: InOut<Signal>,
 }
 
 impl Block for PtapTile {
