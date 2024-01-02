@@ -831,7 +831,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         // via down
         if coord.layer > 0 {
             let next_layer = coord.layer - 1;
-            let interp_dir = routing_dir.track_dir();
+            let interp_dir = !routing_dir.track_dir();
             let pp = self.grid_to_rel_physical(coord);
             let dn =
                 self.grid
@@ -839,6 +839,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let up = self
                 .grid
                 .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
+            println!("coord = {coord:?}, pp = {pp:?}, dn = {dn:?}, up = {up:?}, interp dir = {interp_dir:?}");
             assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert!(dn.x >= 0 && dn.y >= 0);
