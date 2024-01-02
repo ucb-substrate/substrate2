@@ -297,7 +297,7 @@ impl InstanceAbstract {
         self.abs.lcm_bounds
     }
 
-    pub fn merge(mut abstracts: Vec<Self>, mut top_layer: usize) -> Abstract {
+    pub fn merge(mut abstracts: Vec<Self>, mut top_layer: usize, ports: Vec<NetId>) -> Abstract {
         assert!(!abstracts.is_empty());
 
         for abs in &abstracts {
@@ -344,9 +344,6 @@ impl InstanceAbstract {
                     (inst.physical_bounds().bot() - new_physical_bounds.bot()) / ypitch;
                 let track_width = inst.physical_bounds().width() / xpitch;
                 let track_height = inst.physical_bounds().height() / ypitch;
-
-                println!("{} {}", left_offset, track_width);
-                println!("{} {}", bot_offset, track_height);
 
                 for x in left_offset..left_offset + track_width {
                     for y in bot_offset..bot_offset + track_height {
@@ -405,7 +402,7 @@ impl InstanceAbstract {
                 .into_iter()
                 .map(|states| LayerAbstract::Detailed { states })
                 .collect(),
-            ports: Vec::new(),
+            ports,
             grid,
         }
     }

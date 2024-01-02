@@ -747,7 +747,7 @@ where
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
         let (_, layout_data) = <T as Tile<PDK>>::tile(&self.0, io, &mut cell)?;
 
-        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer);
+        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer, Vec::new());
 
         if let Some(router) = cell.router {
             let mut to_connect = IndexMap::new();
