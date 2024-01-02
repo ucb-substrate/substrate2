@@ -145,6 +145,7 @@
 pub mod abs;
 pub mod grid;
 pub mod route;
+pub mod tiling;
 
 use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};

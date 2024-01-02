@@ -161,7 +161,6 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
             instances.push(schematic);
         }
 
-        cell.set_top_layer(2);
         cell.set_router(GreedyBfsRouter);
         cell.set_via_maker(Sky130ViaMaker);
 
