@@ -208,6 +208,7 @@ version = "0.1.3"
 dependencies = [
  "ena",
  "grid",
+ "indexmap 2.1.0",
  "num",
  "pathfinding",
  "serde",
