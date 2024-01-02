@@ -345,6 +345,9 @@ impl InstanceAbstract {
                 let track_width = inst.physical_bounds().width() / xpitch;
                 let track_height = inst.physical_bounds().height() / ypitch;
 
+                println!("{} {}", left_offset, track_width);
+                println!("{} {}", bot_offset, track_height);
+
                 for x in left_offset..left_offset + track_width {
                     for y in bot_offset..bot_offset + track_height {
                         let point_state = &mut state.layer_mut(i)[(x as usize, y as usize)];
@@ -360,15 +363,15 @@ impl InstanceAbstract {
                                         ((x - left_offset) as usize, (y - bot_offset) as usize)
                                     }
                                     Orientation::R180 => (
-                                        (2 * left_offset + track_width - x) as usize,
-                                        (2 * bot_offset + track_height - y) as usize,
+                                        (left_offset + track_width - x - 1) as usize,
+                                        (bot_offset + track_height - y - 1) as usize,
                                     ),
                                     Orientation::ReflectVert => (
                                         (x - left_offset) as usize,
-                                        (2 * bot_offset + track_height - y) as usize,
+                                        (bot_offset + track_height - y - 1) as usize,
                                     ),
                                     Orientation::ReflectHoriz => (
-                                        (2 * left_offset + track_width - x) as usize,
+                                        (left_offset + track_width - x - 1) as usize,
                                         (y - bot_offset) as usize,
                                     ),
                                 }];

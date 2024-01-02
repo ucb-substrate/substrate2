@@ -240,9 +240,14 @@ impl PortGeometryBuilder {
         }
     }
 
-    /// Sets the primary shape of this port.
+    /// Sets the primary shape of this port, moving the current primary
+    /// to the set of unnamed shapes.
     pub fn set_primary(&mut self, shape: IoShape) {
+        let old_primary = self.primary.take();
         self.primary = Some(shape);
+        if let Some(old_primary) = old_primary {
+            self.unnamed_shapes.push(old_primary);
+        }
     }
 }
 

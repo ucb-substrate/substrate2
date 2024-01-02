@@ -168,6 +168,7 @@ use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
 use substrate::io::{FlatLen, Flatten};
 use substrate::layout::element::Shape;
 
+use substrate::geometry::align::AlignMode;
 use substrate::geometry::rect::Rect;
 use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::{HasPin, Layers};
@@ -322,7 +323,7 @@ impl From<Orientation> for geometry::orientation::NamedOrientation {
 
 impl From<Orientation> for geometry::orientation::Orientation {
     fn from(value: Orientation) -> Self {
-        Into::<geometry::orientation::NamedOrientation>::into(value).into()
+        geometry::orientation::NamedOrientation::from(value).into()
     }
 }
 
@@ -347,6 +348,58 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     pub fn translate(mut self, p: Point) -> Self {
         self.translate_mut(p);
         self
+    }
+
+    pub fn align_rect_mut(&mut self, orect: Rect, mode: AlignMode, offset: i64) {
+        let srect = self.lcm_bounds();
+        match mode {
+            AlignMode::Left => {
+                self.translate_mut(Point::new(orect.left() - srect.left() + offset, 0));
+            }
+            AlignMode::Right => {
+                self.translate_mut(Point::new(orect.right() - srect.right() + offset, 0));
+            }
+            AlignMode::Bottom => {
+                self.translate_mut(Point::new(0, orect.bot() - srect.bot() + offset));
+            }
+            AlignMode::Top => {
+                self.translate_mut(Point::new(0, orect.top() - srect.top() + offset));
+            }
+            AlignMode::ToTheRight => {
+                self.translate_mut(Point::new(orect.right() - srect.left() + offset, 0));
+            }
+            AlignMode::ToTheLeft => {
+                self.translate_mut(Point::new(orect.left() - srect.right() + offset, 0));
+            }
+            AlignMode::CenterHorizontal => {
+                self.translate_mut(Point::new(
+                    ((orect.left() + orect.right()) - (srect.left() + srect.right())) / 2 + offset,
+                    0,
+                ));
+            }
+            AlignMode::CenterVertical => {
+                self.translate_mut(Point::new(
+                    0,
+                    ((orect.bot() + orect.top()) - (srect.bot() + srect.top())) / 2 + offset,
+                ));
+            }
+            AlignMode::Beneath => {
+                self.translate_mut(Point::new(0, orect.bot() - srect.top() + offset));
+            }
+            AlignMode::Above => {
+                self.translate_mut(Point::new(0, orect.top() - srect.bot() + offset));
+            }
+        }
+    }
+
+    pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
+        &mut self,
+        other: &Instance<T2>,
+        mode: AlignMode,
+        offset: i64,
+    ) {
+        assert_eq!(self.top_layer(), other.top_layer());
+        self.align_rect_mut(other.lcm_bounds(), mode, offset);
     }
 
     /// Orients this instance in the given orientation.
@@ -488,8 +541,6 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         instance: Instance<B>,
     ) -> substrate::error::Result<(schematic::Instance<B>, layout::Instance<B>)> {
         let physical_loc = instance.physical_loc();
-        self.layout
-            .draw(instance.layout.clone().translate(instance.physical_loc()))?;
 
         let parent_net_ids: Vec<_> = (0..instance.io().len())
             .map(|_| {
@@ -525,6 +576,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             orig_bbox.corner(Corner::LowerLeft) - layout.bbox().unwrap().corner(Corner::LowerLeft)
                 + physical_loc,
         );
+        self.layout.draw(layout.clone())?;
 
         Ok((instance.schematic, layout))
     }
