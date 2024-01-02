@@ -832,12 +832,6 @@ where
             }
         }
 
-        let debug = cell.layout.generate(DebugAbstract {
-            abs,
-            stack: (*cell.layer_stack).clone(),
-        });
-        cell.layout.draw(debug)?;
-
         Ok(layout_data)
     }
 }
