@@ -25,18 +25,36 @@ use substrate::pdk::Pdk;
 use substrate::schematic::ExportsNestedData;
 use substrate::{arcstr, layout};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct TrackCoord {
     pub layer: usize,
     pub x: i64,
     pub y: i64,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct GridCoord {
     pub layer: usize,
     pub x: usize,
     pub y: usize,
+}
+
+impl TrackCoord {
+    pub fn coord(&self, dir: Dir) -> i64 {
+        match dir {
+            Dir::Horiz => self.x,
+            Dir::Vert => self.y,
+        }
+    }
+}
+
+impl GridCoord {
+    pub fn coord(&self, dir: Dir) -> usize {
+        match dir {
+            Dir::Horiz => self.x,
+            Dir::Vert => self.y,
+        }
+    }
 }
 
 /// The abstract view of an ATOLL tile.
@@ -225,11 +243,7 @@ impl Abstract {
                             let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                             let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
                             state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
-                                PointState::Routed {
-                                    net,
-                                    via_down: false,
-                                    via_up: false,
-                                };
+                                PointState::Routed { net };
                         }
                     }
                 }
@@ -373,16 +387,10 @@ impl InstanceAbstract {
                                         assert_eq!(point_state, &PointState::Available);
                                         *point_state = PointState::Blocked;
                                     }
-                                    PointState::Routed {
-                                        net,
-                                        via_up,
-                                        via_down,
-                                    } => {
+                                    PointState::Routed { net } => {
                                         assert_eq!(point_state, &PointState::Available);
                                         *point_state = PointState::Routed {
                                             net: net_translation[&net],
-                                            via_up,
-                                            via_down,
                                         };
                                     }
                                 }

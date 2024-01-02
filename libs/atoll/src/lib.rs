@@ -200,10 +200,6 @@ pub enum PointState {
     Routed {
         /// The net occupying this routing space.
         net: NetId,
-        /// Indicates if there is a via to the layer immediately below.
-        via_up: bool,
-        /// Indicates if there is a via to the layer immediately above.
-        via_down: bool,
     },
 }
 
@@ -212,6 +208,14 @@ impl PointState {
     pub fn is_available_for_net(&self, net: NetId) -> bool {
         match self {
             Self::Available => true,
+            Self::Routed { net: n, .. } => *n == net,
+            Self::Blocked => false,
+        }
+    }
+
+    pub fn is_routed_for_net(&self, net: NetId) -> bool {
+        match self {
+            Self::Available => false,
             Self::Routed { net: n, .. } => *n == net,
             Self::Blocked => false,
         }

@@ -1,11 +1,13 @@
 //! Uniform routing grids and layer stacks.
-use crate::{PointState, RoutingDir};
+use crate::{NetId, PointState, RoutingDir};
 use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::collections::HashMap;
 
-use std::ops::Range;
+use crate::abs::GridCoord;
+use std::ops::{Index, IndexMut, Range};
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::corner::Corner;
 use substrate::geometry::dims::Dims;
@@ -316,10 +318,15 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
 }
 
 /// A fixed-size routing grid.
+///
+/// Does not store the state of track points in the grid.
+/// For that functionality, see [`RoutingState`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RoutingGrid<L> {
     pub stack: LayerStack<L>,
+    /// The start layer (inclusive)
     start: usize,
+    /// The end layer (not inclusive)
     end: usize,
 }
 
@@ -590,6 +597,21 @@ fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
 pub struct RoutingState<L> {
     pub(crate) grid: RoutingGrid<L>,
     pub(crate) layers: Vec<Grid<PointState>>,
+    pub(crate) roots: HashMap<NetId, NetId>,
+}
+
+impl<L> Index<GridCoord> for RoutingState<L> {
+    type Output = PointState;
+
+    fn index(&self, index: GridCoord) -> &Self::Output {
+        &self.layers[index.layer][(index.x, index.y)]
+    }
+}
+
+impl<L> IndexMut<GridCoord> for RoutingState<L> {
+    fn index_mut(&mut self, index: GridCoord) -> &mut Self::Output {
+        &mut self.layers[index.layer][(index.x, index.y)]
+    }
 }
 
 impl<L> RoutingState<L> {
@@ -632,7 +654,188 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             };
             layers.push(grid);
         }
-        Self { grid, layers }
+        Self {
+            grid,
+            layers,
+            roots: HashMap::new(),
+        }
+    }
+
+    /// Finds a single grid coordinate belonging to the given net.
+    ///
+    /// Searches the topmost layer first, starting from the lower left.
+    /// Returns the first grid point with a matching net ID, or [`None`]
+    /// if no grid point has the given net ID.
+    pub fn find(&self, net: NetId) -> Option<GridCoord> {
+        for (i, layer) in self.layers.iter().enumerate().rev() {
+            let (nx, ny) = layer.size();
+            for x in 0..nx {
+                for y in 0..ny {
+                    if layer[(nx, ny)] == (PointState::Routed { net }) {
+                        return Some(GridCoord { layer: i, x, y });
+                    }
+                }
+            }
+        }
+        return None;
+    }
+
+    pub(crate) fn is_routed_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        if let PointState::Routed { net: grid_net } = self[coord] {
+            self.roots[&net] == self.roots[&grid_net]
+        } else {
+            false
+        }
+    }
+
+    /// The cost to traverse from `src` to `dst`.
+    ///
+    /// Important: the two coordinates must be adjacent.
+    fn cost(&self, src: GridCoord, dst: GridCoord, net: NetId) -> usize {
+        if src.layer == dst.layer {
+            if self.is_routed_for_net(src, net) && self.is_routed_for_net(dst, net) {
+                0
+            } else {
+                1
+            }
+        } else {
+            1
+        }
+    }
+
+    fn successors_vert(&self, coord: GridCoord, net: NetId, out: &mut Vec<(GridCoord, usize)>) {
+        let layer = self.layer(coord.layer);
+        if coord.y != 0 {
+            let next = GridCoord {
+                y: coord.y - 1,
+                ..coord
+            };
+            let cost = self.cost(coord, next, net);
+            out.push((next, cost));
+        }
+        if coord.y < layer.size().1 - 1 {
+            let next = GridCoord {
+                y: coord.y + 1,
+                ..coord
+            };
+            out.push((next, self.cost(coord, next, net)));
+        }
+    }
+
+    fn successors_horiz(&self, coord: GridCoord, net: NetId, out: &mut Vec<(GridCoord, usize)>) {
+        let layer = self.layer(coord.layer);
+        if coord.x != 0 {
+            let next = GridCoord {
+                x: coord.x - 1,
+                ..coord
+            };
+            let cost = self.cost(coord, next, net);
+            out.push((next, cost));
+        }
+        if coord.x < layer.size().0 - 1 {
+            let next = GridCoord {
+                x: coord.x + 1,
+                ..coord
+            };
+            out.push((next, self.cost(coord, next, net)));
+        }
+    }
+
+    /// The set of points reachable from `coord`.
+    ///
+    /// M0 <-> M1 vias are always easy, since both layers have the same grid.
+    ///
+    /// MN <-> M(N+1) vias require interpolation.
+    /// We first identify the coordinate that stays constant in the transition.
+    /// If MN has horizontal going tracks, the y-coordinate is constant.
+    /// If MN has vertical going tracks, the x-coordinate is constant.
+    /// The non-constant coordinate must be interpolated.
+    ///
+    /// Interpolation is done as follows:
+    /// * We translate the track coordinate to a physical coordinate, and retrieve the coordinate in the interpolated direction
+    /// * We find two track coordinates on M(N+1): one by rounding up; the other by rounding down.
+    /// * If the two coordinates are equal, we report a successor to that grid point.
+    /// * Otherwise, we report a successor to the track with a closer physical coordinate, assuming
+    /// the farther coordinate is unobstructed.
+    pub fn successors(&self, coord: GridCoord, net: NetId) -> Vec<(GridCoord, usize)> {
+        let layer = self.layer(coord.layer);
+        let mut successors = Vec::new();
+        let routing_dir = self.grid.slice().layer(coord.layer).dir();
+
+        match routing_dir {
+            RoutingDir::Vert => {
+                self.successors_vert(coord, net, &mut successors);
+            }
+            RoutingDir::Horiz => {
+                self.successors_horiz(coord, net, &mut successors);
+            }
+            RoutingDir::Any { .. } => {
+                self.successors_vert(coord, net, &mut successors);
+                self.successors_horiz(coord, net, &mut successors);
+            }
+        }
+
+        // via up
+        let next_layer = coord.layer + 1;
+        if next_layer < self.grid.end {
+            let interp_dir = routing_dir.track_dir();
+            let pp = self.grid_to_rel_physical(coord);
+            let dn =
+                self.grid
+                    .point_to_grid(pp, next_layer, RoundingMode::Down, RoundingMode::Down);
+            let up = self
+                .grid
+                .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
+            assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
+            assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
+            assert!(dn.x >= 0 && dn.y >= 0);
+            assert!(up.x >= 0 && up.y >= 0);
+            if dn == up {
+                let next = GridCoord {
+                    layer: next_layer,
+                    x: dn.x as usize,
+                    y: dn.y as usize,
+                };
+                successors.push((next, self.cost(coord, next, net)));
+            }
+        }
+
+        // via down
+        if coord.layer > 0 {
+            let next_layer = coord.layer - 1;
+            let interp_dir = routing_dir.track_dir();
+            let pp = self.grid_to_rel_physical(coord);
+            let dn =
+                self.grid
+                    .point_to_grid(pp, next_layer, RoundingMode::Down, RoundingMode::Down);
+            let up = self
+                .grid
+                .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
+            assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
+            assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
+            assert!(dn.x >= 0 && dn.y >= 0);
+            assert!(up.x >= 0 && up.y >= 0);
+            if dn == up {
+                let next = GridCoord {
+                    layer: next_layer,
+                    x: dn.x as usize,
+                    y: dn.y as usize,
+                };
+                successors.push((next, self.cost(coord, next, net)));
+            }
+        }
+
+        successors
+    }
+
+    /// Converts the given grid point to physical coordinates.
+    ///
+    /// Assumes that (0,0) in grid coordinates is the same as (0,0) in track coordinates.
+    /// In other words, this assumes that grid and track coordinates are the same;
+    /// there is not shift between grid and track coordinates.
+    pub fn grid_to_rel_physical(&self, coord: GridCoord) -> Point {
+        self.grid
+            .xy_track_point(coord.layer, coord.x as i64, coord.y as i64)
     }
 }
 
