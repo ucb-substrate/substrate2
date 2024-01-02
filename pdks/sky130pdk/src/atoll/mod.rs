@@ -17,6 +17,7 @@ use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
 use substrate::geometry::transform::Translate;
 use substrate::io::layout::IoShape;
+use substrate::io::schematic::Bundle;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::tracks::{RoundingMode, Tracks};
@@ -516,6 +517,223 @@ impl Schematic<Sky130Pdk> for PmosTile {
                 },
             )
         }
+        Ok(())
+    }
+}
+
+struct TapTileData {
+    li: Rect,
+    tap: Rect,
+    lcm_bbox: Rect,
+}
+
+/// A tile containing taps.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+struct TapTile {
+    /// x dimension, in number of li1 tracks
+    xtracks: i64,
+    /// y dimension, in number of m1 tracks
+    ytracks: i64,
+}
+
+impl TapTile {
+    /// Create a new tap tile with the given dimensions.
+    fn new(xtracks: i64, ytracks: i64) -> Self {
+        Self { xtracks, ytracks }
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("tap_tile_x{}_y{}", self.xtracks, self.ytracks)
+    }
+}
+
+impl TapTile {
+    fn layout(&self, cell: &mut CellBuilder<Sky130Pdk>) -> substrate::error::Result<TapTileData> {
+        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
+        let grid = RoutingGrid::new((*stack).clone(), 0..2);
+
+        let li_hspan = grid
+            .track_span(0, 0)
+            .union(grid.track_span(0, self.xtracks - 1));
+        let li_vspan = Span::new(
+            grid.track_span(1, 0).center(),
+            grid.track_span(1, self.ytracks - 1).center(),
+        )
+        .expand_all(85);
+        let inner = Rect::from_spans(li_hspan, li_vspan);
+        let li = inner.expand_dir(Dir::Vert, 80);
+        cell.draw(Shape::new(cell.ctx.layers.li1, li))?;
+
+        for x in 0..self.xtracks {
+            for y in 0..self.ytracks {
+                let cut = Rect::from_spans(
+                    grid.track_span(0, x),
+                    Span::from_center_span(grid.track_span(1, y).center(), 170),
+                );
+                cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
+            }
+        }
+
+        let tap = inner.expand_dir(Dir::Vert, 65).expand_dir(Dir::Horiz, 120);
+        cell.draw(Shape::new(cell.ctx.layers.tap, tap))?;
+
+        let virtual_layers = cell.ctx.install_layers::<atoll::VirtualLayers>();
+        let slice = stack.slice(0..2);
+        let bbox = cell.bbox().unwrap();
+        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
+        cell.draw(Shape::new(virtual_layers.outline, lcm_bbox))?;
+
+        Ok(TapTileData { li, tap, lcm_bbox })
+    }
+}
+
+/// A tile containing an N+ tap for biasing an N-well.
+/// These can be used to connect to the body terminals of PMOS devices.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NtapTile {
+    tile: TapTile,
+}
+
+impl NtapTile {
+    /// Create a new ntap tile with the given dimensions.
+    pub fn new(xtracks: i64, ytracks: i64) -> Self {
+        Self {
+            tile: TapTile::new(xtracks, ytracks),
+        }
+    }
+}
+
+/// The IO of an [`NtapTile`].
+#[derive(Io, Clone, Default, Debug)]
+pub struct NtapIo {
+    vpb: InOut<Signal>,
+}
+
+impl Block for NtapTile {
+    type Io = NtapIo;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("ntap_tile")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("n{}", self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl ExportsNestedData for NtapTile {
+    type NestedData = ();
+}
+
+impl ExportsLayoutData for NtapTile {
+    type LayoutData = ();
+}
+
+impl Schematic<Sky130Pdk> for NtapTile {
+    fn schematic(
+        &self,
+        _io: &Bundle<<Self as Block>::Io>,
+        _cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        Ok(())
+    }
+}
+
+impl Layout<Sky130Pdk> for NtapTile {
+    fn layout(
+        &self,
+        io: &mut substrate::io::layout::Builder<NtapIo>,
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        let data = self.tile.layout(cell)?;
+        io.vpb
+            .push(IoShape::with_layers(cell.ctx.layers.li1, data.li));
+
+        let nsdm = data.tap.expand_all(130);
+        let nsdm = nsdm.with_hspan(data.lcm_bbox.hspan().union(nsdm.hspan()));
+        cell.draw(Shape::new(cell.ctx.layers.nsdm, nsdm))?;
+
+        let nwell = data.tap.expand_all(180);
+        let nwell = nwell.with_hspan(data.lcm_bbox.hspan().union(nwell.hspan()));
+        cell.draw(Shape::new(cell.ctx.layers.nwell, nwell))?;
+
+        Ok(())
+    }
+}
+
+/// A tile containing a P+ tap for biasing an P-well or P-substrate.
+/// These can be used to connect to the body terminals of NMOS devices.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PtapTile {
+    tile: TapTile,
+}
+
+impl PtapTile {
+    /// Create a new ntap tile with the given dimensions.
+    pub fn new(xtracks: i64, ytracks: i64) -> Self {
+        Self {
+            tile: TapTile::new(xtracks, ytracks),
+        }
+    }
+}
+
+/// The IO of a [`PtapTile`].
+#[derive(Io, Clone, Default, Debug)]
+pub struct PtapIo {
+    vnb: InOut<Signal>,
+}
+
+impl Block for PtapTile {
+    type Io = crate::atoll::PtapIo;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("ptap_tile")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("p{}", self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl ExportsNestedData for PtapTile {
+    type NestedData = ();
+}
+
+impl ExportsLayoutData for PtapTile {
+    type LayoutData = ();
+}
+
+impl Schematic<Sky130Pdk> for PtapTile {
+    fn schematic(
+        &self,
+        _io: &Bundle<<Self as Block>::Io>,
+        _cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        Ok(())
+    }
+}
+
+impl Layout<Sky130Pdk> for PtapTile {
+    fn layout(
+        &self,
+        io: &mut substrate::io::layout::Builder<PtapIo>,
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        let data = self.tile.layout(cell)?;
+        io.vnb
+            .push(IoShape::with_layers(cell.ctx.layers.li1, data.li));
+
+        let psdm = data.tap.expand_all(130);
+        let psdm = psdm.with_hspan(data.lcm_bbox.hspan().union(psdm.hspan()));
+        cell.draw(Shape::new(cell.ctx.layers.psdm, psdm))?;
         Ok(())
     }
 }
