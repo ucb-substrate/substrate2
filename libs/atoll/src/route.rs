@@ -2,7 +2,7 @@
 use crate::abs::{Abstract, GridCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
-use pathfinding::prelude::dijkstra;
+use pathfinding::prelude::{build_path, dijkstra, dijkstra_all};
 use std::collections::HashMap;
 
 pub type Path = Vec<GridCoord>;
@@ -32,25 +32,35 @@ impl Router for GreedyBfsRouter {
 
         let mut paths = Vec::new();
         for group in to_connect.iter() {
-            for node in group.iter().skip(1) {
-                let start = match state.find(*node) {
-                    Some(c) => c,
+            let locs = group.iter().map(|n| state.find(*n).unwrap()).collect::<Vec<_>>();
+
+            loop {
+                let mut spt = dijkstra_all(
+                    &locs[0],
+                    |s| state.successors(*s, group[0]),
+                );
+
+                // a bit of a hack: insert this now for making the next line easier
+                // remove it when we go to building a path.
+                assert!(!spt.contains_key(&locs[0]));
+                spt.insert(locs[0], (locs[0], 0));
+
+                let nearest_loc = match group.iter().zip(locs.iter()).filter_map(|(node, loc)| if spt[loc].1 == 0 { None } else { Some((spt[loc].1, loc, node)) }).min() {
                     None => {
-                        println!("no starting point found for {node:?}; skipping");
-                        continue;
+                        // all node fragments have been connected
+                        break;
                     }
+                    Some((_, loc, _)) => loc,
                 };
-                let (path, _) = dijkstra(
-                    &start,
-                    |s| state.successors(*s, *node),
-                    |s| state.forms_new_connection_for_net(*s, *node),
-                )
-                .expect("no path found");
+
+                spt.remove(&locs[0]);
+                let path = build_path(nearest_loc, &spt);
                 for coord in path.iter() {
-                    state[*coord] = PointState::Routed { net: *node };
+                    state[*coord] = PointState::Routed { net: group[0] };
                 }
                 paths.push(path);
             }
+
         }
 
         println!("paths = {paths:?}");
