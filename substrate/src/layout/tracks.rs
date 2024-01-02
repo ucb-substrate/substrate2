@@ -270,6 +270,7 @@ mod tests {
         assert_eq!(tracks.to_track_idx(-550, RoundingMode::Down), -2);
         assert_eq!(tracks.to_track_idx(-200, RoundingMode::Down), -1);
         assert_eq!(tracks.to_track_idx(-20, RoundingMode::Up), 0);
-        assert_eq!(tracks.to_track_idx(-550, RoundingMode::Up), -1);
+        assert_eq!(tracks.to_track_idx(-530, RoundingMode::Up), -1);
+        assert_eq!(tracks.to_track_idx(-550, RoundingMode::Up), -2);
     }
 }
