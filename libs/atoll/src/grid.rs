@@ -593,7 +593,7 @@ fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
 }
 
 /// A fixed-size routing grid.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RoutingState<L> {
     pub(crate) grid: RoutingGrid<L>,
     pub(crate) layers: Vec<Grid<PointState>>,
@@ -671,7 +671,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let (nx, ny) = layer.size();
             for x in 0..nx {
                 for y in 0..ny {
-                    if layer[(nx, ny)] == (PointState::Routed { net }) {
+                    if layer[(x, y)] == (PointState::Routed { net }) {
                         return Some(GridCoord { layer: i, x, y });
                     }
                 }
@@ -683,6 +683,24 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     pub(crate) fn is_routed_for_net(&self, coord: GridCoord, net: NetId) -> bool {
         if let PointState::Routed { net: grid_net } = self[coord] {
             self.roots[&net] == self.roots[&grid_net]
+        } else {
+            false
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_available_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        match self[coord] {
+            PointState::Routed { net: grid_net } => self.roots[&net] == self.roots[&grid_net],
+
+            PointState::Available => true,
+            PointState::Blocked => false,
+        }
+    }
+
+    pub(crate) fn forms_new_connection_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        if let PointState::Routed { net: grid_net } = self[coord] {
+            self.roots[&net] == self.roots[&grid_net] && grid_net != net
         } else {
             false
         }
@@ -710,15 +728,18 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                 y: coord.y - 1,
                 ..coord
             };
-            let cost = self.cost(coord, next, net);
-            out.push((next, cost));
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
         }
         if coord.y < layer.size().1 - 1 {
             let next = GridCoord {
                 y: coord.y + 1,
                 ..coord
             };
-            out.push((next, self.cost(coord, next, net)));
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
         }
     }
 
@@ -729,15 +750,18 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                 x: coord.x - 1,
                 ..coord
             };
-            let cost = self.cost(coord, next, net);
-            out.push((next, cost));
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
         }
         if coord.x < layer.size().0 - 1 {
             let next = GridCoord {
                 x: coord.x + 1,
                 ..coord
             };
-            out.push((next, self.cost(coord, next, net)));
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
         }
     }
 
@@ -786,6 +810,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let up = self
                 .grid
                 .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
+            println!("coord = {coord:?}, pp = {pp:?}, dn = {dn:?}, up = {up:?}");
             assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert!(dn.x >= 0 && dn.y >= 0);
@@ -796,7 +821,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     x: dn.x as usize,
                     y: dn.y as usize,
                 };
-                successors.push((next, self.cost(coord, next, net)));
+                if self.is_available_for_net(next, net) {
+                    println!("via up");
+                    successors.push((next, self.cost(coord, next, net)));
+                }
             }
         }
 
@@ -821,7 +849,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     x: dn.x as usize,
                     y: dn.y as usize,
                 };
-                successors.push((next, self.cost(coord, next, net)));
+                if self.is_available_for_net(next, net) {
+                    println!("via down");
+                    successors.push((next, self.cost(coord, next, net)));
+                }
             }
         }
 

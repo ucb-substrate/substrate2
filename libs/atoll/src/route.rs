@@ -20,6 +20,7 @@ pub struct GreedyBfsRouter;
 
 impl Router for GreedyBfsRouter {
     fn route(&self, mut state: RoutingState<PdkLayer>, to_connect: Vec<Vec<NetId>>) -> Vec<Path> {
+        println!("state = {state:?}, to_connect = {to_connect:?}");
         // build roots map
         let mut roots = HashMap::new();
         for seq in to_connect.iter() {
@@ -29,32 +30,30 @@ impl Router for GreedyBfsRouter {
         }
         state.roots = roots;
 
+        let mut paths = Vec::new();
         for group in to_connect.iter() {
             for node in group.iter().skip(1) {
-                let start = state.find(*node).unwrap();
+                let start = match state.find(*node) {
+                    Some(c) => c,
+                    None => {
+                        println!("no starting point found for {node:?}; skipping");
+                        continue;
+                    }
+                };
                 let (path, _) = dijkstra(
                     &start,
                     |s| state.successors(*s, *node),
-                    |s| state.is_routed_for_net(*s, *node),
+                    |s| state.forms_new_connection_for_net(*s, *node),
                 )
                 .expect("no path found");
-                for coord in path {
-                    state[coord] = PointState::Routed { net: *node };
+                for coord in path.iter() {
+                    state[*coord] = PointState::Routed { net: *node };
                 }
+                paths.push(path);
             }
         }
 
-        vec![vec![
-            GridCoord {
-                layer: 0,
-                x: 0,
-                y: 0,
-            },
-            GridCoord {
-                layer: 0,
-                x: 0,
-                y: 4,
-            },
-        ]]
+        println!("paths = {paths:?}");
+        paths
     }
 }
