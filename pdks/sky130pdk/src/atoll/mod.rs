@@ -22,7 +22,7 @@ use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
 use substrate::layout::tracks::{RoundingMode, Tracks};
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
-use substrate::pdk::layers::{HasPin, Layer, LayerId, Layers};
+use substrate::pdk::layers::Layer;
 use substrate::schematic::{ExportsNestedData, Schematic};
 
 impl Sky130Layers {
@@ -371,24 +371,6 @@ impl NmosTile {
     }
 }
 
-#[derive(Layers)]
-pub struct VirtualLayers {
-    #[layer()]
-    body: Body,
-}
-
-impl HasPin for Body {
-    fn drawing(&self) -> LayerId {
-        self.id()
-    }
-    fn pin(&self) -> LayerId {
-        self.id()
-    }
-    fn label(&self) -> LayerId {
-        self.id()
-    }
-}
-
 impl Block for NmosTile {
     type Io = MosTileIo;
     fn id() -> ArcStr {
@@ -419,10 +401,8 @@ impl Layout<Sky130Pdk> for NmosTile {
         let nsdm = nsdm.with_hspan(data.lcm_bbox.hspan().union(nsdm.hspan()));
         cell.draw(Shape::new(cell.ctx.layers.nsdm, nsdm))?;
 
-        let virtual_layers = cell.ctx.install_layers::<VirtualLayers>();
-
-        cell.draw(Shape::new(virtual_layers.body, data.lcm_bbox))?;
-        io.b.push(IoShape::with_layers(virtual_layers.body, data.lcm_bbox));
+        cell.draw(Shape::new(cell.ctx.layers.pwell, data.lcm_bbox))?;
+        io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, data.lcm_bbox));
 
         Ok(())
     }
