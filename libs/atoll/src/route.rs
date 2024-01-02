@@ -21,7 +21,11 @@ pub trait Router {
 pub struct GreedyBfsRouter;
 
 impl Router for GreedyBfsRouter {
-    fn route(&self, mut state: RoutingState<PdkLayer>, to_connect: Vec<Vec<NetId>>) -> Vec<Path> {
+    fn route(
+        &self,
+        mut state: RoutingState<PdkLayer>,
+        mut to_connect: Vec<Vec<NetId>>,
+    ) -> Vec<Path> {
         println!("state = {state:?}, to_connect = {to_connect:?}");
         // build roots map
         let mut roots = HashMap::new();
@@ -32,22 +36,46 @@ impl Router for GreedyBfsRouter {
         }
         state.roots = roots;
 
+        // remove nodes from the to connect list that are not on the grid
+        for group in to_connect.iter_mut() {
+            *group = group
+                .iter()
+                .copied()
+                .filter(|&n| state.find(n).is_some())
+                .collect::<Vec<_>>();
+        }
+
         let mut paths = Vec::new();
         for group in to_connect.iter() {
-            let locs = group.iter().map(|n| state.find(*n).unwrap()).collect::<Vec<_>>();
+            if group.len() <= 1 {
+                // skip empty or one node groups
+                continue;
+            }
+            let locs = group
+                .iter()
+                .map(|n| state.find(*n).unwrap())
+                .collect::<Vec<_>>();
 
             loop {
-                let mut spt = dijkstra_all(
-                    &locs[0],
-                    |s| state.successors(*s, group[0]),
-                );
+                let mut spt = dijkstra_all(&locs[0], |s| state.successors(*s, group[0]));
 
                 // a bit of a hack: insert this now for making the next line easier
                 // remove it when we go to building a path.
                 assert!(!spt.contains_key(&locs[0]));
                 spt.insert(locs[0], (locs[0], 0));
 
-                let nearest_loc = match group.iter().zip(locs.iter()).filter_map(|(node, loc)| if spt[loc].1 == 0 { None } else { Some((spt[loc].1, loc, node)) }).min() {
+                let nearest_loc = match group
+                    .iter()
+                    .zip(locs.iter())
+                    .filter_map(|(node, loc)| {
+                        if spt[loc].1 == 0 {
+                            None
+                        } else {
+                            Some((spt[loc].1, loc, node))
+                        }
+                    })
+                    .min()
+                {
                     None => {
                         // all node fragments have been connected
                         break;
@@ -62,7 +90,6 @@ impl Router for GreedyBfsRouter {
                 }
                 paths.push(path);
             }
-
         }
 
         println!("paths = {paths:?}");
