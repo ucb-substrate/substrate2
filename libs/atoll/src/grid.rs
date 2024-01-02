@@ -712,12 +712,12 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     fn cost(&self, src: GridCoord, dst: GridCoord, net: NetId) -> usize {
         if src.layer == dst.layer {
             if self.is_routed_for_net(src, net) && self.is_routed_for_net(dst, net) {
-                0
+                if self[src] == self[dst] { 0 } else { 1 }
             } else {
-                1
+                4
             }
         } else {
-            1
+            4
         }
     }
 
