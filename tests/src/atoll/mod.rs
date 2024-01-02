@@ -7,7 +7,7 @@ use atoll::{IoBuilder, Tile, TileBuilder, TileWrapper};
 use geometry::point::Point;
 
 use serde::{Deserialize, Serialize};
-use sky130pdk::atoll::{MosLength, NmosTile};
+use sky130pdk::atoll::{MosLength, NmosTile, Sky130ViaMaker};
 use sky130pdk::{Sky130CommercialSchema, Sky130Pdk};
 use spice::netlist::NetlistOptions;
 use spice::Spice;
@@ -161,7 +161,9 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
             instances.push(schematic);
         }
 
+        cell.set_top_layer(2);
         cell.set_router(GreedyBfsRouter);
+        cell.set_via_maker(Sky130ViaMaker);
 
         Ok((instances, ()))
     }

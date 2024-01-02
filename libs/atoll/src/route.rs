@@ -1,9 +1,11 @@
 /// Routing interfaces and implementations.
-use crate::abs::{Abstract, GridCoord};
+use crate::abs::{Abstract, GridCoord, TrackCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
 use pathfinding::prelude::dijkstra;
 use std::collections::HashMap;
+use substrate::layout;
+use substrate::pdk::Pdk;
 
 pub type Path = Vec<GridCoord>;
 
@@ -56,4 +58,12 @@ impl Router for GreedyBfsRouter {
         println!("paths = {paths:?}");
         paths
     }
+}
+
+pub trait ViaMaker<PDK: Pdk> {
+    fn draw_via(
+        &self,
+        cell: &mut layout::CellBuilder<PDK>,
+        track_coord: TrackCoord,
+    ) -> substrate::error::Result<()>;
 }
