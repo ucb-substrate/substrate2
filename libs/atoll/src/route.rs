@@ -26,7 +26,6 @@ impl Router for GreedyBfsRouter {
         mut state: RoutingState<PdkLayer>,
         mut to_connect: Vec<Vec<NetId>>,
     ) -> Vec<Path> {
-        println!("state = {state:?}, to_connect = {to_connect:?}");
         // build roots map
         let mut roots = HashMap::new();
         for seq in to_connect.iter() {
@@ -85,6 +84,9 @@ impl Router for GreedyBfsRouter {
 
                 spt.remove(&locs[0]);
                 let path = build_path(nearest_loc, &spt);
+                if path.len() <= 1 {
+                    panic!("node was unreachable");
+                }
                 for coord in path.iter() {
                     state[*coord] = PointState::Routed { net: group[0] };
                 }
@@ -92,7 +94,6 @@ impl Router for GreedyBfsRouter {
             }
         }
 
-        println!("paths = {paths:?}");
         paths
     }
 }

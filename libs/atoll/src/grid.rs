@@ -710,15 +710,11 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     ///
     /// Important: the two coordinates must be adjacent.
     fn cost(&self, src: GridCoord, dst: GridCoord, net: NetId) -> usize {
-        if src.layer == dst.layer {
-            if self.is_routed_for_net(src, net) && self.is_routed_for_net(dst, net) {
-                if self[src] == self[dst] {
-                    0
-                } else {
-                    1
-                }
+        if self.is_routed_for_net(src, net) && self.is_routed_for_net(dst, net) {
+            if self[src] == self[dst] {
+                0
             } else {
-                4
+                1
             }
         } else {
             4
@@ -814,7 +810,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let up = self
                 .grid
                 .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
-            println!("coord = {coord:?}, pp = {pp:?}, dn = {dn:?}, up = {up:?}");
             assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert!(dn.x >= 0 && dn.y >= 0);
@@ -826,7 +821,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     y: dn.y as usize,
                 };
                 if self.is_available_for_net(next, net) {
-                    println!("via up");
                     successors.push((next, self.cost(coord, next, net)));
                 }
             }
@@ -843,7 +837,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let up = self
                 .grid
                 .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
-            println!("coord = {coord:?}, pp = {pp:?}, dn = {dn:?}, up = {up:?}, interp dir = {interp_dir:?}");
             assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
             assert!(dn.x >= 0 && dn.y >= 0);
@@ -855,7 +848,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     y: dn.y as usize,
                 };
                 if self.is_available_for_net(next, net) {
-                    println!("via down");
                     successors.push((next, self.cost(coord, next, net)));
                 }
             }
