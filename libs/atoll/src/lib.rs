@@ -155,6 +155,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::ops::Deref;
 
+use indexmap::IndexMap;
 use std::sync::Arc;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
@@ -443,7 +444,7 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
 
 /// A builder for ATOLL tiles.
 pub struct TileBuilder<'a, PDK: Pdk + Schema> {
-    nodes: HashMap<Node, NodeInfo>,
+    nodes: IndexMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     schematic: &'a mut schematic::CellBuilder<PDK>,
     layout: &'a mut layout::CellBuilder<PDK>,
@@ -472,7 +473,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         schematic: &'a mut schematic::CellBuilder<PDK>,
         layout: &'a mut layout::CellBuilder<PDK>,
     ) -> Self {
-        let mut nodes = HashMap::new();
+        let mut nodes = IndexMap::new();
         let mut connections = ena::unify::InPlaceUnificationTable::new();
         // todo: fix how layer is provided
         let layer_stack = layout
@@ -749,7 +750,7 @@ where
         let abs = InstanceAbstract::merge(cell.abs, cell.top_layer);
 
         if let Some(router) = cell.router {
-            let mut to_connect = HashMap::new();
+            let mut to_connect = IndexMap::new();
             for (_, info) in cell.nodes {
                 to_connect
                     .entry(cell.connections.find(info.key))
