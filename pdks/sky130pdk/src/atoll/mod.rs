@@ -561,7 +561,7 @@ impl TapTile {
         )
         .expand_all(85);
         let inner = Rect::from_spans(li_hspan, li_vspan);
-        let li = inner.expand_dir(Dir::Vert, 80);
+        let li = inner.expand_dir(Dir::Horiz, 80);
         cell.draw(Shape::new(cell.ctx.layers.li1, li))?;
 
         for x in 0..self.xtracks {
