@@ -4,6 +4,7 @@ use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use crate::abs::GridCoord;
@@ -624,6 +625,11 @@ impl<L> RoutingState<L> {
     }
 }
 
+pub(crate) struct InterlayerTransition {
+    pub(crate) to: GridCoord,
+    pub(crate) requires: Option<GridCoord>,
+}
+
 impl<L: AtollLayer + Clone> RoutingState<L> {
     pub fn new(stack: LayerStack<L>, top: usize, nx: i64, ny: i64) -> Self {
         assert!(nx >= 0);
@@ -692,10 +698,24 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     pub(crate) fn is_available_for_net(&self, coord: GridCoord, net: NetId) -> bool {
         match self[coord] {
             PointState::Routed { net: grid_net } => self.roots[&net] == self.roots[&grid_net],
-
             PointState::Available => true,
             PointState::Blocked => false,
         }
+    }
+
+    #[inline]
+    pub(crate) fn is_available(&self, coord: GridCoord) -> bool {
+        match self[coord] {
+            PointState::Routed { net: grid_net } => false,
+            PointState::Available => true,
+            PointState::Blocked => false,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn in_bounds(&self, coord: GridCoord) -> bool {
+        let (nx, ny) = self.layer(coord.layer).size();
+        coord.x < nx && coord.y < ny
     }
 
     pub(crate) fn forms_new_connection_for_net(&self, coord: GridCoord, net: NetId) -> bool {
@@ -765,6 +785,123 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         }
     }
 
+    pub(crate) fn ilt_down(&self, coord: GridCoord) -> Option<InterlayerTransition> {
+        let routing_dir = self.grid.slice().layer(coord.layer).dir();
+        if coord.layer == 0 {
+            return None;
+        }
+        let next_layer = coord.layer - 1;
+        let interp_dir = !routing_dir.track_dir();
+        let pp = self.grid_to_rel_physical(coord);
+        let nearest_grid =
+            self.grid
+                .point_to_grid(pp, next_layer, RoundingMode::Nearest, RoundingMode::Nearest);
+        assert_eq!(
+            nearest_grid.coord(!interp_dir),
+            coord.coord(!interp_dir) as i64
+        );
+        assert!(nearest_grid.x >= 0);
+        assert!(nearest_grid.y >= 0);
+
+        let lower_tracks = self.grid.tracks(self.grid.grid_defining_layer(next_layer));
+        let upper_tracks = self.grid.tracks(coord.layer);
+        let curr = upper_tracks.track(coord.coord(interp_dir) as i64).center();
+        let nearest = lower_tracks.track(nearest_grid.coord(interp_dir)).center();
+
+        let next = GridCoord {
+            layer: next_layer,
+            x: nearest_grid.x as usize,
+            y: nearest_grid.y as usize,
+        };
+
+        match curr.cmp(&nearest) {
+            Ordering::Less => {
+                // need to check if coordinate+1 is available
+                let ck = next.with_coord(interp_dir, next.coord(interp_dir) - 1);
+                if !self.in_bounds(ck) {
+                    return None;
+                }
+                Some(InterlayerTransition {
+                    to: next,
+                    requires: Some(ck),
+                })
+            }
+            Ordering::Equal => Some(InterlayerTransition {
+                to: next,
+                requires: None,
+            }),
+            Ordering::Greater => {
+                if coord.coord(interp_dir) > 0 {
+                    let ck = next.with_coord(interp_dir, next.coord(interp_dir) + 1);
+                    Some(InterlayerTransition {
+                        to: next,
+                        requires: Some(ck),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+    pub(crate) fn ilt_up(&self, coord: GridCoord) -> Option<InterlayerTransition> {
+        let routing_dir = self.grid.slice().layer(coord.layer).dir();
+        let next_layer = coord.layer + 1;
+        if next_layer >= self.grid.end {
+            return None;
+        }
+        let interp_dir = routing_dir.track_dir();
+        let pp = self.grid_to_rel_physical(coord);
+        let nearest_grid =
+            self.grid
+                .point_to_grid(pp, next_layer, RoundingMode::Nearest, RoundingMode::Nearest);
+        assert_eq!(
+            nearest_grid.coord(!interp_dir),
+            coord.coord(!interp_dir) as i64
+        );
+        assert!(nearest_grid.x >= 0);
+        assert!(nearest_grid.y >= 0);
+
+        let lower_tracks = self.grid.tracks(self.grid.grid_defining_layer(coord.layer));
+        let upper_tracks = self.grid.tracks(next_layer);
+        let curr = lower_tracks.track(coord.coord(interp_dir) as i64).center();
+        let nearest = upper_tracks.track(nearest_grid.coord(interp_dir)).center();
+
+        let next = GridCoord {
+            layer: next_layer,
+            x: nearest_grid.x as usize,
+            y: nearest_grid.y as usize,
+        };
+
+        match curr.cmp(&nearest) {
+            Ordering::Less => {
+                // need to check if coordinate+1 is available
+                let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) + 1);
+                if !self.in_bounds(ck) {
+                    return None;
+                }
+                Some(InterlayerTransition {
+                    to: next,
+                    requires: Some(ck),
+                })
+            }
+            Ordering::Equal => Some(InterlayerTransition {
+                to: next,
+                requires: None,
+            }),
+            Ordering::Greater => {
+                if coord.coord(interp_dir) > 0 {
+                    let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) - 1);
+                    Some(InterlayerTransition {
+                        to: next,
+                        requires: Some(ck),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     /// The set of points reachable from `coord`.
     ///
     /// M0 <-> M1 vias are always easy, since both layers have the same grid.
@@ -799,56 +936,12 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             }
         }
 
-        // via up
-        let next_layer = coord.layer + 1;
-        if next_layer < self.grid.end {
-            let interp_dir = routing_dir.track_dir();
-            let pp = self.grid_to_rel_physical(coord);
-            let dn =
-                self.grid
-                    .point_to_grid(pp, next_layer, RoundingMode::Down, RoundingMode::Down);
-            let up = self
-                .grid
-                .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
-            assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
-            assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
-            assert!(dn.x >= 0 && dn.y >= 0);
-            assert!(up.x >= 0 && up.y >= 0);
-            if dn == up {
-                let next = GridCoord {
-                    layer: next_layer,
-                    x: dn.x as usize,
-                    y: dn.y as usize,
-                };
-                if self.is_available_for_net(next, net) {
-                    successors.push((next, self.cost(coord, next, net)));
-                }
-            }
-        }
-
-        // via down
-        if coord.layer > 0 {
-            let next_layer = coord.layer - 1;
-            let interp_dir = !routing_dir.track_dir();
-            let pp = self.grid_to_rel_physical(coord);
-            let dn =
-                self.grid
-                    .point_to_grid(pp, next_layer, RoundingMode::Down, RoundingMode::Down);
-            let up = self
-                .grid
-                .point_to_grid(pp, next_layer, RoundingMode::Up, RoundingMode::Up);
-            assert_eq!(dn.coord(!interp_dir), coord.coord(!interp_dir) as i64);
-            assert_eq!(up.coord(!interp_dir), coord.coord(!interp_dir) as i64);
-            assert!(dn.x >= 0 && dn.y >= 0);
-            assert!(up.x >= 0 && up.y >= 0);
-            if dn == up {
-                let next = GridCoord {
-                    layer: next_layer,
-                    x: dn.x as usize,
-                    y: dn.y as usize,
-                };
-                if self.is_available_for_net(next, net) {
-                    successors.push((next, self.cost(coord, next, net)));
+        for ilt in [self.ilt_up(coord), self.ilt_down(coord)] {
+            if let Some(ilt) = ilt {
+                if self.is_available_for_net(ilt.to, net)
+                    && ilt.requires.map(|n| self.is_available(n)).unwrap_or(true)
+                {
+                    successors.push((ilt.to, self.cost(coord, ilt.to, net)));
                 }
             }
         }

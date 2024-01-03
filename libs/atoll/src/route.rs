@@ -90,6 +90,19 @@ impl Router for GreedyBfsRouter {
                 for coord in path.iter() {
                     state[*coord] = PointState::Routed { net: group[0] };
                 }
+                for x in path.windows(2) {
+                    if x[0].layer < x[1].layer {
+                        let ilt = state.ilt_up(x[0]).unwrap();
+                        if let Some(requires) = ilt.requires {
+                            state[requires] = PointState::Blocked;
+                        }
+                    } else if x[0].layer > x[1].layer {
+                        let ilt = state.ilt_down(x[0]).unwrap();
+                        if let Some(requires) = ilt.requires {
+                            state[requires] = PointState::Blocked;
+                        }
+                    }
+                }
                 paths.push(path);
             }
         }
