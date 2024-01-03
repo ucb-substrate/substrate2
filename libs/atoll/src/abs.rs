@@ -1,6 +1,6 @@
 //! Generate abstract views of layout cells.
 use crate::grid::{AtollLayer, LayerSlice, LayerStack, PdkLayer, RoutingGrid, RoutingState};
-use crate::{NetId, Orientation, PointState};
+use crate::{AssignedGridPoints, NetId, Orientation, PointState};
 use grid::Grid;
 use num::integer::{div_ceil, div_floor};
 use serde::{Deserialize, Serialize};
@@ -297,7 +297,12 @@ impl InstanceAbstract {
         self.abs.lcm_bounds
     }
 
-    pub fn merge(mut abstracts: Vec<Self>, mut top_layer: usize, ports: Vec<NetId>) -> Abstract {
+    pub fn merge(
+        mut abstracts: Vec<Self>,
+        mut top_layer: usize,
+        ports: Vec<NetId>,
+        assigned_grid_points: Vec<AssignedGridPoints>,
+    ) -> Abstract {
         assert!(!abstracts.is_empty());
 
         for abs in &abstracts {
@@ -393,7 +398,34 @@ impl InstanceAbstract {
             }
         }
 
-        // todo: handle ports
+        println!("{:?}", ports);
+        for AssignedGridPoints { net, layer, bounds } in assigned_grid_points {
+            println!("{:?} {} {:?}", net, layer, bounds);
+            let pdk_layer = grid.stack.layer(layer);
+            let defining_layer = grid.stack.layer(grid.grid_defining_layer(layer));
+            let parallel_pitch = pdk_layer.pitch();
+            let perp_pitch = defining_layer.pitch();
+
+            let (xpitch, ypitch) = match pdk_layer.dir().track_dir() {
+                Dir::Horiz => (perp_pitch, parallel_pitch),
+                Dir::Vert => (parallel_pitch, perp_pitch),
+            };
+
+            let lcm_xpitch = grid.slice().lcm_unit_width();
+            let lcm_ypitch = grid.slice().lcm_unit_height();
+
+            let left = bounds.left() - new_bounds.left() * lcm_xpitch / xpitch;
+
+            let bot = bounds.bot() - new_bounds.bot() * lcm_ypitch / ypitch;
+
+            for i in left..=left + bounds.width() {
+                for j in bot..=bot + bounds.height() {
+                    println!("{} {}", i, j);
+                    state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed { net }
+                }
+            }
+        }
+
         Abstract {
             top_layer,
             lcm_bounds: new_bounds,
