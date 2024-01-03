@@ -661,7 +661,7 @@ impl Layout<Sky130Pdk> for NtapTile {
         let nwell = data.tap.expand_all(180);
         let nwell = nwell
             .with_hspan(data.lcm_bbox.hspan().union(nwell.hspan()))
-            .with_vspan(data.lcm_bbox.vspan());
+            .with_vspan(data.lcm_bbox.vspan().union(nwell.vspan()));
         cell.draw(Shape::new(cell.ctx.layers.nwell, nwell))?;
 
         Ok(())
