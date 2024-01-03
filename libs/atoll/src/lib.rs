@@ -305,7 +305,7 @@ impl UnifyKey for NodeKey {
 #[derive(Clone, Debug)]
 struct NodeInfo {
     key: NodeKey,
-    nets: Vec<NetId>,
+    net: NetId,
 }
 
 /// The orientation of an instance.
@@ -455,29 +455,55 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AssignedGridPoints {
+    pub(crate) net: NetId,
+    pub(crate) layer: usize,
+    pub(crate) bounds: Rect,
+}
+
 /// A builder for ATOLL tiles.
 pub struct TileBuilder<'a, PDK: Pdk + Schema> {
     nodes: IndexMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     schematic: &'a mut schematic::CellBuilder<PDK>,
     layout: &'a mut layout::CellBuilder<PDK>,
-    layer_stack: Arc<LayerStack<PdkLayer>>,
+    pub layer_stack: Arc<LayerStack<PdkLayer>>,
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
+    assigned_nets: Vec<AssignedGridPoints>,
     top_layer: usize,
     next_net_id: usize,
     router: Option<Arc<dyn Router>>,
     via_maker: Option<Arc<dyn ViaMaker<PDK>>>,
 }
 
+/// A drawn ATOLL instance.
+pub struct DrawnInstance<T: ExportsNestedData + ExportsLayoutData> {
+    /// The underlying Substrate schematic instance.
+    pub schematic: schematic::Instance<T>,
+    /// The underlying Substrate layout instance.
+    pub layout: layout::Instance<T>,
+}
+
 impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     fn register_bundle<T: Flatten<Node>>(&mut self, bundle: &T) {
         let nodes: Vec<Node> = bundle.flatten_vec();
         let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
+
+        let net_ids: Vec<_> = (0..nodes.len())
+            .map(|_| {
+                self.next_net_id += 1;
+                NetId(self.next_net_id)
+            })
+            .collect();
+
         self.nodes.extend(
-            nodes
-                .into_iter()
-                .zip(keys.into_iter().map(|key| NodeInfo { key, nets: vec![] })),
+            nodes.into_iter().zip(
+                keys.into_iter()
+                    .zip(net_ids.into_iter())
+                    .map(|(key, net)| NodeInfo { key, net }),
+            ),
         );
     }
 
@@ -502,6 +528,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             layer_stack,
             top_layer: 0,
             abs: Vec::new(),
+            assigned_nets: Vec::new(),
             next_net_id: 0,
             router: None,
             via_maker: None,
@@ -549,26 +576,25 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         }
     }
 
+    fn generate_net_id(&mut self) -> NetId {
+        let ret = NetId(self.next_net_id);
+        self.next_net_id += 1;
+        ret
+    }
+
     /// Draws an ATOLL instance in layout.
     pub fn draw<B: ExportsNestedData + Layout<PDK>>(
         &mut self,
         instance: Instance<B>,
-    ) -> substrate::error::Result<(schematic::Instance<B>, layout::Instance<B>)> {
+    ) -> substrate::error::Result<DrawnInstance<B>> {
         let physical_loc = instance.physical_loc();
 
-        let parent_net_ids: Vec<_> = (0..instance.io().len())
-            .map(|_| {
-                self.next_net_id += 1;
-                NetId(self.next_net_id)
-            })
-            .collect();
-
-        instance
+        let parent_net_ids = instance
             .io()
             .flatten_vec()
             .iter()
-            .zip(parent_net_ids.iter())
-            .for_each(|(node, net)| self.nodes.get_mut(node).unwrap().nets.push(*net));
+            .map(|node| self.nodes.get_mut(node).unwrap().net)
+            .collect();
 
         self.set_top_layer(instance.abs.top_layer);
 
@@ -592,7 +618,10 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         );
         self.layout.draw(layout.clone())?;
 
-        Ok((instance.schematic, layout))
+        Ok(DrawnInstance {
+            schematic: instance.schematic,
+            layout,
+        })
     }
 
     /// Connect all signals in the given data instances.
@@ -621,18 +650,19 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     ) -> <TY as io::schematic::HardwareType>::Bundle {
         let bundle = self.schematic.signal(name, ty);
 
-        let nodes: Vec<Node> = bundle.flatten_vec();
-        let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
-        self.nodes.extend(
-            nodes
-                .into_iter()
-                .zip(keys.into_iter().map(|key| NodeInfo { key, nets: vec![] })),
-        );
+        self.register_bundle(&bundle);
 
         bundle
     }
 
     // todo: add function for matching geometry
+    pub fn assign_grid_points(&mut self, node: Node, layer: usize, bounds: Rect) {
+        self.assigned_nets.push(AssignedGridPoints {
+            net: self.nodes[&node].net,
+            layer,
+            bounds,
+        })
+    }
 
     /// Gets the global context.
     pub fn ctx(&self) -> &PdkContext<PDK> {
@@ -760,7 +790,12 @@ where
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
         let (_, layout_data) = <T as Tile<PDK>>::tile(&self.0, io, &mut cell)?;
 
-        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer, Vec::new());
+        let port_ids = schematic_io
+            .flatten_vec()
+            .iter()
+            .map(|node| cell.nodes[node].net)
+            .collect();
+        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer, port_ids, cell.assigned_nets);
 
         if let Some(router) = cell.router {
             let mut to_connect = IndexMap::new();
@@ -768,7 +803,7 @@ where
                 to_connect
                     .entry(cell.connections.find(info.key))
                     .or_insert(Vec::new())
-                    .extend(info.nets);
+                    .push(info.net);
             }
             let to_connect: Vec<_> = to_connect.into_values().collect();
             let paths = router.route(abs.routing_state(), to_connect);
