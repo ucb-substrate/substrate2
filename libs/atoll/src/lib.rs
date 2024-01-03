@@ -165,7 +165,7 @@ use substrate::geometry::polygon::Polygon;
 use substrate::geometry::prelude::{Bbox, Dir, Point};
 use substrate::geometry::transform::{TransformMut, Transformation, Translate, TranslateMut};
 use substrate::io::layout::{Builder, PortGeometry};
-use substrate::io::schematic::{Bundle, Connect, Node, TerminalView};
+use substrate::io::schematic::{Bundle, Connect, HardwareType, IsBundle, Node, TerminalView};
 use substrate::io::{FlatLen, Flatten};
 use substrate::layout::element::Shape;
 
@@ -557,6 +557,22 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             loc: Default::default(),
             orientation: Default::default(),
         }
+    }
+
+    /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
+    /// and [`Layout`].
+    pub fn generate_primitive_connected<B: Clone + Schematic<PDK> + Layout<PDK>, C: IsBundle>(
+        &mut self,
+        block: B,
+        io: C,
+    ) -> Instance<B>
+    where
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
+    {
+        let inst = self.generate_primitive(block);
+        self.connect(inst.io(), io);
+
+        inst
     }
 
     /// Generates an ATOLL instance from a block that implements [`Tile`].

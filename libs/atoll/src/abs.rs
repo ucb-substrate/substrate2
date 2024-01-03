@@ -412,9 +412,7 @@ impl InstanceAbstract {
             }
         }
 
-        println!("{:?}", ports);
         for AssignedGridPoints { net, layer, bounds } in assigned_grid_points {
-            println!("{:?} {} {:?}", net, layer, bounds);
             let pdk_layer = grid.stack.layer(layer);
             let defining_layer = grid.stack.layer(grid.grid_defining_layer(layer));
             let parallel_pitch = pdk_layer.pitch();
@@ -434,7 +432,6 @@ impl InstanceAbstract {
 
             for i in left..=left + bounds.width() {
                 for j in bot..=bot + bounds.height() {
-                    println!("{} {}", i, j);
                     state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed { net }
                 }
             }
