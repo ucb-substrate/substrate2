@@ -50,12 +50,13 @@ impl Router for GreedyBfsRouter {
                 // skip empty or one node groups
                 continue;
             }
-            let locs = group
-                .iter()
-                .map(|n| state.find(*n).unwrap())
-                .collect::<Vec<_>>();
 
             loop {
+                let locs = group
+                    .iter()
+                    .filter_map(|n| state.find(*n))
+                    .collect::<Vec<_>>();
+
                 let mut spt = dijkstra_all(&locs[0], |s| state.successors(*s, group[0]));
 
                 // a bit of a hack: insert this now for making the next line easier
@@ -63,10 +64,16 @@ impl Router for GreedyBfsRouter {
                 assert!(!spt.contains_key(&locs[0]));
                 spt.insert(locs[0], (locs[0], 0));
 
-                let nearest_loc = match group
+                let (cost, nearest_loc, node) = match group
                     .iter()
                     .zip(locs.iter())
                     .filter_map(|(node, loc)| {
+                        if !spt.contains_key(loc) {
+                            panic!(
+                                "node {node:?} (group {:?}) was unreachable for state {state:#?}",
+                                group[0]
+                            );
+                        }
                         if spt[loc].1 == 0 {
                             None
                         } else {
@@ -79,7 +86,7 @@ impl Router for GreedyBfsRouter {
                         // all node fragments have been connected
                         break;
                     }
-                    Some((_, loc, _)) => loc,
+                    Some(x) => x,
                 };
 
                 spt.remove(&locs[0]);
@@ -94,12 +101,12 @@ impl Router for GreedyBfsRouter {
                     if x[0].layer < x[1].layer {
                         let ilt = state.ilt_up(x[0]).unwrap();
                         if let Some(requires) = ilt.requires {
-                            state[requires] = PointState::Blocked;
+                            state[requires] = PointState::Reserved { net: group[0] };
                         }
                     } else if x[0].layer > x[1].layer {
                         let ilt = state.ilt_down(x[0]).unwrap();
                         if let Some(requires) = ilt.requires {
-                            state[requires] = PointState::Blocked;
+                            state[requires] = PointState::Reserved { net: group[0] };
                         }
                     }
                 }

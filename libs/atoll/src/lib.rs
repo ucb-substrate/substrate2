@@ -204,6 +204,17 @@ pub enum PointState {
         /// The net occupying this routing space.
         net: NetId,
     },
+    /// The grid point is reserved for a known net.
+    ///
+    /// This means the net may or may not be physically routed on this grid point,
+    /// but that no other net can occupy the grid point.
+    ///
+    /// A net can make an interlayer transition if it has reserved grid points
+    /// adjacent to unaligned transitions.
+    Reserved {
+        /// The net reserving this routing space.
+        net: NetId,
+    },
 }
 
 impl PointState {
@@ -213,6 +224,7 @@ impl PointState {
             Self::Available => true,
             Self::Routed { net: n, .. } => *n == net,
             Self::Blocked => false,
+            PointState::Reserved { .. } => false, // todo might need to change this
         }
     }
 
@@ -221,6 +233,7 @@ impl PointState {
             Self::Available => false,
             Self::Routed { net: n, .. } => *n == net,
             Self::Blocked => false,
+            PointState::Reserved { .. } => false,
         }
     }
 }

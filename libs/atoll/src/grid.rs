@@ -697,9 +697,20 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     #[inline]
     pub(crate) fn is_available_for_net(&self, coord: GridCoord, net: NetId) -> bool {
         match self[coord] {
-            PointState::Routed { net: grid_net } => self.roots[&net] == self.roots[&grid_net],
+            PointState::Routed { net: grid_net } => self.roots[&grid_net] == self.roots[&net],
             PointState::Available => true,
             PointState::Blocked => false,
+            PointState::Reserved { .. } => false,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_available_or_reserved_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        match self[coord] {
+            PointState::Routed { .. } => false,
+            PointState::Available => true,
+            PointState::Blocked => false,
+            PointState::Reserved { net: grid_net } => self.roots[&net] == self.roots[&grid_net],
         }
     }
 
@@ -709,6 +720,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             PointState::Routed { net: grid_net } => false,
             PointState::Available => true,
             PointState::Blocked => false,
+            PointState::Reserved { .. } => false,
         }
     }
 
@@ -737,7 +749,11 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                 1
             }
         } else {
-            4
+            if src.layer != dst.layer {
+                8
+            } else {
+                4
+            }
         }
     }
 
@@ -939,7 +955,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         for ilt in [self.ilt_up(coord), self.ilt_down(coord)] {
             if let Some(ilt) = ilt {
                 if self.is_available_for_net(ilt.to, net)
-                    && ilt.requires.map(|n| self.is_available(n)).unwrap_or(true)
+                    && ilt
+                        .requires
+                        .map(|n| self.is_available_or_reserved_for_net(n, net))
+                        .unwrap_or(true)
                 {
                     successors.push((ilt.to, self.cost(coord, ilt.to, net)));
                 }
@@ -964,9 +983,8 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
 mod tests {
     use crate::grid::*;
 
-    #[test]
-    fn lcm_units() {
-        let layers = LayerStack {
+    fn layer_stack() -> LayerStack<AbstractLayer> {
+        LayerStack {
             layers: vec![
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
@@ -999,8 +1017,12 @@ mod tests {
             ],
             offset_x: 0,
             offset_y: 0,
-        };
+        }
+    }
 
+    #[test]
+    fn lcm_units() {
+        let layers = layer_stack();
         let slice = layers.all();
         assert_eq!(slice.lcm_unit(Dir::Horiz), 4_800);
         assert_eq!(slice.lcm_unit(Dir::Vert), 600);

@@ -393,6 +393,12 @@ impl InstanceAbstract {
                                             net: net_translation[&net],
                                         };
                                     }
+                                    PointState::Reserved { net } => {
+                                        assert_eq!(point_state, &PointState::Available);
+                                        *point_state = PointState::Reserved {
+                                            net: net_translation[&net],
+                                        };
+                                    }
                                 }
                             }
                         }
@@ -518,6 +524,7 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                                 PointState::Available => Rect::from_point(pt).expand_all(20),
                                 PointState::Blocked => Rect::from_point(pt).expand_all(40),
                                 PointState::Routed { .. } => Rect::from_point(pt).expand_all(30),
+                                PointState::Reserved { .. } => Rect::from_point(pt).expand_all(35),
                             };
                             recv.draw(Shape::new(layer_id, rect))?;
                             let text = Text::new(
