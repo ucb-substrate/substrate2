@@ -55,6 +55,14 @@ impl GridCoord {
             Dir::Vert => self.y,
         }
     }
+
+    /// Set the coordinate along `dir` to `coord`, and return a copy of this `GridCoord`.
+    pub fn with_coord(&self, dir: Dir, coord: usize) -> Self {
+        match dir {
+            Dir::Horiz => Self { x: coord, ..*self },
+            Dir::Vert => Self { y: coord, ..*self },
+        }
+    }
 }
 
 /// The abstract view of an ATOLL tile.
