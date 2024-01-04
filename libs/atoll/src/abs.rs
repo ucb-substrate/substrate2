@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
-use substrate::geometry::transform::{Transformation, Translate, TranslateMut};
+use substrate::geometry::transform::{Transformation, TranslateMut};
 use substrate::layout::element::Text;
 
 use substrate::context::PdkContext;
@@ -25,21 +25,30 @@ use substrate::pdk::Pdk;
 use substrate::schematic::ExportsNestedData;
 use substrate::{arcstr, layout};
 
+/// An absolute coordinate referencing the defining tracks of a layer.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct TrackCoord {
+    /// The layer.
     pub layer: usize,
+    /// The x-coordinate.
     pub x: i64,
+    /// The y-coordinate.
     pub y: i64,
 }
 
+/// A coordinate within a grid (relative to the lower-left corner of the LCM bounds).
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct GridCoord {
+    /// The layer.
     pub layer: usize,
+    /// The x-coordinate.
     pub x: usize,
+    /// The y-coordinate.
     pub y: usize,
 }
 
 impl TrackCoord {
+    /// Returns the coordinate in the given direction.
     pub fn coord(&self, dir: Dir) -> i64 {
         match dir {
             Dir::Horiz => self.x,
@@ -49,6 +58,7 @@ impl TrackCoord {
 }
 
 impl GridCoord {
+    /// Returns the coordinate in the given direction.
     pub fn coord(&self, dir: Dir) -> usize {
         match dir {
             Dir::Horiz => self.x,
@@ -104,6 +114,7 @@ pub struct Abstract {
 }
 
 impl Abstract {
+    /// Returns the physical bounds of this abstract.
     pub fn physical_bounds(&self) -> Rect {
         let slice = self.slice();
         let w = slice.lcm_unit_width();
@@ -116,6 +127,7 @@ impl Abstract {
         )
     }
 
+    /// Returns a [`RoutingState`] corresponding to this abstract.
     pub fn routing_state(&self) -> RoutingState<PdkLayer> {
         let mut state = RoutingState::new(
             self.grid.stack.clone(),
@@ -196,6 +208,8 @@ impl Abstract {
         self.grid.slice()
     }
 
+    /// Returns the physical origin of this abstract (i.e. the physical coordinates
+    /// of its lower left corner.
     pub fn physical_origin(&self) -> Point {
         self.lcm_bounds.lower_left() * self.slice().lcm_units()
     }
@@ -272,6 +286,7 @@ impl Abstract {
     }
 }
 
+/// An abstract of an instance.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct InstanceAbstract {
     // todo: Arc and have instances reference same abstract if corresponding to same cell.
@@ -297,16 +312,18 @@ impl InstanceAbstract {
 }
 
 impl InstanceAbstract {
+    /// Returns the physical bounds of this instance.
     pub fn physical_bounds(&self) -> Rect {
         self.abs.physical_bounds()
     }
 
+    /// Returns the LCM bounds of this instance.
     pub fn lcm_bounds(&self) -> Rect {
         self.abs.lcm_bounds
     }
 
-    pub fn merge(
-        mut abstracts: Vec<Self>,
+    pub(crate) fn merge(
+        abstracts: Vec<Self>,
         mut top_layer: usize,
         ports: Vec<NetId>,
         assigned_grid_points: Vec<AssignedGridPoints>,
@@ -363,7 +380,7 @@ impl InstanceAbstract {
                         let point_state = &mut state.layer_mut(i)[(x as usize, y as usize)];
                         match &inst.abs.layers[i] {
                             LayerAbstract::Available => {}
-                            abs @ LayerAbstract::Blocked => {
+                            LayerAbstract::Blocked => {
                                 assert_eq!(point_state, &PointState::Available);
                                 *point_state = PointState::Blocked;
                             }
@@ -412,9 +429,7 @@ impl InstanceAbstract {
             }
         }
 
-        println!("{:?}", ports);
         for AssignedGridPoints { net, layer, bounds } in assigned_grid_points {
-            println!("{:?} {} {:?}", net, layer, bounds);
             let pdk_layer = grid.stack.layer(layer);
             let defining_layer = grid.stack.layer(grid.grid_defining_layer(layer));
             let parallel_pitch = pdk_layer.pitch();
@@ -434,7 +449,6 @@ impl InstanceAbstract {
 
             for i in left..=left + bounds.width() {
                 for j in bot..=bot + bounds.height() {
-                    println!("{} {}", i, j);
                     state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed { net }
                 }
             }
@@ -464,7 +478,10 @@ pub enum LayerAbstract {
     /// No routing on this layer is permitted.
     Blocked,
     /// The layer is available for routing and exposes the state of each point on the routing grid.
-    Detailed { states: Grid<PointState> },
+    Detailed {
+        /// The state of the layer's grid points.
+        states: Grid<PointState>,
+    },
 }
 
 fn top_layer(cell: &RawCell, stack: &LayerStack<PdkLayer>) -> Option<usize> {
@@ -503,9 +520,12 @@ fn top_layer_inner(
     top
 }
 
+/// A block that writes an abstract to a layout.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DebugAbstract {
+    /// The abstract to be written.
     pub abs: Abstract,
+    /// The layer stack corresponding to the abstract.
     pub stack: LayerStack<PdkLayer>,
 }
 

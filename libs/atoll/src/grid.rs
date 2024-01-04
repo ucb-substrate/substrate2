@@ -221,6 +221,7 @@ impl<L: AtollLayer> LayerStack<L> {
 }
 
 impl LayerStack<PdkLayer> {
+    /// Returns the index corresponding to the given [`LayerId`].
     pub fn layer_idx(&self, id: LayerId) -> Option<usize> {
         for (i, layer) in self.layers.iter().enumerate() {
             if layer.id == id {
@@ -324,6 +325,7 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
 /// For that functionality, see [`RoutingState`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RoutingGrid<L> {
+    /// The layer stack.
     pub stack: LayerStack<L>,
     /// The start layer (inclusive)
     start: usize,
@@ -417,6 +419,8 @@ impl<L: AtollLayer> RoutingGrid<L> {
         )
     }
 
+    /// Returns the physical coordinates of the grid point defined by the given `track` and `cross_track`
+    /// on layer `layer`, where `track` is the track on `layer` and `cross_track` is a perpendicular track.
     pub fn track_point(&self, layer: usize, track: i64, cross_track: i64) -> Point {
         let tracks = self.stack.tracks(layer);
         let cross_tracks = self.stack.tracks(self.grid_defining_layer(layer));
@@ -427,6 +431,8 @@ impl<L: AtollLayer> RoutingGrid<L> {
         Point::from_dir_coords(self.stack.layer(layer).dir().track_dir(), cross, track)
     }
 
+    /// Returns the physical coordinates of the grid point defined by the given `x_track` and `y_track`
+    /// on layer `layer`.
     pub fn xy_track_point(&self, layer: usize, x_track: i64, y_track: i64) -> Point {
         let tracks = self.stack.tracks(layer);
         let gdl_tracks = self.stack.tracks(self.grid_defining_layer(layer));
@@ -522,6 +528,7 @@ impl<L: AtollLayer> RoutingGrid<L> {
     }
 
     /// The number of PDK units in one grid coordinate in the given direction on this layer.
+    #[allow(dead_code)]
     pub(crate) fn dir_pitch(&self, layer: usize, dir: Dir) -> i64 {
         match dir {
             Dir::Horiz => self.xpitch(layer),
@@ -616,10 +623,12 @@ impl<L> IndexMut<GridCoord> for RoutingState<L> {
 }
 
 impl<L> RoutingState<L> {
+    /// Returns a reference to a layer's state.
     pub fn layer(&self, layer: usize) -> &Grid<PointState> {
         &self.layers[layer]
     }
 
+    /// Returns a mutable reference to a layer's state.
     pub fn layer_mut(&mut self, layer: usize) -> &mut Grid<PointState> {
         &mut self.layers[layer]
     }
@@ -631,6 +640,7 @@ pub(crate) struct InterlayerTransition {
 }
 
 impl<L: AtollLayer + Clone> RoutingState<L> {
+    /// Creates a new [`RoutingState`].
     pub fn new(stack: LayerStack<L>, top: usize, nx: i64, ny: i64) -> Self {
         assert!(nx >= 0);
         assert!(ny >= 0);
@@ -683,7 +693,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                 }
             }
         }
-        return None;
+        None
     }
 
     pub(crate) fn is_routed_for_net(&self, coord: GridCoord, net: NetId) -> bool {
@@ -715,9 +725,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub(crate) fn is_available(&self, coord: GridCoord) -> bool {
         match self[coord] {
-            PointState::Routed { net: grid_net } => false,
+            PointState::Routed { .. } => false,
             PointState::Available => true,
             PointState::Blocked => false,
             PointState::Reserved { .. } => false,
@@ -730,6 +741,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         coord.x < nx && coord.y < ny
     }
 
+    #[allow(dead_code)]
     pub(crate) fn forms_new_connection_for_net(&self, coord: GridCoord, net: NetId) -> bool {
         if let PointState::Routed { net: grid_net } = self[coord] {
             self.roots[&net] == self.roots[&grid_net] && grid_net != net
@@ -748,12 +760,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             } else {
                 1
             }
+        } else if src.layer != dst.layer {
+            6
         } else {
-            if src.layer != dst.layer {
-                6
-            } else {
-                4
-            }
+            4
         }
     }
 
@@ -935,7 +945,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     /// * Otherwise, we report a successor to the track with a closer physical coordinate, assuming
     /// the farther coordinate is unobstructed.
     pub fn successors(&self, coord: GridCoord, net: NetId) -> Vec<(GridCoord, usize)> {
-        let layer = self.layer(coord.layer);
         let mut successors = Vec::new();
         let routing_dir = self.grid.slice().layer(coord.layer).dir();
 
@@ -952,16 +961,17 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             }
         }
 
-        for ilt in [self.ilt_up(coord), self.ilt_down(coord)] {
-            if let Some(ilt) = ilt {
-                if self.is_available_for_net(ilt.to, net)
-                    && ilt
-                        .requires
-                        .map(|n| self.is_available_or_reserved_for_net(n, net))
-                        .unwrap_or(true)
-                {
-                    successors.push((ilt.to, self.cost(coord, ilt.to, net)));
-                }
+        for ilt in [self.ilt_up(coord), self.ilt_down(coord)]
+            .into_iter()
+            .flatten()
+        {
+            if self.is_available_for_net(ilt.to, net)
+                && ilt
+                    .requires
+                    .map(|n| self.is_available_or_reserved_for_net(n, net))
+                    .unwrap_or(true)
+            {
+                successors.push((ilt.to, self.cost(coord, ilt.to, net)));
             }
         }
 

@@ -99,6 +99,7 @@ impl Sky130Layers {
     }
 }
 
+/// A [`ViaMaker`] for SKY 130's ATOLL layer stack.
 pub struct Sky130ViaMaker;
 
 impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
@@ -608,6 +609,7 @@ impl NtapTile {
 /// The IO of an [`NtapTile`].
 #[derive(Io, Clone, Default, Debug)]
 pub struct NtapIo {
+    /// The n-well net.
     pub vpb: InOut<Signal>,
 }
 
@@ -689,6 +691,7 @@ impl PtapTile {
 /// The IO of a [`PtapTile`].
 #[derive(Io, Clone, Default, Debug)]
 pub struct PtapIo {
+    /// The p-well net.
     pub vnb: InOut<Signal>,
 }
 

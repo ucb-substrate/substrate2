@@ -2,7 +2,7 @@ use crate::paths::get_path;
 use crate::shared::pdk::sky130_open_ctx;
 use atoll::abs::{Abstract, DebugAbstract};
 use atoll::grid::{LayerStack, PdkLayer};
-use atoll::route::GreedyBfsRouter;
+use atoll::route::GreedyRouter;
 use atoll::{DrawnInstance, IoBuilder, Tile, TileBuilder, TileWrapper};
 use geometry::point::Point;
 
@@ -162,7 +162,7 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
         }
 
         cell.set_top_layer(2);
-        cell.set_router(GreedyBfsRouter);
+        cell.set_router(GreedyRouter);
         cell.set_via_maker(Sky130ViaMaker);
 
         Ok((instances, ()))
