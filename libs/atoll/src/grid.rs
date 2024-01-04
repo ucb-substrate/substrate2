@@ -750,7 +750,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             }
         } else {
             if src.layer != dst.layer {
-                8
+                6
             } else {
                 4
             }
