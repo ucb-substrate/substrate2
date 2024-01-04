@@ -146,13 +146,12 @@ pub mod abs;
 pub mod grid;
 pub mod route;
 
-use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
+use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::{Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::HashMap;
 use std::ops::Deref;
 
 use indexmap::IndexMap;
@@ -161,18 +160,17 @@ use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::context::{prepare_cell_builder, PdkContext};
 use substrate::geometry::corner::Corner;
-use substrate::geometry::polygon::Polygon;
 use substrate::geometry::prelude::{Bbox, Dir, Point};
 use substrate::geometry::transform::{TransformMut, Transformation, Translate, TranslateMut};
-use substrate::io::layout::{Builder, PortGeometry};
+use substrate::io::layout::Builder;
 use substrate::io::schematic::{Bundle, Connect, HardwareType, IsBundle, Node, TerminalView};
-use substrate::io::{FlatLen, Flatten};
+use substrate::io::Flatten;
 use substrate::layout::element::Shape;
 
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::rect::Rect;
 use substrate::layout::{ExportsLayoutData, Layout};
-use substrate::pdk::layers::{HasPin, Layers};
+use substrate::pdk::layers::Layers;
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellId, ExportsNestedData, Schematic};
@@ -184,6 +182,7 @@ pub struct NetId(pub(crate) usize);
 
 /// Virtual layers for use in ATOLL.
 #[derive(Layers)]
+#[allow(missing_docs)]
 pub struct VirtualLayers {
     /// The layer indicating the outline of an ATOLL tile.
     ///
@@ -228,6 +227,7 @@ impl PointState {
         }
     }
 
+    /// Whether or not the given point is routed with the given net.
     pub fn is_routed_for_net(&self, net: NetId) -> bool {
         match self {
             Self::Available => false,
@@ -364,6 +364,8 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         self
     }
 
+    /// Aligns this instance with another rectangle in terms of LCM units on the same
+    /// layer as the instance.
     pub fn align_rect_mut(&mut self, orect: Rect, mode: AlignMode, offset: i64) {
         let srect = self.lcm_bounds();
         match mode {
@@ -406,6 +408,7 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         }
     }
 
+    /// Aligns this instance with another instance with the same top layer.
     pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
         &mut self,
         other: &Instance<T2>,
@@ -442,14 +445,17 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         Point::new(self.loc.x * w, self.loc.y * h)
     }
 
+    /// Returns the top layer of this instance.
     pub fn top_layer(&self) -> usize {
         self.abs.top_layer
     }
 
+    /// Returns the LCM bounds of this instance.
     pub fn lcm_bounds(&self) -> Rect {
         self.abs.lcm_bounds.translate(self.loc)
     }
 
+    /// Returns the physical bounds of this instance.
     pub fn physical_bounds(&self) -> Rect {
         self.abs.physical_bounds().translate(self.physical_loc())
     }
@@ -467,7 +473,9 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema> {
     nodes: IndexMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     schematic: &'a mut schematic::CellBuilder<PDK>,
-    layout: &'a mut layout::CellBuilder<PDK>,
+    /// The layout builder.
+    pub layout: &'a mut layout::CellBuilder<PDK>,
+    /// The layer stack.
     pub layer_stack: Arc<LayerStack<PdkLayer>>,
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
@@ -491,17 +499,12 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         let nodes: Vec<Node> = bundle.flatten_vec();
         let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
 
-        let net_ids: Vec<_> = (0..nodes.len())
-            .map(|_| {
-                self.next_net_id += 1;
-                NetId(self.next_net_id)
-            })
-            .collect();
+        let net_ids: Vec<_> = (0..nodes.len()).map(|_| self.generate_net_id()).collect();
 
         self.nodes.extend(
             nodes.into_iter().zip(
                 keys.into_iter()
-                    .zip(net_ids.into_iter())
+                    .zip(net_ids)
                     .map(|(key, net)| NodeInfo { key, net }),
             ),
         );
@@ -512,17 +515,14 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         schematic: &'a mut schematic::CellBuilder<PDK>,
         layout: &'a mut layout::CellBuilder<PDK>,
     ) -> Self {
-        let mut nodes = IndexMap::new();
-        let mut connections = ena::unify::InPlaceUnificationTable::new();
-        // todo: fix how layer is provided
         let layer_stack = layout
             .ctx()
             .get_installation::<LayerStack<PdkLayer>>()
             .unwrap();
 
         let mut builder = Self {
-            nodes,
-            connections,
+            nodes: IndexMap::new(),
+            connections: ena::unify::InPlaceUnificationTable::new(),
             schematic,
             layout,
             layer_stack,
@@ -560,7 +560,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     }
 
     /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
-    /// and [`Layout`].
+    /// and [`Layout`] and connects its IO to the given bundle.
     pub fn generate_primitive_connected<B: Clone + Schematic<PDK> + Layout<PDK>, C: IsBundle>(
         &mut self,
         block: B,
@@ -590,6 +590,22 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             loc: Default::default(),
             orientation: Default::default(),
         }
+    }
+
+    /// Generates an ATOLL instance from a block that implements [`Tile`]
+    /// and connects its IO to the given bundle.
+    pub fn generate_connected<B: Clone + Tile<PDK>, C: IsBundle>(
+        &mut self,
+        block: B,
+        io: C,
+    ) -> Instance<TileWrapper<B>>
+    where
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
+    {
+        let inst = self.generate(block);
+        self.connect(inst.io(), io);
+
+        inst
     }
 
     fn generate_net_id(&mut self) -> NetId {
@@ -623,7 +639,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
         // todo: Use ATOLL virtual layer.
         let mut layout = instance.layout;
-        let mut orig_bbox = layout.bbox().unwrap();
+        let orig_bbox = layout.bbox().unwrap();
         layout.transform_mut(Transformation::from_offset_and_orientation(
             Point::zero(),
             instance.orientation,
@@ -671,7 +687,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         bundle
     }
 
-    // todo: add function for matching geometry
+    /// Assigns grid points to the provided node.
     pub fn assign_grid_points(&mut self, node: Node, layer: usize, bounds: Rect) {
         self.assigned_nets.push(AssignedGridPoints {
             net: self.nodes[&node].net,
@@ -693,10 +709,12 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         self.top_layer = std::cmp::max(self.top_layer, top_layer);
     }
 
+    /// Sets the router.
     pub fn set_router<T: Any + Router>(&mut self, router: T) {
         self.router = Some(Arc::new(router));
     }
 
+    /// Sets the via maker.
     pub fn set_via_maker<T: Any + ViaMaker<PDK>>(&mut self, via_maker: T) {
         self.via_maker = Some(Arc::new(via_maker));
     }

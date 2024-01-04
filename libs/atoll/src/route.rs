@@ -1,16 +1,21 @@
-/// Routing interfaces and implementations.
-use crate::abs::{Abstract, GridCoord, TrackCoord};
+//! Routing interfaces and implementations.
+
+use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
-use pathfinding::prelude::{build_path, dijkstra, dijkstra_all};
+use pathfinding::prelude::{build_path, dijkstra_all};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use substrate::layout;
 use substrate::pdk::Pdk;
 
+/// A path of grid-coordinates.
 pub type Path = Vec<GridCoord>;
 
+/// An ATOLL router.
 pub trait Router {
     // todo: perhaps add way to translate nodes to net IDs
+    /// Returns routes that connect the given nets.
     fn route(
         &self,
         routing_state: RoutingState<PdkLayer>,
@@ -18,9 +23,10 @@ pub trait Router {
     ) -> Vec<Path>;
 }
 
-pub struct GreedyBfsRouter;
+/// A router that greedily routes net groups one at a time.
+pub struct GreedyRouter;
 
-impl Router for GreedyBfsRouter {
+impl Router for GreedyRouter {
     fn route(
         &self,
         mut state: RoutingState<PdkLayer>,
@@ -64,7 +70,7 @@ impl Router for GreedyBfsRouter {
                 assert!(!spt.contains_key(&locs[0]));
                 spt.insert(locs[0], (locs[0], 0));
 
-                let (cost, nearest_loc, node) = match group
+                let (_cost, nearest_loc, _node) = match group
                     .iter()
                     .zip(locs.iter())
                     .filter_map(|(node, loc)| {
@@ -98,16 +104,20 @@ impl Router for GreedyBfsRouter {
                     state[*coord] = PointState::Routed { net: group[0] };
                 }
                 for x in path.windows(2) {
-                    if x[0].layer < x[1].layer {
-                        let ilt = state.ilt_up(x[0]).unwrap();
-                        if let Some(requires) = ilt.requires {
-                            state[requires] = PointState::Reserved { net: group[0] };
+                    match x[0].layer.cmp(&x[1].layer) {
+                        Ordering::Less => {
+                            let ilt = state.ilt_up(x[0]).unwrap();
+                            if let Some(requires) = ilt.requires {
+                                state[requires] = PointState::Reserved { net: group[0] };
+                            }
                         }
-                    } else if x[0].layer > x[1].layer {
-                        let ilt = state.ilt_down(x[0]).unwrap();
-                        if let Some(requires) = ilt.requires {
-                            state[requires] = PointState::Reserved { net: group[0] };
+                        Ordering::Greater => {
+                            let ilt = state.ilt_down(x[0]).unwrap();
+                            if let Some(requires) = ilt.requires {
+                                state[requires] = PointState::Reserved { net: group[0] };
+                            }
                         }
+                        Ordering::Equal => {}
                     }
                 }
                 paths.push(path);
@@ -118,7 +128,9 @@ impl Router for GreedyBfsRouter {
     }
 }
 
+/// An type capable of drawing vias.
 pub trait ViaMaker<PDK: Pdk> {
+    /// Draws a via from the given track coordinate to the layer below.
     fn draw_via(
         &self,
         cell: &mut layout::CellBuilder<PDK>,

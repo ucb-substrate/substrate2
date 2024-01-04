@@ -2,7 +2,7 @@ use convert_case::{Case, Casing};
 use darling::{ast, FromDeriveInput, FromMeta};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Field, Generics};
+use syn::{Attribute, Field, Generics, Visibility};
 
 use crate::substrate_ident;
 
@@ -138,20 +138,23 @@ fn derive_layer_with_attrs(
     field_ty: &syn::Type,
     name: &Option<String>,
     gds: &Option<String>,
+    vis: &Visibility,
+    attrs: &Vec<Attribute>,
 ) -> TokenStream {
     let substrate = substrate_ident();
-    let mut attrs = Vec::new();
+    let mut layer_attrs = Vec::new();
     if let Some(name) = name {
-        attrs.push(quote!(name = #name));
+        layer_attrs.push(quote!(name = #name));
     }
     if let Some(gds) = gds {
-        attrs.push(quote!(gds = #gds));
+        layer_attrs.push(quote!(gds = #gds));
     }
 
     quote! {
         #[derive(#substrate::pdk::layers::Layer, ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug, ::std::cmp::Eq, ::std::cmp::PartialEq)]
-        #[layer(#( #attrs ),*)]
-        pub struct #field_ty(#substrate::pdk::layers::LayerId);
+        #[layer(#( #layer_attrs ),*)]
+        #(#attrs)*
+        #vis struct #field_ty(#substrate::pdk::layers::LayerId);
     }
 }
 
@@ -261,11 +264,16 @@ fn impl_layer(
     }
 }
 
-fn impl_derived_layer(field_ty: &impl ToTokens) -> TokenStream {
+fn impl_derived_layer(
+    field_ty: &impl ToTokens,
+    vis: &Visibility,
+    attrs: &Vec<Attribute>,
+) -> TokenStream {
     let substrate = substrate_ident();
     quote! {
         #[derive(::std::clone::Clone, ::std::marker::Copy)]
-        pub struct #field_ty(#substrate::pdk::layers::LayerId);
+        #(#attrs)*
+        #vis struct #field_ty(#substrate::pdk::layers::LayerId);
 
         impl #field_ty {
             fn new(id: impl ::std::convert::AsRef<#substrate::pdk::layers::LayerId>) -> Self {
@@ -319,6 +327,15 @@ impl ToTokens for LayersInputReceiver {
                 .iter()
                 .any(|attr| attr.path().is_ident("layer_family"));
 
+            let filtered_attrs = f
+                .attrs
+                .clone()
+                .into_iter()
+                .filter(|attr| {
+                    !attr.path().is_ident("layer") && !attr.path().is_ident("layer_family")
+                })
+                .collect();
+
             if let Some(data) = layer_attr {
                 if data.pin.is_some() && data.label.is_some() {
                     let layer_id = quote! { self.0 };
@@ -330,7 +347,13 @@ impl ToTokens for LayersInputReceiver {
                 let pin = data.pin.map(|_| quote! { self.0 });
                 let label = data.label.map(|_| quote! { self.0 });
 
-                tokens.extend(derive_layer_with_attrs(field_ty, &data.name, &data.gds));
+                tokens.extend(derive_layer_with_attrs(
+                    field_ty,
+                    &data.name,
+                    &data.gds,
+                    &f.vis,
+                    &filtered_attrs,
+                ));
                 tokens.extend(impl_layer_family(
                     generics,
                     field_ty,
@@ -344,7 +367,13 @@ impl ToTokens for LayersInputReceiver {
             } else if layer_family_attr {
                 field_init.push(let_statement(field_ident, &layer_family_new(field_ty)));
             } else {
-                tokens.extend(derive_layer_with_attrs(field_ty, &None, &None));
+                tokens.extend(derive_layer_with_attrs(
+                    field_ty,
+                    &None,
+                    &None,
+                    &f.vis,
+                    &filtered_attrs,
+                ));
                 tokens.extend(impl_layer_family(
                     generics,
                     field_ty,
@@ -412,12 +441,25 @@ impl ToTokens for LayerFamilyInputReceiver {
 
             let layer_attr = f.attrs.iter().find(|attr| attr.path().is_ident("layer"));
 
+            let filtered_attrs = f
+                .attrs
+                .clone()
+                .into_iter()
+                .filter(|attr| !attr.path().is_ident("layer"))
+                .collect();
+
             field_init.push(let_statement(field_ident, &layer_new(field_ty)));
 
             if let Some(attr) = layer_attr {
                 let data = LayerFamilyData::from_meta(&attr.meta)
                     .expect("could not parse provided layer arguments");
-                tokens.extend(derive_layer_with_attrs(field_ty, &data.name, &data.gds));
+                tokens.extend(derive_layer_with_attrs(
+                    field_ty,
+                    &data.name,
+                    &data.gds,
+                    &f.vis,
+                    &filtered_attrs,
+                ));
 
                 for (current_value, new_value) in [
                     (&mut primary, data.primary),
@@ -433,7 +475,13 @@ impl ToTokens for LayerFamilyInputReceiver {
                     }
                 }
             } else {
-                structs.push(derive_layer_with_attrs(field_ty, &None, &None));
+                structs.push(derive_layer_with_attrs(
+                    field_ty,
+                    &None,
+                    &None,
+                    &f.vis,
+                    &filtered_attrs,
+                ));
             }
         }
 
@@ -491,7 +539,6 @@ impl ToTokens for DerivedLayersInputReceiver {
             .expect("Should never be enum")
             .fields;
 
-        let mut field_init = Vec::new();
         let mut field_idents = Vec::new();
         let mut info_init = Vec::new();
 
@@ -519,6 +566,15 @@ impl ToTokens for DerivedLayersInputReceiver {
                 .iter()
                 .any(|attr| attr.path().is_ident("layer_family"));
 
+            let filtered_attrs = f
+                .attrs
+                .clone()
+                .into_iter()
+                .filter(|attr| {
+                    !attr.path().is_ident("layer") && !attr.path().is_ident("layer_family")
+                })
+                .collect();
+
             if let Some(data) = layer_attr {
                 if data.pin.is_some() && data.label.is_some() {
                     let layer_id = quote! {self.0};
@@ -527,14 +583,11 @@ impl ToTokens for DerivedLayersInputReceiver {
                     ));
                 }
 
-                tokens.extend(impl_derived_layer(field_ty));
+                tokens.extend(impl_derived_layer(field_ty, &f.vis, &filtered_attrs));
                 tokens.extend(impl_as_ref_layer_id(generics, field_ty, &quote! { self.0 }));
                 tokens.extend(impl_deref_layer_id(generics, field_ty, &quote! { self.0 }));
-                field_init.push(let_statement(field_ident, &layer_new(field_ty)));
-            } else if layer_family_attr {
-                field_init.push(let_statement(field_ident, &layer_family_new(field_ty)));
-            } else {
-                tokens.extend(impl_derived_layer(field_ty));
+            } else if !layer_family_attr {
+                tokens.extend(impl_derived_layer(field_ty, &f.vis, &filtered_attrs));
                 tokens.extend(impl_as_ref_layer_id(generics, field_ty, &quote! { self.0 }));
                 tokens.extend(impl_deref_layer_id(generics, field_ty, &quote! { self.0 }));
             }
@@ -581,7 +634,13 @@ impl ToTokens for DerivedLayerFamilyInputReceiver {
                 quote!(let #field_ident = <#field_ty as #substrate::pdk::layers::Layer>::new(ctx)),
             );
 
-            tokens.extend(impl_derived_layer(field_ty));
+            let filtered_attrs = f
+                .attrs
+                .clone()
+                .into_iter()
+                .filter(|attr| !attr.path().is_ident("layer"))
+                .collect();
+            tokens.extend(impl_derived_layer(field_ty, &f.vis, &filtered_attrs));
             tokens.extend(impl_as_ref_layer_id(generics, field_ty, &quote! { self.0 }));
             tokens.extend(impl_deref_layer_id(generics, field_ty, &quote! { self.0 }));
             if let Some(attr) = layer_attr {

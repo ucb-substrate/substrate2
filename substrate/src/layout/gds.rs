@@ -223,11 +223,6 @@ impl ExportGds for (&NameBuf, &IoShape) {
         {
             elements.push(element);
         }
-        if let Some(element) =
-            Shape::new(shape.layer().drawing(), shape.shape().clone()).export(exporter)?
-        {
-            elements.push(element);
-        }
         if let Some(element) = Text::new(
             shape.layer().label(),
             name_buf.to_string(),
