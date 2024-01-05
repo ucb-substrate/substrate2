@@ -1,16 +1,5 @@
 //! Atoll: Automatic transformation of logical layout.
 //!
-//! Atoll projects are made of one or more **blocks**.
-//! Each block is a compact, rectangular grid of devices.
-//! Each block in turn is composed of a set of tiles drawn from a TileSet.
-//! TileSets provide a tile generator for each tile archetype.
-//!
-//! The set of tile archetypes is given by the Cartesian product
-//! of [`Col`] and [`Row`].
-//!
-//! A tile generator takes tile configuration info and produces
-//! a tile of its archetype.
-//!
 //! # Grid structure
 //!
 //! Inter-tile and inter-block routes are drawn on designated routing layers.
@@ -37,7 +26,7 @@
 //! of any track or space is also an integer.
 //!
 //! When the ratio `P(L+2) / P(L)` is not an integer, Atoll's routing algorithms assume
-//! that if track `T` on layer `L+2` lies strictly between tracks `U1` and `U2` on layer `L`,
+//! that if track `T` on layer `L+2` lies strictly between adjacent tracks `U1` and `U2` on layer `L`,
 //! and track `T` makes a connection to track `V` on layer `L+1`, then the grid points
 //! `(V, U1)` and `(V, U2)` must be left unused or must be connected to the same net as `(T, V)`.
 //!
