@@ -17,7 +17,9 @@ use crate::transform::{HasTransformedView, TransformMut, Transformation, Transla
 use crate::union::BoundingUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Default, Copy, Clone, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub struct Rect {
     /// The lower-left corner.
     p0: Point,
@@ -128,6 +130,31 @@ impl Rect {
     #[inline]
     pub const unsafe fn from_sides_unchecked(left: i64, bot: i64, right: i64, top: i64) -> Self {
         Self::new_unchecked(Point::new(left, bot), Point::new(right, top))
+    }
+
+    /// Creates a rectangle from a lower left and upper right corner point,
+    /// but returns `None` if the given sides would make the rectangle empty.
+    ///
+    /// The rectangle is empty if the left edge is beyond the right edge,
+    /// or if the bottom edge is above the top edge.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_corners_option(Point::new(15, 20), Point::new(30, 40));
+    /// assert_eq!(rect, Some(Rect::from_sides(15, 20, 30, 40)));
+    ///
+    /// let rect = Rect::from_corners_option(Point::new(10, 20), Point::new(0, 40));
+    /// assert_eq!(rect, None);
+    /// ```
+    #[inline]
+    pub fn from_corners_option(ll: Point, ur: Point) -> Option<Self> {
+        if ll.x > ur.x || ll.y > ur.y {
+            None
+        } else {
+            Some(unsafe { Self::new_unchecked(ll, ur) })
+        }
     }
 
     /// Creates a rectangle from all 4 sides (left, bottom, right, top),
@@ -1123,6 +1150,62 @@ impl Rect {
         Dims::new(self.width(), self.height())
     }
 
+    /// The lower left corner of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.lower_left(), Point::new(20, 20));
+    /// ```
+    #[inline]
+    pub fn lower_left(&self) -> Point {
+        self.corner(Corner::LowerLeft)
+    }
+
+    /// The lower right corner of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.lower_right(), Point::new(100, 20));
+    /// ```
+    #[inline]
+    pub fn lower_right(&self) -> Point {
+        self.corner(Corner::LowerRight)
+    }
+
+    /// The upper left corner of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.upper_left(), Point::new(20, 200));
+    /// ```
+    #[inline]
+    pub fn upper_left(&self) -> Point {
+        self.corner(Corner::UpperLeft)
+    }
+
+    /// The upper right corner of the rectangle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use geometry::prelude::*;
+    /// let rect = Rect::from_sides(20, 20, 100, 200);
+    /// assert_eq!(rect.upper_right(), Point::new(100, 200));
+    /// ```
+    #[inline]
+    pub fn upper_right(&self) -> Point {
+        self.corner(Corner::UpperRight)
+    }
+
     /// Returns the desired corner of the rectangle.
     ///
     /// # Example
@@ -1286,9 +1369,9 @@ impl TransformMut for Rect {
 }
 
 impl HasTransformedView for Rect {
-    type TransformedView<'a> = Rect;
+    type TransformedView = Rect;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.transform(trans)
     }
 }

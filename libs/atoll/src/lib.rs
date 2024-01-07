@@ -1,16 +1,5 @@
 //! Atoll: Automatic transformation of logical layout.
 //!
-//! Atoll projects are made of one or more **blocks**.
-//! Each block is a compact, rectangular grid of devices.
-//! Each block in turn is composed of a set of tiles drawn from a TileSet.
-//! TileSets provide a tile generator for each tile archetype.
-//!
-//! The set of tile archetypes is given by the Cartesian product
-//! of [`Col`] and [`Row`].
-//!
-//! A tile generator takes tile configuration info and produces
-//! a tile of its archetype.
-//!
 //! # Grid structure
 //!
 //! Inter-tile and inter-block routes are drawn on designated routing layers.
@@ -37,7 +26,7 @@
 //! of any track or space is also an integer.
 //!
 //! When the ratio `P(L+2) / P(L)` is not an integer, Atoll's routing algorithms assume
-//! that if track `T` on layer `L+2` lies strictly between tracks `U1` and `U2` on layer `L`,
+//! that if track `T` on layer `L+2` lies strictly between adjacent tracks `U1` and `U2` on layer `L`,
 //! and track `T` makes a connection to track `V` on layer `L+1`, then the grid points
 //! `(V, U1)` and `(V, U2)` must be left unused or must be connected to the same net as `(T, V)`.
 //!
@@ -142,210 +131,78 @@
 //!
 #![warn(missing_docs)]
 
+pub mod abs;
 pub mod grid;
+pub mod route;
 
-use ::grid::Grid;
-use std::collections::{HashMap, HashSet, VecDeque};
-use substrate::geometry::prelude::{Dir, Point};
-use substrate::layout::tracks::{EnumeratedTracks, FiniteTracks, Tracks};
+use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
+use crate::grid::{AtollLayer, LayerStack, PdkLayer};
+use crate::route::{Router, ViaMaker};
+use ena::unify::UnifyKey;
+use serde::{Deserialize, Serialize};
+use std::any::Any;
+use std::ops::Deref;
+
+use indexmap::IndexMap;
+use std::sync::Arc;
+use substrate::arcstr::ArcStr;
+use substrate::block::Block;
+use substrate::context::{prepare_cell_builder, PdkContext};
+use substrate::geometry::corner::Corner;
+use substrate::geometry::prelude::{Bbox, Dir, Point};
+use substrate::geometry::transform::{TransformMut, Transformation, Translate, TranslateMut};
+use substrate::io::layout::Builder;
+use substrate::io::schematic::{Bundle, Connect, HardwareType, IsBundle, Node, TerminalView};
+use substrate::io::Flatten;
+use substrate::layout::element::Shape;
+
+use substrate::geometry::align::AlignMode;
+use substrate::geometry::rect::Rect;
+use substrate::layout::{ExportsLayoutData, Layout};
+use substrate::pdk::layers::Layers;
+use substrate::pdk::Pdk;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellId, ExportsNestedData, Schematic};
+use substrate::{geometry, io, layout, schematic};
 
 /// Identifies nets in a routing solver.
-pub type NetId = usize;
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct NetId(pub(crate) usize);
 
-/// A column in an Atoll grid.
-pub enum Col {
-    /// A device column.
-    Device,
-    /// A column dedicated to routing.
-    Routing {
-        /// Whether taps should be placed under the routing layers.
-        ///
-        /// Requires allocation of power/ground tracks in the routing column.
-        tap: bool,
-    },
-}
-
-/// A row in an Atoll grid.
-pub enum Row {
-    /// A device row.
-    Device,
-    /// A row dedicated to routing.
-    Routing,
-}
-
-/// A single Atoll block.
-pub struct Atoll {
-    /// PMOS rows.
-    pub pmos: Vec<Row>,
-    /// NMOS rows.
-    pub nmos: Vec<Row>,
-    /// Columns (shared between PMOS and NMOS).
-    pub cols: Vec<Col>,
-}
-
-/// Identifies a routing layer.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LayerId(usize);
-
-impl From<usize> for LayerId {
-    #[inline]
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-/// A coordinate identifying a track position in a routing volume.
-pub struct Coordinate {
-    /// The lower metal layer.
-    pub layer: LayerId,
-    /// The x-coordinate.
+/// Virtual layers for use in ATOLL.
+#[derive(Layers)]
+#[allow(missing_docs)]
+pub struct VirtualLayers {
+    /// The layer indicating the outline of an ATOLL tile.
     ///
-    /// Indexes the vertical-traveling tracks.
-    pub x: i64,
-    /// The y-coordinate.
-    ///
-    /// Indexes the horizontal-traveling tracks.
-    pub y: i64,
-}
-
-/// A routing grid with explicitly enumerated tracks.
-pub type EnumeratedRoutingGrid = RoutingGrid<EnumeratedTracks, EnumeratedTracks>;
-
-/// A grid defined by two adjacent routing layers.
-#[derive(Copy, Clone, Debug)]
-pub struct RoutingGrid<H, V> {
-    /// The lower metal layer.
-    pub layer: LayerId,
-    /// The horizontal-traveling tracks.
-    pub htracks: H,
-    /// The vertical-traveling tracks.
-    pub vtracks: V,
-}
-
-impl<H, V> RoutingGrid<H, V>
-where
-    H: FiniteTracks,
-    V: FiniteTracks,
-{
-    /// The number of rows in this routing grid.
-    pub fn rows(&self) -> usize {
-        let (min, max) = self.htracks.range();
-        usize::try_from(max - min).unwrap()
-    }
-
-    /// The number of columns in this routing grid.
-    pub fn cols(&self) -> usize {
-        let (min, max) = self.vtracks.range();
-        usize::try_from(max - min).unwrap()
-    }
-}
-
-impl<T> RoutingGrid<T, T> {
-    /// The tracks traveling in the given direction.
-    pub fn tracks(&self, dir: Dir) -> &T {
-        match dir {
-            Dir::Horiz => &self.htracks,
-            Dir::Vert => &self.vtracks,
-        }
-    }
-}
-
-/// A type that contains an x-y coordinate.
-pub trait Xy {
-    /// Returns the coordinate represented by `self`.
-    fn xy(&self) -> (i64, i64);
-}
-
-impl<T: Xy> Xy for &T {
-    fn xy(&self) -> (i64, i64) {
-        (*self).xy()
-    }
-}
-
-impl Xy for Coordinate {
-    fn xy(&self) -> (i64, i64) {
-        (self.x, self.y)
-    }
-}
-
-impl Xy for Point {
-    fn xy(&self) -> (i64, i64) {
-        (self.x, self.y)
-    }
-}
-
-impl Xy for (i64, i64) {
-    fn xy(&self) -> (i64, i64) {
-        *self
-    }
-}
-
-impl<H, V> RoutingGrid<H, V>
-where
-    H: Tracks,
-    V: Tracks,
-{
-    /// The center point of the corresponding grid tracks.
-    pub fn point(&self, pt: impl Xy) -> Point {
-        let (x, y) = pt.xy();
-        let vtrack = self.vtracks.track(x);
-        let htrack = self.htracks.track(y);
-        Point::new(vtrack.center(), htrack.center())
-    }
-}
-
-/// The state of a routing grid.
-#[derive(Clone, Debug)]
-pub struct GridState<S = PointState> {
-    /// The routing grid.
-    pub grid: EnumeratedRoutingGrid,
-    /// The state associated to each point in the routing grid.
-    pub states: ::grid::Grid<S>,
-}
-
-impl<S: Clone> GridState<S> {
-    /// Create a new `GridState` for the given routing grid.
-    ///
-    /// The given `state` is associated to each cell in the routing grid.
-    pub fn new(grid: EnumeratedRoutingGrid, state: S) -> Self {
-        let rows = grid.rows();
-        let cols = grid.cols();
-        let states = Grid::init(rows, cols, state);
-        Self { grid, states }
-    }
-}
-
-impl<S> GridState<S> {
-    /// The number of rows in this grid.
-    pub fn rows(&self) -> i64 {
-        i64::try_from(self.states.rows()).unwrap()
-    }
-
-    /// The number of columns in this grid.
-    pub fn cols(&self) -> i64 {
-        i64::try_from(self.states.cols()).unwrap()
-    }
-
-    /// Get the state associated to the point with the given `(x, y)` coordinates.
-    pub fn get(&self, x: i64, y: i64) -> &S {
-        self.states.get(x as usize, y as usize).unwrap()
-    }
-
-    /// Get a mutable reference to the state associated to the point with the given `(x, y)` coordinates.
-    pub fn get_mut(&mut self, x: i64, y: i64) -> &mut S {
-        self.states.get_mut(x as usize, y as usize).unwrap()
-    }
+    /// Must be aligned to the LCM grid of the cell's top layer or,
+    /// if the cell's top layer is layer 0, layer 1.
+    pub outline: Outline,
 }
 
 /// The state of a point on a routing grid.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PointState {
     /// The grid point is available for routing.
     Available,
-    /// The grid point is obstructed.
-    Obstructed,
+    /// The grid point is blocked.
+    Blocked,
     /// The grid point is occupied by a known net.
-    Routed(NetId),
+    Routed {
+        /// The net occupying this routing space.
+        net: NetId,
+    },
+    /// The grid point is reserved for a known net.
+    ///
+    /// This means the net may or may not be physically routed on this grid point,
+    /// but that no other net can occupy the grid point.
+    ///
+    /// A net can make an interlayer transition if it has reserved grid points
+    /// adjacent to unaligned transitions.
+    Reserved {
+        /// The net reserving this routing space.
+        net: NetId,
+    },
 }
 
 impl PointState {
@@ -353,8 +210,19 @@ impl PointState {
     pub fn is_available_for_net(&self, net: NetId) -> bool {
         match self {
             Self::Available => true,
-            Self::Routed(n) => *n == net,
-            Self::Obstructed => false,
+            Self::Routed { net: n, .. } => *n == net,
+            Self::Blocked => false,
+            PointState::Reserved { .. } => false, // todo might need to change this
+        }
+    }
+
+    /// Whether or not the given point is routed with the given net.
+    pub fn is_routed_for_net(&self, net: NetId) -> bool {
+        match self {
+            Self::Available => false,
+            Self::Routed { net: n, .. } => *n == net,
+            Self::Blocked => false,
+            PointState::Reserved { .. } => false,
         }
     }
 }
@@ -362,7 +230,7 @@ impl PointState {
 /// Allowed track directions on a routing layer.
 ///
 /// Adjacent routing layers must have alternating track directions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RoutingDir {
     /// Layer should be used for vertical routing.
     Vert,
@@ -402,440 +270,639 @@ impl RoutingDir {
     }
 }
 
-/// The state of a single layer in a routing volume.
-pub struct RoutingSlice {
-    dir: RoutingDir,
-    grid: GridState<PointState>,
-}
+// todo: how to connect by abutment (eg body terminals)
 
-impl RoutingSlice {
-    /// The tracks within this routing slice.
-    pub fn tracks(&self) -> &EnumeratedTracks {
-        let dir = self.dir.track_dir();
-        self.grid.grid.tracks(dir)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct NodeKey(u32);
+
+impl UnifyKey for NodeKey {
+    type Value = ();
+
+    fn index(&self) -> u32 {
+        self.0
     }
 
-    /// Create a new routing slice from the given routing grid.
-    ///
-    /// Tracks will travel in the given direction.
-    pub fn new(dir: RoutingDir, grid: EnumeratedRoutingGrid) -> Self {
-        Self {
-            dir,
-            grid: GridState::new(grid, PointState::Available),
-        }
+    fn from_index(u: u32) -> Self {
+        Self(u)
     }
 
-    /// The number of rows in this slice.
-    #[inline]
-    pub fn rows(&self) -> i64 {
-        self.grid.rows()
-    }
-
-    /// The number of columns in this slice.
-    #[inline]
-    pub fn cols(&self) -> i64 {
-        self.grid.cols()
-    }
-
-    /// Whether or not `pos` is a valid coordinate in this slice.
-    pub fn is_valid_pos(&self, pos: Pos) -> bool {
-        pos.x >= 0 && pos.x < self.grid.cols() && pos.y >= 0 && pos.y < self.grid.rows()
-    }
-
-    /// Whether or not the given net can occupy the given coordinate.
-    pub fn is_available_for_net(&self, pos: Pos, net: NetId) -> bool {
-        self.grid.get(pos.x, pos.y).is_available_for_net(net)
-    }
-
-    /// Allocates the given location to the given net.
-    pub fn allocate(&mut self, pos: Pos, net: NetId) {
-        *self.grid.get_mut(pos.x, pos.y) = PointState::Routed(net);
+    fn tag() -> &'static str {
+        "NodeKey"
     }
 }
 
-/// A transition crossing layer boundaries.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct InterlayerTransition {
-    /// The source position.
-    src: Pos,
-    /// The destination position.
-    dst: Pos,
-    /// The set of points that must be available when performing this transition.
-    ///
-    /// Upon use of this transition, all points will be marked as occupied.
-    /// `src` and `dst` are always required, and should not be included in this list.
-    requires: Vec<Pos>,
+#[derive(Clone, Debug)]
+struct NodeInfo {
+    key: NodeKey,
+    net: NetId,
 }
 
-impl InterlayerTransition {
-    /// Creates a new interlayer transition from `src` to `dst`.
-    ///
-    /// The set of extra required points will be empty.
-    pub fn new(src: Pos, dst: Pos) -> Self {
-        Self {
-            src,
-            dst,
-            requires: Default::default(),
-        }
-    }
+/// The orientation of an instance.
+///
+/// Orientations are applied such that the bounding box of the instance is preserved.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Orientation {
+    /// The default orientation.
+    #[default]
+    R0,
+    /// Rotated 180 degrees.
+    R180,
+    /// Reflect vertically (ie. about the x-axis).
+    ReflectVert,
+    /// Reflect horizontally (ie. about the y-axis).
+    ReflectHoriz,
+}
 
-    /// Swaps the source and destination of this transition.
-    pub fn reverse(&mut self) {
-        std::mem::swap(&mut self.src, &mut self.dst);
-    }
-
-    /// Returns a new transition with the source and destination reversed.
-    #[inline]
-    pub fn reversed(&self) -> Self {
-        Self {
-            src: self.dst,
-            dst: self.src,
-            requires: self.requires.clone(),
+impl From<Orientation> for geometry::orientation::NamedOrientation {
+    fn from(value: Orientation) -> Self {
+        match value {
+            Orientation::R0 => geometry::orientation::NamedOrientation::R0,
+            Orientation::R180 => geometry::orientation::NamedOrientation::R180,
+            Orientation::ReflectVert => geometry::orientation::NamedOrientation::ReflectVert,
+            Orientation::ReflectHoriz => geometry::orientation::NamedOrientation::ReflectHoriz,
         }
     }
 }
 
-/// A position within a routing volume.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Pos {
-    /// The routing layer.
-    layer: LayerId,
-    /// The x-coordinate.
-    x: i64,
-    /// The y-coordinate.
-    y: i64,
-}
-
-impl Pos {
-    /// Create a new [`Pos`].
-    pub fn new(layer: impl Into<LayerId>, x: i64, y: i64) -> Self {
-        Self {
-            layer: layer.into(),
-            x,
-            y,
-        }
-    }
-
-    /// The index of the track going in the specified direction.
-    pub fn track_coord(&self, dir: Dir) -> i64 {
-        match dir {
-            Dir::Vert => self.x,
-            Dir::Horiz => self.y,
-        }
-    }
-
-    /// The index of the coordinate in the given direction.
-    ///
-    /// [`Dir::Horiz`] gives the x-coordinate;
-    /// [`Dir::Vert`] gives the y-coordinate;
-    pub fn coord(&self, dir: Dir) -> i64 {
-        match dir {
-            Dir::Horiz => self.x,
-            Dir::Vert => self.y,
-        }
-    }
-
-    /// Returns a new `Pos` with the given coordinate indexing tracks going in the given direction.
-    pub fn with_track_coord(&self, dir: Dir, coord: i64) -> Self {
-        let Pos { layer, x, y } = *self;
-        match dir {
-            Dir::Vert => Self { layer, x: coord, y },
-            Dir::Horiz => Self { layer, x, y: coord },
-        }
-    }
-
-    /// Returns a new `Pos` with the given coordinate in the given direction.
-    ///
-    /// If `dir` is [`Dir::Horiz`], `coord` is taken as the new x coordinate.
-    /// If `dir` is [`Dir::Vert`], `coord` is taken as the new y coordinate.
-    pub fn with_coord(&self, dir: Dir, coord: i64) -> Self {
-        let Pos { layer, x, y } = *self;
-        match dir {
-            Dir::Horiz => Self { layer, x: coord, y },
-            Dir::Vert => Self { layer, x, y: coord },
-        }
+impl From<Orientation> for geometry::orientation::Orientation {
+    fn from(value: Orientation) -> Self {
+        geometry::orientation::NamedOrientation::from(value).into()
     }
 }
 
-/// A 3D routing volume (ie. a stack of several 2D [`RoutingSlice`]).
-pub struct RoutingVolume {
-    slices: HashMap<LayerId, RoutingSlice>,
-    // (src, dst) -> ilt
-    ilts: HashMap<Pos, HashMap<Pos, InterlayerTransition>>,
+/// An ATOLL instance representing both a schematic and layout instance.
+pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
+    schematic: schematic::Instance<T>,
+    layout: layout::Instance<T>,
+    abs: Abstract,
+    /// The location of the instance in LCM units according to the
+    /// top layer in the associated [`Abstract`].
+    loc: Point,
+    orientation: Orientation,
 }
 
-/// Configuration for specifying a routing via.
-pub struct ViaConfig {
-    /// The width of the via in the direction orthogonal to the tracks of the higher layer.
-    od_width: i64,
-}
+impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
+    /// Translates this instance by the given XY-coordinates in LCM units.
+    pub fn translate_mut(&mut self, p: Point) {
+        self.loc += p;
+    }
 
-/// Configuration for specifying a routing conductor.
-pub struct MetalConfig {
-    /// The allowed routing directions for this layer.
-    dir: RoutingDir,
-    /// The tracks.
-    tracks: EnumeratedTracks,
-}
+    /// Translates this instance by the given XY-coordinates in LCM units.
+    pub fn translate(mut self, p: Point) -> Self {
+        self.translate_mut(p);
+        self
+    }
 
-/// Configuration for specifying a routing volume.
-pub struct RoutingVolumeConfig {
-    /// The bottom routing conductor layer.
-    mbot: MetalConfig,
-    /// A list of via and conductor layer pairs.
-    layers: Vec<(ViaConfig, MetalConfig)>,
-}
-
-/// A type of transition: either an interlayer transition, or an intralayer transition.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TransitionKind {
-    /// A transition within a routing layer.
-    Intralayer,
-    /// A transition from one routing layer to another.
-    Interlayer,
-}
-
-impl RoutingVolume {
-    /// Create a [`RoutingVolume`] from the given configuration.
-    pub fn new(cfg: RoutingVolumeConfig) -> Self {
-        assert!(cfg.layers.len() >= 2);
-
-        let mut i = cfg.layers.len() - 1;
-        let mut out = Self::empty();
-
-        loop {
-            let (_, topm) = &cfg.layers[i];
-            let botm = if i > 0 {
-                &cfg.layers[i - 1].1
-            } else {
-                &cfg.mbot
-            };
-
-            let dir = topm.dir.track_dir();
-            let bot_dir = botm.dir.track_dir();
-
-            assert_eq!(
-                dir, !bot_dir,
-                "adjacent layers must have opposite track directions"
-            );
-
-            let (htracks, vtracks) = if dir == Dir::Horiz {
-                (topm.tracks.clone(), botm.tracks.clone())
-            } else {
-                (botm.tracks.clone(), topm.tracks.clone())
-            };
-
-            let top_id = LayerId(i + 1);
-            let bot_id = LayerId(i);
-            let slice = RoutingSlice::new(
-                topm.dir,
-                EnumeratedRoutingGrid {
-                    layer: LayerId(i + 1),
-                    htracks,
-                    vtracks,
-                },
-            );
-
-            for x in 0..slice.cols() {
-                for y in 0..slice.rows() {
-                    let src = Pos {
-                        layer: top_id,
-                        x,
-                        y,
-                    };
-                    let dst = Pos {
-                        layer: bot_id,
-                        x,
-                        y,
-                    };
-                    let ilt = InterlayerTransition::new(src, dst);
-                    out.add_ilt(ilt);
-                    let ilt = InterlayerTransition::new(dst, src);
-                    out.add_ilt(ilt);
-                }
+    /// Aligns this instance with another rectangle in terms of LCM units on the same
+    /// layer as the instance.
+    pub fn align_rect_mut(&mut self, orect: Rect, mode: AlignMode, offset: i64) {
+        let srect = self.lcm_bounds();
+        match mode {
+            AlignMode::Left => {
+                self.translate_mut(Point::new(orect.left() - srect.left() + offset, 0));
             }
-
-            out.slices.insert(LayerId(i), slice);
-
-            // special case: also handle the bottom-most layer
-            if i == 0 {
-                let grid = out.slice(LayerId(1)).grid.grid.clone();
-                let slice = RoutingSlice::new(botm.dir, grid);
-
-                out.slices.insert(LayerId(i), slice);
-                break;
+            AlignMode::Right => {
+                self.translate_mut(Point::new(orect.right() - srect.right() + offset, 0));
             }
-
-            i -= 1;
+            AlignMode::Bottom => {
+                self.translate_mut(Point::new(0, orect.bot() - srect.bot() + offset));
+            }
+            AlignMode::Top => {
+                self.translate_mut(Point::new(0, orect.top() - srect.top() + offset));
+            }
+            AlignMode::ToTheRight => {
+                self.translate_mut(Point::new(orect.right() - srect.left() + offset, 0));
+            }
+            AlignMode::ToTheLeft => {
+                self.translate_mut(Point::new(orect.left() - srect.right() + offset, 0));
+            }
+            AlignMode::CenterHorizontal => {
+                self.translate_mut(Point::new(
+                    ((orect.left() + orect.right()) - (srect.left() + srect.right())) / 2 + offset,
+                    0,
+                ));
+            }
+            AlignMode::CenterVertical => {
+                self.translate_mut(Point::new(
+                    0,
+                    ((orect.bot() + orect.top()) - (srect.bot() + srect.top())) / 2 + offset,
+                ));
+            }
+            AlignMode::Beneath => {
+                self.translate_mut(Point::new(0, orect.bot() - srect.top() + offset));
+            }
+            AlignMode::Above => {
+                self.translate_mut(Point::new(0, orect.top() - srect.bot() + offset));
+            }
         }
+    }
 
-        for i in 1..cfg.layers.len() - 1 {
-            let bot = out.slice(i - 1);
-            let mid = out.slice(i);
-            let top = out.slice(i + 1);
-            let via = &cfg.layers[i + 1].0;
-            let mut ilts = Vec::new();
-            for (tt, tspan) in top.tracks().tracks().enumerate() {
-                let tt = tt as i64;
-                let mut targets = HashSet::new();
-                for (bt, bspan) in bot.tracks().tracks().enumerate() {
-                    if (bspan.center() - tspan.center()).abs() > via.od_width {
-                        continue;
+    /// Aligns this instance with another instance with the same top layer.
+    pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
+        &mut self,
+        other: &Instance<T2>,
+        mode: AlignMode,
+        offset: i64,
+    ) {
+        assert_eq!(self.top_layer(), other.top_layer());
+        self.align_rect_mut(other.lcm_bounds(), mode, offset);
+    }
+
+    /// Orients this instance in the given orientation.
+    pub fn orient_mut(&mut self, orientation: Orientation) {
+        self.orientation = orientation;
+    }
+
+    /// Orients this instance in the given orientation.
+    pub fn orient(mut self, orientation: Orientation) -> Self {
+        self.orient_mut(orientation);
+        self
+    }
+
+    /// The ports of this instance.
+    ///
+    /// Used for node connection purposes.
+    pub fn io(&self) -> &TerminalView<<T::Io as io::schematic::HardwareType>::Bundle> {
+        self.schematic.io()
+    }
+
+    /// Returns the physical location of this instance.
+    pub fn physical_loc(&self) -> Point {
+        let slice = self.abs.slice();
+        let w = slice.lcm_unit_width();
+        let h = slice.lcm_unit_height();
+        Point::new(self.loc.x * w, self.loc.y * h)
+    }
+
+    /// Returns the top layer of this instance.
+    pub fn top_layer(&self) -> usize {
+        self.abs.top_layer
+    }
+
+    /// Returns the LCM bounds of this instance.
+    pub fn lcm_bounds(&self) -> Rect {
+        self.abs.lcm_bounds.translate(self.loc)
+    }
+
+    /// Returns the physical bounds of this instance.
+    pub fn physical_bounds(&self) -> Rect {
+        self.abs.physical_bounds().translate(self.physical_loc())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AssignedGridPoints {
+    pub(crate) net: NetId,
+    pub(crate) layer: usize,
+    pub(crate) bounds: Rect,
+}
+
+/// A builder for ATOLL tiles.
+pub struct TileBuilder<'a, PDK: Pdk + Schema> {
+    nodes: IndexMap<Node, NodeInfo>,
+    connections: ena::unify::InPlaceUnificationTable<NodeKey>,
+    schematic: &'a mut schematic::CellBuilder<PDK>,
+    /// The layout builder.
+    pub layout: &'a mut layout::CellBuilder<PDK>,
+    /// The layer stack.
+    pub layer_stack: Arc<LayerStack<PdkLayer>>,
+    /// Abstracts of instantiated instances.
+    abs: Vec<InstanceAbstract>,
+    assigned_nets: Vec<AssignedGridPoints>,
+    top_layer: usize,
+    next_net_id: usize,
+    router: Option<Arc<dyn Router>>,
+    via_maker: Option<Arc<dyn ViaMaker<PDK>>>,
+}
+
+/// A drawn ATOLL instance.
+pub struct DrawnInstance<T: ExportsNestedData + ExportsLayoutData> {
+    /// The underlying Substrate schematic instance.
+    pub schematic: schematic::Instance<T>,
+    /// The underlying Substrate layout instance.
+    pub layout: layout::Instance<T>,
+}
+
+impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
+    fn register_bundle<T: Flatten<Node>>(&mut self, bundle: &T) {
+        let nodes: Vec<Node> = bundle.flatten_vec();
+        let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
+
+        let net_ids: Vec<_> = (0..nodes.len()).map(|_| self.generate_net_id()).collect();
+
+        self.nodes.extend(
+            nodes.into_iter().zip(
+                keys.into_iter()
+                    .zip(net_ids)
+                    .map(|(key, net)| NodeInfo { key, net }),
+            ),
+        );
+    }
+
+    fn new<T: io::schematic::IsBundle>(
+        schematic_io: &'a T,
+        schematic: &'a mut schematic::CellBuilder<PDK>,
+        layout: &'a mut layout::CellBuilder<PDK>,
+    ) -> Self {
+        let layer_stack = layout
+            .ctx()
+            .get_installation::<LayerStack<PdkLayer>>()
+            .unwrap();
+
+        let mut builder = Self {
+            nodes: IndexMap::new(),
+            connections: ena::unify::InPlaceUnificationTable::new(),
+            schematic,
+            layout,
+            layer_stack,
+            top_layer: 0,
+            abs: Vec::new(),
+            assigned_nets: Vec::new(),
+            next_net_id: 0,
+            router: None,
+            via_maker: None,
+        };
+
+        builder.register_bundle(schematic_io);
+
+        builder
+    }
+
+    /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
+    /// and [`Layout`].
+    pub fn generate_primitive<B: Clone + Schematic<PDK> + Layout<PDK>>(
+        &mut self,
+        block: B,
+    ) -> Instance<B> {
+        let layout = self.layout.generate(block.clone());
+        let schematic = self.schematic.instantiate(block);
+        self.register_bundle(schematic.io());
+        let abs = Abstract::generate(&self.layout.ctx, layout.raw_cell());
+
+        Instance {
+            layout,
+            schematic,
+            abs,
+            loc: Default::default(),
+            orientation: Default::default(),
+        }
+    }
+
+    /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
+    /// and [`Layout`] and connects its IO to the given bundle.
+    pub fn generate_primitive_connected<B: Clone + Schematic<PDK> + Layout<PDK>, C: IsBundle>(
+        &mut self,
+        block: B,
+        io: C,
+    ) -> Instance<B>
+    where
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
+    {
+        let inst = self.generate_primitive(block);
+        self.connect(inst.io(), io);
+
+        inst
+    }
+
+    /// Generates an ATOLL instance from a block that implements [`Tile`].
+    pub fn generate<B: Clone + Tile<PDK>>(&mut self, block: B) -> Instance<TileWrapper<B>> {
+        let wrapper = TileWrapper::new(block);
+        let layout = self.layout.generate(wrapper.clone());
+        let schematic = self.schematic.instantiate(wrapper);
+        self.register_bundle(schematic.io());
+        // todo: generate abstract from AtollTile trait directly
+        let abs = Abstract::generate(&self.layout.ctx, layout.raw_cell());
+        Instance {
+            layout,
+            schematic,
+            abs,
+            loc: Default::default(),
+            orientation: Default::default(),
+        }
+    }
+
+    /// Generates an ATOLL instance from a block that implements [`Tile`]
+    /// and connects its IO to the given bundle.
+    pub fn generate_connected<B: Clone + Tile<PDK>, C: IsBundle>(
+        &mut self,
+        block: B,
+        io: C,
+    ) -> Instance<TileWrapper<B>>
+    where
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
+    {
+        let inst = self.generate(block);
+        self.connect(inst.io(), io);
+
+        inst
+    }
+
+    fn generate_net_id(&mut self) -> NetId {
+        let ret = NetId(self.next_net_id);
+        self.next_net_id += 1;
+        ret
+    }
+
+    /// Draws an ATOLL instance in layout.
+    pub fn draw<B: ExportsNestedData + Layout<PDK>>(
+        &mut self,
+        instance: Instance<B>,
+    ) -> substrate::error::Result<DrawnInstance<B>> {
+        let physical_loc = instance.physical_loc();
+
+        let parent_net_ids = instance
+            .io()
+            .flatten_vec()
+            .iter()
+            .map(|node| self.nodes.get_mut(node).unwrap().net)
+            .collect();
+
+        self.set_top_layer(instance.abs.top_layer);
+
+        self.abs.push(InstanceAbstract::new(
+            instance.abs,
+            instance.loc,
+            instance.orientation,
+            parent_net_ids,
+        ));
+
+        // todo: Use ATOLL virtual layer.
+        let mut layout = instance.layout;
+        let orig_bbox = layout.bbox().unwrap();
+        layout.transform_mut(Transformation::from_offset_and_orientation(
+            Point::zero(),
+            instance.orientation,
+        ));
+        layout.translate_mut(
+            orig_bbox.corner(Corner::LowerLeft) - layout.bbox().unwrap().corner(Corner::LowerLeft)
+                + physical_loc,
+        );
+        self.layout.draw(layout.clone())?;
+
+        Ok(DrawnInstance {
+            schematic: instance.schematic,
+            layout,
+        })
+    }
+
+    /// Connect all signals in the given data instances.
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
+    where
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
+        D1: Connect<D2>,
+    {
+        let s1f: Vec<Node> = s1.flatten_vec();
+        let s2f: Vec<Node> = s2.flatten_vec();
+        assert_eq!(s1f.len(), s2f.len());
+        s1f.into_iter().zip(s2f).for_each(|(a, b)| {
+            self.connections
+                .union(self.nodes[&a].key, self.nodes[&b].key);
+        });
+        self.schematic.connect(s1, s2);
+    }
+
+    /// Create a new signal with the given name and hardware type.
+    #[track_caller]
+    pub fn signal<TY: io::schematic::HardwareType>(
+        &mut self,
+        name: impl Into<ArcStr>,
+        ty: TY,
+    ) -> <TY as io::schematic::HardwareType>::Bundle {
+        let bundle = self.schematic.signal(name, ty);
+
+        self.register_bundle(&bundle);
+
+        bundle
+    }
+
+    /// Assigns grid points to the provided node.
+    pub fn assign_grid_points(&mut self, node: Node, layer: usize, bounds: Rect) {
+        self.assigned_nets.push(AssignedGridPoints {
+            net: self.nodes[&node].net,
+            layer,
+            bounds,
+        })
+    }
+
+    /// Gets the global context.
+    pub fn ctx(&self) -> &PdkContext<PDK> {
+        self.layout.ctx()
+    }
+
+    /// Sets the top layer of this tile, dictating the layers available for routing.
+    ///
+    /// If the top layer is set to below the top layer of a constituent tile, it will be
+    /// overwritten to the top layer of the constituent tile with the highest top layer.
+    pub fn set_top_layer(&mut self, top_layer: usize) {
+        self.top_layer = std::cmp::max(self.top_layer, top_layer);
+    }
+
+    /// Sets the router.
+    pub fn set_router<T: Any + Router>(&mut self, router: T) {
+        self.router = Some(Arc::new(router));
+    }
+
+    /// Sets the via maker.
+    pub fn set_via_maker<T: Any + ViaMaker<PDK>>(&mut self, via_maker: T) {
+        self.via_maker = Some(Arc::new(via_maker));
+    }
+}
+
+/// A builder for an ATOLL tile's IOs.
+pub struct IoBuilder<'a, B: Block> {
+    /// The schematic bundle representation of the block's IO.
+    pub schematic: &'a Bundle<<B as Block>::Io>,
+    /// The layout builder representation of the block's IO.
+    pub layout: &'a mut Builder<<B as Block>::Io>,
+}
+
+/// A tile that can be instantiated in ATOLL.
+pub trait Tile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
+    /// Builds a block's ATOLL tile.
+    fn tile<'a>(
+        &self,
+        io: IoBuilder<'a, Self>,
+        cell: &mut TileBuilder<'a, PDK>,
+    ) -> substrate::error::Result<(
+        <Self as ExportsNestedData>::NestedData,
+        <Self as ExportsLayoutData>::LayoutData,
+    )>;
+}
+
+/// A wrapper of a block implementing [`Tile`] that can be instantiated in Substrate
+/// schematics and layouts.
+#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TileWrapper<T>(T);
+
+impl<T> TileWrapper<T> {
+    /// Creates a new wrapper of `block`.
+    pub fn new(block: T) -> Self {
+        Self(block)
+    }
+}
+
+impl<T> Deref for TileWrapper<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Block> Block for TileWrapper<T> {
+    type Io = <T as Block>::Io;
+
+    fn id() -> ArcStr {
+        <T as Block>::id()
+    }
+
+    fn name(&self) -> ArcStr {
+        <T as Block>::name(&self.0)
+    }
+
+    fn io(&self) -> Self::Io {
+        <T as Block>::io(&self.0)
+    }
+}
+
+impl<T: ExportsNestedData> ExportsNestedData for TileWrapper<T> {
+    type NestedData = <T as ExportsNestedData>::NestedData;
+}
+
+impl<T: ExportsLayoutData> ExportsLayoutData for TileWrapper<T> {
+    type LayoutData = <T as ExportsLayoutData>::LayoutData;
+}
+
+impl<T, PDK: Pdk + Schema> Schematic<PDK> for TileWrapper<T>
+where
+    T: Tile<PDK>,
+{
+    fn schematic(
+        &self,
+        io: &Bundle<<Self as Block>::Io>,
+        cell: &mut schematic::CellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut layout_io = io::layout::HardwareType::builder(&self.io());
+        let mut layout_cell = layout::CellBuilder::new(cell.ctx().with_pdk());
+        let atoll_io = IoBuilder {
+            schematic: io,
+            layout: &mut layout_io,
+        };
+        let mut cell = TileBuilder::new(io, cell, &mut layout_cell);
+        let (schematic_data, _) = <T as Tile<PDK>>::tile(&self.0, atoll_io, &mut cell)?;
+        Ok(schematic_data)
+    }
+}
+
+impl<T, PDK: Pdk + Schema> Layout<PDK> for TileWrapper<T>
+where
+    T: Tile<PDK>,
+{
+    fn layout(
+        &self,
+        io: &mut Builder<<Self as Block>::Io>,
+        cell: &mut layout::CellBuilder<PDK>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        let (mut schematic_cell, schematic_io) =
+            prepare_cell_builder(CellId::default(), (**cell.ctx()).clone(), self);
+        let io = IoBuilder {
+            schematic: &schematic_io,
+            layout: io,
+        };
+        let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
+        let (_, layout_data) = <T as Tile<PDK>>::tile(&self.0, io, &mut cell)?;
+
+        let port_ids = schematic_io
+            .flatten_vec()
+            .iter()
+            .map(|node| cell.nodes[node].net)
+            .collect();
+        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer, port_ids, cell.assigned_nets);
+
+        if let Some(router) = cell.router {
+            let mut to_connect = IndexMap::new();
+            for (_, info) in cell.nodes {
+                to_connect
+                    .entry(cell.connections.find(info.key))
+                    .or_insert(Vec::new())
+                    .push(info.net);
+            }
+            let to_connect: Vec<_> = to_connect.into_values().collect();
+            let paths = router.route(abs.routing_state(), to_connect);
+
+            for path in paths {
+                for segment in path.windows(2) {
+                    let (a, b) = (abs.grid_to_track(segment[0]), abs.grid_to_track(segment[1]));
+                    if a.layer == b.layer {
+                        // todo: handle multiple routing directions
+                        assert!(a.x == b.x || a.y == b.y);
+                        let layer = abs.grid.stack.layer(a.layer);
+                        let (start_track, start_cross_track, end_track, end_cross_track) =
+                            if layer.dir().track_dir() == Dir::Vert {
+                                (a.x, a.y, b.x, b.y)
+                            } else {
+                                (a.y, a.x, b.y, b.x)
+                            };
+                        let start = abs
+                            .grid
+                            .track_point(a.layer, start_track, start_cross_track);
+                        let end = abs.grid.track_point(b.layer, end_track, end_cross_track);
+                        let track = Rect::from_point(start)
+                            .union(Rect::from_point(end))
+                            .expand_dir(
+                                if a.x == b.x { Dir::Horiz } else { Dir::Vert },
+                                abs.grid.stack.layer(a.layer).line() / 2,
+                            )
+                            .expand_dir(
+                                if a.y == b.y { Dir::Horiz } else { Dir::Vert },
+                                abs.grid.stack.layer(a.layer).endcap(),
+                            );
+
+                        cell.layout
+                            .draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
+                    } else if a.layer == b.layer + 1 || b.layer == a.layer + 1 {
+                        let (a, b) = if b.layer > a.layer { (b, a) } else { (a, b) };
+                        let (in_track, out_track) =
+                            if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Horiz
+                                && a.x == b.x
+                            {
+                                (
+                                    abs.grid.track(b.layer, b.x, b.y, b.y),
+                                    abs.grid.track_point(a.layer, a.y, a.x),
+                                )
+                            } else if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Vert
+                                && a.y == b.y
+                            {
+                                (
+                                    abs.grid.track(b.layer, b.y, b.x, b.x),
+                                    abs.grid.track_point(a.layer, a.x, a.y),
+                                )
+                            } else {
+                                panic!("cannot have a diagonal segment");
+                            };
+
+                        let track = Rect::from_spans(
+                            in_track.hspan().add_point(out_track.x),
+                            in_track.vspan().add_point(out_track.y),
+                        );
+                        cell.layout
+                            .draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
+                        if let Some(maker) = &cell.via_maker {
+                            maker.draw_via(
+                                cell.layout,
+                                TrackCoord {
+                                    layer: a.layer,
+                                    x: a.x,
+                                    y: a.y,
+                                },
+                            )?;
+                        }
                     }
-                    targets.insert(bt as i64);
-                }
-
-                for &bt in targets.iter() {
-                    for (mt, _) in mid.tracks().tracks().enumerate() {
-                        let mt = mt as i64;
-                        let (x, y, lx, ly) = match mid.dir.track_dir() {
-                            Dir::Horiz => (tt, mt, bt, mt),
-                            Dir::Vert => (mt, tt, mt, bt),
-                        };
-                        let src = Pos::new(LayerId(i + 1), x, y);
-                        let dst = Pos::new(LayerId(i), lx, ly);
-                        let requires: Vec<Pos> = targets
-                            .iter()
-                            .map(|&bt| match mid.dir.track_dir() {
-                                Dir::Horiz => Pos::new(LayerId(i), bt, mt),
-                                Dir::Vert => Pos::new(LayerId(i), mt, bt),
-                            })
-                            .collect();
-
-                        let ilt = InterlayerTransition {
-                            src,
-                            dst,
-                            requires: requires.clone(),
-                        };
-                        ilts.push(ilt.reversed());
-                        ilts.push(ilt);
-                    }
-                }
-            }
-
-            for ilt in ilts {
-                out.add_ilt(ilt);
-            }
-        }
-
-        out
-    }
-
-    fn empty() -> Self {
-        Self {
-            slices: HashMap::new(),
-            ilts: HashMap::new(),
-        }
-    }
-
-    fn slice(&self, layer: impl Into<LayerId>) -> &RoutingSlice {
-        let layer = layer.into();
-        &self.slices[&layer]
-    }
-
-    fn slice_mut(&mut self, layer: impl Into<LayerId>) -> &mut RoutingSlice {
-        let layer = layer.into();
-        self.slices.get_mut(&layer).unwrap()
-    }
-
-    /// Returns an iterator over the points accessible to `net` starting from `pos`.
-    pub fn transitions(&self, pos: Pos, net: NetId) -> impl Iterator<Item = (TransitionKind, Pos)> {
-        let slice = self.slice(pos.layer);
-
-        let mut successors = Vec::new();
-        for dir in [Dir::Vert, Dir::Horiz] {
-            if !slice.dir.supports_dir(dir) {
-                continue;
-            }
-
-            let coord = pos.coord(dir);
-            for ofs in [-1, 1] {
-                let npos = pos.with_coord(dir, coord + ofs);
-                if slice.is_valid_pos(npos) && slice.is_available_for_net(npos, net) {
-                    successors.push((TransitionKind::Intralayer, npos));
                 }
             }
         }
 
-        if let Some(ilts) = self.ilts.get(&pos) {
-            for ilt in ilts.values() {
-                if ilt
-                    .requires
-                    .iter()
-                    .all(|pos| self.is_available_for_net(net, *pos))
-                {
-                    successors.push((TransitionKind::Interlayer, ilt.dst));
-                }
-            }
-        }
-
-        successors.into_iter()
-    }
-
-    fn is_available_for_net(&self, net: NetId, pos: Pos) -> bool {
-        let slice = self.slice(pos.layer);
-        slice.is_available_for_net(pos, net)
-    }
-
-    /// Adds the given interlayer transition to the set of allowed transitions.
-    ///
-    /// # Panics
-    ///
-    /// Panics if an interlayer transition for the given source and destination pair
-    /// already exists.
-    pub fn add_ilt(&mut self, ilt: InterlayerTransition) {
-        let entry = self.ilts.entry(ilt.src).or_default();
-        let prev = entry.insert(ilt.dst, ilt);
-        assert!(prev.is_none());
-    }
-
-    /// Find and allocate a route between source and destination.
-    ///
-    /// Returns [`Some`] if a route was found; returns [`None`] if no route was found.
-    pub fn route(&mut self, src: Pos, dst: Pos, net: NetId) -> Option<()> {
-        let mut q = VecDeque::new();
-        let mut visited = HashSet::new();
-        let mut parent = HashMap::new();
-
-        q.push_back(src);
-        visited.insert(src);
-
-        while !q.is_empty() {
-            let v = q.pop_front().unwrap();
-            if v == dst {
-                break;
-            }
-            for (kind, next) in self.transitions(v, net) {
-                if !visited.contains(&next) {
-                    visited.insert(next);
-                    q.push_back(next);
-                    parent.insert(next, (kind, v));
-                }
-            }
-        }
-
-        // Failed to reach the destination.
-        if !parent.contains_key(&dst) {
-            return None;
-        }
-
-        let mut v = dst;
-        self.slice_mut(dst.layer).allocate(dst, net);
-        while v != src {
-            let &(tk, parent) = &parent[&v];
-            match tk {
-                TransitionKind::Intralayer => self.slice_mut(v.layer).allocate(parent, net),
-                TransitionKind::Interlayer => {
-                    let ilt = self.ilts.get(&parent).unwrap().get(&v).unwrap();
-                    for &pos in ilt.requires.iter() {
-                        self.slices.get_mut(&pos.layer).unwrap().allocate(pos, net);
-                    }
-                }
-            }
-            v = parent;
-        }
-        assert_eq!(v, src);
-
-        Some(())
+        Ok(layout_data)
     }
 }

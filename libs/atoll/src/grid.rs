@@ -1,13 +1,23 @@
 //! Uniform routing grids and layer stacks.
-use crate::RoutingDir;
+use crate::{NetId, PointState, RoutingDir};
+use grid::Grid;
+use num::integer::{div_ceil, div_floor};
+use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::ops::{Deref, DerefMut, Range};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+
+use crate::abs::GridCoord;
+use std::ops::{Index, IndexMut, Range};
 use substrate::context::{ContextBuilder, Installation};
+use substrate::geometry::corner::Corner;
+use substrate::geometry::dims::Dims;
 use substrate::geometry::dir::Dir;
+use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{Tracks, UniformTracks};
+use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::layout::{Draw, DrawReceiver};
 use substrate::pdk::layers::LayerId;
 use substrate::pdk::Pdk;
@@ -38,7 +48,7 @@ pub trait AtollLayer {
 /// An abstract layer with no relation to a physical layer in any process.
 ///
 /// Just a set of numeric constants.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AbstractLayer {
     /// The preferred routing direction.
     pub dir: RoutingDir,
@@ -53,7 +63,7 @@ pub struct AbstractLayer {
 }
 
 /// An ATOLL-layer associated with a layer provided by a PDK.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct PdkLayer {
     /// The [`LayerId`] of the PDK layer.
     pub id: LayerId,
@@ -75,7 +85,7 @@ impl AbstractLayer {
 }
 
 /// A stack of layers with alternating track directions
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct LayerStack<L> {
     /// The list of layers, ordered from bottom to top.
     pub layers: Vec<L>,
@@ -210,6 +220,18 @@ impl<L: AtollLayer> LayerStack<L> {
     }
 }
 
+impl LayerStack<PdkLayer> {
+    /// Returns the index corresponding to the given [`LayerId`].
+    pub fn layer_idx(&self, id: LayerId) -> Option<usize> {
+        for (i, layer) in self.layers.iter().enumerate() {
+            if layer.id == id {
+                return Some(i);
+            }
+        }
+        None
+    }
+}
+
 impl<'a, L: AtollLayer> LayerSlice<'a, L> {
     /// A single LCM unit in the given direction.
     pub fn lcm_unit(&self, dir: Dir) -> i64 {
@@ -228,6 +250,11 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
     /// A single LCM unit height.
     pub fn lcm_unit_height(&self) -> i64 {
         self.lcm_unit(Dir::Vert)
+    }
+
+    /// The LCM units in both directions.
+    pub fn lcm_units(&self) -> Dims {
+        Dims::new(self.lcm_unit_width(), self.lcm_unit_height())
     }
 
     /// The range of layer indices in this slice.
@@ -259,27 +286,60 @@ impl<'a, L: AtollLayer> LayerSlice<'a, L> {
         );
         self.stack.layer(layer)
     }
+
+    /// Expands a rectangle in physical coordinates to LCM units.
+    pub fn expand_to_lcm_units(&self, rect: Rect) -> Rect {
+        let xmin = div_floor(rect.left(), self.lcm_unit_width());
+        let xmax = div_ceil(rect.right(), self.lcm_unit_width());
+        let ymin = div_floor(rect.bot(), self.lcm_unit_height());
+        let ymax = div_ceil(rect.top(), self.lcm_unit_height());
+        Rect::from_sides(xmin, ymin, xmax, ymax)
+    }
+
+    /// Shrinks a rectangle in physical coordinates to LCM units.
+    pub fn shrink_to_lcm_units(&self, rect: Rect) -> Option<Rect> {
+        let xmin = div_ceil(rect.left(), self.lcm_unit_width());
+        let xmax = div_floor(rect.right(), self.lcm_unit_width());
+        let ymin = div_ceil(rect.bot(), self.lcm_unit_height());
+        let ymax = div_floor(rect.top(), self.lcm_unit_height());
+        Rect::from_sides_option(xmin, ymin, xmax, ymax)
+    }
+
+    /// Converts a point in LCM units to a point in physical units.
+    pub fn lcm_to_physical(&self, pt: Point) -> Point {
+        Point::new(pt.x * self.lcm_unit_width(), pt.y * self.lcm_unit_height())
+    }
+
+    /// Converts a rectangle in LCM units to a point in physical units.
+    pub fn lcm_to_physical_rect(&self, rect: Rect) -> Rect {
+        Rect::new(
+            self.lcm_to_physical(rect.lower_left()),
+            self.lcm_to_physical(rect.upper_right()),
+        )
+    }
 }
 
 /// A fixed-size routing grid.
-#[derive(Clone)]
+///
+/// Does not store the state of track points in the grid.
+/// For that functionality, see [`RoutingState`].
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RoutingGrid<L> {
-    stack: LayerStack<L>,
+    /// The layer stack.
+    pub stack: LayerStack<L>,
+    /// The start layer (inclusive)
     start: usize,
+    /// The end layer (not inclusive)
     end: usize,
-    nx: i64,
-    ny: i64,
 }
 
 impl<L> RoutingGrid<L> {
     /// Creates a new routing grid with the given properties.
-    pub fn new(stack: LayerStack<L>, layers: Range<usize>, nx: i64, ny: i64) -> Self {
+    pub fn new(stack: LayerStack<L>, layers: Range<usize>) -> Self {
         Self {
             stack,
             start: layers.start,
             end: layers.end,
-            nx,
-            ny,
         }
     }
 
@@ -287,11 +347,16 @@ impl<L> RoutingGrid<L> {
     pub fn layers(&self) -> Range<usize> {
         self.start..self.end
     }
+
+    /// The layer slice representing the layers used by this routing grid.
+    pub fn slice(&self) -> LayerSlice<'_, L> {
+        self.stack.slice(self.start..self.end)
+    }
 }
 
 impl<L: AtollLayer> RoutingGrid<L> {
     /// The layer that defines the cross tracks for `layer`.
-    fn grid_defining_layer(&self, layer: usize) -> usize {
+    pub(crate) fn grid_defining_layer(&self, layer: usize) -> usize {
         // The grid for layer N is formed by the tracks for layer N and the tracks for layer N-1,
         // except for N=0. For layer 0, the grid is formed by layers 0 and 1.
         if layer == 0 {
@@ -307,6 +372,26 @@ impl<L: AtollLayer> RoutingGrid<L> {
         let tracks = slice.tracks(layer);
 
         tracks.track(track)
+    }
+
+    /// The tracks on the given layer.
+    pub fn tracks(&self, layer: usize) -> UniformTracks {
+        self.stack.tracks(layer)
+    }
+
+    /// Returns the track grid for the given layer.
+    ///
+    /// Returns a tuple containing the vertical going tracks followed by the horizontal going tracks.
+    /// In other words, the first element of the tuple is indexed by an x-coordinate,
+    /// and the second element of the tuple is indexed by a y-coordinate.
+    pub fn track_grid(&self, layer: usize) -> (UniformTracks, UniformTracks) {
+        let tracks = self.tracks(layer);
+        let adj_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => (adj_tracks, tracks),
+            Dir::Vert => (tracks, adj_tracks),
+        }
     }
 
     /// Calculates the bounds of a particular track on the given layer.
@@ -334,15 +419,151 @@ impl<L: AtollLayer> RoutingGrid<L> {
         )
     }
 
-    /// The coordinate of the first track on the given layer.
-    fn min_coord(&self, _layer: usize) -> i64 {
-        // the first track is always labeled 0
-        0
+    /// Returns the physical coordinates of the grid point defined by the given `track` and `cross_track`
+    /// on layer `layer`, where `track` is the track on `layer` and `cross_track` is a perpendicular track.
+    pub fn track_point(&self, layer: usize, track: i64, cross_track: i64) -> Point {
+        let tracks = self.stack.tracks(layer);
+        let cross_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        let track = tracks.track(track).center();
+        let cross = cross_tracks.track(cross_track).center();
+
+        Point::from_dir_coords(self.stack.layer(layer).dir().track_dir(), cross, track)
+    }
+
+    /// Returns the physical coordinates of the grid point defined by the given `x_track` and `y_track`
+    /// on layer `layer`.
+    pub fn xy_track_point(&self, layer: usize, x_track: i64, y_track: i64) -> Point {
+        let tracks = self.stack.tracks(layer);
+        let gdl_tracks = self.stack.tracks(self.grid_defining_layer(layer));
+
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => Point::new(
+                gdl_tracks.track(x_track).center(),
+                tracks.track(y_track).center(),
+            ),
+            Dir::Vert => Point::new(
+                tracks.track(x_track).center(),
+                gdl_tracks.track(y_track).center(),
+            ),
+        }
+    }
+
+    /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    pub fn point_to_grid(
+        &self,
+        p: Point,
+        layer: usize,
+        round_x: RoundingMode,
+        round_y: RoundingMode,
+    ) -> Point {
+        let gdl = self.grid_defining_layer(layer);
+        let trk = self.stack.tracks(layer);
+        let gdtrk = self.stack.tracks(gdl);
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Vert => Point::new(
+                trk.to_track_idx(p.x, round_x),
+                gdtrk.to_track_idx(p.y, round_y),
+            ),
+            Dir::Horiz => Point::new(
+                gdtrk.to_track_idx(p.x, round_x),
+                trk.to_track_idx(p.y, round_y),
+            ),
+        }
+    }
+
+    /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    ///
+    /// Rounds in the direction that makes the rectangle smaller.
+    /// If the resulting rectangle contains no track points, returns [`None`].
+    pub fn shrink_to_grid(&self, rect: Rect, layer: usize) -> Option<Rect> {
+        let ll = self.point_to_grid(
+            rect.corner(Corner::LowerLeft),
+            layer,
+            RoundingMode::Up,
+            RoundingMode::Up,
+        );
+        let ur = self.point_to_grid(
+            rect.corner(Corner::UpperRight),
+            layer,
+            RoundingMode::Down,
+            RoundingMode::Down,
+        );
+        Rect::from_corners_option(ll, ur)
+    }
+
+    /// Rounds the given point to the routing grid, returning a point in track coordinates on the given layer.
+    ///
+    /// Rounds in the direction that makes the rectangle larger.
+    pub fn expand_to_grid(&self, rect: Rect, layer: usize) -> Rect {
+        let ll = self.point_to_grid(
+            rect.corner(Corner::LowerLeft),
+            layer,
+            RoundingMode::Down,
+            RoundingMode::Down,
+        );
+        let ur = self.point_to_grid(
+            rect.corner(Corner::UpperRight),
+            layer,
+            RoundingMode::Up,
+            RoundingMode::Up,
+        );
+        Rect::new(ll, ur)
+    }
+
+    /// The number of PDK units in one horizontal grid coordinate on this layer.
+    pub(crate) fn xpitch(&self, layer: usize) -> i64 {
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Vert => self.stack.layer(layer).pitch(),
+            Dir::Horiz => self.stack.layer(self.grid_defining_layer(layer)).pitch(),
+        }
+    }
+
+    /// The number of PDK units in one vertical grid coordinate on this layer.
+    pub(crate) fn ypitch(&self, layer: usize) -> i64 {
+        match self.stack.layer(layer).dir().track_dir() {
+            Dir::Horiz => self.stack.layer(layer).pitch(),
+            Dir::Vert => self.stack.layer(self.grid_defining_layer(layer)).pitch(),
+        }
+    }
+
+    /// The number of PDK units in one grid coordinate in the given direction on this layer.
+    #[allow(dead_code)]
+    pub(crate) fn dir_pitch(&self, layer: usize, dir: Dir) -> i64 {
+        match dir {
+            Dir::Horiz => self.xpitch(layer),
+            Dir::Vert => self.ypitch(layer),
+        }
+    }
+}
+
+/// A struct that draws all tracks on a routing grid for debugging or visualization.
+pub struct DebugRoutingGrid<L> {
+    grid: RoutingGrid<L>,
+    nx: i64,
+    ny: i64,
+}
+
+impl<L> DebugRoutingGrid<L> {
+    /// Create a new debugging grid from the given routing grid.
+    pub fn new(grid: RoutingGrid<L>, nx: i64, ny: i64) -> Self {
+        Self { grid, nx, ny }
+    }
+
+    /// The number of repeated LCM units in the given direction.
+    fn ndir(&self, dir: Dir) -> i64 {
+        match dir {
+            Dir::Horiz => self.nx,
+            Dir::Vert => self.ny,
+        }
     }
 
     /// The coordinate of the last track on the given layer.
-    fn max_coord(&self, layer: usize) -> i64 {
-        let slice = self.stack.slice(self.start..self.end);
+    fn max_coord(&self, layer: usize) -> i64
+    where
+        L: AtollLayer,
+    {
+        let slice = self.grid.stack.slice(self.grid.start..self.grid.end);
         let layer = slice.layer(layer);
         let lcm = slice.lcm_unit(!layer.dir().track_dir());
         let pitch = layer.pitch();
@@ -353,57 +574,24 @@ impl<L: AtollLayer> RoutingGrid<L> {
         );
         units * self.ndir(!layer.dir().track_dir())
     }
-
-    /// The number of repeated LCM units in the given direction.
-    fn ndir(&self, dir: Dir) -> i64 {
-        match dir {
-            Dir::Horiz => self.nx,
-            Dir::Vert => self.ny,
-        }
-    }
-}
-
-/// A struct that draws all tracks on a routing grid for debugging or visualization.
-pub struct DebugRoutingGrid<L>(RoutingGrid<L>);
-
-impl<L> DebugRoutingGrid<L> {
-    /// Create a new debugging grid from the given routing grid.
-    pub fn new(grid: RoutingGrid<L>) -> Self {
-        Self(grid)
-    }
-}
-
-impl<L> Deref for DebugRoutingGrid<L> {
-    type Target = RoutingGrid<L>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<L> DerefMut for DebugRoutingGrid<L> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
 }
 
 impl<L: AsRef<LayerId> + AtollLayer, PDK: Pdk> Draw<PDK> for DebugRoutingGrid<L> {
     fn draw(self, recv: &mut DrawReceiver<PDK>) -> substrate::error::Result<()> {
-        for layer in self.start..self.end {
-            for track in self.min_coord(layer)..self.max_coord(layer) {
-                let cross_layer = self.grid_defining_layer(layer);
-                let r = self.track(
-                    layer,
-                    track,
-                    self.min_coord(cross_layer),
-                    self.max_coord(cross_layer),
-                );
-                let shape = Shape::new(self.stack.layer(layer), r);
+        for layer in self.grid.start..self.grid.end {
+            for track in 0..self.max_coord(layer) {
+                let cross_layer = self.grid.grid_defining_layer(layer);
+                let r = self
+                    .grid
+                    .track(layer, track, 0, self.max_coord(cross_layer));
+                let shape = Shape::new(self.grid.stack.layer(layer), r);
                 recv.draw(shape)?;
             }
         }
         Ok(())
     }
 }
+
 fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
     if a <= b {
         (a, b)
@@ -411,13 +599,402 @@ fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
         (b, a)
     }
 }
+
+/// A fixed-size routing grid.
+#[derive(Clone, Debug)]
+pub struct RoutingState<L> {
+    pub(crate) grid: RoutingGrid<L>,
+    pub(crate) layers: Vec<Grid<PointState>>,
+    pub(crate) roots: HashMap<NetId, NetId>,
+}
+
+impl<L> Index<GridCoord> for RoutingState<L> {
+    type Output = PointState;
+
+    fn index(&self, index: GridCoord) -> &Self::Output {
+        &self.layers[index.layer][(index.x, index.y)]
+    }
+}
+
+impl<L> IndexMut<GridCoord> for RoutingState<L> {
+    fn index_mut(&mut self, index: GridCoord) -> &mut Self::Output {
+        &mut self.layers[index.layer][(index.x, index.y)]
+    }
+}
+
+impl<L> RoutingState<L> {
+    /// Returns a reference to a layer's state.
+    pub fn layer(&self, layer: usize) -> &Grid<PointState> {
+        &self.layers[layer]
+    }
+
+    /// Returns a mutable reference to a layer's state.
+    pub fn layer_mut(&mut self, layer: usize) -> &mut Grid<PointState> {
+        &mut self.layers[layer]
+    }
+}
+
+pub(crate) struct InterlayerTransition {
+    pub(crate) to: GridCoord,
+    pub(crate) requires: Option<GridCoord>,
+}
+
+impl<L: AtollLayer + Clone> RoutingState<L> {
+    /// Creates a new [`RoutingState`].
+    pub fn new(stack: LayerStack<L>, top: usize, nx: i64, ny: i64) -> Self {
+        assert!(nx >= 0);
+        assert!(ny >= 0);
+
+        let grid = RoutingGrid::new(stack.clone(), 0..top + 1);
+        let slice = stack.slice(0..top + 1);
+        let mut layers = Vec::new();
+        for i in 0..=top {
+            let layer = stack.layer(i);
+            let dim = slice.lcm_unit(!layer.dir().track_dir());
+            let num_tracks = dim / layer.pitch();
+            let perp_layer = stack.layer(grid.grid_defining_layer(i));
+            let perp_dim = slice.lcm_unit(!perp_layer.dir().track_dir());
+            let perp_tracks = perp_dim / perp_layer.pitch();
+            let grid = if layer.dir().track_dir() == Dir::Vert {
+                Grid::init(
+                    (nx * num_tracks) as usize,
+                    (ny * perp_tracks) as usize,
+                    PointState::Available,
+                )
+            } else {
+                Grid::init(
+                    (nx * perp_tracks) as usize,
+                    (ny * num_tracks) as usize,
+                    PointState::Available,
+                )
+            };
+            layers.push(grid);
+        }
+        Self {
+            grid,
+            layers,
+            roots: HashMap::new(),
+        }
+    }
+
+    /// Finds a single grid coordinate belonging to the given net.
+    ///
+    /// Searches the topmost layer first, starting from the lower left.
+    /// Returns the first grid point with a matching net ID, or [`None`]
+    /// if no grid point has the given net ID.
+    pub fn find(&self, net: NetId) -> Option<GridCoord> {
+        for (i, layer) in self.layers.iter().enumerate().rev() {
+            let (nx, ny) = layer.size();
+            for x in 0..nx {
+                for y in 0..ny {
+                    if layer[(x, y)] == (PointState::Routed { net }) {
+                        return Some(GridCoord { layer: i, x, y });
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn is_routed_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        if let PointState::Routed { net: grid_net } = self[coord] {
+            self.roots[&net] == self.roots[&grid_net]
+        } else {
+            false
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_available_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        match self[coord] {
+            PointState::Routed { net: grid_net } => self.roots[&grid_net] == self.roots[&net],
+            PointState::Available => true,
+            PointState::Blocked => false,
+            PointState::Reserved { .. } => false,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_available_or_reserved_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        match self[coord] {
+            PointState::Routed { .. } => false,
+            PointState::Available => true,
+            PointState::Blocked => false,
+            PointState::Reserved { net: grid_net } => self.roots[&net] == self.roots[&grid_net],
+        }
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn is_available(&self, coord: GridCoord) -> bool {
+        match self[coord] {
+            PointState::Routed { .. } => false,
+            PointState::Available => true,
+            PointState::Blocked => false,
+            PointState::Reserved { .. } => false,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn in_bounds(&self, coord: GridCoord) -> bool {
+        let (nx, ny) = self.layer(coord.layer).size();
+        coord.x < nx && coord.y < ny
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn forms_new_connection_for_net(&self, coord: GridCoord, net: NetId) -> bool {
+        if let PointState::Routed { net: grid_net } = self[coord] {
+            self.roots[&net] == self.roots[&grid_net] && grid_net != net
+        } else {
+            false
+        }
+    }
+
+    /// The cost to traverse from `src` to `dst`.
+    ///
+    /// Important: the two coordinates must be adjacent.
+    fn cost(&self, src: GridCoord, dst: GridCoord, net: NetId) -> usize {
+        if self.is_routed_for_net(src, net) && self.is_routed_for_net(dst, net) {
+            if self[src] == self[dst] {
+                0
+            } else {
+                1
+            }
+        } else if src.layer != dst.layer {
+            6
+        } else {
+            4
+        }
+    }
+
+    fn successors_vert(&self, coord: GridCoord, net: NetId, out: &mut Vec<(GridCoord, usize)>) {
+        let layer = self.layer(coord.layer);
+        if coord.y != 0 {
+            let next = GridCoord {
+                y: coord.y - 1,
+                ..coord
+            };
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
+        }
+        if coord.y < layer.size().1 - 1 {
+            let next = GridCoord {
+                y: coord.y + 1,
+                ..coord
+            };
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
+        }
+    }
+
+    fn successors_horiz(&self, coord: GridCoord, net: NetId, out: &mut Vec<(GridCoord, usize)>) {
+        let layer = self.layer(coord.layer);
+        if coord.x != 0 {
+            let next = GridCoord {
+                x: coord.x - 1,
+                ..coord
+            };
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
+        }
+        if coord.x < layer.size().0 - 1 {
+            let next = GridCoord {
+                x: coord.x + 1,
+                ..coord
+            };
+            if self.is_available_for_net(next, net) {
+                out.push((next, self.cost(coord, next, net)));
+            }
+        }
+    }
+
+    pub(crate) fn ilt_down(&self, coord: GridCoord) -> Option<InterlayerTransition> {
+        let routing_dir = self.grid.slice().layer(coord.layer).dir();
+        if coord.layer == 0 {
+            return None;
+        }
+        let next_layer = coord.layer - 1;
+        let interp_dir = !routing_dir.track_dir();
+        let pp = self.grid_to_rel_physical(coord);
+        let nearest_grid =
+            self.grid
+                .point_to_grid(pp, next_layer, RoundingMode::Nearest, RoundingMode::Nearest);
+        assert_eq!(
+            nearest_grid.coord(!interp_dir),
+            coord.coord(!interp_dir) as i64
+        );
+        assert!(nearest_grid.x >= 0);
+        assert!(nearest_grid.y >= 0);
+
+        let lower_tracks = self.grid.tracks(self.grid.grid_defining_layer(next_layer));
+        let upper_tracks = self.grid.tracks(coord.layer);
+        let curr = upper_tracks.track(coord.coord(interp_dir) as i64).center();
+        let nearest = lower_tracks.track(nearest_grid.coord(interp_dir)).center();
+
+        let next = GridCoord {
+            layer: next_layer,
+            x: nearest_grid.x as usize,
+            y: nearest_grid.y as usize,
+        };
+
+        match curr.cmp(&nearest) {
+            Ordering::Less => {
+                // need to check if coordinate+1 is available
+                let ck = next.with_coord(interp_dir, next.coord(interp_dir) - 1);
+                if !self.in_bounds(ck) {
+                    return None;
+                }
+                Some(InterlayerTransition {
+                    to: next,
+                    requires: Some(ck),
+                })
+            }
+            Ordering::Equal => Some(InterlayerTransition {
+                to: next,
+                requires: None,
+            }),
+            Ordering::Greater => {
+                if coord.coord(interp_dir) > 0 {
+                    let ck = next.with_coord(interp_dir, next.coord(interp_dir) + 1);
+                    Some(InterlayerTransition {
+                        to: next,
+                        requires: Some(ck),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+    pub(crate) fn ilt_up(&self, coord: GridCoord) -> Option<InterlayerTransition> {
+        let routing_dir = self.grid.slice().layer(coord.layer).dir();
+        let next_layer = coord.layer + 1;
+        if next_layer >= self.grid.end {
+            return None;
+        }
+        let interp_dir = routing_dir.track_dir();
+        let pp = self.grid_to_rel_physical(coord);
+        let nearest_grid =
+            self.grid
+                .point_to_grid(pp, next_layer, RoundingMode::Nearest, RoundingMode::Nearest);
+        assert_eq!(
+            nearest_grid.coord(!interp_dir),
+            coord.coord(!interp_dir) as i64
+        );
+        assert!(nearest_grid.x >= 0);
+        assert!(nearest_grid.y >= 0);
+
+        let lower_tracks = self.grid.tracks(self.grid.grid_defining_layer(coord.layer));
+        let upper_tracks = self.grid.tracks(next_layer);
+        let curr = lower_tracks.track(coord.coord(interp_dir) as i64).center();
+        let nearest = upper_tracks.track(nearest_grid.coord(interp_dir)).center();
+
+        let next = GridCoord {
+            layer: next_layer,
+            x: nearest_grid.x as usize,
+            y: nearest_grid.y as usize,
+        };
+
+        match curr.cmp(&nearest) {
+            Ordering::Less => {
+                // need to check if coordinate+1 is available
+                let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) + 1);
+                if !self.in_bounds(ck) {
+                    return None;
+                }
+                Some(InterlayerTransition {
+                    to: next,
+                    requires: Some(ck),
+                })
+            }
+            Ordering::Equal => Some(InterlayerTransition {
+                to: next,
+                requires: None,
+            }),
+            Ordering::Greater => {
+                if coord.coord(interp_dir) > 0 {
+                    let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) - 1);
+                    Some(InterlayerTransition {
+                        to: next,
+                        requires: Some(ck),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// The set of points reachable from `coord`.
+    ///
+    /// M0 <-> M1 vias are always easy, since both layers have the same grid.
+    ///
+    /// MN <-> M(N+1) vias require interpolation.
+    /// We first identify the coordinate that stays constant in the transition.
+    /// If MN has horizontal going tracks, the y-coordinate is constant.
+    /// If MN has vertical going tracks, the x-coordinate is constant.
+    /// The non-constant coordinate must be interpolated.
+    ///
+    /// Interpolation is done as follows:
+    /// * We translate the track coordinate to a physical coordinate, and retrieve the coordinate in the interpolated direction
+    /// * We find two track coordinates on M(N+1): one by rounding up; the other by rounding down.
+    /// * If the two coordinates are equal, we report a successor to that grid point.
+    /// * Otherwise, we report a successor to the track with a closer physical coordinate, assuming
+    /// the farther coordinate is unobstructed.
+    pub fn successors(&self, coord: GridCoord, net: NetId) -> Vec<(GridCoord, usize)> {
+        let mut successors = Vec::new();
+        let routing_dir = self.grid.slice().layer(coord.layer).dir();
+
+        match routing_dir {
+            RoutingDir::Vert => {
+                self.successors_vert(coord, net, &mut successors);
+            }
+            RoutingDir::Horiz => {
+                self.successors_horiz(coord, net, &mut successors);
+            }
+            RoutingDir::Any { .. } => {
+                self.successors_vert(coord, net, &mut successors);
+                self.successors_horiz(coord, net, &mut successors);
+            }
+        }
+
+        for ilt in [self.ilt_up(coord), self.ilt_down(coord)]
+            .into_iter()
+            .flatten()
+        {
+            if self.is_available_for_net(ilt.to, net)
+                && ilt
+                    .requires
+                    .map(|n| self.is_available_or_reserved_for_net(n, net))
+                    .unwrap_or(true)
+            {
+                successors.push((ilt.to, self.cost(coord, ilt.to, net)));
+            }
+        }
+
+        successors
+    }
+
+    /// Converts the given grid point to physical coordinates.
+    ///
+    /// Assumes that (0,0) in grid coordinates is the same as (0,0) in track coordinates.
+    /// In other words, this assumes that grid and track coordinates are the same;
+    /// there is not shift between grid and track coordinates.
+    pub fn grid_to_rel_physical(&self, coord: GridCoord) -> Point {
+        self.grid
+            .xy_track_point(coord.layer, coord.x as i64, coord.y as i64)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::grid::*;
 
-    #[test]
-    fn lcm_units() {
-        let layers = LayerStack {
+    fn layer_stack() -> LayerStack<AbstractLayer> {
+        LayerStack {
             layers: vec![
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
@@ -450,8 +1027,12 @@ mod tests {
             ],
             offset_x: 0,
             offset_y: 0,
-        };
+        }
+    }
 
+    #[test]
+    fn lcm_units() {
+        let layers = layer_stack();
         let slice = layers.all();
         assert_eq!(slice.lcm_unit(Dir::Horiz), 4_800);
         assert_eq!(slice.lcm_unit(Dir::Vert), 600);

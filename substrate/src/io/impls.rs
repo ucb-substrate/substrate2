@@ -655,18 +655,17 @@ where
 
 // TODO: Maybe do lazy transformation here.
 impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
-    type TransformedView<'a>
-    = ArrayData<Transformed<'a, T>> where T: 'a;
+    type TransformedView = ArrayData<Transformed<T>>;
 
     fn transformed_view(
         &self,
         trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView<'_> {
+    ) -> Self::TransformedView {
         Self::TransformedView {
             elems: self
                 .elems
                 .iter()
-                .map(|elem: &T| elem.transformed_view(trans))
+                .map(|elem| elem.transformed_view(trans))
                 .collect(),
             ty_len: self.ty_len,
         }

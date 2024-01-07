@@ -332,15 +332,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
 
     let substrate = substrate_ident();
 
-    let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
-    let mut ref_generics = generics.clone();
-    ref_generics.params.push(lifetime.clone());
-    add_trait_bounds(
-        &mut ref_generics,
-        quote!(#substrate::io::layout::HardwareType),
-    );
-    add_trait_bounds(&mut ref_generics, quote!(::std::any::Any));
-
     let mut lt_generics = generics.clone();
     add_trait_bounds(
         &mut lt_generics,
@@ -355,23 +346,18 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let mut hbf_generics = lt_generics.clone();
 
     let mut idents = Vec::new();
-    for param in &ref_generics.params {
+    for param in &lt_generics.params {
         if let syn::GenericParam::Type(ref type_param) = *param {
             idents.push(type_param.ident.clone());
         }
     }
-    let ref_wher = ref_generics.make_where_clause();
     for ident in idents {
-        ref_wher.predicates.push(
-            syn::parse_quote!(<#ident as substrate::io::layout::HardwareType>::Bundle: #lifetime),
-        );
         hbf_generics.make_where_clause().predicates.push(syn::parse_quote!(<#ident as #substrate::io::layout::HardwareType>::Builder: #substrate::io::layout::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts>));
     }
 
     let (hbf_imp, hbf_ty, hbf_where) = hbf_generics.split_for_impl();
 
     let (_imp, ty, _wher) = generics.split_for_impl();
-    let (_ref_imp, ref_ty, _ref_wher) = ref_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
     if let Some(layout_type) = layout_type {
@@ -430,7 +416,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             #declare <#field_ty as #substrate::io::layout::HardwareType>::Builder,
         });
         transformed_layout_data_fields.push(quote! {
-                #declare #substrate::geometry::transform::Transformed<#lifetime, <#field_ty as #substrate::io::layout::HardwareType>::Bundle>,
+                #declare #substrate::geometry::transform::Transformed<<#field_ty as #substrate::io::layout::HardwareType>::Bundle>,
             });
         flatten_port_geometry_fields.push(quote! {
                 <<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::Flatten<#substrate::io::layout::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
@@ -515,15 +501,15 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         }
 
         #(#attrs)*
-        #vis struct #transformed_layout_data_ident #ref_generics #transformed_layout_data_body
+        #vis struct #transformed_layout_data_ident #lt_generics #transformed_layout_data_body
 
         impl #lt_any_imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #lt_any_ty #lt_any_where {
-            type TransformedView<#lifetime> = #transformed_layout_data_ident #ref_ty;
+            type TransformedView = #transformed_layout_data_ident #lt_ty;
 
             fn transformed_view(
                 &self,
                 trans: #substrate::geometry::transform::Transformation,
-            ) -> Self::TransformedView<'_> {
+            ) -> Self::TransformedView {
                 #transformed_layout_data_ident #transformed_view_body
             }
         }

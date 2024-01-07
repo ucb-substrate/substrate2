@@ -228,7 +228,7 @@ impl Layout<ExamplePdk> for Inverter {
     fn layout(
         &self,
         io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdk, Self>,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdk>,
     ) -> substrate::error::Result<Self::LayoutData> {
         io.vss.push(IoShape::with_layers(
             cell.ctx.layers.met1,
@@ -261,7 +261,7 @@ impl Layout<ExamplePdkA> for Inverter {
     fn layout(
         &self,
         io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdkA, Self>,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkA>,
     ) -> substrate::error::Result<Self::LayoutData> {
         io.vss.push(IoShape::with_layers(
             cell.ctx.layers.met1a,
@@ -293,7 +293,7 @@ impl Layout<ExamplePdkB> for Inverter {
     fn layout(
         &self,
         io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut substrate::layout::CellBuilder<ExamplePdkB, Self>,
+        cell: &mut substrate::layout::CellBuilder<ExamplePdkB>,
     ) -> substrate::error::Result<Self::LayoutData> {
         io.vss.push(IoShape::with_layers(
             cell.ctx.layers.met1b,
@@ -466,7 +466,7 @@ mod single_process_buffer {
             // begin-ellipses cell_builder_generate
             &self,
             io: &mut Builder<<Self as Block>::Io>,
-            cell: &mut CellBuilder<ExamplePdk, Self>,
+            cell: &mut CellBuilder<ExamplePdk>,
             // end-ellipses cell_builder_generate
         ) -> substrate::error::Result<Self::LayoutData> {
             let inv1 = cell.generate(Inverter::new(self.strength));
@@ -497,7 +497,7 @@ where
     fn layout(
         &self,
         io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut substrate::layout::CellBuilder<PDK, Self>,
+        cell: &mut substrate::layout::CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);

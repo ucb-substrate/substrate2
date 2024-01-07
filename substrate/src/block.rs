@@ -1,5 +1,6 @@
 //! A block that can be instantiated by Substrate.
 
+use std::sync::Arc;
 use std::{any::Any, hash::Hash};
 
 use arcstr::ArcStr;
@@ -32,4 +33,20 @@ pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
 
     /// Returns a fully-specified instance of this cell's `Io`.
     fn io(&self) -> Self::Io;
+}
+
+impl<T: Block> Block for Arc<T> {
+    type Io = T::Io;
+
+    fn id() -> ArcStr {
+        T::id()
+    }
+
+    fn name(&self) -> ArcStr {
+        T::name(self)
+    }
+
+    fn io(&self) -> Self::Io {
+        T::io(self)
+    }
 }

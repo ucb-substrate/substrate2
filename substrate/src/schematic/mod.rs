@@ -54,6 +54,20 @@ pub trait Schematic<S: Schema + ?Sized>: ExportsNestedData {
     ) -> Result<Self::NestedData>;
 }
 
+impl<T: ExportsNestedData> ExportsNestedData for Arc<T> {
+    type NestedData = T::NestedData;
+}
+
+impl<S: Schema, T: Schematic<S>> Schematic<S> for Arc<T> {
+    fn schematic(
+        &self,
+        io: &Bundle<<Self as Block>::Io>,
+        cell: &mut CellBuilder<S>,
+    ) -> Result<Self::NestedData> {
+        T::schematic(self.as_ref(), io, cell)
+    }
+}
+
 /// A builder for creating a schematic cell.
 pub struct CellBuilder<S: Schema + ?Sized> {
     /// The current global context.

@@ -17,6 +17,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::io::layout::PortGeometry;
+use crate::layout::bbox::LayerBbox;
 use crate::{
     error::{Error, Result},
     io::NameBuf,
@@ -133,45 +134,28 @@ impl Bbox for RawCell {
     }
 }
 
-/// A transformed view of a raw cell, usually created by accessing the cell of an instance.
-pub struct TransformedRawCell<'a> {
-    id: CellId,
-    #[allow(dead_code)]
-    name: ArcStr,
-    elements: Transformed<'a, Vec<Element>>,
-    #[allow(dead_code)]
-    blockages: Transformed<'a, Vec<Shape>>,
-    ports: Transformed<'a, NamedPorts>,
+impl LayerBbox for RawCell {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.elements.layer_bbox(layer)
+    }
 }
 
 impl HasTransformedView for RawCell {
-    type TransformedView<'a> = TransformedRawCell<'a>;
+    type TransformedView = RawCell;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
-        TransformedRawCell {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+        RawCell {
             id: self.id,
             name: self.name.clone(),
             elements: self.elements.transformed_view(trans),
             blockages: self.blockages.transformed_view(trans),
-            ports: self.ports.transformed_view(trans),
+            ports: self
+                .ports
+                .iter()
+                .map(|(k, v)| (k.clone(), v.transformed_view(trans)))
+                .collect(),
+            port_names: self.port_names.clone(),
         }
-    }
-}
-
-impl<'a> TransformedRawCell<'a> {
-    /// The ID of this cell.
-    pub fn id(&self) -> CellId {
-        self.id
-    }
-
-    /// Returns an iterator over the elements of this cell.
-    pub fn elements(&self) -> impl Iterator<Item = Transformed<Element>> {
-        self.elements.iter()
-    }
-
-    /// Returns an iterator over the ports of this cell, as `(name, geometry)` pairs.
-    pub fn ports(&self) -> impl Iterator<Item = (&NameBuf, Transformed<PortGeometry>)> {
-        self.ports.iter()
     }
 }
 
@@ -195,15 +179,37 @@ impl RawInstance {
     }
 
     /// Returns a reference to the child cell.
+    ///
+    /// The returned object provides coordinates in the parent cell's coordinate system.
+    /// If you want coordinates in the child cell's coordinate system,
+    /// consider using [`RawInstance::raw_cell`] instead.
     #[inline]
-    pub fn cell(&self) -> Transformed<'_, RawCell> {
+    pub fn cell(&self) -> Transformed<RawCell> {
         self.cell.transformed_view(self.trans)
+    }
+
+    /// Returns a raw reference to the child cell.
+    ///
+    /// The returned cell does not store any information related
+    /// to this instance's transformation.
+    /// Consider using [`RawInstance::cell`] instead.
+    #[inline]
+    pub fn raw_cell(&self) -> &RawCell {
+        &self.cell
     }
 }
 
 impl Bbox for RawInstance {
     fn bbox(&self) -> Option<Rect> {
         self.cell.bbox().map(|rect| rect.transform(self.trans))
+    }
+}
+
+impl LayerBbox for RawInstance {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.cell
+            .layer_bbox(layer)
+            .map(|rect| rect.transform(self.trans))
     }
 }
 
@@ -238,9 +244,9 @@ impl TransformMut for RawInstance {
 }
 
 impl HasTransformedView for RawInstance {
-    type TransformedView<'a> = RawInstance;
+    type TransformedView = RawInstance;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }
@@ -279,6 +285,16 @@ impl Bbox for Shape {
     }
 }
 
+impl LayerBbox for Shape {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        if self.layer == layer {
+            self.bbox()
+        } else {
+            None
+        }
+    }
+}
+
 impl<T: Bbox> BoundingUnion<T> for Shape {
     type Output = Rect;
 
@@ -288,9 +304,9 @@ impl<T: Bbox> BoundingUnion<T> for Shape {
 }
 
 impl HasTransformedView for Shape {
-    type TransformedView<'a> = Shape;
+    type TransformedView = Shape;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         Shape {
             layer: self.layer,
             shape: self.shape.transformed_view(trans),
@@ -348,9 +364,9 @@ impl Text {
 }
 
 impl HasTransformedView for Text {
-    type TransformedView<'a> = Text;
+    type TransformedView = Text;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }
@@ -476,6 +492,16 @@ impl Bbox for Element {
     }
 }
 
+impl LayerBbox for Element {
+    fn layer_bbox(&self, layer: LayerId) -> Option<geometry::rect::Rect> {
+        match self {
+            Element::Instance(inst) => inst.layer_bbox(layer),
+            Element::Shape(shape) => shape.layer_bbox(layer),
+            Element::Text(_) => None,
+        }
+    }
+}
+
 impl From<RawInstance> for Element {
     fn from(value: RawInstance) -> Self {
         Self::Instance(value)
@@ -495,9 +521,9 @@ impl From<Text> for Element {
 }
 
 impl HasTransformedView for Element {
-    type TransformedView<'a> = Element;
+    type TransformedView = Element;
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView<'_> {
+    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
         self.clone().transform(trans)
     }
 }
@@ -534,6 +560,16 @@ impl Bbox for ElementRef<'_> {
         match self {
             ElementRef::Instance(inst) => inst.bbox(),
             ElementRef::Shape(shape) => shape.bbox(),
+            ElementRef::Text(_) => None,
+        }
+    }
+}
+
+impl LayerBbox for ElementRef<'_> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        match self {
+            ElementRef::Instance(inst) => inst.layer_bbox(layer),
+            ElementRef::Shape(shape) => shape.layer_bbox(layer),
             ElementRef::Text(_) => None,
         }
     }
