@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/scir-v0.7.0...scir-v0.8.0) (2024-01-07)
+
+
+### Features
+
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+
+
+### Bug Fixes
+
+* **scir:** add additional functionality for SCIR and SPICE libraries ([#337](https://github.com/ucb-substrate/substrate2/issues/337)) ([e49f075](https://github.com/ucb-substrate/substrate2/commit/e49f07529273c38cc8ec9ae1a5020ae48fb2a202))
+* **sim:** add `Sky130CommercialSchema` and simplify trait bounds ([#351](https://github.com/ucb-substrate/substrate2/issues/351)) ([c95e5c0](https://github.com/ucb-substrate/substrate2/commit/c95e5c08e5fc3bf6e34e00731ab4e38e9e586c01))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.1.0 to 0.1.1
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/scir-v0.6.0...scir-v0.7.0) (2023-11-04)
 
 

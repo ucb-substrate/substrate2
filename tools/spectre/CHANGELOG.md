@@ -8,6 +8,34 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.10.0](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.9.1...spectre-v0.10.0) (2024-01-07)
+
+
+### Features
+
+* **docs:** update docs for new simulation APIs ([#326](https://github.com/ucb-substrate/substrate2/issues/326)) ([ef133df](https://github.com/ucb-substrate/substrate2/commit/ef133dfac5f352121fe0e561b76541d5af62970e))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **psf:** use PSF binary format for Spectre plugin ([#345](https://github.com/ucb-substrate/substrate2/issues/345)) ([a4ec152](https://github.com/ucb-substrate/substrate2/commit/a4ec152d5e1299bc38f2664fe900dd7d34ba8b5c))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **deps:** bump rust to version 1.75.0 ([#362](https://github.com/ucb-substrate/substrate2/issues/362)) ([e1e82c9](https://github.com/ucb-substrate/substrate2/commit/e1e82c94cdf6ba4426f3f73f29dca40674a7f064))
+* **scir:** add additional functionality for SCIR and SPICE libraries ([#337](https://github.com/ucb-substrate/substrate2/issues/337)) ([e49f075](https://github.com/ucb-substrate/substrate2/commit/e49f07529273c38cc8ec9ae1a5020ae48fb2a202))
+* **simulation:** add missing SPICE functionality and update Sky 130 PDK ([#336](https://github.com/ucb-substrate/substrate2/issues/336)) ([f802be5](https://github.com/ucb-substrate/substrate2/commit/f802be5bf0361c38b415d976dbb0f2c984a2e304))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.5.0 to 0.6.0
+    * scir bumped from 0.7.0 to 0.8.0
+    * substrate bumped from 0.8.1 to 0.9.0
+    * spice bumped from 0.7.1 to 0.8.0
+
 ## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.9.0...spectre-v0.9.1) (2023-11-26)
 
 
