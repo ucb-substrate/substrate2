@@ -191,7 +191,7 @@ impl Contains<Point> for Polygon {
     /// ```
     fn contains(&self, p: &Point) -> Containment {
         for (index, _) in self.points.iter().skip(1).enumerate() {
-            let v1 = self.points.get(0).unwrap();
+            let v1 = self.points.first().unwrap();
             let v2 = self.points.get(index).unwrap();
             let v3 = self.points.get((index + 1) % self.points.len()).unwrap();
             if triangle_contains(*p, *v1, *v2, *v3) {
