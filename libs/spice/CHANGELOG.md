@@ -4,6 +4,29 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/spice-v0.7.1...spice-v0.8.0) (2024-01-07)
+
+
+### Features
+
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **scir:** add additional functionality for SCIR and SPICE libraries ([#337](https://github.com/ucb-substrate/substrate2/issues/337)) ([e49f075](https://github.com/ucb-substrate/substrate2/commit/e49f07529273c38cc8ec9ae1a5020ae48fb2a202))
+* **simulation:** add missing SPICE functionality and update Sky 130 PDK ([#336](https://github.com/ucb-substrate/substrate2/issues/336)) ([f802be5](https://github.com/ucb-substrate/substrate2/commit/f802be5bf0361c38b415d976dbb0f2c984a2e304))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.7.0 to 0.8.0
+    * substrate bumped from 0.8.1 to 0.9.0
+    * enumify bumped from 0.1.0 to 0.1.1
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/spice-v0.6.0...spice-v0.7.0) (2023-11-25)
 
 

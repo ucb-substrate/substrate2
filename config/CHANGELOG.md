@@ -16,6 +16,20 @@
   * dependencies
     * cache bumped from 0.4.0 to 0.5.0
 
+## [0.3.0](https://github.com/ucb-substrate/substrate2/compare/config-v0.2.5...config-v0.3.0) (2024-01-07)
+
+
+### Features
+
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.5.0 to 0.6.0
+
 ## [0.2.4](https://github.com/ucb-substrate/substrate2/compare/config-v0.2.3...config-v0.2.4) (2023-11-02)
 
 

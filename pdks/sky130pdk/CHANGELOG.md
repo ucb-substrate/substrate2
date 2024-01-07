@@ -25,6 +25,37 @@
     * ngspice bumped from 0.3.0 to 0.3.1
     * spice bumped from 0.7.0 to 0.7.1
 
+## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/sky130pdk-v0.8.1...sky130pdk-v0.9.0) (2024-01-07)
+
+
+### Features
+
+* **atoll:** fix sky130 layer setup ([#346](https://github.com/ucb-substrate/substrate2/issues/346)) ([07906db](https://github.com/ucb-substrate/substrate2/commit/07906db5edbe418df795c6e40af770e4dfc8c5ec))
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **atoll:** SKY130 ATOLL plugin NMOS tile generator ([#350](https://github.com/ucb-substrate/substrate2/issues/350)) ([264d028](https://github.com/ucb-substrate/substrate2/commit/264d0286ca1f4f23defdee54a56db016c71697dc))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **layout:** fix issues in GDS export and ATOLL API ([#341](https://github.com/ucb-substrate/substrate2/issues/341)) ([08930b1](https://github.com/ucb-substrate/substrate2/commit/08930b1b25d018c20758986e206dc8882df782af))
+* **sim:** add `Sky130CommercialSchema` and simplify trait bounds ([#351](https://github.com/ucb-substrate/substrate2/issues/351)) ([c95e5c0](https://github.com/ucb-substrate/substrate2/commit/c95e5c08e5fc3bf6e34e00731ab4e38e9e586c01))
+* **simulation:** add missing SPICE functionality and update Sky 130 PDK ([#336](https://github.com/ucb-substrate/substrate2/issues/336)) ([f802be5](https://github.com/ucb-substrate/substrate2/commit/f802be5bf0361c38b415d976dbb0f2c984a2e304))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.8.1 to 0.9.0
+    * scir bumped from 0.7.0 to 0.8.0
+    * atoll bumped from 0.1.3 to 0.2.0
+    * spectre bumped from 0.9.1 to 0.10.0
+    * ngspice bumped from 0.3.1 to 0.4.0
+    * spice bumped from 0.7.1 to 0.8.0
+
 ## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/sky130pdk-v0.7.1...sky130pdk-v0.8.0) (2023-11-25)
 
 

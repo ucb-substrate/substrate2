@@ -24,6 +24,46 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.8.1...substrate-v0.9.0) (2024-01-07)
+
+
+### Features
+
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **io:** add diff pair io ([#344](https://github.com/ucb-substrate/substrate2/issues/344)) ([556d2ef](https://github.com/ucb-substrate/substrate2/commit/556d2ef202b6b6b8469d5a92bd3d0632b41234e9))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **deps:** bump rust to version 1.75.0 ([#362](https://github.com/ucb-substrate/substrate2/issues/362)) ([e1e82c9](https://github.com/ucb-substrate/substrate2/commit/e1e82c94cdf6ba4426f3f73f29dca40674a7f064))
+* **gds:** fix user units for GDS export ([#342](https://github.com/ucb-substrate/substrate2/issues/342)) ([d7c25c0](https://github.com/ucb-substrate/substrate2/commit/d7c25c00fe1e171ddc6dacfb816d0b85e74fd761))
+* **gds:** use u16 instead of u8 for GDS layerspecs ([#339](https://github.com/ucb-substrate/substrate2/issues/339)) ([4d1fce2](https://github.com/ucb-substrate/substrate2/commit/4d1fce25f9493c6975d43dba96ccaa4c0cf4a686))
+* **layout:** fix issues in GDS export and ATOLL API ([#341](https://github.com/ucb-substrate/substrate2/issues/341)) ([08930b1](https://github.com/ucb-substrate/substrate2/commit/08930b1b25d018c20758986e206dc8882df782af))
+* **sim:** add `Sky130CommercialSchema` and simplify trait bounds ([#351](https://github.com/ucb-substrate/substrate2/issues/351)) ([c95e5c0](https://github.com/ucb-substrate/substrate2/commit/c95e5c08e5fc3bf6e34e00731ab4e38e9e586c01))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * config bumped from 0.2.5 to 0.3.0
+    * examples bumped from 0.5.1 to 0.6.0
+    * cache bumped from 0.5.0 to 0.6.0
+    * codegen bumped from 0.8.1 to 0.9.0
+    * geometry bumped from 0.5.0 to 0.6.0
+    * gds bumped from 0.3.0 to 0.3.1
+    * enumify bumped from 0.1.0 to 0.1.1
+    * scir bumped from 0.7.0 to 0.8.0
+    * type_dispatch bumped from 0.3.0 to 0.4.0
+  * dev-dependencies
+    * sky130pdk bumped from <=0.8.1 to <=0.9.0
+    * spectre bumped from <=0.9.1 to <=0.10.0
+    * spice bumped from <=0.7.1 to <=0.8.0
+
 ## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.7.1...substrate-v0.8.0) (2023-11-25)
 
 
