@@ -850,7 +850,7 @@ impl Display for NameFragment {
 
 impl Display for NameBuf {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(fragment) = self.fragments.get(0) {
+        if let Some(fragment) = self.fragments.first() {
             write!(f, "{fragment}")?;
         }
         for fragment in self.fragments.iter().skip(1) {

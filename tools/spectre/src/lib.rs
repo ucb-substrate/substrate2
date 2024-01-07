@@ -312,7 +312,7 @@ enum MonteCarloData {
 
 impl MonteCarloData {
     fn from_cached_data(data: Vec<CachedData>) -> Option<Self> {
-        Some(match data.get(0)? {
+        Some(match data.first()? {
             CachedData::Tran(_) => MonteCarloData::Tran(
                 data.into_iter()
                     .map(|data| {
