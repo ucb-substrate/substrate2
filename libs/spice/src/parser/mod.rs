@@ -550,7 +550,6 @@ impl Tokenizer {
             }
 
             let c = self.peek().unwrap();
-            println!("char = {c:?}, state = {:?}", self.state);
             if c == '=' {
                 self.take1();
                 return Ok(Some(Token::Equals));
