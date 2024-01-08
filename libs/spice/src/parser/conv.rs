@@ -155,6 +155,15 @@ impl<'a> ScirConverter<'a> {
                     sinst.connect("2", node(&res.neg, &mut cell));
                     cell.add_instance(sinst);
                 }
+                Component::Cap(cap) => {
+                    let id = self.lib.add_primitive(Primitive::Cap2 {
+                        value: str_as_numeric_lit(&cap.value)?,
+                    });
+                    let mut sinst = scir::Instance::new(&cap.name[1..], id);
+                    sinst.connect("1", node(&cap.pos, &mut cell));
+                    sinst.connect("2", node(&cap.neg, &mut cell));
+                    cell.add_instance(sinst);
+                }
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if let (false, Some(subckt)) = (blackbox, self.subckts.get(&inst.child)) {

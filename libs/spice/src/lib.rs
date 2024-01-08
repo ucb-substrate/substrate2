@@ -104,6 +104,11 @@ pub enum Primitive {
         /// The resistor value.
         value: Decimal,
     },
+    /// A capacitor primitive with ports "1" and "2" and value `value`.
+    Cap2 {
+        /// The capacitor value.
+        value: Decimal,
+    },
     /// A MOS primitive with ports "D", "G", "S", and "B".
     Mos {
         /// The name of the MOS model.
@@ -185,6 +190,7 @@ impl Primitive {
     pub fn ports(&self) -> Vec<ArcStr> {
         match self {
             Primitive::Res2 { .. } => vec!["1".into(), "2".into()],
+            Primitive::Cap2 { .. } => vec!["1".into(), "2".into()],
             Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
             Primitive::RawInstance { ports, .. } => ports.clone(),
             Primitive::BlackboxInstance { contents } => contents
