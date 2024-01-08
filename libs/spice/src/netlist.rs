@@ -374,6 +374,17 @@ impl HasSpiceLikeNetlist for Spice {
                 write!(out, " {value}")?;
                 name
             }
+            Primitive::Cap2 { value } => {
+                let name = arcstr::format!("C{}", name);
+                write!(out, "{}", name)?;
+                for port in ["1", "2"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                write!(out, " {value}")?;
+                name
+            }
             Primitive::Mos {
                 model: mname,
                 params,

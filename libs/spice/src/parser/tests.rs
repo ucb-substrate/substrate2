@@ -100,6 +100,35 @@ fn parse_dff() {
 }
 
 #[test]
+fn parse_pex_netlist() {
+    let parsed = Parser::parse_file(test_data("spice/pex_netlist.spice")).unwrap();
+    assert_eq!(parsed.ast.elems.len(), 1);
+    match &parsed.ast.elems[0] {
+        Elem::Subckt(Subckt {
+            name,
+            ports,
+            components,
+        }) => {
+            assert_eq!(*name, "sram22_512x64m4w8".into());
+            assert!(ports.contains(&"VDD".into()));
+            assert!(ports.contains(&"WE".into()));
+            assert!(ports.contains(&"VSS".into()));
+            assert!(ports.contains(&"CLK".into()));
+            assert!(ports.contains(&"WMASK[1]".into()));
+            assert!(ports.contains(&"ADDR[2]".into()));
+            assert!(ports.contains(&"DIN[63]".into()));
+            assert!(ports.contains(&"DIN[22]".into()));
+            assert!(ports.contains(&"DIN[1]".into()));
+            assert!(ports.contains(&"DOUT[31]".into()));
+            assert!(ports.contains(&"DOUT[63]".into()));
+            assert!(ports.contains(&"DOUT[0]".into()));
+            assert_eq!(components.len(), 5);
+        }
+        _ => panic!("match failed"),
+    }
+}
+
+#[test]
 fn convert_mos_to_scir() {
     let parsed = Parser::parse(SPICE_MOS).unwrap();
     let converter = ScirConverter::new(&parsed.ast);

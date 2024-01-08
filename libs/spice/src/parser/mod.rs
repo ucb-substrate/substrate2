@@ -5,7 +5,7 @@ pub mod conv;
 mod tests;
 
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
@@ -213,6 +213,12 @@ impl Parser {
                         neg: self.buffer[2].try_ident()?.clone(),
                         value: self.buffer[3].try_ident()?.clone(),
                     })),
+                    'C' => Line::Component(Component::Cap(Cap {
+                        name: self.buffer[0].try_ident()?.clone(),
+                        pos: self.buffer[1].try_ident()?.clone(),
+                        neg: self.buffer[2].try_ident()?.clone(),
+                        value: self.buffer[3].try_ident()?.clone(),
+                    })),
                     'X' => {
                         // An X instance line looks like this:
                         //
@@ -340,6 +346,8 @@ pub enum Component {
     Mos(Mos),
     /// A resistor (declared with an 'R').
     Res(Res),
+    /// A capacitor (declared with a 'C').
+    Cap(Cap),
     /// An instance of a subcircuit (declared with an 'X').
     Instance(Instance),
 }
@@ -348,6 +356,19 @@ pub enum Component {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Res {
     /// The name of the resistor instance.
+    pub name: Substr,
+    /// The node connected to the positive terminal.
+    pub pos: Node,
+    /// The node connected to the negative terminal.
+    pub neg: Node,
+    /// The value of the resistor.
+    pub value: Substr,
+}
+
+/// A capacitor.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Cap {
+    /// The name of the capacitor instance.
     pub name: Substr,
     /// The node connected to the positive terminal.
     pub pos: Node,
@@ -420,7 +441,7 @@ struct Tokenizer {
     data: Substr,
     rem: Substr,
     state: TokState,
-    comment: char,
+    comments: HashSet<char>,
     line_continuation: char,
 }
 
@@ -495,7 +516,10 @@ pub struct TokenizerError {
     state: TokState,
     /// The byte offset in the file being tokenized.
     ofs: usize,
+    /// The full contents of the file being parsed.
     data: Substr,
+    /// The contents of `data` that have not yet been processed.
+    rem: Substr,
     message: ArcStr,
     token: Substr,
 }
@@ -508,7 +532,7 @@ impl Tokenizer {
             data: Substr(data),
             rem: Substr(rem),
             state: TokState::Init,
-            comment: '*',
+            comments: HashSet::from(['*', '$']),
             line_continuation: '+',
         }
     }
@@ -532,7 +556,7 @@ impl Tokenizer {
             }
             match self.state {
                 TokState::Init => {
-                    if c == self.comment {
+                    if self.comments.contains(&c) {
                         self.take_until_newline();
                     } else if c.is_whitespace() {
                         self.take1();
@@ -544,6 +568,7 @@ impl Tokenizer {
                 }
                 TokState::Line => {
                     if is_newline(c) {
+                        self.take1();
                         self.take_ws();
                         if self.peek().unwrap_or(self.line_continuation) != self.line_continuation {
                             self.state = TokState::Init;
@@ -551,7 +576,7 @@ impl Tokenizer {
                         }
                     } else if c == self.line_continuation {
                         self.take1();
-                    } else if c == self.comment {
+                    } else if self.comments.contains(&c) {
                         self.take_until_newline();
                     } else if c == '.' {
                         let word = self.take_ident();
@@ -574,6 +599,7 @@ impl Tokenizer {
             state: self.state,
             ofs: self.rem.range().start,
             data: self.data.clone(),
+            rem: self.rem.clone(),
             message: message.into(),
             token: token.into(),
         })
