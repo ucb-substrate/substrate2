@@ -109,6 +109,13 @@ pub enum Primitive {
         /// The capacitor value.
         value: Decimal,
     },
+    /// A diode primitive with ports "1" and "2".
+    Diode2 {
+        /// The name of the diode model.
+        model: ArcStr,
+        /// Parameters associated with the MOS primitive.
+        params: HashMap<UniCase<ArcStr>, ParamValue>,
+    },
     /// A MOS primitive with ports "D", "G", "S", and "B".
     Mos {
         /// The name of the MOS model.
@@ -191,6 +198,7 @@ impl Primitive {
         match self {
             Primitive::Res2 { .. } => vec!["1".into(), "2".into()],
             Primitive::Cap2 { .. } => vec!["1".into(), "2".into()],
+            Primitive::Diode2 { .. } => vec!["1".into(), "2".into()],
             Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
             Primitive::RawInstance { ports, .. } => ports.clone(),
             Primitive::BlackboxInstance { contents } => contents

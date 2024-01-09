@@ -146,6 +146,28 @@ impl<'a> ScirConverter<'a> {
                     sinst.connect("B", node(&mos.b, &mut cell));
                     cell.add_instance(sinst);
                 }
+                Component::Diode(diode) => {
+                    let model = ArcStr::from(diode.model.as_str());
+                    let params = diode
+                        .params
+                        .iter()
+                        .map(|(k, v)| {
+                            Ok((
+                                UniCase::new(ArcStr::from(k.as_str())),
+                                match str_as_numeric_lit(v) {
+                                    Ok(v) => ParamValue::Numeric(v),
+                                    Err(_) => ParamValue::String(v.to_string().into()),
+                                },
+                            ))
+                        })
+                        .collect::<ConvResult<HashMap<_, _>>>()?;
+                    // TODO: Deduplicate primitives, though does not affect functionality
+                    let id = self.lib.add_primitive(Primitive::Diode2 { model, params });
+                    let mut sinst = scir::Instance::new(&diode.name[1..], id);
+                    sinst.connect("1", node(&diode.pos, &mut cell));
+                    sinst.connect("2", node(&diode.neg, &mut cell));
+                    cell.add_instance(sinst);
+                }
                 Component::Res(res) => {
                     let id = self.lib.add_primitive(Primitive::Res2 {
                         value: str_as_numeric_lit(&res.value)?,

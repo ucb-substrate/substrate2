@@ -122,7 +122,7 @@ fn parse_pex_netlist() {
             assert!(ports.contains(&"DOUT[31]".into()));
             assert!(ports.contains(&"DOUT[63]".into()));
             assert!(ports.contains(&"DOUT[0]".into()));
-            assert_eq!(components.len(), 5);
+            assert_eq!(components.len(), 12);
         }
         _ => panic!("match failed"),
     }

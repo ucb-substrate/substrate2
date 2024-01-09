@@ -207,6 +207,22 @@ impl Parser {
                             params,
                         }))
                     }
+                    'D' => {
+                        let mut params = Params::default();
+                        for i in (4..self.buffer.len()).step_by(3) {
+                            let k = self.buffer[i].try_ident()?.clone();
+                            assert!(matches!(self.buffer[i + 1], Token::Equals));
+                            let v = self.buffer[i + 2].try_ident()?.clone();
+                            params.insert(k, v);
+                        }
+                        Line::Component(Component::Diode(Diode {
+                            name: self.buffer[0].try_ident()?.clone(),
+                            pos: self.buffer[1].try_ident()?.clone(),
+                            neg: self.buffer[2].try_ident()?.clone(),
+                            model: self.buffer[3].try_ident()?.clone(),
+                            params,
+                        }))
+                    }
                     'R' => Line::Component(Component::Res(Res {
                         name: self.buffer[0].try_ident()?.clone(),
                         pos: self.buffer[1].try_ident()?.clone(),
@@ -346,6 +362,8 @@ pub enum Component {
     Mos(Mos),
     /// A resistor (declared with an 'R').
     Res(Res),
+    /// A diode (declared with a 'D').
+    Diode(Diode),
     /// A capacitor (declared with a 'C').
     Cap(Cap),
     /// An instance of a subcircuit (declared with an 'X').
@@ -363,6 +381,21 @@ pub struct Res {
     pub neg: Node,
     /// The value of the resistor.
     pub value: Substr,
+}
+
+/// A diode.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Diode {
+    /// The name of the diode instance.
+    pub name: Substr,
+    /// The node connected to the positive terminal.
+    pub pos: Node,
+    /// The node connected to the negative terminal.
+    pub neg: Node,
+    /// The name of the associated diode model.
+    pub model: Substr,
+    /// Parameters and their values.
+    pub params: Params,
 }
 
 /// A capacitor.
