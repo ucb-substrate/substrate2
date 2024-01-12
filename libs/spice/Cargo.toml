@@ -17,3 +17,4 @@ scir = { version = "0.7.0", registry = "substrate", path = "../scir" }
 substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
 enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
 regex = "1.10.2"
+lazy_static = "1.4.0"

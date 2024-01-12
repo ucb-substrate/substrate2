@@ -8,7 +8,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{Primitive, Spice};
 use arcstr::ArcStr;
+use lazy_static::lazy_static;
 use regex::Regex;
+use rust_decimal::prelude::One;
 use rust_decimal::Decimal;
 use scir::ParamValue;
 use thiserror::Error;
@@ -130,7 +132,7 @@ impl<'a> ScirConverter<'a> {
                         .map(|(k, v)| {
                             Ok((
                                 UniCase::new(ArcStr::from(k.as_str())),
-                                match str_as_numeric_lit(v) {
+                                match substr_as_numeric_lit(v) {
                                     Ok(v) => ParamValue::Numeric(v),
                                     Err(_) => ParamValue::String(v.to_string().into()),
                                 },
@@ -154,7 +156,7 @@ impl<'a> ScirConverter<'a> {
                         .map(|(k, v)| {
                             Ok((
                                 UniCase::new(ArcStr::from(k.as_str())),
-                                match str_as_numeric_lit(v) {
+                                match substr_as_numeric_lit(v) {
                                     Ok(v) => ParamValue::Numeric(v),
                                     Err(_) => ParamValue::String(v.to_string().into()),
                                 },
@@ -170,7 +172,7 @@ impl<'a> ScirConverter<'a> {
                 }
                 Component::Res(res) => {
                     let id = self.lib.add_primitive(Primitive::Res2 {
-                        value: str_as_numeric_lit(&res.value)?,
+                        value: substr_as_numeric_lit(&res.value)?,
                     });
                     let mut sinst = scir::Instance::new(&res.name[1..], id);
                     sinst.connect("1", node(&res.pos, &mut cell));
@@ -179,7 +181,7 @@ impl<'a> ScirConverter<'a> {
                 }
                 Component::Cap(cap) => {
                     let id = self.lib.add_primitive(Primitive::Cap2 {
-                        value: str_as_numeric_lit(&cap.value)?,
+                        value: substr_as_numeric_lit(&cap.value)?,
                     });
                     let mut sinst = scir::Instance::new(&cap.name[1..], id);
                     sinst.connect("1", node(&cap.pos, &mut cell));
@@ -209,7 +211,7 @@ impl<'a> ScirConverter<'a> {
                             .map(|(k, v)| {
                                 Ok((
                                     UniCase::new(ArcStr::from(k.as_str())),
-                                    match str_as_numeric_lit(v) {
+                                    match substr_as_numeric_lit(v) {
                                         Ok(v) => ParamValue::Numeric(v),
                                         Err(_) => ParamValue::String(v.to_string().into()),
                                     },
@@ -247,25 +249,58 @@ impl<'a> ScirConverter<'a> {
     }
 }
 
-fn str_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
-    let re = Regex::new(r"^([0-9]+\.?[0-9]*)(t|g|x|meg|k|m|u|n|p|f?)$").unwrap();
-    let caps = re.captures(s).ok_or(ConvError::InvalidLiteral(s.clone()))?;
-    let num: Decimal = caps.get(1).unwrap().as_str().parse().unwrap();
-    let multiplier = Decimal::from_scientific(
-        match caps.get(2).unwrap().as_str().to_lowercase().as_str() {
-            "t" => "1e12",
-            "g" => "1e9",
-            "x" | "meg" => "1e6",
-            "k" => "1e3",
-            "m" => "1e-3",
-            "u" => "1e-6",
-            "n" => "1e-9",
-            "p" => "1e-12",
-            "f" => "1e-15",
-            _ => "1e0",
-        },
-    )
-    .unwrap();
+lazy_static! {
+    static ref NUMERIC_LITERAL_REGEX: Regex =
+        Regex::new(r"^(-?[0-9]+\.?[0-9]*)((t|g|x|meg|k|m|u|n|p|f)|(e(-?[0-9]+\.?[0-9]*)))?$")
+            .expect("failed to compile numeric literal regex");
+}
 
-    Ok(num * multiplier)
+fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
+    let caps = NUMERIC_LITERAL_REGEX.captures(s)?;
+    let num: Decimal = caps.get(1)?.as_str().parse().ok()?;
+    let multiplier = caps
+        .get(3)
+        .and_then(|s| {
+            Decimal::from_scientific(match s.as_str().to_lowercase().as_str() {
+                "t" => "1e12",
+                "g" => "1e9",
+                "x" | "meg" => "1e6",
+                "k" => "1e3",
+                "m" => "1e-3",
+                "u" => "1e-6",
+                "n" => "1e-9",
+                "p" => "1e-12",
+                "f" => "1e-15",
+                _ => "1e0",
+            })
+            .ok()
+        })
+        .or_else(|| caps.get(5).and_then(|s| s.as_str().parse().ok()))
+        .unwrap_or_else(|| Decimal::one());
+
+    Some(num * multiplier)
+}
+
+fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
+    str_as_numeric_lit_inner(s).ok_or(())
+}
+fn substr_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
+    str_as_numeric_lit(&*s).map_err(|_| ConvError::InvalidLiteral(s.clone()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn numeric_literal_regex() {
+        assert!(str_as_numeric_lit("2").is_ok());
+        assert!(str_as_numeric_lit("1.23").is_ok());
+        assert!(str_as_numeric_lit("-2").is_ok());
+        assert!(str_as_numeric_lit("-1.23").is_ok());
+        assert!(str_as_numeric_lit("0.0175668f").is_ok());
+        assert!(str_as_numeric_lit("8.88268e-19").is_ok());
+        assert!(str_as_numeric_lit("-0.0175668f").is_ok());
+        assert!(str_as_numeric_lit("-8.88268e-19").is_ok());
+    }
 }
