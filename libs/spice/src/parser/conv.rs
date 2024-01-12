@@ -276,7 +276,7 @@ fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
             .ok()
         })
         .or_else(|| caps.get(5).and_then(|s| s.as_str().parse().ok()))
-        .unwrap_or_else(|| Decimal::one());
+        .unwrap_or_else(Decimal::one);
 
     Some(num * multiplier)
 }
@@ -285,7 +285,7 @@ fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
     str_as_numeric_lit_inner(s).ok_or(())
 }
 fn substr_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
-    str_as_numeric_lit(&*s).map_err(|_| ConvError::InvalidLiteral(s.clone()))
+    str_as_numeric_lit(s).map_err(|_| ConvError::InvalidLiteral(s.clone()))
 }
 
 #[cfg(test)]
