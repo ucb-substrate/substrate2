@@ -302,5 +302,7 @@ mod tests {
         assert!(str_as_numeric_lit("8.88268e-19").is_ok());
         assert!(str_as_numeric_lit("-0.0175668f").is_ok());
         assert!(str_as_numeric_lit("-8.88268e-19").is_ok());
+        assert!(str_as_numeric_lit("8.88268e19").is_ok());
+        assert!(str_as_numeric_lit("-8.88268e19").is_ok());
     }
 }
