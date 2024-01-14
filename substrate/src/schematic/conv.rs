@@ -515,7 +515,13 @@ impl<S: Schema + ?Sized> RawCell<S> {
 
                 for port in cell.ports() {
                     let info = cell.signal(port.signal());
-                    let nodes = &port_map[&info.name];
+                    let nodes = &port_map.get(&info.name).unwrap_or_else(|| {
+                        panic!(
+                            "port {} not found in SCIR binding for cell {}",
+                            info.name,
+                            cell.name()
+                        )
+                    });
 
                     for (i, node) in nodes.iter().enumerate() {
                         conv.signals.insert(
