@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{Primitive, Spice};
 use arcstr::ArcStr;
 use lazy_static::lazy_static;
+use num_traits::Pow;
 use regex::Regex;
 use rust_decimal::prelude::One;
 use rust_decimal::Decimal;
@@ -275,7 +276,11 @@ fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
             })
             .ok()
         })
-        .or_else(|| caps.get(5).and_then(|s| s.as_str().parse().ok()))
+        .or_else(|| {
+            caps.get(5)
+                .and_then(|s| s.as_str().parse().ok())
+                .map(|exp: Decimal| Decimal::TEN.pow(exp))
+        })
         .unwrap_or_else(Decimal::one);
 
     Some(num * multiplier)

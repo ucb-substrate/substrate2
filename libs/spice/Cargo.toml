@@ -9,7 +9,7 @@ nom = "7"
 thiserror = "1"
 tracing = "0.1"
 itertools = "0.11.0"
-rust_decimal = "1"
+rust_decimal = { version = "1", features = ["serde", "maths"] }
 rust_decimal_macros = "1"
 unicase = "2"
 
@@ -18,3 +18,4 @@ substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate
 enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
 regex = "1.10.2"
 lazy_static = "1.4.0"
+num-traits = "0.2.17"
