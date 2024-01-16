@@ -1,5 +1,5 @@
-use rust_decimal::Decimal;
 // begin-code-snippet imports
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
 use substrate::block::Block;
