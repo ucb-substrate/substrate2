@@ -56,8 +56,6 @@ pub struct AbstractLayer {
     pub line: i64,
     /// The space between adjacent tracks.
     pub space: i64,
-    /// How much to shift the first track of the layer.
-    pub offset: i64,
     /// How far to extend a track beyond the center-to-center intersection point with a track on the layer below.
     pub endcap: i64,
 }
@@ -80,7 +78,7 @@ impl AsRef<LayerId> for PdkLayer {
 impl AbstractLayer {
     /// The (infinite) set of tracks on this layer.
     pub fn tracks(&self, global_ofs: i64) -> UniformTracks {
-        UniformTracks::with_offset(self.line, self.space, self.offset + global_ofs)
+        UniformTracks::with_offset(self.line, self.space, global_ofs)
     }
 }
 
@@ -120,8 +118,9 @@ impl AtollLayer for AbstractLayer {
         self.space
     }
 
+    /// The offset, which is (currently) fixed at 0.
     fn offset(&self) -> i64 {
-        self.offset
+        0
     }
 
     fn endcap(&self) -> i64 {
@@ -1000,28 +999,24 @@ mod tests {
                     dir: RoutingDir::Horiz,
                     line: 100,
                     space: 200,
-                    offset: 0,
                     endcap: 20,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
                     line: 120,
                     space: 200,
-                    offset: 0,
                     endcap: 20,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
                     line: 200,
                     space: 400,
-                    offset: 0,
                     endcap: 40,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
                     line: 200,
                     space: 400,
-                    offset: 0,
                     endcap: 50,
                 },
             ],
