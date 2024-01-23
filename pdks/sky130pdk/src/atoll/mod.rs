@@ -38,7 +38,6 @@ impl Sky130Layers {
                         },
                         line: 170,
                         space: 260,
-                        offset: 85,
                         endcap: 85,
                     },
                 },
@@ -48,8 +47,7 @@ impl Sky130Layers {
                         dir: RoutingDir::Horiz,
                         line: 260,
                         space: 140,
-                        offset: 130,
-                        endcap: 100,
+                        endcap: 85,
                     },
                 },
                 PdkLayer {
@@ -58,7 +56,6 @@ impl Sky130Layers {
                         dir: RoutingDir::Vert,
                         line: 400,
                         space: 460,
-                        offset: 150,
                         endcap: 130,
                     },
                 },
@@ -68,8 +65,7 @@ impl Sky130Layers {
                         dir: RoutingDir::Horiz,
                         line: 400,
                         space: 400,
-                        offset: 200,
-                        endcap: 150,
+                        endcap: 200,
                     },
                 },
                 PdkLayer {
@@ -78,7 +74,6 @@ impl Sky130Layers {
                         dir: RoutingDir::Vert,
                         line: 1_200,
                         space: 950,
-                        offset: 600,
                         endcap: 200,
                     },
                 },
@@ -88,7 +83,6 @@ impl Sky130Layers {
                         dir: RoutingDir::Horiz,
                         line: 1_800,
                         space: 1_800,
-                        offset: 900,
                         endcap: 600,
                     },
                 },
@@ -240,7 +234,7 @@ impl MosTile {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
 
-        let tracks = (0..self.nf + 1)
+        let tracks = (1..self.nf + 2)
             .map(|i| {
                 let span = grid.track_span(0, i);
                 Rect::from_spans(span, Span::new(-10, self.w + 10))
