@@ -131,6 +131,94 @@ impl Schematic<Spectre> for DcVsource {
     }
 }
 
+/// A current source.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum Isource {
+    /// A dc current source.
+    Dc(Decimal),
+    /// A pulse current source.
+    Pulse(Pulse),
+}
+
+impl Isource {
+    /// Creates a new DC current source.
+    pub fn dc(value: Decimal) -> Self {
+        Self::Dc(value)
+    }
+
+    /// Creates a new pulse current source.
+    pub fn pulse(value: Pulse) -> Self {
+        Self::Pulse(value)
+    }
+}
+
+impl Block for Isource {
+    type Io = TwoTerminalIo;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("isource")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        // `isource` is a reserved Spectre keyword,
+        // so we call this block `userisource`.
+        arcstr::format!("userisource")
+    }
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl ExportsNestedData for Isource {
+    type NestedData = ();
+}
+
+impl Schematic<Spectre> for Isource {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        use arcstr::literal;
+        let mut params = HashMap::new();
+        match self {
+            Isource::Dc(dc) => {
+                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
+                params.insert(literal!("dc"), ParamValue::Numeric(*dc));
+            }
+            Isource::Pulse(pulse) => {
+                params.insert(literal!("type"), ParamValue::String(literal!("pulse")));
+                params.insert(literal!("val0"), ParamValue::Numeric(pulse.val0));
+                params.insert(literal!("val1"), ParamValue::Numeric(pulse.val1));
+                if let Some(period) = pulse.period {
+                    params.insert(literal!("period"), ParamValue::Numeric(period));
+                }
+                if let Some(rise) = pulse.rise {
+                    params.insert(literal!("rise"), ParamValue::Numeric(rise));
+                }
+                if let Some(fall) = pulse.fall {
+                    params.insert(literal!("fall"), ParamValue::Numeric(fall));
+                }
+                if let Some(width) = pulse.width {
+                    params.insert(literal!("width"), ParamValue::Numeric(width));
+                }
+                if let Some(delay) = pulse.delay {
+                    params.insert(literal!("delay"), ParamValue::Numeric(delay));
+                }
+            }
+        };
+
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
+            cell: arcstr::literal!("isource"),
+            ports: vec!["p".into(), "n".into()],
+            params,
+        });
+        prim.connect("p", io.p);
+        prim.connect("n", io.n);
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
 /// A current probe.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Iprobe;
