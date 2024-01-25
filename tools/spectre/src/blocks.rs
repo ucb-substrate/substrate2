@@ -132,6 +132,8 @@ impl Schematic<Spectre> for DcVsource {
 }
 
 /// A current source.
+///
+/// Positive current is drawn from the `p` node and enters the `n` node.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum Isource {
     /// A dc current source.
