@@ -65,7 +65,7 @@ pub(crate) fn geometry_ident() -> TokenStream2 {
             FoundCrate::Itself => quote!(::substrate::geometry),
             FoundCrate::Name(name) => {
                 let ident = Ident::new(&name, Span::call_site());
-                quote!(::#ident::type_dispatch)
+                quote!(::#ident::geometry)
             }
         },
     }
