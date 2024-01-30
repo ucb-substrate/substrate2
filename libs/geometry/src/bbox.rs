@@ -16,13 +16,19 @@ use crate::{polygon::Polygon, rect::Rect, union::BoundingUnion};
 /// assert_eq!(rect.bbox(), Some(Rect::from_sides(50, 70, 50, 70)));
 /// ```
 pub trait Bbox {
-    /// Compute the axis-aligned rectangular bounding box.
+    /// Computes the axis-aligned rectangular bounding box.
     ///
     /// If empty, this method should return `None`.
     /// Note that poinst and zero-area rectangles are not empty:
     /// these shapes contain a single point, and their bounding box
     /// implementations will return `Some(_)`.
     fn bbox(&self) -> Option<Rect>;
+
+    /// Computes the axis-aligned rectangular bounding box, panicking
+    /// if it is empty.
+    fn bbox_rect(&self) -> Rect {
+        self.bbox().unwrap()
+    }
 }
 
 impl<T> Bbox for &T
