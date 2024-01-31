@@ -22,6 +22,15 @@ use substrate::layout::{Draw, DrawReceiver};
 use substrate::pdk::layers::LayerId;
 use substrate::pdk::Pdk;
 
+/// The offset of tracks relative to tile edges.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum TrackOffset {
+    /// Tracks centered at tile edges.
+    None,
+    /// Tracks offset by half-pitch from tile edges.
+    HalfPitch,
+}
+
 /// An ATOLL-compatible routing layer.
 pub trait AtollLayer {
     /// The preferred routing direction.
@@ -31,7 +40,7 @@ pub trait AtollLayer {
     /// The space between adjacent tracks on this layer.
     fn space(&self) -> i64;
     /// An offset that shifts the first track of the layer.
-    fn offset(&self) -> i64;
+    fn offset(&self) -> TrackOffset;
     /// The amount by which this layer should extend beyond the center line of a track on the this layer's grid defining layer.
     fn endcap(&self) -> i64 {
         0
@@ -42,6 +51,13 @@ pub trait AtollLayer {
     /// The default implementation should not generally be overridden.
     fn pitch(&self) -> i64 {
         self.line() + self.space()
+    }
+    /// The offset of the first track in physical units.
+    fn physical_offset(&self) -> i64 {
+        match self.offset() {
+            TrackOffset::None => 0,
+            TrackOffset::HalfPitch => self.pitch() / 2,
+        }
     }
 }
 
@@ -56,6 +72,8 @@ pub struct AbstractLayer {
     pub line: i64,
     /// The space between adjacent tracks.
     pub space: i64,
+    /// The offset of tracks relative to tile edges.
+    pub offset: TrackOffset,
     /// How far to extend a track beyond the center-to-center intersection point with a track on the layer below.
     pub endcap: i64,
 }
@@ -77,8 +95,8 @@ impl AsRef<LayerId> for PdkLayer {
 
 impl AbstractLayer {
     /// The (infinite) set of tracks on this layer.
-    pub fn tracks(&self, global_ofs: i64) -> UniformTracks {
-        UniformTracks::with_offset(self.line, self.space, global_ofs)
+    pub fn tracks(&self) -> UniformTracks {
+        UniformTracks::with_offset(self.line, self.space, self.physical_offset())
     }
 }
 
@@ -118,9 +136,8 @@ impl AtollLayer for AbstractLayer {
         self.space
     }
 
-    /// The offset, which is (currently) fixed at 0.
-    fn offset(&self) -> i64 {
-        0
+    fn offset(&self) -> TrackOffset {
+        self.offset
     }
 
     fn endcap(&self) -> i64 {
@@ -141,7 +158,7 @@ impl AtollLayer for PdkLayer {
         self.inner.space()
     }
 
-    fn offset(&self) -> i64 {
+    fn offset(&self) -> TrackOffset {
         self.inner.offset()
     }
 
@@ -196,7 +213,7 @@ impl<L: AtollLayer> LayerStack<L> {
             Dir::Vert => self.offset_x,
             Dir::Horiz => self.offset_y,
         };
-        UniformTracks::with_offset(layer.line(), layer.space(), layer.offset() + ofs)
+        UniformTracks::with_offset(layer.line(), layer.space(), layer.physical_offset() + ofs)
     }
 
     /// Returns whether or not the layer stack is valid.
@@ -999,24 +1016,28 @@ mod tests {
                     dir: RoutingDir::Horiz,
                     line: 100,
                     space: 200,
+                    offset: TrackOffset::None,
                     endcap: 20,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
                     line: 120,
                     space: 200,
+                    offset: TrackOffset::None,
                     endcap: 20,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
                     line: 200,
                     space: 400,
+                    offset: TrackOffset::None,
                     endcap: 40,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
                     line: 200,
                     space: 400,
+                    offset: TrackOffset::None,
                     endcap: 50,
                 },
             ],
