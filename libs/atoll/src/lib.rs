@@ -792,8 +792,10 @@ where
                                 abs.grid.stack.layer(a.layer).endcap(),
                             );
 
-                        cell.layout
-                            .draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
+                        if track.width() > 0 && track.height() > 0 {
+                            cell.layout
+                                .draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
+                        }
                     } else if a.layer == b.layer + 1 || b.layer == a.layer + 1 {
                         let (a, b) = if b.layer > a.layer { (b, a) } else { (a, b) };
                         let (in_track, out_track) =
@@ -819,8 +821,10 @@ where
                             in_track.hspan().add_point(out_track.x),
                             in_track.vspan().add_point(out_track.y),
                         );
-                        cell.layout
-                            .draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
+                        if track.width() > 0 && track.height() > 0 {
+                            cell.layout
+                                .draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
+                        }
                         if let Some(maker) = &cell.via_maker {
                             maker.draw_via(
                                 cell.layout,
