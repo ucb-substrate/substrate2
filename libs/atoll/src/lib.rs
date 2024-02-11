@@ -124,6 +124,8 @@ pub enum PointState {
     Routed {
         /// The net occupying this routing space.
         net: NetId,
+        /// Whether there is a via at this point.
+        has_via: bool,
     },
     /// The grid point is reserved for a known net.
     ///
@@ -156,6 +158,14 @@ impl PointState {
             Self::Routed { net: n, .. } => *n == net,
             Self::Blocked => false,
             PointState::Reserved { .. } => false,
+        }
+    }
+
+    /// Whether or not the given point has a via.
+    pub fn has_via(&self) -> bool {
+        match self {
+            Self::Routed { has_via, .. } => *has_via,
+            _ => false,
         }
     }
 }
@@ -751,7 +761,13 @@ where
             .iter()
             .map(|node| cell.nodes[node].net)
             .collect();
-        let abs = InstanceAbstract::merge(cell.abs, cell.top_layer, port_ids, cell.assigned_nets);
+        let abs = InstanceAbstract::merge(
+            cell.abs,
+            cell.top_layer,
+            cell.layout.bbox(),
+            port_ids,
+            cell.assigned_nets,
+        );
 
         if let Some(router) = cell.router {
             let mut to_connect = IndexMap::new();

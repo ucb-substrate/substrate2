@@ -15,6 +15,7 @@ use substrate::context::PdkContext;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
+use substrate::geometry::union::BoundingUnion;
 use substrate::io::layout::Builder;
 use substrate::layout::bbox::LayerBbox;
 use substrate::layout::element::Shape;
@@ -263,7 +264,10 @@ impl Abstract {
                             let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                             let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
                             state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
-                                PointState::Routed { net };
+                                PointState::Routed {
+                                    net,
+                                    has_via: false,
+                                };
                         }
                     }
                 }
@@ -325,6 +329,7 @@ impl InstanceAbstract {
     pub(crate) fn merge(
         abstracts: Vec<Self>,
         mut top_layer: usize,
+        physical_bbox: Option<Rect>,
         ports: Vec<NetId>,
         assigned_grid_points: Vec<AssignedGridPoints>,
     ) -> Abstract {
@@ -337,7 +342,8 @@ impl InstanceAbstract {
             .iter()
             .map(|abs| abs.physical_bounds())
             .reduce(|acc, next| acc.union(next))
-            .unwrap();
+            .unwrap()
+            .bounding_union(&physical_bbox);
 
         let grid = RoutingGrid::new(abstracts[0].abs.grid.stack.clone(), 0..top_layer + 1);
 
@@ -409,10 +415,11 @@ impl InstanceAbstract {
                                         assert_eq!(point_state, &PointState::Available);
                                         *point_state = PointState::Blocked;
                                     }
-                                    PointState::Routed { net } => {
+                                    PointState::Routed { net, has_via } => {
                                         assert_eq!(point_state, &PointState::Available);
                                         *point_state = PointState::Routed {
                                             net: net_translation[&net],
+                                            has_via,
                                         };
                                     }
                                     PointState::Reserved { net } => {
@@ -449,7 +456,10 @@ impl InstanceAbstract {
 
             for i in left..=left + bounds.width() {
                 for j in bot..=bot + bounds.height() {
-                    state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed { net }
+                    state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed {
+                        net,
+                        has_via: false,
+                    }
                 }
             }
         }
