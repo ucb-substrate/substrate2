@@ -19,7 +19,7 @@ pub trait Router {
     /// Returns routes that connect the given nets.
     fn route(
         &self,
-        routing_state: RoutingState<PdkLayer>,
+        routing_state: &mut RoutingState<PdkLayer>,
         to_connect: Vec<Vec<NetId>>,
     ) -> Vec<Path>;
 }
@@ -41,7 +41,7 @@ pub(crate) struct RoutingNode {
 impl Router for GreedyRouter {
     fn route(
         &self,
-        mut state: RoutingState<PdkLayer>,
+        state: &mut RoutingState<PdkLayer>,
         mut to_connect: Vec<Vec<NetId>>,
     ) -> Vec<Path> {
         // build roots map
@@ -68,6 +68,7 @@ impl Router for GreedyRouter {
                 // skip empty or one node groups
                 continue;
             }
+            let group_root = state.roots[&group[0]];
 
             let locs = group
                 .iter()
@@ -84,7 +85,7 @@ impl Router for GreedyRouter {
                 };
                 let mut path = dijkstra(
                     &start,
-                    |s| state.successors(*s, group[0]).into_iter(),
+                    |s| state.successors(*s, group_root).into_iter(),
                     |node| {
                         if let PointState::Routed { net, .. } = state[node.coord] {
                             remaining_nets.contains(&net)
@@ -93,7 +94,7 @@ impl Router for GreedyRouter {
                         }
                     },
                 )
-                .unwrap_or_else(|| panic!("cannot connect all nodes in group {:?}", group[0]))
+                .unwrap_or_else(|| panic!("cannot connect all nodes in group {:?}", group_root))
                 .0;
 
                 let mut to_remove = HashSet::new();
@@ -109,21 +110,21 @@ impl Router for GreedyRouter {
                         Ordering::Less => {
                             let ilt = state.ilt_up(nodes[0].coord).unwrap();
                             state[nodes[1].coord] = PointState::Routed {
-                                net: group[0],
+                                net: group_root,
                                 has_via: true,
                             };
                             if let Some(requires) = ilt.requires {
-                                state[requires] = PointState::Reserved { net: group[0] };
+                                state[requires] = PointState::Reserved { net: group_root };
                             }
                         }
                         Ordering::Greater => {
                             let ilt = state.ilt_down(nodes[0].coord).unwrap();
                             state[nodes[0].coord] = PointState::Routed {
-                                net: group[0],
+                                net: group_root,
                                 has_via: true,
                             };
                             if let Some(requires) = ilt.requires {
-                                state[requires] = PointState::Reserved { net: group[0] };
+                                state[requires] = PointState::Reserved { net: group_root };
                             }
                         }
                         Ordering::Equal => {
@@ -142,7 +143,7 @@ impl Router for GreedyRouter {
                                         to_remove.insert(net);
                                     }
                                     state[next] = PointState::Routed {
-                                        net: group[0],
+                                        net: group_root,
                                         has_via: state.has_via(next),
                                     };
                                 }
@@ -152,7 +153,7 @@ impl Router for GreedyRouter {
                 }
 
                 for net in to_remove {
-                    state.relabel_net(net, group[0]);
+                    state.relabel_net(net, group_root);
                     remaining_nets.remove(&net);
                 }
                 paths.push(path);

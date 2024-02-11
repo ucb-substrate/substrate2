@@ -150,6 +150,16 @@ impl Abstract {
         state
     }
 
+    /// Populates an [`Abstract`] based on the provided [`RoutingState`].
+    pub fn from_routing_state(&mut self, state: RoutingState<PdkLayer>) {
+        for port in self.ports.iter_mut() {
+            *port = state.roots[port];
+        }
+        for ((i, layer), states) in self.layers.iter_mut().enumerate().zip(state.layers) {
+            *layer = LayerAbstract::Detailed { states }
+        }
+    }
+
     /// Converts a grid point to a physical point in the coordinates of the cell.
     ///
     /// See [coordinate systems](Abstract#coordinates) for more information.
@@ -417,16 +427,23 @@ impl InstanceAbstract {
                                     }
                                     PointState::Routed { net, has_via } => {
                                         assert_eq!(point_state, &PointState::Available);
-                                        *point_state = PointState::Routed {
-                                            net: net_translation[&net],
-                                            has_via,
-                                        };
+                                        if let Some(translation) = net_translation.get(&net) {
+                                            *point_state = PointState::Routed {
+                                                net: *translation,
+                                                has_via,
+                                            };
+                                        } else {
+                                            *point_state = PointState::Blocked;
+                                        }
                                     }
                                     PointState::Reserved { net } => {
                                         assert_eq!(point_state, &PointState::Available);
-                                        *point_state = PointState::Reserved {
-                                            net: net_translation[&net],
-                                        };
+                                        if let Some(translation) = net_translation.get(&net) {
+                                            *point_state =
+                                                PointState::Reserved { net: *translation };
+                                        } else {
+                                            *point_state = PointState::Blocked;
+                                        }
                                     }
                                 }
                             }

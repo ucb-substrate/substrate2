@@ -70,7 +70,7 @@ pub mod route;
 
 use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
-use crate::route::{Router, ViaMaker};
+use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -509,12 +509,47 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates an ATOLL instance from a block that implements [`Tile`].
     pub fn generate<B: Clone + Tile<PDK>>(&mut self, block: B) -> Instance<TileWrapper<B>> {
-        let wrapper = TileWrapper::new(block);
+        let (mut schematic_cell, schematic_io) =
+            prepare_cell_builder(CellId::default(), (**self.ctx()).clone(), &block);
+        let mut layout_io = io::layout::HardwareType::builder(&block.io());
+        let mut layout_cell = layout::CellBuilder::new(self.ctx().with_pdk());
+        let atoll_io = IoBuilder {
+            schematic: &schematic_io,
+            layout: &mut layout_io,
+        };
+        let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
+        let _ = <B as Tile<PDK>>::tile(&block, atoll_io, &mut cell);
+
+        let port_ids = schematic_io
+            .flatten_vec()
+            .iter()
+            .map(|node| cell.nodes[node].net)
+            .collect();
+        let mut abs = InstanceAbstract::merge(
+            cell.abs,
+            cell.top_layer,
+            cell.layout.bbox(),
+            port_ids,
+            cell.assigned_nets,
+        );
+        let paths = cell.router.map(|router| {
+            let mut routing_state = abs.routing_state();
+            let mut to_connect = IndexMap::new();
+            for (_, info) in cell.nodes {
+                to_connect
+                    .entry(cell.connections.find(info.key))
+                    .or_insert(Vec::new())
+                    .push(info.net);
+            }
+            let to_connect: Vec<_> = to_connect.into_values().collect();
+            let paths = router.route(&mut routing_state, to_connect);
+            abs.from_routing_state(routing_state);
+            paths
+        });
+        let wrapper = TileWrapper { block, paths };
         let layout = self.layout.generate(wrapper.clone());
         let schematic = self.schematic.instantiate(wrapper);
         self.register_bundle(schematic.io());
-        // todo: generate abstract from AtollTile trait directly
-        let abs = Abstract::generate(&self.layout.ctx, layout.raw_cell());
         Instance {
             layout,
             schematic,
@@ -675,13 +710,16 @@ pub trait Tile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
 
 /// A wrapper of a block implementing [`Tile`] that can be instantiated in Substrate
 /// schematics and layouts.
-#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TileWrapper<T>(T);
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TileWrapper<T> {
+    block: T,
+    paths: Option<Vec<Path>>,
+}
 
 impl<T> TileWrapper<T> {
     /// Creates a new wrapper of `block`.
     pub fn new(block: T) -> Self {
-        Self(block)
+        Self { block, paths: None }
     }
 }
 
@@ -689,7 +727,7 @@ impl<T> Deref for TileWrapper<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.block
     }
 }
 
@@ -701,11 +739,11 @@ impl<T: Block> Block for TileWrapper<T> {
     }
 
     fn name(&self) -> ArcStr {
-        <T as Block>::name(&self.0)
+        <T as Block>::name(&self.block)
     }
 
     fn io(&self) -> Self::Io {
-        <T as Block>::io(&self.0)
+        <T as Block>::io(&self.block)
     }
 }
 
@@ -733,7 +771,7 @@ where
             layout: &mut layout_io,
         };
         let mut cell = TileBuilder::new(io, cell, &mut layout_cell);
-        let (schematic_data, _) = <T as Tile<PDK>>::tile(&self.0, atoll_io, &mut cell)?;
+        let (schematic_data, _) = <T as Tile<PDK>>::tile(&self.block, atoll_io, &mut cell)?;
         Ok(schematic_data)
     }
 }
@@ -754,7 +792,7 @@ where
             layout: io,
         };
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
-        let (_, layout_data) = <T as Tile<PDK>>::tile(&self.0, io, &mut cell)?;
+        let (_, layout_data) = <T as Tile<PDK>>::tile(&self.block, io, &mut cell)?;
 
         let port_ids = schematic_io
             .flatten_vec()
@@ -770,15 +808,17 @@ where
         );
 
         if let Some(router) = cell.router {
-            let mut to_connect = IndexMap::new();
-            for (_, info) in cell.nodes {
-                to_connect
-                    .entry(cell.connections.find(info.key))
-                    .or_insert(Vec::new())
-                    .push(info.net);
-            }
-            let to_connect: Vec<_> = to_connect.into_values().collect();
-            let paths = router.route(abs.routing_state(), to_connect);
+            let paths = self.paths.clone().unwrap_or_else(|| {
+                let mut to_connect = IndexMap::new();
+                for (_, info) in cell.nodes {
+                    to_connect
+                        .entry(cell.connections.find(info.key))
+                        .or_insert(Vec::new())
+                        .push(info.net);
+                }
+                let to_connect: Vec<_> = to_connect.into_values().collect();
+                router.route(&mut abs.routing_state(), to_connect)
+            });
 
             for path in paths {
                 for segment in path.windows(2) {
