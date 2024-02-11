@@ -3,9 +3,10 @@
 use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
-use pathfinding::prelude::{build_path, dijkstra_all};
+use pathfinding::prelude::{build_path, dijkstra, dijkstra_all};
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use substrate::geometry::side::Side;
 use substrate::layout;
 use substrate::pdk::Pdk;
 
@@ -26,10 +27,15 @@ pub trait Router {
 /// A router that greedily routes net groups one at a time.
 pub struct GreedyRouter;
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub(crate) struct RoutingNode {
     pub(crate) coord: GridCoord,
     pub(crate) has_via: bool,
+    /// The side from which we got to this routing node.
+    ///
+    /// Do not want to go back to where we came from, especially
+    /// after skipping invalid via placements.
+    pub(crate) prev_side: Option<Side>,
 }
 
 impl Router for GreedyRouter {
@@ -63,90 +69,46 @@ impl Router for GreedyRouter {
                 continue;
             }
 
-            loop {
-                let locs = group
-                    .iter()
-                    .filter_map(|n| state.find(*n))
-                    .collect::<Vec<_>>();
+            let locs = group
+                .iter()
+                .filter_map(|n| state.find(*n))
+                .collect::<Vec<_>>();
 
-                let has_via = state.has_via(locs[0]);
+            let mut remaining_nets: HashSet<_> = group[1..].into_iter().copied().collect();
+
+            while !remaining_nets.is_empty() {
                 let start = RoutingNode {
                     coord: locs[0],
-                    has_via,
+                    has_via: false,
+                    prev_side: None,
                 };
-                let mut spt = dijkstra_all(&start, |s| state.successors(*s, group[0]).into_iter());
-
-                // a bit of a hack: insert this now for making the next line easier
-                // remove it when we go to building a path.
-                assert!(!spt.contains_key(&start));
-                spt.insert(start, (start, 0));
-
-                let (_cost, nearest_loc, _node) = match group
-                    .iter()
-                    .zip(locs.iter())
-                    .flat_map(|(node, loc)| {
-                        let mut nodes = Vec::new();
-                        if let Some(spt_loc) = spt.get(&RoutingNode {
-                            coord: *loc,
-                            has_via: false,
-                        }) {
-                            if spt_loc.1 != 0 {
-                                nodes.push((
-                                    spt_loc.1,
-                                    RoutingNode {
-                                        coord: *loc,
-                                        has_via: false,
-                                    },
-                                    node,
-                                ));
-                            }
-                        } else if let Some(spt_loc) = spt.get(&RoutingNode {
-                            coord: *loc,
-                            has_via: true,
-                        }) {
-                            if spt_loc.1 != 0 {
-                                nodes.push((
-                                    spt_loc.1,
-                                    RoutingNode {
-                                        coord: *loc,
-                                        has_via: true,
-                                    },
-                                    node,
-                                ));
-                            }
+                let mut path = dijkstra(
+                    &start,
+                    |s| state.successors(*s, group[0]).into_iter(),
+                    |node| {
+                        if let PointState::Routed { net, .. } = state[node.coord] {
+                            remaining_nets.contains(&net)
                         } else {
-                            panic!(
-                                "node {node:?} (group {:?}) was unreachable for state {state:#?}",
-                                group[0]
-                            );
+                            false
                         }
-                        nodes
-                    })
-                    .min()
-                {
-                    None => {
-                        // all node fragments have been connected
-                        break;
-                    }
-                    Some(x) => x,
-                };
+                    },
+                )
+                .unwrap_or_else(|| panic!("cannot connect all nodes in group {:?}", group[0]))
+                .0;
 
-                spt.remove(&start);
-                let path = build_path(&nearest_loc, &spt);
-                if path.len() <= 1 {
-                    panic!("node was unreachable");
-                }
+                let mut to_remove = HashSet::new();
+
                 for node in path.iter() {
-                    state[node.coord] = PointState::Routed {
-                        net: group[0],
-                        has_via: false,
-                    };
+                    if let PointState::Routed { net, .. } = state[node.coord] {
+                        to_remove.insert(net);
+                    }
                 }
-                for x in path.windows(2) {
-                    match x[0].coord.layer.cmp(&x[1].coord.layer) {
+
+                for nodes in path.windows(2) {
+                    match nodes[0].coord.layer.cmp(&nodes[1].coord.layer) {
                         Ordering::Less => {
-                            let ilt = state.ilt_up(x[0].coord).unwrap();
-                            state[x[1].coord] = PointState::Routed {
+                            let ilt = state.ilt_up(nodes[0].coord).unwrap();
+                            state[nodes[1].coord] = PointState::Routed {
                                 net: group[0],
                                 has_via: true,
                             };
@@ -155,8 +117,8 @@ impl Router for GreedyRouter {
                             }
                         }
                         Ordering::Greater => {
-                            let ilt = state.ilt_down(x[0].coord).unwrap();
-                            state[x[0].coord] = PointState::Routed {
+                            let ilt = state.ilt_down(nodes[0].coord).unwrap();
+                            state[nodes[0].coord] = PointState::Routed {
                                 net: group[0],
                                 has_via: true,
                             };
@@ -164,8 +126,34 @@ impl Router for GreedyRouter {
                                 state[requires] = PointState::Reserved { net: group[0] };
                             }
                         }
-                        Ordering::Equal => {}
+                        Ordering::Equal => {
+                            for x in std::cmp::min(nodes[0].coord.x, nodes[1].coord.x)
+                                ..=std::cmp::min(nodes[0].coord.x, nodes[1].coord.x)
+                            {
+                                for y in std::cmp::min(nodes[0].coord.y, nodes[1].coord.y)
+                                    ..=std::cmp::min(nodes[0].coord.y, nodes[1].coord.y)
+                                {
+                                    let next = GridCoord {
+                                        x,
+                                        y,
+                                        layer: nodes[0].coord.layer,
+                                    };
+                                    if let PointState::Routed { net, .. } = state[next] {
+                                        to_remove.insert(net);
+                                    }
+                                    state[next] = PointState::Routed {
+                                        net: group[0],
+                                        has_via: state.has_via(next),
+                                    };
+                                }
+                            }
+                        }
                     }
+                }
+
+                for net in to_remove {
+                    state.relabel_net(net, group[0]);
+                    remaining_nets.remove(&net);
                 }
                 paths.push(path);
             }
