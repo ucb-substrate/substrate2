@@ -176,7 +176,7 @@ pub struct MosTileIo {
     /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
     pub sd: Array<InOut<Signal>>,
     /// `NF` gate contacts on li1, where `NF` is the number of fingers.
-    pub g: Array<Input<Signal>>,
+    pub g: Input<Signal>,
     /// A body port on either nwell or pwell.
     pub b: InOut<Signal>,
 }
@@ -253,13 +253,7 @@ impl Block for MosTile {
     fn io(&self) -> Self::Io {
         MosTileIo {
             sd: Array::new(self.nf as usize + 1, InOut(Signal::new())),
-            g: Array::new(
-                match self.gate_dir {
-                    GateDir::Left => self.nf / 2 + 1,
-                    GateDir::Right => (self.nf - 1) / 2 + 1,
-                } as usize,
-                Input(Signal::new()),
-            ),
+            g: Input(Signal::new()),
             b: InOut(Signal::new()),
         }
     }
@@ -283,6 +277,14 @@ impl MosTile {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
 
+        let top_m1 = grid.tracks(1).to_track_idx(self.w + 10, RoundingMode::Up);
+        let bot_m1 = grid.tracks(1).to_track_idx(-10, RoundingMode::Down);
+        let gate_top_m1 = bot_m1 - 1;
+        let gate_vspan = grid
+            .track_span(1, gate_top_m1)
+            .union(grid.track_span(1, gate_top_m1 - 1))
+            .shrink_all(45);
+
         let tracks = (1..self.nf + 2)
             .map(|i| {
                 let span = grid.track_span(0, i);
@@ -290,26 +292,22 @@ impl MosTile {
             })
             .collect::<Vec<_>>();
 
-        let gates = tracks
+        let gate_spans = tracks
             .windows(2)
             .map(|tracks| {
                 let (left, right) = (tracks[0], tracks[1]);
-                Rect::from_spans(
-                    Span::new(left.right(), right.left()),
-                    Span::new(-200, self.w + 130),
-                )
-                .shrink_dir(Dir::Horiz, 55)
-                .unwrap()
+                Span::new(left.right(), right.left()).shrink_all(55)
             })
             .collect::<Vec<_>>();
 
-        for &rect in gates.iter() {
-            cell.draw(Shape::new(cell.ctx.layers.poly, rect))?;
-        }
-
         for (i, &rect) in tracks.iter().enumerate() {
-            io.sd[i].push(IoShape::with_layers(cell.ctx.layers.li1, rect));
-            cell.draw(Shape::new(cell.ctx.layers.li1, rect))?;
+            let sd_rect = rect.with_vspan(
+                grid.track_span(1, bot_m1)
+                    .union(grid.track_span(1, top_m1))
+                    .shrink_all(45),
+            );
+            io.sd[i].push(IoShape::with_layers(cell.ctx.layers.li1, sd_rect));
+            cell.draw(Shape::new(cell.ctx.layers.li1, sd_rect))?;
             let num_cuts = (self.w + 20 - 160 + 170) / 340;
             for j in 0..num_cuts {
                 let base = rect.bot() + 10 + 80 + 340 * j;
@@ -326,24 +324,28 @@ impl MosTile {
         );
         cell.draw(Shape::new(cell.ctx.layers.diff, diff))?;
 
-        let poly = Rect::from_sides(
-            gates[0].left(),
-            -200 - 350,
-            gates.last().unwrap().right(),
-            -200,
-        );
-        cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
-
-        let trk = grid.tracks(1).to_track_idx(poly.bot(), RoundingMode::Down);
-        let bot = grid.tracks(1).track(trk).center() - 100;
-        let poly_li = Rect::from_sides(
-            tracks[1].left(),
-            bot,
-            tracks[tracks.len() - 2].right(),
-            poly.top(),
+        let poly_li = Rect::from_spans(
+            Span::new(tracks[1].left(), tracks[tracks.len() - 2].right()),
+            gate_vspan,
         );
         cell.draw(Shape::new(cell.ctx.layers.li1, poly_li))?;
         io.g.push(IoShape::with_layers(cell.ctx.layers.li1, poly_li));
+
+        let poly = Rect::from_sides(
+            gate_spans[0].start(),
+            poly_li.top() - 350,
+            gate_spans.last().unwrap().stop(),
+            poly_li.top(),
+        );
+        cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
+
+        for &span in gate_spans.iter() {
+            cell.draw(Shape::new(
+                cell.ctx.layers.poly,
+                Rect::from_spans(span, poly.vspan().add_point(self.w + 130)),
+            ))?;
+        }
+
         let npc = Rect::from_spans(
             poly_li.hspan(),
             Span::new(poly_li.top(), poly_li.top() - 350),
