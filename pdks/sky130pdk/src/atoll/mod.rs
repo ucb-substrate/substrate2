@@ -174,11 +174,21 @@ impl MosLength {
 #[derive(Debug, Clone, Io)]
 pub struct MosTileIo {
     /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
-    pub sd: InOut<Array<Signal>>,
+    pub sd: Array<InOut<Signal>>,
     /// `NF` gate contacts on li1, where `NF` is the number of fingers.
-    pub g: Input<Signal>,
+    pub g: Array<Input<Signal>>,
     /// A body port on either nwell or pwell.
     pub b: InOut<Signal>,
+}
+
+/// Determines the connection direction of a transistor gate.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GateDir {
+    /// Connects the gate towards the right.
+    #[default]
+    Right,
+    /// Connects the gate towards the left.
+    Left,
 }
 
 /// A tile containing a set of MOS transistors.
@@ -191,7 +201,7 @@ pub struct MosTileIo {
 ///
 /// Do not use this tile directly. Instead, use [`NmosTile`] or [`PmosTile`].
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MosTile {
+struct MosTile {
     /// Transistor width.
     w: i64,
 
@@ -200,12 +210,33 @@ pub struct MosTile {
 
     /// Number of fingers.
     nf: i64,
+
+    /// The connection direction of the left-most gate in the tile.
+    ///
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    gate_dir: GateDir,
 }
 
 impl MosTile {
     /// Create a new MOS tile with the given physical transistor dimensions.
     fn new(w: i64, len: MosLength, nf: i64) -> Self {
-        Self { w, len, nf }
+        Self {
+            w,
+            len,
+            nf,
+            gate_dir: GateDir::default(),
+        }
+    }
+
+    /// Sets the connection direction of the left-most gate in the tile.
+    ///
+    /// Connection directions alternate for each adjacent gate.
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    fn with_gate_dir(mut self, gate_dir: GateDir) -> Self {
+        self.gate_dir = gate_dir;
+        self
     }
 }
 
@@ -221,8 +252,14 @@ impl Block for MosTile {
 
     fn io(&self) -> Self::Io {
         MosTileIo {
-            sd: InOut(Array::new(self.nf as usize + 1, Signal::new())),
-            g: Input(Signal::new()),
+            sd: Array::new(self.nf as usize + 1, InOut(Signal::new())),
+            g: Array::new(
+                match self.gate_dir {
+                    GateDir::Left => self.nf / 2 + 1,
+                    GateDir::Right => (self.nf - 1) / 2 + 1,
+                } as usize,
+                Input(Signal::new()),
+            ),
             b: InOut(Signal::new()),
         }
     }
@@ -334,35 +371,6 @@ impl MosTile {
     }
 }
 
-impl ExportsNestedData for MosTile {
-    type NestedData = ();
-}
-
-impl Schematic<Sky130Pdk> for MosTile {
-    fn schematic(
-        &self,
-        io: &substrate::io::schematic::Bundle<MosTileIo>,
-        cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        for i in 0..self.nf as usize {
-            cell.instantiate_connected(
-                Nfet01v8::new(MosParams {
-                    w: self.w,
-                    nf: 1,
-                    l: self.len.nm(),
-                }),
-                MosIoSchematic {
-                    d: io.sd[i],
-                    g: io.g,
-                    s: io.sd[i + 1],
-                    b: io.b,
-                },
-            )
-        }
-        Ok(())
-    }
-}
-
 /// A tile containing a set of NMOS transistors.
 ///
 /// See [`MosTile`] for more information.
@@ -377,6 +385,16 @@ impl NmosTile {
         Self {
             tile: MosTile::new(w, len, nf),
         }
+    }
+
+    /// Sets the connection direction of the left-most gate in the tile.
+    ///
+    /// Connection directions alternate for each adjacent gate.
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    pub fn with_gate_dir(mut self, gate_dir: GateDir) -> Self {
+        self.tile.gate_dir = gate_dir;
+        self
     }
 }
 
