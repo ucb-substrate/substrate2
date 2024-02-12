@@ -47,8 +47,8 @@ pub trait AtollLayer {
     fn endcap(&self) -> i64 {
         0
     }
-    /// An offset that shifts the first track of the layer.
-    fn via_frequency(&self) -> usize {
+    /// The minimum spacing between adjacent vias on the same metal track.
+    fn via_spacing(&self) -> usize {
         1
     }
 
@@ -82,8 +82,8 @@ pub struct AbstractLayer {
     pub offset: TrackOffset,
     /// How far to extend a track beyond the center-to-center intersection point with a track on the layer below.
     pub endcap: i64,
-    /// How frequently vias can be placed on a track on this layer.
-    pub via_frequency: usize,
+    /// The minimum spacing between adjacent vias on the same metal track.
+    pub via_spacing: usize,
 }
 
 /// An ATOLL-layer associated with a layer provided by a PDK.
@@ -152,8 +152,8 @@ impl AtollLayer for AbstractLayer {
         self.endcap
     }
 
-    fn via_frequency(&self) -> usize {
-        self.via_frequency
+    fn via_spacing(&self) -> usize {
+        self.via_spacing
     }
 }
 
@@ -178,8 +178,8 @@ impl AtollLayer for PdkLayer {
         self.inner.endcap()
     }
 
-    fn via_frequency(&self) -> usize {
-        self.inner.via_frequency()
+    fn via_spacing(&self) -> usize {
+        self.inner.via_spacing()
     }
 }
 
@@ -825,8 +825,8 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         } = node;
 
         let layer = self.layer(coord.layer);
-        let via_frequency = self.grid.slice().layer(coord.layer).via_frequency();
-        let jump = if has_via { via_frequency } else { 1 };
+        let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
+        let jump = if has_via { via_spacing } else { 1 };
 
         let (down_allowed, up_allowed) = match prev_side {
             Some(Side::Top) => (true, false),
@@ -875,8 +875,8 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             prev_side,
         } = node;
         let layer = self.layer(coord.layer);
-        let via_frequency = self.grid.slice().layer(coord.layer).via_frequency();
-        let jump = if has_via { via_frequency } else { 1 };
+        let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
+        let jump = if has_via { via_spacing } else { 1 };
 
         let (left_allowed, right_allowed) = match prev_side {
             Some(Side::Right) => (true, false),
@@ -1080,12 +1080,12 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     coord
                 };
                 let track_dir = self.grid.slice().layer(top.layer).dir().track_dir();
-                let via_frequency = self.grid.slice().layer(top.layer).via_frequency();
+                let via_spacing = self.grid.slice().layer(top.layer).via_spacing();
                 let routing_coord = top.coord(track_dir);
                 let mut has_via = false;
                 for i in (routing_coord + 1)
-                    .checked_sub(via_frequency)
-                    .unwrap_or_default()..routing_coord + via_frequency
+                    .checked_sub(via_spacing)
+                    .unwrap_or_default()..routing_coord + via_spacing
                 {
                     let check_coord = top.with_coord(track_dir, i);
                     if i != routing_coord
@@ -1143,7 +1143,7 @@ mod tests {
                     space: 200,
                     offset: TrackOffset::None,
                     endcap: 20,
-                    via_frequency: 1,
+                    via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
@@ -1151,7 +1151,7 @@ mod tests {
                     space: 200,
                     offset: TrackOffset::None,
                     endcap: 20,
-                    via_frequency: 1,
+                    via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
@@ -1159,7 +1159,7 @@ mod tests {
                     space: 400,
                     offset: TrackOffset::None,
                     endcap: 40,
-                    via_frequency: 1,
+                    via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
@@ -1167,7 +1167,7 @@ mod tests {
                     space: 400,
                     offset: TrackOffset::None,
                     endcap: 50,
-                    via_frequency: 1,
+                    via_spacing: 1,
                 },
             ],
             offset_x: 0,
