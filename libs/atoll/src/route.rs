@@ -3,7 +3,7 @@
 use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
-use pathfinding::prelude::{build_path, dijkstra, dijkstra_all};
+use pathfinding::prelude::dijkstra;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use substrate::geometry::side::Side;
@@ -27,8 +27,9 @@ pub trait Router {
 /// A router that greedily routes net groups one at a time.
 pub struct GreedyRouter;
 
+/// A node in the traversal of a [`GreedyRouter`].
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
-pub(crate) struct RoutingNode {
+pub struct RoutingNode {
     pub(crate) coord: GridCoord,
     pub(crate) has_via: bool,
     /// The side from which we got to this routing node.
@@ -75,7 +76,7 @@ impl Router for GreedyRouter {
                 .filter_map(|n| state.find(*n))
                 .collect::<Vec<_>>();
 
-            let mut remaining_nets: HashSet<_> = group[1..].into_iter().copied().collect();
+            let mut remaining_nets: HashSet<_> = group[1..].iter().collect();
 
             while !remaining_nets.is_empty() {
                 let start = RoutingNode {
@@ -83,7 +84,7 @@ impl Router for GreedyRouter {
                     has_via: false,
                     prev_side: None,
                 };
-                let mut path = dijkstra(
+                let path = dijkstra(
                     &start,
                     |s| state.successors(*s, group_root).into_iter(),
                     |node| {

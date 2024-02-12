@@ -40,6 +40,7 @@ impl Sky130Layers {
                         space: 260,
                         offset: TrackOffset::None,
                         endcap: 85,
+                        via_frequency: 1,
                     },
                 },
                 PdkLayer {
@@ -50,6 +51,7 @@ impl Sky130Layers {
                         space: 140,
                         offset: TrackOffset::None,
                         endcap: 85,
+                        via_frequency: 1,
                     },
                 },
                 PdkLayer {
@@ -60,6 +62,7 @@ impl Sky130Layers {
                         space: 460,
                         offset: TrackOffset::None,
                         endcap: 130,
+                        via_frequency: 1,
                     },
                 },
                 PdkLayer {
@@ -70,6 +73,7 @@ impl Sky130Layers {
                         space: 400,
                         offset: TrackOffset::None,
                         endcap: 200,
+                        via_frequency: 1,
                     },
                 },
                 PdkLayer {
@@ -80,6 +84,7 @@ impl Sky130Layers {
                         space: 950,
                         offset: TrackOffset::None,
                         endcap: 200,
+                        via_frequency: 1,
                     },
                 },
                 PdkLayer {
@@ -90,6 +95,7 @@ impl Sky130Layers {
                         space: 1_800,
                         offset: TrackOffset::None,
                         endcap: 600,
+                        via_frequency: 1,
                     },
                 },
             ],

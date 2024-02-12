@@ -155,7 +155,7 @@ impl Abstract {
         for port in self.ports.iter_mut() {
             *port = state.roots[port];
         }
-        for ((i, layer), states) in self.layers.iter_mut().enumerate().zip(state.layers) {
+        for (layer, states) in self.layers.iter_mut().zip(state.layers) {
             *layer = LayerAbstract::Detailed { states }
         }
     }

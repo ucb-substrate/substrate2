@@ -726,11 +726,11 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
 
     /// Relabels a net with a new ID, usually after being connected to another net.
     pub(crate) fn relabel_net(&mut self, old: NetId, new: NetId) {
-        for (i, layer) in self.layers.iter_mut().enumerate().rev() {
+        for layer in self.layers.iter_mut().rev() {
             let (nx, ny) = layer.size();
             for x in 0..nx {
                 for y in 0..ny {
-                    if let ps @ PointState::Routed { net, has_via } = layer[(x, y)] {
+                    if let PointState::Routed { net, has_via } = layer[(x, y)] {
                         if net == old {
                             layer[(x, y)] = PointState::Routed { net: new, has_via };
                         }
@@ -1052,7 +1052,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     /// * Otherwise, we report a successor to the track with a closer physical coordinate, assuming
     /// the farther coordinate is unobstructed.
     pub fn successors(&self, node: RoutingNode, net: NetId) -> Vec<(RoutingNode, usize)> {
-        let RoutingNode { coord, has_via, .. } = node;
+        let RoutingNode { coord, .. } = node;
         let routing_dir = self.grid.slice().layer(coord.layer).dir();
         let mut successors = Vec::new();
 
