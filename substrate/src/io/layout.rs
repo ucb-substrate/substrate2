@@ -90,6 +90,15 @@ pub struct PortGeometry {
     pub named_shapes: HashMap<ArcStr, IoShape>,
 }
 
+impl PortGeometry {
+    /// Returns an iterator over all shapes in a [`PortGeometry`].
+    pub fn shapes(&self) -> impl Iterator<Item = &IoShape> {
+        std::iter::once(&self.primary)
+            .chain(self.unnamed_shapes.iter())
+            .chain(self.named_shapes.values())
+    }
+}
+
 /// A type that can is a bundle of layout ports.
 ///
 /// An instance of a [`HardwareType`].

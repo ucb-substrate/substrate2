@@ -178,11 +178,11 @@ fn sky130_atoll_nmos_tile_autoroute() {
 
     let block = TileWrapper::new(Sky130NmosTileAutoroute);
 
-    ctx.write_layout(block, gds_path)
+    ctx.write_layout(block.clone(), gds_path)
         .expect("failed to write layout");
 
     let scir = ctx
-        .export_scir(block)
+        .export_scir(block.clone())
         .unwrap()
         .scir
         .convert_schema::<Sky130CommercialSchema>()

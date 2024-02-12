@@ -15,6 +15,7 @@ use substrate::context::PdkContext;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
+use substrate::geometry::union::BoundingUnion;
 use substrate::io::layout::Builder;
 use substrate::layout::bbox::LayerBbox;
 use substrate::layout::element::Shape;
@@ -149,6 +150,16 @@ impl Abstract {
         state
     }
 
+    /// Populates an [`Abstract`] based on the provided [`RoutingState`].
+    pub fn from_routing_state(&mut self, state: RoutingState<PdkLayer>) {
+        for port in self.ports.iter_mut() {
+            *port = state.roots[port];
+        }
+        for (layer, states) in self.layers.iter_mut().zip(state.layers) {
+            *layer = LayerAbstract::Detailed { states }
+        }
+    }
+
     /// Converts a grid point to a physical point in the coordinates of the cell.
     ///
     /// See [coordinate systems](Abstract#coordinates) for more information.
@@ -263,7 +274,10 @@ impl Abstract {
                             let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                             let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
                             state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
-                                PointState::Routed { net };
+                                PointState::Routed {
+                                    net,
+                                    has_via: false,
+                                };
                         }
                     }
                 }
@@ -325,6 +339,7 @@ impl InstanceAbstract {
     pub(crate) fn merge(
         abstracts: Vec<Self>,
         mut top_layer: usize,
+        physical_bbox: Option<Rect>,
         ports: Vec<NetId>,
         assigned_grid_points: Vec<AssignedGridPoints>,
     ) -> Abstract {
@@ -337,7 +352,8 @@ impl InstanceAbstract {
             .iter()
             .map(|abs| abs.physical_bounds())
             .reduce(|acc, next| acc.union(next))
-            .unwrap();
+            .unwrap()
+            .bounding_union(&physical_bbox);
 
         let grid = RoutingGrid::new(abstracts[0].abs.grid.stack.clone(), 0..top_layer + 1);
 
@@ -375,8 +391,8 @@ impl InstanceAbstract {
                 let track_width = inst.physical_bounds().width() / xpitch;
                 let track_height = inst.physical_bounds().height() / ypitch;
 
-                for x in left_offset..left_offset + track_width {
-                    for y in bot_offset..bot_offset + track_height {
+                for x in left_offset + 1..left_offset + track_width {
+                    for y in bot_offset + 1..bot_offset + track_height {
                         let point_state = &mut state.layer_mut(i)[(x as usize, y as usize)];
                         match &inst.abs.layers[i] {
                             LayerAbstract::Available => {}
@@ -390,15 +406,15 @@ impl InstanceAbstract {
                                         ((x - left_offset) as usize, (y - bot_offset) as usize)
                                     }
                                     Orientation::R180 => (
-                                        (left_offset + track_width - x - 1) as usize,
-                                        (bot_offset + track_height - y - 1) as usize,
+                                        (left_offset + track_width - x) as usize,
+                                        (bot_offset + track_height - y) as usize,
                                     ),
                                     Orientation::ReflectVert => (
                                         (x - left_offset) as usize,
-                                        (bot_offset + track_height - y - 1) as usize,
+                                        (bot_offset + track_height - y) as usize,
                                     ),
                                     Orientation::ReflectHoriz => (
-                                        (left_offset + track_width - x - 1) as usize,
+                                        (left_offset + track_width - x) as usize,
                                         (y - bot_offset) as usize,
                                     ),
                                 }];
@@ -409,17 +425,25 @@ impl InstanceAbstract {
                                         assert_eq!(point_state, &PointState::Available);
                                         *point_state = PointState::Blocked;
                                     }
-                                    PointState::Routed { net } => {
+                                    PointState::Routed { net, has_via } => {
                                         assert_eq!(point_state, &PointState::Available);
-                                        *point_state = PointState::Routed {
-                                            net: net_translation[&net],
-                                        };
+                                        if let Some(translation) = net_translation.get(&net) {
+                                            *point_state = PointState::Routed {
+                                                net: *translation,
+                                                has_via,
+                                            };
+                                        } else {
+                                            *point_state = PointState::Blocked;
+                                        }
                                     }
                                     PointState::Reserved { net } => {
                                         assert_eq!(point_state, &PointState::Available);
-                                        *point_state = PointState::Reserved {
-                                            net: net_translation[&net],
-                                        };
+                                        if let Some(translation) = net_translation.get(&net) {
+                                            *point_state =
+                                                PointState::Reserved { net: *translation };
+                                        } else {
+                                            *point_state = PointState::Blocked;
+                                        }
                                     }
                                 }
                             }
@@ -449,7 +473,10 @@ impl InstanceAbstract {
 
             for i in left..=left + bounds.width() {
                 for j in bot..=bot + bounds.height() {
-                    state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed { net }
+                    state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed {
+                        net,
+                        has_via: false,
+                    }
                 }
             }
         }

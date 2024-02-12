@@ -8,6 +8,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use crate::abs::GridCoord;
+use crate::route::RoutingNode;
 use std::ops::{Index, IndexMut, Range};
 use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::corner::Corner;
@@ -15,12 +16,22 @@ use substrate::geometry::dims::Dims;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
+use substrate::geometry::side::Side;
 use substrate::geometry::span::Span;
 use substrate::layout::element::Shape;
 use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::layout::{Draw, DrawReceiver};
 use substrate::pdk::layers::LayerId;
 use substrate::pdk::Pdk;
+
+/// The offset of tracks relative to tile edges.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum TrackOffset {
+    /// Tracks centered at tile edges.
+    None,
+    /// Tracks offset by half-pitch from tile edges.
+    HalfPitch,
+}
 
 /// An ATOLL-compatible routing layer.
 pub trait AtollLayer {
@@ -31,10 +42,14 @@ pub trait AtollLayer {
     /// The space between adjacent tracks on this layer.
     fn space(&self) -> i64;
     /// An offset that shifts the first track of the layer.
-    fn offset(&self) -> i64;
+    fn offset(&self) -> TrackOffset;
     /// The amount by which this layer should extend beyond the center line of a track on the this layer's grid defining layer.
     fn endcap(&self) -> i64 {
         0
+    }
+    /// The minimum spacing between adjacent vias on the same metal track.
+    fn via_spacing(&self) -> usize {
+        1
     }
 
     /// The line + space of this layer.
@@ -42,6 +57,13 @@ pub trait AtollLayer {
     /// The default implementation should not generally be overridden.
     fn pitch(&self) -> i64 {
         self.line() + self.space()
+    }
+    /// The offset of the first track in physical units.
+    fn physical_offset(&self) -> i64 {
+        match self.offset() {
+            TrackOffset::None => 0,
+            TrackOffset::HalfPitch => self.pitch() / 2,
+        }
     }
 }
 
@@ -56,8 +78,12 @@ pub struct AbstractLayer {
     pub line: i64,
     /// The space between adjacent tracks.
     pub space: i64,
+    /// The offset of tracks relative to tile edges.
+    pub offset: TrackOffset,
     /// How far to extend a track beyond the center-to-center intersection point with a track on the layer below.
     pub endcap: i64,
+    /// The minimum spacing between adjacent vias on the same metal track.
+    pub via_spacing: usize,
 }
 
 /// An ATOLL-layer associated with a layer provided by a PDK.
@@ -77,8 +103,8 @@ impl AsRef<LayerId> for PdkLayer {
 
 impl AbstractLayer {
     /// The (infinite) set of tracks on this layer.
-    pub fn tracks(&self, global_ofs: i64) -> UniformTracks {
-        UniformTracks::with_offset(self.line, self.space, global_ofs)
+    pub fn tracks(&self) -> UniformTracks {
+        UniformTracks::with_offset(self.line, self.space, self.physical_offset())
     }
 }
 
@@ -118,13 +144,16 @@ impl AtollLayer for AbstractLayer {
         self.space
     }
 
-    /// The offset, which is (currently) fixed at 0.
-    fn offset(&self) -> i64 {
-        0
+    fn offset(&self) -> TrackOffset {
+        self.offset
     }
 
     fn endcap(&self) -> i64 {
         self.endcap
+    }
+
+    fn via_spacing(&self) -> usize {
+        self.via_spacing
     }
 }
 
@@ -141,7 +170,7 @@ impl AtollLayer for PdkLayer {
         self.inner.space()
     }
 
-    fn offset(&self) -> i64 {
+    fn offset(&self) -> TrackOffset {
         self.inner.offset()
     }
 
@@ -149,8 +178,8 @@ impl AtollLayer for PdkLayer {
         self.inner.endcap()
     }
 
-    fn pitch(&self) -> i64 {
-        self.inner.pitch()
+    fn via_spacing(&self) -> usize {
+        self.inner.via_spacing()
     }
 }
 
@@ -196,7 +225,7 @@ impl<L: AtollLayer> LayerStack<L> {
             Dir::Vert => self.offset_x,
             Dir::Horiz => self.offset_y,
         };
-        UniformTracks::with_offset(layer.line(), layer.space(), layer.offset() + ofs)
+        UniformTracks::with_offset(layer.line(), layer.space(), layer.physical_offset() + ofs)
     }
 
     /// Returns whether or not the layer stack is valid.
@@ -686,7 +715,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let (nx, ny) = layer.size();
             for x in 0..nx {
                 for y in 0..ny {
-                    if layer[(x, y)] == (PointState::Routed { net }) {
+                    if layer[(x, y)].is_routed_for_net(net) {
                         return Some(GridCoord { layer: i, x, y });
                     }
                 }
@@ -695,8 +724,24 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         None
     }
 
+    /// Relabels a net with a new ID, usually after being connected to another net.
+    pub(crate) fn relabel_net(&mut self, old: NetId, new: NetId) {
+        for layer in self.layers.iter_mut().rev() {
+            let (nx, ny) = layer.size();
+            for x in 0..nx {
+                for y in 0..ny {
+                    if let PointState::Routed { net, has_via } = layer[(x, y)] {
+                        if net == old {
+                            layer[(x, y)] = PointState::Routed { net: new, has_via };
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub(crate) fn is_routed_for_net(&self, coord: GridCoord, net: NetId) -> bool {
-        if let PointState::Routed { net: grid_net } = self[coord] {
+        if let PointState::Routed { net: grid_net, .. } = self[coord] {
             self.roots[&net] == self.roots[&grid_net]
         } else {
             false
@@ -706,10 +751,18 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     #[inline]
     pub(crate) fn is_available_for_net(&self, coord: GridCoord, net: NetId) -> bool {
         match self[coord] {
-            PointState::Routed { net: grid_net } => self.roots[&grid_net] == self.roots[&net],
+            PointState::Routed { net: grid_net, .. } => self.roots[&grid_net] == self.roots[&net],
             PointState::Available => true,
             PointState::Blocked => false,
             PointState::Reserved { .. } => false,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn has_via(&self, coord: GridCoord) -> bool {
+        match self[coord] {
+            PointState::Routed { has_via, .. } => has_via,
+            _ => false,
         }
     }
 
@@ -742,7 +795,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
 
     #[allow(dead_code)]
     pub(crate) fn forms_new_connection_for_net(&self, coord: GridCoord, net: NetId) -> bool {
-        if let PointState::Routed { net: grid_net } = self[coord] {
+        if let PointState::Routed { net: grid_net, .. } = self[coord] {
             self.roots[&net] == self.roots[&grid_net] && grid_net != net
         } else {
             false
@@ -753,59 +806,114 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     ///
     /// Important: the two coordinates must be adjacent.
     fn cost(&self, src: GridCoord, dst: GridCoord, net: NetId) -> usize {
+        let manhattan_dist = (num::abs(src.x as i64 - dst.x as i64)
+            + num::abs(src.y as i64 - dst.y as i64)) as usize;
         if self.is_routed_for_net(src, net) && self.is_routed_for_net(dst, net) {
-            if self[src] == self[dst] {
-                0
-            } else {
-                1
-            }
+            0
         } else if src.layer != dst.layer {
             6
         } else {
-            4
+            4 * manhattan_dist
         }
     }
 
-    fn successors_vert(&self, coord: GridCoord, net: NetId, out: &mut Vec<(GridCoord, usize)>) {
+    fn successors_vert(&self, node: RoutingNode, net: NetId, out: &mut Vec<(RoutingNode, usize)>) {
+        let RoutingNode {
+            coord,
+            has_via,
+            prev_side,
+        } = node;
+
         let layer = self.layer(coord.layer);
-        if coord.y != 0 {
+        let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
+        let jump = if has_via { via_spacing } else { 1 };
+
+        let (down_allowed, up_allowed) = match prev_side {
+            Some(Side::Top) => (true, false),
+            Some(Side::Bot) => (false, true),
+            _ => (true, true),
+        };
+
+        if coord.y >= jump && down_allowed {
             let next = GridCoord {
-                y: coord.y - 1,
+                y: coord.y - jump,
                 ..coord
             };
             if self.is_available_for_net(next, net) {
-                out.push((next, self.cost(coord, next, net)));
+                out.push((
+                    RoutingNode {
+                        coord: next,
+                        has_via: false,
+                        prev_side: Some(Side::Top),
+                    },
+                    self.cost(coord, next, net),
+                ));
             }
         }
-        if coord.y < layer.size().1 - 1 {
+        if coord.y < layer.size().1 - jump && up_allowed {
             let next = GridCoord {
-                y: coord.y + 1,
+                y: coord.y + jump,
                 ..coord
             };
             if self.is_available_for_net(next, net) {
-                out.push((next, self.cost(coord, next, net)));
+                out.push((
+                    RoutingNode {
+                        coord: next,
+                        has_via: false,
+                        prev_side: Some(Side::Bot),
+                    },
+                    self.cost(coord, next, net),
+                ));
             }
         }
     }
 
-    fn successors_horiz(&self, coord: GridCoord, net: NetId, out: &mut Vec<(GridCoord, usize)>) {
+    fn successors_horiz(&self, node: RoutingNode, net: NetId, out: &mut Vec<(RoutingNode, usize)>) {
+        let RoutingNode {
+            coord,
+            has_via,
+            prev_side,
+        } = node;
         let layer = self.layer(coord.layer);
-        if coord.x != 0 {
+        let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
+        let jump = if has_via { via_spacing } else { 1 };
+
+        let (left_allowed, right_allowed) = match prev_side {
+            Some(Side::Right) => (true, false),
+            Some(Side::Left) => (false, true),
+            _ => (true, true),
+        };
+
+        if coord.x >= jump && left_allowed {
             let next = GridCoord {
-                x: coord.x - 1,
+                x: coord.x - jump,
                 ..coord
             };
             if self.is_available_for_net(next, net) {
-                out.push((next, self.cost(coord, next, net)));
+                out.push((
+                    RoutingNode {
+                        coord: next,
+                        has_via: false,
+                        prev_side: Some(Side::Right),
+                    },
+                    self.cost(coord, next, net),
+                ));
             }
         }
-        if coord.x < layer.size().0 - 1 {
+        if coord.x < layer.size().0 - jump && right_allowed {
             let next = GridCoord {
-                x: coord.x + 1,
+                x: coord.x + jump,
                 ..coord
             };
             if self.is_available_for_net(next, net) {
-                out.push((next, self.cost(coord, next, net)));
+                out.push((
+                    RoutingNode {
+                        coord: next,
+                        has_via: false,
+                        prev_side: Some(Side::Left),
+                    },
+                    self.cost(coord, next, net),
+                ));
             }
         }
     }
@@ -943,20 +1051,21 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     /// * If the two coordinates are equal, we report a successor to that grid point.
     /// * Otherwise, we report a successor to the track with a closer physical coordinate, assuming
     /// the farther coordinate is unobstructed.
-    pub fn successors(&self, coord: GridCoord, net: NetId) -> Vec<(GridCoord, usize)> {
-        let mut successors = Vec::new();
+    pub fn successors(&self, node: RoutingNode, net: NetId) -> Vec<(RoutingNode, usize)> {
+        let RoutingNode { coord, .. } = node;
         let routing_dir = self.grid.slice().layer(coord.layer).dir();
+        let mut successors = Vec::new();
 
         match routing_dir {
             RoutingDir::Vert => {
-                self.successors_vert(coord, net, &mut successors);
+                self.successors_vert(node, net, &mut successors);
             }
             RoutingDir::Horiz => {
-                self.successors_horiz(coord, net, &mut successors);
+                self.successors_horiz(node, net, &mut successors);
             }
             RoutingDir::Any { .. } => {
-                self.successors_vert(coord, net, &mut successors);
-                self.successors_horiz(coord, net, &mut successors);
+                self.successors_vert(node, net, &mut successors);
+                self.successors_horiz(node, net, &mut successors);
             }
         }
 
@@ -964,13 +1073,46 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             .into_iter()
             .flatten()
         {
+            if ilt.to.layer != coord.layer {
+                let top = if ilt.to.layer > coord.layer {
+                    ilt.to
+                } else {
+                    coord
+                };
+                let track_dir = self.grid.slice().layer(top.layer).dir().track_dir();
+                let via_spacing = self.grid.slice().layer(top.layer).via_spacing();
+                let routing_coord = top.coord(track_dir);
+                let mut has_via = false;
+                for i in (routing_coord + 1)
+                    .checked_sub(via_spacing)
+                    .unwrap_or_default()..routing_coord + via_spacing
+                {
+                    let check_coord = top.with_coord(track_dir, i);
+                    if i != routing_coord
+                        && self.in_bounds(check_coord)
+                        && self.has_via(check_coord)
+                    {
+                        has_via = true;
+                    }
+                }
+                if has_via {
+                    continue;
+                }
+            }
             if self.is_available_for_net(ilt.to, net)
                 && ilt
                     .requires
                     .map(|n| self.is_available_or_reserved_for_net(n, net))
                     .unwrap_or(true)
             {
-                successors.push((ilt.to, self.cost(coord, ilt.to, net)));
+                successors.push((
+                    RoutingNode {
+                        coord: ilt.to,
+                        has_via: ilt.to.layer > coord.layer,
+                        prev_side: None,
+                    },
+                    self.cost(coord, ilt.to, net),
+                ));
             }
         }
 
@@ -999,25 +1141,33 @@ mod tests {
                     dir: RoutingDir::Horiz,
                     line: 100,
                     space: 200,
+                    offset: TrackOffset::None,
                     endcap: 20,
+                    via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
                     line: 120,
                     space: 200,
+                    offset: TrackOffset::None,
                     endcap: 20,
+                    via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
                     line: 200,
                     space: 400,
+                    offset: TrackOffset::None,
                     endcap: 40,
+                    via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
                     line: 200,
                     space: 400,
+                    offset: TrackOffset::None,
                     endcap: 50,
+                    via_spacing: 1,
                 },
             ],
             offset_x: 0,

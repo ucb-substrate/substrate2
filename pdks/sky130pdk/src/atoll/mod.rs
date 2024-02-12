@@ -5,7 +5,7 @@ use crate::mos::{MosParams, Nfet01v8, Pfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
 use atoll::abs::TrackCoord;
-use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid};
+use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid, TrackOffset};
 use atoll::route::ViaMaker;
 use atoll::RoutingDir;
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,9 @@ impl Sky130Layers {
                         },
                         line: 170,
                         space: 260,
+                        offset: TrackOffset::None,
                         endcap: 85,
+                        via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -47,7 +49,9 @@ impl Sky130Layers {
                         dir: RoutingDir::Horiz,
                         line: 260,
                         space: 140,
+                        offset: TrackOffset::None,
                         endcap: 85,
+                        via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -56,7 +60,9 @@ impl Sky130Layers {
                         dir: RoutingDir::Vert,
                         line: 400,
                         space: 460,
+                        offset: TrackOffset::None,
                         endcap: 130,
+                        via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -65,7 +71,9 @@ impl Sky130Layers {
                         dir: RoutingDir::Horiz,
                         line: 400,
                         space: 400,
+                        offset: TrackOffset::None,
                         endcap: 200,
+                        via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -74,7 +82,9 @@ impl Sky130Layers {
                         dir: RoutingDir::Vert,
                         line: 1_200,
                         space: 950,
+                        offset: TrackOffset::None,
                         endcap: 200,
+                        via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -83,7 +93,9 @@ impl Sky130Layers {
                         dir: RoutingDir::Horiz,
                         line: 1_800,
                         space: 1_800,
+                        offset: TrackOffset::None,
                         endcap: 600,
+                        via_spacing: 1,
                     },
                 },
             ],
