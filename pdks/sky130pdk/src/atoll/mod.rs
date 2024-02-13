@@ -47,7 +47,7 @@ impl Sky130Layers {
                     id: self.met1.drawing.id(),
                     inner: AbstractLayer {
                         dir: RoutingDir::Horiz,
-                        line: 260,
+                        line: 400,
                         space: 140,
                         offset: TrackOffset::None,
                         endcap: 85,
@@ -58,8 +58,8 @@ impl Sky130Layers {
                     id: self.met2.drawing.id(),
                     inner: AbstractLayer {
                         dir: RoutingDir::Vert,
-                        line: 400,
-                        space: 460,
+                        line: 260,
+                        space: 170,
                         offset: TrackOffset::None,
                         endcap: 130,
                         via_spacing: 1,
@@ -70,7 +70,7 @@ impl Sky130Layers {
                     inner: AbstractLayer {
                         dir: RoutingDir::Horiz,
                         line: 400,
-                        space: 400,
+                        space: 410,
                         offset: TrackOffset::None,
                         endcap: 200,
                         via_spacing: 1,
@@ -176,7 +176,7 @@ pub struct MosTileIo {
     /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
     pub sd: Array<InOut<Signal>>,
     /// `NF` gate contacts on li1, where `NF` is the number of fingers.
-    pub g: Input<Signal>,
+    pub g: Array<Input<Signal>>,
     /// A body port on either nwell or pwell.
     pub b: InOut<Signal>,
 }
@@ -253,7 +253,14 @@ impl Block for MosTile {
     fn io(&self) -> Self::Io {
         MosTileIo {
             sd: Array::new(self.nf as usize + 1, InOut(Signal::new())),
-            g: Input(Signal::new()),
+            g: Array::new(
+                match self.gate_dir {
+                    GateDir::Left => self.nf / 2 + 1,
+                    GateDir::Right => (self.nf - 1) / 2 + 1,
+                } as usize,
+                Input(Signal::new()),
+            ),
+
             b: InOut(Signal::new()),
         }
     }
@@ -324,44 +331,51 @@ impl MosTile {
         );
         cell.draw(Shape::new(cell.ctx.layers.diff, diff))?;
 
-        let poly_li = Rect::from_spans(
-            Span::new(tracks[1].left(), tracks[tracks.len() - 2].right()),
-            gate_vspan,
-        );
-        cell.draw(Shape::new(cell.ctx.layers.li1, poly_li))?;
-        io.g.push(IoShape::with_layers(cell.ctx.layers.li1, poly_li));
+        for i in 0..self.nf as usize {
+            let li_track = tracks[match (i % 2 == 0, self.gate_dir) {
+                (true, GateDir::Left) | (false, GateDir::Right) => i,
+                _ => i + 1,
+            }];
 
-        let poly = Rect::from_sides(
-            gate_spans[0].start(),
-            poly_li.top() - 350,
-            gate_spans.last().unwrap().stop(),
-            poly_li.top(),
-        );
-        cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
+            let gate_idx = |idx| match self.gate_dir {
+                GateDir::Left => (idx + 1) / 2,
+                GateDir::Right => idx / 2,
+            };
+            let poly_li = Rect::from_spans(li_track.hspan(), gate_vspan);
+            if i == 0 || gate_idx(i) != gate_idx(i - 1) {
+                cell.draw(Shape::new(cell.ctx.layers.li1, poly_li))?;
+                io.g[gate_idx(i)].push(IoShape::with_layers(cell.ctx.layers.li1, poly_li));
+
+                let cut = Rect::from_spans(
+                    li_track.hspan(),
+                    Span::new(poly_li.top() - 90, poly_li.top() - 260),
+                );
+                cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
+
+                let npc = Rect::from_spans(
+                    poly_li.hspan(),
+                    Span::new(poly_li.top(), poly_li.top() - 350),
+                )
+                .expand_dir(Dir::Vert, 10)
+                .expand_dir(Dir::Horiz, 100);
+                cell.draw(Shape::new(cell.ctx.layers.npc, npc))?;
+            }
+            let poly = Rect::from_spans(
+                gate_spans[i].union(li_track.hspan()),
+                Span::new(poly_li.top() - 350, poly_li.top()),
+            );
+            cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
+        }
 
         for &span in gate_spans.iter() {
             cell.draw(Shape::new(
                 cell.ctx.layers.poly,
-                Rect::from_spans(span, poly.vspan().add_point(self.w + 130)),
+                Rect::from_spans(span, Span::new(gate_vspan.stop() - 350, self.w + 130)),
             ))?;
         }
 
-        let npc = Rect::from_spans(
-            poly_li.hspan(),
-            Span::new(poly_li.top(), poly_li.top() - 350),
-        )
-        .expand_dir(Dir::Vert, 10)
-        .expand_dir(Dir::Horiz, 100);
-        cell.draw(Shape::new(cell.ctx.layers.npc, npc))?;
-
         #[allow(clippy::needless_range_loop)]
-        for i in 1..self.nf as usize {
-            let cut = Rect::from_spans(
-                tracks[i].hspan(),
-                Span::new(poly_li.top() - 90, poly_li.top() - 260),
-            );
-            cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
-        }
+        for i in 1..self.nf as usize {}
 
         let virtual_layers = cell.ctx.install_layers::<atoll::VirtualLayers>();
         let slice = stack.slice(0..2);
