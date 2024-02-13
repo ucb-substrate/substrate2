@@ -47,7 +47,7 @@ impl Sky130Layers {
                     id: self.met1.drawing.id(),
                     inner: AbstractLayer {
                         dir: RoutingDir::Horiz,
-                        line: 260,
+                        line: 400,
                         space: 140,
                         offset: TrackOffset::None,
                         endcap: 85,
@@ -58,8 +58,8 @@ impl Sky130Layers {
                     id: self.met2.drawing.id(),
                     inner: AbstractLayer {
                         dir: RoutingDir::Vert,
-                        line: 400,
-                        space: 460,
+                        line: 260,
+                        space: 170,
                         offset: TrackOffset::None,
                         endcap: 130,
                         via_spacing: 1,
@@ -70,7 +70,7 @@ impl Sky130Layers {
                     inner: AbstractLayer {
                         dir: RoutingDir::Horiz,
                         line: 400,
-                        space: 400,
+                        space: 410,
                         offset: TrackOffset::None,
                         endcap: 200,
                         via_spacing: 1,
@@ -126,13 +126,13 @@ impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
                 cell.ctx.layers.mcon.drawing.id(),
                 Rect::from_sides(0, 0, 170, 170),
                 Rect::from_sides(0, 0, 170, 170),
-                Rect::from_sides(-60, -45, 230, 215),
+                Rect::from_sides(-60, -115, 230, 285),
             ),
             2 => (
                 cell.ctx.layers.via.drawing.id(),
-                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(-55, -125, 205, 275),
                 Rect::from_sides(0, 0, 150, 150),
-                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(-55, -125, 205, 275),
             ),
             _ => todo!(),
         };
