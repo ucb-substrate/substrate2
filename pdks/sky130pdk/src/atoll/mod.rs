@@ -126,13 +126,13 @@ impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
                 cell.ctx.layers.mcon.drawing.id(),
                 Rect::from_sides(0, 0, 170, 170),
                 Rect::from_sides(0, 0, 170, 170),
-                Rect::from_sides(-60, -45, 230, 215),
+                Rect::from_sides(-60, -115, 230, 285),
             ),
             2 => (
                 cell.ctx.layers.via.drawing.id(),
-                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(-55, -125, 205, 275),
                 Rect::from_sides(0, 0, 150, 150),
-                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(-55, -125, 205, 275),
             ),
             _ => todo!(),
         };
