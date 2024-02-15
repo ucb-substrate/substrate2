@@ -20,7 +20,7 @@ use substrate::io::layout::IoShape;
 use substrate::io::schematic::Bundle;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{RoundingMode, Tracks};
+use substrate::layout::tracks::RoundingMode;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::pdk::layers::Layer;
 use substrate::schematic::{ExportsNestedData, Schematic};
@@ -228,16 +228,6 @@ impl MosTile {
             gate_dir: GateDir::default(),
         }
     }
-
-    /// Sets the connection direction of the left-most gate in the tile.
-    ///
-    /// Connection directions alternate for each adjacent gate.
-    /// A gate will always be connected with the gate adjacent to it
-    /// in its connection direction.
-    fn with_gate_dir(mut self, gate_dir: GateDir) -> Self {
-        self.gate_dir = gate_dir;
-        self
-    }
 }
 
 impl Block for MosTile {
@@ -373,9 +363,6 @@ impl MosTile {
                 Rect::from_spans(span, Span::new(gate_vspan.stop() - 350, self.w + 130)),
             ))?;
         }
-
-        #[allow(clippy::needless_range_loop)]
-        for i in 1..self.nf as usize {}
 
         let virtual_layers = cell.ctx.install_layers::<atoll::VirtualLayers>();
         let slice = stack.slice(0..2);
