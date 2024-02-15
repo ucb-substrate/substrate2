@@ -470,7 +470,10 @@ impl Schematic<Sky130Pdk> for NmosTile {
                 }),
                 MosIoSchematic {
                     d: io.sd[i],
-                    g: io.g,
+                    g: io.g[match self.tile.gate_dir {
+                        GateDir::Left => (i + 1) / 2,
+                        GateDir::Right => i / 2,
+                    }],
                     s: io.sd[i + 1],
                     b: io.b,
                 },
@@ -554,7 +557,10 @@ impl Schematic<Sky130Pdk> for PmosTile {
                 }),
                 MosIoSchematic {
                     d: io.sd[i],
-                    g: io.g,
+                    g: io.g[match self.tile.gate_dir {
+                        GateDir::Left => (i + 1) / 2,
+                        GateDir::Right => i / 2,
+                    }],
                     s: io.sd[i + 1],
                     b: io.b,
                 },

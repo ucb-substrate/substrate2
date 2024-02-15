@@ -13,7 +13,7 @@ use spice::netlist::NetlistOptions;
 use spice::Spice;
 use substrate::block::Block;
 use substrate::io::layout::HardwareType;
-use substrate::io::{InOut, Io, Signal};
+use substrate::io::{FlatLen, InOut, Io, Signal};
 
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::schematic;
@@ -153,9 +153,11 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
                 cell.connect(io.schematic.sd, schematic.io().sd[i]);
                 io.layout.sd.merge(layout.io().sd[i].clone());
             }
-            cell.connect(io.schematic.g, schematic.io().g);
+            for j in 0..schematic.io().g.len() {
+                cell.connect(io.schematic.g, schematic.io().g[j]);
+                io.layout.g.merge(layout.io().g[j].clone());
+            }
             cell.connect(io.schematic.b, schematic.io().b);
-            io.layout.g.merge(layout.io().g.clone());
             io.layout.b.merge(layout.io().b.clone());
 
             instances.push(schematic);
