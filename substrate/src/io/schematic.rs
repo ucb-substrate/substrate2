@@ -79,7 +79,7 @@ impl<T> IsBundle for T where
 }
 
 /// A single node in a circuit.
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node(u32);
 
 /// A nested node within a cell.
