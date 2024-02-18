@@ -217,6 +217,7 @@ impl<L> LayerStack<L> {
         &self.layers[layer]
     }
 }
+
 impl<L: AtollLayer> LayerStack<L> {
     /// The set of tracks on the given layer index.
     pub fn tracks(&self, layer: usize) -> UniformTracks {
@@ -797,6 +798,16 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     pub(crate) fn forms_new_connection_for_net(&self, coord: GridCoord, net: NetId) -> bool {
         if let PointState::Routed { net: grid_net, .. } = self[coord] {
             self.roots[&net] == self.roots[&grid_net] && grid_net != net
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn are_routed_for_same_net(&self, src: GridCoord, dst: GridCoord) -> bool {
+        if let (PointState::Routed { net: src_net, .. }, PointState::Routed { net: dst_net, .. }) =
+            (self[src], self[dst])
+        {
+            src_net == dst_net
         } else {
             false
         }

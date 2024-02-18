@@ -11,7 +11,9 @@ use substrate::layout;
 use substrate::pdk::Pdk;
 
 /// A path of grid-coordinates.
-pub type Path = Vec<GridCoord>;
+pub type Path = Vec<GridSegment>;
+
+pub type GridSegment = (GridCoord, GridCoord);
 
 /// An ATOLL router.
 pub trait Router {
@@ -55,12 +57,17 @@ impl Router for GreedyRouter {
         state.roots = roots;
 
         // remove nodes from the to connect list that are not on the grid
+        // and relabel them to ones that are on the grid.
         for group in to_connect.iter_mut() {
             *group = group
                 .iter()
                 .copied()
                 .filter(|&n| state.find(n).is_some())
                 .collect::<Vec<_>>();
+            if let Some(first_on_grid) = group.first_mut() {
+                state.relabel_net(*first_on_grid, state.roots[first_on_grid]);
+                *first_on_grid = state.roots[first_on_grid];
+            }
         }
 
         let mut paths = Vec::new();
@@ -99,6 +106,14 @@ impl Router for GreedyRouter {
                 .0;
 
                 let mut to_remove = HashSet::new();
+
+                let mut segment_path = Vec::new();
+                for nodes in path.windows(2) {
+                    if state.are_routed_for_same_net(nodes[0].coord, nodes[1].coord) {
+                        continue;
+                    }
+                    segment_path.push((nodes[0].coord, nodes[1].coord));
+                }
 
                 for node in path.iter() {
                     if let PointState::Routed { net, .. } = state[node.coord] {
@@ -157,14 +172,11 @@ impl Router for GreedyRouter {
                     state.relabel_net(net, group_root);
                     remaining_nets.remove(&net);
                 }
-                paths.push(path);
+                paths.push(segment_path);
             }
         }
 
         paths
-            .into_iter()
-            .map(|path| path.into_iter().map(|node| node.coord).collect())
-            .collect()
     }
 }
 

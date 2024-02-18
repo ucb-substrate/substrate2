@@ -437,7 +437,7 @@ impl<PDK: Pdk, I: Layout<PDK>> Draw<PDK> for &Instance<I> {
 /// A layout cell builder.
 ///
 /// Constructed once for each invocation of [`Layout::layout`].
-pub struct CellBuilder<PDK: Pdk> {
+pub struct CellBuilder<PDK: Pdk + ?Sized> {
     container: Container<PDK>,
     /// The current global context.
     pub ctx: PdkContext<PDK>,
@@ -527,7 +527,7 @@ impl<PDK: Pdk> LayerBbox for CellBuilder<PDK> {
 ///
 /// Implements the primitive functions that layout objects need to implement [`Draw`].
 #[derive(Debug, Clone)]
-pub struct DrawReceiver<PDK> {
+pub struct DrawReceiver<PDK: ?Sized> {
     phantom: PhantomData<PDK>,
     containers: Vec<Container<PDK>>,
     instances: Vec<Arc<OnceCell<Option<RawInstance>>>>,
@@ -693,7 +693,7 @@ impl<PDK: Pdk, T: Draw<PDK> + ?Sized> Draw<PDK> for Box<T> {
 
 /// TODO: Temporarily private until we decide whether it is worth exposing.
 #[derive(Debug, Clone)]
-pub(crate) struct Container<PDK> {
+pub(crate) struct Container<PDK: ?Sized> {
     recvs: Vec<DrawReceiver<PDK>>,
     trans: Transformation,
 }

@@ -401,7 +401,7 @@ pub(crate) struct AssignedGridPoints {
 }
 
 /// A builder for ATOLL tiles.
-pub struct TileBuilder<'a, PDK: Pdk + Schema> {
+pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     nodes: IndexMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     schematic: &'a mut schematic::CellBuilder<PDK>,
@@ -469,6 +469,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         builder.register_bundle(schematic_io);
 
         builder
+    }
+
+    /// Flattens the schematic of this tile.
+    pub fn flatten(&mut self) {
+        self.schematic.flatten()
     }
 
     /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
@@ -696,7 +701,7 @@ pub struct IoBuilder<'a, B: Block> {
 }
 
 /// A tile that can be instantiated in ATOLL.
-pub trait Tile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
+pub trait Tile<PDK: Pdk + Schema + ?Sized>: ExportsNestedData + ExportsLayoutData {
     /// Builds a block's ATOLL tile.
     fn tile<'a>(
         &self,
@@ -806,6 +811,7 @@ where
             port_ids,
             cell.assigned_nets,
         );
+        let orig_routing_state = abs.routing_state();
 
         if let Some(router) = cell.router {
             let paths = self.paths.clone().unwrap_or_else(|| {
@@ -821,8 +827,8 @@ where
             });
 
             for path in paths {
-                for segment in path.windows(2) {
-                    let (a, b) = (abs.grid_to_track(segment[0]), abs.grid_to_track(segment[1]));
+                for (a, b) in path {
+                    let (a, b) = (abs.grid_to_track(a), abs.grid_to_track(b));
                     if a.layer == b.layer {
                         // todo: handle multiple routing directions
                         assert!(a.x == b.x || a.y == b.y);
