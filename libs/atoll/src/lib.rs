@@ -340,6 +340,13 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         }
     }
 
+    /// Aligns this instance with another rectangle in terms of LCM units on the same
+    /// layer as the instance.
+    pub fn align_rect(mut self, orect: Rect, mode: AlignMode, offset: i64) -> Self {
+        self.align_rect_mut(orect, mode, offset);
+        self
+    }
+
     /// Aligns this instance with another instance with the same top layer.
     pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
         &mut self,
@@ -349,6 +356,17 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     ) {
         assert_eq!(self.top_layer(), other.top_layer());
         self.align_rect_mut(other.lcm_bounds(), mode, offset);
+    }
+
+    /// Aligns this instance with another instance with the same top layer.
+    pub fn align<T2: ExportsNestedData + ExportsLayoutData>(
+        mut self,
+        other: &Instance<T2>,
+        mode: AlignMode,
+        offset: i64,
+    ) -> Self {
+        self.align_mut(other, mode, offset);
+        self
     }
 
     /// Orients this instance in the given orientation.
