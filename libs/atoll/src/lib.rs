@@ -68,7 +68,7 @@ pub mod abs;
 pub mod grid;
 pub mod route;
 
-use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
+use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
@@ -829,7 +829,6 @@ where
             port_ids,
             cell.assigned_nets,
         );
-        let orig_routing_state = abs.routing_state();
 
         if let Some(router) = cell.router {
             let paths = self.paths.clone().unwrap_or_else(|| {

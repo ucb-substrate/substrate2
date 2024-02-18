@@ -119,6 +119,10 @@ impl Router for GreedyRouter {
                     if let PointState::Routed { net, .. } = state[node.coord] {
                         to_remove.insert(net);
                     }
+                    state[node.coord] = PointState::Routed {
+                        net: group_root,
+                        has_via: false,
+                    };
                 }
 
                 for nodes in path.windows(2) {
