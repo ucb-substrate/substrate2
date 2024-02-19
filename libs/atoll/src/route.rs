@@ -3,9 +3,12 @@
 use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
-use pathfinding::prelude::dijkstra;
+use indexmap::{map::Entry, IndexMap};
+use num::Zero;
+use rustc_hash::FxHasher;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::hash::{BuildHasherDefault, Hash};
 use substrate::geometry::side::Side;
 use substrate::layout;
 use substrate::pdk::Pdk;
@@ -40,6 +43,142 @@ pub struct RoutingNode {
     /// after skipping invalid via placements.
     pub(crate) prev_side: Option<Side>,
 }
+
+// BEGIN DIJKSTRA IMPL (taken from https://docs.rs/pathfinding/latest/src/pathfinding/directed/dijkstra.rs.html)
+type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
+
+struct SmallestHolder<K> {
+    cost: K,
+    index: usize,
+}
+
+impl<K: PartialEq> PartialEq for SmallestHolder<K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cost == other.cost
+    }
+}
+
+impl<K: PartialEq> Eq for SmallestHolder<K> {}
+
+impl<K: Ord> PartialOrd for SmallestHolder<K> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<K: Ord> Ord for SmallestHolder<K> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.cost.cmp(&self.cost)
+    }
+}
+
+fn reverse_path<N, V, F>(parents: &FxIndexMap<N, V>, mut parent: F, start: usize) -> Vec<N>
+where
+    N: Eq + Hash + Clone,
+    F: FnMut(&V) -> usize,
+{
+    let mut i = start;
+    let path = std::iter::from_fn(|| {
+        parents.get_index(i).map(|(node, value)| {
+            i = parent(value);
+            node
+        })
+    })
+    .collect::<Vec<&N>>();
+    // Collecting the going through the vector is needed to revert the path because the
+    // unfold iterator is not double-ended due to its iterative nature.
+    path.into_iter().rev().cloned().collect()
+}
+
+fn dijkstra<N, C, FN, IN, FS>(start: &N, mut successors: FN, mut success: FS) -> Option<(Vec<N>, C)>
+where
+    N: Eq + Hash + Clone,
+    C: Zero + Ord + Copy,
+    FN: FnMut(&N, &[N]) -> IN,
+    IN: IntoIterator<Item = (N, C)>,
+    FS: FnMut(&N) -> bool,
+{
+    dijkstra_internal(start, &mut successors, &mut success)
+}
+
+pub(crate) fn dijkstra_internal<N, C, FN, IN, FS>(
+    start: &N,
+    successors: &mut FN,
+    success: &mut FS,
+) -> Option<(Vec<N>, C)>
+where
+    N: Eq + Hash + Clone,
+    C: Zero + Ord + Copy,
+    FN: FnMut(&N, &[N]) -> IN,
+    IN: IntoIterator<Item = (N, C)>,
+    FS: FnMut(&N) -> bool,
+{
+    let (parents, reached) = run_dijkstra(start, successors, success);
+    reached.map(|target| {
+        (
+            reverse_path(&parents, |&(p, _)| p, target),
+            parents.get_index(target).unwrap().1 .1,
+        )
+    })
+}
+
+fn run_dijkstra<N, C, FN, IN, FS>(
+    start: &N,
+    successors: &mut FN,
+    stop: &mut FS,
+) -> (FxIndexMap<N, (usize, C)>, Option<usize>)
+where
+    N: Eq + Hash + Clone,
+    C: Zero + Ord + Copy,
+    FN: FnMut(&N, &[N]) -> IN,
+    IN: IntoIterator<Item = (N, C)>,
+    FS: FnMut(&N) -> bool,
+{
+    let mut to_see = BinaryHeap::new();
+    to_see.push(SmallestHolder {
+        cost: Zero::zero(),
+        index: 0,
+    });
+    let mut parents: FxIndexMap<N, (usize, C)> = FxIndexMap::default();
+    parents.insert(start.clone(), (usize::max_value(), Zero::zero()));
+    let mut target_reached = None;
+    while let Some(SmallestHolder { cost, index }) = to_see.pop() {
+        let successors = {
+            let (node, _) = parents.get_index(index).unwrap();
+            if stop(node) {
+                target_reached = Some(index);
+                break;
+            }
+            let path = reverse_path(&parents, |&(p, _)| p, index);
+            successors(node, &path)
+        };
+        for (successor, move_cost) in successors {
+            let new_cost = cost + move_cost;
+            let n;
+            match parents.entry(successor) {
+                Entry::Vacant(e) => {
+                    n = e.index();
+                    e.insert((index, new_cost));
+                }
+                Entry::Occupied(mut e) => {
+                    if e.get().1 > new_cost {
+                        n = e.index();
+                        e.insert((index, new_cost));
+                    } else {
+                        continue;
+                    }
+                }
+            }
+
+            to_see.push(SmallestHolder {
+                cost: new_cost,
+                index: n,
+            });
+        }
+    }
+    (parents, target_reached)
+}
+// END DIJKSTRA IMPL
 
 impl Router for GreedyRouter {
     fn route(
@@ -88,12 +227,12 @@ impl Router for GreedyRouter {
             while !remaining_nets.is_empty() {
                 let start = RoutingNode {
                     coord: locs[0],
-                    has_via: false,
+                    has_via: state.has_via(locs[0]),
                     prev_side: None,
                 };
                 let path = dijkstra(
                     &start,
-                    |s| state.successors(*s, group_root).into_iter(),
+                    |s, path| state.successors(*s, path, group_root).into_iter(),
                     |node| {
                         if let PointState::Routed { net, .. } = state[node.coord] {
                             remaining_nets.contains(&net)
@@ -119,16 +258,16 @@ impl Router for GreedyRouter {
                     if let PointState::Routed { net, .. } = state[node.coord] {
                         to_remove.insert(net);
                     }
-                    state[node.coord] = PointState::Routed {
-                        net: group_root,
-                        has_via: false,
-                    };
                 }
 
                 for nodes in path.windows(2) {
                     match nodes[0].coord.layer.cmp(&nodes[1].coord.layer) {
                         Ordering::Less => {
                             let ilt = state.ilt_up(nodes[0].coord).unwrap();
+                            state[nodes[0].coord] = PointState::Routed {
+                                net: group_root,
+                                has_via: true,
+                            };
                             state[nodes[1].coord] = PointState::Routed {
                                 net: group_root,
                                 has_via: true,
@@ -140,6 +279,10 @@ impl Router for GreedyRouter {
                         Ordering::Greater => {
                             let ilt = state.ilt_down(nodes[0].coord).unwrap();
                             state[nodes[0].coord] = PointState::Routed {
+                                net: group_root,
+                                has_via: true,
+                            };
+                            state[nodes[1].coord] = PointState::Routed {
                                 net: group_root,
                                 has_via: true,
                             };
