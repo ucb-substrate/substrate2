@@ -9,6 +9,7 @@ use substrate::io::schematic::HardwareType;
 use substrate::io::TwoTerminalIo;
 use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
+use substrate::simulation::waveform::{TimeWaveform, Waveform};
 
 use crate::{Primitive, Spectre};
 
@@ -32,12 +33,14 @@ pub struct Pulse {
 }
 
 /// A voltage source.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
     /// A pulse voltage source.
     Pulse(Pulse),
+    /// A piecewise linear source
+    Pwl(Waveform<Decimal>),
 }
 
 impl Vsource {
@@ -49,6 +52,11 @@ impl Vsource {
     /// Creates a new pulse voltage source.
     pub fn pulse(value: Pulse) -> Self {
         Self::Pulse(value)
+    }
+
+    /// Creates a new piecewise linear voltage source.
+    pub fn pwl(value: Waveform<Decimal>) -> Self {
+        Self::Pwl(value)
     }
 }
 
@@ -104,6 +112,17 @@ impl Schematic<Spectre> for Vsource {
                 if let Some(delay) = pulse.delay {
                     params.insert(literal!("delay"), ParamValue::Numeric(delay));
                 }
+            }
+            Vsource::Pwl(waveform) => {
+                let mut pwl = String::new();
+                pwl.push('[');
+                for pt in waveform.values() {
+                    use std::fmt::Write;
+                    write!(&mut pwl, "{} {}", pt.t(), pt.x()).unwrap();
+                }
+                pwl.push(']');
+                params.insert(literal!("type"), ParamValue::String(literal!("pwl")));
+                params.insert(literal!("wave"), ParamValue::String(pwl.into()));
             }
         };
 
