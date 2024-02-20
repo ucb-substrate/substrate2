@@ -791,7 +791,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     #[inline]
     pub(crate) fn in_bounds(&self, coord: GridCoord) -> bool {
         let (nx, ny) = self.layer(coord.layer).size();
-        coord.x < nx && coord.y < ny
+        coord.x > 0 && coord.y > 0 && coord.x < nx && coord.y < ny
     }
 
     #[allow(dead_code)]
@@ -835,7 +835,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
         let jump = if has_via { via_spacing } else { 1 };
 
-        if coord.y >= jump {
+        if coord.y >= jump + 1 {
             let next = GridCoord {
                 y: coord.y - jump,
                 ..coord
@@ -873,7 +873,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
         let jump = if has_via { via_spacing } else { 1 };
 
-        if coord.x >= jump {
+        if coord.x >= jump + 1 {
             let next = GridCoord {
                 x: coord.x - jump,
                 ..coord
