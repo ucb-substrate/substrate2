@@ -829,23 +829,13 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     }
 
     fn successors_vert(&self, node: RoutingNode, net: NetId, out: &mut Vec<(RoutingNode, usize)>) {
-        let RoutingNode {
-            coord,
-            has_via,
-            prev_side,
-        } = node;
+        let RoutingNode { coord, has_via } = node;
 
         let layer = self.layer(coord.layer);
         let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
         let jump = if has_via { via_spacing } else { 1 };
 
-        let (down_allowed, up_allowed) = match prev_side {
-            Some(Side::Top) => (true, false),
-            Some(Side::Bot) => (false, true),
-            _ => (true, true),
-        };
-
-        if coord.y >= jump && down_allowed {
+        if coord.y >= jump {
             let next = GridCoord {
                 y: coord.y - jump,
                 ..coord
@@ -855,13 +845,12 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     RoutingNode {
                         coord: next,
                         has_via: self.has_via(next),
-                        prev_side: Some(Side::Top),
                     },
                     self.cost(coord, next, net),
                 ));
             }
         }
-        if coord.y < layer.size().1 - jump && up_allowed {
+        if coord.y < layer.size().1 - jump {
             let next = GridCoord {
                 y: coord.y + jump,
                 ..coord
@@ -871,7 +860,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     RoutingNode {
                         coord: next,
                         has_via: self.has_via(next),
-                        prev_side: Some(Side::Bot),
                     },
                     self.cost(coord, next, net),
                 ));
@@ -880,22 +868,12 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     }
 
     fn successors_horiz(&self, node: RoutingNode, net: NetId, out: &mut Vec<(RoutingNode, usize)>) {
-        let RoutingNode {
-            coord,
-            has_via,
-            prev_side,
-        } = node;
+        let RoutingNode { coord, has_via } = node;
         let layer = self.layer(coord.layer);
         let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
         let jump = if has_via { via_spacing } else { 1 };
 
-        let (left_allowed, right_allowed) = match prev_side {
-            Some(Side::Right) => (true, false),
-            Some(Side::Left) => (false, true),
-            _ => (true, true),
-        };
-
-        if coord.x >= jump && left_allowed {
+        if coord.x >= jump {
             let next = GridCoord {
                 x: coord.x - jump,
                 ..coord
@@ -905,13 +883,12 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     RoutingNode {
                         coord: next,
                         has_via: self.has_via(next),
-                        prev_side: Some(Side::Right),
                     },
                     self.cost(coord, next, net),
                 ));
             }
         }
-        if coord.x < layer.size().0 - jump && right_allowed {
+        if coord.x < layer.size().0 - jump {
             let next = GridCoord {
                 x: coord.x + jump,
                 ..coord
@@ -921,7 +898,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     RoutingNode {
                         coord: next,
                         has_via: self.has_via(next),
-                        prev_side: Some(Side::Left),
                     },
                     self.cost(coord, next, net),
                 ));
@@ -1138,7 +1114,6 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     RoutingNode {
                         coord: ilt.to,
                         has_via: ilt.to.layer != coord.layer,
-                        prev_side: None,
                     },
                     self.cost(coord, ilt.to, net),
                 ));
