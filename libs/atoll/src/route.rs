@@ -37,6 +37,11 @@ pub struct GreedyRouter;
 pub struct RoutingNode {
     pub(crate) coord: GridCoord,
     pub(crate) has_via: bool,
+    /// The side from which we got to this routing node.
+    ///
+    /// Do not want to go back to where we came from, especially
+    /// after skipping invalid via placements.
+    pub(crate) prev_side: Option<Side>,
 }
 
 // BEGIN DIJKSTRA IMPL (taken from https://docs.rs/pathfinding/latest/src/pathfinding/directed/dijkstra.rs.html)
@@ -223,6 +228,7 @@ impl Router for GreedyRouter {
                 let start = RoutingNode {
                     coord: locs[0],
                     has_via: state.has_via(locs[0]),
+                    prev_side: None,
                 };
                 let path = dijkstra(
                     &start,
