@@ -340,6 +340,13 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         }
     }
 
+    /// Aligns this instance with another rectangle in terms of LCM units on the same
+    /// layer as the instance.
+    pub fn align_rect(mut self, orect: Rect, mode: AlignMode, offset: i64) -> Self {
+        self.align_rect_mut(orect, mode, offset);
+        self
+    }
+
     /// Aligns this instance with another instance with the same top layer.
     pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
         &mut self,
@@ -349,6 +356,17 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     ) {
         assert_eq!(self.top_layer(), other.top_layer());
         self.align_rect_mut(other.lcm_bounds(), mode, offset);
+    }
+
+    /// Aligns this instance with another instance with the same top layer.
+    pub fn align<T2: ExportsNestedData + ExportsLayoutData>(
+        mut self,
+        other: &Instance<T2>,
+        mode: AlignMode,
+        offset: i64,
+    ) -> Self {
+        self.align_mut(other, mode, offset);
+        self
     }
 
     /// Orients this instance in the given orientation.
@@ -401,7 +419,7 @@ pub(crate) struct AssignedGridPoints {
 }
 
 /// A builder for ATOLL tiles.
-pub struct TileBuilder<'a, PDK: Pdk + Schema> {
+pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     nodes: IndexMap<Node, NodeInfo>,
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     schematic: &'a mut schematic::CellBuilder<PDK>,
@@ -469,6 +487,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         builder.register_bundle(schematic_io);
 
         builder
+    }
+
+    /// Flattens the schematic of this tile.
+    pub fn flatten(&mut self) {
+        self.schematic.flatten()
     }
 
     /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
@@ -696,7 +719,7 @@ pub struct IoBuilder<'a, B: Block> {
 }
 
 /// A tile that can be instantiated in ATOLL.
-pub trait Tile<PDK: Pdk + Schema>: ExportsNestedData + ExportsLayoutData {
+pub trait Tile<PDK: Pdk + Schema + ?Sized>: ExportsNestedData + ExportsLayoutData {
     /// Builds a block's ATOLL tile.
     fn tile<'a>(
         &self,
@@ -821,8 +844,8 @@ where
             });
 
             for path in paths {
-                for segment in path.windows(2) {
-                    let (a, b) = (abs.grid_to_track(segment[0]), abs.grid_to_track(segment[1]));
+                for (a, b) in path {
+                    let (a, b) = (abs.grid_to_track(a), abs.grid_to_track(b));
                     if a.layer == b.layer {
                         // todo: handle multiple routing directions
                         assert!(a.x == b.x || a.y == b.y);

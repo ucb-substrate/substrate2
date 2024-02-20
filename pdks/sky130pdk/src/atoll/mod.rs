@@ -20,7 +20,7 @@ use substrate::io::layout::IoShape;
 use substrate::io::schematic::Bundle;
 use substrate::io::{Array, InOut, Input, Io, MosIoSchematic, Signal};
 use substrate::layout::element::Shape;
-use substrate::layout::tracks::{RoundingMode, Tracks};
+use substrate::layout::tracks::RoundingMode;
 use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
 use substrate::pdk::layers::Layer;
 use substrate::schematic::{ExportsNestedData, Schematic};
@@ -47,7 +47,7 @@ impl Sky130Layers {
                     id: self.met1.drawing.id(),
                     inner: AbstractLayer {
                         dir: RoutingDir::Horiz,
-                        line: 260,
+                        line: 400,
                         space: 140,
                         offset: TrackOffset::None,
                         endcap: 85,
@@ -58,8 +58,8 @@ impl Sky130Layers {
                     id: self.met2.drawing.id(),
                     inner: AbstractLayer {
                         dir: RoutingDir::Vert,
-                        line: 400,
-                        space: 460,
+                        line: 260,
+                        space: 170,
                         offset: TrackOffset::None,
                         endcap: 130,
                         via_spacing: 1,
@@ -70,7 +70,7 @@ impl Sky130Layers {
                     inner: AbstractLayer {
                         dir: RoutingDir::Horiz,
                         line: 400,
-                        space: 400,
+                        space: 410,
                         offset: TrackOffset::None,
                         endcap: 200,
                         via_spacing: 1,
@@ -126,13 +126,13 @@ impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
                 cell.ctx.layers.mcon.drawing.id(),
                 Rect::from_sides(0, 0, 170, 170),
                 Rect::from_sides(0, 0, 170, 170),
-                Rect::from_sides(-60, -45, 230, 215),
+                Rect::from_sides(-60, -115, 230, 285),
             ),
             2 => (
                 cell.ctx.layers.via.drawing.id(),
-                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(-55, -125, 205, 275),
                 Rect::from_sides(0, 0, 150, 150),
-                Rect::from_sides(-125, -55, 275, 205),
+                Rect::from_sides(-55, -125, 205, 275),
             ),
             _ => todo!(),
         };
@@ -174,11 +174,21 @@ impl MosLength {
 #[derive(Debug, Clone, Io)]
 pub struct MosTileIo {
     /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
-    pub sd: InOut<Array<Signal>>,
+    pub sd: Array<InOut<Signal>>,
     /// `NF` gate contacts on li1, where `NF` is the number of fingers.
-    pub g: Input<Signal>,
+    pub g: Array<Input<Signal>>,
     /// A body port on either nwell or pwell.
     pub b: InOut<Signal>,
+}
+
+/// Determines the connection direction of a transistor gate.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GateDir {
+    /// Connects the gate towards the right.
+    #[default]
+    Right,
+    /// Connects the gate towards the left.
+    Left,
 }
 
 /// A tile containing a set of MOS transistors.
@@ -188,10 +198,8 @@ pub struct MosTileIo {
 /// The `nf+1` sources and drains are not connected to anything else.
 ///
 /// This tile does not contain internal taps.
-///
-/// Do not use this tile directly. Instead, use [`NmosTile`] or [`PmosTile`].
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MosTile {
+struct MosTile {
     /// Transistor width.
     w: i64,
 
@@ -200,12 +208,23 @@ pub struct MosTile {
 
     /// Number of fingers.
     nf: i64,
+
+    /// The connection direction of the left-most gate in the tile.
+    ///
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    gate_dir: GateDir,
 }
 
 impl MosTile {
     /// Create a new MOS tile with the given physical transistor dimensions.
     fn new(w: i64, len: MosLength, nf: i64) -> Self {
-        Self { w, len, nf }
+        Self {
+            w,
+            len,
+            nf,
+            gate_dir: GateDir::default(),
+        }
     }
 }
 
@@ -221,8 +240,15 @@ impl Block for MosTile {
 
     fn io(&self) -> Self::Io {
         MosTileIo {
-            sd: InOut(Array::new(self.nf as usize + 1, Signal::new())),
-            g: Input(Signal::new()),
+            sd: Array::new(self.nf as usize + 1, InOut(Signal::new())),
+            g: Array::new(
+                match self.gate_dir {
+                    GateDir::Left => self.nf / 2 + 1,
+                    GateDir::Right => (self.nf - 1) / 2 + 1,
+                } as usize,
+                Input(Signal::new()),
+            ),
+
             b: InOut(Signal::new()),
         }
     }
@@ -246,6 +272,14 @@ impl MosTile {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
 
+        let top_m1 = grid.tracks(1).to_track_idx(self.w + 10, RoundingMode::Up);
+        let bot_m1 = grid.tracks(1).to_track_idx(-10, RoundingMode::Down);
+        let gate_top_m1 = bot_m1 - 1;
+        let gate_vspan = grid
+            .track_span(1, gate_top_m1)
+            .union(grid.track_span(1, gate_top_m1 - 1))
+            .shrink_all(45);
+
         let tracks = (1..self.nf + 2)
             .map(|i| {
                 let span = grid.track_span(0, i);
@@ -253,26 +287,22 @@ impl MosTile {
             })
             .collect::<Vec<_>>();
 
-        let gates = tracks
+        let gate_spans = tracks
             .windows(2)
             .map(|tracks| {
                 let (left, right) = (tracks[0], tracks[1]);
-                Rect::from_spans(
-                    Span::new(left.right(), right.left()),
-                    Span::new(-200, self.w + 130),
-                )
-                .shrink_dir(Dir::Horiz, 55)
-                .unwrap()
+                Span::new(left.right(), right.left()).shrink_all(55)
             })
             .collect::<Vec<_>>();
 
-        for &rect in gates.iter() {
-            cell.draw(Shape::new(cell.ctx.layers.poly, rect))?;
-        }
-
         for (i, &rect) in tracks.iter().enumerate() {
-            io.sd[i].push(IoShape::with_layers(cell.ctx.layers.li1, rect));
-            cell.draw(Shape::new(cell.ctx.layers.li1, rect))?;
+            let sd_rect = rect.with_vspan(
+                grid.track_span(1, bot_m1)
+                    .union(grid.track_span(1, top_m1))
+                    .shrink_all(45),
+            );
+            io.sd[i].push(IoShape::with_layers(cell.ctx.layers.li1, sd_rect));
+            cell.draw(Shape::new(cell.ctx.layers.li1, sd_rect))?;
             let num_cuts = (self.w + 20 - 160 + 170) / 340;
             for j in 0..num_cuts {
                 let base = rect.bot() + 10 + 80 + 340 * j;
@@ -289,39 +319,47 @@ impl MosTile {
         );
         cell.draw(Shape::new(cell.ctx.layers.diff, diff))?;
 
-        let poly = Rect::from_sides(
-            gates[0].left(),
-            -200 - 350,
-            gates.last().unwrap().right(),
-            -200,
-        );
-        cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
+        for i in 0..self.nf as usize {
+            let li_track = tracks[match (i % 2 == 0, self.gate_dir) {
+                (true, GateDir::Left) | (false, GateDir::Right) => i,
+                _ => i + 1,
+            }];
 
-        let trk = grid.tracks(1).to_track_idx(poly.bot(), RoundingMode::Down);
-        let bot = grid.tracks(1).track(trk).center() - 100;
-        let poly_li = Rect::from_sides(
-            tracks[1].left(),
-            bot,
-            tracks[tracks.len() - 2].right(),
-            poly.top(),
-        );
-        cell.draw(Shape::new(cell.ctx.layers.li1, poly_li))?;
-        io.g.push(IoShape::with_layers(cell.ctx.layers.li1, poly_li));
-        let npc = Rect::from_spans(
-            poly_li.hspan(),
-            Span::new(poly_li.top(), poly_li.top() - 350),
-        )
-        .expand_dir(Dir::Vert, 10)
-        .expand_dir(Dir::Horiz, 100);
-        cell.draw(Shape::new(cell.ctx.layers.npc, npc))?;
+            let gate_idx = |idx| match self.gate_dir {
+                GateDir::Left => (idx + 1) / 2,
+                GateDir::Right => idx / 2,
+            };
+            let poly_li = Rect::from_spans(li_track.hspan(), gate_vspan);
+            if i == 0 || gate_idx(i) != gate_idx(i - 1) {
+                cell.draw(Shape::new(cell.ctx.layers.li1, poly_li))?;
+                io.g[gate_idx(i)].push(IoShape::with_layers(cell.ctx.layers.li1, poly_li));
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 1..self.nf as usize {
-            let cut = Rect::from_spans(
-                tracks[i].hspan(),
-                Span::new(poly_li.top() - 90, poly_li.top() - 260),
+                let cut = Rect::from_spans(
+                    li_track.hspan(),
+                    Span::new(poly_li.top() - 90, poly_li.top() - 260),
+                );
+                cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
+
+                let npc = Rect::from_spans(
+                    poly_li.hspan(),
+                    Span::new(poly_li.top(), poly_li.top() - 350),
+                )
+                .expand_dir(Dir::Vert, 10)
+                .expand_dir(Dir::Horiz, 100);
+                cell.draw(Shape::new(cell.ctx.layers.npc, npc))?;
+            }
+            let poly = Rect::from_spans(
+                gate_spans[i].union(li_track.hspan()),
+                Span::new(poly_li.top() - 350, poly_li.top()),
             );
-            cell.draw(Shape::new(cell.ctx.layers.licon1, cut))?;
+            cell.draw(Shape::new(cell.ctx.layers.poly, poly))?;
+        }
+
+        for &span in gate_spans.iter() {
+            cell.draw(Shape::new(
+                cell.ctx.layers.poly,
+                Rect::from_spans(span, Span::new(gate_vspan.stop() - 350, self.w + 130)),
+            ))?;
         }
 
         let virtual_layers = cell.ctx.install_layers::<atoll::VirtualLayers>();
@@ -334,38 +372,7 @@ impl MosTile {
     }
 }
 
-impl ExportsNestedData for MosTile {
-    type NestedData = ();
-}
-
-impl Schematic<Sky130Pdk> for MosTile {
-    fn schematic(
-        &self,
-        io: &substrate::io::schematic::Bundle<MosTileIo>,
-        cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        for i in 0..self.nf as usize {
-            cell.instantiate_connected(
-                Nfet01v8::new(MosParams {
-                    w: self.w,
-                    nf: 1,
-                    l: self.len.nm(),
-                }),
-                MosIoSchematic {
-                    d: io.sd[i],
-                    g: io.g,
-                    s: io.sd[i + 1],
-                    b: io.b,
-                },
-            )
-        }
-        Ok(())
-    }
-}
-
 /// A tile containing a set of NMOS transistors.
-///
-/// See [`MosTile`] for more information.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NmosTile {
     tile: MosTile,
@@ -377,6 +384,16 @@ impl NmosTile {
         Self {
             tile: MosTile::new(w, len, nf),
         }
+    }
+
+    /// Sets the connection direction of the left-most gate in the tile.
+    ///
+    /// Connection directions alternate for each adjacent gate.
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    pub fn with_gate_dir(mut self, gate_dir: GateDir) -> Self {
+        self.tile.gate_dir = gate_dir;
+        self
     }
 }
 
@@ -436,7 +453,10 @@ impl Schematic<Sky130Pdk> for NmosTile {
                 }),
                 MosIoSchematic {
                     d: io.sd[i],
-                    g: io.g,
+                    g: io.g[match self.tile.gate_dir {
+                        GateDir::Left => (i + 1) / 2,
+                        GateDir::Right => i / 2,
+                    }],
                     s: io.sd[i + 1],
                     b: io.b,
                 },
@@ -447,8 +467,6 @@ impl Schematic<Sky130Pdk> for NmosTile {
 }
 
 /// A tile containing a set of PMOS transistors.
-///
-/// See [`MosTile`] for more information.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PmosTile {
     tile: MosTile,
@@ -520,7 +538,10 @@ impl Schematic<Sky130Pdk> for PmosTile {
                 }),
                 MosIoSchematic {
                     d: io.sd[i],
-                    g: io.g,
+                    g: io.g[match self.tile.gate_dir {
+                        GateDir::Left => (i + 1) / 2,
+                        GateDir::Right => i / 2,
+                    }],
                     s: io.sd[i + 1],
                     b: io.b,
                 },

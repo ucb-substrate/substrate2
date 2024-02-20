@@ -101,7 +101,7 @@ pub trait Installation: Any + Send + Sync {
     fn post_install(&self, ctx: &mut ContextBuilder) {}
 }
 /// A [`Context`] with an associated PDK `PDK`.
-pub struct PdkContext<PDK: Pdk> {
+pub struct PdkContext<PDK: Pdk + ?Sized> {
     /// PDK configuration and general data.
     pub pdk: Arc<PDK>,
     /// The PDK layer set.

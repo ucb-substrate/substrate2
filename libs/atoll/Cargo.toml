@@ -14,3 +14,4 @@ num = "0.4.1"
 serde = { version = "1.0.192", features = ["derive"] }
 pathfinding = "4.8.0"
 indexmap = "2"
+rustc-hash = "1"
