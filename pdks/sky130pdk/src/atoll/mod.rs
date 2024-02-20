@@ -198,8 +198,6 @@ pub enum GateDir {
 /// The `nf+1` sources and drains are not connected to anything else.
 ///
 /// This tile does not contain internal taps.
-///
-/// Do not use this tile directly. Instead, use [`NmosTile`] or [`PmosTile`].
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 struct MosTile {
     /// Transistor width.
@@ -375,8 +373,6 @@ impl MosTile {
 }
 
 /// A tile containing a set of NMOS transistors.
-///
-/// See [`MosTile`] for more information.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NmosTile {
     tile: MosTile,
@@ -471,8 +467,6 @@ impl Schematic<Sky130Pdk> for NmosTile {
 }
 
 /// A tile containing a set of PMOS transistors.
-///
-/// See [`MosTile`] for more information.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PmosTile {
     tile: MosTile,
