@@ -16,7 +16,6 @@ use substrate::geometry::dims::Dims;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::point::Point;
 use substrate::geometry::rect::Rect;
-use substrate::geometry::side::Side;
 use substrate::geometry::span::Span;
 use substrate::layout::element::Shape;
 use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
@@ -791,6 +790,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     #[inline]
     pub(crate) fn in_bounds(&self, coord: GridCoord) -> bool {
         let (nx, ny) = self.layer(coord.layer).size();
+        // Edge of tile is not in bounds
         coord.x > 0 && coord.y > 0 && coord.x < nx && coord.y < ny
     }
 
@@ -835,7 +835,8 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
         let jump = if has_via { via_spacing } else { 1 };
 
-        if coord.y >= jump + 1 {
+        // Prevents routing on edge of tile.
+        if coord.y > jump {
             let next = GridCoord {
                 y: coord.y - jump,
                 ..coord
@@ -873,7 +874,8 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         let via_spacing = self.grid.slice().layer(coord.layer).via_spacing();
         let jump = if has_via { via_spacing } else { 1 };
 
-        if coord.x >= jump + 1 {
+        // Prevents routing on edge of tile.
+        if coord.x > jump {
             let next = GridCoord {
                 x: coord.x - jump,
                 ..coord

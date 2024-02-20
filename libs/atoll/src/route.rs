@@ -9,13 +9,13 @@ use rustc_hash::FxHasher;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::{BuildHasherDefault, Hash};
-use substrate::geometry::side::Side;
 use substrate::layout;
 use substrate::pdk::Pdk;
 
 /// A path of grid-coordinates.
 pub type Path = Vec<GridSegment>;
 
+/// A segment of a path.
 pub type GridSegment = (GridCoord, GridCoord);
 
 /// An ATOLL router.

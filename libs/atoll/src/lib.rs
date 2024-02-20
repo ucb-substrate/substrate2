@@ -68,7 +68,7 @@ pub mod abs;
 pub mod grid;
 pub mod route;
 
-use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
+use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
