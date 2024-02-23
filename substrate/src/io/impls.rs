@@ -952,6 +952,12 @@ impl NameBuf {
     }
 }
 
+impl<T> ArrayData<T> {
+    pub fn num_elems(&self) -> usize {
+        self.elems.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::io::*;
