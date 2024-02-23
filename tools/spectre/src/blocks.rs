@@ -116,8 +116,11 @@ impl Schematic<Spectre> for Vsource {
             Vsource::Pwl(waveform) => {
                 let mut pwl = String::new();
                 pwl.push('[');
-                for pt in waveform.values() {
+                for (i, pt) in waveform.values().enumerate() {
                     use std::fmt::Write;
+                    if i != 0 {
+                        pwl.push(' ');
+                    }
                     write!(&mut pwl, "{} {}", pt.t(), pt.x()).unwrap();
                 }
                 pwl.push(']');
