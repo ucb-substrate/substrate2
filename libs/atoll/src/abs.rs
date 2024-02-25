@@ -261,23 +261,21 @@ impl Abstract {
         for (i, (_name, geom)) in cell.ports().enumerate() {
             let net = NetId(i);
             ports.push(net);
-            if let Some(layer) = stack.layer_idx(geom.primary.layer().drawing()) {
-                let rect = match geom.primary.shape() {
-                    substrate::geometry::shape::Shape::Rect(r) => *r,
-                    substrate::geometry::shape::Shape::Polygon(p) => {
-                        p.bbox().expect("empty polygons are unsupported")
-                    }
-                };
-                if let Some(rect) = grid.shrink_to_grid(rect, layer) {
-                    for x in rect.left()..=rect.right() {
-                        for y in rect.bot()..=rect.top() {
-                            let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
-                            let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
-                            state.layer_mut(layer)[((x - xofs) as usize, (y - yofs) as usize)] =
-                                PointState::Routed {
-                                    net,
-                                    has_via: false,
-                                };
+            for shape in geom.shapes() {
+                if let Some(layer) = stack.layer_idx(shape.layer().drawing()) {
+                    let rect = shape.bbox_rect();
+                    if let Some(rect) = grid.shrink_to_grid(rect, layer) {
+                        for x in rect.left()..=rect.right() {
+                            for y in rect.bot()..=rect.top() {
+                                let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
+                                let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
+                                state.layer_mut(layer)
+                                    [((x - xofs) as usize, (y - yofs) as usize)] =
+                                    PointState::Routed {
+                                        net,
+                                        has_via: false,
+                                    };
+                            }
                         }
                     }
                 }
