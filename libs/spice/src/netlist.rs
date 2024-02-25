@@ -298,9 +298,27 @@ impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
 }
 
 impl HasSpiceLikeNetlist for Spice {
-    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
+    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
         writeln!(out, "* Substrate SPICE library")?;
         writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
+
+        for (_, p) in lib.primitives() {
+            match p {
+                Primitive::RawInstanceWithCell {
+                    cell, ports, body, ..
+                } => {
+                    write!(out, ".SUBCKT {}", cell)?;
+                    for port in ports {
+                        write!(out, " {}", port)?;
+                    }
+                    writeln!(out)?;
+                    writeln!(out, "{}", body)?;
+                    self.write_end_subckt(out, cell)?;
+                    writeln!(out)?;
+                }
+                _ => {}
+            }
+        }
         Ok(())
     }
 
@@ -423,6 +441,12 @@ impl HasSpiceLikeNetlist for Spice {
                 cell,
                 ports,
                 params,
+            }
+            | Primitive::RawInstanceWithCell {
+                cell,
+                ports,
+                params,
+                ..
             } => {
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
