@@ -303,20 +303,18 @@ impl HasSpiceLikeNetlist for Spice {
         writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
 
         for (_, p) in lib.primitives() {
-            match p {
-                Primitive::RawInstanceWithCell {
-                    cell, ports, body, ..
-                } => {
-                    write!(out, ".SUBCKT {}", cell)?;
-                    for port in ports {
-                        write!(out, " {}", port)?;
-                    }
-                    writeln!(out)?;
-                    writeln!(out, "{}", body)?;
-                    self.write_end_subckt(out, cell)?;
-                    writeln!(out)?;
+            if let Primitive::RawInstanceWithCell {
+                cell, ports, body, ..
+            } = p
+            {
+                write!(out, ".SUBCKT {}", cell)?;
+                for port in ports {
+                    write!(out, " {}", port)?;
                 }
-                _ => {}
+                writeln!(out)?;
+                writeln!(out, "{}", body)?;
+                self.write_end_subckt(out, cell)?;
+                writeln!(out)?;
             }
         }
         Ok(())
