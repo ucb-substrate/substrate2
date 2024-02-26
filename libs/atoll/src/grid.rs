@@ -1087,18 +1087,21 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                         }
                     }
 
-                    for node in path {
-                        if node.has_via
-                            && node.coord != top
-                            && node.coord.layer == top.layer
-                            && node.coord.coord(!track_dir) == top.coord(!track_dir)
-                            && node.coord.coord(track_dir)
-                                >= (routing_coord + 1)
-                                    .checked_sub(via_spacing)
-                                    .unwrap_or_default()
-                            && node.coord.coord(track_dir) < routing_coord + via_spacing
-                        {
-                            has_via = true;
+                    for nodes in path.windows(2) {
+                        if nodes[1].has_via {
+                            for node in nodes {
+                                if node.coord != top
+                                    && node.coord.layer == top.layer
+                                    && node.coord.coord(!track_dir) == top.coord(!track_dir)
+                                    && node.coord.coord(track_dir)
+                                        >= (routing_coord + 1)
+                                            .checked_sub(via_spacing)
+                                            .unwrap_or_default()
+                                    && node.coord.coord(track_dir) < routing_coord + via_spacing
+                                {
+                                    has_via = true;
+                                }
+                            }
                         }
                     }
                 }
