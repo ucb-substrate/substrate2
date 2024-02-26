@@ -132,6 +132,19 @@ pub enum Primitive {
         /// Parameters associated with the raw instance.
         params: HashMap<UniCase<ArcStr>, ParamValue>,
     },
+    /// A raw instance with an associated cell.
+    ///
+    /// Creates the corresponding SUBCKT with the given body.
+    RawInstanceWithCell {
+        /// The ordered ports of the instance.
+        ports: Vec<ArcStr>,
+        /// The associated cell.
+        cell: ArcStr,
+        /// Parameters associated with the raw instance.
+        params: HashMap<UniCase<ArcStr>, ParamValue>,
+        /// The body of the associated cell.
+        body: ArcStr,
+    },
     /// An instance with blackboxed contents.
     BlackboxInstance {
         /// The contents of the cell.
@@ -201,6 +214,7 @@ impl Primitive {
             Primitive::Diode2 { .. } => vec!["1".into(), "2".into()],
             Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
             Primitive::RawInstance { ports, .. } => ports.clone(),
+            Primitive::RawInstanceWithCell { ports, .. } => ports.clone(),
             Primitive::BlackboxInstance { contents } => contents
                 .elems
                 .iter()
