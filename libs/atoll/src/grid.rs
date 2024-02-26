@@ -936,34 +936,43 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             y: nearest_grid.y as usize,
         };
 
-        match curr.cmp(&nearest) {
-            Ordering::Less => {
-                // need to check if coordinate+1 is available
-                let ck = next.with_coord(interp_dir, next.coord(interp_dir) - 1);
-                if !self.in_bounds(ck) {
-                    return None;
-                }
-                Some(InterlayerTransition {
-                    to: next,
-                    requires: Some(ck),
-                })
-            }
-            Ordering::Equal => Some(InterlayerTransition {
-                to: next,
-                requires: None,
-            }),
-            Ordering::Greater => {
-                if coord.coord(interp_dir) > 0 {
-                    let ck = next.with_coord(interp_dir, next.coord(interp_dir) + 1);
-                    Some(InterlayerTransition {
-                        to: next,
-                        requires: Some(ck),
-                    })
-                } else {
-                    None
-                }
-            }
+        // TODO: debug LCM issues. this disables transitions in between grid points.
+        if self.grid_to_rel_physical(next) != pp || !self.in_bounds(next) {
+            return None;
         }
+
+        Some(InterlayerTransition {
+            to: next,
+            requires: None,
+        })
+        // match curr.cmp(&nearest) {
+        //     Ordering::Less => {
+        //         // need to check if coordinate+1 is available
+        //         let ck = next.with_coord(interp_dir, next.coord(interp_dir) - 1);
+        //         if !self.in_bounds(ck) {
+        //             return None;
+        //         }
+        //         Some(InterlayerTransition {
+        //             to: next,
+        //             requires: Some(ck),
+        //         })
+        //     }
+        //     Ordering::Equal => Some(InterlayerTransition {
+        //         to: next,
+        //         requires: None,
+        //     }),
+        //     Ordering::Greater => {
+        //         if coord.coord(interp_dir) > 0 {
+        //             let ck = next.with_coord(interp_dir, next.coord(interp_dir) + 1);
+        //             Some(InterlayerTransition {
+        //                 to: next,
+        //                 requires: Some(ck),
+        //             })
+        //         } else {
+        //             None
+        //         }
+        //     }
+        // }
     }
     pub(crate) fn ilt_up(&self, coord: GridCoord) -> Option<InterlayerTransition> {
         let routing_dir = self.grid.slice().layer(coord.layer).dir();
@@ -994,34 +1003,43 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             y: nearest_grid.y as usize,
         };
 
-        match curr.cmp(&nearest) {
-            Ordering::Less => {
-                // need to check if coordinate+1 is available
-                let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) + 1);
-                if !self.in_bounds(ck) {
-                    return None;
-                }
-                Some(InterlayerTransition {
-                    to: next,
-                    requires: Some(ck),
-                })
-            }
-            Ordering::Equal => Some(InterlayerTransition {
-                to: next,
-                requires: None,
-            }),
-            Ordering::Greater => {
-                if coord.coord(interp_dir) > 0 {
-                    let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) - 1);
-                    Some(InterlayerTransition {
-                        to: next,
-                        requires: Some(ck),
-                    })
-                } else {
-                    None
-                }
-            }
+        // TODO: debug LCM issues. this disables transitions in between grid points.
+        if self.grid_to_rel_physical(next) != pp || !self.in_bounds(next) {
+            return None;
         }
+
+        Some(InterlayerTransition {
+            to: next,
+            requires: None,
+        })
+        // match curr.cmp(&nearest) {
+        //     Ordering::Less => {
+        //         // need to check if coordinate+1 is available
+        //         let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) + 1);
+        //         if !self.in_bounds(ck) {
+        //             return None;
+        //         }
+        //         Some(InterlayerTransition {
+        //             to: next,
+        //             requires: Some(ck),
+        //         })
+        //     }
+        //     Ordering::Equal => Some(InterlayerTransition {
+        //         to: next,
+        //         requires: None,
+        //     }),
+        //     Ordering::Greater => {
+        //         if coord.coord(interp_dir) > 0 {
+        //             let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) - 1);
+        //             Some(InterlayerTransition {
+        //                 to: next,
+        //                 requires: Some(ck),
+        //             })
+        //         } else {
+        //             None
+        //         }
+        //     }
+        // }
     }
 
     /// The set of points reachable from `coord`.

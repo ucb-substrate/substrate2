@@ -600,7 +600,13 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                             let rect = match states[(x, y)] {
                                 PointState::Available => Rect::from_point(pt).expand_all(20),
                                 PointState::Blocked => Rect::from_point(pt).expand_all(40),
-                                PointState::Routed { .. } => Rect::from_point(pt).expand_all(30),
+                                PointState::Routed { has_via, .. } => {
+                                    if has_via {
+                                        Rect::from_point(pt).expand_all(37)
+                                    } else {
+                                        Rect::from_point(pt).expand_all(30)
+                                    }
+                                }
                                 PointState::Reserved { .. } => Rect::from_point(pt).expand_all(35),
                             };
                             recv.draw(Shape::new(layer_id, rect))?;
