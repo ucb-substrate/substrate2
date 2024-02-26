@@ -1088,7 +1088,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                     }
 
                     for nodes in path.windows(2) {
-                        if nodes[1].has_via {
+                        if nodes[0].coord.layer != nodes[1].coord.layer {
                             for node in nodes {
                                 if node.coord != top
                                     && node.coord.layer == top.layer
@@ -1118,7 +1118,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                 successors.push((
                     RoutingNode {
                         coord: ilt.to,
-                        has_via: ilt.to.layer != coord.layer,
+                        has_via: ilt.to.layer != coord.layer || self.has_via(ilt.to),
                     },
                     self.cost(coord, ilt.to, net),
                 ));
