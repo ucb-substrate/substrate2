@@ -83,7 +83,9 @@ use substrate::block::Block;
 use substrate::context::{prepare_cell_builder, PdkContext};
 use substrate::geometry::corner::Corner;
 use substrate::geometry::prelude::{Bbox, Dir, Point};
-use substrate::geometry::transform::{TransformMut, Transformation, Translate, TranslateMut};
+use substrate::geometry::transform::{
+    Transform, TransformMut, Transformation, Translate, TranslateMut,
+};
 use substrate::io::layout::Builder;
 use substrate::io::schematic::{Bundle, Connect, HardwareType, IsBundle, Node, TerminalView};
 use substrate::io::Flatten;
@@ -348,15 +350,20 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
         self
     }
 
-    /// Aligns this instance with another instance with the same top layer.
+    /// Aligns this instance with another instance.
     pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
         &mut self,
         other: &Instance<T2>,
         mode: AlignMode,
         offset: i64,
     ) {
-        assert_eq!(self.top_layer(), other.top_layer());
-        self.align_rect_mut(other.lcm_bounds(), mode, offset);
+        let lcm_bounds = self
+            .abs
+            .grid
+            .stack
+            .slice(0..self.top_layer() + 1)
+            .expand_to_lcm_units(other.physical_bounds());
+        self.align_rect_mut(lcm_bounds, mode, offset);
     }
 
     /// Aligns this instance with another instance with the same top layer.
@@ -621,6 +628,15 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
         self.set_top_layer(instance.abs.top_layer);
 
+        let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
+        let orig_bbox = instance.abs.grid.slice().lcm_to_physical_rect(
+            instance.abs.grid.slice().expand_to_lcm_units(
+                instance
+                    .layout
+                    .layer_bbox(virtual_layers.outline.id())
+                    .unwrap(),
+            ),
+        );
         self.abs.push(InstanceAbstract::new(
             instance.abs,
             instance.loc,
@@ -630,19 +646,16 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
         // todo: Use ATOLL virtual layer.
         let mut layout = instance.layout;
-        let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
-        let orig_bbox = layout.layer_bbox(virtual_layers.outline.id()).unwrap();
         layout.transform_mut(Transformation::from_offset_and_orientation(
             Point::zero(),
             instance.orientation,
         ));
+        let new_bbox = orig_bbox.transform(Transformation::from_offset_and_orientation(
+            Point::zero(),
+            instance.orientation,
+        ));
         layout.translate_mut(
-            orig_bbox.corner(Corner::LowerLeft)
-                - layout
-                    .layer_bbox(virtual_layers.outline.id())
-                    .unwrap()
-                    .corner(Corner::LowerLeft)
-                + physical_loc,
+            orig_bbox.corner(Corner::LowerLeft) - new_bbox.corner(Corner::LowerLeft) + physical_loc,
         );
         self.layout.draw(layout.clone())?;
 
