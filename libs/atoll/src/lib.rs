@@ -91,8 +91,9 @@ use substrate::layout::element::Shape;
 
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::rect::Rect;
+use substrate::layout::bbox::LayerBbox;
 use substrate::layout::{ExportsLayoutData, Layout};
-use substrate::pdk::layers::Layers;
+use substrate::pdk::layers::{Layer, Layers};
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellId, ExportsNestedData, Schematic};
@@ -629,13 +630,18 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
         // todo: Use ATOLL virtual layer.
         let mut layout = instance.layout;
-        let orig_bbox = layout.bbox().unwrap();
+        let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
+        let orig_bbox = layout.layer_bbox(virtual_layers.outline.id()).unwrap();
         layout.transform_mut(Transformation::from_offset_and_orientation(
             Point::zero(),
             instance.orientation,
         ));
         layout.translate_mut(
-            orig_bbox.corner(Corner::LowerLeft) - layout.bbox().unwrap().corner(Corner::LowerLeft)
+            orig_bbox.corner(Corner::LowerLeft)
+                - layout
+                    .layer_bbox(virtual_layers.outline.id())
+                    .unwrap()
+                    .corner(Corner::LowerLeft)
                 + physical_loc,
         );
         self.layout.draw(layout.clone())?;

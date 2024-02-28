@@ -99,6 +99,12 @@ impl PortGeometry {
     }
 }
 
+impl Bbox for PortGeometry {
+    fn bbox(&self) -> Option<Rect> {
+        self.shapes().fold(None, |a, b| a.bounding_union(&b.bbox()))
+    }
+}
+
 /// A type that can is a bundle of layout ports.
 ///
 /// An instance of a [`HardwareType`].
