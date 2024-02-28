@@ -952,6 +952,17 @@ impl NameBuf {
     }
 }
 
+impl<T> ArrayData<T> {
+    /// The number of elements (of type T) in the array.
+    ///
+    /// Note that this may not be the same as the flattened length of the array.
+    /// An array with 10 elements has `num_elems = 10`, but if each element
+    /// internally contains 2 items, the flattened length of the array is 20.
+    pub fn num_elems(&self) -> usize {
+        self.elems.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::io::*;
