@@ -62,6 +62,17 @@ pub enum Primitive {
         /// Parameters associated with the instance.
         params: HashMap<ArcStr, ParamValue>,
     },
+    /// A raw instance with an associated cell represented in SPF format.
+    ///
+    /// Parameters are not supported.
+    SpfInstance {
+        /// The name of the associated cell.
+        cell: ArcStr,
+        /// The path to the SPF netlist.
+        netlist: PathBuf,
+        /// The ordered ports of the instance.
+        ports: Vec<ArcStr>,
+    },
     /// An instance with blackboxed contents.
     BlackboxInstance {
         /// The contents of the cell.
@@ -879,7 +890,7 @@ impl MonteCarlo<Vec<Input>> {
 }
 
 impl HasSpiceLikeNetlist for Spectre {
-    fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Spectre>) -> std::io::Result<()> {
+    fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Spectre>) -> std::io::Result<()> {
         writeln!(out, "// Substrate Spectre library\n")?;
         writeln!(out, "simulator lang=spectre\n")?;
         writeln!(out, "// This is a generated file.")?;
@@ -887,6 +898,21 @@ impl HasSpiceLikeNetlist for Spectre {
             out,
             "// Be careful when editing manually: this file may be overwritten.\n"
         )?;
+
+        let spfs = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::SpfInstance { netlist, .. } = p.1 {
+                    Some(netlist.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        for spf_path in spfs.iter().sorted() {
+            writeln!(out, "dspf_include {:?}", spf_path)?;
+        }
+
         Ok(())
     }
 
@@ -987,6 +1013,13 @@ impl HasSpiceLikeNetlist for Spectre {
                 let name = Spice.write_primitive_inst(out, name, connections, p)?;
                 writeln!(out, "simulator lang=spectre")?;
                 name
+            }
+            Primitive::SpfInstance { cell, ports, .. } => {
+                let connections = ports
+                    .iter()
+                    .flat_map(|port| connections.remove(port).unwrap())
+                    .collect();
+                self.write_instance(out, name, connections, cell)?
             }
         })
     }
