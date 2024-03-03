@@ -286,10 +286,10 @@ impl Router for GreedyRouter {
                         }
                         Ordering::Equal => {
                             for x in std::cmp::min(nodes[0].coord.x, nodes[1].coord.x)
-                                ..=std::cmp::min(nodes[0].coord.x, nodes[1].coord.x)
+                                ..=std::cmp::max(nodes[0].coord.x, nodes[1].coord.x)
                             {
                                 for y in std::cmp::min(nodes[0].coord.y, nodes[1].coord.y)
-                                    ..=std::cmp::min(nodes[0].coord.y, nodes[1].coord.y)
+                                    ..=std::cmp::max(nodes[0].coord.y, nodes[1].coord.y)
                                 {
                                     let next = GridCoord {
                                         x,

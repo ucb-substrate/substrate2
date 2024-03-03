@@ -938,7 +938,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
 
         match curr.cmp(&nearest) {
             Ordering::Less => {
-                // need to check if coordinate+1 is available
+                // need to check if coordinate-1 is in bounds
                 let ck = next.with_coord(interp_dir, next.coord(interp_dir) - 1);
                 if !self.in_bounds(ck) {
                     return None;
@@ -996,9 +996,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
 
         match curr.cmp(&nearest) {
             Ordering::Less => {
-                // need to check if coordinate+1 is available
+                // need to check if coordinate+1 is in bounds and on opposite side of next
                 let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) + 1);
-                if !self.in_bounds(ck) {
+                let ck_coord = lower_tracks.track(ck.coord(interp_dir) as i64).center();
+                if ck_coord <= nearest || !self.in_bounds(ck) {
                     return None;
                 }
                 Some(InterlayerTransition {
@@ -1013,6 +1014,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             Ordering::Greater => {
                 if coord.coord(interp_dir) > 0 {
                     let ck = coord.with_coord(interp_dir, coord.coord(interp_dir) - 1);
+                    let ck_coord = lower_tracks.track(ck.coord(interp_dir) as i64).center();
+                    if ck_coord >= nearest {
+                        return None;
+                    }
                     Some(InterlayerTransition {
                         to: next,
                         requires: Some(ck),
@@ -1087,18 +1092,21 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                         }
                     }
 
-                    for node in path {
-                        if node.has_via
-                            && node.coord != top
-                            && node.coord.layer == top.layer
-                            && node.coord.coord(!track_dir) == top.coord(!track_dir)
-                            && node.coord.coord(track_dir)
-                                >= (routing_coord + 1)
-                                    .checked_sub(via_spacing)
-                                    .unwrap_or_default()
-                            && node.coord.coord(track_dir) < routing_coord + via_spacing
-                        {
-                            has_via = true;
+                    for nodes in path.windows(2) {
+                        if nodes[0].coord.layer != nodes[1].coord.layer {
+                            for node in nodes {
+                                if node.coord != top
+                                    && node.coord.layer == top.layer
+                                    && node.coord.coord(!track_dir) == top.coord(!track_dir)
+                                    && node.coord.coord(track_dir)
+                                        >= (routing_coord + 1)
+                                            .checked_sub(via_spacing)
+                                            .unwrap_or_default()
+                                    && node.coord.coord(track_dir) < routing_coord + via_spacing
+                                {
+                                    has_via = true;
+                                }
+                            }
                         }
                     }
                 }
@@ -1115,7 +1123,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
                 successors.push((
                     RoutingNode {
                         coord: ilt.to,
-                        has_via: ilt.to.layer != coord.layer,
+                        has_via: ilt.to.layer != coord.layer || self.has_via(ilt.to),
                     },
                     self.cost(coord, ilt.to, net),
                 ));
