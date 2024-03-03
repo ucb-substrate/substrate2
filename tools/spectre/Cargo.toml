@@ -19,4 +19,5 @@ cache = { version = "0.5.0", registry = "substrate", path = "../../libs/cache" }
 scir = { version = "0.7.0", registry = "substrate", path = "../../libs/scir" }
 substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
 spice = { version = "0.7.1", registry = "substrate", path = "../../libs/spice" }
+regex = "1.10.2"
 

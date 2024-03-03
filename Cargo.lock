@@ -2464,6 +2464,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "psfparser",
+ "regex",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",

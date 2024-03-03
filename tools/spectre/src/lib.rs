@@ -18,7 +18,9 @@ use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use psfparser::analysis::transient::TransientData;
+use regex::Regex;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{
@@ -530,6 +532,17 @@ impl Spectre {
 
     /// Escapes the given identifier to be Spectre-compatible.
     pub fn escape_identifier(node_name: &str) -> String {
+        // The name 0 is reserved, as it represents global ground.
+        // To prevent nodes from being accidentally connected to global ground,
+        // we rename 0 to x0, x0 to xx0, xx0 to xxx0, etc.
+        lazy_static! {
+            static ref RE: Regex = Regex::new("(x*)0").unwrap();
+        }
+        if let Some(caps) = RE.captures(node_name) {
+            let xs = caps.get(1).unwrap();
+            return format!("x{}0", xs.as_str());
+        }
+
         let mut escaped_name = String::new();
         for c in node_name.chars() {
             if c.is_alphanumeric() || c == '_' {
@@ -898,7 +911,9 @@ impl HasSpiceLikeNetlist for Spectre {
             out,
             "// Be careful when editing manually: this file may be overwritten.\n"
         )?;
+        writeln!(out, "global 0\n")?;
 
+        // find all unique spf netlists and include them
         let spfs = lib
             .primitives()
             .filter_map(|p| {
@@ -909,6 +924,7 @@ impl HasSpiceLikeNetlist for Spectre {
                 }
             })
             .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
         for spf_path in spfs.iter().sorted() {
             writeln!(out, "dspf_include {:?}", spf_path)?;
         }
