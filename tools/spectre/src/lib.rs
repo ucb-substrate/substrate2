@@ -536,7 +536,7 @@ impl Spectre {
         // To prevent nodes from being accidentally connected to global ground,
         // we rename 0 to x0, x0 to xx0, xx0 to xxx0, etc.
         lazy_static! {
-            static ref RE: Regex = Regex::new("(x*)0").unwrap();
+            static ref RE: Regex = Regex::new("^(x*)0$").unwrap();
         }
         if let Some(caps) = RE.captures(node_name) {
             let xs = caps.get(1).unwrap();
