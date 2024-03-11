@@ -121,7 +121,7 @@ impl Testbench<Spectre> for And2Tb {
             opts,
             spectre::analysis::montecarlo::MonteCarlo {
                 variations: Variations::All,
-                numruns: 2,
+                numruns: 4,
                 seed: None,
                 firstrun: None,
                 analysis: spectre::analysis::tran::Tran {
@@ -158,7 +158,7 @@ fn sky130_and2_ngspice() {
 
 #[cfg(feature = "spectre")]
 #[test]
-fn sky130_and2_spectre() {
+fn sky130_and2_monte_carlo_spectre() {
     use crate::shared::pdk::sky130_commercial_ctx;
 
     let test_name = "sky130_and2_spectre";
@@ -181,6 +181,11 @@ fn sky130_and2_spectre() {
                 &sim_dir,
             )
             .unwrap();
+        assert_eq!(
+            mc_vout.len(),
+            4,
+            "MonteCarlo output did not contain data from the correct number of runs"
+        );
         for vout in &*mc_vout {
             assert_abs_diff_eq!(*vout.last().unwrap(), expected, epsilon = 1e-6);
         }
