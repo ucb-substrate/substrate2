@@ -285,7 +285,9 @@ struct CachedSimState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum CachedData {
     Tran(HashMap<String, Vec<f64>>),
-    MonteCarlo(Vec<MonteCarloData>),
+    // The outer vec has length `numruns`.
+    // The inner vec length equals the length of the inner analysis.
+    MonteCarlo(Vec<Vec<CachedData>>),
 }
 
 impl CachedData {
@@ -310,62 +312,13 @@ impl CachedData {
             .into(),
             CachedData::MonteCarlo(data) => Output::MonteCarlo(montecarlo::Output(
                 data.into_iter()
-                    .map(|data| data.into_output(ctx, conv, saves))
+                    .map(|data| {
+                        data.into_iter()
+                            .map(|d| d.into_output(ctx, conv, saves))
+                            .collect()
+                    })
                     .collect(),
             )),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum MonteCarloData {
-    Tran(Vec<HashMap<String, Vec<f64>>>),
-    MonteCarlo(Vec<Vec<MonteCarloData>>),
-}
-
-impl MonteCarloData {
-    fn from_cached_data(data: Vec<CachedData>) -> Option<Self> {
-        Some(match data.first()? {
-            CachedData::Tran(_) => MonteCarloData::Tran(
-                data.into_iter()
-                    .map(|data| {
-                        if let CachedData::Tran(data) = data {
-                            Some(data)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Option<Vec<_>>>()?,
-            ),
-            CachedData::MonteCarlo(_) => MonteCarloData::MonteCarlo(
-                data.into_iter()
-                    .map(|data| {
-                        if let CachedData::MonteCarlo(data) = data {
-                            Some(data)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Option<Vec<_>>>()?,
-            ),
-        })
-    }
-
-    fn into_output(
-        self,
-        ctx: &SimulationContext<Spectre>,
-        conv: &NetlistLibConversion,
-        saves: &HashMap<SimSignal, u64>,
-    ) -> Vec<Output> {
-        match self {
-            MonteCarloData::Tran(data) => data
-                .into_iter()
-                .map(|data| CachedData::Tran(data).into_output(ctx, conv, saves))
-                .collect(),
-            MonteCarloData::MonteCarlo(data) => data
-                .into_iter()
-                .map(|data| CachedData::MonteCarlo(data).into_output(ctx, conv, saves))
-                .collect(),
         }
     }
 }
@@ -840,9 +793,10 @@ fn subanalysis_name(prefix: &str, idx: usize) -> String {
 fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<CachedData> {
     Ok(if let Input::MonteCarlo(analysis) = analysis {
         let mut data = Vec::new();
-        for i in 0..analysis.analysis.len() {
+        for iter in 1..analysis.numruns + 1 {
             let mut mc_data = Vec::new();
-            for iter in 1..analysis.numruns + 1 {
+            for i in 0..analysis.analysis.len() {
+                // FIXME: loops should be swapped
                 let new_name = subanalysis_name(&format!("{}-{:0>3}_{}", name, iter, name), i);
                 mc_data.push(parse_analysis(
                     output_dir,
@@ -850,7 +804,7 @@ fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<Cac
                     &analysis.analysis[i],
                 )?)
             }
-            data.push(MonteCarloData::from_cached_data(mc_data).unwrap());
+            data.push(mc_data);
         }
         CachedData::MonteCarlo(data)
     } else {
