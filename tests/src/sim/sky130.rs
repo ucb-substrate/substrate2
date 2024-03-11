@@ -158,7 +158,7 @@ fn sky130_and2_ngspice() {
 
 #[cfg(feature = "spectre")]
 #[test]
-fn sky130_and2_spectre() {
+fn sky130_and2_monte_carlo_spectre() {
     use crate::shared::pdk::sky130_commercial_ctx;
 
     let test_name = "sky130_and2_spectre";
