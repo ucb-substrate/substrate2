@@ -551,6 +551,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
         let _ = <B as Tile<PDK>>::tile(&block, atoll_io, &mut cell);
 
+        let virtual_layers = cell.layout.ctx.install_layers::<crate::VirtualLayers>();
         let port_ids = schematic_io
             .flatten_vec()
             .iter()
@@ -559,7 +560,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         let mut abs = InstanceAbstract::merge(
             cell.abs,
             cell.top_layer,
-            cell.layout.bbox(),
+            cell.layout.layer_bbox(virtual_layers.outline.id()),
             port_ids,
             cell.assigned_nets,
         );
@@ -836,6 +837,7 @@ where
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
         let (_, layout_data) = <T as Tile<PDK>>::tile(&self.block, io, &mut cell)?;
 
+        let virtual_layers = cell.layout.ctx.install_layers::<crate::VirtualLayers>();
         let port_ids = schematic_io
             .flatten_vec()
             .iter()
@@ -844,7 +846,7 @@ where
         let abs = InstanceAbstract::merge(
             cell.abs,
             cell.top_layer,
-            cell.layout.bbox(),
+            cell.layout.layer_bbox(virtual_layers.outline.id()),
             port_ids,
             cell.assigned_nets,
         );
