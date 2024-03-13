@@ -19,7 +19,7 @@ pub type Path = Vec<GridSegment>;
 pub type GridSegment = (GridCoord, GridCoord);
 
 /// An ATOLL router.
-pub trait Router {
+pub trait Router: Send + Sync {
     // todo: perhaps add way to translate nodes to net IDs
     /// Returns routes that connect the given nets.
     fn route(
@@ -322,7 +322,7 @@ impl Router for GreedyRouter {
 }
 
 /// An type capable of drawing vias.
-pub trait ViaMaker<PDK: Pdk> {
+pub trait ViaMaker<PDK: Pdk>: Send + Sync {
     /// Draws a via from the given track coordinate to the layer below.
     fn draw_via(
         &self,

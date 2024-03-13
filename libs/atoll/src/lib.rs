@@ -76,11 +76,12 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::ops::Deref;
 
+use cache::mem::TypeCache;
 use indexmap::IndexMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::context::{prepare_cell_builder, PdkContext};
+use substrate::context::{prepare_cell_builder, PdkContext, PrivateInstallation};
 use substrate::geometry::corner::Corner;
 use substrate::geometry::prelude::{Bbox, Dir, Point};
 use substrate::geometry::transform::{
@@ -100,6 +101,16 @@ use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellId, ExportsNestedData, Schematic};
 use substrate::{geometry, io, layout, schematic};
+
+#[derive(Default, Debug)]
+struct AtollContext(RwLock<AtollContextInner>);
+
+#[derive(Default, Debug)]
+struct AtollContextInner {
+    pub(crate) cell_cache: TypeCache,
+}
+
+impl PrivateInstallation for AtollContext {}
 
 /// Identifies nets in a routing solver.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -540,44 +551,58 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates an ATOLL instance from a block that implements [`Tile`].
     pub fn generate<B: Clone + Tile<PDK>>(&mut self, block: B) -> Instance<TileWrapper<B>> {
-        let (mut schematic_cell, schematic_io) =
-            prepare_cell_builder(CellId::default(), (**self.ctx()).clone(), &block);
-        let mut layout_io = io::layout::HardwareType::builder(&block.io());
-        let mut layout_cell = layout::CellBuilder::new(self.ctx().with_pdk());
-        let atoll_io = IoBuilder {
-            schematic: &schematic_io,
-            layout: &mut layout_io,
-        };
-        let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
-        let _ = <B as Tile<PDK>>::tile(&block, atoll_io, &mut cell);
+        let atoll_ctx = self.ctx().get_or_install(AtollContext::default());
+        let ctx_clone = (**self.ctx()).clone();
+        let abs_path =
+            atoll_ctx
+                .0
+                .write()
+                .unwrap()
+                .cell_cache
+                .generate(block.clone(), move |block| {
+                    let (mut schematic_cell, schematic_io) =
+                        prepare_cell_builder(CellId::default(), ctx_clone.clone(), block);
+                    let mut layout_io = io::layout::HardwareType::builder(&block.io());
+                    let mut layout_cell = layout::CellBuilder::new(ctx_clone.with_pdk());
+                    let atoll_io = IoBuilder {
+                        schematic: &schematic_io,
+                        layout: &mut layout_io,
+                    };
+                    let mut cell =
+                        TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
+                    let _ = <B as Tile<PDK>>::tile(block, atoll_io, &mut cell);
 
-        let virtual_layers = cell.layout.ctx.install_layers::<crate::VirtualLayers>();
-        let port_ids = schematic_io
-            .flatten_vec()
-            .iter()
-            .map(|node| cell.nodes[node].net)
-            .collect();
-        let mut abs = InstanceAbstract::merge(
-            cell.abs,
-            cell.top_layer,
-            cell.layout.layer_bbox(virtual_layers.outline.id()),
-            port_ids,
-            cell.assigned_nets,
-        );
-        let paths = cell.router.map(|router| {
-            let mut routing_state = abs.routing_state();
-            let mut to_connect = IndexMap::new();
-            for (_, info) in cell.nodes {
-                to_connect
-                    .entry(cell.connections.find(info.key))
-                    .or_insert(Vec::new())
-                    .push(info.net);
-            }
-            let to_connect: Vec<_> = to_connect.into_values().collect();
-            let paths = router.route(&mut routing_state, to_connect);
-            abs.from_routing_state(routing_state);
-            paths
-        });
+                    let virtual_layers = cell.layout.ctx.install_layers::<crate::VirtualLayers>();
+                    let port_ids = schematic_io
+                        .flatten_vec()
+                        .iter()
+                        .map(|node| cell.nodes[node].net)
+                        .collect();
+                    let mut abs = InstanceAbstract::merge(
+                        cell.abs,
+                        cell.top_layer,
+                        cell.layout.layer_bbox(virtual_layers.outline.id()),
+                        port_ids,
+                        cell.assigned_nets,
+                    );
+                    let paths = cell.router.map(|router| {
+                        let mut routing_state = abs.routing_state();
+                        let mut to_connect = IndexMap::new();
+                        for (_, info) in cell.nodes {
+                            to_connect
+                                .entry(cell.connections.find(info.key))
+                                .or_insert(Vec::new())
+                                .push(info.net);
+                        }
+                        let to_connect: Vec<_> = to_connect.into_values().collect();
+                        let paths = router.route(&mut routing_state, to_connect);
+                        abs.from_routing_state(routing_state);
+                        paths
+                    });
+                    (abs, paths)
+                });
+
+        let (abs, paths) = abs_path.get().clone();
         let wrapper = TileWrapper { block, paths };
         let layout = self.layout.generate(wrapper.clone());
         let schematic = self.schematic.instantiate(wrapper);
