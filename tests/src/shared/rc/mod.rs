@@ -98,8 +98,8 @@ impl Testbench<Spectre> for RcTb {
                     },
                     Ac {
                         start: dec!(1e6),
-                        stop: dec!(1e7),
-                        sweep: Sweep::Linear(11),
+                        stop: dec!(2e6),
+                        sweep: Sweep::Linear(10),
                         errpreset: Some(ErrPreset::Conservative),
                     },
                 ),
