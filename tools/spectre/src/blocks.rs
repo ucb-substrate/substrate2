@@ -37,6 +37,8 @@ pub struct Pulse {
 pub enum Vsource {
     /// A dc voltage source.
     Dc(Decimal),
+    /// An AC small-signal current source.
+    Ac(AcSource),
     /// A pulse voltage source.
     Pulse(Pulse),
     /// A piecewise linear source
@@ -45,16 +47,19 @@ pub enum Vsource {
 
 impl Vsource {
     /// Creates a new DC voltage source.
+    #[inline]
     pub fn dc(value: Decimal) -> Self {
         Self::Dc(value)
     }
 
     /// Creates a new pulse voltage source.
+    #[inline]
     pub fn pulse(value: Pulse) -> Self {
         Self::Pulse(value)
     }
 
     /// Creates a new piecewise linear voltage source.
+    #[inline]
     pub fn pwl(value: Waveform<Decimal>) -> Self {
         Self::Pwl(value)
     }
@@ -127,6 +132,12 @@ impl Schematic<Spectre> for Vsource {
                 params.insert(literal!("type"), ParamValue::String(literal!("pwl")));
                 params.insert(literal!("wave"), ParamValue::String(pwl.into()));
             }
+            Vsource::Ac(ac) => {
+                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
+                params.insert(literal!("dc"), ParamValue::Numeric(ac.dc));
+                params.insert(literal!("mag"), ParamValue::Numeric(ac.mag));
+                params.insert(literal!("phase"), ParamValue::Numeric(ac.phase));
+            }
         };
 
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -153,26 +164,47 @@ impl Schematic<Spectre> for DcVsource {
     }
 }
 
+/// An AC source.
+#[derive(Serialize, Deserialize, Default, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct AcSource {
+    /// The DC value.
+    pub dc: Decimal,
+    /// The magnitude.
+    pub mag: Decimal,
+    /// The phase, **in degrees*.
+    pub phase: Decimal,
+}
+
 /// A current source.
 ///
 /// Positive current is drawn from the `p` node and enters the `n` node.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum Isource {
-    /// A dc current source.
+    /// A DC current source.
     Dc(Decimal),
+    /// An AC small-signal current source.
+    Ac(AcSource),
     /// A pulse current source.
     Pulse(Pulse),
 }
 
 impl Isource {
     /// Creates a new DC current source.
+    #[inline]
     pub fn dc(value: Decimal) -> Self {
         Self::Dc(value)
     }
 
     /// Creates a new pulse current source.
+    #[inline]
     pub fn pulse(value: Pulse) -> Self {
         Self::Pulse(value)
+    }
+
+    /// Creates a new AC current source.
+    #[inline]
+    pub fn ac(value: AcSource) -> Self {
+        Self::Ac(value)
     }
 }
 
@@ -228,6 +260,12 @@ impl Schematic<Spectre> for Isource {
                 if let Some(delay) = pulse.delay {
                     params.insert(literal!("delay"), ParamValue::Numeric(delay));
                 }
+            }
+            Isource::Ac(ac) => {
+                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
+                params.insert(literal!("dc"), ParamValue::Numeric(ac.dc));
+                params.insert(literal!("mag"), ParamValue::Numeric(ac.mag));
+                params.insert(literal!("phase"), ParamValue::Numeric(ac.phase));
             }
         };
 
