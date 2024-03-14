@@ -2652,6 +2652,7 @@ dependencies = [
  "indexmap 2.2.5",
  "lazy_static",
  "ngspice",
+ "num",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",
