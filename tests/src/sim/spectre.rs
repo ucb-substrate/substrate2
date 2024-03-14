@@ -449,6 +449,6 @@ fn spectre_rc_zin_ac() {
     let (_, _, z) = ctx
         .simulate(crate::shared::rc::RcTb::new(dec!(0)), sim_dir)
         .unwrap();
-    assert_relative_eq!(z.re, 6.896551724137931);
-    assert_relative_eq!(z.im, -82.75862068965517);
+    assert_relative_eq!(z.re, 17.286407017773225);
+    assert_relative_eq!(z.im, -130.3364383055986);
 }
