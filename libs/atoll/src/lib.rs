@@ -70,10 +70,11 @@ pub mod route;
 
 use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
-use crate::route::{Path, Router, ViaMaker};
+use crate::route::{Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use cache::mem::TypeCache;
@@ -83,7 +84,7 @@ use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::context::{prepare_cell_builder, PdkContext, PrivateInstallation};
 use substrate::geometry::corner::Corner;
-use substrate::geometry::prelude::{Bbox, Dir, Point};
+use substrate::geometry::prelude::{Dir, Point};
 use substrate::geometry::transform::{
     Transform, TransformMut, Transformation, Translate, TranslateMut,
 };
@@ -585,25 +586,36 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                         port_ids,
                         cell.assigned_nets,
                     );
-                    let paths = cell.router.map(|router| {
-                        let mut routing_state = abs.routing_state();
-                        let mut to_connect = IndexMap::new();
-                        for (_, info) in cell.nodes {
-                            to_connect
-                                .entry(cell.connections.find(info.key))
-                                .or_insert(Vec::new())
-                                .push(info.net);
+                    let mut routing_state = abs.routing_state();
+                    let mut to_connect = IndexMap::new();
+                    for (_, info) in cell.nodes {
+                        to_connect
+                            .entry(cell.connections.find(info.key))
+                            .or_insert(Vec::new())
+                            .push(info.net);
+                    }
+                    let to_connect: Vec<_> = to_connect.into_values().collect();
+                    let paths = cell
+                        .router
+                        .map(|router| router.route(&mut routing_state, to_connect.clone()));
+                    let mut roots = HashMap::new();
+                    for seq in to_connect.iter() {
+                        for node in seq.iter() {
+                            roots.insert(*node, seq[0]);
                         }
-                        let to_connect: Vec<_> = to_connect.into_values().collect();
-                        let paths = router.route(&mut routing_state, to_connect);
-                        abs.from_routing_state(routing_state);
-                        paths
-                    });
+                    }
+                    routing_state.roots = roots;
+                    for nets in to_connect {
+                        for net in nets {
+                            routing_state.relabel_net(net, routing_state.roots[&net]);
+                        }
+                    }
+                    abs.from_routing_state(routing_state);
                     (abs, paths)
                 });
 
-        let (abs, paths) = abs_path.get().clone();
-        let wrapper = TileWrapper { block, paths };
+        let (abs, _) = abs_path.get().clone();
+        let wrapper = TileWrapper::new(block);
         let layout = self.layout.generate(wrapper.clone());
         let schematic = self.schematic.instantiate(wrapper);
         self.register_bundle(schematic.io());
@@ -778,16 +790,15 @@ pub trait Tile<PDK: Pdk + Schema + ?Sized>: ExportsNestedData + ExportsLayoutDat
 
 /// A wrapper of a block implementing [`Tile`] that can be instantiated in Substrate
 /// schematics and layouts.
-#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TileWrapper<T> {
     block: T,
-    paths: Option<Vec<Path>>,
 }
 
 impl<T> TileWrapper<T> {
     /// Creates a new wrapper of `block`.
     pub fn new(block: T) -> Self {
-        Self { block, paths: None }
+        Self { block }
     }
 }
 
@@ -846,7 +857,7 @@ where
 
 impl<T, PDK: Pdk + Schema> Layout<PDK> for TileWrapper<T>
 where
-    T: Tile<PDK>,
+    T: Tile<PDK> + Clone,
 {
     fn layout(
         &self,
@@ -868,27 +879,49 @@ where
             .iter()
             .map(|node| cell.nodes[node].net)
             .collect();
-        let abs = InstanceAbstract::merge(
-            cell.abs,
-            cell.top_layer,
-            cell.layout.layer_bbox(virtual_layers.outline.id()),
-            port_ids,
-            cell.assigned_nets,
-        );
-
-        if let Some(router) = cell.router {
-            let paths = self.paths.clone().unwrap_or_else(|| {
-                let mut to_connect = IndexMap::new();
-                for (_, info) in cell.nodes {
-                    to_connect
-                        .entry(cell.connections.find(info.key))
-                        .or_insert(Vec::new())
-                        .push(info.net);
-                }
-                let to_connect: Vec<_> = to_connect.into_values().collect();
-                router.route(&mut abs.routing_state(), to_connect)
+        let ctx_clone = (**cell.ctx()).clone();
+        let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());
+        let TileBuilder {
+            abs,
+            top_layer,
+            layout,
+            assigned_nets,
+            router,
+            nodes,
+            mut connections,
+            via_maker,
+            ..
+        } = cell;
+        let layer_bbox = layout.layer_bbox(virtual_layers.outline.id());
+        let block = (*self).clone();
+        let abs_path = atoll_ctx
+            .0
+            .write()
+            .unwrap()
+            .cell_cache
+            .generate(block, move |_block| {
+                let mut abs =
+                    InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
+                let paths = router.map(|router| {
+                    let mut routing_state = abs.routing_state();
+                    let mut to_connect = IndexMap::new();
+                    for (_, info) in nodes {
+                        to_connect
+                            .entry(connections.find(info.key))
+                            .or_insert(Vec::new())
+                            .push(info.net);
+                    }
+                    let to_connect: Vec<_> = to_connect.into_values().collect();
+                    let paths = router.route(&mut routing_state, to_connect);
+                    abs.from_routing_state(routing_state);
+                    paths
+                });
+                (abs, paths)
             });
 
+        let (abs, paths) = abs_path.get().clone();
+
+        if let Some(paths) = paths {
             for path in paths {
                 for (a, b) in path {
                     let (a, b) = (abs.grid_to_track(a), abs.grid_to_track(b));
@@ -918,8 +951,7 @@ where
                             );
 
                         if track.width() > 0 && track.height() > 0 {
-                            cell.layout
-                                .draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
+                            layout.draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
                         }
                     } else if a.layer == b.layer + 1 || b.layer == a.layer + 1 {
                         let (a, b) = if b.layer > a.layer { (b, a) } else { (a, b) };
@@ -947,12 +979,11 @@ where
                             in_track.vspan().add_point(out_track.y),
                         );
                         if track.width() > 0 && track.height() > 0 {
-                            cell.layout
-                                .draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
+                            layout.draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
                         }
-                        if let Some(maker) = &cell.via_maker {
+                        if let Some(maker) = &via_maker {
                             maker.draw_via(
-                                cell.layout,
+                                layout,
                                 TrackCoord {
                                     layer: a.layer,
                                     x: a.x,
