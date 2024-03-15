@@ -724,6 +724,26 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         None
     }
 
+    /// Finds all grid coordinates belonging to the given net.
+    ///
+    /// Searches the topmost layer first, starting from the lower left.
+    /// Returns the first grid point with a matching net ID, or [`None`]
+    /// if no grid point has the given net ID.
+    pub fn find_all(&self, net: NetId) -> Vec<GridCoord> {
+        let mut coords = Vec::new();
+        for (i, layer) in self.layers.iter().enumerate().rev() {
+            let (nx, ny) = layer.size();
+            for x in 0..nx {
+                for y in 0..ny {
+                    if layer[(x, y)].is_routed_for_net(net) {
+                        coords.push(GridCoord { layer: i, x, y });
+                    }
+                }
+            }
+        }
+        coords
+    }
+
     /// Relabels a net with a new ID, usually after being connected to another net.
     pub(crate) fn relabel_net(&mut self, old: NetId, new: NetId) {
         for layer in self.layers.iter_mut().rev() {

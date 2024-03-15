@@ -982,14 +982,16 @@ where
                             layout.draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
                         }
                         if let Some(maker) = &via_maker {
-                            maker.draw_via(
-                                layout,
+                            for shape in maker.draw_via(
+                                layout.ctx().clone(),
                                 TrackCoord {
                                     layer: a.layer,
                                     x: a.x,
                                     y: a.y,
                                 },
-                            )?;
+                            ) {
+                                layout.draw(shape)?;
+                            }
                         }
                     }
                 }
