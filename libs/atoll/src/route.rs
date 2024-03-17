@@ -10,7 +10,6 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::{BuildHasherDefault, Hash};
 use substrate::context::PdkContext;
-use substrate::layout;
 use substrate::layout::element::Shape;
 use substrate::pdk::Pdk;
 
@@ -219,8 +218,6 @@ impl Router for GreedyRouter {
                 continue;
             }
             let group_root = state.roots[&group[0]];
-
-            let locs = group.iter().map(|n| state.find(*n)).collect::<Vec<_>>();
 
             let mut remaining_nets: HashSet<_> = group[1..].iter().collect();
 
