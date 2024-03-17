@@ -9,7 +9,8 @@ use rustc_hash::FxHasher;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::{BuildHasherDefault, Hash};
-use substrate::layout;
+use substrate::context::PdkContext;
+use substrate::layout::element::Shape;
 use substrate::pdk::Pdk;
 
 /// A path of grid-coordinates.
@@ -19,7 +20,7 @@ pub type Path = Vec<GridSegment>;
 pub type GridSegment = (GridCoord, GridCoord);
 
 /// An ATOLL router.
-pub trait Router {
+pub trait Router: Send + Sync {
     // todo: perhaps add way to translate nodes to net IDs
     /// Returns routes that connect the given nets.
     fn route(
@@ -85,9 +86,13 @@ where
     path.into_iter().rev().cloned().collect()
 }
 
-fn dijkstra<N, C, FN, IN, FS>(start: &N, mut successors: FN, mut success: FS) -> Option<(Vec<N>, C)>
+fn dijkstra<'a, N, C, FN, IN, FS>(
+    start: impl IntoIterator<Item = &'a N>,
+    mut successors: FN,
+    mut success: FS,
+) -> Option<(Vec<N>, C)>
 where
-    N: Eq + Hash + Clone,
+    N: Eq + Hash + Clone + 'a,
     C: Zero + Ord + Copy,
     FN: FnMut(&N, &[N]) -> IN,
     IN: IntoIterator<Item = (N, C)>,
@@ -96,13 +101,13 @@ where
     dijkstra_internal(start, &mut successors, &mut success)
 }
 
-pub(crate) fn dijkstra_internal<N, C, FN, IN, FS>(
-    start: &N,
+pub(crate) fn dijkstra_internal<'a, N, C, FN, IN, FS>(
+    start: impl IntoIterator<Item = &'a N>,
     successors: &mut FN,
     success: &mut FS,
 ) -> Option<(Vec<N>, C)>
 where
-    N: Eq + Hash + Clone,
+    N: Eq + Hash + Clone + 'a,
     C: Zero + Ord + Copy,
     FN: FnMut(&N, &[N]) -> IN,
     IN: IntoIterator<Item = (N, C)>,
@@ -117,25 +122,27 @@ where
     })
 }
 
-fn run_dijkstra<N, C, FN, IN, FS>(
-    start: &N,
+fn run_dijkstra<'a, N, C, FN, IN, FS>(
+    start: impl IntoIterator<Item = &'a N>,
     successors: &mut FN,
     stop: &mut FS,
 ) -> (FxIndexMap<N, (usize, C)>, Option<usize>)
 where
-    N: Eq + Hash + Clone,
+    N: Eq + Hash + Clone + 'a,
     C: Zero + Ord + Copy,
     FN: FnMut(&N, &[N]) -> IN,
     IN: IntoIterator<Item = (N, C)>,
     FS: FnMut(&N) -> bool,
 {
     let mut to_see = BinaryHeap::new();
-    to_see.push(SmallestHolder {
-        cost: Zero::zero(),
-        index: 0,
-    });
     let mut parents: FxIndexMap<N, (usize, C)> = FxIndexMap::default();
-    parents.insert(start.clone(), (usize::max_value(), Zero::zero()));
+    for (i, node) in start.into_iter().enumerate() {
+        to_see.push(SmallestHolder {
+            cost: Zero::zero(),
+            index: i,
+        });
+        parents.insert(node.clone(), (usize::max_value(), Zero::zero()));
+    }
     let mut target_reached = None;
     while let Some(SmallestHolder { cost, index }) = to_see.pop() {
         let successors = {
@@ -212,20 +219,19 @@ impl Router for GreedyRouter {
             }
             let group_root = state.roots[&group[0]];
 
-            let locs = group
-                .iter()
-                .filter_map(|n| state.find(*n))
-                .collect::<Vec<_>>();
-
             let mut remaining_nets: HashSet<_> = group[1..].iter().collect();
 
             while !remaining_nets.is_empty() {
-                let start = RoutingNode {
-                    coord: locs[0],
-                    has_via: state.has_via(locs[0]),
-                };
+                let start = state
+                    .find_all(group_root)
+                    .into_iter()
+                    .map(|coord| RoutingNode {
+                        coord,
+                        has_via: state.has_via(coord),
+                    })
+                    .collect::<Vec<_>>();
                 let path = dijkstra(
-                    &start,
+                    start.iter(),
                     |s, path| state.successors(*s, path, group_root).into_iter(),
                     |node| {
                         if let PointState::Routed { net, .. } = state[node.coord] {
@@ -322,11 +328,7 @@ impl Router for GreedyRouter {
 }
 
 /// An type capable of drawing vias.
-pub trait ViaMaker<PDK: Pdk> {
+pub trait ViaMaker<PDK: Pdk>: Send + Sync {
     /// Draws a via from the given track coordinate to the layer below.
-    fn draw_via(
-        &self,
-        cell: &mut layout::CellBuilder<PDK>,
-        track_coord: TrackCoord,
-    ) -> substrate::error::Result<()>;
+    fn draw_via(&self, ctx: PdkContext<PDK>, track_coord: TrackCoord) -> Vec<Shape>;
 }

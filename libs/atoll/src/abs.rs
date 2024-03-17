@@ -469,11 +469,17 @@ impl InstanceAbstract {
 
             let bot = bounds.bot() - new_bounds.bot() * lcm_ypitch / ypitch;
 
-            for i in left..left + bounds.width() {
-                for j in bot..bot + bounds.height() {
-                    state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed {
-                        net,
-                        has_via: false,
+            for i in left..=left + bounds.width() {
+                for j in bot..=bot + bounds.height() {
+                    if state.in_bounds(GridCoord {
+                        x: i as usize,
+                        y: j as usize,
+                        layer,
+                    }) {
+                        state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed {
+                            net,
+                            has_via: false,
+                        }
                     }
                 }
             }

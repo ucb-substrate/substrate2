@@ -15,3 +15,4 @@ serde = { version = "1.0.192", features = ["derive"] }
 pathfinding = "4.8.0"
 indexmap = "2"
 rustc-hash = "1"
+cache = { version = "0.5.0", registry = "substrate", path = "../cache" }

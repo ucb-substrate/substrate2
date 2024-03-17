@@ -100,6 +100,10 @@ pub trait Installation: Any + Send + Sync {
     #[allow(unused_variables)]
     fn post_install(&self, ctx: &mut ContextBuilder) {}
 }
+
+/// A private item that can be installed in a context after it is built.
+pub trait PrivateInstallation: Any + Send + Sync {}
+
 /// A [`Context`] with an associated PDK `PDK`.
 pub struct PdkContext<PDK: Pdk + ?Sized> {
     /// PDK configuration and general data.
@@ -230,6 +234,7 @@ impl<PDK: Pdk> Clone for PdkContext<PDK> {
 pub(crate) struct ContextInner {
     pub(crate) schematic: SchematicContext,
     layout: LayoutContext,
+    private_installations: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 
 impl ContextInner {
@@ -439,13 +444,56 @@ impl Context {
         Ok(block.run(controller))
     }
 
+    /// Installs the given [`PrivateInstallation`].
+    ///
+    /// Only one installation of any given type can exist. Overwrites
+    /// conflicting installations of the same type.
+    #[inline]
+    pub fn install<I>(&mut self, installation: I) -> Arc<I>
+    where
+        I: PrivateInstallation,
+    {
+        let installation = Arc::new(installation);
+        self.inner
+            .write()
+            .unwrap()
+            .private_installations
+            .insert(TypeId::of::<I>(), installation.clone());
+        installation
+    }
+
+    /// Installs the given [`PrivateInstallation`].
+    ///
+    /// Returns the existing installation if one is present.
+    #[inline]
+    pub fn get_or_install<I>(&self, installation: I) -> Arc<I>
+    where
+        I: PrivateInstallation,
+    {
+        let installation = Arc::new(installation);
+        self.inner
+            .write()
+            .unwrap()
+            .private_installations
+            .entry(TypeId::of::<I>())
+            .or_insert(installation.clone())
+            .clone()
+            .downcast()
+            .unwrap()
+    }
+
+    /// Gets a private installation from the context installation map.
+    pub fn get_private_installation<I: PrivateInstallation>(&self) -> Option<Arc<I>> {
+        retrieve_installation(&self.inner.read().unwrap().private_installations)
+    }
+
     /// Gets an installation from the context installation map.
     pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
         retrieve_installation(&self.installations)
     }
 }
 
-fn retrieve_installation<I: Installation>(
+fn retrieve_installation<I: Any + Send + Sync>(
     map: &HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 ) -> Option<Arc<I>> {
     map.get(&TypeId::of::<I>())

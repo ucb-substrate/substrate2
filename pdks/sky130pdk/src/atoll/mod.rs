@@ -11,6 +11,7 @@ use atoll::RoutingDir;
 use serde::{Deserialize, Serialize};
 
 use substrate::block::Block;
+use substrate::context::PdkContext;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
@@ -109,12 +110,8 @@ impl Sky130Layers {
 pub struct Sky130ViaMaker;
 
 impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
-    fn draw_via(
-        &self,
-        cell: &mut CellBuilder<Sky130Pdk>,
-        track_coord: TrackCoord,
-    ) -> substrate::error::Result<()> {
-        let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
+    fn draw_via(&self, ctx: PdkContext<Sky130Pdk>, track_coord: TrackCoord) -> Vec<Shape> {
+        let stack = ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..track_coord.layer + 1);
         let top_layer = stack.layer(track_coord.layer);
         let bot_layer = stack.layer(track_coord.layer - 1);
@@ -123,13 +120,13 @@ impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
 
         let (via_layer, bot_rect, via_rect, top_rect) = match track_coord.layer {
             1 => (
-                cell.ctx.layers.mcon.drawing.id(),
+                ctx.layers.mcon.drawing.id(),
                 Rect::from_sides(0, 0, 170, 170),
                 Rect::from_sides(0, 0, 170, 170),
                 Rect::from_sides(-60, -115, 230, 285),
             ),
             2 => (
-                cell.ctx.layers.via.drawing.id(),
+                ctx.layers.via.drawing.id(),
                 Rect::from_sides(-55, -125, 205, 275),
                 Rect::from_sides(0, 0, 150, 150),
                 Rect::from_sides(-55, -125, 205, 275),
@@ -138,14 +135,14 @@ impl ViaMaker<Sky130Pdk> for Sky130ViaMaker {
         };
         let translation = via_center - via_rect.center();
 
-        for (layer, shape) in [
+        [
             (bot_layer.id, bot_rect),
             (via_layer, via_rect),
             (top_layer.id, top_rect),
-        ] {
-            cell.draw(Shape::new(layer, shape).translate(translation))?;
-        }
-        Ok(())
+        ]
+        .into_iter()
+        .map(|(layer, shape)| Shape::new(layer, shape).translate(translation))
+        .collect()
     }
 }
 
