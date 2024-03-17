@@ -9,8 +9,10 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::analysis::ac::{Ac, Sweep};
 use crate::analysis::montecarlo;
 use crate::analysis::montecarlo::MonteCarlo;
+use analysis::ac;
 use analysis::tran;
 use analysis::tran::Tran;
 use arcstr::ArcStr;
@@ -18,7 +20,11 @@ use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
 use itertools::Itertools;
+use lazy_static::lazy_static;
+use num::complex::Complex64;
+use psfparser::analysis::ac::AcData;
 use psfparser::analysis::transient::TransientData;
+use regex::Regex;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{
@@ -195,6 +201,16 @@ impl Options {
     pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentSavedKey {
         tran::CurrentSavedKey(vec![self.save_inner(save)])
     }
+
+    /// Marks an AC voltage to be saved in all AC analyses.
+    pub fn save_ac_voltage(&mut self, save: impl Into<SimSignal>) -> ac::VoltageSavedKey {
+        ac::VoltageSavedKey(self.save_inner(save))
+    }
+
+    /// Marks an AC current to be saved in all AC analyses.
+    pub fn save_ac_current(&mut self, save: impl Into<SimSignal>) -> ac::CurrentSavedKey {
+        ac::CurrentSavedKey(vec![self.save_inner(save)])
+    }
 }
 
 #[impl_dispatch({&str; &String; ArcStr; String; SimSignal})]
@@ -283,7 +299,13 @@ struct CachedSimState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum CachedData {
     Tran(HashMap<String, Vec<f64>>),
-    MonteCarlo(Vec<MonteCarloData>),
+    Ac {
+        freq: Vec<f64>,
+        signals: HashMap<String, Vec<Complex64>>,
+    },
+    // The outer vec has length `numruns`.
+    // The inner vec length equals the length of the inner analysis.
+    MonteCarlo(Vec<Vec<CachedData>>),
 }
 
 impl CachedData {
@@ -306,64 +328,27 @@ impl CachedData {
                     .collect(),
             }
             .into(),
+            CachedData::Ac { freq, signals } => ac::Output {
+                freq: Arc::new(freq),
+                raw_values: signals
+                    .into_iter()
+                    .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                    .collect(),
+                saved_values: saves
+                    .iter()
+                    .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, conv)))
+                    .collect(),
+            }
+            .into(),
             CachedData::MonteCarlo(data) => Output::MonteCarlo(montecarlo::Output(
                 data.into_iter()
-                    .map(|data| data.into_output(ctx, conv, saves))
+                    .map(|data| {
+                        data.into_iter()
+                            .map(|d| d.into_output(ctx, conv, saves))
+                            .collect()
+                    })
                     .collect(),
             )),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum MonteCarloData {
-    Tran(Vec<HashMap<String, Vec<f64>>>),
-    MonteCarlo(Vec<Vec<MonteCarloData>>),
-}
-
-impl MonteCarloData {
-    fn from_cached_data(data: Vec<CachedData>) -> Option<Self> {
-        Some(match data.first()? {
-            CachedData::Tran(_) => MonteCarloData::Tran(
-                data.into_iter()
-                    .map(|data| {
-                        if let CachedData::Tran(data) = data {
-                            Some(data)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Option<Vec<_>>>()?,
-            ),
-            CachedData::MonteCarlo(_) => MonteCarloData::MonteCarlo(
-                data.into_iter()
-                    .map(|data| {
-                        if let CachedData::MonteCarlo(data) = data {
-                            Some(data)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Option<Vec<_>>>()?,
-            ),
-        })
-    }
-
-    fn into_output(
-        self,
-        ctx: &SimulationContext<Spectre>,
-        conv: &NetlistLibConversion,
-        saves: &HashMap<SimSignal, u64>,
-    ) -> Vec<Output> {
-        match self {
-            MonteCarloData::Tran(data) => data
-                .into_iter()
-                .map(|data| CachedData::Tran(data).into_output(ctx, conv, saves))
-                .collect(),
-            MonteCarloData::MonteCarlo(data) => data
-                .into_iter()
-                .map(|data| CachedData::MonteCarlo(data).into_output(ctx, conv, saves))
-                .collect(),
         }
     }
 }
@@ -530,6 +515,17 @@ impl Spectre {
 
     /// Escapes the given identifier to be Spectre-compatible.
     pub fn escape_identifier(node_name: &str) -> String {
+        // The name 0 is reserved, as it represents global ground.
+        // To prevent nodes from being accidentally connected to global ground,
+        // we rename 0 to x0, x0 to xx0, xx0 to xxx0, etc.
+        lazy_static! {
+            static ref RE: Regex = Regex::new("^(x*)0$").unwrap();
+        }
+        if let Some(caps) = RE.captures(node_name) {
+            let xs = caps.get(1).unwrap();
+            return format!("x{}0", xs.as_str());
+        }
+
         let mut escaped_name = String::new();
         for c in node_name.chars() {
             if c.is_alphanumeric() || c == '_' {
@@ -740,6 +736,8 @@ impl Simulator for Spectre {
 pub enum Input {
     /// Transient simulation input.
     Tran(Tran),
+    /// AC simulation input.
+    Ac(Ac),
     /// A Monte Carlo input.
     MonteCarlo(MonteCarlo<Vec<Input>>),
 }
@@ -747,6 +745,12 @@ pub enum Input {
 impl From<Tran> for Input {
     fn from(value: Tran) -> Self {
         Self::Tran(value)
+    }
+}
+
+impl From<Ac> for Input {
+    fn from(value: Ac) -> Self {
+        Self::Ac(value)
     }
 }
 
@@ -761,6 +765,8 @@ impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for Input {
 pub enum Output {
     /// Transient simulation output.
     Tran(tran::Output),
+    /// AC simulation output.
+    Ac(ac::Output),
     /// Monte Carlo simulation output.
     MonteCarlo(montecarlo::Output<Vec<Output>>),
 }
@@ -771,11 +777,27 @@ impl From<tran::Output> for Output {
     }
 }
 
+impl From<ac::Output> for Output {
+    fn from(value: ac::Output) -> Self {
+        Self::Ac(value)
+    }
+}
+
 impl TryFrom<Output> for tran::Output {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         match value {
             Output::Tran(t) => Ok(t),
+            _ => Err(Error::SpectreError),
+        }
+    }
+}
+
+impl TryFrom<Output> for ac::Output {
+    type Error = Error;
+    fn try_from(value: Output) -> Result<Self> {
+        match value {
+            Output::Ac(ac) => Ok(ac),
             _ => Err(Error::SpectreError),
         }
     }
@@ -802,6 +824,7 @@ impl Input {
         write!(out, "{name} ")?;
         match self {
             Self::Tran(t) => t.netlist(out),
+            Input::Ac(ac) => ac.netlist(out),
             Self::MonteCarlo(mc) => mc.netlist(out, name),
         }
     }
@@ -820,6 +843,21 @@ impl Tran {
     }
 }
 
+impl Ac {
+    fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
+        write!(out, "ac start={} stop={}", self.start, self.stop)?;
+        match self.sweep {
+            Sweep::Linear(pts) => write!(out, " lin={pts}")?,
+            Sweep::Logarithmic(pts) => write!(out, " log={pts}")?,
+            Sweep::Decade(pts) => write!(out, " dec={pts}")?,
+        };
+        if let Some(errpreset) = self.errpreset {
+            write!(out, " errpreset={errpreset}")?;
+        }
+        Ok(())
+    }
+}
+
 fn subanalysis_name(prefix: &str, idx: usize) -> String {
     format!("{prefix}_{idx}")
 }
@@ -827,9 +865,10 @@ fn subanalysis_name(prefix: &str, idx: usize) -> String {
 fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<CachedData> {
     Ok(if let Input::MonteCarlo(analysis) = analysis {
         let mut data = Vec::new();
-        for i in 0..analysis.analysis.len() {
+        for iter in 1..analysis.numruns + 1 {
             let mut mc_data = Vec::new();
-            for iter in 1..analysis.numruns + 1 {
+            for i in 0..analysis.analysis.len() {
+                // FIXME: loops should be swapped
                 let new_name = subanalysis_name(&format!("{}-{:0>3}_{}", name, iter, name), i);
                 mc_data.push(parse_analysis(
                     output_dir,
@@ -837,7 +876,7 @@ fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<Cac
                     &analysis.analysis[i],
                 )?)
             }
-            data.push(MonteCarloData::from_cached_data(mc_data).unwrap());
+            data.push(mc_data);
         }
         CachedData::MonteCarlo(data)
     } else {
@@ -845,6 +884,7 @@ fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<Cac
             Input::Tran(_) => {
                 format!("{name}.tran.tran")
             }
+            Input::Ac(_) => format!("{name}.ac"),
             Input::MonteCarlo(_) => unreachable!(),
         };
         let psf_path = output_dir.join(file_name);
@@ -855,6 +895,13 @@ fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<Cac
             Input::Tran(_) => {
                 let values = TransientData::from_binary(ast).signals;
                 CachedData::Tran(values)
+            }
+            Input::Ac(_) => {
+                let values = AcData::from_binary(ast);
+                CachedData::Ac {
+                    freq: values.freq,
+                    signals: values.signals,
+                }
             }
             Input::MonteCarlo(_) => {
                 unreachable!()
@@ -898,7 +945,9 @@ impl HasSpiceLikeNetlist for Spectre {
             out,
             "// Be careful when editing manually: this file may be overwritten.\n"
         )?;
+        writeln!(out, "global 0\n")?;
 
+        // find all unique spf netlists and include them
         let spfs = lib
             .primitives()
             .filter_map(|p| {
@@ -909,6 +958,7 @@ impl HasSpiceLikeNetlist for Spectre {
                 }
             })
             .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
         for spf_path in spfs.iter().sorted() {
             writeln!(out, "dspf_include {:?}", spf_path)?;
         }

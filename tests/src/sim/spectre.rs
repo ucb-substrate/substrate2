@@ -34,7 +34,6 @@ use crate::shared::pdk::sky130_commercial_ctx;
 use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
 use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
 use substrate::schematic::primitives::{RawInstance, Resistor};
-use substrate::simulation::data::tran::{Current, Voltage};
 
 #[test]
 fn vdivider_tran() {
@@ -256,7 +255,7 @@ fn spectre_can_include_sections() {
             ctx: &SimulationContext<Spectre>,
             cell: &Cell<Self>,
             opts: &mut <Spectre as Simulator>::Options,
-        ) -> <Voltage as FromSaved<Spectre, Tran>>::SavedKey {
+        ) -> <tran::Voltage as FromSaved<Spectre, Tran>>::SavedKey {
             tran::Voltage::save(ctx, cell.data().io().n, opts)
         }
     }
@@ -392,7 +391,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             ctx: &SimulationContext<Spectre>,
             cell: &Cell<Self>,
             opts: &mut <Spectre as Simulator>::Options,
-        ) -> <Current as FromSaved<Spectre, Tran>>::SavedKey {
+        ) -> <tran::Current as FromSaved<Spectre, Tran>>::SavedKey {
             tran::Current::save(ctx, cell.data().io().p, opts)
         }
     }
@@ -430,13 +429,26 @@ fn spectre_initial_condition() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = sky130_commercial_ctx();
 
-    let (first, _) = ctx
+    let (first, _, _) = ctx
         .simulate(crate::shared::rc::RcTb::new(dec!(1.4)), &sim_dir)
         .unwrap();
     assert_relative_eq!(first, 1.4);
 
-    let (first, _) = ctx
+    let (first, _, _) = ctx
         .simulate(crate::shared::rc::RcTb::new(dec!(2.1)), sim_dir)
         .unwrap();
     assert_relative_eq!(first, 2.1);
+}
+
+#[test]
+fn spectre_rc_zin_ac() {
+    let test_name = "spectre_rc_zin_ac";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+
+    let (_, _, z) = ctx
+        .simulate(crate::shared::rc::RcTb::new(dec!(0)), sim_dir)
+        .unwrap();
+    assert_relative_eq!(z.re, -17.286407017773225);
+    assert_relative_eq!(z.im, 130.3364383055986);
 }

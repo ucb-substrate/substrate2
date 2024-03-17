@@ -1,15 +1,18 @@
+use num::complex::Complex64;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use spectre::analysis::ac::{Ac, Sweep};
 use spectre::analysis::tran::Tran;
-use spectre::{Options, Spectre};
+use spectre::blocks::{AcSource, Isource};
+use spectre::{ErrPreset, Options, Spectre};
 use substrate::block::Block;
 use substrate::io::schematic::{HardwareType, Node};
 use substrate::io::Signal;
 use substrate::io::TestbenchIo;
 use substrate::schematic::primitives::{Capacitor, Resistor};
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
+use substrate::simulation::data::{ac, tran, FromSaved, Save, SaveTb};
 use substrate::simulation::options::ic;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::{SimulationContext, Simulator, Testbench};
@@ -49,22 +52,33 @@ impl Schematic<Spectre> for RcTb {
         cell.connect(c.io().p, vout);
         cell.connect(c.io().n, io.vss);
 
+        let isource = cell.instantiate(Isource::ac(AcSource {
+            dc: dec!(0),
+            mag: dec!(1),
+            phase: dec!(0),
+        }));
+        cell.connect(isource.io().p, vout);
+        cell.connect(isource.io().n, io.vss);
+
         Ok(vout)
     }
 }
 
-impl SaveTb<Spectre, Tran, tran::Voltage> for RcTb {
+impl SaveTb<Spectre, (Tran, Ac), (tran::Voltage, ac::Voltage)> for RcTb {
     fn save_tb(
         ctx: &SimulationContext<Spectre>,
-        to_save: &Cell<Self>,
+        cell: &Cell<Self>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> <tran::Voltage as FromSaved<Spectre, Tran>>::SavedKey {
-        tran::Voltage::save(ctx, to_save.data(), opts)
+    ) -> <(tran::Voltage, ac::Voltage) as FromSaved<Spectre, (Tran, Ac)>>::SavedKey {
+        (
+            tran::Voltage::save(ctx, cell.data(), opts),
+            ac::Voltage::save(ctx, cell.data(), opts),
+        )
     }
 }
 
 impl Testbench<Spectre> for RcTb {
-    type Output = (f64, f64);
+    type Output = (f64, f64, Complex64);
     fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {
         let mut opts = Options::default();
         sim.set_option(
@@ -74,18 +88,26 @@ impl Testbench<Spectre> for RcTb {
             },
             &mut opts,
         );
-        let vout: tran::Voltage = sim
+        let (tran_vout, ac_vout) = sim
             .simulate(
                 opts,
-                Tran {
-                    stop: dec!(10e-6),
-                    ..Default::default()
-                },
+                (
+                    Tran {
+                        stop: dec!(10e-6),
+                        ..Default::default()
+                    },
+                    Ac {
+                        start: dec!(1e6),
+                        stop: dec!(2e6),
+                        sweep: Sweep::Linear(10),
+                        errpreset: Some(ErrPreset::Conservative),
+                    },
+                ),
             )
             .unwrap();
 
-        let first = vout.first().unwrap();
-        let last = vout.last().unwrap();
-        (*first, *last)
+        let first = tran_vout.first().unwrap();
+        let last = tran_vout.last().unwrap();
+        (*first, *last, ac_vout[2])
     }
 }

@@ -20,7 +20,7 @@ derive_builder = "0.12"
 slotmap = "1"
 downcast-rs = "1"
 indexmap = { version = "2", features = ["serde"] }
-num = "0.4"
+num = { version = "0.4", features = ["serde"] }
 
 config = { version = "0.2.5", registry = "substrate", path = "../config" }
 examples = { version = "0.5.1", registry = "substrate", path = "../docs/examples" }

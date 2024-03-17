@@ -13,10 +13,12 @@ lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 itertools = "0.11"
-psfparser = "0.1.1"
+psfparser = "0.1.2"
 
 cache = { version = "0.5.0", registry = "substrate", path = "../../libs/cache" }
 scir = { version = "0.7.0", registry = "substrate", path = "../../libs/scir" }
 substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
 spice = { version = "0.7.1", registry = "substrate", path = "../../libs/spice" }
+regex = "1.10.2"
+num = { version = "0.4.1", features = ["serde"] }
 
