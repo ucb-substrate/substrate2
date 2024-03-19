@@ -417,14 +417,13 @@ impl InstanceAbstract {
                                     ),
                                 }];
 
+                                // TODO: decide semantics for conflicting net labels
                                 match new_state {
                                     PointState::Available => {}
                                     PointState::Blocked => {
-                                        assert_eq!(point_state, &PointState::Available);
                                         *point_state = PointState::Blocked;
                                     }
                                     PointState::Routed { net, has_via } => {
-                                        assert_eq!(point_state, &PointState::Available);
                                         if let Some(translation) = net_translation.get(&net) {
                                             *point_state = PointState::Routed {
                                                 net: *translation,
@@ -435,7 +434,6 @@ impl InstanceAbstract {
                                         }
                                     }
                                     PointState::Reserved { net } => {
-                                        assert_eq!(point_state, &PointState::Available);
                                         if let Some(translation) = net_translation.get(&net) {
                                             *point_state =
                                                 PointState::Reserved { net: *translation };
