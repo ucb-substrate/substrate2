@@ -460,6 +460,34 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     straps: Vec<(NetId, StrappingParams)>,
 }
 
+/// Fields required for building an abstract.
+struct TileAbstractBuilder {
+    nodes: IndexMap<Node, NodeInfo>,
+    connections: ena::unify::InPlaceUnificationTable<NodeKey>,
+    abs: Vec<InstanceAbstract>,
+    assigned_nets: Vec<AssignedGridPoints>,
+    top_layer: usize,
+    router: Option<Arc<dyn Router>>,
+    strapper: Option<Arc<dyn Strapper>>,
+    straps: Vec<(NetId, StrappingParams)>,
+    layer_bbox: Option<Rect>,
+    port_ids: Vec<NetId>,
+}
+
+/// Remaining fields of [`TileBuilder`] not contained in [`TileAbstractBuilder`].
+struct TileBuilderUnused<'a, PDK: Pdk + Schema + ?Sized> {
+    #[allow(dead_code)]
+    schematic: &'a mut schematic::CellBuilder<PDK>,
+    /// The layout builder.
+    pub layout: &'a mut layout::CellBuilder<PDK>,
+    /// The layer stack.
+    #[allow(dead_code)]
+    pub layer_stack: Arc<LayerStack<PdkLayer>>,
+    #[allow(dead_code)]
+    next_net_id: usize,
+    via_maker: Option<Arc<dyn ViaMaker<PDK>>>,
+}
+
 /// A drawn ATOLL instance.
 pub struct DrawnInstance<T: ExportsNestedData + ExportsLayoutData> {
     /// The underlying Substrate schematic instance.
@@ -468,54 +496,104 @@ pub struct DrawnInstance<T: ExportsNestedData + ExportsLayoutData> {
     pub layout: layout::Instance<T>,
 }
 
-fn finalize_abstract(
-    abs: Vec<InstanceAbstract>,
-    nodes: IndexMap<Node, NodeInfo>,
-    mut connections: ena::unify::InPlaceUnificationTable<NodeKey>,
-    top_layer: usize,
-    layer_bbox: Option<Rect>,
-    assigned_nets: Vec<AssignedGridPoints>,
-    straps: Vec<(NetId, StrappingParams)>,
-    port_ids: Vec<NetId>,
-    router: Option<Arc<dyn Router>>,
-    strapper: Option<Arc<dyn Strapper>>,
-) -> (Abstract, Vec<Path>) {
-    let mut abs = InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
-    let mut routing_state = abs.routing_state();
-    let mut to_connect = IndexMap::new();
-    for (_, info) in nodes {
-        to_connect
-            .entry(connections.find(info.key))
-            .or_insert(Vec::new())
-            .push(info.net);
-    }
-    let to_connect: Vec<_> = to_connect.into_values().collect();
-    let mut paths = Vec::new();
-
-    if let Some(router) = router {
-        paths.extend(router.route(&mut routing_state, to_connect.clone()));
-    }
-
-    let mut roots = HashMap::new();
-    for seq in to_connect.iter() {
-        for node in seq.iter() {
-            roots.insert(*node, seq[0]);
+impl TileAbstractBuilder {
+    fn finalize_abstract(self) -> (Abstract, Vec<Path>) {
+        let TileAbstractBuilder {
+            nodes,
+            mut connections,
+            abs,
+            assigned_nets,
+            top_layer,
+            router,
+            strapper,
+            straps,
+            layer_bbox,
+            port_ids,
+        } = self;
+        let mut abs = InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
+        let mut routing_state = abs.routing_state();
+        let mut to_connect = IndexMap::new();
+        for (_, info) in nodes {
+            to_connect
+                .entry(connections.find(info.key))
+                .or_insert(Vec::new())
+                .push(info.net);
         }
-    }
-    routing_state.roots = roots;
-    for nets in to_connect {
-        for net in nets {
-            routing_state.relabel_net(net, routing_state.roots[&net]);
+        let to_connect: Vec<_> = to_connect.into_values().collect();
+        let mut paths = Vec::new();
+
+        if let Some(router) = router {
+            paths.extend(router.route(&mut routing_state, to_connect.clone()));
         }
+
+        let mut roots = HashMap::new();
+        for seq in to_connect.iter() {
+            for node in seq.iter() {
+                roots.insert(*node, seq[0]);
+            }
+        }
+        routing_state.roots = roots;
+        for nets in to_connect {
+            for net in nets {
+                routing_state.relabel_net(net, routing_state.roots[&net]);
+            }
+        }
+        if let Some(strapper) = strapper {
+            paths.extend(strapper.strap(&mut routing_state, straps));
+        }
+        abs.from_routing_state(routing_state);
+        (abs, paths)
     }
-    if let Some(strapper) = strapper {
-        paths.extend(strapper.strap(&mut routing_state, straps));
-    }
-    abs.from_routing_state(routing_state);
-    (abs, paths)
 }
 
 impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
+    /// Splits off data not required for building an abstract.
+    fn split_for_abstract(
+        self,
+        port_nodes: Vec<Node>,
+    ) -> (TileAbstractBuilder, TileBuilderUnused<'a, PDK>) {
+        let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
+        let layer_bbox = self.layout.layer_bbox(virtual_layers.outline.id());
+
+        let port_ids = port_nodes.iter().map(|node| self.nodes[node].net).collect();
+
+        let TileBuilder {
+            nodes,
+            connections,
+            abs,
+            assigned_nets,
+            top_layer,
+            next_net_id,
+            router,
+            strapper,
+            via_maker,
+            straps,
+            layer_stack,
+            layout,
+            schematic,
+        } = self;
+        (
+            TileAbstractBuilder {
+                nodes,
+                connections,
+                abs,
+                assigned_nets,
+                top_layer,
+                router,
+                strapper,
+                straps,
+                layer_bbox,
+                port_ids,
+            },
+            TileBuilderUnused {
+                next_net_id,
+                via_maker,
+                layer_stack,
+                layout,
+                schematic,
+            },
+        )
+    }
     fn register_bundle<T: Flatten<Node>>(&mut self, bundle: &T) {
         let nodes: Vec<Node> = bundle.flatten_vec();
         let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
@@ -626,40 +704,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                         TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
                     let _ = <B as Tile<PDK>>::tile(block, atoll_io, &mut cell);
 
-                    let TileBuilder {
-                        abs,
-                        nodes,
-                        top_layer,
-                        layout,
-                        assigned_nets,
-                        router,
-                        connections,
-                        straps,
-                        strapper,
-                        ..
-                    } = cell;
-
-                    let virtual_layers = layout.ctx.install_layers::<crate::VirtualLayers>();
-                    let layer_bbox = layout.layer_bbox(virtual_layers.outline.id());
-
-                    let port_ids = schematic_io
-                        .flatten_vec()
-                        .iter()
-                        .map(|node| nodes[node].net)
-                        .collect();
-
-                    finalize_abstract(
-                        abs,
-                        nodes,
-                        connections,
-                        top_layer,
-                        layer_bbox,
-                        assigned_nets,
-                        straps,
-                        port_ids,
-                        router,
-                        strapper,
-                    )
+                    cell.split_for_abstract(schematic_io.flatten_vec())
+                        .0
+                        .finalize_abstract()
                 });
 
         let (abs, _) = abs_path.get().clone();
@@ -935,46 +982,19 @@ where
 
         let ctx_clone = (**cell.ctx()).clone();
         let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());
-        let TileBuilder {
-            abs,
-            top_layer,
-            layout,
-            assigned_nets,
-            straps,
-            router,
-            nodes,
-            connections,
-            strapper,
-            via_maker,
-            ..
-        } = cell;
-        let virtual_layers = layout.ctx.install_layers::<crate::VirtualLayers>();
-        let layer_bbox = layout.layer_bbox(virtual_layers.outline.id());
         let block = (*self).clone();
-        let port_ids = schematic_io
-            .flatten_vec()
-            .iter()
-            .map(|node| nodes[node].net)
-            .collect();
+        let (
+            cell,
+            TileBuilderUnused {
+                layout, via_maker, ..
+            },
+        ) = cell.split_for_abstract(schematic_io.flatten_vec());
         let abs_path = atoll_ctx
             .0
             .write()
             .unwrap()
             .cell_cache
-            .generate(block, move |_block| {
-                finalize_abstract(
-                    abs,
-                    nodes,
-                    connections,
-                    top_layer,
-                    layer_bbox,
-                    assigned_nets,
-                    straps,
-                    port_ids,
-                    router,
-                    strapper,
-                )
-            });
+            .generate(block, move |_block| cell.finalize_abstract());
 
         let (abs, paths) = abs_path.get().clone();
 

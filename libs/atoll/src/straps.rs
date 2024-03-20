@@ -1,13 +1,14 @@
+//! ATOLL strap routing APIs.
+
+/// ATOLL strap routing APIs.
 use crate::abs::GridCoord;
 use crate::grid::{AtollLayer, PdkLayer, RoutingState};
-use crate::route::{Path, Router, RoutingNode};
+use crate::route::Path;
 use crate::{NetId, PointState};
 use grid::Grid;
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
 use substrate::geometry::dir::Dir;
-use substrate::geometry::span::Span;
 
+/// Parameters for strap routing.
 pub struct StrappingParams {
     /// Starting layer.
     start: usize,
@@ -16,14 +17,23 @@ pub struct StrappingParams {
 }
 
 impl StrappingParams {
+    /// Creates a new [`StrappingParams`].
     pub fn new(start: usize, layers: Vec<LayerStrappingParams>) -> Self {
         Self { start, layers }
     }
 }
 
+/// Strap parameters for a particular ATOLL layer.
 pub enum LayerStrappingParams {
+    /// Enumerated track indexes.
     Enumerated(Vec<usize>),
-    OffsetPeriod { offset: usize, period: usize },
+    /// A track offset and period describing the strap locations.
+    OffsetPeriod {
+        /// The offset of the first strap.
+        offset: usize,
+        /// The strapping period.
+        period: usize,
+    },
 }
 
 /// An ATOLL strapper.
