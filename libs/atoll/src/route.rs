@@ -21,7 +21,6 @@ pub type GridSegment = (GridCoord, GridCoord);
 
 /// An ATOLL router.
 pub trait Router: Send + Sync {
-    // todo: perhaps add way to translate nodes to net IDs
     /// Returns routes that connect the given nets.
     fn route(
         &self,

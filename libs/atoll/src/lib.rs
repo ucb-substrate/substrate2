@@ -67,10 +67,11 @@
 pub mod abs;
 pub mod grid;
 pub mod route;
+pub mod straps;
 
 use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
-use crate::route::{Router, ViaMaker};
+use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -93,6 +94,7 @@ use substrate::io::schematic::{Bundle, Connect, HardwareType, IsBundle, Node, Te
 use substrate::io::Flatten;
 use substrate::layout::element::Shape;
 
+use crate::straps::{Strapper, StrappingParams};
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::rect::Rect;
 use substrate::layout::bbox::LayerBbox;
@@ -453,6 +455,36 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     top_layer: usize,
     next_net_id: usize,
     router: Option<Arc<dyn Router>>,
+    strapper: Option<Arc<dyn Strapper>>,
+    via_maker: Option<Arc<dyn ViaMaker<PDK>>>,
+    straps: Vec<(NetId, StrappingParams)>,
+}
+
+/// Fields required for building an abstract.
+struct TileAbstractBuilder {
+    nodes: IndexMap<Node, NodeInfo>,
+    connections: ena::unify::InPlaceUnificationTable<NodeKey>,
+    abs: Vec<InstanceAbstract>,
+    assigned_nets: Vec<AssignedGridPoints>,
+    top_layer: usize,
+    router: Option<Arc<dyn Router>>,
+    strapper: Option<Arc<dyn Strapper>>,
+    straps: Vec<(NetId, StrappingParams)>,
+    layer_bbox: Option<Rect>,
+    port_ids: Vec<NetId>,
+}
+
+/// Remaining fields of [`TileBuilder`] not contained in [`TileAbstractBuilder`].
+struct TileBuilderUnused<'a, PDK: Pdk + Schema + ?Sized> {
+    #[allow(dead_code)]
+    schematic: &'a mut schematic::CellBuilder<PDK>,
+    /// The layout builder.
+    pub layout: &'a mut layout::CellBuilder<PDK>,
+    /// The layer stack.
+    #[allow(dead_code)]
+    pub layer_stack: Arc<LayerStack<PdkLayer>>,
+    #[allow(dead_code)]
+    next_net_id: usize,
     via_maker: Option<Arc<dyn ViaMaker<PDK>>>,
 }
 
@@ -464,7 +496,104 @@ pub struct DrawnInstance<T: ExportsNestedData + ExportsLayoutData> {
     pub layout: layout::Instance<T>,
 }
 
+impl TileAbstractBuilder {
+    fn finalize_abstract(self) -> (Abstract, Vec<Path>) {
+        let TileAbstractBuilder {
+            nodes,
+            mut connections,
+            abs,
+            assigned_nets,
+            top_layer,
+            router,
+            strapper,
+            straps,
+            layer_bbox,
+            port_ids,
+        } = self;
+        let mut abs = InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
+        let mut routing_state = abs.routing_state();
+        let mut to_connect = IndexMap::new();
+        for (_, info) in nodes {
+            to_connect
+                .entry(connections.find(info.key))
+                .or_insert(Vec::new())
+                .push(info.net);
+        }
+        let to_connect: Vec<_> = to_connect.into_values().collect();
+        let mut paths = Vec::new();
+
+        if let Some(router) = router {
+            paths.extend(router.route(&mut routing_state, to_connect.clone()));
+        }
+
+        let mut roots = HashMap::new();
+        for seq in to_connect.iter() {
+            for node in seq.iter() {
+                roots.insert(*node, seq[0]);
+            }
+        }
+        routing_state.roots = roots;
+        for nets in to_connect {
+            for net in nets {
+                routing_state.relabel_net(net, routing_state.roots[&net]);
+            }
+        }
+        if let Some(strapper) = strapper {
+            paths.extend(strapper.strap(&mut routing_state, straps));
+        }
+        abs.from_routing_state(routing_state);
+        (abs, paths)
+    }
+}
+
 impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
+    /// Splits off data not required for building an abstract.
+    fn split_for_abstract(
+        self,
+        port_nodes: Vec<Node>,
+    ) -> (TileAbstractBuilder, TileBuilderUnused<'a, PDK>) {
+        let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
+        let layer_bbox = self.layout.layer_bbox(virtual_layers.outline.id());
+
+        let port_ids = port_nodes.iter().map(|node| self.nodes[node].net).collect();
+
+        let TileBuilder {
+            nodes,
+            connections,
+            abs,
+            assigned_nets,
+            top_layer,
+            next_net_id,
+            router,
+            strapper,
+            via_maker,
+            straps,
+            layer_stack,
+            layout,
+            schematic,
+        } = self;
+        (
+            TileAbstractBuilder {
+                nodes,
+                connections,
+                abs,
+                assigned_nets,
+                top_layer,
+                router,
+                strapper,
+                straps,
+                layer_bbox,
+                port_ids,
+            },
+            TileBuilderUnused {
+                next_net_id,
+                via_maker,
+                layer_stack,
+                layout,
+                schematic,
+            },
+        )
+    }
     fn register_bundle<T: Flatten<Node>>(&mut self, bundle: &T) {
         let nodes: Vec<Node> = bundle.flatten_vec();
         let keys: Vec<NodeKey> = nodes.iter().map(|_| self.connections.new_key(())).collect();
@@ -501,7 +630,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             assigned_nets: Vec::new(),
             next_net_id: 0,
             router: None,
+            strapper: None,
             via_maker: None,
+            straps: Vec::new(),
         };
 
         builder.register_bundle(schematic_io);
@@ -573,45 +704,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                         TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
                     let _ = <B as Tile<PDK>>::tile(block, atoll_io, &mut cell);
 
-                    let virtual_layers = cell.layout.ctx.install_layers::<crate::VirtualLayers>();
-                    let port_ids = schematic_io
-                        .flatten_vec()
-                        .iter()
-                        .map(|node| cell.nodes[node].net)
-                        .collect();
-                    let mut abs = InstanceAbstract::merge(
-                        cell.abs,
-                        cell.top_layer,
-                        cell.layout.layer_bbox(virtual_layers.outline.id()),
-                        port_ids,
-                        cell.assigned_nets,
-                    );
-                    let mut routing_state = abs.routing_state();
-                    let mut to_connect = IndexMap::new();
-                    for (_, info) in cell.nodes {
-                        to_connect
-                            .entry(cell.connections.find(info.key))
-                            .or_insert(Vec::new())
-                            .push(info.net);
-                    }
-                    let to_connect: Vec<_> = to_connect.into_values().collect();
-                    let paths = cell
-                        .router
-                        .map(|router| router.route(&mut routing_state, to_connect.clone()));
-                    let mut roots = HashMap::new();
-                    for seq in to_connect.iter() {
-                        for node in seq.iter() {
-                            roots.insert(*node, seq[0]);
-                        }
-                    }
-                    routing_state.roots = roots;
-                    for nets in to_connect {
-                        for net in nets {
-                            routing_state.relabel_net(net, routing_state.roots[&net]);
-                        }
-                    }
-                    abs.from_routing_state(routing_state);
-                    (abs, paths)
+                    cell.split_for_abstract(schematic_io.flatten_vec())
+                        .0
+                        .finalize_abstract()
                 });
 
         let (abs, _) = abs_path.get().clone();
@@ -743,6 +838,13 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         })
     }
 
+    /// Set up straps for the provided node.
+    ///
+    /// Order of calls to `set_strapping` may matter depending on the [`Strapper`] being used.
+    pub fn set_strapping(&mut self, node: Node, params: StrappingParams) {
+        self.straps.push((self.nodes[&node].net, params));
+    }
+
     /// Gets the global context.
     pub fn ctx(&self) -> &PdkContext<PDK> {
         self.layout.ctx()
@@ -759,6 +861,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     /// Sets the router.
     pub fn set_router<T: Any + Router>(&mut self, router: T) {
         self.router = Some(Arc::new(router));
+    }
+
+    /// Sets the strapper.
+    pub fn set_strapper<T: Any + Strapper>(&mut self, strapper: T) {
+        self.strapper = Some(Arc::new(strapper));
     }
 
     /// Sets the via maker.
@@ -873,125 +980,93 @@ where
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
         let (_, layout_data) = <T as Tile<PDK>>::tile(&self.block, io, &mut cell)?;
 
-        let virtual_layers = cell.layout.ctx.install_layers::<crate::VirtualLayers>();
-        let port_ids = schematic_io
-            .flatten_vec()
-            .iter()
-            .map(|node| cell.nodes[node].net)
-            .collect();
         let ctx_clone = (**cell.ctx()).clone();
         let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());
-        let TileBuilder {
-            abs,
-            top_layer,
-            layout,
-            assigned_nets,
-            router,
-            nodes,
-            mut connections,
-            via_maker,
-            ..
-        } = cell;
-        let layer_bbox = layout.layer_bbox(virtual_layers.outline.id());
         let block = (*self).clone();
+        let (
+            cell,
+            TileBuilderUnused {
+                layout, via_maker, ..
+            },
+        ) = cell.split_for_abstract(schematic_io.flatten_vec());
         let abs_path = atoll_ctx
             .0
             .write()
             .unwrap()
             .cell_cache
-            .generate(block, move |_block| {
-                let mut abs =
-                    InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
-                let paths = router.map(|router| {
-                    let mut routing_state = abs.routing_state();
-                    let mut to_connect = IndexMap::new();
-                    for (_, info) in nodes {
-                        to_connect
-                            .entry(connections.find(info.key))
-                            .or_insert(Vec::new())
-                            .push(info.net);
-                    }
-                    let to_connect: Vec<_> = to_connect.into_values().collect();
-                    let paths = router.route(&mut routing_state, to_connect);
-                    abs.from_routing_state(routing_state);
-                    paths
-                });
-                (abs, paths)
-            });
+            .generate(block, move |_block| cell.finalize_abstract());
 
         let (abs, paths) = abs_path.get().clone();
 
-        if let Some(paths) = paths {
-            for path in paths {
-                for (a, b) in path {
-                    let (a, b) = (abs.grid_to_track(a), abs.grid_to_track(b));
-                    if a.layer == b.layer {
-                        // todo: handle multiple routing directions
-                        assert!(a.x == b.x || a.y == b.y);
-                        let layer = abs.grid.stack.layer(a.layer);
-                        let (start_track, start_cross_track, end_track, end_cross_track) =
-                            if layer.dir().track_dir() == Dir::Vert {
-                                (a.x, a.y, b.x, b.y)
-                            } else {
-                                (a.y, a.x, b.y, b.x)
-                            };
-                        let start = abs
-                            .grid
-                            .track_point(a.layer, start_track, start_cross_track);
-                        let end = abs.grid.track_point(b.layer, end_track, end_cross_track);
-                        let track = Rect::from_point(start)
-                            .union(Rect::from_point(end))
-                            .expand_dir(
-                                if a.x == b.x { Dir::Horiz } else { Dir::Vert },
-                                abs.grid.stack.layer(a.layer).line() / 2,
-                            )
-                            .expand_dir(
-                                if a.y == b.y { Dir::Horiz } else { Dir::Vert },
-                                abs.grid.stack.layer(a.layer).endcap(),
-                            );
-
-                        if track.width() > 0 && track.height() > 0 {
-                            layout.draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
-                        }
-                    } else if a.layer == b.layer + 1 || b.layer == a.layer + 1 {
-                        let (a, b) = if b.layer > a.layer { (b, a) } else { (a, b) };
-                        let (in_track, out_track) =
-                            if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Horiz
-                                && a.x == b.x
-                            {
-                                (
-                                    abs.grid.track(b.layer, b.x, b.y, b.y),
-                                    abs.grid.track_point(a.layer, a.y, a.x),
-                                )
-                            } else if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Vert
-                                && a.y == b.y
-                            {
-                                (
-                                    abs.grid.track(b.layer, b.y, b.x, b.x),
-                                    abs.grid.track_point(a.layer, a.x, a.y),
-                                )
-                            } else {
-                                panic!("cannot have a diagonal segment");
-                            };
-
-                        let track = Rect::from_spans(
-                            in_track.hspan().add_point(out_track.x),
-                            in_track.vspan().add_point(out_track.y),
+        for path in paths {
+            for (a, b) in path {
+                let (a, b) = (abs.grid_to_track(a), abs.grid_to_track(b));
+                if a.layer == b.layer {
+                    // todo: handle multiple routing directions
+                    assert!(a.x == b.x || a.y == b.y);
+                    let layer = abs.grid.stack.layer(a.layer);
+                    let (start_track, start_cross_track, end_track, end_cross_track) =
+                        if layer.dir().track_dir() == Dir::Vert {
+                            (a.x, a.y, b.x, b.y)
+                        } else {
+                            (a.y, a.x, b.y, b.x)
+                        };
+                    let start = abs
+                        .grid
+                        .track_point(a.layer, start_track, start_cross_track);
+                    let end = abs.grid.track_point(b.layer, end_track, end_cross_track);
+                    let track = Rect::from_point(start)
+                        .union(Rect::from_point(end))
+                        .expand_dir(
+                            if a.x == b.x { Dir::Horiz } else { Dir::Vert },
+                            abs.grid.stack.layer(a.layer).line() / 2,
+                        )
+                        .expand_dir(
+                            if a.y == b.y { Dir::Horiz } else { Dir::Vert },
+                            abs.grid.stack.layer(a.layer).endcap(),
                         );
-                        if track.width() > 0 && track.height() > 0 {
-                            layout.draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
-                        }
-                        if let Some(maker) = &via_maker {
-                            for shape in maker.draw_via(
-                                layout.ctx().clone(),
-                                TrackCoord {
-                                    layer: a.layer,
-                                    x: a.x,
-                                    y: a.y,
-                                },
-                            ) {
-                                layout.draw(shape)?;
-                            }
+
+                    if track.width() > 0 && track.height() > 0 {
+                        layout.draw(Shape::new(abs.grid.stack.layer(a.layer).id, track))?;
+                    }
+                } else if a.layer == b.layer + 1 || b.layer == a.layer + 1 {
+                    let (a, b) = if b.layer > a.layer { (b, a) } else { (a, b) };
+                    let (in_track, out_track) = if abs.grid.stack.layer(a.layer).dir().track_dir()
+                        == Dir::Horiz
+                        && a.x == b.x
+                    {
+                        (
+                            abs.grid.track(b.layer, b.x, b.y, b.y),
+                            abs.grid.track_point(a.layer, a.y, a.x),
+                        )
+                    } else if abs.grid.stack.layer(a.layer).dir().track_dir() == Dir::Vert
+                        && a.y == b.y
+                    {
+                        (
+                            abs.grid.track(b.layer, b.y, b.x, b.x),
+                            abs.grid.track_point(a.layer, a.x, a.y),
+                        )
+                    } else {
+                        panic!("cannot have a diagonal segment");
+                    };
+
+                    let track = Rect::from_spans(
+                        in_track.hspan().add_point(out_track.x),
+                        in_track.vspan().add_point(out_track.y),
+                    );
+                    if track.width() > 0 && track.height() > 0 {
+                        layout.draw(Shape::new(abs.grid.stack.layer(b.layer).id, track))?;
+                    }
+                    if let Some(maker) = &via_maker {
+                        for shape in maker.draw_via(
+                            layout.ctx().clone(),
+                            TrackCoord {
+                                layer: a.layer,
+                                x: a.x,
+                                y: a.y,
+                            },
+                        ) {
+                            layout.draw(shape)?;
                         }
                     }
                 }
