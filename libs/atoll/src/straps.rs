@@ -105,7 +105,7 @@ impl Strapper for GreedyStrapper {
                             if let Some(start) = start {
                                 let stop = j.checked_sub(via_space);
                                 if let Some(stop) = stop {
-                                    if start <= stop {
+                                    if start < stop {
                                         tentative_straps.push(Strap {
                                             net,
                                             layer,
