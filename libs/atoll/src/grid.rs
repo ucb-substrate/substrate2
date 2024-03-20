@@ -651,6 +651,10 @@ impl<L> IndexMut<GridCoord> for RoutingState<L> {
 }
 
 impl<L> RoutingState<L> {
+    /// Returns a reference to the routing grid.
+    pub fn grid(&self) -> &RoutingGrid<L> {
+        &self.grid
+    }
     /// Returns a reference to a layer's state.
     pub fn layer(&self, layer: usize) -> &Grid<PointState> {
         &self.layers[layer]
