@@ -69,13 +69,13 @@ pub mod grid;
 pub mod route;
 pub mod straps;
 
-use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
+use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 
 use cache::mem::TypeCache;
@@ -435,9 +435,14 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AssignedGridPoints {
-    pub(crate) net: NetId,
+    pub(crate) net: Option<NetId>,
     pub(crate) layer: usize,
     pub(crate) bounds: Rect,
+}
+
+pub(crate) struct SkipRouteNet {
+    pub(crate) net: NetId,
+    pub(crate) all: bool,
 }
 
 /// A builder for ATOLL tiles.
@@ -452,6 +457,8 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
+    skip_nets: HashSet<NetId>,
+    skip_all_nets: HashSet<NetId>,
     top_layer: usize,
     next_net_id: usize,
     router: Option<Arc<dyn Router>>,
@@ -466,6 +473,8 @@ struct TileAbstractBuilder {
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
+    skip_nets: HashSet<NetId>,
+    skip_all_nets: HashSet<NetId>,
     top_layer: usize,
     router: Option<Arc<dyn Router>>,
     strapper: Option<Arc<dyn Strapper>>,
@@ -505,6 +514,8 @@ impl TileAbstractBuilder {
             assigned_nets,
             top_layer,
             router,
+            skip_nets,
+            skip_all_nets,
             strapper,
             straps,
             layer_bbox,
@@ -512,34 +523,51 @@ impl TileAbstractBuilder {
         } = self;
         let mut abs = InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
         let mut routing_state = abs.routing_state();
-        let mut to_connect = IndexMap::new();
-        for (_, info) in nodes {
-            to_connect
-                .entry(connections.find(info.key))
-                .or_insert(Vec::new())
-                .push(info.net);
-        }
-        let to_connect: Vec<_> = to_connect.into_values().collect();
-        let mut paths = Vec::new();
-
-        if let Some(router) = router {
-            paths.extend(router.route(&mut routing_state, to_connect.clone()));
-        }
 
         let mut roots = HashMap::new();
-        for seq in to_connect.iter() {
+
+        // All of the nets that needed to be connected in the final abstract.
+        let mut to_connect_raw = IndexMap::new();
+        for (_, info) in nodes {
+            to_connect_raw
+                .entry(connections.find(info.key))
+                .or_insert(HashSet::new())
+                .insert(info.net);
+        }
+
+        // Raw nets with skipped nets filtered out.
+        let mut to_connect = to_connect_raw.clone();
+
+        for (_, seq) in to_connect.iter_mut() {
+            let group = *seq.iter().next().unwrap();
             for node in seq.iter() {
-                roots.insert(*node, seq[0]);
+                roots.insert(*node, group);
+            }
+            for net in skip_nets.iter() {
+                seq.remove(net);
             }
         }
         routing_state.roots = roots;
-        for nets in to_connect {
-            for net in nets {
-                routing_state.relabel_net(net, routing_state.roots[&net]);
-            }
+
+        let to_connect: Vec<_> = to_connect
+            .clone()
+            .into_values()
+            .filter(|nets| skip_all_nets.is_disjoint(&nets))
+            .map(|nets| Vec::from_iter(nets))
+            .collect();
+
+        let mut paths = Vec::new();
+
+        if let Some(router) = router {
+            paths.extend(router.route(&mut routing_state, to_connect));
         }
         if let Some(strapper) = strapper {
             paths.extend(strapper.strap(&mut routing_state, straps));
+        }
+        for (_, nets) in to_connect_raw {
+            for net in nets {
+                routing_state.relabel_net(net, routing_state.roots[&net]);
+            }
         }
         abs.from_routing_state(routing_state);
         (abs, paths)
@@ -562,6 +590,8 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             connections,
             abs,
             assigned_nets,
+            skip_nets,
+            skip_all_nets,
             top_layer,
             next_net_id,
             router,
@@ -578,6 +608,8 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 connections,
                 abs,
                 assigned_nets,
+                skip_nets,
+                skip_all_nets,
                 top_layer,
                 router,
                 strapper,
@@ -628,6 +660,8 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             top_layer: 0,
             abs: Vec::new(),
             assigned_nets: Vec::new(),
+            skip_nets: HashSet::new(),
+            skip_all_nets: HashSet::new(),
             next_net_id: 0,
             router: None,
             strapper: None,
@@ -830,9 +864,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     }
 
     /// Assigns grid points to the provided node.
-    pub fn assign_grid_points(&mut self, node: Node, layer: usize, bounds: Rect) {
+    ///
+    /// If the provided node is `None`, blocks the grid point for routing.
+    pub fn assign_grid_points(&mut self, node: Option<Node>, layer: usize, bounds: Rect) {
         self.assigned_nets.push(AssignedGridPoints {
-            net: self.nodes[&node].net,
+            net: node.map(|node| self.nodes[&node].net),
             layer,
             bounds,
         })
@@ -861,6 +897,16 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     /// Sets the router.
     pub fn set_router<T: Any + Router>(&mut self, router: T) {
         self.router = Some(Arc::new(router));
+    }
+
+    /// Skips routing a net.
+    pub fn skip_routing(&mut self, node: Node) {
+        self.skip_nets.insert(self.nodes[&node].net);
+    }
+
+    /// Skips routing a net.
+    pub fn skip_routing_all(&mut self, node: Node) {
+        self.skip_all_nets.insert(self.nodes[&node].net);
     }
 
     /// Sets the strapper.
@@ -982,11 +1028,14 @@ where
 
         let ctx_clone = (**cell.ctx()).clone();
         let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());
-        let block = (*self).clone();
+        let block = (**self).clone();
         let (
             cell,
             TileBuilderUnused {
-                layout, via_maker, ..
+                layout,
+                via_maker,
+                layer_stack,
+                ..
             },
         ) = cell.split_for_abstract(schematic_io.flatten_vec());
         let abs_path = atoll_ctx
@@ -997,6 +1046,11 @@ where
             .generate(block, move |_block| cell.finalize_abstract());
 
         let (abs, paths) = abs_path.get().clone();
+
+        // layout.draw(DebugAbstract {
+        //     abs: abs.clone(),
+        //     stack: (*layer_stack).clone(),
+        // })?;
 
         for path in paths {
             for (a, b) in path {

@@ -109,7 +109,7 @@ pub struct Abstract {
     /// A list of port net IDs.
     ///
     /// The order of net IDs matches that provided by [`layout::Cell::ports`].
-    ports: Vec<NetId>,
+    pub(crate) ports: Vec<NetId>,
     /// The routing grid used to produce this abstract view.
     pub(crate) grid: RoutingGrid<PdkLayer>,
 }
@@ -474,10 +474,14 @@ impl InstanceAbstract {
                         y: j as usize,
                         layer,
                     }) {
-                        state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed {
-                            net,
-                            has_via: false,
-                        }
+                        state.layer_mut(layer)[(i as usize, j as usize)] = if let Some(net) = net {
+                            PointState::Routed {
+                                net,
+                                has_via: false,
+                            }
+                        } else {
+                            PointState::Blocked
+                        };
                     }
                 }
             }

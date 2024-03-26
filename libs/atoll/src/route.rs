@@ -187,15 +187,6 @@ impl Router for GreedyRouter {
         state: &mut RoutingState<PdkLayer>,
         mut to_connect: Vec<Vec<NetId>>,
     ) -> Vec<Path> {
-        // build roots map
-        let mut roots = HashMap::new();
-        for seq in to_connect.iter() {
-            for node in seq.iter() {
-                roots.insert(*node, seq[0]);
-            }
-        }
-        state.roots = roots;
-
         // remove nodes from the to connect list that are not on the grid
         // and relabel them to ones that are on the grid.
         for group in to_connect.iter_mut() {
