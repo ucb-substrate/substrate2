@@ -137,7 +137,7 @@ impl<'a> GreedyStrapperState<'a> {
                 .grid
                 .slice()
                 .layer(strap.layer)
-                .via_spacing();
+                .strap_via_spacing();
             let (x, y) = match track_dir {
                 Dir::Horiz => (track_coord, strap.track),
                 Dir::Vert => (strap.track, track_coord),

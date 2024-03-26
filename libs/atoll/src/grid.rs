@@ -190,6 +190,10 @@ impl AtollLayer for PdkLayer {
     fn via_spacing(&self) -> usize {
         self.inner.via_spacing()
     }
+
+    fn strap_via_spacing(&self) -> usize {
+        self.inner.strap_via_spacing()
+    }
 }
 
 impl<L> LayerStack<L> {
