@@ -140,7 +140,9 @@ impl Abstract {
             match layer {
                 LayerAbstract::Available => {}
                 LayerAbstract::Blocked => {
-                    state.layer_mut(i).fill(PointState::Blocked);
+                    state
+                        .layer_mut(i)
+                        .fill(PointState::Blocked { has_via: false });
                 }
                 LayerAbstract::Detailed { states } => {
                     *state.layer_mut(i) = states.clone();
@@ -396,7 +398,7 @@ impl InstanceAbstract {
                             LayerAbstract::Available => {}
                             LayerAbstract::Blocked => {
                                 assert_eq!(point_state, &PointState::Available);
-                                *point_state = PointState::Blocked;
+                                *point_state = PointState::Blocked { has_via: false };
                             }
                             LayerAbstract::Detailed { states } => {
                                 let new_state = states[match inst.orientation {
@@ -420,8 +422,8 @@ impl InstanceAbstract {
                                 // TODO: decide semantics for conflicting net labels
                                 match new_state {
                                     PointState::Available => {}
-                                    PointState::Blocked => {
-                                        *point_state = PointState::Blocked;
+                                    PointState::Blocked { has_via } => {
+                                        *point_state = PointState::Blocked { has_via };
                                     }
                                     PointState::Routed { net, has_via } => {
                                         if let Some(translation) = net_translation.get(&net) {
@@ -430,7 +432,7 @@ impl InstanceAbstract {
                                                 has_via,
                                             };
                                         } else {
-                                            *point_state = PointState::Blocked;
+                                            *point_state = PointState::Blocked { has_via };
                                         }
                                     }
                                     PointState::Reserved { net } => {
@@ -438,7 +440,7 @@ impl InstanceAbstract {
                                             *point_state =
                                                 PointState::Reserved { net: *translation };
                                         } else {
-                                            *point_state = PointState::Blocked;
+                                            *point_state = PointState::Blocked { has_via: false };
                                         }
                                     }
                                 }
@@ -480,7 +482,7 @@ impl InstanceAbstract {
                                 has_via: false,
                             }
                         } else {
-                            PointState::Blocked
+                            PointState::Blocked { has_via: false }
                         };
                     }
                 }
@@ -607,7 +609,13 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                             let pt = self.abs.grid_to_physical(GridCoord { layer: i, x, y });
                             let rect = match states[(x, y)] {
                                 PointState::Available => Rect::from_point(pt).expand_all(20),
-                                PointState::Blocked => Rect::from_point(pt).expand_all(40),
+                                PointState::Blocked { has_via } => {
+                                    if has_via {
+                                        Rect::from_point(pt).expand_all(40)
+                                    } else {
+                                        Rect::from_point(pt).expand_all(33)
+                                    }
+                                }
                                 PointState::Routed { has_via, .. } => {
                                     if has_via {
                                         Rect::from_point(pt).expand_all(37)
