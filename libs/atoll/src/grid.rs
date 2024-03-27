@@ -1196,6 +1196,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 20,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
@@ -1204,6 +1205,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 20,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
@@ -1212,6 +1214,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 40,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
@@ -1220,6 +1223,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 50,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
             ],
             offset_x: 0,
