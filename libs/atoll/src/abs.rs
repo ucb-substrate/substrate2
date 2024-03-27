@@ -474,10 +474,14 @@ impl InstanceAbstract {
                         y: j as usize,
                         layer,
                     }) {
-                        state.layer_mut(layer)[(i as usize, j as usize)] = PointState::Routed {
-                            net,
-                            has_via: false,
-                        }
+                        state.layer_mut(layer)[(i as usize, j as usize)] = if let Some(net) = net {
+                            PointState::Routed {
+                                net,
+                                has_via: false,
+                            }
+                        } else {
+                            PointState::Blocked
+                        };
                     }
                 }
             }

@@ -42,6 +42,7 @@ impl Sky130Layers {
                         offset: TrackOffset::None,
                         endcap: 85,
                         via_spacing: 1,
+                        strap_via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -53,6 +54,7 @@ impl Sky130Layers {
                         offset: TrackOffset::None,
                         endcap: 85,
                         via_spacing: 1,
+                        strap_via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -64,6 +66,7 @@ impl Sky130Layers {
                         offset: TrackOffset::None,
                         endcap: 130,
                         via_spacing: 1,
+                        strap_via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -75,6 +78,7 @@ impl Sky130Layers {
                         offset: TrackOffset::None,
                         endcap: 200,
                         via_spacing: 1,
+                        strap_via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -86,6 +90,7 @@ impl Sky130Layers {
                         offset: TrackOffset::None,
                         endcap: 200,
                         via_spacing: 1,
+                        strap_via_spacing: 1,
                     },
                 },
                 PdkLayer {
@@ -97,6 +102,7 @@ impl Sky130Layers {
                         offset: TrackOffset::None,
                         endcap: 600,
                         via_spacing: 1,
+                        strap_via_spacing: 1,
                     },
                 },
             ],

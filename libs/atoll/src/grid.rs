@@ -50,6 +50,10 @@ pub trait AtollLayer {
     fn via_spacing(&self) -> usize {
         1
     }
+    /// The minimum spacing between adjacent vias on the same power strap.
+    fn strap_via_spacing(&self) -> usize {
+        1
+    }
 
     /// The line + space of this layer.
     ///
@@ -83,6 +87,8 @@ pub struct AbstractLayer {
     pub endcap: i64,
     /// The minimum spacing between adjacent vias on the same metal track.
     pub via_spacing: usize,
+    /// The minimum spacing between adjacent vias on the same power strap.
+    pub strap_via_spacing: usize,
 }
 
 /// An ATOLL-layer associated with a layer provided by a PDK.
@@ -154,6 +160,10 @@ impl AtollLayer for AbstractLayer {
     fn via_spacing(&self) -> usize {
         self.via_spacing
     }
+
+    fn strap_via_spacing(&self) -> usize {
+        self.strap_via_spacing
+    }
 }
 
 impl AtollLayer for PdkLayer {
@@ -179,6 +189,10 @@ impl AtollLayer for PdkLayer {
 
     fn via_spacing(&self) -> usize {
         self.inner.via_spacing()
+    }
+
+    fn strap_via_spacing(&self) -> usize {
+        self.inner.strap_via_spacing()
     }
 }
 
@@ -1182,6 +1196,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 20,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
@@ -1190,6 +1205,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 20,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Horiz,
@@ -1198,6 +1214,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 40,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
                 AbstractLayer {
                     dir: RoutingDir::Vert,
@@ -1206,6 +1223,7 @@ mod tests {
                     offset: TrackOffset::None,
                     endcap: 50,
                     via_spacing: 1,
+                    strap_via_spacing: 1,
                 },
             ],
             offset_x: 0,
