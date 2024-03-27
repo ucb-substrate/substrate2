@@ -69,7 +69,7 @@ pub mod grid;
 pub mod route;
 pub mod straps;
 
-use crate::abs::{Abstract, DebugAbstract, InstanceAbstract, TrackCoord};
+use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
@@ -440,11 +440,6 @@ pub(crate) struct AssignedGridPoints {
     pub(crate) bounds: Rect,
 }
 
-pub(crate) struct SkipRouteNet {
-    pub(crate) net: NetId,
-    pub(crate) all: bool,
-}
-
 /// A builder for ATOLL tiles.
 pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     nodes: IndexMap<Node, NodeInfo>,
@@ -552,8 +547,8 @@ impl TileAbstractBuilder {
         let to_connect: Vec<_> = to_connect
             .clone()
             .into_values()
-            .filter(|nets| skip_all_nets.is_disjoint(&nets))
-            .map(|nets| Vec::from_iter(nets))
+            .filter(|nets| skip_all_nets.is_disjoint(nets))
+            .map(Vec::from_iter)
             .collect();
 
         let mut paths = Vec::new();
@@ -1032,10 +1027,7 @@ where
         let (
             cell,
             TileBuilderUnused {
-                layout,
-                via_maker,
-                layer_stack,
-                ..
+                layout, via_maker, ..
             },
         ) = cell.split_for_abstract(schematic_io.flatten_vec());
         let abs_path = atoll_ctx

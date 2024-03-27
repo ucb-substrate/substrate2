@@ -7,7 +7,7 @@ use indexmap::{map::Entry, IndexMap};
 use num::Zero;
 use rustc_hash::FxHasher;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashSet};
 use std::hash::{BuildHasherDefault, Hash};
 use substrate::context::PdkContext;
 use substrate::layout::element::Shape;

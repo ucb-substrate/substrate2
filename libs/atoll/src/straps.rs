@@ -148,8 +148,8 @@ impl<'a> GreedyStrapperState<'a> {
                 y,
             };
             if let LayerStrappingParams::ViaDown { min_period } = params {
-                for track in (strap.track + 1).checked_sub(*min_period).unwrap_or(0)
-                    ..strap.track + *min_period
+                for track in
+                    (strap.track + 1).saturating_sub(*min_period)..strap.track + *min_period
                 {
                     if track == strap.track {
                         continue;
@@ -163,7 +163,7 @@ impl<'a> GreedyStrapperState<'a> {
                         x,
                         y,
                     };
-                    /// Cannot have routing on same layer within `min_period` of current track.
+                    // Cannot have routing on same layer within `min_period` of current track.
                     if self.routing_state.in_bounds(check_coord)
                         && (self.routing_state.is_routed_for_net(check_coord, strap.net)
                             || self
