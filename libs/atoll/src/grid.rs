@@ -791,7 +791,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         match self[coord] {
             PointState::Routed { net: grid_net, .. } => self.roots[&grid_net] == self.roots[&net],
             PointState::Available => true,
-            PointState::Blocked => false,
+            PointState::Blocked { .. } => false,
             PointState::Reserved { .. } => false,
         }
     }
@@ -800,6 +800,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     pub(crate) fn has_via(&self, coord: GridCoord) -> bool {
         match self[coord] {
             PointState::Routed { has_via, .. } => has_via,
+            PointState::Blocked { has_via, .. } => has_via,
             _ => false,
         }
     }
@@ -809,7 +810,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         match self[coord] {
             PointState::Routed { .. } => false,
             PointState::Available => true,
-            PointState::Blocked => false,
+            PointState::Blocked { .. } => false,
             PointState::Reserved { net: grid_net } => self.roots[&net] == self.roots[&grid_net],
         }
     }
@@ -820,7 +821,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
         match self[coord] {
             PointState::Routed { .. } => false,
             PointState::Available => true,
-            PointState::Blocked => false,
+            PointState::Blocked { .. } => false,
             PointState::Reserved { .. } => false,
         }
     }

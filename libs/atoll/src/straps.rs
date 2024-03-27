@@ -132,7 +132,7 @@ impl<'a> GreedyStrapperState<'a> {
                 .layer(strap.layer)
                 .dir()
                 .track_dir();
-            let via_spacing = self
+            let strap_via_spacing = self
                 .routing_state
                 .grid
                 .slice()
@@ -194,7 +194,7 @@ impl<'a> GreedyStrapperState<'a> {
                             .grid
                             .slice()
                             .layer(top.layer)
-                            .strap_via_spacing();
+                            .via_spacing();
                         let routing_coord = top.coord(track_dir);
                         for i in (routing_coord + 1)
                             .checked_sub(via_spacing)
@@ -212,8 +212,8 @@ impl<'a> GreedyStrapperState<'a> {
                     }
                 }
                 if let Some((from, _)) = vias.last() {
-                    if from.coord(track_dir) + via_spacing > track_coord
-                        && from.coord(track_dir) < track_coord + via_spacing
+                    if from.coord(track_dir) + strap_via_spacing > track_coord
+                        && from.coord(track_dir) < track_coord + strap_via_spacing
                     {
                         has_via = true;
                     }

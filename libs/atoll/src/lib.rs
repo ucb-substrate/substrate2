@@ -136,7 +136,7 @@ pub enum PointState {
     /// The grid point is available for routing.
     Available,
     /// The grid point is blocked.
-    Blocked,
+    Blocked { has_via: bool },
     /// The grid point is occupied by a known net.
     Routed {
         /// The net occupying this routing space.
@@ -163,7 +163,7 @@ impl PointState {
         match self {
             Self::Available => true,
             Self::Routed { net: n, .. } => *n == net,
-            Self::Blocked => false,
+            Self::Blocked { .. } => false,
             PointState::Reserved { .. } => false, // todo might need to change this
         }
     }
@@ -173,7 +173,7 @@ impl PointState {
         match self {
             Self::Available => false,
             Self::Routed { net: n, .. } => *n == net,
-            Self::Blocked => false,
+            Self::Blocked { .. } => false,
             PointState::Reserved { .. } => false,
         }
     }
@@ -182,6 +182,7 @@ impl PointState {
     pub fn has_via(&self) -> bool {
         match self {
             Self::Routed { has_via, .. } => *has_via,
+            Self::Blocked { has_via, .. } => *has_via,
             _ => false,
         }
     }
