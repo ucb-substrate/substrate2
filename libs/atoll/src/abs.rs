@@ -109,7 +109,7 @@ pub struct Abstract {
     /// A list of port net IDs.
     ///
     /// The order of net IDs matches that provided by [`layout::Cell::ports`].
-    pub(crate) ports: Vec<NetId>,
+    ports: Vec<NetId>,
     /// The routing grid used to produce this abstract view.
     pub(crate) grid: RoutingGrid<PdkLayer>,
 }

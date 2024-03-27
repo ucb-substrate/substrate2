@@ -1039,11 +1039,6 @@ where
 
         let (abs, paths) = abs_path.get().clone();
 
-        // layout.draw(DebugAbstract {
-        //     abs: abs.clone(),
-        //     stack: (*layer_stack).clone(),
-        // })?;
-
         for path in paths {
             for (a, b) in path {
                 let (a, b) = (abs.grid_to_track(a), abs.grid_to_track(b));
