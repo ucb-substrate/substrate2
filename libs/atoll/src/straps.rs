@@ -200,7 +200,7 @@ impl<'a> GreedyStrapperState<'a> {
                                 .grid
                                 .slice()
                                 .layer(top.layer)
-                                .via_spacing();
+                                .via_spacing()
                         };
                         let routing_coord = top.coord(track_dir);
                         for i in (routing_coord + 1)

@@ -136,7 +136,10 @@ pub enum PointState {
     /// The grid point is available for routing.
     Available,
     /// The grid point is blocked.
-    Blocked { has_via: bool },
+    Blocked {
+        /// Whether there is a via at this point.
+        has_via: bool,
+    },
     /// The grid point is occupied by a known net.
     Routed {
         /// The net occupying this routing space.
