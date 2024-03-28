@@ -24,6 +24,33 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.8.1...codegen-v0.9.0) (2024-03-28)
+
+
+### Features
+
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **gds:** use u16 instead of u8 for GDS layerspecs ([#339](https://github.com/ucb-substrate/substrate2/issues/339)) ([4d1fce2](https://github.com/ucb-substrate/substrate2/commit/4d1fce25f9493c6975d43dba96ccaa4c0cf4a686))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * examples bumped from 0.5.1 to 0.6.0
+    * type_dispatch bumped from 0.3.0 to 0.4.0
+  * dev-dependencies
+    * substrate bumped from <=0.8.1 to <=0.9.0
+    * sky130pdk bumped from <=0.8.1 to <=0.9.0
+    * spectre bumped from <=0.9.1 to <=0.10.0
+    * spice bumped from <=0.7.1 to <=0.8.0
+
 ## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.7.1...codegen-v0.8.0) (2023-11-25)
 
 

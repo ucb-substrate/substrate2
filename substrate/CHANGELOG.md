@@ -24,6 +24,56 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.8.1...substrate-v0.9.0) (2024-03-28)
+
+
+### Features
+
+* **atoll:** Hierarchical ATOLL and configurable via spacing ([#374](https://github.com/ucb-substrate/substrate2/issues/374)) ([542b9a9](https://github.com/ucb-substrate/substrate2/commit/542b9a956d5c993908e33d3e707fc6bdb97d2c84))
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **errors:** add error message for unconnected scir bindings ([#365](https://github.com/ucb-substrate/substrate2/issues/365)) ([acb25d5](https://github.com/ucb-substrate/substrate2/commit/acb25d5bd555d144e1edc7d3ef5009bf3d4c8e2a))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **io:** add diff pair io ([#344](https://github.com/ucb-substrate/substrate2/issues/344)) ([556d2ef](https://github.com/ucb-substrate/substrate2/commit/556d2ef202b6b6b8469d5a92bd3d0632b41234e9))
+* **layout:** add `Bbox` implementation for `PortGeometry` ([#382](https://github.com/ucb-substrate/substrate2/issues/382)) ([e295119](https://github.com/ucb-substrate/substrate2/commit/e295119357318b1e0398bf57393b1a7405178ce6))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+* **schematics:** expose number of elems from ArrayData ([#381](https://github.com/ucb-substrate/substrate2/issues/381)) ([3422a39](https://github.com/ucb-substrate/substrate2/commit/3422a39bcab63ee2082e7c07a48f133c180a36ac))
+* **sky130:** Fix ATOLL plugin implementation ([#376](https://github.com/ucb-substrate/substrate2/issues/376)) ([aef1ed1](https://github.com/ucb-substrate/substrate2/commit/aef1ed10e6104d55a5fdf755ae4c26955d647a42))
+* **spectre:** support AC simulation ([#390](https://github.com/ucb-substrate/substrate2/issues/390)) ([dc3584a](https://github.com/ucb-substrate/substrate2/commit/dc3584a50ff8ebed525566a86d82033cf87d7b29))
+* **waveform:** support generic waveform datatypes ([#379](https://github.com/ucb-substrate/substrate2/issues/379)) ([93e59fd](https://github.com/ucb-substrate/substrate2/commit/93e59fd8c005e2f7f2aeece9a637dff337e4ce68))
+
+
+### Bug Fixes
+
+* **atoll:** Use ATOLL virtual layer for abstract bounding box ([#389](https://github.com/ucb-substrate/substrate2/issues/389)) ([d1060af](https://github.com/ucb-substrate/substrate2/commit/d1060af4c116351f0e55adc341f72b12b57b631f))
+* **deps:** bump rust to version 1.75.0 ([#362](https://github.com/ucb-substrate/substrate2/issues/362)) ([e1e82c9](https://github.com/ucb-substrate/substrate2/commit/e1e82c94cdf6ba4426f3f73f29dca40674a7f064))
+* **gds:** fix user units for GDS export ([#342](https://github.com/ucb-substrate/substrate2/issues/342)) ([d7c25c0](https://github.com/ucb-substrate/substrate2/commit/d7c25c00fe1e171ddc6dacfb816d0b85e74fd761))
+* **gds:** use u16 instead of u8 for GDS layerspecs ([#339](https://github.com/ucb-substrate/substrate2/issues/339)) ([4d1fce2](https://github.com/ucb-substrate/substrate2/commit/4d1fce25f9493c6975d43dba96ccaa4c0cf4a686))
+* **io:** schematic nodes should not be Default ([#378](https://github.com/ucb-substrate/substrate2/issues/378)) ([863da3c](https://github.com/ucb-substrate/substrate2/commit/863da3cd3fbd27dd0b3bca1ba67f98c77b1f89d4))
+* **layout:** fix issues in GDS export and ATOLL API ([#341](https://github.com/ucb-substrate/substrate2/issues/341)) ([08930b1](https://github.com/ucb-substrate/substrate2/commit/08930b1b25d018c20758986e206dc8882df782af))
+* **sim:** add `Sky130CommercialSchema` and simplify trait bounds ([#351](https://github.com/ucb-substrate/substrate2/issues/351)) ([c95e5c0](https://github.com/ucb-substrate/substrate2/commit/c95e5c08e5fc3bf6e34e00731ab4e38e9e586c01))
+* **waveforms:** add derive implementations to `WaveformRef` ([#394](https://github.com/ucb-substrate/substrate2/issues/394)) ([fd016a5](https://github.com/ucb-substrate/substrate2/commit/fd016a58d4d0c8046150bdb7e57d4566d33975ac))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * config bumped from 0.2.5 to 0.3.0
+    * examples bumped from 0.5.1 to 0.6.0
+    * cache bumped from 0.5.0 to 0.6.0
+    * codegen bumped from 0.8.1 to 0.9.0
+    * geometry bumped from 0.5.0 to 0.6.0
+    * gds bumped from 0.3.0 to 0.3.1
+    * enumify bumped from 0.1.0 to 0.1.1
+    * scir bumped from 0.7.0 to 0.8.0
+    * type_dispatch bumped from 0.3.0 to 0.4.0
+  * dev-dependencies
+    * sky130pdk bumped from <=0.8.1 to <=0.9.0
+    * spectre bumped from <=0.9.1 to <=0.10.0
+    * spice bumped from <=0.7.1 to <=0.8.0
+
 ## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.7.1...substrate-v0.8.0) (2023-11-25)
 
 
