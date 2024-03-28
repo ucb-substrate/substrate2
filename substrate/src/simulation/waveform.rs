@@ -14,6 +14,7 @@ pub struct Waveform<T> {
 }
 
 /// A time-dependent waveform that references data stored elsewhere.
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Hash, Eq)]
 pub struct WaveformRef<'a, T> {
     t: &'a [T],
     x: &'a [T],
@@ -285,6 +286,7 @@ where
         val
     }
 }
+
 impl<'a, W> FusedIterator for Values<'a, W> where W: TimeWaveform {}
 
 impl<T> TimeWaveform for Waveform<T>
@@ -513,6 +515,7 @@ where
         }
     }
 }
+
 impl<'a, W> FusedIterator for Edges<'a, W, W::Data> where W: TimeWaveform {}
 
 impl<'a, W> Transitions<'a, W, <W as TimeWaveform>::Data>
@@ -926,7 +929,7 @@ mod tests {
                     t: 4.5,
                     start_idx: 4,
                     dir: EdgeDir::Rising,
-                }
+                },
             ]
         );
     }
