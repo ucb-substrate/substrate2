@@ -204,7 +204,7 @@ dependencies = [
 
 [[package]]
 name = "atoll"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "cache",
  "ena",
@@ -410,7 +410,7 @@ checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
 name = "cache"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "backoff",
@@ -540,7 +540,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "codegen"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
@@ -569,7 +569,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "config"
-version = "0.2.5"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "cache",
@@ -838,14 +838,14 @@ dependencies = [
 
 [[package]]
 name = "enumify"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "enumify_macros",
 ]
 
 [[package]]
 name = "enumify_macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "convert_case 0.6.0",
  "darling 0.20.8",
@@ -875,7 +875,7 @@ dependencies = [
 
 [[package]]
 name = "examples"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "arcstr",
  "proc-macro-crate 1.3.1",
@@ -1014,7 +1014,7 @@ dependencies = [
 
 [[package]]
 name = "gds"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -1044,7 +1044,7 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "approx",
  "array_map",
@@ -1056,7 +1056,7 @@ dependencies = [
 
 [[package]]
 name = "geometry_macros"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "darling 0.20.8",
  "proc-macro-crate 1.3.1",
@@ -1497,7 +1497,7 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
 name = "ngspice"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "arcstr",
  "cache",
@@ -1658,7 +1658,7 @@ dependencies = [
 
 [[package]]
 name = "nutlex"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "approx",
  "enumify",
@@ -2256,7 +2256,7 @@ dependencies = [
 
 [[package]]
 name = "scir"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -2380,7 +2380,7 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "sky130pdk"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "arcstr",
  "atoll",
@@ -2449,7 +2449,7 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "arcstr",
  "cache",
@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "arcstr",
  "enumify",
@@ -2503,7 +2503,7 @@ checksum = "5ee073c9e4cd00e28217186dbe12796d692868f432bf2e97ee73bed0c56dfa01"
 
 [[package]]
 name = "substrate"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -3006,7 +3006,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "type_dispatch"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "darling 0.20.8",
  "duplicate",
@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "type_dispatch_macros"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "darling 0.20.8",
  "itertools",
