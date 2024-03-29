@@ -2490,6 +2490,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "splines"
+version = "4.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "228c4551e53c672e86439509545dd7ffcb966b6876c58b108e433a30e6117101"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2517,6 +2526,7 @@ dependencies = [
  "ena",
  "enumify",
  "examples",
+ "float_eq",
  "gds",
  "geometry",
  "impl-trait-for-tuples",
@@ -2532,6 +2542,7 @@ dependencies = [
  "slotmap",
  "spectre",
  "spice",
+ "splines",
  "thiserror",
  "toml",
  "tracing",
