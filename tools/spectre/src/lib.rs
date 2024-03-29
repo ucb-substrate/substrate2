@@ -378,7 +378,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                     log_path: &log,
                     bashrc: None,
                     format: "psfbin",
-                    flags: "",
+                    flags: "++aps +mt=8",
                 },
                 &run_script,
             )?;
