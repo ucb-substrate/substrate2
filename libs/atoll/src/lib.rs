@@ -456,6 +456,7 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
+    layers_to_block: HashSet<usize>,
     skip_nets: HashSet<NetId>,
     skip_all_nets: HashSet<NetId>,
     top_layer: usize,
@@ -478,6 +479,7 @@ struct TileAbstractBuilder {
     router: Option<Arc<dyn Router>>,
     strapper: Option<Arc<dyn Strapper>>,
     straps: Vec<(NetId, StrappingParams)>,
+    layers_to_block: HashSet<usize>,
     layer_bbox: Option<Rect>,
     port_ids: Vec<NetId>,
 }
@@ -514,6 +516,7 @@ impl TileAbstractBuilder {
             top_layer,
             router,
             skip_nets,
+            layers_to_block,
             skip_all_nets,
             strapper,
             straps,
@@ -569,6 +572,10 @@ impl TileAbstractBuilder {
             }
         }
         abs.from_routing_state(routing_state);
+
+        for layer in layers_to_block {
+            abs.block_available_on_layer(layer);
+        }
         (abs, paths)
     }
 }
@@ -589,6 +596,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             connections,
             abs,
             assigned_nets,
+            layers_to_block,
             skip_nets,
             skip_all_nets,
             top_layer,
@@ -607,6 +615,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 connections,
                 abs,
                 assigned_nets,
+                layers_to_block,
                 skip_nets,
                 skip_all_nets,
                 top_layer,
@@ -659,6 +668,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             top_layer: 0,
             abs: Vec::new(),
             assigned_nets: Vec::new(),
+            layers_to_block: HashSet::new(),
             skip_nets: HashSet::new(),
             skip_all_nets: HashSet::new(),
             next_net_id: 0,
@@ -871,6 +881,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             layer,
             bounds,
         })
+    }
+
+    /// Blocks all remaining available grid points on the given layer.
+    pub fn block_available_on_layer(&mut self, layer: usize) {
+        self.layers_to_block.insert(layer);
     }
 
     /// Set up straps for the provided node.

@@ -227,6 +227,22 @@ impl Abstract {
         self.lcm_bounds.lower_left() * self.slice().lcm_units()
     }
 
+    pub(crate) fn block_available_on_layer(&mut self, layer: usize) {
+        match &mut self.layers[layer] {
+            abs @ LayerAbstract::Available => *abs = LayerAbstract::Blocked,
+            LayerAbstract::Detailed { states } => {
+                for i in 0..states.rows() {
+                    for j in 0..states.cols() {
+                        if let pt @ PointState::Available = &mut states[(i, j)] {
+                            *pt = PointState::Blocked { has_via: false };
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Generates an abstract view of a layout cell.
     pub fn generate<PDK: Pdk, T: ExportsNestedData + ExportsLayoutData>(
         ctx: &PdkContext<PDK>,
