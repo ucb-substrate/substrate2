@@ -287,12 +287,12 @@ impl Abstract {
                             for y in rect.bot()..=rect.top() {
                                 let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                                 let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
-                                state.layer_mut(layer)
-                                    [((x - xofs) as usize, (y - yofs) as usize)] =
-                                    PointState::Routed {
+                                if let Some(pt) = state.layer_mut(layer).get_mut(((x - xofs) as usize, (y - yofs) as usize)) {
+                                    *pt = PointState::Routed {
                                         net,
                                         has_via: false,
                                     };
+                                }
                             }
                         }
                     }
