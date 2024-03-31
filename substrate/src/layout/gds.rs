@@ -504,19 +504,15 @@ impl<'a> GdsImporter<'a> {
     /// Checks that the database units match up with the units specified by the PDK.
     fn check_units(&mut self, units: &gds::GdsUnits) -> GdsImportResult<()> {
         let gdsunit = units.db_unit();
-        let rv = if (gdsunit - 1e-9).abs() < 1e-12 {
-            dec!(1e-9)
-        } else if (gdsunit - 1e-6).abs() < 1e-9 {
-            dec!(1e-6)
-        } else {
-            return Err(GdsImportError::Unsupported(arcstr::format!(
-                "unsupported GDS units: {gdsunit:10.3e}"
-            )));
-        };
 
         if let Some(expected_units) = self.units {
-            if rv != expected_units {
-                return Err(GdsImportError::MismatchedUnits(rv, expected_units));
+            if (Decimal::try_from(gdsunit).unwrap() - expected_units).abs() / expected_units
+                > dec!(1e-3)
+            {
+                return Err(GdsImportError::MismatchedUnits(
+                    Decimal::try_from(gdsunit).unwrap(),
+                    expected_units,
+                ));
             }
         }
         Ok(())
@@ -682,13 +678,13 @@ impl<'a> GdsImporter<'a> {
         // Check for Rectangles; they help
         let inner = if pts.len() == 4
             && ((pts[0].x == pts[1].x // Clockwise
-                && pts[1].y == pts[2].y
-                && pts[2].x == pts[3].x
-                && pts[3].y == pts[0].y)
+            && pts[1].y == pts[2].y
+            && pts[2].x == pts[3].x
+            && pts[3].y == pts[0].y)
                 || (pts[0].y == pts[1].y // Counter-clockwise
-                    && pts[1].x == pts[2].x
-                    && pts[2].y == pts[3].y
-                    && pts[3].x == pts[0].x))
+            && pts[1].x == pts[2].x
+            && pts[2].y == pts[3].y
+            && pts[3].x == pts[0].x))
         {
             // That makes this a Rectangle.
             geometry::shape::Shape::Rect(Rect::new(pts[0], pts[2]))
@@ -912,6 +908,7 @@ pub struct GdsDepOrder<'a> {
     stack: Vec<&'a gds::GdsStruct>,
     seen: HashSet<ArcStr>,
 }
+
 impl<'a> GdsDepOrder<'a> {
     /// Creates a new [`GdsDepOrder`] for a [`gds::GdsLibrary`].
     fn new(gdslib: &'a gds::GdsLibrary) -> Self {
