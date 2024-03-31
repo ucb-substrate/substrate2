@@ -59,6 +59,7 @@ pub(crate) struct ScirLibConversionBuilder {
 }
 
 /// A path within a SCIR library corresponding to a Substrate [`NodePath`].
+#[derive(Debug, Clone)]
 pub enum ConvertedNodePath {
     /// A path that corresponds to a node within a SCIR cell.
     Cell(scir::SliceOnePath),
