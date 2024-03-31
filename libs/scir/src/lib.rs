@@ -1136,8 +1136,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
                                         top_id?
                                     } else {
                                         path.instances[i - 1].child.unwrap().unwrap_cell()
-                                    })
-                                    .unwrap()
+                                    })?
                                     .instances
                                     .get(id)?
                                     .clone(),
