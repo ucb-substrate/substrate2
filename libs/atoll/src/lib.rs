@@ -373,12 +373,7 @@ impl RawInstance {
     }
 
     /// Aligns this instance with another instance.
-    pub fn align_mut(
-        &mut self,
-        other: &RawInstance,
-        mode: AlignMode,
-        offset: i64,
-    ) {
+    pub fn align_mut(&mut self, other: &RawInstance, mode: AlignMode, offset: i64) {
         let lcm_bounds = self
             .abs
             .grid
@@ -389,12 +384,7 @@ impl RawInstance {
     }
 
     /// Aligns this instance with another instance with the same top layer.
-    pub fn align(
-        mut self,
-        other: &RawInstance,
-        mode: AlignMode,
-        offset: i64,
-    ) -> Self {
+    pub fn align(mut self, other: &RawInstance, mode: AlignMode, offset: i64) -> Self {
         self.align_mut(other, mode, offset);
         self
     }
@@ -621,6 +611,11 @@ impl TileAbstractBuilder {
             port_ids,
         } = self;
         let mut abs = InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
+
+        for layer in layers_to_block {
+            abs.block_available_on_layer(layer);
+        }
+
         let mut routing_state = abs.routing_state();
 
         let mut roots = HashMap::new();
@@ -669,10 +664,6 @@ impl TileAbstractBuilder {
             }
         }
         abs.from_routing_state(routing_state);
-
-        for layer in layers_to_block {
-            abs.block_available_on_layer(layer);
-        }
         (abs, paths)
     }
 }
@@ -803,7 +794,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 abs,
                 loc: Default::default(),
                 orientation: Default::default(),
-            }
+            },
         }
     }
 
@@ -863,7 +854,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 abs,
                 loc: Default::default(),
                 orientation: Default::default(),
-            }
+            },
         }
     }
 
