@@ -33,17 +33,18 @@ pub trait Router: Send + Sync {
 }
 
 /// A router that greedily routes net groups one at a time.
+#[derive(Clone, Debug, Copy, Default)]
 pub struct GreedyRouter {
     seed: [u8; 32],
 }
 
 impl GreedyRouter {
+    /// Creates a new [`GreedyRouter`].
     pub fn new() -> Self {
-        Self {
-            seed: Default::default(),
-        }
+        Default::default()
     }
 
+    /// Creates a new [`GreedyRouter`] with the given seed.
     pub fn with_seed(seed: [u8; 32]) -> Self {
         Self { seed }
     }

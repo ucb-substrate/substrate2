@@ -301,6 +301,7 @@ pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
     raw: RawInstance,
 }
 
+/// An ATOLL instance with typed components stripped out.
 pub struct RawInstance {
     abs: Abstract,
     /// The location of the instance in LCM units according to the
@@ -638,7 +639,7 @@ impl TileAbstractBuilder {
                 roots.insert(*node, group);
             }
             for net in skip_nets.iter() {
-                seq.remove(net);
+                seq.swap_remove(net);
             }
         }
         routing_state.roots = roots;
