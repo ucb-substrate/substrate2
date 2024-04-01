@@ -11,6 +11,7 @@ grid = { version = "0.13.0", features = ["serde"] }
 ena = "0.14"
 tracing = "0.1"
 num = "0.4.1"
+rand = "0.8.5"
 serde = { version = "1.0.192", features = ["derive"] }
 pathfinding = "4.8.0"
 indexmap = "2"
