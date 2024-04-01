@@ -46,7 +46,7 @@ use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
 use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::options::ic::InitialCondition;
-use substrate::simulation::options::{ic, SimOption};
+use substrate::simulation::options::{ic, SimOption, Temperature};
 use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
 use templates::{write_run_script, RunScriptContext};
@@ -163,6 +163,8 @@ pub struct Options {
     saves: HashMap<SimSignal, u64>,
     ics: HashMap<SimSignal, Decimal>,
     next_save_key: u64,
+    /// The simulation temperature.
+    temp: Option<Decimal>,
 }
 
 impl Options {
@@ -210,6 +212,21 @@ impl Options {
     /// Marks an AC current to be saved in all AC analyses.
     pub fn save_ac_current(&mut self, save: impl Into<SimSignal>) -> ac::CurrentSavedKey {
         ac::CurrentSavedKey(vec![self.save_inner(save)])
+    }
+
+    /// Set the simulation temperature.
+    pub fn set_temp(&mut self, temp: Decimal) {
+        self.temp = Some(temp);
+    }
+}
+
+impl SimOption<Spectre> for Temperature {
+    fn set_option(
+        self,
+        opts: &mut <Spectre as Simulator>::Options,
+        _ctx: &SimulationContext<Spectre>,
+    ) {
+        opts.set_temp(*self)
     }
 }
 
@@ -459,6 +476,9 @@ impl Spectre {
         )?;
 
         writeln!(w)?;
+        if let Some(temp) = options.temp {
+            writeln!(w, "settemp1 options temp={}", temp)?;
+        }
         for save in saves {
             writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
         }
