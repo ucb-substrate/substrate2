@@ -75,11 +75,11 @@ use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use cache::mem::TypeCache;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use std::sync::{Arc, RwLock};
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
@@ -543,9 +543,9 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
-    layers_to_block: HashSet<usize>,
-    skip_nets: HashSet<NetId>,
-    skip_all_nets: HashSet<NetId>,
+    layers_to_block: IndexSet<usize>,
+    skip_nets: IndexSet<NetId>,
+    skip_all_nets: IndexSet<NetId>,
     top_layer: usize,
     next_net_id: usize,
     router: Option<Arc<dyn Router>>,
@@ -560,13 +560,13 @@ struct TileAbstractBuilder {
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
-    skip_nets: HashSet<NetId>,
-    skip_all_nets: HashSet<NetId>,
+    skip_nets: IndexSet<NetId>,
+    skip_all_nets: IndexSet<NetId>,
     top_layer: usize,
     router: Option<Arc<dyn Router>>,
     strapper: Option<Arc<dyn Strapper>>,
     straps: Vec<(NetId, StrappingParams)>,
-    layers_to_block: HashSet<usize>,
+    layers_to_block: IndexSet<usize>,
     layer_bbox: Option<Rect>,
     port_ids: Vec<NetId>,
 }
@@ -625,7 +625,7 @@ impl TileAbstractBuilder {
         for (_, info) in nodes {
             to_connect_raw
                 .entry(connections.find(info.key))
-                .or_insert(HashSet::new())
+                .or_insert(IndexSet::new())
                 .insert(info.net);
         }
 
@@ -756,9 +756,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             top_layer: 0,
             abs: Vec::new(),
             assigned_nets: Vec::new(),
-            layers_to_block: HashSet::new(),
-            skip_nets: HashSet::new(),
-            skip_all_nets: HashSet::new(),
+            layers_to_block: IndexSet::new(),
+            skip_nets: IndexSet::new(),
+            skip_all_nets: IndexSet::new(),
             next_net_id: 0,
             router: None,
             strapper: None,
