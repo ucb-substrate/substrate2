@@ -1,11 +1,36 @@
 //! Standard APIs for setting simulator options.
 
 use crate::simulation::{SimulationContext, Simulator};
+use rust_decimal::Decimal;
+use std::ops::{Deref, DerefMut};
 
 /// An option for a simulator.
 pub trait SimOption<S: Simulator> {
     /// Modifies the simulator's options to enable this option.
     fn set_option(self, opts: &mut <S as Simulator>::Options, ctx: &SimulationContext<S>);
+}
+
+/// A temperature to use in simulation.
+pub struct Temperature(Decimal);
+
+impl Deref for Temperature {
+    type Target = Decimal;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Temperature {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Decimal> for Temperature {
+    fn from(value: Decimal) -> Self {
+        Self(value)
+    }
 }
 
 /// Initial conditions.
