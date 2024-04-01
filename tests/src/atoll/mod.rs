@@ -164,7 +164,7 @@ impl Tile<Sky130Pdk> for Sky130NmosTileAutoroute {
         }
 
         cell.set_top_layer(2);
-        cell.set_router(GreedyRouter);
+        cell.set_router(GreedyRouter::new());
         cell.set_via_maker(Sky130ViaMaker);
 
         Ok((instances, ()))

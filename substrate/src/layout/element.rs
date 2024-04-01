@@ -13,7 +13,7 @@ use geometry::{
     },
     union::BoundingUnion,
 };
-use indexmap::IndexMap;
+use indexmap::{map::Entry, IndexMap};
 use serde::{Deserialize, Serialize};
 
 use crate::io::layout::PortGeometry;
@@ -97,12 +97,19 @@ impl RawCell {
         self.blockages.extend(shapes.into_iter().map(|x| x.into()));
     }
 
-    /// Adds a port to this cell.
+    /// Merges a port into this cell.
     ///
     /// Primarily for use in GDS import.
-    pub(crate) fn add_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
+    pub(crate) fn merge_port(&mut self, name: impl Into<NameBuf>, port: impl Into<PortGeometry>) {
         let name = name.into();
-        self.ports.insert(name.clone(), port.into());
+        match self.ports.entry(name.clone()) {
+            Entry::Occupied(mut o) => {
+                o.get_mut().merge(port.into());
+            }
+            Entry::Vacant(v) => {
+                v.insert(port.into());
+            }
+        }
         self.port_names.insert(name.to_string(), name);
     }
 

@@ -75,11 +75,11 @@ use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use cache::mem::TypeCache;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use std::sync::{Arc, RwLock};
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
@@ -298,6 +298,11 @@ impl From<Orientation> for geometry::orientation::Orientation {
 pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
     schematic: schematic::Instance<T>,
     layout: layout::Instance<T>,
+    raw: RawInstance,
+}
+
+/// An ATOLL instance with typed components stripped out.
+pub struct RawInstance {
     abs: Abstract,
     /// The location of the instance in LCM units according to the
     /// top layer in the associated [`Abstract`].
@@ -305,7 +310,7 @@ pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
     orientation: Orientation,
 }
 
-impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
+impl RawInstance {
     /// Translates this instance by the given XY-coordinates in LCM units.
     pub fn translate_mut(&mut self, p: Point) {
         self.loc += p;
@@ -369,12 +374,7 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     }
 
     /// Aligns this instance with another instance.
-    pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
-        &mut self,
-        other: &Instance<T2>,
-        mode: AlignMode,
-        offset: i64,
-    ) {
+    pub fn align_mut(&mut self, other: &RawInstance, mode: AlignMode, offset: i64) {
         let lcm_bounds = self
             .abs
             .grid
@@ -385,12 +385,7 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     }
 
     /// Aligns this instance with another instance with the same top layer.
-    pub fn align<T2: ExportsNestedData + ExportsLayoutData>(
-        mut self,
-        other: &Instance<T2>,
-        mode: AlignMode,
-        offset: i64,
-    ) -> Self {
+    pub fn align(mut self, other: &RawInstance, mode: AlignMode, offset: i64) -> Self {
         self.align_mut(other, mode, offset);
         self
     }
@@ -404,13 +399,6 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     pub fn orient(mut self, orientation: Orientation) -> Self {
         self.orient_mut(orientation);
         self
-    }
-
-    /// The ports of this instance.
-    ///
-    /// Used for node connection purposes.
-    pub fn io(&self) -> &TerminalView<<T::Io as io::schematic::HardwareType>::Bundle> {
-        self.schematic.io()
     }
 
     /// Returns the physical location of this instance.
@@ -437,6 +425,106 @@ impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     }
 }
 
+impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
+    /// Translates this instance by the given XY-coordinates in LCM units.
+    pub fn translate_mut(&mut self, p: Point) {
+        self.raw.translate_mut(p);
+    }
+
+    /// Translates this instance by the given XY-coordinates in LCM units.
+    pub fn translate(mut self, p: Point) -> Self {
+        self.translate_mut(p);
+        self
+    }
+
+    /// Aligns this instance with another rectangle in terms of LCM units on the same
+    /// layer as the instance.
+    pub fn align_rect_mut(&mut self, orect: Rect, mode: AlignMode, offset: i64) {
+        self.raw.align_rect_mut(orect, mode, offset);
+    }
+
+    /// Aligns this instance with another rectangle in terms of LCM units on the same
+    /// layer as the instance.
+    pub fn align_rect(mut self, orect: Rect, mode: AlignMode, offset: i64) -> Self {
+        self.align_rect_mut(orect, mode, offset);
+        self
+    }
+
+    /// Aligns this instance with another instance.
+    pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
+        &mut self,
+        other: &Instance<T2>,
+        mode: AlignMode,
+        offset: i64,
+    ) {
+        self.raw.align_mut(&other.raw, mode, offset);
+    }
+
+    /// Aligns this instance with another instance with the same top layer.
+    pub fn align<T2: ExportsNestedData + ExportsLayoutData>(
+        mut self,
+        other: &Instance<T2>,
+        mode: AlignMode,
+        offset: i64,
+    ) -> Self {
+        self.align_mut(other, mode, offset);
+        self
+    }
+
+    /// Orients this instance in the given orientation.
+    pub fn orient_mut(&mut self, orientation: Orientation) {
+        self.raw.orient_mut(orientation);
+    }
+
+    /// Orients this instance in the given orientation.
+    pub fn orient(mut self, orientation: Orientation) -> Self {
+        self.orient_mut(orientation);
+        self
+    }
+
+    /// The ports of this instance.
+    ///
+    /// Used for node connection purposes.
+    pub fn io(&self) -> &TerminalView<<T::Io as io::schematic::HardwareType>::Bundle> {
+        self.schematic.io()
+    }
+
+    /// Returns the physical location of this instance.
+    pub fn physical_loc(&self) -> Point {
+        self.raw.physical_loc()
+    }
+
+    /// Returns the top layer of this instance.
+    pub fn top_layer(&self) -> usize {
+        self.raw.top_layer()
+    }
+
+    /// Returns the LCM bounds of this instance.
+    pub fn lcm_bounds(&self) -> Rect {
+        self.raw.lcm_bounds()
+    }
+
+    /// Returns the physical bounds of this instance.
+    pub fn physical_bounds(&self) -> Rect {
+        self.raw.physical_bounds()
+    }
+
+    /// Returns a reference to the underlying [`RawInstance`].
+    pub fn raw(&self) -> &RawInstance {
+        &self.raw
+    }
+
+    /// Returns a mutable reference to the underlying [`RawInstance`].
+    pub fn raw_mut(&mut self) -> &mut RawInstance {
+        &mut self.raw
+    }
+
+    /// Returns the underlying [`RawInstance`].
+    pub fn into_raw(self) -> RawInstance {
+        self.raw
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AssignedGridPoints {
     pub(crate) net: Option<NetId>,
@@ -456,8 +544,9 @@ pub struct TileBuilder<'a, PDK: Pdk + Schema + ?Sized> {
     /// Abstracts of instantiated instances.
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
-    skip_nets: HashSet<NetId>,
-    skip_all_nets: HashSet<NetId>,
+    layers_to_block: IndexSet<usize>,
+    skip_nets: IndexSet<NetId>,
+    skip_all_nets: IndexSet<NetId>,
     top_layer: usize,
     next_net_id: usize,
     router: Option<Arc<dyn Router>>,
@@ -472,12 +561,13 @@ struct TileAbstractBuilder {
     connections: ena::unify::InPlaceUnificationTable<NodeKey>,
     abs: Vec<InstanceAbstract>,
     assigned_nets: Vec<AssignedGridPoints>,
-    skip_nets: HashSet<NetId>,
-    skip_all_nets: HashSet<NetId>,
+    skip_nets: IndexSet<NetId>,
+    skip_all_nets: IndexSet<NetId>,
     top_layer: usize,
     router: Option<Arc<dyn Router>>,
     strapper: Option<Arc<dyn Strapper>>,
     straps: Vec<(NetId, StrappingParams)>,
+    layers_to_block: IndexSet<usize>,
     layer_bbox: Option<Rect>,
     port_ids: Vec<NetId>,
 }
@@ -514,6 +604,7 @@ impl TileAbstractBuilder {
             top_layer,
             router,
             skip_nets,
+            layers_to_block,
             skip_all_nets,
             strapper,
             straps,
@@ -521,6 +612,11 @@ impl TileAbstractBuilder {
             port_ids,
         } = self;
         let mut abs = InstanceAbstract::merge(abs, top_layer, layer_bbox, port_ids, assigned_nets);
+
+        for layer in layers_to_block {
+            abs.block_available_on_layer(layer);
+        }
+
         let mut routing_state = abs.routing_state();
 
         let mut roots = HashMap::new();
@@ -530,7 +626,7 @@ impl TileAbstractBuilder {
         for (_, info) in nodes {
             to_connect_raw
                 .entry(connections.find(info.key))
-                .or_insert(HashSet::new())
+                .or_insert(IndexSet::new())
                 .insert(info.net);
         }
 
@@ -543,7 +639,7 @@ impl TileAbstractBuilder {
                 roots.insert(*node, group);
             }
             for net in skip_nets.iter() {
-                seq.remove(net);
+                seq.swap_remove(net);
             }
         }
         routing_state.roots = roots;
@@ -589,6 +685,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             connections,
             abs,
             assigned_nets,
+            layers_to_block,
             skip_nets,
             skip_all_nets,
             top_layer,
@@ -607,6 +704,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 connections,
                 abs,
                 assigned_nets,
+                layers_to_block,
                 skip_nets,
                 skip_all_nets,
                 top_layer,
@@ -659,8 +757,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             top_layer: 0,
             abs: Vec::new(),
             assigned_nets: Vec::new(),
-            skip_nets: HashSet::new(),
-            skip_all_nets: HashSet::new(),
+            layers_to_block: IndexSet::new(),
+            skip_nets: IndexSet::new(),
+            skip_all_nets: IndexSet::new(),
             next_net_id: 0,
             router: None,
             strapper: None,
@@ -692,9 +791,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         Instance {
             layout,
             schematic,
-            abs,
-            loc: Default::default(),
-            orientation: Default::default(),
+            raw: RawInstance {
+                abs,
+                loc: Default::default(),
+                orientation: Default::default(),
+            },
         }
     }
 
@@ -750,9 +851,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         Instance {
             layout,
             schematic,
-            abs,
-            loc: Default::default(),
-            orientation: Default::default(),
+            raw: RawInstance {
+                abs,
+                loc: Default::default(),
+                orientation: Default::default(),
+            },
         }
     }
 
@@ -792,11 +895,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             .map(|node| self.nodes.get_mut(node).unwrap().net)
             .collect();
 
-        self.set_top_layer(instance.abs.top_layer);
+        self.set_top_layer(instance.raw.abs.top_layer);
 
         let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
-        let orig_bbox = instance.abs.grid.slice().lcm_to_physical_rect(
-            instance.abs.grid.slice().expand_to_lcm_units(
+        let orig_bbox = instance.raw.abs.grid.slice().lcm_to_physical_rect(
+            instance.raw.abs.grid.slice().expand_to_lcm_units(
                 instance
                     .layout
                     .layer_bbox(virtual_layers.outline.id())
@@ -804,9 +907,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             ),
         );
         self.abs.push(InstanceAbstract::new(
-            instance.abs,
-            instance.loc,
-            instance.orientation,
+            instance.raw.abs,
+            instance.raw.loc,
+            instance.raw.orientation,
             parent_net_ids,
         ));
 
@@ -814,11 +917,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         let mut layout = instance.layout;
         layout.transform_mut(Transformation::from_offset_and_orientation(
             Point::zero(),
-            instance.orientation,
+            instance.raw.orientation,
         ));
         let new_bbox = orig_bbox.transform(Transformation::from_offset_and_orientation(
             Point::zero(),
-            instance.orientation,
+            instance.raw.orientation,
         ));
         layout.translate_mut(
             orig_bbox.corner(Corner::LowerLeft) - new_bbox.corner(Corner::LowerLeft) + physical_loc,
@@ -871,6 +974,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             layer,
             bounds,
         })
+    }
+
+    /// Blocks all remaining available grid points on the given layer.
+    pub fn block_available_on_layer(&mut self, layer: usize) {
+        self.layers_to_block.insert(layer);
     }
 
     /// Set up straps for the provided node.

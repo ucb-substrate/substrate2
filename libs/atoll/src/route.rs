@@ -5,6 +5,9 @@ use crate::grid::{PdkLayer, RoutingState};
 use crate::{NetId, PointState};
 use indexmap::{map::Entry, IndexMap};
 use num::Zero;
+use rand::prelude::SliceRandom;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use rustc_hash::FxHasher;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashSet};
@@ -30,7 +33,22 @@ pub trait Router: Send + Sync {
 }
 
 /// A router that greedily routes net groups one at a time.
-pub struct GreedyRouter;
+#[derive(Clone, Debug, Copy, Default)]
+pub struct GreedyRouter {
+    seed: [u8; 32],
+}
+
+impl GreedyRouter {
+    /// Creates a new [`GreedyRouter`].
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Creates a new [`GreedyRouter`] with the given seed.
+    pub fn with_seed(seed: [u8; 32]) -> Self {
+        Self { seed }
+    }
+}
 
 /// A node in the traversal of a [`GreedyRouter`].
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -187,9 +205,12 @@ impl Router for GreedyRouter {
         state: &mut RoutingState<PdkLayer>,
         mut to_connect: Vec<Vec<NetId>>,
     ) -> Vec<Path> {
+        let mut rng = StdRng::from_seed(self.seed);
+        to_connect.shuffle(&mut rng);
         // remove nodes from the to connect list that are not on the grid
         // and relabel them to ones that are on the grid.
         for group in to_connect.iter_mut() {
+            group.shuffle(&mut rng);
             *group = group
                 .iter()
                 .copied()

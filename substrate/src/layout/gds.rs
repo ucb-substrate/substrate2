@@ -652,7 +652,7 @@ impl<'a> GdsImporter<'a> {
                 // Unwrapping is OK because in the lines above, we continue if no geometry was found.
                 // Thus, this port should have at least one shape, and `port.build()` should not
                 // error.
-                cell.add_port(net_name, port.build().unwrap());
+                cell.merge_port(net_name, port.build().unwrap());
             } else {
                 // Import the text element as is
                 cell.add_element(text_elem);

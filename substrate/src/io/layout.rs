@@ -97,6 +97,20 @@ impl PortGeometry {
             .chain(self.unnamed_shapes.iter())
             .chain(self.named_shapes.values())
     }
+
+    /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes
+    /// and moving their old values to the collection of unnamed shapes.
+    pub(crate) fn merge(&mut self, other: impl Into<PortGeometry>) {
+        let mut other = other.into();
+        std::mem::swap(&mut self.primary, &mut other.primary);
+        self.unnamed_shapes.push(other.primary);
+        self.unnamed_shapes.extend(other.unnamed_shapes);
+        for (name, shape) in other.named_shapes {
+            if let Some(old_shape) = self.named_shapes.insert(name, shape) {
+                self.unnamed_shapes.push(old_shape);
+            }
+        }
+    }
 }
 
 impl Bbox for PortGeometry {
