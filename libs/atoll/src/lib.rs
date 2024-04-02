@@ -898,14 +898,21 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         self.set_top_layer(instance.raw.abs.top_layer);
 
         let virtual_layers = self.layout.ctx.install_layers::<crate::VirtualLayers>();
-        let orig_bbox = instance.raw.abs.grid.slice().lcm_to_physical_rect(
-            instance.raw.abs.grid.slice().expand_to_lcm_units(
-                instance
-                    .layout
-                    .layer_bbox(virtual_layers.outline.id())
-                    .unwrap(),
-            ),
-        );
+        let orig_bbox = instance
+            .layout
+            .layer_bbox(virtual_layers.outline.id())
+            .unwrap();
+        // Expand bounding box to grid at the origin.
+        let orig_bbox =
+            instance
+                .raw
+                .abs
+                .grid
+                .slice()
+                .lcm_to_physical_rect(instance.raw.abs.grid.slice().expand_to_lcm_units(
+                    orig_bbox.translate(Point::zero() - orig_bbox.lower_left()),
+                ))
+                .translate(orig_bbox.lower_left());
         self.abs.push(InstanceAbstract::new(
             instance.raw.abs,
             instance.raw.loc,
