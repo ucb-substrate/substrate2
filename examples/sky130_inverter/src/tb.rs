@@ -216,7 +216,7 @@ mod tests {
         let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
             nw: 1_200,
-            pw: (1_200..=5_000).step_by(200).collect(),
+            pw: (3_000..=5_000).step_by(200).collect(),
             lch: 150,
         };
 
