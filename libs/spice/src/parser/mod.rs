@@ -166,7 +166,7 @@ impl Parser {
                     let name = self.buffer[1].try_ident()?.clone();
                     let ports = self.buffer[2..]
                         .iter()
-                        .map(|tok| tok.try_ident().map(Clone::clone))
+                        .map(|tok| tok.try_ident().cloned())
                         .collect::<Result<_, _>>()?;
                     Line::SubcktDecl { name, ports }
                 } else if d.eq_ignore_ascii_case(".ends") {
@@ -256,7 +256,7 @@ impl Parser {
                         let child = self.buffer[child_idx].try_ident()?.clone();
                         let ports = self.buffer[1..child_idx]
                             .iter()
-                            .map(|x| x.try_ident().map(Clone::clone))
+                            .map(|x| x.try_ident().cloned())
                             .collect::<Result<_, _>>()?;
 
                         let mut params = Params::default();

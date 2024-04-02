@@ -201,6 +201,7 @@ impl Server {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(self.root.join(CONFIG_MANIFEST_NAME))
             .await?;
         config_manifest.try_lock_exclusive()?;
@@ -723,6 +724,7 @@ impl CacheImpl {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(&path)
                 .await?;
             f.write_all(&value).await?;

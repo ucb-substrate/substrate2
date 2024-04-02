@@ -89,11 +89,11 @@ pub trait SerdeFile: Serialize + DeserializeOwned {
 /// A wrapper over other errors.
 #[derive(Debug)]
 pub struct Error(Box<dyn std::error::Error + Send + Sync>);
+
 impl std::fmt::Display for Error {
-    /// Delegate [std::fmt::Display] to the (derived) [std::fmt::Debug] implementation.
-    /// Maybe more info that wanted in some cases. But certainly enough.
+    /// Delegate [std::fmt::Display] to the [std::fmt::Display] of the inner error.
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        write!(f, "{}", self.0)
     }
 }
 impl std::error::Error for Error {}
