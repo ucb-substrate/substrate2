@@ -216,9 +216,18 @@ impl Router for GreedyRouter {
                 .copied()
                 .filter(|&n| state.find(n).is_some())
                 .collect::<Vec<_>>();
+
+            /// Router assumes that the first element of list is the root element.
             if let Some(first_on_grid) = group.first_mut() {
-                state.relabel_net(*first_on_grid, state.roots[first_on_grid]);
-                *first_on_grid = state.roots[first_on_grid];
+                if let Some(root_idx) = group
+                    .iter()
+                    .position(|net| net == state.roots[first_on_grid])
+                {
+                    group.swap(0, root_idx);
+                } else {
+                    state.relabel_net(*first_on_grid, state.roots[first_on_grid]);
+                    *first_on_grid = state.roots[first_on_grid];
+                }
             }
         }
 
