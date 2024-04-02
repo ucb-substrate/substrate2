@@ -873,6 +873,7 @@ impl Client {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&path)?;
         f.write_all(&flexbuffers::to_vec(data).unwrap())?;
         self.done_rpc_local(id)?;

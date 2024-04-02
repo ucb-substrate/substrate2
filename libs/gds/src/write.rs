@@ -469,7 +469,7 @@ trait Encode {
         }
         self.encode_record(GdsRecord::Layer(box_.layer))?;
         self.encode_record(GdsRecord::BoxType(box_.boxtype))?;
-        self.encode_record(GdsRecord::Xy(GdsPoint::flatten_vec(&box_.xy.to_vec())))?;
+        self.encode_record(GdsRecord::Xy(GdsPoint::flatten_vec(box_.xy.as_ref())))?;
         for prop in box_.properties.iter() {
             self.encode_record(GdsRecord::PropAttr(prop.attr))?;
             self.encode_record(GdsRecord::PropValue(prop.value.clone()))?;

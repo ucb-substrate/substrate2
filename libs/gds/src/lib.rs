@@ -443,8 +443,8 @@ impl GdsPoint {
         pts.iter().map(|pt| Self::new(pt.0, pt.1)).collect()
     }
 
-    /// Converts from a two-element vector.
-    fn parse(from: &Vec<i32>) -> GdsResult<Self> {
+    /// Converts from a two-element slice.
+    fn parse(from: &[i32]) -> GdsResult<Self> {
         if from.len() != 2 {
             return Err(GdsError::Str(
                 "GdsPoint coordinate vector: Invalid number of elements".into(),
@@ -478,8 +478,8 @@ impl GdsPoint {
         vec![self.x, self.y]
     }
 
-    /// Converts an n-element vector of [GdsPoint]s to a 2n-element i32 vector.
-    fn flatten_vec(src: &Vec<GdsPoint>) -> Vec<i32> {
+    /// Converts an n-element slice of [GdsPoint]s to a 2n-element i32 vector.
+    fn flatten_vec(src: &[GdsPoint]) -> Vec<i32> {
         let mut rv = Vec::with_capacity(src.len() * 2);
         for pt in src.iter() {
             rv.push(pt.x);
