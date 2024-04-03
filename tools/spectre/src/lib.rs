@@ -2,7 +2,7 @@
 #![warn(missing_docs)]
 
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::prelude::PermissionsExt;
@@ -165,6 +165,51 @@ pub struct Options {
     next_save_key: u64,
     /// The simulation temperature.
     temp: Option<Decimal>,
+    save: Option<SaveOption>,
+}
+
+/// The allowed values of the `save` option.
+#[derive(Copy, Clone, Debug, Default)]
+pub enum SaveOption {
+    /// All signals.
+    All,
+    /// All signals up to `nestlvl` deep in the subcircuit hierarchy.
+    Lvl,
+    /// All public signals.
+    ///
+    /// Excludes certain currents and internal nodes.
+    AllPub,
+    /// All public signals up to `nestlvl` deep in the subcircuit hierarchy.
+    ///
+    /// Excludes certain currents and internal nodes.
+    LvlPub,
+    /// Save only selected signals.
+    ///
+    /// This is the default behavior of Spectre.
+    #[default]
+    Selected,
+    /// Save no signals.
+    None,
+}
+
+impl SaveOption {
+    /// The Spectre string corresponding to this [`SaveOption`].
+    fn as_str(&self) -> &'static str {
+        match *self {
+            SaveOption::All => "all",
+            SaveOption::Lvl => "lvl",
+            SaveOption::AllPub => "allpub",
+            SaveOption::LvlPub => "lvlpub",
+            SaveOption::Selected => "selected",
+            SaveOption::None => "none",
+        }
+    }
+}
+
+impl Display for SaveOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 impl Options {
@@ -217,6 +262,11 @@ impl Options {
     /// Set the simulation temperature.
     pub fn set_temp(&mut self, temp: Decimal) {
         self.temp = Some(temp);
+    }
+
+    /// Set the `save` option.
+    pub fn save(&mut self, save: SaveOption) {
+        self.save = Some(save);
     }
 }
 
@@ -481,6 +531,9 @@ impl Spectre {
         }
         for save in saves {
             writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+        }
+        if let Some(save) = options.save {
+            writeln!(w, "setsave1 options save={}", save)?;
         }
         for (k, v) in ics {
             writeln!(w, "ic {}={}", k.to_string(&ctx.lib.scir, &conv), v)?;
