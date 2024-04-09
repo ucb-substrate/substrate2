@@ -1,31 +1,36 @@
 //! DSPF netlists.
 
-use arcstr::ArcStr;
-use scir::{Library, NamedSliceOne, NetlistLibConversion, SliceOnePath};
+use scir::{NamedSliceOne, NetlistLibConversion, SliceOnePath};
 use spice::Spice;
 use substrate::io::schematic::{NestedNode, Node};
 use substrate::schematic::conv::{ConvertedNodePath, RawLib};
 use substrate::schematic::{HasNestedView, InstancePath};
 
+/// A set of nodes in a DSPF netlist.
 pub struct DspfNodes<T> {
-    instances: InstancePath,
     /// The source spice file for this DSPF extracted view.
     lib: RawLib<Spice>,
     inner: T,
 }
 
+/// A set of nodes in a nested DSPF netlist instantiation.
 pub struct DspfNestedNodes<T> {
     instances: InstancePath,
     inner: T,
 }
 
+/// Indicates that a type has a nested DSPF view.
 pub trait HasNestedDspfView: Sized {
+    /// The node container type, where nodes are stored as strings.
     type Strings: ReconstructDspfView<Self>;
 
+    /// Flatten the container into a set of nodes and nested nodes.
     fn flatten(&self) -> (Vec<Node>, Vec<NestedNode>);
 }
 
+/// A type that can reconstruct a DSPF view.
 pub trait ReconstructDspfView<T> {
+    /// Unflatten the container from a set of nodes and nested nodes.
     fn unflatten(source: &T, nodes: Vec<String>, nested_nodes: Vec<String>) -> Self;
 }
 
@@ -97,5 +102,5 @@ impl HasNestedDspfView for () {
 }
 
 impl ReconstructDspfView<()> for () {
-    fn unflatten(source: &(), nodes: Vec<String>, nested_nodes: Vec<String>) -> Self {}
+    fn unflatten(_source: &(), _nodes: Vec<String>, _nested_nodes: Vec<String>) -> Self {}
 }
