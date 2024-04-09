@@ -7,7 +7,7 @@ use crate::parser::{ParsedSpice, Parser};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use scir::{Instance, Library, ParamValue};
+use scir::{Instance, Library, NetlistLibConversion, ParamValue, SliceOnePath};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use substrate::block::Block;
@@ -72,6 +72,23 @@ impl Spice {
     ) -> substrate::schematic::ScirBinding<Spice> {
         let parsed = Parser::parse_file(path).unwrap();
         Spice::scir_cell_from_parsed(&parsed, cell_name)
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spectre path string corresponding to the associated
+    /// node voltage.
+    pub fn node_voltage_path(
+        lib: &Library<Spice>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+    ) -> String {
+        lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+            if let Some(index) = index {
+                arcstr::format!("{}\\[{}\\]", name, index)
+            } else {
+                name.into()
+            }
+        })
+        .join(".")
     }
 }
 

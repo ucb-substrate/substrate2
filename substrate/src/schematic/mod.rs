@@ -908,7 +908,8 @@ impl InstancePath {
         }
     }
 
-    pub(crate) fn prepend(&self, other: &Self) -> Self {
+    /// Prepend another path to this path.
+    pub fn prepend(&self, other: &Self) -> Self {
         if let Some(bot) = other.bot {
             assert_eq!(
                 bot, self.top,

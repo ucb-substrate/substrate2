@@ -53,6 +53,7 @@ use templates::{write_run_script, RunScriptContext};
 
 pub mod analysis;
 pub mod blocks;
+pub mod dspf;
 pub mod error;
 pub(crate) mod templates;
 
