@@ -2,6 +2,7 @@
 
 use scir::{NamedSliceOne, NetlistLibConversion, SliceOnePath};
 use spice::Spice;
+use std::sync::Arc;
 use substrate::io::schematic::{NestedNode, Node};
 use substrate::schematic::conv::{ConvertedNodePath, RawLib};
 use substrate::schematic::{HasNestedView, InstancePath};
@@ -9,14 +10,16 @@ use substrate::schematic::{HasNestedView, InstancePath};
 /// A set of nodes in a DSPF netlist.
 pub struct DspfNodes<T> {
     /// The source spice file for this DSPF extracted view.
-    lib: RawLib<Spice>,
-    inner: T,
+    pub lib: RawLib<Spice>,
+    /// The inner saved nodes.
+    pub inner: Arc<T>,
 }
 
 /// A set of nodes in a nested DSPF netlist instantiation.
 pub struct DspfNestedNodes<T> {
     instances: InstancePath,
-    inner: T,
+    /// The inner saved nodes.
+    pub inner: T,
 }
 
 /// Indicates that a type has a nested DSPF view.

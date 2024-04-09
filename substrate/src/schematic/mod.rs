@@ -532,6 +532,11 @@ impl<T: ExportsNestedData> Cell<T> {
         self.nodes.nested_view(&self.path)
     }
 
+    /// Returns the raw data propagated by the cell's schematic generator.
+    pub fn raw_data(&self) -> &Arc<<T as ExportsNestedData>::NestedData> {
+        &self.nodes
+    }
+
     /// Returns this cell's IO.
     pub fn io(&self) -> NestedView<<T::Io as HardwareType>::Bundle> {
         self.io.nested_view(&self.path)
