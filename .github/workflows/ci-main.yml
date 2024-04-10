@@ -83,9 +83,6 @@ jobs:
       - name: Publish crates
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
-  coverage:
-    name: Report coverage
-    uses: ./.github/workflows/coverage.yml
   deploy-api-docs:
     name: Deploy API documentation
     runs-on: bwrc
