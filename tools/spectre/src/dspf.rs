@@ -17,9 +17,14 @@ pub struct DspfNodes<T> {
 
 /// A set of nodes in a nested DSPF netlist instantiation.
 pub struct DspfNestedNodes<T> {
-    instances: InstancePath,
+    pub dspf_instance: InstancePath,
     /// The inner saved nodes.
     pub inner: T,
+}
+
+pub struct DspfNode {
+    pub dspf_instance: InstancePath,
+    pub path: String,
 }
 
 /// Indicates that a type has a nested DSPF view.
@@ -76,7 +81,7 @@ where
             .collect();
         let inner = <T as HasNestedDspfView>::Strings::unflatten(&self.inner, nodes, nested_nodes);
         DspfNestedNodes {
-            instances: parent.clone(),
+            dspf_instance: parent.clone(),
             inner,
         }
     }
@@ -90,7 +95,7 @@ where
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         Self {
-            instances: self.instances.prepend(parent),
+            dspf_instance: self.dspf_instance.prepend(parent),
             inner: self.inner.clone(),
         }
     }

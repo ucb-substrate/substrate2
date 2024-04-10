@@ -12,6 +12,7 @@ use std::sync::Arc;
 use crate::analysis::ac::{Ac, Sweep};
 use crate::analysis::montecarlo;
 use crate::analysis::montecarlo::MonteCarlo;
+use crate::dspf::DspfNode;
 use analysis::ac;
 use analysis::tran;
 use analysis::tran::Tran;
@@ -124,11 +125,29 @@ pub enum SimSignal {
     ScirVoltage(SliceOnePath),
     /// A SCIR signal path representing a terminal whose current should be referenced.
     ScirCurrent(SliceOnePath),
+
+    /// An instance path followed by a raw tail path.
+    InstanceTail(InstanceTail),
+}
+
+/// An instance path followed by a raw tail path.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct InstanceTail {
+    /// The path to the instance.
+    pub instance: scir::InstancePath,
+    /// The raw tail string.
+    pub tail: ArcStr,
 }
 
 impl<T: Into<ArcStr>> From<T> for SimSignal {
     fn from(value: T) -> Self {
         Self::Raw(value.into())
+    }
+}
+
+impl From<InstanceTail> for SimSignal {
+    fn from(value: InstanceTail) -> Self {
+        Self::InstanceTail(value)
     }
 }
 
@@ -146,6 +165,10 @@ impl SimSignal {
             }
             SimSignal::ScirVoltage(scir) => {
                 ArcStr::from(Spectre::node_voltage_path(lib, conv, scir))
+            }
+            SimSignal::InstanceTail(itail) => {
+                let ipath = Spectre::instance_path(lib, conv, &itail.instance);
+                arcstr::format!("{}.{}", ipath, itail.tail)
             }
         }
     }
