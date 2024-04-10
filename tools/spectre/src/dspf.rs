@@ -87,7 +87,7 @@ where
                     &self.lib.scir,
                     &NetlistLibConversion::new(),
                     &path,
-                    "",
+                    "X",
                     "/",
                 )
                 .to_uppercase()
