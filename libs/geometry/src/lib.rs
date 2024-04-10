@@ -26,6 +26,7 @@ pub mod point;
 pub mod polygon;
 pub mod prelude;
 pub mod rect;
+pub mod ring;
 pub mod shape;
 pub mod side;
 pub mod sign;
