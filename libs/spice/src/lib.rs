@@ -81,6 +81,15 @@ impl Spice {
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
     ) -> String {
+        Self::node_path_with_separator(lib, conv, path, ".")
+    }
+
+    fn node_path_with_separator(
+        lib: &Library<Spice>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+        sep: &str,
+    ) -> String {
         lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
             if let Some(index) = index {
                 arcstr::format!("{}\\[{}\\]", name, index)
@@ -88,7 +97,7 @@ impl Spice {
                 name.into()
             }
         })
-        .join(".")
+        .join(sep)
     }
 }
 

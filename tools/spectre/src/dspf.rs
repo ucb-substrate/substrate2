@@ -61,6 +61,7 @@ where
                         instances, port, ..
                     } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
                 };
+                let path = self.lib.scir.simplify_path(path);
                 Spice::node_voltage_path(&self.lib.scir, &NetlistLibConversion::new(), &path)
                     .to_uppercase()
             })
@@ -75,6 +76,7 @@ where
                         instances, port, ..
                     } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
                 };
+                let path = self.lib.scir.simplify_path(path);
                 Spice::node_voltage_path(&self.lib.scir, &NetlistLibConversion::new(), &path)
                     .to_uppercase()
             })
