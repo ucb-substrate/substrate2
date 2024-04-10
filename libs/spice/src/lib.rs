@@ -74,7 +74,7 @@ impl Spice {
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }
 
-    /// Converts a [`SliceOnePath`] to a Spectre path string corresponding to the associated
+    /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
     /// node voltage.
     pub fn node_voltage_path(
         lib: &Library<Spice>,
@@ -84,7 +84,9 @@ impl Spice {
         Self::node_path_with_separator(lib, conv, path, ".")
     }
 
-    fn node_path_with_separator(
+    /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
+    /// node voltage, using the given hierarchy separator.
+    pub fn node_path_with_separator(
         lib: &Library<Spice>,
         conv: &NetlistLibConversion,
         path: &SliceOnePath,

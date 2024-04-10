@@ -62,8 +62,13 @@ where
                     } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
                 };
                 let path = self.lib.scir.simplify_path(path);
-                Spice::node_voltage_path(&self.lib.scir, &NetlistLibConversion::new(), &path)
-                    .to_uppercase()
+                Spice::node_path_with_separator(
+                    &self.lib.scir,
+                    &NetlistLibConversion::new(),
+                    &path,
+                    "/",
+                )
+                .to_uppercase()
             })
             .collect();
         let nested_nodes = nested_nodes
@@ -77,8 +82,13 @@ where
                     } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
                 };
                 let path = self.lib.scir.simplify_path(path);
-                Spice::node_voltage_path(&self.lib.scir, &NetlistLibConversion::new(), &path)
-                    .to_uppercase()
+                Spice::node_path_with_separator(
+                    &self.lib.scir,
+                    &NetlistLibConversion::new(),
+                    &path,
+                    "/",
+                )
+                .to_uppercase()
             })
             .collect();
         let inner = <T as HasNestedDspfView>::Strings::unflatten(&self.inner, nodes, nested_nodes);
