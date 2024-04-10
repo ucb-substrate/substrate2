@@ -81,22 +81,23 @@ impl Spice {
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
     ) -> String {
-        Self::node_path_with_separator(lib, conv, path, ".")
+        Self::node_path_with_prefix_and_separator(lib, conv, path, "", ".")
     }
 
     /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
-    /// node voltage, using the given hierarchy separator.
-    pub fn node_path_with_separator(
+    /// node voltage, using the given instance prefix hierarchy separator.
+    pub fn node_path_with_prefix_and_separator(
         lib: &Library<Spice>,
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
+        prefix: &str,
         sep: &str,
     ) -> String {
         lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
             if let Some(index) = index {
-                arcstr::format!("{}\\[{}\\]", name, index)
+                arcstr::format!("{}{}\\[{}\\]", prefix, name, index)
             } else {
-                name.into()
+                arcstr::format!("{}{}", prefix, name)
             }
         })
         .join(sep)

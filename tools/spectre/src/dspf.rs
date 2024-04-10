@@ -62,10 +62,11 @@ where
                     } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
                 };
                 let path = self.lib.scir.simplify_path(path);
-                Spice::node_path_with_separator(
+                Spice::node_path_with_prefix_and_separator(
                     &self.lib.scir,
                     &NetlistLibConversion::new(),
                     &path,
+                    "X",
                     "/",
                 )
                 .to_uppercase()
@@ -82,10 +83,11 @@ where
                     } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
                 };
                 let path = self.lib.scir.simplify_path(path);
-                Spice::node_path_with_separator(
+                Spice::node_path_with_prefix_and_separator(
                     &self.lib.scir,
                     &NetlistLibConversion::new(),
                     &path,
+                    "",
                     "/",
                 )
                 .to_uppercase()
