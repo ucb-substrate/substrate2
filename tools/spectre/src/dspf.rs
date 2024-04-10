@@ -17,13 +17,17 @@ pub struct DspfNodes<T> {
 
 /// A set of nodes in a nested DSPF netlist instantiation.
 pub struct DspfNestedNodes<T> {
+    /// The path to the DSPF instance.
     pub dspf_instance: InstancePath,
     /// The inner saved nodes.
     pub inner: T,
 }
 
+/// A node in an instance of a DSPF subcircuit.
 pub struct DspfNode {
+    /// The path to the DSPF instance.
     pub dspf_instance: InstancePath,
+    /// The path of the node within the DSPF netlist.
     pub path: String,
 }
 
