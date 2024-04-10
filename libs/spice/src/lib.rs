@@ -5,9 +5,10 @@ use crate::parser::conv::ScirConverter;
 use crate::parser::{ParsedSpice, Parser};
 
 use arcstr::ArcStr;
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
-use scir::{Instance, Library, ParamValue};
+use scir::{Instance, Library, NetlistLibConversion, ParamValue, SliceOnePath};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use substrate::block::Block;
@@ -72,6 +73,46 @@ impl Spice {
     ) -> substrate::schematic::ScirBinding<Spice> {
         let parsed = Parser::parse_file(path).unwrap();
         Spice::scir_cell_from_parsed(&parsed, cell_name)
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
+    /// node voltage.
+    pub fn node_voltage_path(
+        lib: &Library<Spice>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+    ) -> String {
+        Self::node_path_with_prefix_and_separator(lib, conv, path, "", ".")
+    }
+
+    /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
+    /// node voltage, using the given instance prefix hierarchy separator.
+    pub fn node_path_with_prefix_and_separator(
+        lib: &Library<Spice>,
+        conv: &NetlistLibConversion,
+        path: &SliceOnePath,
+        prefix: &str,
+        sep: &str,
+    ) -> String {
+        let path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+            if let Some(index) = index {
+                arcstr::format!("{}\\[{}\\]", name, index)
+            } else {
+                name.clone()
+            }
+        });
+        let n = path.len();
+        path.iter()
+            .enumerate()
+            .map(|(i, elt)| {
+                if i + 1 == n {
+                    // Don't add a prefix to the last element.
+                    elt.clone()
+                } else {
+                    arcstr::format!("{}{}", prefix, elt)
+                }
+            })
+            .join(sep)
     }
 }
 

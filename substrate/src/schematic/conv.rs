@@ -50,12 +50,16 @@ impl<S: Schema<Primitive = impl std::fmt::Debug>> std::fmt::Debug for RawLib<S> 
 pub struct ScirLibConversion {
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, SubstrateCellConversion>,
+    /// The Substrate ID of the top cell, if there is one.
+    top: Option<CellId>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ScirLibConversionBuilder {
     /// Map from Substrate cell IDs to cell conversion metadata.
     pub(crate) cells: HashMap<CellId, SubstrateCellConversion>,
+    /// The Substrate ID of the top cell, if there is one.
+    top: Option<CellId>,
 }
 
 /// A path within a SCIR library corresponding to a Substrate [`NodePath`].
@@ -82,7 +86,10 @@ impl ScirLibConversionBuilder {
     }
 
     fn build(self) -> ScirLibConversion {
-        ScirLibConversion { cells: self.cells }
+        ScirLibConversion {
+            cells: self.cells,
+            top: self.top,
+        }
     }
 
     #[inline]
@@ -132,6 +139,28 @@ impl<S: Schema> RawLib<S> {
             ),
             SubstrateCellConversionRef::Primitive(p) => {
                 let (port, index) = p.ports.get(&path.node)?.first()?;
+                ConvertedNodePath::Primitive {
+                    id: p.primitive_id,
+                    instances,
+                    port: port.clone(),
+                    index: *index,
+                }
+            }
+        })
+    }
+
+    /// Convert a node in the top cell to a SCIR node path.
+    pub fn convert_node(&self, node: &Node) -> Option<ConvertedNodePath> {
+        let top = self.conv.top?;
+        let empty = Vec::new();
+        let (instances, cell) = self.convert_instance_path_inner(top, &empty)?;
+
+        Some(match cell {
+            SubstrateCellConversionRef::Cell(cell) => ConvertedNodePath::Cell(
+                scir::SliceOnePath::new(instances, *cell.signals.get(node)?),
+            ),
+            SubstrateCellConversionRef::Primitive(p) => {
+                let (port, index) = p.ports.get(node)?.first()?;
                 ConvertedNodePath::Primitive {
                     id: p.primitive_id,
                     instances,
@@ -470,6 +499,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
         if let ChildId::Cell(scir_id) = scir_id {
             lib_ctx.lib.set_top(scir_id);
         }
+        lib_ctx.conv.top = Some(self.id);
 
         Ok(RawLib {
             scir: lib_ctx.lib.build()?,

@@ -532,6 +532,11 @@ impl<T: ExportsNestedData> Cell<T> {
         self.nodes.nested_view(&self.path)
     }
 
+    /// Returns the raw data propagated by the cell's schematic generator.
+    pub fn raw_data(&self) -> &Arc<<T as ExportsNestedData>::NestedData> {
+        &self.nodes
+    }
+
     /// Returns this cell's IO.
     pub fn io(&self) -> NestedView<<T::Io as HardwareType>::Bundle> {
         self.io.nested_view(&self.path)
@@ -908,7 +913,8 @@ impl InstancePath {
         }
     }
 
-    pub(crate) fn prepend(&self, other: &Self) -> Self {
+    /// Prepend another path to this path.
+    pub fn prepend(&self, other: &Self) -> Self {
         if let Some(bot) = other.bot {
             assert_eq!(
                 bot, self.top,

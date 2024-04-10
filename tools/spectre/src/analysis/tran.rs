@@ -1,6 +1,7 @@
 //! Spectre transient analysis options and data structures.
 
-use crate::{ErrPreset, SimSignal, Spectre};
+use crate::dspf::DspfNode;
+use crate::{ErrPreset, InstanceTail, SimSignal, Spectre};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
@@ -96,6 +97,23 @@ impl<T> Save<Spectre, Tran, T> for tran::Voltage {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> Self::SavedKey {
         opts.save_tran_voltage(to_save)
+    }
+}
+
+impl Save<Spectre, Tran, DspfNode> for tran::Voltage {
+    fn save(
+        ctx: &SimulationContext<Spectre>,
+        to_save: DspfNode,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> <Self as FromSaved<Spectre, Tran>>::SavedKey {
+        let itail = InstanceTail {
+            instance: ctx
+                .lib
+                .convert_instance_path(&to_save.dspf_instance)
+                .unwrap(),
+            tail: to_save.path.into(),
+        };
+        opts.save_tran_voltage(itail)
     }
 }
 
