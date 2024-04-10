@@ -5,6 +5,7 @@ use crate::parser::conv::ScirConverter;
 use crate::parser::{ParsedSpice, Parser};
 
 use arcstr::ArcStr;
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, NetlistLibConversion, ParamValue, SliceOnePath};
@@ -93,14 +94,25 @@ impl Spice {
         prefix: &str,
         sep: &str,
     ) -> String {
-        lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
+        let path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
             if let Some(index) = index {
-                arcstr::format!("{}{}\\[{}\\]", prefix, name, index)
+                arcstr::format!("{}\\[{}\\]", name, index)
             } else {
-                arcstr::format!("{}{}", prefix, name)
+                name.clone()
             }
-        })
-        .join(sep)
+        });
+        let n = path.len();
+        path.iter()
+            .enumerate()
+            .map(|(i, elt)| {
+                if i + 1 == n {
+                    // Don't add a prefix to the last element.
+                    elt.clone()
+                } else {
+                    arcstr::format!("{}{}", prefix, elt)
+                }
+            })
+            .join(sep)
     }
 }
 
