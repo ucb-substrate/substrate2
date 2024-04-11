@@ -8,6 +8,7 @@ use substrate::schematic::conv::{ConvertedNodePath, RawLib};
 use substrate::schematic::{HasNestedView, InstancePath};
 
 /// A set of nodes in a DSPF netlist.
+#[derive(Debug, Clone)]
 pub struct DspfNodes<T> {
     /// The source spice file for this DSPF extracted view.
     pub lib: RawLib<Spice>,
@@ -16,6 +17,7 @@ pub struct DspfNodes<T> {
 }
 
 /// A set of nodes in a nested DSPF netlist instantiation.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct DspfNestedNodes<T> {
     /// The path to the DSPF instance.
     pub dspf_instance: InstancePath,
@@ -24,6 +26,7 @@ pub struct DspfNestedNodes<T> {
 }
 
 /// A node in an instance of a DSPF subcircuit.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct DspfNode {
     /// The path to the DSPF instance.
     pub dspf_instance: InstancePath,
