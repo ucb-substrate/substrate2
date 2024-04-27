@@ -331,6 +331,16 @@ pub struct Nport {
     ports: usize,
 }
 
+impl Nport {
+    /// Creates a new n-port with the given parameter file and number of ports.
+    pub fn new(ports: usize, parameter_file: impl Into<PathBuf>) -> Self {
+        Self {
+            parameter_file: parameter_file.into(),
+            ports,
+        }
+    }
+}
+
 /// The interface of an [`Nport`].
 #[derive(Io, Clone, Debug)]
 pub struct NportIo {
