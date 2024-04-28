@@ -940,7 +940,7 @@ impl Tran {
             write!(out, " noisefmax={noisefmax}")?;
         }
         if let Some(noisefmin) = self.noise_fmin {
-            write!(out, " noisefmax={noisefmin}")?;
+            write!(out, " noisefmin={noisefmin}")?;
         }
         Ok(())
     }
