@@ -345,7 +345,7 @@ impl Nport {
 #[derive(Io, Clone, Debug)]
 pub struct NportIo {
     /// The ports.
-    /// 
+    ///
     /// Each port contains two signals: a p terminal and an n terminal.
     pub ports: Array<TwoTerminalIo>,
 }
