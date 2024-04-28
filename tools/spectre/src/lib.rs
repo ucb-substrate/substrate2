@@ -936,6 +936,12 @@ impl Tran {
         if let Some(errpreset) = self.errpreset {
             write!(out, " errpreset={errpreset}")?;
         }
+        if let Some(noisefmax) = self.noise_fmax {
+            write!(out, " noisefmax={noisefmax}")?;
+        }
+        if let Some(noisefmin) = self.noise_fmin {
+            write!(out, " noisefmin={noisefmin}")?;
+        }
         Ok(())
     }
 }

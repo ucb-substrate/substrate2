@@ -26,6 +26,16 @@ pub struct Tran {
 
     /// The error preset.
     pub errpreset: Option<ErrPreset>,
+
+    /// The maximum frequency for noise power spectral density.
+    ///
+    /// A nonzero value turns on noise sources during transient analysis.
+    ///
+    /// Defaults to 0.
+    pub noise_fmax: Option<Decimal>,
+
+    /// The minimum frequency for noise power spectral density.
+    pub noise_fmin: Option<Decimal>,
 }
 
 /// The result of a transient analysis.
