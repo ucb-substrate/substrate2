@@ -4,9 +4,10 @@ use rust_decimal::Decimal;
 use scir::ParamValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use substrate::block::Block;
 use substrate::io::schematic::HardwareType;
-use substrate::io::TwoTerminalIo;
+use substrate::io::{Array, Io, TwoTerminalIo};
 use substrate::schematic::primitives::DcVsource;
 use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
 use substrate::simulation::waveform::{TimeWaveform, Waveform};
@@ -318,6 +319,79 @@ impl Schematic<Spectre> for Iprobe {
         });
         prim.connect("in", io.p);
         prim.connect("out", io.n);
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+/// An n-port black box.
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Nport {
+    parameter_file: PathBuf,
+    ports: usize,
+}
+
+impl Nport {
+    /// Creates a new n-port with the given parameter file and number of ports.
+    pub fn new(ports: usize, parameter_file: impl Into<PathBuf>) -> Self {
+        Self {
+            parameter_file: parameter_file.into(),
+            ports,
+        }
+    }
+}
+
+/// The interface of an [`Nport`].
+#[derive(Io, Clone, Debug)]
+pub struct NportIo {
+    /// The ports.
+    ///
+    /// Each port contains two signals: a p terminal and an n terminal.
+    pub ports: Array<TwoTerminalIo>,
+}
+
+impl Block for Nport {
+    type Io = NportIo;
+
+    fn id() -> arcstr::ArcStr {
+        arcstr::literal!("nport")
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        // `nport` is a reserved Spectre keyword,
+        // so we call this block `usernport`.
+        arcstr::format!("usernport")
+    }
+    fn io(&self) -> Self::Io {
+        NportIo {
+            ports: Array::new(self.ports, Default::default()),
+        }
+    }
+}
+
+impl ExportsNestedData for Nport {
+    type NestedData = ();
+}
+
+impl Schematic<Spectre> for Nport {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
+        cell: &mut CellBuilder<Spectre>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
+            cell: arcstr::literal!("nport"),
+            ports: (1..=self.ports)
+                .flat_map(|i| [arcstr::format!("t{i}"), arcstr::format!("b{i}")])
+                .collect(),
+            params: HashMap::from_iter([(
+                arcstr::literal!("file"),
+                ParamValue::String(arcstr::format!("{:?}", self.parameter_file)),
+            )]),
+        });
+        for i in 0..self.ports {
+            prim.connect(arcstr::format!("t{}", i + 1), io.ports[i].p);
+            prim.connect(arcstr::format!("b{}", i + 1), io.ports[i].n);
+        }
         cell.set_primitive(prim);
         Ok(())
     }
