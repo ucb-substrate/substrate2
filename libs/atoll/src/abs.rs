@@ -287,10 +287,9 @@ impl Abstract {
                             for y in rect.bot()..=rect.top() {
                                 let xofs = xmin * slice.lcm_unit_width() / grid.xpitch(layer);
                                 let yofs = ymin * slice.lcm_unit_height() / grid.ypitch(layer);
-                                if let Some(pt) = state
-                                    .layer_mut(layer)
-                                    .get_mut((x - xofs) as usize, (y - yofs) as usize)
-                                {
+                                let gx = usize::try_from(x.checked_sub(xofs).unwrap()).unwrap();
+                                let gy = usize::try_from(y.checked_sub(yofs).unwrap()).unwrap();
+                                if let Some(pt) = state.layer_mut(layer).get_mut(gx, gy) {
                                     *pt = PointState::Routed {
                                         net,
                                         has_via: false,
@@ -627,7 +626,7 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                         for y in 0..ty {
                             let pt = self.abs.grid_to_physical(GridCoord { layer: i, x, y });
                             let rect = match states[(x, y)] {
-                                PointState::Available => Rect::from_point(pt).expand_all(20),
+                                PointState::Available => Rect::from_point(pt).expand_all(22),
                                 PointState::Blocked { has_via } => {
                                     if has_via {
                                         Rect::from_point(pt).expand_all(40)
