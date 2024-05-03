@@ -379,17 +379,20 @@ impl<'a> GreedyStrapperState<'a> {
                         }
                     }
                     if let Some(start) = start {
-                        self.push_strap_if_valid(
-                            Strap {
-                                net,
-                                layer,
-                                track: i,
-                                start,
-                                stop: inner_end - 1,
-                                has_via: false,
-                            },
-                            &params.layers[layer - params.start],
-                        );
+                        let stop = inner_end.checked_sub(via_space);
+                        if let Some(stop) = stop {
+                            self.push_strap_if_valid(
+                                Strap {
+                                    net,
+                                    layer,
+                                    track: i,
+                                    start,
+                                    stop,
+                                    has_via: false,
+                                },
+                                &params.layers[layer - params.start],
+                            );
+                        }
                     }
                 }
             }
