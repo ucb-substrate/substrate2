@@ -469,7 +469,13 @@ impl InstanceAbstract {
             }
         }
 
-        for AssignedGridPoints { net, layer, bounds } in assigned_grid_points {
+        for AssignedGridPoints {
+            net,
+            layer,
+            bounds,
+            only_if_available,
+        } in assigned_grid_points
+        {
             let pdk_layer = grid.stack.layer(layer);
             let defining_layer = grid.stack.layer(grid.grid_defining_layer(layer));
             let parallel_pitch = pdk_layer.pitch();
@@ -494,14 +500,19 @@ impl InstanceAbstract {
                         y: j as usize,
                         layer,
                     }) {
-                        state.layer_mut(layer)[(i as usize, j as usize)] = if let Some(net) = net {
-                            PointState::Routed {
-                                net,
-                                has_via: false,
-                            }
-                        } else {
-                            PointState::Blocked { has_via: false }
-                        };
+                        let coords = (i as usize, j as usize);
+                        let curr_state = state.layer(layer)[coords];
+                        if !only_if_available || matches!(curr_state, PointState::Available) {
+                            state.layer_mut(layer)[(i as usize, j as usize)] =
+                                if let Some(net) = net {
+                                    PointState::Routed {
+                                        net,
+                                        has_via: false,
+                                    }
+                                } else {
+                                    PointState::Blocked { has_via: false }
+                                };
+                        }
                     }
                 }
             }

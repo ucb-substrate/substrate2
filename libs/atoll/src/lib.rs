@@ -530,6 +530,7 @@ pub(crate) struct AssignedGridPoints {
     pub(crate) net: Option<NetId>,
     pub(crate) layer: usize,
     pub(crate) bounds: Rect,
+    pub(crate) only_if_available: bool,
 }
 
 /// A builder for ATOLL tiles.
@@ -973,6 +974,24 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
             net: node.map(|node| self.nodes[&node].net),
             layer,
             bounds,
+            only_if_available: false,
+        })
+    }
+
+    /// Assigns grid points to the provided node, but only if the grid point is currently marked available.
+    ///
+    /// If the provided node is `None`, blocks the grid point for routing.
+    pub fn assign_grid_points_if_available(
+        &mut self,
+        node: Option<Node>,
+        layer: usize,
+        bounds: Rect,
+    ) {
+        self.assigned_nets.push(AssignedGridPoints {
+            net: node.map(|node| self.nodes[&node].net),
+            layer,
+            bounds,
+            only_if_available: true,
         })
     }
 
