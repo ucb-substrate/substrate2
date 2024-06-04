@@ -258,8 +258,7 @@ impl Abstract {
             .layer_bbox(virtual_layers.outline.id())
             .expect("cell must provide an outline on ATOLL virtual layer");
 
-        let top = top_layer(cell, &stack)
-            .expect("cell did not have any ATOLL routing layers; cannot produce an abstract");
+        let top = top_layer(cell, &stack).unwrap_or_default();
         let top = if top == 0 { 1 } else { top };
 
         let slice = stack.slice(0..top + 1);
