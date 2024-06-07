@@ -1,0 +1,877 @@
+************************************************************************
+* Library Name: BAG_prim
+* Cell Name:    AA_rdac_nmos_ulvt_0
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nmos_ulvt_0 B D G S
+*.PININFO B:B D:B G:B S:B
+MN0 D G S B nmos_ulvt W=2u L=150n m=2
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_nmos_ulvt_0_wrapper
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nmos_ulvt_0_wrapper b d g s
+*.PININFO b:B d:B g:B s:B
+XXN b d g s / AA_rdac_nmos_ulvt_0
+.ENDS
+
+************************************************************************
+* Library Name: BAG_prim
+* Cell Name:    AA_rdac_pmos_ulvt_1
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_pmos_ulvt_1 B D G S
+*.PININFO B:B D:B G:B S:B
+MN0 D G S B pmos_ulvt W=3u L=150n m=2
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_pmos_ulvt_1_wrapper
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_pmos_ulvt_1_wrapper b d g s
+*.PININFO b:B d:B g:B s:B
+XXP b d g s / AA_rdac_pmos_ulvt_1
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_inv
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_inv in out VDD VSS
+*.PININFO in:I out:O VDD:B VSS:B
+XXN VSS out in VSS / AA_rdac_nmos_ulvt_0_wrapper
+XXP VDD out in VDD / AA_rdac_pmos_ulvt_1_wrapper
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_nAA_rdac_and3
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nAA_rdac_and3 in<2> in<1> in<0> out VDD VSS
+*.PININFO in<2>:I in<1>:I in<0>:I out:O VDD:B VSS:B
+XXN<2> VSS out in<2> nmid<1> / AA_rdac_nmos_ulvt_0_wrapper
+XXN<1> VSS nmid<1> in<1> nmid<0> / AA_rdac_nmos_ulvt_0_wrapper
+XXN<0> VSS nmid<0> in<0> VSS / AA_rdac_nmos_ulvt_0_wrapper
+XXP<2> VDD out in<2> VDD / AA_rdac_pmos_ulvt_1_wrapper
+XXP<1> VDD out in<1> VDD / AA_rdac_pmos_ulvt_1_wrapper
+XXP<0> VDD out in<0> VDD / AA_rdac_pmos_ulvt_1_wrapper
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_and3
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_and3 in<2> in<1> in<0> out outb VDD VSS
+*.PININFO in<2>:I in<1>:I in<0>:I out:O outb:O VDD:B VSS:B
+XXNOR nand_out0 out VDD VSS / AA_rdac_inv
+XXAA_rdac_inv out outb VDD VSS / AA_rdac_inv
+XXNAND0 in<2> in<1> in<0> nand_out0 VDD VSS / AA_rdac_nAA_rdac_and3
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_current_summer_1
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_current_summer_1 in<7> in<6> in<5> in<4> in<3> in<2> in<1> in<0> out
+*.PININFO in<7>:I in<6>:I in<5>:I in<4>:I in<3>:I in<2>:I in<1>:I in<0>:I out:O
+*.CONNECT out in<6> 
+*.CONNECT out in<2> 
+*.CONNECT out in<0> 
+*.CONNECT out in<5> 
+*.CONNECT out in<4> 
+*.CONNECT out in<3> 
+*.CONNECT out in<1> 
+*.CONNECT out in<7> 
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_passgate
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_passgate en enb s d VDD VSS
+*.PININFO en:I enb:I s:I d:O VDD:B VSS:B
+XXN VSS d en s / AA_rdac_nmos_ulvt_0
+XXP VDD d enb s / AA_rdac_pmos_ulvt_1
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_rdac_decoder_column
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_rdac_decoder_column in<127> in<126> in<125> in<124> in<123> in<122> 
++ in<121> in<120> in<119> in<118> in<117> in<116> in<115> in<114> in<113> 
++ in<112> in<111> in<110> in<109> in<108> in<107> in<106> in<105> in<104> 
++ in<103> in<102> in<101> in<100> in<99> in<98> in<97> in<96> in<95> in<94> 
++ in<93> in<92> in<91> in<90> in<89> in<88> in<87> in<86> in<85> in<84> in<83> 
++ in<82> in<81> in<80> in<79> in<78> in<77> in<76> in<75> in<74> in<73> in<72> 
++ in<71> in<70> in<69> in<68> in<67> in<66> in<65> in<64> in<63> in<62> in<61> 
++ in<60> in<59> in<58> in<57> in<56> in<55> in<54> in<53> in<52> in<51> in<50> 
++ in<49> in<48> in<47> in<46> in<45> in<44> in<43> in<42> in<41> in<40> in<39> 
++ in<38> in<37> in<36> in<35> in<34> in<33> in<32> in<31> in<30> in<29> in<28> 
++ in<27> in<26> in<25> in<24> in<23> in<22> in<21> in<20> in<19> in<18> in<17> 
++ in<16> in<15> in<14> in<13> in<12> in<11> in<10> in<9> in<8> in<7> in<6> 
++ in<5> in<4> in<3> in<2> in<1> in<0> sel<2> sel<1> sel<0> out<15> out<14> 
++ out<13> out<12> out<11> out<10> out<9> out<8> out<7> out<6> out<5> out<4> 
++ out<3> out<2> out<1> out<0> VDD VSS
+*.PININFO in<127>:I in<126>:I in<125>:I in<124>:I in<123>:I in<122>:I 
+*.PININFO in<121>:I in<120>:I in<119>:I in<118>:I in<117>:I in<116>:I 
+*.PININFO in<115>:I in<114>:I in<113>:I in<112>:I in<111>:I in<110>:I 
+*.PININFO in<109>:I in<108>:I in<107>:I in<106>:I in<105>:I in<104>:I 
+*.PININFO in<103>:I in<102>:I in<101>:I in<100>:I in<99>:I in<98>:I in<97>:I 
+*.PININFO in<96>:I in<95>:I in<94>:I in<93>:I in<92>:I in<91>:I in<90>:I 
+*.PININFO in<89>:I in<88>:I in<87>:I in<86>:I in<85>:I in<84>:I in<83>:I 
+*.PININFO in<82>:I in<81>:I in<80>:I in<79>:I in<78>:I in<77>:I in<76>:I 
+*.PININFO in<75>:I in<74>:I in<73>:I in<72>:I in<71>:I in<70>:I in<69>:I 
+*.PININFO in<68>:I in<67>:I in<66>:I in<65>:I in<64>:I in<63>:I in<62>:I 
+*.PININFO in<61>:I in<60>:I in<59>:I in<58>:I in<57>:I in<56>:I in<55>:I 
+*.PININFO in<54>:I in<53>:I in<52>:I in<51>:I in<50>:I in<49>:I in<48>:I 
+*.PININFO in<47>:I in<46>:I in<45>:I in<44>:I in<43>:I in<42>:I in<41>:I 
+*.PININFO in<40>:I in<39>:I in<38>:I in<37>:I in<36>:I in<35>:I in<34>:I 
+*.PININFO in<33>:I in<32>:I in<31>:I in<30>:I in<29>:I in<28>:I in<27>:I 
+*.PININFO in<26>:I in<25>:I in<24>:I in<23>:I in<22>:I in<21>:I in<20>:I 
+*.PININFO in<19>:I in<18>:I in<17>:I in<16>:I in<15>:I in<14>:I in<13>:I 
+*.PININFO in<12>:I in<11>:I in<10>:I in<9>:I in<8>:I in<7>:I in<6>:I in<5>:I 
+*.PININFO in<4>:I in<3>:I in<2>:I in<1>:I in<0>:I sel<2>:I sel<1>:I sel<0>:I 
+*.PININFO out<15>:O out<14>:O out<13>:O out<12>:O out<11>:O out<10>:O out<9>:O 
+*.PININFO out<8>:O out<7>:O out<6>:O out<5>:O out<4>:O out<3>:O out<2>:O 
+*.PININFO out<1>:O out<0>:O VDD:B VSS:B
+XXAND7 sel<2> sel<1> sel<0> en<7> enb<7> VDD VSS / AA_rdac_and3
+XXAND6 sel<2> sel<1> selb<0> en<6> enb<6> VDD VSS / AA_rdac_and3
+XXAND5 sel<2> selb<1> sel<0> en<5> enb<5> VDD VSS / AA_rdac_and3
+XXAA_rdac_and4 sel<2> selb<1> selb<0> en<4> enb<4> VDD VSS / AA_rdac_and3
+XXAA_rdac_and3 selb<2> sel<1> sel<0> en<3> enb<3> VDD VSS / AA_rdac_and3
+XXAND2 selb<2> sel<1> selb<0> en<2> enb<2> VDD VSS / AA_rdac_and3
+XXAND1 selb<2> selb<1> sel<0> en<1> enb<1> VDD VSS / AA_rdac_and3
+XXAND0 selb<2> selb<1> selb<0> en<0> enb<0> VDD VSS / AA_rdac_and3
+XXCS9 pg_out<79> pg_out<78> pg_out<77> pg_out<76> pg_out<75> pg_out<74> 
++ pg_out<73> pg_out<72> out<9> / AA_rdac_current_summer_1
+XXCS8 pg_out<71> pg_out<70> pg_out<69> pg_out<68> pg_out<67> pg_out<66> 
++ pg_out<65> pg_out<64> out<8> / AA_rdac_current_summer_1
+XXCS7 pg_out<63> pg_out<62> pg_out<61> pg_out<60> pg_out<59> pg_out<58> 
++ pg_out<57> pg_out<56> out<7> / AA_rdac_current_summer_1
+XXCS6 pg_out<55> pg_out<54> pg_out<53> pg_out<52> pg_out<51> pg_out<50> 
++ pg_out<49> pg_out<48> out<6> / AA_rdac_current_summer_1
+XXCS5 pg_out<47> pg_out<46> pg_out<45> pg_out<44> pg_out<43> pg_out<42> 
++ pg_out<41> pg_out<40> out<5> / AA_rdac_current_summer_1
+XXCS4 pg_out<39> pg_out<38> pg_out<37> pg_out<36> pg_out<35> pg_out<34> 
++ pg_out<33> pg_out<32> out<4> / AA_rdac_current_summer_1
+XXCS3 pg_out<31> pg_out<30> pg_out<29> pg_out<28> pg_out<27> pg_out<26> 
++ pg_out<25> pg_out<24> out<3> / AA_rdac_current_summer_1
+XXCS2 pg_out<23> pg_out<22> pg_out<21> pg_out<20> pg_out<19> pg_out<18> 
++ pg_out<17> pg_out<16> out<2> / AA_rdac_current_summer_1
+XXCS15 pg_out<127> pg_out<126> pg_out<125> pg_out<124> pg_out<123> pg_out<122> 
++ pg_out<121> pg_out<120> out<15> / AA_rdac_current_summer_1
+XXCS14 pg_out<119> pg_out<118> pg_out<117> pg_out<116> pg_out<115> pg_out<114> 
++ pg_out<113> pg_out<112> out<14> / AA_rdac_current_summer_1
+XXCS13 pg_out<111> pg_out<110> pg_out<109> pg_out<108> pg_out<107> pg_out<106> 
++ pg_out<105> pg_out<104> out<13> / AA_rdac_current_summer_1
+XXCS12 pg_out<103> pg_out<102> pg_out<101> pg_out<100> pg_out<99> pg_out<98> 
++ pg_out<97> pg_out<96> out<12> / AA_rdac_current_summer_1
+XXCS11 pg_out<95> pg_out<94> pg_out<93> pg_out<92> pg_out<91> pg_out<90> 
++ pg_out<89> pg_out<88> out<11> / AA_rdac_current_summer_1
+XXCS10 pg_out<87> pg_out<86> pg_out<85> pg_out<84> pg_out<83> pg_out<82> 
++ pg_out<81> pg_out<80> out<10> / AA_rdac_current_summer_1
+XXCS1 pg_out<15> pg_out<14> pg_out<13> pg_out<12> pg_out<11> pg_out<10> 
++ pg_out<9> pg_out<8> out<1> / AA_rdac_current_summer_1
+XXCS0 pg_out<7> pg_out<6> pg_out<5> pg_out<4> pg_out<3> pg_out<2> pg_out<1> 
++ pg_out<0> out<0> / AA_rdac_current_summer_1
+XXINV<2> sel<2> selb<2> VDD VSS / AA_rdac_inv
+XXINV<1> sel<1> selb<1> VDD VSS / AA_rdac_inv
+XXINV<0> sel<0> selb<0> VDD VSS / AA_rdac_inv
+XXPG9<7> en<7> enb<7> in<79> pg_out<79> VDD VSS / AA_rdac_passgate
+XXPG9<6> en<6> enb<6> in<78> pg_out<78> VDD VSS / AA_rdac_passgate
+XXPG9<5> en<5> enb<5> in<77> pg_out<77> VDD VSS / AA_rdac_passgate
+XXPG9<4> en<4> enb<4> in<76> pg_out<76> VDD VSS / AA_rdac_passgate
+XXPG9<3> en<3> enb<3> in<75> pg_out<75> VDD VSS / AA_rdac_passgate
+XXPG9<2> en<2> enb<2> in<74> pg_out<74> VDD VSS / AA_rdac_passgate
+XXPG9<1> en<1> enb<1> in<73> pg_out<73> VDD VSS / AA_rdac_passgate
+XXPG9<0> en<0> enb<0> in<72> pg_out<72> VDD VSS / AA_rdac_passgate
+XXPG8<7> en<7> enb<7> in<71> pg_out<71> VDD VSS / AA_rdac_passgate
+XXPG8<6> en<6> enb<6> in<70> pg_out<70> VDD VSS / AA_rdac_passgate
+XXPG8<5> en<5> enb<5> in<69> pg_out<69> VDD VSS / AA_rdac_passgate
+XXPG8<4> en<4> enb<4> in<68> pg_out<68> VDD VSS / AA_rdac_passgate
+XXPG8<3> en<3> enb<3> in<67> pg_out<67> VDD VSS / AA_rdac_passgate
+XXPG8<2> en<2> enb<2> in<66> pg_out<66> VDD VSS / AA_rdac_passgate
+XXPG8<1> en<1> enb<1> in<65> pg_out<65> VDD VSS / AA_rdac_passgate
+XXPG8<0> en<0> enb<0> in<64> pg_out<64> VDD VSS / AA_rdac_passgate
+XXPG7<7> en<7> enb<7> in<63> pg_out<63> VDD VSS / AA_rdac_passgate
+XXPG7<6> en<6> enb<6> in<62> pg_out<62> VDD VSS / AA_rdac_passgate
+XXPG7<5> en<5> enb<5> in<61> pg_out<61> VDD VSS / AA_rdac_passgate
+XXPG7<4> en<4> enb<4> in<60> pg_out<60> VDD VSS / AA_rdac_passgate
+XXPG7<3> en<3> enb<3> in<59> pg_out<59> VDD VSS / AA_rdac_passgate
+XXPG7<2> en<2> enb<2> in<58> pg_out<58> VDD VSS / AA_rdac_passgate
+XXPG7<1> en<1> enb<1> in<57> pg_out<57> VDD VSS / AA_rdac_passgate
+XXPG7<0> en<0> enb<0> in<56> pg_out<56> VDD VSS / AA_rdac_passgate
+XXPG6<7> en<7> enb<7> in<55> pg_out<55> VDD VSS / AA_rdac_passgate
+XXPG6<6> en<6> enb<6> in<54> pg_out<54> VDD VSS / AA_rdac_passgate
+XXPG6<5> en<5> enb<5> in<53> pg_out<53> VDD VSS / AA_rdac_passgate
+XXPG6<4> en<4> enb<4> in<52> pg_out<52> VDD VSS / AA_rdac_passgate
+XXPG6<3> en<3> enb<3> in<51> pg_out<51> VDD VSS / AA_rdac_passgate
+XXPG6<2> en<2> enb<2> in<50> pg_out<50> VDD VSS / AA_rdac_passgate
+XXPG6<1> en<1> enb<1> in<49> pg_out<49> VDD VSS / AA_rdac_passgate
+XXPG6<0> en<0> enb<0> in<48> pg_out<48> VDD VSS / AA_rdac_passgate
+XXPG5<7> en<7> enb<7> in<47> pg_out<47> VDD VSS / AA_rdac_passgate
+XXPG5<6> en<6> enb<6> in<46> pg_out<46> VDD VSS / AA_rdac_passgate
+XXPG5<5> en<5> enb<5> in<45> pg_out<45> VDD VSS / AA_rdac_passgate
+XXPG5<4> en<4> enb<4> in<44> pg_out<44> VDD VSS / AA_rdac_passgate
+XXPG5<3> en<3> enb<3> in<43> pg_out<43> VDD VSS / AA_rdac_passgate
+XXPG5<2> en<2> enb<2> in<42> pg_out<42> VDD VSS / AA_rdac_passgate
+XXPG5<1> en<1> enb<1> in<41> pg_out<41> VDD VSS / AA_rdac_passgate
+XXPG5<0> en<0> enb<0> in<40> pg_out<40> VDD VSS / AA_rdac_passgate
+XXPG4<7> en<7> enb<7> in<39> pg_out<39> VDD VSS / AA_rdac_passgate
+XXPG4<6> en<6> enb<6> in<38> pg_out<38> VDD VSS / AA_rdac_passgate
+XXPG4<5> en<5> enb<5> in<37> pg_out<37> VDD VSS / AA_rdac_passgate
+XXPG4<4> en<4> enb<4> in<36> pg_out<36> VDD VSS / AA_rdac_passgate
+XXPG4<3> en<3> enb<3> in<35> pg_out<35> VDD VSS / AA_rdac_passgate
+XXPG4<2> en<2> enb<2> in<34> pg_out<34> VDD VSS / AA_rdac_passgate
+XXPG4<1> en<1> enb<1> in<33> pg_out<33> VDD VSS / AA_rdac_passgate
+XXPG4<0> en<0> enb<0> in<32> pg_out<32> VDD VSS / AA_rdac_passgate
+XXPG3<7> en<7> enb<7> in<31> pg_out<31> VDD VSS / AA_rdac_passgate
+XXPG3<6> en<6> enb<6> in<30> pg_out<30> VDD VSS / AA_rdac_passgate
+XXPG3<5> en<5> enb<5> in<29> pg_out<29> VDD VSS / AA_rdac_passgate
+XXPG3<4> en<4> enb<4> in<28> pg_out<28> VDD VSS / AA_rdac_passgate
+XXPG3<3> en<3> enb<3> in<27> pg_out<27> VDD VSS / AA_rdac_passgate
+XXPG3<2> en<2> enb<2> in<26> pg_out<26> VDD VSS / AA_rdac_passgate
+XXPG3<1> en<1> enb<1> in<25> pg_out<25> VDD VSS / AA_rdac_passgate
+XXPG3<0> en<0> enb<0> in<24> pg_out<24> VDD VSS / AA_rdac_passgate
+XXPG2<7> en<7> enb<7> in<23> pg_out<23> VDD VSS / AA_rdac_passgate
+XXPG2<6> en<6> enb<6> in<22> pg_out<22> VDD VSS / AA_rdac_passgate
+XXPG2<5> en<5> enb<5> in<21> pg_out<21> VDD VSS / AA_rdac_passgate
+XXPG2<4> en<4> enb<4> in<20> pg_out<20> VDD VSS / AA_rdac_passgate
+XXPG2<3> en<3> enb<3> in<19> pg_out<19> VDD VSS / AA_rdac_passgate
+XXPG2<2> en<2> enb<2> in<18> pg_out<18> VDD VSS / AA_rdac_passgate
+XXPG2<1> en<1> enb<1> in<17> pg_out<17> VDD VSS / AA_rdac_passgate
+XXPG2<0> en<0> enb<0> in<16> pg_out<16> VDD VSS / AA_rdac_passgate
+XXPG1<7> en<7> enb<7> in<15> pg_out<15> VDD VSS / AA_rdac_passgate
+XXPG1<6> en<6> enb<6> in<14> pg_out<14> VDD VSS / AA_rdac_passgate
+XXPG1<5> en<5> enb<5> in<13> pg_out<13> VDD VSS / AA_rdac_passgate
+XXPG1<4> en<4> enb<4> in<12> pg_out<12> VDD VSS / AA_rdac_passgate
+XXPG1<3> en<3> enb<3> in<11> pg_out<11> VDD VSS / AA_rdac_passgate
+XXPG1<2> en<2> enb<2> in<10> pg_out<10> VDD VSS / AA_rdac_passgate
+XXPG1<1> en<1> enb<1> in<9> pg_out<9> VDD VSS / AA_rdac_passgate
+XXPG1<0> en<0> enb<0> in<8> pg_out<8> VDD VSS / AA_rdac_passgate
+XXPG15<7> en<7> enb<7> in<127> pg_out<127> VDD VSS / AA_rdac_passgate
+XXPG15<6> en<6> enb<6> in<126> pg_out<126> VDD VSS / AA_rdac_passgate
+XXPG15<5> en<5> enb<5> in<125> pg_out<125> VDD VSS / AA_rdac_passgate
+XXPG15<4> en<4> enb<4> in<124> pg_out<124> VDD VSS / AA_rdac_passgate
+XXPG15<3> en<3> enb<3> in<123> pg_out<123> VDD VSS / AA_rdac_passgate
+XXPG15<2> en<2> enb<2> in<122> pg_out<122> VDD VSS / AA_rdac_passgate
+XXPG15<1> en<1> enb<1> in<121> pg_out<121> VDD VSS / AA_rdac_passgate
+XXPG15<0> en<0> enb<0> in<120> pg_out<120> VDD VSS / AA_rdac_passgate
+XXPG14<7> en<7> enb<7> in<119> pg_out<119> VDD VSS / AA_rdac_passgate
+XXPG14<6> en<6> enb<6> in<118> pg_out<118> VDD VSS / AA_rdac_passgate
+XXPG14<5> en<5> enb<5> in<117> pg_out<117> VDD VSS / AA_rdac_passgate
+XXPG14<4> en<4> enb<4> in<116> pg_out<116> VDD VSS / AA_rdac_passgate
+XXPG14<3> en<3> enb<3> in<115> pg_out<115> VDD VSS / AA_rdac_passgate
+XXPG14<2> en<2> enb<2> in<114> pg_out<114> VDD VSS / AA_rdac_passgate
+XXPG14<1> en<1> enb<1> in<113> pg_out<113> VDD VSS / AA_rdac_passgate
+XXPG14<0> en<0> enb<0> in<112> pg_out<112> VDD VSS / AA_rdac_passgate
+XXPG13<7> en<7> enb<7> in<111> pg_out<111> VDD VSS / AA_rdac_passgate
+XXPG13<6> en<6> enb<6> in<110> pg_out<110> VDD VSS / AA_rdac_passgate
+XXPG13<5> en<5> enb<5> in<109> pg_out<109> VDD VSS / AA_rdac_passgate
+XXPG13<4> en<4> enb<4> in<108> pg_out<108> VDD VSS / AA_rdac_passgate
+XXPG13<3> en<3> enb<3> in<107> pg_out<107> VDD VSS / AA_rdac_passgate
+XXPG13<2> en<2> enb<2> in<106> pg_out<106> VDD VSS / AA_rdac_passgate
+XXPG13<1> en<1> enb<1> in<105> pg_out<105> VDD VSS / AA_rdac_passgate
+XXPG13<0> en<0> enb<0> in<104> pg_out<104> VDD VSS / AA_rdac_passgate
+XXPG12<7> en<7> enb<7> in<103> pg_out<103> VDD VSS / AA_rdac_passgate
+XXPG12<6> en<6> enb<6> in<102> pg_out<102> VDD VSS / AA_rdac_passgate
+XXPG12<5> en<5> enb<5> in<101> pg_out<101> VDD VSS / AA_rdac_passgate
+XXPG12<4> en<4> enb<4> in<100> pg_out<100> VDD VSS / AA_rdac_passgate
+XXPG12<3> en<3> enb<3> in<99> pg_out<99> VDD VSS / AA_rdac_passgate
+XXPG12<2> en<2> enb<2> in<98> pg_out<98> VDD VSS / AA_rdac_passgate
+XXPG12<1> en<1> enb<1> in<97> pg_out<97> VDD VSS / AA_rdac_passgate
+XXPG12<0> en<0> enb<0> in<96> pg_out<96> VDD VSS / AA_rdac_passgate
+XXPG11<7> en<7> enb<7> in<95> pg_out<95> VDD VSS / AA_rdac_passgate
+XXPG11<6> en<6> enb<6> in<94> pg_out<94> VDD VSS / AA_rdac_passgate
+XXPG11<5> en<5> enb<5> in<93> pg_out<93> VDD VSS / AA_rdac_passgate
+XXPG11<4> en<4> enb<4> in<92> pg_out<92> VDD VSS / AA_rdac_passgate
+XXPG11<3> en<3> enb<3> in<91> pg_out<91> VDD VSS / AA_rdac_passgate
+XXPG11<2> en<2> enb<2> in<90> pg_out<90> VDD VSS / AA_rdac_passgate
+XXPG11<1> en<1> enb<1> in<89> pg_out<89> VDD VSS / AA_rdac_passgate
+XXPG11<0> en<0> enb<0> in<88> pg_out<88> VDD VSS / AA_rdac_passgate
+XXPG10<7> en<7> enb<7> in<87> pg_out<87> VDD VSS / AA_rdac_passgate
+XXPG10<6> en<6> enb<6> in<86> pg_out<86> VDD VSS / AA_rdac_passgate
+XXPG10<5> en<5> enb<5> in<85> pg_out<85> VDD VSS / AA_rdac_passgate
+XXPG10<4> en<4> enb<4> in<84> pg_out<84> VDD VSS / AA_rdac_passgate
+XXPG10<3> en<3> enb<3> in<83> pg_out<83> VDD VSS / AA_rdac_passgate
+XXPG10<2> en<2> enb<2> in<82> pg_out<82> VDD VSS / AA_rdac_passgate
+XXPG10<1> en<1> enb<1> in<81> pg_out<81> VDD VSS / AA_rdac_passgate
+XXPG10<0> en<0> enb<0> in<80> pg_out<80> VDD VSS / AA_rdac_passgate
+XXPG0<7> en<7> enb<7> in<7> pg_out<7> VDD VSS / AA_rdac_passgate
+XXPG0<6> en<6> enb<6> in<6> pg_out<6> VDD VSS / AA_rdac_passgate
+XXPG0<5> en<5> enb<5> in<5> pg_out<5> VDD VSS / AA_rdac_passgate
+XXPG0<4> en<4> enb<4> in<4> pg_out<4> VDD VSS / AA_rdac_passgate
+XXPG0<3> en<3> enb<3> in<3> pg_out<3> VDD VSS / AA_rdac_passgate
+XXPG0<2> en<2> enb<2> in<2> pg_out<2> VDD VSS / AA_rdac_passgate
+XXPG0<1> en<1> enb<1> in<1> pg_out<1> VDD VSS / AA_rdac_passgate
+XXPG0<0> en<0> enb<0> in<0> pg_out<0> VDD VSS / AA_rdac_passgate
+.ENDS
+
+************************************************************************
+* Library Name: BAG_prim
+* Cell Name:    AA_rdac_nmos_ulvt_3
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nmos_ulvt_3 B D G S
+*.PININFO B:B D:B G:B S:B
+MN0 D G S B nulvt W=4u L=200n m=1
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_nmos_ulvt_stack2_seg2_uniquify
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nmos_ulvt_stack2_seg2_uniquify b d g<1> g<0> s
+*.PININFO b:B d:B g<1>:B g<0>:B s:B
+XXN<3> b d g<1> m<1> / AA_rdac_nmos_ulvt_3
+XXN<2> b d g<1> m<0> / AA_rdac_nmos_ulvt_3
+XXN<1> b m<1> g<0> s / AA_rdac_nmos_ulvt_3
+XXN<0> b m<0> g<0> s / AA_rdac_nmos_ulvt_3
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_nand2
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nand2 in<1> in<0> out VDD VSS
+*.PININFO in<1>:I in<0>:I out:O VDD:B VSS:B
+XXN VSS out in<1> in<0> VSS / AA_rdac_nmos_ulvt_stack2_seg2_uniquify
+XXP<1> VDD out in<1> VDD / AA_rdac_pmos_ulvt_1_wrapper
+XXP<0> VDD out in<0> VDD / AA_rdac_pmos_ulvt_1_wrapper
+.ENDS
+
+************************************************************************
+* Library Name: BAG_prim
+* Cell Name:    AA_rdac_pmos_ulvt_2
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_pmos_ulvt_2 B D G S
+*.PININFO B:B D:B G:B S:B
+MN0 D G S B pulvt W=2u L=150n m=1
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_pmos_ulvt_stack2_seg2
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_pmos_ulvt_stack2_seg2 b d g<1> g<0> s
+*.PININFO b:B d:B g<1>:B g<0>:B s:B
+XXP<3> b d g<1> m<1> / AA_rdac_pmos_ulvt_2
+XXP<2> b d g<1> m<0> / AA_rdac_pmos_ulvt_2
+XXP<1> b m<1> g<0> s / AA_rdac_pmos_ulvt_2
+XXP<0> b m<0> g<0> s / AA_rdac_pmos_ulvt_2
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_nor2
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_nor2 in<1> in<0> out VDD VSS
+*.PININFO in<1>:I in<0>:I out:O VDD:B VSS:B
+XXN<1> VSS out in<1> VSS / AA_rdac_nmos_ulvt_0_wrapper
+XXN<0> VSS out in<0> VSS / AA_rdac_nmos_ulvt_0_wrapper
+XXP VDD out in<1> in<0> VDD / AA_rdac_pmos_ulvt_stack2_seg2
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_and4
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_and4 in<3> in<2> in<1> in<0> out outb VDD VSS
+*.PININFO in<3>:I in<2>:I in<1>:I in<0>:I out:O outb:O VDD:B VSS:B
+XXAA_rdac_inv out outb VDD VSS / AA_rdac_inv
+XXNAND1 in<3> in<2> nand_out1 VDD VSS / AA_rdac_nand2
+XXNAND0 in<1> in<0> nand_out0 VDD VSS / AA_rdac_nand2
+XXNOR nand_out1 nand_out0 out VDD VSS / AA_rdac_nor2
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_current_summer
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_current_summer in<15> in<14> in<13> in<12> in<11> in<10> in<9> in<8> 
++ in<7> in<6> in<5> in<4> in<3> in<2> in<1> in<0> out
+*.PININFO in<15>:I in<14>:I in<13>:I in<12>:I in<11>:I in<10>:I in<9>:I 
+*.PININFO in<8>:I in<7>:I in<6>:I in<5>:I in<4>:I in<3>:I in<2>:I in<1>:I 
+*.PININFO in<0>:I out:O
+*.CONNECT out in<12> 
+*.CONNECT out in<9> 
+*.CONNECT out in<6> 
+*.CONNECT out in<13> 
+*.CONNECT out in<2> 
+*.CONNECT out in<0> 
+*.CONNECT out in<11> 
+*.CONNECT out in<8> 
+*.CONNECT out in<10> 
+*.CONNECT out in<14> 
+*.CONNECT out in<5> 
+*.CONNECT out in<4> 
+*.CONNECT out in<3> 
+*.CONNECT out in<1> 
+*.CONNECT out in<15> 
+*.CONNECT out in<7> 
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_rdac_decoder_row
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_rdac_decoder_row in<15> in<14> in<13> in<12> in<11> in<10> in<9> in<8> 
++ in<7> in<6> in<5> in<4> in<3> in<2> in<1> in<0> sel<3> sel<2> sel<1> sel<0> 
++ out VDD VSS
+*.PININFO in<15>:I in<14>:I in<13>:I in<12>:I in<11>:I in<10>:I in<9>:I 
+*.PININFO in<8>:I in<7>:I in<6>:I in<5>:I in<4>:I in<3>:I in<2>:I in<1>:I 
+*.PININFO in<0>:I sel<3>:I sel<2>:I sel<1>:I sel<0>:I out:O VDD:B VSS:B
+XXAND9 sel<3> selb<2> selb<1> sel<0> en<9> enb<9> VDD VSS / AA_rdac_and4
+XXAND8 sel<3> selb<2> selb<1> selb<0> en<8> enb<8> VDD VSS / AA_rdac_and4
+XXAND7 selb<3> sel<2> sel<1> sel<0> en<7> enb<7> VDD VSS / AA_rdac_and4
+XXAND6 selb<3> sel<2> sel<1> selb<0> en<6> enb<6> VDD VSS / AA_rdac_and4
+XXAND5 selb<3> sel<2> selb<1> sel<0> en<5> enb<5> VDD VSS / AA_rdac_and4
+XXAA_rdac_and4 selb<3> sel<2> selb<1> selb<0> en<4> enb<4> VDD VSS / AA_rdac_and4
+XXAA_rdac_and3 selb<3> selb<2> sel<1> sel<0> en<3> enb<3> VDD VSS / AA_rdac_and4
+XXAND2 selb<3> selb<2> sel<1> selb<0> en<2> enb<2> VDD VSS / AA_rdac_and4
+XXAND15 sel<3> sel<2> sel<1> sel<0> en<15> enb<15> VDD VSS / AA_rdac_and4
+XXAND14 sel<3> sel<2> sel<1> selb<0> en<14> enb<14> VDD VSS / AA_rdac_and4
+XXAND13 sel<3> sel<2> selb<1> sel<0> en<13> enb<13> VDD VSS / AA_rdac_and4
+XXAND12 sel<3> sel<2> selb<1> selb<0> en<12> enb<12> VDD VSS / AA_rdac_and4
+XXAND11 sel<3> selb<2> sel<1> sel<0> en<11> enb<11> VDD VSS / AA_rdac_and4
+XXAND10 sel<3> selb<2> sel<1> selb<0> en<10> enb<10> VDD VSS / AA_rdac_and4
+XXAND1 selb<3> selb<2> selb<1> sel<0> en<1> enb<1> VDD VSS / AA_rdac_and4
+XXAND0 selb<3> selb<2> selb<1> selb<0> en<0> enb<0> VDD VSS / AA_rdac_and4
+XXCS pg_out<15> pg_out<14> pg_out<13> pg_out<12> pg_out<11> pg_out<10> 
++ pg_out<9> pg_out<8> pg_out<7> pg_out<6> pg_out<5> pg_out<4> pg_out<3> 
++ pg_out<2> pg_out<1> pg_out<0> out / AA_rdac_current_summer
+XXINV<3> sel<3> selb<3> VDD VSS / AA_rdac_inv
+XXINV<2> sel<2> selb<2> VDD VSS / AA_rdac_inv
+XXINV<1> sel<1> selb<1> VDD VSS / AA_rdac_inv
+XXINV<0> sel<0> selb<0> VDD VSS / AA_rdac_inv
+XXPG<15> en<15> enb<15> in<15> pg_out<15> VDD VSS / AA_rdac_passgate
+XXPG<14> en<14> enb<14> in<14> pg_out<14> VDD VSS / AA_rdac_passgate
+XXPG<13> en<13> enb<13> in<13> pg_out<13> VDD VSS / AA_rdac_passgate
+XXPG<12> en<12> enb<12> in<12> pg_out<12> VDD VSS / AA_rdac_passgate
+XXPG<11> en<11> enb<11> in<11> pg_out<11> VDD VSS / AA_rdac_passgate
+XXPG<10> en<10> enb<10> in<10> pg_out<10> VDD VSS / AA_rdac_passgate
+XXPG<9> en<9> enb<9> in<9> pg_out<9> VDD VSS / AA_rdac_passgate
+XXPG<8> en<8> enb<8> in<8> pg_out<8> VDD VSS / AA_rdac_passgate
+XXPG<7> en<7> enb<7> in<7> pg_out<7> VDD VSS / AA_rdac_passgate
+XXPG<6> en<6> enb<6> in<6> pg_out<6> VDD VSS / AA_rdac_passgate
+XXPG<5> en<5> enb<5> in<5> pg_out<5> VDD VSS / AA_rdac_passgate
+XXPG<4> en<4> enb<4> in<4> pg_out<4> VDD VSS / AA_rdac_passgate
+XXPG<3> en<3> enb<3> in<3> pg_out<3> VDD VSS / AA_rdac_passgate
+XXPG<2> en<2> enb<2> in<2> pg_out<2> VDD VSS / AA_rdac_passgate
+XXPG<1> en<1> enb<1> in<1> pg_out<1> VDD VSS / AA_rdac_passgate
+XXPG<0> en<0> enb<0> in<0> pg_out<0> VDD VSS / AA_rdac_passgate
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_rdac_decoder
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_rdac_decoder in<127> in<126> in<125> in<124> in<123> in<122> in<121> 
++ in<120> in<119> in<118> in<117> in<116> in<115> in<114> in<113> in<112> 
++ in<111> in<110> in<109> in<108> in<107> in<106> in<105> in<104> in<103> 
++ in<102> in<101> in<100> in<99> in<98> in<97> in<96> in<95> in<94> in<93> 
++ in<92> in<91> in<90> in<89> in<88> in<87> in<86> in<85> in<84> in<83> in<82> 
++ in<81> in<80> in<79> in<78> in<77> in<76> in<75> in<74> in<73> in<72> in<71> 
++ in<70> in<69> in<68> in<67> in<66> in<65> in<64> in<63> in<62> in<61> in<60> 
++ in<59> in<58> in<57> in<56> in<55> in<54> in<53> in<52> in<51> in<50> in<49> 
++ in<48> in<47> in<46> in<45> in<44> in<43> in<42> in<41> in<40> in<39> in<38> 
++ in<37> in<36> in<35> in<34> in<33> in<32> in<31> in<30> in<29> in<28> in<27> 
++ in<26> in<25> in<24> in<23> in<22> in<21> in<20> in<19> in<18> in<17> in<16> 
++ in<15> in<14> in<13> in<12> in<11> in<10> in<9> in<8> in<7> in<6> in<5> 
++ in<4> in<3> in<2> in<1> in<0> sel<6> sel<5> sel<4> sel<3> sel<2> sel<1> 
++ sel<0> out VDD VSS
+*.PININFO in<127>:I in<126>:I in<125>:I in<124>:I in<123>:I in<122>:I 
+*.PININFO in<121>:I in<120>:I in<119>:I in<118>:I in<117>:I in<116>:I 
+*.PININFO in<115>:I in<114>:I in<113>:I in<112>:I in<111>:I in<110>:I 
+*.PININFO in<109>:I in<108>:I in<107>:I in<106>:I in<105>:I in<104>:I 
+*.PININFO in<103>:I in<102>:I in<101>:I in<100>:I in<99>:I in<98>:I in<97>:I 
+*.PININFO in<96>:I in<95>:I in<94>:I in<93>:I in<92>:I in<91>:I in<90>:I 
+*.PININFO in<89>:I in<88>:I in<87>:I in<86>:I in<85>:I in<84>:I in<83>:I 
+*.PININFO in<82>:I in<81>:I in<80>:I in<79>:I in<78>:I in<77>:I in<76>:I 
+*.PININFO in<75>:I in<74>:I in<73>:I in<72>:I in<71>:I in<70>:I in<69>:I 
+*.PININFO in<68>:I in<67>:I in<66>:I in<65>:I in<64>:I in<63>:I in<62>:I 
+*.PININFO in<61>:I in<60>:I in<59>:I in<58>:I in<57>:I in<56>:I in<55>:I 
+*.PININFO in<54>:I in<53>:I in<52>:I in<51>:I in<50>:I in<49>:I in<48>:I 
+*.PININFO in<47>:I in<46>:I in<45>:I in<44>:I in<43>:I in<42>:I in<41>:I 
+*.PININFO in<40>:I in<39>:I in<38>:I in<37>:I in<36>:I in<35>:I in<34>:I 
+*.PININFO in<33>:I in<32>:I in<31>:I in<30>:I in<29>:I in<28>:I in<27>:I 
+*.PININFO in<26>:I in<25>:I in<24>:I in<23>:I in<22>:I in<21>:I in<20>:I 
+*.PININFO in<19>:I in<18>:I in<17>:I in<16>:I in<15>:I in<14>:I in<13>:I 
+*.PININFO in<12>:I in<11>:I in<10>:I in<9>:I in<8>:I in<7>:I in<6>:I in<5>:I 
+*.PININFO in<4>:I in<3>:I in<2>:I in<1>:I in<0>:I sel<6>:I sel<5>:I sel<4>:I 
+*.PININFO sel<3>:I sel<2>:I sel<1>:I sel<0>:I out:O VDD:B VSS:B
+XXCOL in<127> in<126> in<125> in<124> in<123> in<122> in<121> in<120> in<119> 
++ in<118> in<117> in<116> in<115> in<114> in<113> in<112> in<111> in<110> 
++ in<109> in<108> in<107> in<106> in<105> in<104> in<103> in<102> in<101> 
++ in<100> in<99> in<98> in<97> in<96> in<95> in<94> in<93> in<92> in<91> 
++ in<90> in<89> in<88> in<87> in<86> in<85> in<84> in<83> in<82> in<81> in<80> 
++ in<79> in<78> in<77> in<76> in<75> in<74> in<73> in<72> in<71> in<70> in<69> 
++ in<68> in<67> in<66> in<65> in<64> in<63> in<62> in<61> in<60> in<59> in<58> 
++ in<57> in<56> in<55> in<54> in<53> in<52> in<51> in<50> in<49> in<48> in<47> 
++ in<46> in<45> in<44> in<43> in<42> in<41> in<40> in<39> in<38> in<37> in<36> 
++ in<35> in<34> in<33> in<32> in<31> in<30> in<29> in<28> in<27> in<26> in<25> 
++ in<24> in<23> in<22> in<21> in<20> in<19> in<18> in<17> in<16> in<15> in<14> 
++ in<13> in<12> in<11> in<10> in<9> in<8> in<7> in<6> in<5> in<4> in<3> in<2> 
++ in<1> in<0> sel<2> sel<1> sel<0> mid<15> mid<14> mid<13> mid<12> mid<11> 
++ mid<10> mid<9> mid<8> mid<7> mid<6> mid<5> mid<4> mid<3> mid<2> mid<1> 
++ mid<0> VDD VSS / AA_rdac_rdac_decoder_column
+XXROW mid<15> mid<14> mid<13> mid<12> mid<11> mid<10> mid<9> mid<8> mid<7> 
++ mid<6> mid<5> mid<4> mid<3> mid<2> mid<1> mid<0> sel<6> sel<5> sel<4> sel<3> 
++ out VDD VSS / AA_rdac_rdac_decoder_row
+.ENDS
+
+************************************************************************
+* Library Name: BAG_prim
+* Cell Name:    AA_rdac_res_metal_3_pcell_4
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_res_metal_3_pcell_4 MINUS PLUS
+*.PININFO MINUS:B PLUS:B
+RR0 PLUS MINUS rm3m2m4 w=90e-9 l=50e-9 m=1
+.ENDS
+
+************************************************************************
+* Library Name: fakepdk
+* Cell Name:    AA_resistor_unit_cell
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_resistor_unit_cell a b vdd
+*.PININFO a:B b:B vdd:B
+XI0 a b vdd poly_resistor W=4u L=10u
++ t=0.15
+.ENDS
+
+************************************************************************
+* Library Name: BAG_prim
+* Cell Name:    AA_rdac_resistor_unit_cell_wrapper
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_resistor_unit_cell_wrapper VDD MINUS PLUS
+*.PININFO VDD:B MINUS:B PLUS:B
+XR0 PLUS MINUS VDD / AA_resistor_unit_cell
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac_res_ladder
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac_res_ladder VDD VSS out<127> out<126> out<125> out<124> out<123> 
++ out<122> out<121> out<120> out<119> out<118> out<117> out<116> out<115> 
++ out<114> out<113> out<112> out<111> out<110> out<109> out<108> out<107> 
++ out<106> out<105> out<104> out<103> out<102> out<101> out<100> out<99> 
++ out<98> out<97> out<96> out<95> out<94> out<93> out<92> out<91> out<90> 
++ out<89> out<88> out<87> out<86> out<85> out<84> out<83> out<82> out<81> 
++ out<80> out<79> out<78> out<77> out<76> out<75> out<74> out<73> out<72> 
++ out<71> out<70> out<69> out<68> out<67> out<66> out<65> out<64> out<63> 
++ out<62> out<61> out<60> out<59> out<58> out<57> out<56> out<55> out<54> 
++ out<53> out<52> out<51> out<50> out<49> out<48> out<47> out<46> out<45> 
++ out<44> out<43> out<42> out<41> out<40> out<39> out<38> out<37> out<36> 
++ out<35> out<34> out<33> out<32> out<31> out<30> out<29> out<28> out<27> 
++ out<26> out<25> out<24> out<23> out<22> out<21> out<20> out<19> out<18> 
++ out<17> out<16> out<15> out<14> out<13> out<12> out<11> out<10> out<9> 
++ out<8> out<7> out<6> out<5> out<4> out<3> out<2> out<1> out<0>
+*.PININFO VDD:B VSS:B out<127>:B out<126>:B out<125>:B out<124>:B out<123>:B 
+*.PININFO out<122>:B out<121>:B out<120>:B out<119>:B out<118>:B out<117>:B 
+*.PININFO out<116>:B out<115>:B out<114>:B out<113>:B out<112>:B out<111>:B 
+*.PININFO out<110>:B out<109>:B out<108>:B out<107>:B out<106>:B out<105>:B 
+*.PININFO out<104>:B out<103>:B out<102>:B out<101>:B out<100>:B out<99>:B 
+*.PININFO out<98>:B out<97>:B out<96>:B out<95>:B out<94>:B out<93>:B 
+*.PININFO out<92>:B out<91>:B out<90>:B out<89>:B out<88>:B out<87>:B 
+*.PININFO out<86>:B out<85>:B out<84>:B out<83>:B out<82>:B out<81>:B 
+*.PININFO out<80>:B out<79>:B out<78>:B out<77>:B out<76>:B out<75>:B 
+*.PININFO out<74>:B out<73>:B out<72>:B out<71>:B out<70>:B out<69>:B 
+*.PININFO out<68>:B out<67>:B out<66>:B out<65>:B out<64>:B out<63>:B 
+*.PININFO out<62>:B out<61>:B out<60>:B out<59>:B out<58>:B out<57>:B 
+*.PININFO out<56>:B out<55>:B out<54>:B out<53>:B out<52>:B out<51>:B 
+*.PININFO out<50>:B out<49>:B out<48>:B out<47>:B out<46>:B out<45>:B 
+*.PININFO out<44>:B out<43>:B out<42>:B out<41>:B out<40>:B out<39>:B 
+*.PININFO out<38>:B out<37>:B out<36>:B out<35>:B out<34>:B out<33>:B 
+*.PININFO out<32>:B out<31>:B out<30>:B out<29>:B out<28>:B out<27>:B 
+*.PININFO out<26>:B out<25>:B out<24>:B out<23>:B out<22>:B out<21>:B 
+*.PININFO out<20>:B out<19>:B out<18>:B out<17>:B out<16>:B out<15>:B 
+*.PININFO out<14>:B out<13>:B out<12>:B out<11>:B out<10>:B out<9>:B out<8>:B 
+*.PININFO out<7>:B out<6>:B out<5>:B out<4>:B out<3>:B out<2>:B out<1>:B 
+*.PININFO out<0>:B
+XXMRES VSS out<0> / AA_rdac_res_metal_3_pcell_4
+XXRES_DUM<51> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<50> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<49> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<48> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<47> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<46> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<45> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<44> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<43> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<42> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<41> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<40> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<39> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<38> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<37> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<36> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<35> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<34> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<33> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<32> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<31> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<30> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<29> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<28> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<27> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<26> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<25> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<24> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<23> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<22> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<21> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<20> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<19> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<18> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<17> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<16> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<15> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<14> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<13> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<12> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<11> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<10> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<9> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<8> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<7> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<6> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<5> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<4> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<3> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<2> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<1> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES_DUM<0> VDD VDD VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES<127> VDD out<127> VDD / AA_rdac_resistor_unit_cell_wrapper
+XXRES<126> VDD out<126> out<127> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<125> VDD out<125> out<126> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<124> VDD out<124> out<125> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<123> VDD out<123> out<124> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<122> VDD out<122> out<123> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<121> VDD out<121> out<122> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<120> VDD out<120> out<121> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<119> VDD out<119> out<120> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<118> VDD out<118> out<119> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<117> VDD out<117> out<118> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<116> VDD out<116> out<117> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<115> VDD out<115> out<116> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<114> VDD out<114> out<115> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<113> VDD out<113> out<114> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<112> VDD out<112> out<113> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<111> VDD out<111> out<112> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<110> VDD out<110> out<111> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<109> VDD out<109> out<110> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<108> VDD out<108> out<109> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<107> VDD out<107> out<108> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<106> VDD out<106> out<107> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<105> VDD out<105> out<106> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<104> VDD out<104> out<105> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<103> VDD out<103> out<104> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<102> VDD out<102> out<103> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<101> VDD out<101> out<102> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<100> VDD out<100> out<101> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<99> VDD out<99> out<100> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<98> VDD out<98> out<99> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<97> VDD out<97> out<98> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<96> VDD out<96> out<97> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<95> VDD out<95> out<96> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<94> VDD out<94> out<95> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<93> VDD out<93> out<94> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<92> VDD out<92> out<93> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<91> VDD out<91> out<92> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<90> VDD out<90> out<91> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<89> VDD out<89> out<90> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<88> VDD out<88> out<89> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<87> VDD out<87> out<88> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<86> VDD out<86> out<87> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<85> VDD out<85> out<86> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<84> VDD out<84> out<85> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<83> VDD out<83> out<84> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<82> VDD out<82> out<83> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<81> VDD out<81> out<82> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<80> VDD out<80> out<81> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<79> VDD out<79> out<80> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<78> VDD out<78> out<79> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<77> VDD out<77> out<78> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<76> VDD out<76> out<77> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<75> VDD out<75> out<76> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<74> VDD out<74> out<75> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<73> VDD out<73> out<74> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<72> VDD out<72> out<73> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<71> VDD out<71> out<72> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<70> VDD out<70> out<71> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<69> VDD out<69> out<70> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<68> VDD out<68> out<69> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<67> VDD out<67> out<68> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<66> VDD out<66> out<67> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<65> VDD out<65> out<66> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<64> VDD out<64> out<65> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<63> VDD out<63> out<64> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<62> VDD out<62> out<63> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<61> VDD out<61> out<62> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<60> VDD out<60> out<61> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<59> VDD out<59> out<60> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<58> VDD out<58> out<59> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<57> VDD out<57> out<58> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<56> VDD out<56> out<57> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<55> VDD out<55> out<56> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<54> VDD out<54> out<55> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<53> VDD out<53> out<54> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<52> VDD out<52> out<53> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<51> VDD out<51> out<52> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<50> VDD out<50> out<51> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<49> VDD out<49> out<50> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<48> VDD out<48> out<49> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<47> VDD out<47> out<48> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<46> VDD out<46> out<47> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<45> VDD out<45> out<46> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<44> VDD out<44> out<45> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<43> VDD out<43> out<44> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<42> VDD out<42> out<43> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<41> VDD out<41> out<42> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<40> VDD out<40> out<41> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<39> VDD out<39> out<40> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<38> VDD out<38> out<39> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<37> VDD out<37> out<38> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<36> VDD out<36> out<37> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<35> VDD out<35> out<36> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<34> VDD out<34> out<35> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<33> VDD out<33> out<34> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<32> VDD out<32> out<33> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<31> VDD out<31> out<32> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<30> VDD out<30> out<31> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<29> VDD out<29> out<30> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<28> VDD out<28> out<29> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<27> VDD out<27> out<28> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<26> VDD out<26> out<27> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<25> VDD out<25> out<26> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<24> VDD out<24> out<25> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<23> VDD out<23> out<24> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<22> VDD out<22> out<23> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<21> VDD out<21> out<22> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<20> VDD out<20> out<21> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<19> VDD out<19> out<20> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<18> VDD out<18> out<19> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<17> VDD out<17> out<18> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<16> VDD out<16> out<17> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<15> VDD out<15> out<16> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<14> VDD out<14> out<15> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<13> VDD out<13> out<14> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<12> VDD out<12> out<13> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<11> VDD out<11> out<12> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<10> VDD out<10> out<11> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<9> VDD out<9> out<10> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<8> VDD out<8> out<9> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<7> VDD out<7> out<8> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<6> VDD out<6> out<7> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<5> VDD out<5> out<6> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<4> VDD out<4> out<5> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<3> VDD out<3> out<4> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<2> VDD out<2> out<3> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<1> VDD out<1> out<2> / AA_rdac_resistor_unit_cell_wrapper
+XXRES<0> VDD out<0> out<1> / AA_rdac_resistor_unit_cell_wrapper
+.ENDS
+
+************************************************************************
+* Library Name: AAA_RDAC_7B_2dec
+* Cell Name:    AA_rdac
+* View Name:    schematic
+************************************************************************
+
+.SUBCKT AA_rdac sel0<6> sel0<5> sel0<4> sel0<3> sel0<2> sel0<1> sel0<0> 
++ sel1<6> sel1<5> sel1<4> sel1<3> sel1<2> sel1<1> sel1<0> out0 out1 VDD VSS
+*.PININFO sel0<6>:I sel0<5>:I sel0<4>:I sel0<3>:I sel0<2>:I sel0<1>:I 
+*.PININFO sel0<0>:I sel1<6>:I sel1<5>:I sel1<4>:I sel1<3>:I sel1<2>:I 
+*.PININFO sel1<1>:I sel1<0>:I out0:O out1:O VDD:B VSS:B
+XXDEC1 in<127> in<126> in<125> in<124> in<123> in<122> in<121> in<120> in<119> 
++ in<118> in<117> in<116> in<115> in<114> in<113> in<112> in<111> in<110> 
++ in<109> in<108> in<107> in<106> in<105> in<104> in<103> in<102> in<101> 
++ in<100> in<99> in<98> in<97> in<96> in<95> in<94> in<93> in<92> in<91> 
++ in<90> in<89> in<88> in<87> in<86> in<85> in<84> in<83> in<82> in<81> in<80> 
++ in<79> in<78> in<77> in<76> in<75> in<74> in<73> in<72> in<71> in<70> in<69> 
++ in<68> in<67> in<66> in<65> in<64> in<63> in<62> in<61> in<60> in<59> in<58> 
++ in<57> in<56> in<55> in<54> in<53> in<52> in<51> in<50> in<49> in<48> in<47> 
++ in<46> in<45> in<44> in<43> in<42> in<41> in<40> in<39> in<38> in<37> in<36> 
++ in<35> in<34> in<33> in<32> in<31> in<30> in<29> in<28> in<27> in<26> in<25> 
++ in<24> in<23> in<22> in<21> in<20> in<19> in<18> in<17> in<16> in<15> in<14> 
++ in<13> in<12> in<11> in<10> in<9> in<8> in<7> in<6> in<5> in<4> in<3> in<2> 
++ in<1> in<0> sel1<6> sel1<5> sel1<4> sel1<3> sel1<2> sel1<1> sel1<0> out1 VDD 
++ VSS / AA_rdac_rdac_decoder
+XXDEC0 in<127> in<126> in<125> in<124> in<123> in<122> in<121> in<120> in<119> 
++ in<118> in<117> in<116> in<115> in<114> in<113> in<112> in<111> in<110> 
++ in<109> in<108> in<107> in<106> in<105> in<104> in<103> in<102> in<101> 
++ in<100> in<99> in<98> in<97> in<96> in<95> in<94> in<93> in<92> in<91> 
++ in<90> in<89> in<88> in<87> in<86> in<85> in<84> in<83> in<82> in<81> in<80> 
++ in<79> in<78> in<77> in<76> in<75> in<74> in<73> in<72> in<71> in<70> in<69> 
++ in<68> in<67> in<66> in<65> in<64> in<63> in<62> in<61> in<60> in<59> in<58> 
++ in<57> in<56> in<55> in<54> in<53> in<52> in<51> in<50> in<49> in<48> in<47> 
++ in<46> in<45> in<44> in<43> in<42> in<41> in<40> in<39> in<38> in<37> in<36> 
++ in<35> in<34> in<33> in<32> in<31> in<30> in<29> in<28> in<27> in<26> in<25> 
++ in<24> in<23> in<22> in<21> in<20> in<19> in<18> in<17> in<16> in<15> in<14> 
++ in<13> in<12> in<11> in<10> in<9> in<8> in<7> in<6> in<5> in<4> in<3> in<2> 
++ in<1> in<0> sel0<6> sel0<5> sel0<4> sel0<3> sel0<2> sel0<1> sel0<0> out0 VDD 
++ VSS / AA_rdac_rdac_decoder
+XXRES VDD VSS in<127> in<126> in<125> in<124> in<123> in<122> in<121> in<120> 
++ in<119> in<118> in<117> in<116> in<115> in<114> in<113> in<112> in<111> 
++ in<110> in<109> in<108> in<107> in<106> in<105> in<104> in<103> in<102> 
++ in<101> in<100> in<99> in<98> in<97> in<96> in<95> in<94> in<93> in<92> 
++ in<91> in<90> in<89> in<88> in<87> in<86> in<85> in<84> in<83> in<82> in<81> 
++ in<80> in<79> in<78> in<77> in<76> in<75> in<74> in<73> in<72> in<71> in<70> 
++ in<69> in<68> in<67> in<66> in<65> in<64> in<63> in<62> in<61> in<60> in<59> 
++ in<58> in<57> in<56> in<55> in<54> in<53> in<52> in<51> in<50> in<49> in<48> 
++ in<47> in<46> in<45> in<44> in<43> in<42> in<41> in<40> in<39> in<38> in<37> 
++ in<36> in<35> in<34> in<33> in<32> in<31> in<30> in<29> in<28> in<27> in<26> 
++ in<25> in<24> in<23> in<22> in<21> in<20> in<19> in<18> in<17> in<16> in<15> 
++ in<14> in<13> in<12> in<11> in<10> in<9> in<8> in<7> in<6> in<5> in<4> in<3> 
++ in<2> in<1> in<0> / AA_rdac_res_ladder
+.ENDS
+
