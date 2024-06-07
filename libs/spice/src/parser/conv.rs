@@ -6,6 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::parser::shorts::{CellShortManager, ShortPropagator};
 use crate::{ComponentValue, Primitive, Spice};
 use arcstr::ArcStr;
 use lazy_static::lazy_static;
@@ -14,10 +15,11 @@ use regex::Regex;
 use rust_decimal::prelude::One;
 use rust_decimal::Decimal;
 use scir::ParamValue;
+use substrate::serde::{Deserialize, Serialize};
 use thiserror::Error;
 use unicase::UniCase;
 
-use super::{Ast, Component, DeviceValue, Elem, Subckt, Substr};
+use super::{Ast, Component, DeviceValue, Elem, Node, Subckt, Substr};
 
 /// The type representing subcircuit names.
 pub type SubcktName = Substr;
@@ -79,10 +81,11 @@ impl<'a> ScirConverter<'a> {
 
     /// Consumes the converter, yielding a SCIR [library](scir::Library).
     pub fn convert(mut self) -> ConvResult<scir::Library<Spice>> {
-        self.map_subckts();
+        self.subckts = map_subckts(self.ast);
         let subckts = self.subckts.values().copied().collect::<Vec<_>>();
+        let mut shorts = ShortPropagator::analyze(self.ast, &self.blackbox_cells);
         for subckt in subckts {
-            match self.convert_subckt(subckt) {
+            match self.convert_subckt(subckt, &mut shorts) {
                 // Export blackbox errors can be ignored; we just skip
                 // exporting a SCIR cell for blackboxed subcircuits.
                 Ok(_) | Err(ConvError::ExportBlackbox) => (),
@@ -96,20 +99,11 @@ impl<'a> ScirConverter<'a> {
         Ok(lib)
     }
 
-    fn map_subckts(&mut self) {
-        for elem in self.ast.elems.iter() {
-            match elem {
-                Elem::Subckt(s) => {
-                    if self.subckts.insert(s.name.clone(), s).is_some() {
-                        tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
-                    }
-                }
-                _ => continue,
-            }
-        }
-    }
-
-    fn convert_subckt(&mut self, subckt: &Subckt) -> ConvResult<scir::CellId> {
+    fn convert_subckt(
+        &mut self,
+        subckt: &Subckt,
+        shorts: &mut ShortPropagator,
+    ) -> ConvResult<scir::CellId> {
         if let Some(&id) = self.ids.get(&subckt.name) {
             return Ok(id);
         }
@@ -122,8 +116,11 @@ impl<'a> ScirConverter<'a> {
 
         let mut cell = scir::Cell::new(ArcStr::from(subckt.name.as_str()));
         let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
-        let mut node = |name: &Substr, cell: &mut scir::Cell| {
-            if let Some(&node) = nodes.get(name) {
+        // TODO: this is an expensive clone
+        let mut local_shorts = shorts.get_cell(&parent_name).clone();
+        let mut node = |name: &Node, cell: &mut scir::Cell| {
+            let name = local_shorts.root(name);
+            if let Some(&node) = nodes.get(&name) {
                 return node;
             }
             let id = cell.add_node(name.as_str());
@@ -206,7 +203,7 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if let (false, Some(subckt)) = (blackbox, self.subckts.get(&inst.child)) {
-                        let id = self.convert_subckt(subckt)?;
+                        let id = self.convert_subckt(subckt, shorts)?;
                         let mut sinst = scir::Instance::new(&inst.name[1..], id);
                         let subckt = self
                             .subckts
@@ -221,8 +218,12 @@ impl<'a> ScirConverter<'a> {
                             });
                         }
 
+                        let cshorts = shorts.get_cell(&inst.child);
                         for (cport, iport) in subckt.ports.iter().zip(inst.ports.iter()) {
-                            sinst.connect(cport.as_str(), node(iport, &mut cell));
+                            // If child port is not its own root, do not connect to it: it must be shorted to another port
+                            if cshorts.root(cport) == *cport {
+                                sinst.connect(cport.as_str(), node(iport, &mut cell));
+                            }
                         }
 
                         cell.add_instance(sinst);
@@ -313,6 +314,21 @@ pub(crate) fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
 }
 fn substr_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
     str_as_numeric_lit(s).map_err(|_| ConvError::InvalidLiteral(s.clone()))
+}
+
+pub(crate) fn map_subckts(ast: &Ast) -> HashMap<SubcktName, &Subckt> {
+    let mut subckts = HashMap::new();
+    for elem in ast.elems.iter() {
+        match elem {
+            Elem::Subckt(s) => {
+                if subckts.insert(s.name.clone(), s).is_some() {
+                    tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
+                }
+            }
+            _ => continue,
+        }
+    }
+    subckts
 }
 
 #[cfg(test)]

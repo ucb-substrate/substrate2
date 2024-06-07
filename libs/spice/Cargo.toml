@@ -12,6 +12,7 @@ itertools = "0.11.0"
 rust_decimal = { version = "1", features = ["serde", "maths"] }
 rust_decimal_macros = "1"
 unicase = "2"
+ena = "0.14"
 
 scir = { version = "0.7.0", registry = "substrate", path = "../scir" }
 substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }

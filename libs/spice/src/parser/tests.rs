@@ -1,7 +1,9 @@
 use super::*;
 
+use crate::netlist::NetlistOptions;
 use crate::Primitive;
 use std::path::PathBuf;
+use substrate::schematic::netlist::ConvertibleNetlister;
 
 pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
 
@@ -214,7 +216,8 @@ fn convert_blackbox_to_scir() {
 #[test]
 fn convert_cdl_rdac_to_scir() {
     let parsed = Parser::parse_file(Dialect::Cdl, test_data("spice/AA_rdac.cdl")).unwrap();
-    let converter = ScirConverter::new(&parsed.ast);
+    let mut converter = ScirConverter::new(&parsed.ast);
+    converter.blackbox("poly_resistor");
     let lib = converter.convert().unwrap();
     let issues = lib.validate();
     assert_eq!(issues.num_errors(), 0);
@@ -225,4 +228,14 @@ fn convert_cdl_rdac_to_scir() {
     let cell = lib.cell_named("AA_rdac_inv");
     println!("{cell:#?}");
     assert_eq!(cell.instances().count(), 2);
+    Spice
+        .write_scir_netlist_to_file(
+            &lib,
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/build/convert_cdl_rdac_to_scir/converted_spice.sp"
+            ),
+            NetlistOptions::default(),
+        )
+        .expect("failed to export SPICE");
 }

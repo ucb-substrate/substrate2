@@ -2475,6 +2475,7 @@ name = "spice"
 version = "0.7.1"
 dependencies = [
  "arcstr",
+ "ena",
  "enumify",
  "itertools",
  "lazy_static",

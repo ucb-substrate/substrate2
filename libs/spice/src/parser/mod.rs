@@ -1,6 +1,7 @@
 //! SPICE netlist parser.
 
 pub mod conv;
+pub mod shorts;
 #[cfg(test)]
 mod tests;
 
@@ -515,7 +516,7 @@ pub struct Instance {
     /// The name of the instance.
     pub name: Substr,
     /// The list of port connections.
-    pub ports: Vec<Substr>,
+    pub ports: Vec<Node>,
     /// The name of the child cell.
     pub child: Substr,
     /// Instance parameters.
