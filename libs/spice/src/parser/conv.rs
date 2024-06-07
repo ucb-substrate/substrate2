@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{Primitive, Spice};
+use crate::{ComponentValue, Primitive, Spice};
 use arcstr::ArcStr;
 use lazy_static::lazy_static;
 use num_traits::Pow;
@@ -17,7 +17,7 @@ use scir::ParamValue;
 use thiserror::Error;
 use unicase::UniCase;
 
-use super::{Ast, Component, Elem, Subckt, Substr};
+use super::{Ast, Component, DeviceValue, Elem, Subckt, Substr};
 
 /// The type representing subcircuit names.
 pub type SubcktName = Substr;
@@ -31,6 +31,12 @@ pub enum ConvError {
     /// An instance of this subcircuit exists, but no definition was provided.
     #[error("an instance of subcircuit `{0}` exists, but no definition was provided")]
     MissingSubckt(Substr),
+    #[error("incorrect (missing/extra) connections for instance {inst} of cell `{child}` (in cell `{parent}`)")]
+    IncorrectConnections {
+        inst: Substr,
+        child: Substr,
+        parent: Substr,
+    },
     #[error("invalid literal: `{0}`")]
     /// The given expression is not a valid literal.
     InvalidLiteral(Substr),
@@ -112,6 +118,8 @@ impl<'a> ScirConverter<'a> {
             return Err(ConvError::ExportBlackbox);
         }
 
+        let parent_name = subckt.name.clone();
+
         let mut cell = scir::Cell::new(ArcStr::from(subckt.name.as_str()));
         let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
         let mut node = |name: &Substr, cell: &mut scir::Cell| {
@@ -172,9 +180,15 @@ impl<'a> ScirConverter<'a> {
                     cell.add_instance(sinst);
                 }
                 Component::Res(res) => {
-                    let id = self.lib.add_primitive(Primitive::Res2 {
-                        value: substr_as_numeric_lit(&res.value)?,
-                    });
+                    let value = match &res.value {
+                        DeviceValue::Value(value) => {
+                            ComponentValue::Fixed(substr_as_numeric_lit(value)?)
+                        }
+                        DeviceValue::Model(model) => {
+                            ComponentValue::Model(ArcStr::from(model.as_str()))
+                        }
+                    };
+                    let id = self.lib.add_primitive(Primitive::Res2 { value });
                     let mut sinst = scir::Instance::new(&res.name[1..], id);
                     sinst.connect("1", node(&res.pos, &mut cell));
                     sinst.connect("2", node(&res.neg, &mut cell));
@@ -198,6 +212,14 @@ impl<'a> ScirConverter<'a> {
                             .subckts
                             .get(&inst.child)
                             .ok_or_else(|| ConvError::MissingSubckt(inst.child.clone()))?;
+
+                        if subckt.ports.len() != inst.ports.len() {
+                            return Err(ConvError::IncorrectConnections {
+                                inst: inst.name.clone(),
+                                parent: parent_name.clone(),
+                                child: subckt.name.clone(),
+                            });
+                        }
 
                         for (cport, iport) in subckt.ports.iter().zip(inst.ports.iter()) {
                             sinst.connect(cport.as_str(), node(iport, &mut cell));
@@ -256,7 +278,7 @@ lazy_static! {
             .expect("failed to compile numeric literal regex");
 }
 
-fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
+pub(crate) fn convert_str_to_numeric_lit(s: &str) -> Option<Decimal> {
     let caps = NUMERIC_LITERAL_REGEX.captures(s)?;
     let num: Decimal = caps.get(1)?.as_str().parse().ok()?;
     let multiplier = caps
@@ -286,8 +308,8 @@ fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
     Some(num * multiplier)
 }
 
-fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
-    str_as_numeric_lit_inner(s).ok_or(())
+pub(crate) fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
+    convert_str_to_numeric_lit(s).ok_or(())
 }
 fn substr_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
     str_as_numeric_lit(s).map_err(|_| ConvError::InvalidLiteral(s.clone()))

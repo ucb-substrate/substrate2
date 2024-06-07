@@ -2,7 +2,7 @@
 #![warn(missing_docs)]
 
 use crate::parser::conv::ScirConverter;
-use crate::parser::{ParsedSpice, Parser};
+use crate::parser::{Dialect, ParsedSpice, Parser};
 
 use arcstr::ArcStr;
 use itertools::Itertools;
@@ -10,6 +10,7 @@ use rust_decimal::Decimal;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, NetlistLibConversion, ParamValue, SliceOnePath};
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use std::path::Path;
 use substrate::block::Block;
 use substrate::io::schematic::HardwareType;
@@ -34,13 +35,13 @@ impl Spice {
 
     /// Converts a SPICE string to a [`Library`].
     pub fn scir_lib_from_str(source: &str) -> Library<Spice> {
-        let parsed = Parser::parse(source).unwrap();
+        let parsed = Parser::parse(Dialect::Spice, source).unwrap();
         Spice::scir_lib_from_parsed(&parsed)
     }
 
     /// Converts a SPICE file to a [`Library`].
     pub fn scir_lib_from_file(path: impl AsRef<Path>) -> Library<Spice> {
-        let parsed = Parser::parse_file(path).unwrap();
+        let parsed = Parser::parse_file(Dialect::Spice, path).unwrap();
         Spice::scir_lib_from_parsed(&parsed)
     }
 
@@ -61,7 +62,7 @@ impl Spice {
         source: &str,
         cell_name: &str,
     ) -> substrate::schematic::ScirBinding<Spice> {
-        let parsed = Parser::parse(source).unwrap();
+        let parsed = Parser::parse(Dialect::Spice, source).unwrap();
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }
 
@@ -71,7 +72,7 @@ impl Spice {
         path: impl AsRef<Path>,
         cell_name: &str,
     ) -> substrate::schematic::ScirBinding<Spice> {
-        let parsed = Parser::parse_file(path).unwrap();
+        let parsed = Parser::parse_file(Dialect::Spice, path).unwrap();
         Spice::scir_cell_from_parsed(&parsed, cell_name)
     }
 
@@ -137,13 +138,28 @@ impl FromSchema<NoSchema> for Spice {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ComponentValue {
+    Fixed(Decimal),
+    Model(ArcStr),
+}
+
+impl Display for ComponentValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ComponentValue::Fixed(value) => write!(f, "{value}"),
+            ComponentValue::Model(model) => write!(f, "{model}"),
+        }
+    }
+}
+
 /// A SPICE primitive.
 #[derive(Debug, Clone)]
 pub enum Primitive {
     /// A resistor primitive with ports "1" and "2" and value `value`.
     Res2 {
         /// The resistor value.
-        value: Decimal,
+        value: ComponentValue,
     },
     /// A capacitor primitive with ports "1" and "2" and value `value`.
     Cap2 {
@@ -280,7 +296,7 @@ impl Schematic<Spice> for Resistor {
         cell: &mut CellBuilder<Spice>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {
-            value: self.value(),
+            value: ComponentValue::Fixed(self.value()),
         });
         prim.connect("1", io.p);
         prim.connect("2", io.n);

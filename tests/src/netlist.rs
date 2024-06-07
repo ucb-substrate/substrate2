@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use scir::*;
 use spectre::Spectre;
 use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
-use spice::{BlackboxContents, BlackboxElement, Spice};
+use spice::{BlackboxContents, BlackboxElement, ComponentValue, Spice};
 use std::collections::HashMap;
 use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::schema::Schema;
@@ -17,7 +17,7 @@ pub(crate) trait HasRes2: Schema {
 impl HasRes2 for Spice {
     fn resistor(value: usize) -> spice::Primitive {
         spice::Primitive::Res2 {
-            value: Decimal::from(value),
+            value: ComponentValue::Fixed(Decimal::from(value)),
         }
     }
     fn pos() -> &'static str {

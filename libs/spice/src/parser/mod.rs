@@ -10,6 +10,7 @@ use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
+use crate::parser::conv::convert_str_to_numeric_lit;
 use crate::Spice;
 use arcstr::ArcStr;
 use nom::bytes::complete::{take_till, take_while};
@@ -27,9 +28,22 @@ pub type Node = Substr;
 #[repr(transparent)]
 pub struct Substr(arcstr::Substr);
 
+/// The SPICE dialect to parse.
+#[derive(Copy, Clone, Default, Eq, PartialEq, Debug)]
+pub enum Dialect {
+    /// Vanilla SPICE.
+    ///
+    /// Selected by default.
+    #[default]
+    Spice,
+    /// CDL.
+    Cdl,
+}
+
 /// Parses SPICE netlists.
 #[derive(Clone, Default, Eq, PartialEq, Debug)]
 pub struct Parser {
+    dialect: Dialect,
     buffer: Vec<Token>,
     ast: Ast,
     state: ParserState,
@@ -48,13 +62,22 @@ enum ReaderState {
 }
 
 impl Parser {
+    pub fn new(dialect: Dialect) -> Self {
+        Self {
+            dialect,
+            ..Self::default()
+        }
+    }
     /// Parse the given file.
-    pub fn parse_file(path: impl AsRef<Path>) -> Result<ParsedSpice, ParserError> {
+    pub fn parse_file(
+        dialect: Dialect,
+        path: impl AsRef<Path>,
+    ) -> Result<ParsedSpice, ParserError> {
         let path = path.as_ref();
         tracing::debug!("reading SPICE file: {:?}", path);
         let s: ArcStr = std::fs::read_to_string(path).unwrap().into();
         let s = Substr(arcstr::Substr::full(s));
-        let mut parser = Self::default();
+        let mut parser = Self::new(dialect);
         parser.state.include_stack.push(path.into());
         let name = match s.lines().next() {
             Some(name) => ArcStr::from(name),
@@ -87,9 +110,9 @@ impl Parser {
     }
 
     /// Parse the given string.
-    pub fn parse(data: impl Into<Substr>) -> Result<ParsedSpice, ParserError> {
+    pub fn parse(dialect: Dialect, data: impl Into<Substr>) -> Result<ParsedSpice, ParserError> {
         let data = data.into();
-        let mut parser = Self::default();
+        let mut parser = Self::new(dialect);
         let name = match data.lines().next() {
             Some(name) => ArcStr::from(name),
             None => arcstr::literal!("spice_library"),
@@ -105,7 +128,7 @@ impl Parser {
     }
 
     fn parse_inner(&mut self, data: Substr) -> Result<(), ParserError> {
-        let mut tok = Tokenizer::new(data);
+        let mut tok = Tokenizer::new(self.dialect, data);
         while let Some(line) = self.parse_line(&mut tok)? {
             match (&mut self.state.reader_state, line) {
                 (ReaderState::Top, Line::SubcktDecl { name, ports }) => {
@@ -135,6 +158,9 @@ impl Parser {
                 }
                 (ReaderState::Subckt(ref mut subckt), Line::Component(c)) => {
                     subckt.components.push(c);
+                }
+                (ReaderState::Subckt(ref mut subckt), Line::Connect { node1, node2 }) => {
+                    subckt.connects.push((node1, node2));
                 }
                 (ReaderState::Subckt(ref mut subckt), Line::EndSubckt) => {
                     let subckt = std::mem::take(subckt);
@@ -244,12 +270,28 @@ impl Parser {
                             params,
                         }))
                     }
-                    'R' => Line::Component(Component::Res(Res {
-                        name: self.buffer[0].try_ident()?.clone(),
-                        pos: self.buffer[1].try_ident()?.clone(),
-                        neg: self.buffer[2].try_ident()?.clone(),
-                        value: self.buffer[3].try_ident()?.clone(),
-                    })),
+                    'R' => {
+                        let mut params = Params::default();
+                        for i in (4..self.buffer.len()).step_by(3) {
+                            let k = self.buffer[i].try_ident()?.clone();
+                            assert!(matches!(self.buffer[i + 1], Token::Equals));
+                            let v = self.buffer[i + 2].try_ident()?.clone();
+                            params.insert(k, v);
+                        }
+                        let value = self.buffer[3].try_ident()?.clone();
+                        let value = if convert_str_to_numeric_lit(&value).is_some() {
+                            DeviceValue::Value(value)
+                        } else {
+                            DeviceValue::Model(value)
+                        };
+                        Line::Component(Component::Res(Res {
+                            name: self.buffer[0].try_ident()?.clone(),
+                            pos: self.buffer[1].try_ident()?.clone(),
+                            neg: self.buffer[2].try_ident()?.clone(),
+                            value,
+                            params,
+                        }))
+                    }
                     'C' => Line::Component(Component::Cap(Cap {
                         name: self.buffer[0].try_ident()?.clone(),
                         pos: self.buffer[1].try_ident()?.clone(),
@@ -270,12 +312,22 @@ impl Parser {
                         // the tokens after `child_idx` should come in groups of 3
                         // and represent parameter values.
                         //
+                        // In CDL netlists, there is an extra '/' (and params are not supported):
+                        // ```spice
+                        // Xname port0 port1 port2 / child
+                        // ```
+                        // We handle this by reducing the port end index by one.
+                        //
                         // TODO: this logic needs to change to support expressions
                         // in parameter values.
                         let pos = self.buffer.iter().position(|t| matches!(t, Token::Equals));
                         let child_idx = pos.unwrap_or(self.buffer.len() + 1) - 2;
                         let child = self.buffer[child_idx].try_ident()?.clone();
-                        let ports = self.buffer[1..child_idx]
+                        let port_end_idx = match self.dialect {
+                            Dialect::Spice => child_idx,
+                            Dialect::Cdl => child_idx - 1,
+                        };
+                        let ports = self.buffer[1..port_end_idx]
                             .iter()
                             .map(|x| x.try_ident().cloned())
                             .collect::<Result<_, _>>()?;
@@ -405,6 +457,15 @@ pub enum Component {
     Instance(Instance),
 }
 
+/// A way of specifying the value of a primitive device.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DeviceValue {
+    /// The value is a fixed nominal value, e.g. `10p`.
+    Value(Substr),
+    /// The value is computed by a model with the given name.
+    Model(Substr),
+}
+
 /// A resistor.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Res {
@@ -414,8 +475,10 @@ pub struct Res {
     pub pos: Node,
     /// The node connected to the negative terminal.
     pub neg: Node,
-    /// The value of the resistor.
-    pub value: Substr,
+    /// The value or model of the resistor.
+    pub value: DeviceValue,
+    /// Parameters and their values.
+    pub params: Params,
 }
 
 /// A diode.
@@ -603,16 +666,20 @@ pub struct TokenizerError {
 }
 
 impl Tokenizer {
-    fn new(data: impl Into<arcstr::Substr>) -> Self {
+    fn new(dialect: Dialect, data: impl Into<arcstr::Substr>) -> Self {
         let data = data.into();
         let rem = data.clone();
+        let meta_directive_prefix = match dialect {
+            Dialect::Spice => None,
+            Dialect::Cdl => Some("*.".to_string()),
+        };
         Self {
             data: Substr(data),
             rem: Substr(rem),
             state: TokState::Init,
             comments: HashSet::from(['*', '$']),
             line_continuation: '+',
-            meta_directive_prefix: None,
+            meta_directive_prefix,
         }
     }
 

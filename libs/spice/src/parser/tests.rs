@@ -24,7 +24,7 @@ pub fn test_data(file_name: &str) -> PathBuf {
 
 #[test]
 fn spice_resistor_tokens() {
-    let tok = Tokenizer::new(SPICE_RESISTOR);
+    let tok = Tokenizer::new(Dialect::Spice, SPICE_RESISTOR);
     let toks = tok.into_iter().collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(
         toks,
@@ -47,13 +47,14 @@ fn spice_resistor_tokens() {
 
 #[test]
 fn parse_dff() {
-    let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/dff.spice")).unwrap();
     assert_eq!(parsed.ast.elems.len(), 1);
     match &parsed.ast.elems[0] {
         Elem::Subckt(Subckt {
             name,
             ports,
             components,
+            connects: _,
         }) => {
             assert_eq!(*name, "openram_dff".into());
             assert_eq!(
@@ -101,13 +102,14 @@ fn parse_dff() {
 
 #[test]
 fn parse_pex_netlist() {
-    let parsed = Parser::parse_file(test_data("spice/pex_netlist.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/pex_netlist.spice")).unwrap();
     assert_eq!(parsed.ast.elems.len(), 1);
     match &parsed.ast.elems[0] {
         Elem::Subckt(Subckt {
             name,
             ports,
             components,
+            connects: _,
         }) => {
             assert_eq!(*name, "sram22_512x64m4w8".into());
             assert!(ports.contains(&"VDD".into()));
@@ -130,7 +132,7 @@ fn parse_pex_netlist() {
 
 #[test]
 fn convert_mos_to_scir() {
-    let parsed = Parser::parse(SPICE_MOS).unwrap();
+    let parsed = Parser::parse(Dialect::Spice, SPICE_MOS).unwrap();
     let converter = ScirConverter::new(&parsed.ast);
     let lib = converter.convert().unwrap();
     let issues = lib.validate();
@@ -153,7 +155,7 @@ fn convert_mos_to_scir() {
 
 #[test]
 fn convert_dff_to_scir() {
-    let parsed = Parser::parse_file(test_data("spice/dff.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/dff.spice")).unwrap();
     let converter = ScirConverter::new(&parsed.ast);
     let lib = converter.convert().unwrap();
     let issues = lib.validate();
@@ -181,7 +183,7 @@ fn convert_dff_to_scir() {
 
 #[test]
 fn convert_blackbox_to_scir() {
-    let parsed = Parser::parse_file(test_data("spice/blackbox.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/blackbox.spice")).unwrap();
     let mut converter = ScirConverter::new(&parsed.ast);
     converter.blackbox("blackbox1");
     converter.blackbox("blackbox2");
@@ -207,4 +209,20 @@ fn convert_blackbox_to_scir() {
         }
         _ => panic!("incorrect primitive kind"),
     }
+}
+
+#[test]
+fn convert_cdl_rdac_to_scir() {
+    let parsed = Parser::parse_file(Dialect::Cdl, test_data("spice/AA_rdac.cdl")).unwrap();
+    let converter = ScirConverter::new(&parsed.ast);
+    let lib = converter.convert().unwrap();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(lib.cells().count(), 25);
+    let cell = lib.cell_named("AA_rdac");
+    assert_eq!(cell.instances().count(), 3);
+    let cell = lib.cell_named("AA_rdac_inv");
+    println!("{cell:#?}");
+    assert_eq!(cell.instances().count(), 2);
 }

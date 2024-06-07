@@ -1,6 +1,7 @@
 use crate::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
 };
+use crate::parser::{Dialect, Parser};
 use crate::{BlackboxContents, BlackboxElement, Primitive, Spice};
 use arcstr::ArcStr;
 use itertools::Itertools;
