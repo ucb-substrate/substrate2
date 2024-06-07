@@ -113,6 +113,7 @@ impl Parser {
                         name,
                         ports,
                         components: vec![],
+                        connects: vec![],
                     });
                 }
                 (ReaderState::Top, Line::Component(c)) => {
@@ -149,7 +150,9 @@ impl Parser {
     fn parse_line(&mut self, tok: &mut Tokenizer) -> Result<Option<Line>, ParserError> {
         while let Some(token) = tok.get()? {
             if token == Token::LineEnd {
-                return Ok(Some(self.parse_line_inner()?));
+                if let Some(line) = self.parse_line_inner()? {
+                    return Ok(Some(line));
+                }
             } else {
                 self.buffer.push(token);
             }
@@ -158,7 +161,7 @@ impl Parser {
         Ok(None)
     }
 
-    fn parse_line_inner(&mut self) -> Result<Line, ParserError> {
+    fn parse_line_inner(&mut self) -> Result<Option<Line>, ParserError> {
         let line = match self.buffer.first().unwrap() {
             Token::Directive(d) => {
                 if d.eq_ignore_ascii_case(".subckt") {
@@ -183,6 +186,24 @@ impl Parser {
                     Line::Include { path }
                 } else {
                     return Err(ParserError::UnexpectedDirective(d.clone()));
+                }
+            }
+            Token::MetaDirective(d) => {
+                if d.eq_ignore_ascii_case("connect") {
+                    // TODO: assert buffer length is 3 (connect, node1, node2).
+                    if self.buffer.len() != 3 {
+                        return Err(ParserError::InvalidLine {
+                            line: self.buffer.clone(),
+                            reason: "CONNECT statements must specify exactly 2 nodes".to_string(),
+                        });
+                    }
+                    let node1 = self.buffer[1].try_ident()?.clone();
+                    let node2 = self.buffer[2].try_ident()?.clone();
+                    Line::Connect { node1, node2 }
+                } else {
+                    // Ignore this line: clear the buffer and return no line
+                    self.buffer.clear();
+                    return Ok(None);
                 }
             }
             Token::Ident(id) => {
@@ -280,7 +301,7 @@ impl Parser {
             tok => return Err(ParserError::UnexpectedToken(tok.clone())),
         };
         self.buffer.clear();
-        Ok(line)
+        Ok(Some(line))
     }
 }
 
@@ -331,6 +352,13 @@ pub enum Line {
         /// The path to include.
         path: Substr,
     },
+    /// Connect (i.e. deep short) two nodes.
+    Connect {
+        /// The first node.
+        node1: Substr,
+        /// The second node.
+        node2: Substr,
+    },
 }
 
 /// An element of a SPICE netlist AST.
@@ -353,6 +381,13 @@ pub struct Subckt {
     pub ports: Vec<Node>,
     /// List of components in the subcircuit.
     pub components: Vec<Component>,
+
+    /// A set of deep shorted nodes.
+    ///
+    /// For example, a subcircuit containing `.CONNECT node1 node2`
+    /// and no other `.CONNECT` statements will yield
+    /// `connects = vec![("node1", "node2")]`.
+    pub connects: Vec<(Node, Node)>,
 }
 
 /// A SPICE netlist component.
@@ -476,6 +511,10 @@ struct Tokenizer {
     state: TokState,
     comments: HashSet<char>,
     line_continuation: char,
+    /// The string used to prefix metadata SPICE directives.
+    ///
+    /// In CDL format, this is "*.".
+    meta_directive_prefix: Option<String>,
 }
 
 /// A SPICE token.
@@ -494,6 +533,10 @@ pub enum Token {
     LineEnd,
     /// An equal sign token ('=').
     Equals,
+    /// A metadata directive.
+    ///
+    /// Examples: "*.CONNECT", "*.PININFO".
+    MetaDirective(Substr),
 }
 
 #[derive(Copy, Clone, Default, Eq, PartialEq, Hash, Debug)]
@@ -530,6 +573,8 @@ pub enum ParserError {
     /// For example, relative paths are forbidden when parsing inline spice.
     #[error("unexpected relative path: {0:?}")]
     UnexpectedRelativePath(Substr),
+    #[error("invalid line `{line:?}`: {reason}")]
+    InvalidLine { line: Vec<Token>, reason: String },
     /// Error trying to read the given file.
     #[error("failed to read file at path `{path:?}`: {err:?}")]
     FailedToRead {
@@ -567,6 +612,24 @@ impl Tokenizer {
             state: TokState::Init,
             comments: HashSet::from(['*', '$']),
             line_continuation: '+',
+            meta_directive_prefix: None,
+        }
+    }
+
+    fn next_is_meta_directive(&self) -> bool {
+        self.meta_directive_prefix
+            .as_ref()
+            .map(|s| self.rem.starts_with(s))
+            .unwrap_or_default()
+    }
+
+    fn try_meta_directive(&mut self) -> Option<Substr> {
+        if self.next_is_meta_directive() {
+            let s = self.meta_directive_prefix.as_ref().unwrap();
+            self.rem = Substr(self.rem.substr(s.len()..));
+            Some(self.take_ident())
+        } else {
+            None
         }
     }
 
@@ -574,10 +637,13 @@ impl Tokenizer {
         loop {
             self.take_ws();
             if self.rem.is_empty() {
+                // handle EOF
                 if self.state == TokState::Line {
+                    // At EOF, but have not yet returned a final LineEnd token.
                     self.state = TokState::Init;
                     return Ok(Some(Token::LineEnd));
                 } else {
+                    // At EOF, no more tokens.
                     return Ok(None);
                 }
             }
@@ -589,7 +655,7 @@ impl Tokenizer {
             }
             match self.state {
                 TokState::Init => {
-                    if self.comments.contains(&c) {
+                    if self.comments.contains(&c) && !self.next_is_meta_directive() {
                         self.take_until_newline();
                     } else if c.is_whitespace() {
                         self.take1();
@@ -600,7 +666,9 @@ impl Tokenizer {
                     }
                 }
                 TokState::Line => {
-                    if is_newline(c) {
+                    if let Some(md) = self.try_meta_directive() {
+                        return Ok(Some(Token::MetaDirective(md)));
+                    } else if is_newline(c) {
                         self.take1();
                         self.take_ws();
                         if self.peek().unwrap_or(self.line_continuation) != self.line_continuation {
