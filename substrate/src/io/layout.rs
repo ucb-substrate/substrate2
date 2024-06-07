@@ -457,6 +457,7 @@ impl BundleBuilder<PortGeometry> for PortGeometryBuilder {
 
 impl HierarchicalBuildFrom<NamedPorts> for PortGeometryBuilder {
     fn build_from(&mut self, path: &mut NameBuf, source: &NamedPorts) {
+        println!("{:?}", path);
         let source = source.get(path).unwrap();
         self.primary = Some(source.primary.clone());
         self.unnamed_shapes.clone_from(&source.unnamed_shapes);
