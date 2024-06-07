@@ -18,6 +18,7 @@ impl HasRes2 for Spice {
     fn resistor(value: usize) -> spice::Primitive {
         spice::Primitive::Res2 {
             value: ComponentValue::Fixed(Decimal::from(value)),
+            params: Default::default(),
         }
     }
     fn pos() -> &'static str {
