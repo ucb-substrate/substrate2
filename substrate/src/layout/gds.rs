@@ -813,8 +813,8 @@ impl<'a> GdsImporter<'a> {
             )));
         }
         // Sort out the inter-element spacing
-        let mut xstep = (p1.x - p0.x) / i64::from(aref.cols);
-        let mut ystep = (p2.y - p0.y) / i64::from(aref.rows);
+        let xstep = (p1.x - p0.x) / i64::from(aref.cols);
+        let ystep = (p2.y - p0.y) / i64::from(aref.rows);
 
         // Incorporate the reflection/ rotation settings
         let mut orientation = Orientation::default();
