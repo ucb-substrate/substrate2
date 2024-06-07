@@ -506,6 +506,7 @@ impl Schematic<Ngspice> for Resistor {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
             value: ComponentValue::Fixed(self.value()),
+            params: Default::default(),
         }));
         prim.connect("1", io.p);
         prim.connect("2", io.n);

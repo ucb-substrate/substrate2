@@ -185,7 +185,20 @@ impl<'a> ScirConverter<'a> {
                             ComponentValue::Model(ArcStr::from(model.as_str()))
                         }
                     };
-                    let id = self.lib.add_primitive(Primitive::Res2 { value });
+                    let params = res
+                        .params
+                        .iter()
+                        .map(|(k, v)| {
+                            Ok((
+                                UniCase::new(ArcStr::from(k.as_str())),
+                                match substr_as_numeric_lit(v) {
+                                    Ok(v) => ParamValue::Numeric(v),
+                                    Err(_) => ParamValue::String(v.to_string().into()),
+                                },
+                            ))
+                        })
+                        .collect::<ConvResult<HashMap<_, _>>>()?;
+                    let id = self.lib.add_primitive(Primitive::Res2 { value, params });
                     let mut sinst = scir::Instance::new(&res.name[1..], id);
                     sinst.connect("1", node(&res.pos, &mut cell));
                     sinst.connect("2", node(&res.neg, &mut cell));

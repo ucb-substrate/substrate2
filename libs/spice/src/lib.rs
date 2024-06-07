@@ -160,6 +160,8 @@ pub enum Primitive {
     Res2 {
         /// The resistor value.
         value: ComponentValue,
+        /// Parameters associated with the resistor.
+        params: HashMap<UniCase<ArcStr>, ParamValue>,
     },
     /// A capacitor primitive with ports "1" and "2" and value `value`.
     Cap2 {
@@ -170,7 +172,7 @@ pub enum Primitive {
     Diode2 {
         /// The name of the diode model.
         model: ArcStr,
-        /// Parameters associated with the MOS primitive.
+        /// Parameters associated with the diode.
         params: HashMap<UniCase<ArcStr>, ParamValue>,
     },
     /// A MOS primitive with ports "D", "G", "S", and "B".
@@ -297,6 +299,7 @@ impl Schematic<Spice> for Resistor {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {
             value: ComponentValue::Fixed(self.value()),
+            params: Default::default(),
         });
         prim.connect("1", io.p);
         prim.connect("2", io.n);
