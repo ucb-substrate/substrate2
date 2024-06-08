@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::parser::shorts::{CellShortManager, ShortPropagator};
+use crate::parser::shorts::ShortPropagator;
 use crate::{ComponentValue, Primitive, Spice};
 use arcstr::ArcStr;
 use lazy_static::lazy_static;
@@ -15,7 +15,7 @@ use regex::Regex;
 use rust_decimal::prelude::One;
 use rust_decimal::Decimal;
 use scir::ParamValue;
-use substrate::serde::{Deserialize, Serialize};
+
 use thiserror::Error;
 use unicase::UniCase;
 

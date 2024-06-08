@@ -1,9 +1,8 @@
 //! Short propagation analysis.
 
 use crate::parser::conv::{map_subckts, SubcktName};
-use crate::parser::{Ast, Component, Elem, Node, Subckt};
+use crate::parser::{Ast, Component, Node, Subckt};
 use std::collections::{HashMap, HashSet};
-use substrate::serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]
 struct NodeKey(u32);
