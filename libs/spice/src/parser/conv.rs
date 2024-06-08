@@ -48,6 +48,12 @@ pub enum ConvError {
     /// Netlist conversion produced invalid SCIR.
     #[error("netlist conversion produced SCIR containing errors: {0}")]
     InvalidScir(Box<scir::Issues>),
+    #[error("parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{parent}` was not blackboxed")]
+    UnsupportedParams {
+        inst: Substr,
+        child: Substr,
+        parent: Substr,
+    },
 }
 
 /// Converts a parsed SPICE netlist to [`scir`].
@@ -226,8 +232,8 @@ impl<'a> ScirConverter<'a> {
                         if subckt.ports.len() != inst.ports.len() {
                             return Err(ConvError::IncorrectConnections {
                                 inst: inst.name.clone(),
-                                parent: parent_name.clone(),
                                 child: subckt.name.clone(),
+                                parent: parent_name.clone(),
                             });
                         }
 
@@ -239,11 +245,13 @@ impl<'a> ScirConverter<'a> {
                             }
                         }
 
-                        assert_eq!(
-                            inst.params.values.len(),
-                            0,
-                            "subcircuit parameters are only supported for blackbox cells"
-                        );
+                        if !inst.params.values.is_empty() {
+                            return Err(ConvError::IncorrectConnections {
+                                inst: inst.name.clone(),
+                                child: subckt.name.clone(),
+                                parent: parent_name.clone(),
+                            });
+                        }
 
                         cell.add_instance(sinst);
                     } else {
