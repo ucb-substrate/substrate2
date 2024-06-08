@@ -239,6 +239,12 @@ impl<'a> ScirConverter<'a> {
                             }
                         }
 
+                        assert_eq!(
+                            inst.params.values.len(),
+                            0,
+                            "subcircuit parameters are only supported for blackbox cells"
+                        );
+
                         cell.add_instance(sinst);
                     } else {
                         let child = ArcStr::from(inst.child.as_str());
