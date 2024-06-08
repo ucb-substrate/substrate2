@@ -138,9 +138,12 @@ impl FromSchema<NoSchema> for Spice {
     }
 }
 
+/// The value of a component.
 #[derive(Debug, Clone)]
 pub enum ComponentValue {
+    /// The component has a fixed, known, numeric value.
     Fixed(Decimal),
+    /// The component value is computed by a SPICE model.
     Model(ArcStr),
 }
 

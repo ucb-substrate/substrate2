@@ -33,10 +33,14 @@ pub enum ConvError {
     /// An instance of this subcircuit exists, but no definition was provided.
     #[error("an instance of subcircuit `{0}` exists, but no definition was provided")]
     MissingSubckt(Substr),
+    /// Incorrect (missing/extra) connections for an instance.
     #[error("incorrect (missing/extra) connections for instance {inst} of cell `{child}` (in cell `{parent}`)")]
     IncorrectConnections {
+        /// The name of the instance.
         inst: Substr,
+        /// The name of the cell being instantiated.
         child: Substr,
+        /// The name of the cell containing the offending instance.
         parent: Substr,
     },
     #[error("invalid literal: `{0}`")]
@@ -48,10 +52,16 @@ pub enum ConvError {
     /// Netlist conversion produced invalid SCIR.
     #[error("netlist conversion produced SCIR containing errors: {0}")]
     InvalidScir(Box<scir::Issues>),
+    /// A non-blackbox cell was instantiated with parameters.
+    ///
+    /// Substrate does not support SPICE-like parameters on non-blackbox cells.
     #[error("parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{parent}` was not blackboxed")]
     UnsupportedParams {
+        /// The name of the instance.
         inst: Substr,
+        /// The name of the cell being instantiated.
         child: Substr,
+        /// The name of the cell containing the offending instance.
         parent: Substr,
     },
 }

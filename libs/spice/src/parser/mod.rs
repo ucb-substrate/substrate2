@@ -63,6 +63,7 @@ enum ReaderState {
 }
 
 impl Parser {
+    /// Makes a new parser for the given SPICE dialect.
     pub fn new(dialect: Dialect) -> Self {
         Self {
             dialect,
@@ -637,8 +638,14 @@ pub enum ParserError {
     /// For example, relative paths are forbidden when parsing inline spice.
     #[error("unexpected relative path: {0:?}")]
     UnexpectedRelativePath(Substr),
+    /// An invalid line.
     #[error("invalid line `{line:?}`: {reason}")]
-    InvalidLine { line: Vec<Token>, reason: String },
+    InvalidLine {
+        /// The tokens in the offending line.
+        line: Vec<Token>,
+        /// The reason the line is invalid.
+        reason: String,
+    },
     /// Error trying to read the given file.
     #[error("failed to read file at path `{path:?}`: {err:?}")]
     FailedToRead {

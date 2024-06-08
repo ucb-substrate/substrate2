@@ -6,9 +6,9 @@ use std::collections::{HashMap, HashSet};
 use substrate::serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct NodeKey(u32);
+struct NodeKey(u32);
 
-pub type NodeUf = ena::unify::InPlaceUnificationTable<NodeKey>;
+type NodeUf = ena::unify::InPlaceUnificationTable<NodeKey>;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]
 enum NodePriority {
@@ -20,7 +20,7 @@ enum NodePriority {
 /// The value associated to a node in a schematic builder's union find data structure.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[doc(hidden)]
-pub struct NodeUfValue {
+struct NodeUfValue {
     /// The overall priority of a set of merged nodes.
     ///
     /// Taken to be the highest among priorities of all nodes
@@ -57,10 +57,13 @@ impl ena::unify::UnifyValue for NodeUfValue {
     }
 }
 
+/// Analyzes shorts in a SPICE netlist.
+#[derive(Clone)]
 pub struct ShortPropagator {
     cells: HashMap<SubcktName, CellShortManager>,
 }
 
+/// Stores information about shorts within a cell.
 #[derive(Clone)]
 pub struct CellShortManager {
     node_to_key: HashMap<Node, NodeKey>,
@@ -68,6 +71,7 @@ pub struct CellShortManager {
 }
 
 impl ShortPropagator {
+    /// Construct a [`ShortPropagator`] from the given SPICE AST.
     pub fn analyze(ast: &Ast, blackbox: &HashSet<SubcktName>) -> Self {
         let mut val = Self::new();
         let subckts = map_subckts(ast);
@@ -144,6 +148,7 @@ impl ShortPropagator {
         self.cells.entry(name).or_insert(CellShortManager::new())
     }
 
+    /// Get the set of shorts within a cell.
     pub fn get_cell(&mut self, name: &SubcktName) -> &mut CellShortManager {
         self.cells.get_mut(name).unwrap()
     }
@@ -182,6 +187,7 @@ impl CellShortManager {
         self.uf.union(k1, k2);
     }
 
+    /// The node to which the given node is shorted.
     pub fn root(&mut self, node: &Node) -> Node {
         let k = self.node_to_key[node];
         let v = self.uf.probe_value(k);
