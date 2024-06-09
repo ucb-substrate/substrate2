@@ -109,7 +109,7 @@ impl ShortPropagator {
                         for node in inst.ports.iter() {
                             manager.register_node(node.clone(), NodePriority::Default);
                         }
-                        // We do not support propagation of shorts in blackbox subcircuits.
+                        // We do not support propagation of shorts in blackbox/missing subcircuits.
                         if !blackbox.contains(&inst.child) {
                             let child_subckt = match subckts.get(&inst.child) {
                                 None => continue,

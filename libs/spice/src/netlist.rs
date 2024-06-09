@@ -480,6 +480,7 @@ impl HasSpiceLikeNetlist for Spice {
                 name.clone()
             }
         };
+        writeln!(out)?;
         Ok(name)
     }
 }
