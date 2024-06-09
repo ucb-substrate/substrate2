@@ -813,23 +813,14 @@ impl<'a> GdsImporter<'a> {
             )));
         }
         // Sort out the inter-element spacing
-        let mut xstep = (p1.x - p0.x) / i64::from(aref.cols);
-        let mut ystep = (p2.y - p0.y) / i64::from(aref.rows);
+        let xstep = (p1.x - p0.x) / i64::from(aref.cols);
+        let ystep = (p2.y - p0.y) / i64::from(aref.rows);
 
         // Incorporate the reflection/ rotation settings
         let mut orientation = Orientation::default();
         if let Some(strans) = &aref.strans {
             orientation = self.import_orientation(strans)?;
         }
-        // The angle-setting rotates the *entire* array lattice together.
-        // Update the (x,y) steps via a rotation-matrix multiplication:
-        // x = x * cos(a) - y * sin(a)
-        // y = x * sin(a) + y * cos(a)
-        let prev_xy = (i32::try_from(xstep)?, i32::try_from(ystep)?);
-        let prev_xy = (f64::from(prev_xy.0), f64::from(prev_xy.1));
-        let a = orientation.angle().to_radians(); // Rust `sin` and `cos` take radians, convert first
-        xstep = (prev_xy.0 * a.cos() - prev_xy.1 * a.sin()) as i64;
-        ystep = (prev_xy.0 * a.sin() + prev_xy.1 * a.cos()) as i64;
 
         // Create the Instances
         let mut insts = Vec::with_capacity((aref.rows * aref.cols) as usize);
