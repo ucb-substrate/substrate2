@@ -1484,10 +1484,14 @@ impl Cell {
     pub fn expose_port(&mut self, signal: impl Into<SignalId>, direction: Direction) {
         let signal = signal.into();
         let info = self.signals.get_mut(&signal).unwrap();
-        info.port = Some(self.port_idx);
-        self.port_idx += info.width.unwrap_or(1);
-        self.ports
-            .insert(info.name.clone(), Port { signal, direction });
+
+        // If this signal was already marked as a port, no need to do anything.
+        if info.port.is_none() {
+            info.port = Some(self.port_idx);
+            self.port_idx += info.width.unwrap_or(1);
+            self.ports
+                .insert(info.name.clone(), Port { signal, direction });
+        }
     }
 
     /// The name of the cell.

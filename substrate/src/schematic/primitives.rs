@@ -99,11 +99,11 @@ impl Block for Resistor {
     type Io = TwoTerminalIo;
 
     fn id() -> ArcStr {
-        arcstr::literal!("resistor")
+        arcstr::literal!("ideal_resistor")
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::format!("resistor_{}", self.value)
+        arcstr::format!("ideal_resistor_{}", self.value)
     }
 
     fn io(&self) -> Self::Io {

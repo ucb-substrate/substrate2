@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use spice::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
 };
-use spice::Spice;
+use spice::{ComponentValue, Spice};
 use substrate::block::Block;
 use substrate::context::Installation;
 use substrate::execute::Executor;
@@ -505,7 +505,8 @@ impl Schematic<Ngspice> for Resistor {
         cell: &mut CellBuilder<Ngspice>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
-            value: self.value(),
+            value: ComponentValue::Fixed(self.value()),
+            params: Default::default(),
         }));
         prim.connect("1", io.p);
         prim.connect("2", io.n);

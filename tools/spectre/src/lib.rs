@@ -730,14 +730,7 @@ impl FromSchema<Spice> for Spectre {
     fn convert_primitive(
         primitive: <Spice as Schema>::Primitive,
     ) -> std::result::Result<<Self as Schema>::Primitive, Self::Error> {
-        Ok(match primitive {
-            spice::Primitive::Res2 { value } => Primitive::RawInstance {
-                cell: "resistor".into(),
-                ports: vec!["1".into(), "2".into()],
-                params: HashMap::from_iter([("r".into(), value.into())]),
-            },
-            primitive => Primitive::Spice(primitive),
-        })
+        Ok(Primitive::Spice(primitive))
     }
 
     fn convert_instance(
