@@ -232,6 +232,15 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if let (false, Some(subckt)) = (blackbox, self.subckts.get(&inst.child)) {
+                        // Parameters are not supported for instances of non-blackboxed subcircuit.
+                        if !inst.params.values.is_empty() {
+                            return Err(ConvError::UnsupportedParams {
+                                inst: inst.name.clone(),
+                                child: subckt.name.clone(),
+                                parent: parent_name.clone(),
+                            });
+                        }
+
                         let id = self.convert_subckt(subckt, shorts)?;
                         let mut sinst = scir::Instance::new(&inst.name[1..], id);
                         let subckt = self
