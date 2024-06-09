@@ -158,7 +158,9 @@ fn convert_mos_to_scir() {
 #[test]
 fn convert_dff_to_scir() {
     let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/dff.spice")).unwrap();
-    let converter = ScirConverter::new(&parsed.ast);
+    let mut converter = ScirConverter::new(&parsed.ast);
+    converter.blackbox("sky130_fd_pr__nfet_01v8");
+    converter.blackbox("sky130_fd_pr__pfet_01v8");
     let lib = converter.convert().unwrap();
     let issues = lib.validate();
     assert_eq!(issues.num_errors(), 0);

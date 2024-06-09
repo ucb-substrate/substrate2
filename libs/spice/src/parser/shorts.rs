@@ -111,7 +111,10 @@ impl ShortPropagator {
                         }
                         // We do not support propagation of shorts in blackbox subcircuits.
                         if !blackbox.contains(&inst.child) {
-                            let child_subckt = subckts[&inst.child];
+                            let child_subckt = match subckts.get(&inst.child) {
+                                None => continue,
+                                Some(&s) => s,
+                            };
                             let mut port_to_connected_node = HashMap::new();
                             assert_eq!(inst.ports.len(), child_subckt.ports.len());
                             for (node, cport) in inst.ports.iter().zip(child_subckt.ports.iter()) {
@@ -219,8 +222,12 @@ fn dfs_postorder_inner(
         return;
     }
 
-    println!("{name:?}");
-    let subckt = subckts[name];
+    let subckt = match subckts.get(name) {
+        None => {
+            return;
+        }
+        Some(&s) => s,
+    };
     for c in subckt.components.iter() {
         if let Component::Instance(ref inst) = c {
             dfs_postorder_inner(&inst.child, subckts, blackbox, visited, out);
