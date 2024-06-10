@@ -6,7 +6,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{Primitive, Spice};
+use crate::parser::shorts::ShortPropagator;
+use crate::{ComponentValue, Primitive, Spice};
 use arcstr::ArcStr;
 use lazy_static::lazy_static;
 use num_traits::Pow;
@@ -14,10 +15,11 @@ use regex::Regex;
 use rust_decimal::prelude::One;
 use rust_decimal::Decimal;
 use scir::ParamValue;
+
 use thiserror::Error;
 use unicase::UniCase;
 
-use super::{Ast, Component, Elem, Subckt, Substr};
+use super::{Ast, Component, DeviceValue, Elem, Node, Subckt, Substr};
 
 /// The type representing subcircuit names.
 pub type SubcktName = Substr;
@@ -31,6 +33,16 @@ pub enum ConvError {
     /// An instance of this subcircuit exists, but no definition was provided.
     #[error("an instance of subcircuit `{0}` exists, but no definition was provided")]
     MissingSubckt(Substr),
+    /// Incorrect (missing/extra) connections for an instance.
+    #[error("incorrect (missing/extra) connections for instance {inst} of cell `{child}` (in cell `{parent}`)")]
+    IncorrectConnections {
+        /// The name of the instance.
+        inst: Substr,
+        /// The name of the cell being instantiated.
+        child: Substr,
+        /// The name of the cell containing the offending instance.
+        parent: Substr,
+    },
     #[error("invalid literal: `{0}`")]
     /// The given expression is not a valid literal.
     InvalidLiteral(Substr),
@@ -40,6 +52,18 @@ pub enum ConvError {
     /// Netlist conversion produced invalid SCIR.
     #[error("netlist conversion produced SCIR containing errors: {0}")]
     InvalidScir(Box<scir::Issues>),
+    /// A non-blackbox cell was instantiated with parameters.
+    ///
+    /// Substrate does not support SPICE-like parameters on non-blackbox cells.
+    #[error("parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{child}` was not blackboxed")]
+    UnsupportedParams {
+        /// The name of the instance.
+        inst: Substr,
+        /// The name of the cell being instantiated.
+        child: Substr,
+        /// The name of the cell containing the offending instance.
+        parent: Substr,
+    },
 }
 
 /// Converts a parsed SPICE netlist to [`scir`].
@@ -73,10 +97,11 @@ impl<'a> ScirConverter<'a> {
 
     /// Consumes the converter, yielding a SCIR [library](scir::Library).
     pub fn convert(mut self) -> ConvResult<scir::Library<Spice>> {
-        self.map_subckts();
+        self.subckts = map_subckts(self.ast);
         let subckts = self.subckts.values().copied().collect::<Vec<_>>();
+        let mut shorts = ShortPropagator::analyze(self.ast, &self.blackbox_cells);
         for subckt in subckts {
-            match self.convert_subckt(subckt) {
+            match self.convert_subckt(subckt, &mut shorts) {
                 // Export blackbox errors can be ignored; we just skip
                 // exporting a SCIR cell for blackboxed subcircuits.
                 Ok(_) | Err(ConvError::ExportBlackbox) => (),
@@ -90,20 +115,11 @@ impl<'a> ScirConverter<'a> {
         Ok(lib)
     }
 
-    fn map_subckts(&mut self) {
-        for elem in self.ast.elems.iter() {
-            match elem {
-                Elem::Subckt(s) => {
-                    if self.subckts.insert(s.name.clone(), s).is_some() {
-                        tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
-                    }
-                }
-                _ => continue,
-            }
-        }
-    }
-
-    fn convert_subckt(&mut self, subckt: &Subckt) -> ConvResult<scir::CellId> {
+    fn convert_subckt(
+        &mut self,
+        subckt: &Subckt,
+        shorts: &mut ShortPropagator,
+    ) -> ConvResult<scir::CellId> {
         if let Some(&id) = self.ids.get(&subckt.name) {
             return Ok(id);
         }
@@ -112,10 +128,15 @@ impl<'a> ScirConverter<'a> {
             return Err(ConvError::ExportBlackbox);
         }
 
+        let parent_name = subckt.name.clone();
+
         let mut cell = scir::Cell::new(ArcStr::from(subckt.name.as_str()));
         let mut nodes: HashMap<Substr, scir::SliceOne> = HashMap::new();
-        let mut node = |name: &Substr, cell: &mut scir::Cell| {
-            if let Some(&node) = nodes.get(name) {
+        // TODO: this is an expensive clone
+        let mut local_shorts = shorts.get_cell(&parent_name).clone();
+        let mut node = |name: &Node, cell: &mut scir::Cell| {
+            let name = local_shorts.root(name);
+            if let Some(&node) = nodes.get(&name) {
                 return node;
             }
             let id = cell.add_node(name.as_str());
@@ -172,9 +193,28 @@ impl<'a> ScirConverter<'a> {
                     cell.add_instance(sinst);
                 }
                 Component::Res(res) => {
-                    let id = self.lib.add_primitive(Primitive::Res2 {
-                        value: substr_as_numeric_lit(&res.value)?,
-                    });
+                    let value = match &res.value {
+                        DeviceValue::Value(value) => {
+                            ComponentValue::Fixed(substr_as_numeric_lit(value)?)
+                        }
+                        DeviceValue::Model(model) => {
+                            ComponentValue::Model(ArcStr::from(model.as_str()))
+                        }
+                    };
+                    let params = res
+                        .params
+                        .iter()
+                        .map(|(k, v)| {
+                            Ok((
+                                UniCase::new(ArcStr::from(k.as_str())),
+                                match substr_as_numeric_lit(v) {
+                                    Ok(v) => ParamValue::Numeric(v),
+                                    Err(_) => ParamValue::String(v.to_string().into()),
+                                },
+                            ))
+                        })
+                        .collect::<ConvResult<HashMap<_, _>>>()?;
+                    let id = self.lib.add_primitive(Primitive::Res2 { value, params });
                     let mut sinst = scir::Instance::new(&res.name[1..], id);
                     sinst.connect("1", node(&res.pos, &mut cell));
                     sinst.connect("2", node(&res.neg, &mut cell));
@@ -192,15 +232,44 @@ impl<'a> ScirConverter<'a> {
                 Component::Instance(inst) => {
                     let blackbox = self.blackbox_cells.contains(&inst.child);
                     if let (false, Some(subckt)) = (blackbox, self.subckts.get(&inst.child)) {
-                        let id = self.convert_subckt(subckt)?;
+                        // Parameters are not supported for instances of non-blackboxed subcircuit.
+                        if !inst.params.values.is_empty() {
+                            return Err(ConvError::UnsupportedParams {
+                                inst: inst.name.clone(),
+                                child: subckt.name.clone(),
+                                parent: parent_name.clone(),
+                            });
+                        }
+
+                        let id = self.convert_subckt(subckt, shorts)?;
                         let mut sinst = scir::Instance::new(&inst.name[1..], id);
                         let subckt = self
                             .subckts
                             .get(&inst.child)
                             .ok_or_else(|| ConvError::MissingSubckt(inst.child.clone()))?;
 
+                        if subckt.ports.len() != inst.ports.len() {
+                            return Err(ConvError::IncorrectConnections {
+                                inst: inst.name.clone(),
+                                child: subckt.name.clone(),
+                                parent: parent_name.clone(),
+                            });
+                        }
+
+                        let cshorts = shorts.get_cell(&inst.child);
                         for (cport, iport) in subckt.ports.iter().zip(inst.ports.iter()) {
-                            sinst.connect(cport.as_str(), node(iport, &mut cell));
+                            // If child port is not its own root, do not connect to it: it must be shorted to another port
+                            if cshorts.root(cport) == *cport {
+                                sinst.connect(cport.as_str(), node(iport, &mut cell));
+                            }
+                        }
+
+                        if !inst.params.values.is_empty() {
+                            return Err(ConvError::IncorrectConnections {
+                                inst: inst.name.clone(),
+                                child: subckt.name.clone(),
+                                parent: parent_name.clone(),
+                            });
                         }
 
                         cell.add_instance(sinst);
@@ -256,7 +325,7 @@ lazy_static! {
             .expect("failed to compile numeric literal regex");
 }
 
-fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
+pub(crate) fn convert_str_to_numeric_lit(s: &str) -> Option<Decimal> {
     let caps = NUMERIC_LITERAL_REGEX.captures(s)?;
     let num: Decimal = caps.get(1)?.as_str().parse().ok()?;
     let multiplier = caps
@@ -286,11 +355,26 @@ fn str_as_numeric_lit_inner(s: &str) -> Option<Decimal> {
     Some(num * multiplier)
 }
 
-fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
-    str_as_numeric_lit_inner(s).ok_or(())
+pub(crate) fn str_as_numeric_lit(s: &str) -> std::result::Result<Decimal, ()> {
+    convert_str_to_numeric_lit(s).ok_or(())
 }
 fn substr_as_numeric_lit(s: &Substr) -> ConvResult<Decimal> {
     str_as_numeric_lit(s).map_err(|_| ConvError::InvalidLiteral(s.clone()))
+}
+
+pub(crate) fn map_subckts(ast: &Ast) -> HashMap<SubcktName, &Subckt> {
+    let mut subckts = HashMap::new();
+    for elem in ast.elems.iter() {
+        match elem {
+            Elem::Subckt(s) => {
+                if subckts.insert(s.name.clone(), s).is_some() {
+                    tracing::warn!(name=%s.name, "Duplicate subcircuits: found two subcircuits with the same name. The last one found will be used.");
+                }
+            }
+            _ => continue,
+        }
+    }
+    subckts
 }
 
 #[cfg(test)]

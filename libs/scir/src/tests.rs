@@ -73,7 +73,7 @@ fn no_schema_conversion() {
 
     let id = lib.add_primitive("res".into());
 
-    let mut resistor = Cell::new("resistor");
+    let mut resistor = Cell::new("ideal_resistor");
     let vdd = resistor.add_node("vdd");
     let vss = resistor.add_node("vss");
 

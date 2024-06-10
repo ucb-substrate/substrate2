@@ -1,4 +1,5 @@
 {
+  "bins/cdl2spice": "0.0.0",
   "codegen": "0.8.1",
   "config": "0.2.5",
   "docs/examples": "0.5.1",

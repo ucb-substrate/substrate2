@@ -1,0 +1,11 @@
+[package]
+name = "cdl2spice"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+clap = { version = "4.5.6", features = ["derive"] }
+scir = { version = "0.7.0", registry = "substrate", path = "../../libs/scir" }
+spice = { version = "0.7.1", registry = "substrate", path = "../../libs/spice" }
+substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }

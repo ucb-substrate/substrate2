@@ -379,7 +379,7 @@ impl HasSpiceLikeNetlist for Spice {
         primitive: &<Self as Schema>::Primitive,
     ) -> std::io::Result<ArcStr> {
         let name = match &primitive {
-            Primitive::Res2 { value } => {
+            Primitive::Res2 { value, params } => {
                 let name = arcstr::format!("R{}", name);
                 write!(out, "{}", name)?;
                 for port in ["1", "2"] {
@@ -388,6 +388,9 @@ impl HasSpiceLikeNetlist for Spice {
                     }
                 }
                 write!(out, " {value}")?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}={value}")?;
+                }
                 name
             }
             Primitive::Cap2 { value } => {
@@ -477,6 +480,7 @@ impl HasSpiceLikeNetlist for Spice {
                 name.clone()
             }
         };
+        writeln!(out)?;
         Ok(name)
     }
 }

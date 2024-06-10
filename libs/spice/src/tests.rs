@@ -1,6 +1,7 @@
 use crate::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
 };
+
 use crate::{BlackboxContents, BlackboxElement, Primitive, Spice};
 use arcstr::ArcStr;
 use itertools::Itertools;
@@ -167,7 +168,7 @@ fn spice_like_netlist() {
 
     let mut lib = LibraryBuilder::<SpiceLikeSchema>::new();
 
-    let resistor = lib.add_primitive("resistor".into());
+    let resistor = lib.add_primitive("ideal_resistor".into());
 
     let mut dut = Cell::new("dut");
 
@@ -222,14 +223,14 @@ fn spice_like_netlist() {
     for fragment in [
         r#".SUBCKT dut p<0| p<1| p<2| n<0| n<1| n<2|
 
-  inst_0 n<0| p<0| resistor
-  inst_1 n<1| p<1| resistor
-  inst_2 n<2| p<2| resistor
+  inst_0 n<0| p<0| ideal_resistor
+  inst_1 n<1| p<1| ideal_resistor
+  inst_2 n<2| p<2| ideal_resistor
 
 .ENDS dut"#,
         "dut vdd vdd vdd 0 0 0 dut",
     ] {
-        println!("{:?}", fragment);
+        println!("checking for {:?}", fragment);
         assert!(netlist.contains(fragment));
     }
 
@@ -244,9 +245,9 @@ fn spice_like_netlist() {
     for fragment in [
         r#".SUBCKT dut p<0| p<1| p<2| n<0| n<1| n<2|
 
-  inst_0 n<0| p<0| resistor
-  inst_1 n<1| p<1| resistor
-  inst_2 n<2| p<2| resistor
+  inst_0 n<0| p<0| ideal_resistor
+  inst_1 n<1| p<1| ideal_resistor
+  inst_2 n<2| p<2| ideal_resistor
 
 .ENDS dut"#,
         r#".SUBCKT tb vss
