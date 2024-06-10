@@ -55,7 +55,7 @@ pub enum ConvError {
     /// A non-blackbox cell was instantiated with parameters.
     ///
     /// Substrate does not support SPICE-like parameters on non-blackbox cells.
-    #[error("parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{parent}` was not blackboxed")]
+    #[error("parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{child}` was not blackboxed")]
     UnsupportedParams {
         /// The name of the instance.
         inst: Substr,
