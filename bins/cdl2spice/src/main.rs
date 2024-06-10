@@ -16,13 +16,15 @@ fn main() -> anyhow::Result<()> {
         println!("input file: {:?}", &args.file);
         println!("blackbox cells: {:?}", &args.blackbox);
         println!("output file: {:?}", &args.out);
+        cdl2spice(args)?;
+        println!("Netlist writing complete.");
     } else {
         eprintln!("input file: {:?}", &args.file);
         eprintln!("blackbox cells: {:?}", &args.blackbox);
         eprintln!("output file: {:?}", &args.out);
+        cdl2spice(args)?;
+        eprintln!("Netlist writing complete.");
     }
-
-    cdl2spice(args)?;
 
     Ok(())
 }
