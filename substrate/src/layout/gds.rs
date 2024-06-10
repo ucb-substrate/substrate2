@@ -8,6 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 use arcstr::ArcStr;
 use gds::{GdsUnits, HasLayer};
 use geometry::prelude::Polygon;
+use geometry::span::Span;
 use geometry::transform::Transformation;
 use geometry::{
     prelude::{Corner, Orientation, Point},
@@ -724,8 +725,8 @@ impl<'a> GdsImporter<'a> {
         let span = span!(Level::INFO, "path");
         let _guard = span.enter();
 
-        let _pts = self.import_point_vec(&x.xy)?;
-        let _width = if let Some(w) = x.width {
+        let pts = self.import_point_vec(&x.xy)?;
+        let width = if let Some(w) = x.width {
             w as usize
         } else {
             return Err(GdsImportError::Unsupported(arcstr::literal!(
@@ -733,9 +734,35 @@ impl<'a> GdsImporter<'a> {
             )));
         };
 
-        Err(GdsImportError::Unsupported(arcstr::literal!(
-            "GDS paths not yet supported"
-        )))
+        let layer = self.import_element_layer(x)?;
+
+        if pts.iter().all(|pt| pt.x == pts[0].x) {
+            Ok(Shape::new(
+                layer,
+                Rect::from_spans(
+                    Span::from_center_span(pts[0].x, width as i64),
+                    Span::new(
+                        pts.iter().map(|pt| pt.y).min().unwrap(),
+                        pts.iter().map(|pt| pt.y).max().unwrap(),
+                    ),
+                ),
+            ))
+        } else if pts.iter().all(|pt| pt.y == pts[0].y) {
+            Ok(Shape::new(
+                layer,
+                Rect::from_spans(
+                    Span::new(
+                        pts.iter().map(|pt| pt.x).min().unwrap(),
+                        pts.iter().map(|pt| pt.x).max().unwrap(),
+                    ),
+                    Span::from_center_span(pts[0].y, width as i64),
+                ),
+            ))
+        } else {
+            Err(GdsImportError::Unsupported(arcstr::literal!(
+                "2D GDS paths not yet supported"
+            )))
+        }
     }
     /// Import a [gds::GdsTextElem] cell/struct-instance into an [TextElement].
     fn import_text_elem(&mut self, sref: &gds::GdsTextElem) -> GdsImportResult<Text> {
