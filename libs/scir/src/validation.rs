@@ -17,94 +17,147 @@ pub struct ValidatorIssue {
     severity: Severity,
 }
 
+/// The cause of a SCIR error or warning.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Cause {
-    /// Two cells have the same name.
+    /// Two or more cells have the same name.
     DuplicateCellNames {
+        /// The ID of the first cell.
         id1: CellId,
+        /// The ID of the second cell.
         id2: CellId,
+        /// The conflicting name.
         name: ArcStr,
     },
     /// Two instances in the same cell have the same name.
     DuplicateInstanceNames {
+        /// The name of the instance.
         inst_name: ArcStr,
+        /// The ID of the cell containing the offending instances.
         cell_id: CellId,
+        /// The name of the cell.
         cell_name: ArcStr,
     },
     /// Two signals in a cell have the same name.
     DuplicateSignalNames {
+        /// The ID of the first signal.
         id1: SignalId,
+        /// The ID of the second signal.
         id2: SignalId,
+        /// The name of the signal.
         name: ArcStr,
+        /// The ID of the offending cell.
         cell_id: CellId,
+        /// The name of the offending cell.
         cell_name: ArcStr,
     },
     /// A signal is listed as a port more than once.
     ShortedPorts {
+        /// The ID of the offending signal.
         signal: SignalId,
+        /// The name of the signal.
         name: ArcStr,
+        /// The ID of the offending cell.
         cell_id: CellId,
+        /// The name of the offending cell.
         cell_name: ArcStr,
     },
     /// A signal identifier is used but not declared.
     MissingSignal {
+        /// The ID of the signal.
         id: SignalId,
+        /// The ID of the cell containing the missing signal.
         cell_id: CellId,
+        /// The name of the cell containing the missing signal.
         cell_name: ArcStr,
     },
     /// An instance in a parent cell references a child not present in the library.
     MissingChild {
+        /// The ID of the child cell.
         child_id: ChildId,
+        /// The ID of the parent cell.
         parent_cell_id: CellId,
+        /// The name of the parent cell.
         parent_cell_name: ArcStr,
+        /// The name of the offending instance.
         instance_name: ArcStr,
     },
     /// An instance does not specify a connection to a port of its child cell.
     UnconnectedPort {
+        /// The ID of the child cell.
         child_cell_id: CellId,
+        /// The name of the child cell.
         child_cell_name: ArcStr,
+        /// The name of the unconnected port.
         port: ArcStr,
+        /// The ID of the cell containing the offending instance.
         parent_cell_id: CellId,
+        /// The name of the cell containing the offending instance.
         parent_cell_name: ArcStr,
+        /// The name of the instance in the parent cell.
         instance_name: ArcStr,
     },
     /// An instance specifies a connection to a port that does not exist in the child cell.
     ExtraPort {
+        /// The ID of the child cell.
         child_cell_id: CellId,
+        /// The name of the child cell.
         child_cell_name: ArcStr,
+        /// The name of the port the instance is trying to connect.
         port: ArcStr,
+        /// The ID of the cell containing the offending instance.
         parent_cell_id: CellId,
+        /// The name of the cell containing the offending instance.
         parent_cell_name: ArcStr,
+        /// The name of the offending instance in the parent cell.
         instance_name: ArcStr,
     },
     /// A bus index is out of bounds given the width of the bus.
     IndexOutOfBounds {
+        /// The out-of-bounds index.
         idx: usize,
+        /// The width of the signal.
         width: usize,
+        /// The ID of the offending cell.
         cell_id: CellId,
+        /// The name of the offending cell.
         cell_name: ArcStr,
     },
     /// Used a bus without indexing into it.
     MissingIndex {
+        /// The name of the signal.
         signal_name: ArcStr,
+        /// The ID of the offending cell.
         cell_id: CellId,
+        /// The name of the offending cell.
         cell_name: ArcStr,
     },
     /// Attempted to index a single wire.
     IndexedWire {
+        /// The name of the signal.
         signal_name: ArcStr,
+        /// The ID of the offending cell.
         cell_id: CellId,
+        /// The name of the offending cell.
         cell_name: ArcStr,
     },
     /// An instance specified a connection of incorrect width.
     PortWidthMismatch {
+        /// The expected width of the connection.
         expected_width: usize,
+        /// The actual width of the connection.
         actual_width: usize,
+        /// The name of the offending instance.
         instance_name: ArcStr,
+        /// The name of the port with the invalid connection.
         port: ArcStr,
+        /// The ID of the parent cell.
         parent_cell_id: CellId,
+        /// The name of the parent cell.
         parent_cell_name: ArcStr,
+        /// The ID of the child cell.
         child_cell_id: CellId,
+        /// The name of the child cell.
         child_cell_name: ArcStr,
     },
 }
@@ -254,7 +307,7 @@ impl Display for Cause {
 }
 
 impl<S: Schema + ?Sized> LibraryBuilder<S> {
-    /// Check whether or not this library is valid.
+    /// Check whether this library is valid.
     pub fn validate(&self) -> IssueSet<ValidatorIssue> {
         let _guard = span!(Level::INFO, "validating SCIR Library").entered();
         let mut issues = IssueSet::new();

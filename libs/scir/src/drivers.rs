@@ -9,10 +9,14 @@ use diagnostics::{Diagnostic, IssueSet, Severity};
 
 use super::*;
 
+/// A single node in a SCIR circuit.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Net {
+    /// The name of the cell containing this net.
     cell_name: ArcStr,
+    /// The name of the signal.
     signal_name: ArcStr,
+    /// The signal bit index, if the signal is a bus.
     idx: Option<usize>,
 }
 
@@ -110,6 +114,7 @@ impl NetState {
     }
 }
 
+/// The cause of a driver analysis error or warning.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Cause {
     /// A net that is driven but not tapped.

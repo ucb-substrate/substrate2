@@ -3,6 +3,7 @@
   "plugins": ["cargo-workspace"],
   "release-type": "rust",
   "packages": {
+    "bins/cdl2spice": {},
     "codegen": {},
     "config": {},
     "docs/examples": {},
