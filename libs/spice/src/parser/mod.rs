@@ -314,21 +314,12 @@ impl Parser {
                         // the tokens after `child_idx` should come in groups of 3
                         // and represent parameter values.
                         //
-                        // In CDL netlists, there is an extra '/' (and params are not supported):
-                        // ```spice
-                        // Xname port0 port1 port2 / child
-                        // ```
-                        // We handle this by reducing the port end index by one.
-                        //
                         // TODO: this logic needs to change to support expressions
                         // in parameter values.
                         let pos = self.buffer.iter().position(|t| matches!(t, Token::Equals));
                         let child_idx = pos.unwrap_or(self.buffer.len() + 1) - 2;
                         let child = self.buffer[child_idx].try_ident()?.clone();
-                        let port_end_idx = match self.dialect {
-                            Dialect::Spice => child_idx,
-                            Dialect::Cdl => child_idx - 1,
-                        };
+                        let port_end_idx = child_idx;
                         let ports = self.buffer[1..port_end_idx]
                             .iter()
                             .map(|x| x.try_ident().cloned())
@@ -561,6 +552,11 @@ fn is_space(c: char) -> bool {
 }
 
 #[inline]
+fn is_whitespace_equivalent(c: char, ignore: &HashSet<char>) -> bool {
+    c.is_whitespace() || ignore.contains(&c)
+}
+
+#[inline]
 fn is_space_or_newline(c: char) -> bool {
     is_space(c) || is_newline(c)
 }
@@ -575,6 +571,8 @@ struct Tokenizer {
     rem: Substr,
     state: TokState,
     comments: HashSet<char>,
+    /// Characters to treat as equivalent to whitespace.
+    ignore_chars: HashSet<char>,
     line_continuation: char,
     /// The string used to prefix metadata SPICE directives.
     ///
@@ -681,11 +679,16 @@ impl Tokenizer {
             Dialect::Spice => None,
             Dialect::Cdl => Some("*.".to_string()),
         };
+        let ignore_chars = match dialect {
+            Dialect::Spice => HashSet::new(),
+            Dialect::Cdl => HashSet::from(['/']),
+        };
         Self {
             data: Substr(data),
             rem: Substr(rem),
             state: TokState::Init,
             comments: HashSet::from(['*', '$']),
+            ignore_chars,
             line_continuation: '+',
             meta_directive_prefix,
         }
@@ -732,7 +735,7 @@ impl Tokenizer {
                 TokState::Init => {
                     if self.comments.contains(&c) && !self.next_is_meta_directive() {
                         self.take_until_newline();
-                    } else if c.is_whitespace() {
+                    } else if is_whitespace_equivalent(c, &self.ignore_chars) {
                         self.take1();
                     } else if c == self.line_continuation {
                         self.err("unexpected line continuation", c)?;
@@ -750,7 +753,7 @@ impl Tokenizer {
                             self.state = TokState::Init;
                             return Ok(Some(Token::LineEnd));
                         }
-                    } else if c == self.line_continuation {
+                    } else if c == self.line_continuation || self.ignore_chars.contains(&c) {
                         self.take1();
                     } else if self.comments.contains(&c) {
                         self.take_until_newline();
