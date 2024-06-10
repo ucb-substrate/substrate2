@@ -12,16 +12,16 @@ use substrate::schematic::netlist::ConvertibleNetlister;
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    if args.out.is_some() {
+    if let Some(ref out) = args.out {
         println!("input file: {:?}", &args.file);
         println!("blackbox cells: {:?}", &args.blackbox);
-        println!("output file: {:?}", &args.out);
+        println!("output: {:?}", &out);
         cdl2spice(args)?;
         println!("Netlist writing complete.");
     } else {
         eprintln!("input file: {:?}", &args.file);
         eprintln!("blackbox cells: {:?}", &args.blackbox);
-        eprintln!("output file: {:?}", &args.out);
+        eprintln!("output: stdout");
         cdl2spice(args)?;
         eprintln!("Netlist writing complete.");
     }
