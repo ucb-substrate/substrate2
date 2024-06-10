@@ -44,8 +44,8 @@ use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use crate::validation::ValidatorIssue;
 pub use slice::{Concat, IndexOwned, NamedSlice, NamedSliceOne, Slice, SliceOne, SliceRange};
 
-pub(crate) mod drivers;
-pub(crate) mod validation;
+pub mod drivers;
+pub mod validation;
 
 #[cfg(test)]
 pub(crate) mod tests;
