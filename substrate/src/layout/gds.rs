@@ -45,7 +45,7 @@ new_key_type! {
 ///
 /// Takes a [`RawCell`] and converts it to a [`gds::GdsLibrary`].
 pub struct GdsExporter<'a> {
-    cell: Arc<RawCell>,
+    cells: Vec<Arc<RawCell>>,
     layers: &'a LayerContext,
     cell_db: Names<CellId>,
     gds: gds::GdsLibrary,
@@ -56,9 +56,9 @@ impl<'a> GdsExporter<'a> {
     ///
     /// Requires the cell to be exported and a [`LayerContext`] for mapping Substrate layers to GDS
     /// layers.
-    pub fn new(cell: Arc<RawCell>, layers: &'a LayerContext) -> Self {
+    pub fn new(cells: Vec<Arc<RawCell>>, layers: &'a LayerContext) -> Self {
         Self {
-            cell,
+            cells,
             layers,
             cell_db: Default::default(),
             gds: gds::GdsLibrary::new("TOP"),
@@ -69,9 +69,9 @@ impl<'a> GdsExporter<'a> {
     ///
     /// Requires the cell to be exported and a [`LayerContext`] for mapping Substrate layers to GDS
     /// layers.
-    pub fn with_units(cell: Arc<RawCell>, layers: &'a LayerContext, units: GdsUnits) -> Self {
+    pub fn with_units(cells: Vec<Arc<RawCell>>, layers: &'a LayerContext, units: GdsUnits) -> Self {
         Self {
-            cell,
+            cells,
             layers,
             cell_db: Default::default(),
             gds: gds::GdsLibrary::with_units("TOP", units),
@@ -80,7 +80,9 @@ impl<'a> GdsExporter<'a> {
 
     /// Exports the contents of `self` as a [`gds::GdsLibrary`].
     pub fn export(mut self) -> GdsExportResult<gds::GdsLibrary> {
-        self.cell.clone().export(&mut self)?;
+        for cell in self.cells.clone() {
+            cell.clone().export(&mut self)?;
+        }
         Ok(self.gds)
     }
 

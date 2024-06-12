@@ -153,7 +153,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     }
 
     /// The raw layout geometry contained by this cell.
-    pub fn raw(&self) -> &RawCell {
+    pub fn raw(&self) -> &Arc<RawCell> {
         &self.raw
     }
 }

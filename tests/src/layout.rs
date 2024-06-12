@@ -172,6 +172,29 @@ fn cell_builder_supports_bbox() {
 }
 
 #[test]
+fn export_multi_top_layout() {
+    let test_name = "export_multi_top_layout";
+
+    let block1 = BufferNxM::new(5, 10, 6);
+    let block2 = BufferNxM::new(5, 10, 6);
+    let block3 = BufferNxM::new(8, 12, 4);
+
+    let ctx = PdkContext::new(ExamplePdkA);
+    let block1 = ctx.generate_layout(block1);
+    let block2 = ctx.generate_layout(block2);
+    let block3 = ctx.generate_layout(block3);
+    ctx.write_layout_all(
+        [
+            block1.cell().raw().clone(),
+            block2.cell().raw().clone(),
+            block3.cell().raw().clone(),
+        ],
+        get_path(test_name, "layout.gds"),
+    )
+    .expect("failed to write layout");
+}
+
+#[test]
 fn grid_tiler_works_with_various_spans() {
     let test_name = "grid_tiler_works_with_various_spans";
 
