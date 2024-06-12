@@ -53,6 +53,52 @@ fn can_generate_vdivider_schematic() {
 }
 
 #[test]
+fn can_generate_multi_top_scir() {
+    let ctx = Context::new();
+    let vdivider1 = Vdivider {
+        r1: Resistor::new(300),
+        r2: Resistor::new(100),
+    };
+    let vdivider2 = Vdivider {
+        r1: Resistor::new(500),
+        r2: Resistor::new(600),
+    };
+    let vdiv1 = ctx.generate_schematic::<Spice, _>(vdivider1);
+    let vdiv2 = ctx.generate_schematic::<Spice, _>(vdivider2);
+    let RawLib { scir, conv: _ } = ctx.export_scir_all(&[&vdiv1.raw(), &vdiv2.raw()]).unwrap();
+    assert_eq!(scir.cells().count(), 2);
+    let issues = scir.validate();
+    println!("Library:\n{:#?}", scir);
+    println!("Issues = {:#?}", issues);
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+
+    let vdiv = scir.cell_named("vdivider_300_100");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 3);
+    assert!(port_names.contains("pwr_vdd"));
+    assert!(port_names.contains("pwr_vss"));
+    assert!(port_names.contains("out"));
+    assert_eq!(vdiv.ports().count(), 3);
+    assert_eq!(vdiv.instances().count(), 2);
+
+    let vdiv = scir.cell_named("vdivider_500_600");
+    let port_names: HashSet<ArcStr> = vdiv
+        .ports()
+        .map(|p| vdiv.signal(p.signal()).name.clone())
+        .collect();
+    assert_eq!(port_names.len(), 3);
+    assert!(port_names.contains("pwr_vdd"));
+    assert!(port_names.contains("pwr_vss"));
+    assert!(port_names.contains("out"));
+    assert_eq!(vdiv.ports().count(), 3);
+    assert_eq!(vdiv.instances().count(), 2);
+}
+
+#[test]
 fn can_generate_flattened_vdivider_schematic() {
     let ctx = Context::new();
     let vdivider = crate::shared::vdivider::flattened::Vdivider::new(300, 100);

@@ -492,6 +492,9 @@ impl<S: Schema + ?Sized> RawCell<S> {
     /// Export this cell and all subcells as a SCIR library.
     ///
     /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
+    ///
+    /// Consider using [`export_multi_top_scir_lib`] if you need to export multiple cells
+    /// to the same SCIR library.
     pub(crate) fn to_scir_lib(&self) -> Result<RawLib<S>, ConvError> {
         let mut lib_ctx = ScirLibExportContext::new();
         let scir_id = self.to_scir_cell(&mut lib_ctx)?;
@@ -753,4 +756,24 @@ pub enum ConvError {
     /// An unsupported primitive was encountered during conversion.
     #[error("unsupported primitive")]
     UnsupportedPrimitive,
+}
+
+/// Export a collection of cells and all their subcells as a SCIR library.
+///
+/// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
+/// The resulting SCIR library will **not** have a top cell set.
+/// If you want a SCIR library with a known top cell, consider using [`RawCell::to_scir_lib`] instead.
+pub(crate) fn export_multi_top_scir_lib<S: Schema + ?Sized>(
+    cells: &[&RawCell<S>],
+) -> Result<RawLib<S>, ConvError> {
+    let mut lib_ctx = ScirLibExportContext::new();
+
+    for &cell in cells {
+        cell.to_scir_cell(&mut lib_ctx)?;
+    }
+
+    Ok(RawLib {
+        scir: lib_ctx.lib.build()?,
+        conv: lib_ctx.conv.build(),
+    })
 }

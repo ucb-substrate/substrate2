@@ -619,6 +619,12 @@ impl<S: Schema, B: ExportsNestedData> SchemaCellHandle<S, B> {
     pub fn cell(&self) -> &Cell<B> {
         self.cell.cell()
     }
+
+    /// Returns the raw cell.
+    pub fn raw(&self) -> Arc<RawCell<S>> {
+        let val = self.handle.unwrap_inner();
+        val.raw.clone()
+    }
 }
 
 impl<S: Schema + ?Sized, B: ExportsNestedData> Deref for SchemaCellHandle<S, B> {
