@@ -35,7 +35,7 @@ use crate::pdk::layers::LayerId;
 use crate::pdk::layers::Layers;
 use crate::pdk::layers::{GdsLayerSpec, InstalledLayers};
 use crate::pdk::Pdk;
-use crate::schematic::conv::{ConvError, RawLib};
+use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
@@ -411,6 +411,16 @@ impl Context {
         // TODO: Handle errors.
         let SchemaCellCacheValue { raw, .. } = cell.handle.unwrap_inner();
         raw.to_scir_lib()
+    }
+
+    /// Export the given cells and all their subcells as a SCIR library.
+    ///
+    /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
+    pub fn export_scir_all<S: Schema + ?Sized>(
+        &self,
+        cells: &[&crate::schematic::RawCell<S>],
+    ) -> Result<RawLib<S>, ConvError> {
+        export_multi_top_scir_lib(cells)
     }
 
     /// Simulate the given testbench.
