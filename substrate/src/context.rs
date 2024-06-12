@@ -569,7 +569,28 @@ impl<PDK: Pdk> PdkContext<PDK> {
         let layer_ctx = self.layer_ctx.read().unwrap();
         let db_units = PDK::LAYOUT_DB_UNITS.to_f64().unwrap();
         GdsExporter::with_units(
-            cell.raw.clone(),
+            vec![cell.raw.clone()],
+            &layer_ctx,
+            GdsUnits::new(db_units / 1e-6, db_units),
+        )
+        .export()
+        .map_err(LayoutError::from)?
+        .save(path)
+        .map_err(GdsExportError::from)
+        .map_err(LayoutError::from)?;
+        Ok(())
+    }
+
+    /// Writes a set of layout cells to a GDS file.
+    pub fn write_layout_all(
+        &self,
+        cells: impl IntoIterator<Item = Arc<RawCell>>,
+        path: impl AsRef<Path>,
+    ) -> Result<()> {
+        let layer_ctx = self.layer_ctx.read().unwrap();
+        let db_units = PDK::LAYOUT_DB_UNITS.to_f64().unwrap();
+        GdsExporter::with_units(
+            cells.into_iter().collect::<Vec<_>>(),
             &layer_ctx,
             GdsUnits::new(db_units / 1e-6, db_units),
         )
