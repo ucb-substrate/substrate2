@@ -54,6 +54,22 @@ pub struct ScirLibConversion {
     top: Option<CellId>,
 }
 
+impl ScirLibConversion {
+    /// Get the SCIR cell ID corresponding to the given [`RawCell`] if a corresponding cell exists.
+    ///
+    /// May return none if the given raw cell corresponds to a primitive or to a flattened cell.
+    pub fn corresponding_cell<S: Schema + ?Sized>(
+        &self,
+        cell: &RawCell<S>,
+    ) -> Option<scir::CellId> {
+        let conv = self.cells.get(&cell.id)?;
+        match conv {
+            SubstrateCellConversion::Cell(c) => c.cell_id,
+            SubstrateCellConversion::Primitive(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ScirLibConversionBuilder {
     /// Map from Substrate cell IDs to cell conversion metadata.

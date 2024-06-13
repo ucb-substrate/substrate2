@@ -57,11 +57,11 @@ pub trait HasSpiceLikeNetlist: Schema {
     }
     /// Writes an include statement.
     ///
-    /// A newline will be added afterwards.
+    /// A newline will be added afterward.
     fn write_include<W: Write>(&self, out: &mut W, include: &Include) -> Result<()>;
     /// Writes a begin subcircuit statement.
     ///
-    /// A newline will be added afterwards.
+    /// A newline will be added afterward.
     fn write_start_subckt<W: Write>(
         &self,
         out: &mut W,
@@ -70,11 +70,11 @@ pub trait HasSpiceLikeNetlist: Schema {
     ) -> Result<()>;
     /// Writes an end subcircuit statement.
     ///
-    /// A newline will be added afterwards.
+    /// A newline will be added afterward.
     fn write_end_subckt<W: Write>(&self, out: &mut W, name: &ArcStr) -> Result<()>;
     /// Writes a SCIR instance.
     ///
-    /// A newline will be added afterwards.
+    /// A newline will be added afterward.
     fn write_instance<W: Write>(
         &self,
         out: &mut W,
@@ -82,9 +82,9 @@ pub trait HasSpiceLikeNetlist: Schema {
         connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> Result<ArcStr>;
-    /// Writes a primitive instantiation,.
+    /// Writes a primitive instantiation.
     ///
-    /// A newline will be added afterwards.
+    /// A newline will be added afterward.
     fn write_primitive_inst<W: Write>(
         &self,
         out: &mut W,
