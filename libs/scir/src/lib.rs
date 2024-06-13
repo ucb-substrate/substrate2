@@ -639,7 +639,7 @@ pub enum Direction {
     /// Input or output.
     ///
     /// Represents ports whose direction is not known
-    /// at generator elaboration time.
+    /// at generator elaboration time (e.g. the output of a tristate buffer).
     #[default]
     InOut,
 }
@@ -1680,5 +1680,11 @@ impl Port {
     #[inline]
     pub fn signal(&self) -> SignalId {
         self.signal
+    }
+
+    /// The direction of this port.
+    #[inline]
+    pub fn direction(&self) -> Direction {
+        self.direction
     }
 }
