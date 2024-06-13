@@ -20,7 +20,7 @@ pub fn export_verilog_shells<S: Schema, W: Write>(
                 .map(|port| {
                     // TODO: Handle bus signals.
                     let signal = cell.signal(port.signal());
-                    format!("inout {}", &signal.name)
+                    format!("   {} {}", port.direction(), &signal.name)
                 })
                 .collect::<Vec<_>>()
                 .join(",\n")
