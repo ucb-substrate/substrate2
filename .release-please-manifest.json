@@ -18,6 +18,7 @@
   "libs/type_dispatch": "0.3.0",
   "libs/type_dispatch_macros": "0.3.0",
   "libs/uniquify": "0.2.0",
+  "libs/verilog": "0.0.0",
   "pdks/sky130pdk": "0.8.1",
   "substrate": "0.8.1",
   "tests": "0.0.0",

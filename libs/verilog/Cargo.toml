@@ -1,0 +1,9 @@
+[package]
+name = "verilog"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+scir = { version = "0.7.0", registry = "substrate", path = "../scir" }

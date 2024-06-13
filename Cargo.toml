@@ -22,6 +22,7 @@ members = [
     "libs/type_dispatch",
     "libs/type_dispatch_macros",
     "libs/uniquify",
+    "libs/verilog",
     "pdks/sky130pdk",
     "substrate",
     "tests",
