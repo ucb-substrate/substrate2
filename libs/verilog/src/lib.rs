@@ -39,6 +39,7 @@ pub fn escape_identifier(name: &str) -> String {
         || name.contains('/')
         || name.contains('\\')
         || name.contains('+')
+        || name.contains(',')
     {
         // Verilog escaped identifiers begin with a backslash and end in whitespace.
         format!("\\{name} ")
