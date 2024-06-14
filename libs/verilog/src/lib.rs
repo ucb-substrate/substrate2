@@ -20,7 +20,8 @@ pub fn export_verilog_shells<S: Schema, W: Write>(
                 .map(|port| {
                     // TODO: Handle bus signals.
                     let signal = cell.signal(port.signal());
-                    format!("   {} {}", port.direction(), &signal.name)
+                    let name = escape_identifier(&signal.name);
+                    format!("   {} {}", port.direction(), name)
                 })
                 .collect::<Vec<_>>()
                 .join(",\n")
@@ -29,6 +30,21 @@ pub fn export_verilog_shells<S: Schema, W: Write>(
         writeln!(out, "endmodule")?;
     }
     Ok(())
+}
+
+pub fn escape_identifier(name: &str) -> String {
+    if name.contains('<')
+        || name.contains('>')
+        || name.contains('.')
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('+')
+    {
+        // Verilog escaped identifiers begin with a backslash and end in whitespace.
+        format!("\\{name} ")
+    } else {
+        name.to_string()
+    }
 }
 
 pub fn export_all_verilog_shells<S: Schema, W: Write>(
