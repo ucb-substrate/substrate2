@@ -31,6 +31,15 @@ pub fn export_verilog_shells<S: Schema, W: Write>(
     Ok(())
 }
 
+pub fn export_all_verilog_shells<S: Schema, W: Write>(
+    lib: &Library<S>,
+    out: &mut W,
+) -> std::io::Result<()> {
+    let cells = lib.cells().map(|(id, _)| id).collect::<Vec<_>>();
+    export_verilog_shells(lib, &cells, out)?;
+    Ok(())
+}
+
 pub fn export_verilog_shells_by_name<S: Schema, N: AsRef<str>, W: Write>(
     lib: &Library<S>,
     cells: &[N],
@@ -54,6 +63,18 @@ pub fn export_verilog_shells_to_file<S: Schema, P: AsRef<Path>>(
     }
     let mut f = std::fs::File::create(path)?;
     export_verilog_shells(lib, cells, &mut f)
+}
+
+pub fn export_all_verilog_shells_to_file<S: Schema, P: AsRef<Path>>(
+    lib: &Library<S>,
+    path: P,
+) -> std::io::Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut f = std::fs::File::create(path)?;
+    export_all_verilog_shells(lib, &mut f)
 }
 
 pub fn export_verilog_shells_by_name_to_file<S: Schema, N: AsRef<str>, P: AsRef<Path>>(
