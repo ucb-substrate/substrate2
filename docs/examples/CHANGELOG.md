@@ -20,6 +20,31 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.6.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.5.1...examples-v0.6.0) (2024-06-19)
+
+
+### Features
+
+* **atoll:** fix sky130 layer setup ([#346](https://github.com/ucb-substrate/substrate2/issues/346)) ([07906db](https://github.com/ucb-substrate/substrate2/commit/07906db5edbe418df795c6e40af770e4dfc8c5ec))
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **docs:** update docs for new simulation APIs ([#326](https://github.com/ucb-substrate/substrate2/issues/326)) ([ef133df](https://github.com/ucb-substrate/substrate2/commit/ef133dfac5f352121fe0e561b76541d5af62970e))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **layout:** fix issues in GDS export and ATOLL API ([#341](https://github.com/ucb-substrate/substrate2/issues/341)) ([08930b1](https://github.com/ucb-substrate/substrate2/commit/08930b1b25d018c20758986e206dc8882df782af))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.8.1 to <=0.9.0
+    * sky130pdk bumped from <=0.8.1 to <=0.9.0
+    * spectre bumped from <=0.9.1 to <=0.10.0
+    * spice bumped from <=0.7.1 to <=0.8.0
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.4.1...examples-v0.5.0) (2023-11-25)
 
 

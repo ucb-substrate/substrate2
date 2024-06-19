@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify_macros bumped from 0.1.0 to 0.1.1
+
 ## 0.1.0 (2023-11-02)
 
 
