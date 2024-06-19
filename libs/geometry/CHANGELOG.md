@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.0](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.5.0...geometry-v0.6.0) (2024-06-19)
+
+
+### Features
+
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **bbox:** add bbox_rect method ([#373](https://github.com/ucb-substrate/substrate2/issues/373)) ([55b2632](https://github.com/ucb-substrate/substrate2/commit/55b2632a3c1e1ad260b61c6545143a2b16ef1150))
+* **dirs:** add `Dirs` struct ([#371](https://github.com/ucb-substrate/substrate2/issues/371)) ([6d6b834](https://github.com/ucb-substrate/substrate2/commit/6d6b8347eea60ed1fccaed16623d146c3bd0727e))
+* **geometry:** support for rectangular rings ([#408](https://github.com/ucb-substrate/substrate2/issues/408)) ([6fc0f36](https://github.com/ucb-substrate/substrate2/commit/6fc0f361f2215968f698281bfaf37d03d3ec131e))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+
+
+### Bug Fixes
+
+* **deps:** bump rust to version 1.75.0 ([#362](https://github.com/ucb-substrate/substrate2/issues/362)) ([e1e82c9](https://github.com/ucb-substrate/substrate2/commit/e1e82c94cdf6ba4426f3f73f29dca40674a7f064))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * geometry_macros bumped from 0.0.1 to 0.0.2
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.4.0...geometry-v0.5.0) (2023-11-02)
 
 
