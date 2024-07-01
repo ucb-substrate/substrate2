@@ -1,7 +1,8 @@
 //! SKY130 primitives for [ATOLL](atoll).
 
+use std::fmt::{Display, Formatter};
 use crate::layers::Sky130Layers;
-use crate::mos::{MosParams, Nfet01v8, Pfet01v8};
+use crate::mos::{MosKind, MosParams, Nfet01v8, Pfet01v8};
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
 use atoll::abs::TrackCoord;
@@ -202,7 +203,7 @@ pub enum GateDir {
 ///
 /// This tile does not contain internal taps.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MosTile {
+struct MosTileInner {
     /// Transistor width.
     w: i64,
 
@@ -219,7 +220,7 @@ pub struct MosTile {
     gate_dir: GateDir,
 }
 
-impl MosTile {
+impl MosTileInner {
     /// Create a new MOS tile with the given physical transistor dimensions.
     pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
         Self {
@@ -231,7 +232,7 @@ impl MosTile {
     }
 }
 
-impl Block for MosTile {
+impl Block for MosTileInner {
     type Io = MosTileIo;
     fn id() -> ArcStr {
         arcstr::literal!("mos_tile")
@@ -257,7 +258,7 @@ impl Block for MosTile {
     }
 }
 
-impl ExportsLayoutData for MosTile {
+impl ExportsLayoutData for MosTileInner {
     type LayoutData = ();
 }
 
@@ -266,7 +267,7 @@ struct MosTileData {
     lcm_bbox: Rect,
 }
 
-impl MosTile {
+impl MosTileInner {
     fn layout(
         &self,
         io: &mut substrate::io::layout::Builder<MosTileIo>,
@@ -378,14 +379,14 @@ impl MosTile {
 /// A tile containing a set of NMOS transistors.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NmosTile {
-    tile: MosTile,
+    tile: MosTileInner,
 }
 
 impl NmosTile {
     /// Create a new NMOS tile with the given physical transistor dimensions.
     pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
         Self {
-            tile: MosTile::new(w, len, nf),
+            tile: MosTileInner::new(w, len, nf),
         }
     }
 
@@ -472,14 +473,14 @@ impl Schematic<Sky130Pdk> for NmosTile {
 /// A tile containing a set of PMOS transistors.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PmosTile {
-    tile: MosTile,
+    tile: MosTileInner,
 }
 
 impl PmosTile {
     /// Create a new PMOS tile with the given physical transistor dimensions.
     pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
         Self {
-            tile: MosTile::new(w, len, nf),
+            tile: MosTileInner::new(w, len, nf),
         }
     }
 }
@@ -562,14 +563,14 @@ struct TapTileData {
 
 /// A tile containing taps.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TapTile {
+struct TapTileInner {
     /// x dimension, in number of li1 tracks
     xtracks: i64,
     /// y dimension, in number of m1 tracks
     ytracks: i64,
 }
 
-impl TapTile {
+impl TapTileInner {
     /// Create a new tap tile with the given dimensions.
     pub fn new(xtracks: i64, ytracks: i64) -> Self {
         Self { xtracks, ytracks }
@@ -580,7 +581,7 @@ impl TapTile {
     }
 }
 
-impl TapTile {
+impl TapTileInner {
     fn layout(&self, cell: &mut CellBuilder<Sky130Pdk>) -> substrate::error::Result<TapTileData> {
         let stack = cell.ctx.get_installation::<LayerStack<PdkLayer>>().unwrap();
         let grid = RoutingGrid::new((*stack).clone(), 0..2);
@@ -624,14 +625,14 @@ impl TapTile {
 /// These can be used to connect to the body terminals of PMOS devices.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NtapTile {
-    tile: TapTile,
+    tile: TapTileInner,
 }
 
 impl NtapTile {
     /// Create a new ntap tile with the given dimensions.
     pub fn new(xtracks: i64, ytracks: i64) -> Self {
         Self {
-            tile: TapTile::new(xtracks, ytracks),
+            tile: TapTileInner::new(xtracks, ytracks),
         }
     }
 }
@@ -706,14 +707,14 @@ impl Layout<Sky130Pdk> for NtapTile {
 /// These can be used to connect to the body terminals of NMOS devices.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PtapTile {
-    tile: TapTile,
+    tile: TapTileInner,
 }
 
 impl PtapTile {
     /// Create a new ntap tile with the given dimensions.
     pub fn new(xtracks: i64, ytracks: i64) -> Self {
         Self {
-            tile: TapTile::new(xtracks, ytracks),
+            tile: TapTileInner::new(xtracks, ytracks),
         }
     }
 }
@@ -773,6 +774,103 @@ impl Layout<Sky130Pdk> for PtapTile {
         let psdm = data.tap.expand_all(130);
         let psdm = psdm.with_hspan(data.lcm_bbox.hspan().union(psdm.hspan()));
         cell.draw(Shape::new(cell.ctx.layers.psdm, psdm))?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Kind {
+    N,
+    P,
+}
+
+impl Display for Kind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let name = match *self {
+            Kind::N => "n",
+            Kind::P => "p",
+        };
+        write!(f, "{name}")
+    }
+}
+
+/// A tile containing either an [`Ntap`] or a [`Ptap`].
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TapTile {
+    tile: TapTileInner,
+    kind: Kind,
+}
+
+impl TapTile {
+    /// Create a new ntap tile with the given dimensions and kind.
+    pub fn new(xtracks: i64, ytracks: i64, kind: Kind) -> Self {
+        Self {
+            tile: TapTileInner::new(xtracks, ytracks),
+            kind,
+        }
+    }
+}
+
+/// The IO of an [`TapTile`].
+#[derive(Io, Clone, Default, Debug)]
+pub struct TapIo {
+    /// The body terminal.
+    pub body: InOut<Signal>,
+}
+
+impl Block for TapTile {
+    type Io = TapIo;
+
+    fn id() -> ArcStr {
+        arcstr::literal!("tap_tile")
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("{}{}", self.kind, self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl ExportsNestedData for TapTile {
+    type NestedData = ();
+}
+
+impl ExportsLayoutData for TapTile {
+    type LayoutData = ();
+}
+
+impl Schematic<Sky130Pdk> for TapTile {
+    fn schematic(
+        &self,
+        _io: &Bundle<<Self as Block>::Io>,
+        cell: &mut substrate::schematic::CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        cell.flatten();
+        Ok(())
+    }
+}
+
+impl Layout<Sky130Pdk> for TapTile {
+    fn layout(
+        &self,
+        io: &mut substrate::io::layout::Builder<TapIo>,
+        cell: &mut CellBuilder<Sky130Pdk>,
+    ) -> substrate::error::Result<Self::LayoutData> {
+        match self.kind {
+            Kind::N => {
+                let tile = cell.generate(NtapTile::new(self.tile.xtracks, self.tile.ytracks));
+                io.body.merge(tile.io().vpb);
+                cell.draw(tile)?;
+            }
+            Kind::P => {
+                let tile = cell.generate(PtapTile::new(self.tile.xtracks, self.tile.ytracks));
+                io.body.merge(tile.io().vnb);
+                cell.draw(tile)?;
+            }
+        }
         Ok(())
     }
 }
