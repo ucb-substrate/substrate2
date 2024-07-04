@@ -1617,7 +1617,40 @@ mod tests {
             }),
             components: None,
             blockages: None,
-            special_nets: None,
+            special_nets: Some(SpecialNets {
+                nets: vec![SpecialNet {
+                    name: NamedNetIdent {
+                        name: "vss".to_string(),
+                        pins: vec![],
+                    },
+                    voltage: None,
+                    wiring: vec![SpecialWiring::Geometry(GeometrySpecialWiring {
+                        status: Some(SpecialRoutingStatus::Fixed),
+                        shape: None,
+                        mask: None,
+                        entries: vec![
+                            GeometrySpecialWiringEntry::Rect(LayerRect {
+                                layer: "m3".to_string(),
+                                mask: None,
+                                rect: Rect::new(Point::new(0, 0), Point::new(600, 100)),
+                            }),
+                            GeometrySpecialWiringEntry::Rect(LayerRect {
+                                layer: "m3".to_string(),
+                                mask: None,
+                                rect: Rect::new(Point::new(600, 100), Point::new(700, 900)),
+                            }),
+                        ],
+                    })],
+                    source: None,
+                    fixed_bump: false,
+                    original: None,
+                    net_type: Some(NetType::Ground),
+                    pattern: None,
+                    est_cap: None,
+                    weight: None,
+                    properties: vec![],
+                }],
+            }),
             nets: None,
         };
 
