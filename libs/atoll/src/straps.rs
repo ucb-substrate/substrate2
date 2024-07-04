@@ -404,7 +404,38 @@ impl<'a> GreedyStrapperState<'a> {
             if !strap.has_via {
                 continue;
             }
+            let mut via_coords = Vec::new();
             for track_coord in strap.start..=strap.stop {
+                let track_dir = self
+                    .routing_state
+                    .grid
+                    .stack
+                    .layer(strap.layer)
+                    .dir()
+                    .track_dir();
+                let (x, y) = match track_dir {
+                    Dir::Horiz => (track_coord, strap.track),
+                    Dir::Vert => (strap.track, track_coord),
+                };
+                let coord = GridCoord {
+                    layer: strap.layer,
+                    x,
+                    y,
+                };
+                if self.routing_state.has_via(coord) {
+                    via_coords.push(track_coord);
+                }
+            }
+            let start = std::cmp::max(
+                via_coords
+                    .first()
+                    .unwrap()
+                    .checked_sub(1)
+                    .unwrap_or_default(),
+                strap.start,
+            );
+            let stop = std::cmp::min(*via_coords.last().unwrap() + 1, strap.stop);
+            for track_coord in start..=stop {
                 let track_dir = self
                     .routing_state
                     .grid
@@ -423,8 +454,8 @@ impl<'a> GreedyStrapperState<'a> {
                 };
                 self.routing_state[coord] = PointState::Routed {
                     net: strap.net,
-                    has_via: track_coord == strap.start
-                        || track_coord == strap.stop
+                    has_via: track_coord == start
+                        || track_coord == stop
                         || self.routing_state.has_via(coord),
                 };
             }
@@ -436,8 +467,8 @@ impl<'a> GreedyStrapperState<'a> {
                 .dir()
                 .track_dir()
             {
-                Dir::Horiz => (strap.start, strap.track, strap.stop, strap.track),
-                Dir::Vert => (strap.track, strap.start, strap.track, strap.stop),
+                Dir::Horiz => (start, strap.track, stop, strap.track),
+                Dir::Vert => (strap.track, start, strap.track, stop),
             };
             self.paths.push(vec![(
                 GridCoord {
