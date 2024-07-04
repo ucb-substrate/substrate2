@@ -427,7 +427,7 @@ impl<'a> GreedyStrapperState<'a> {
                 }
             }
             let start = std::cmp::max(
-                *via_coords
+                via_coords
                     .first()
                     .unwrap()
                     .checked_sub(1)
