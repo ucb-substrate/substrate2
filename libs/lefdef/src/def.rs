@@ -204,9 +204,9 @@ pub enum Geometry {
 impl WriteDef for Rect {
     fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
         write!(out, "RECT ")?;
-        write_pt(self.lower_left(), out)?;
+        self.lower_left().write(out)?;
         write!(out, " ")?;
-        write_pt(self.upper_right(), out)?;
+        self.upper_right().write(out)?;
         Ok(())
     }
 }
@@ -216,7 +216,7 @@ impl WriteDef for Polygon {
         write!(out, "POLYGON")?;
         for pt in self.points() {
             write!(out, " ")?;
-            write_pt(*pt, out)?;
+            pt.write(out)?;
         }
         Ok(())
     }
@@ -310,10 +310,41 @@ pub enum KnownPlacementKind {
     Placed,
 }
 
+impl KnownPlacementKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            KnownPlacementKind::Fixed => "FIXED",
+            KnownPlacementKind::Cover => "COVER",
+            KnownPlacementKind::Placed => "PLACED",
+        }
+    }
+}
+
+impl Display for KnownPlacementKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl WriteDef for KnownPlacementKind {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{}", self.as_str())
+    }
+}
+
 pub struct KnownPlacement {
     kind: KnownPlacementKind,
     pt: Point,
     orient: Orientation,
+}
+
+impl WriteDef for KnownPlacement {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{} ", self.kind)?;
+        self.pt.write(out)?;
+        write!(out, " {}", self.orient)?;
+        Ok(())
+    }
 }
 
 pub enum PlacementStatus {
@@ -328,17 +359,17 @@ impl WriteDef for PlacementStatus {
         match self {
             PlacementStatus::Fixed { pt, orient } => {
                 write!(out, "+ FIXED ")?;
-                write_pt(*pt, out)?;
+                pt.write(out)?;
                 writeln!(out, "{orient}")?;
             }
             PlacementStatus::Cover { pt, orient } => {
                 write!(out, "+ COVER ")?;
-                write_pt(*pt, out)?;
+                pt.write(out)?;
                 writeln!(out, "{orient}")?;
             }
             PlacementStatus::Placed { pt, orient } => {
                 write!(out, "+ PLACED ")?;
-                write_pt(*pt, out)?;
+                pt.write(out)?;
                 writeln!(out, "{orient}")?;
             }
             PlacementStatus::Unplaced => {
@@ -466,8 +497,10 @@ pub struct DieArea {
     pts: Vec<Point>,
 }
 
-pub fn write_pt<W: Write>(pt: Point, out: &mut W) -> std::io::Result<()> {
-    write!(out, "( {} {} )", pt.x, pt.y)
+impl WriteDef for Point {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "( {} {} )", self.x, self.y)
+    }
 }
 
 impl WriteDef for DieArea {
@@ -476,7 +509,7 @@ impl WriteDef for DieArea {
         write!(out, "DIEAREA")?;
         for pt in self.pts.iter() {
             write!(out, " ")?;
-            write_pt(*pt, out)?;
+            pt.write(out)?;
         }
         writeln!(out, " ;")?;
         Ok(())
@@ -498,6 +531,74 @@ pub struct Nets {
     nets: Vec<Net>,
 }
 
+impl WriteDef for Nets {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        if self.nets.is_empty() {
+            return Ok(());
+        }
+        writeln!(out, "NETS {} ;", self.nets.len())?;
+        for n in self.nets.iter() {
+            write!(out, "  - ")?;
+            n.ident.write(out)?;
+            for x in n.shield_nets.iter() {
+                writeln!(out, "    + SHIELDNET {}", x)?;
+            }
+            for x in n.virtual_pins.iter() {
+                write!(out, "    ")?;
+                x.write(out)?;
+                writeln!(out)?;
+            }
+            for s in n.subnets.iter() {
+                write!(out, "    ")?;
+                s.write(out)?;
+                writeln!(out)?;
+            }
+            if let Some(x) = n.xtalk {
+                writeln!(out, "    + XTALK {x}")?;
+            }
+            if let Some(x) = &n.nondefault_rule {
+                writeln!(out, "    + NONDEFAULTRULE {x}")?;
+            }
+            for w in n.wiring.iter() {
+                w.write(out)?;
+            }
+            if let Some(s) = &n.source {
+                writeln!(out, "    + SOURCE {}", s)?;
+            }
+            if n.fixed_bump {
+                writeln!(out, "    + FIXEDBUMP")?;
+            }
+            if let Some(x) = &n.frequency {
+                writeln!(out, "    + FREQUENCY {x}")?;
+            }
+            if let Some(o) = &n.original {
+                writeln!(out, "    + ORIGINAL {}", o)?;
+            }
+            if let Some(x) = &n.net_type {
+                writeln!(out, "    + USE {}", x)?;
+            }
+            if let Some(x) = &n.pattern {
+                writeln!(out, "    + PATTERN {}", x)?;
+            }
+            if let Some(x) = n.est_cap {
+                writeln!(out, "    + ESTCAP {}", x)?;
+            }
+            if let Some(x) = &n.weight {
+                writeln!(out, "    + WEIGHT {}", x)?;
+            }
+            if !n.properties.is_empty() {
+                write!(out, "    + PROPERTY")?;
+                for p in n.properties.iter() {
+                    write!(out, "\"{}\" \"{}\"", p.name, p.val)?;
+                }
+            }
+            writeln!(out, "    ;")?;
+        }
+        writeln!(out, "END NETS")?;
+        Ok(())
+    }
+}
+
 pub struct Net {
     ident: NetIdent,
     shield_nets: Vec<Ident>,
@@ -510,7 +611,7 @@ pub struct Net {
     fixed_bump: bool,
     frequency: Option<f64>,
     original: Option<Ident>,
-    net_type: NetType,
+    net_type: Option<NetType>,
     pattern: Option<NetPattern>,
     est_cap: Option<f64>,
     weight: Option<u32>,
@@ -528,6 +629,33 @@ pub enum NetType {
     Tieoff,
 }
 
+impl NetType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NetType::Analog => "ANALOG",
+            NetType::Clock => "CLOCK",
+            NetType::Ground => "GROUND",
+            NetType::Power => "POWER",
+            NetType::Reset => "RESET",
+            NetType::Scan => "SCAN",
+            NetType::Signal => "SIGNAL",
+            NetType::Tieoff => "TIEOFF",
+        }
+    }
+}
+
+impl Display for NetType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl WriteDef for NetType {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{}", self.as_str())
+    }
+}
+
 pub enum NetPattern {
     Balanced,
     Steiner,
@@ -535,9 +663,44 @@ pub enum NetPattern {
     WiredLogic,
 }
 
+impl NetPattern {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NetPattern::Balanced => "BALANCED",
+            NetPattern::Steiner => "STEINER",
+            NetPattern::Trunk => "TRUNK",
+            NetPattern::WiredLogic => "WIREDLOGIC",
+        }
+    }
+}
+
+impl Display for NetPattern {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl WriteDef for NetPattern {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{}", self.as_str())
+    }
+}
+
 pub enum NetIdent {
     Named(NamedNetIdent),
     MustJoin { component: Ident, pin: Ident },
+}
+
+impl WriteDef for NetIdent {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            NetIdent::Named(n) => n.write(out)?,
+            NetIdent::MustJoin { component, pin } => {
+                write!(out, "MUSTJOIN ( {} {} )", component, pin)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 pub struct NetPin {
@@ -564,7 +727,17 @@ pub enum NetPinKind {
 
 impl WriteDef for NetPinKind {
     fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
-        todo!()
+        match self {
+            NetPinKind::ComponentPin {
+                comp_name,
+                pin_name,
+            } => {
+                write!(out, "{comp_name} {pin_name}")
+            }
+            NetPinKind::IoPin { name } => {
+                write!(out, "PIN {name}")
+            }
+        }
     }
 }
 
@@ -576,9 +749,38 @@ pub struct VirtualPin {
     placement: Option<KnownPlacement>,
 }
 
+impl WriteDef for VirtualPin {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "+ VPIN {}", self.name)?;
+        if let Some(x) = &self.layer {
+            write!(out, " LAYER {}", x)?;
+        }
+        write!(out, " ")?;
+        self.p0.write(out)?;
+        write!(out, " ")?;
+        self.p1.write(out)?;
+        if let Some(x) = &self.placement {
+            write!(out, " ")?;
+            x.write(out)?;
+        }
+        Ok(())
+    }
+}
+
 pub struct Subnet {
     name: Ident,
     pins: Vec<SubnetPin>,
+}
+
+impl WriteDef for Subnet {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        writeln!(out, "+ SUBNET {}", self.name)?;
+        for pin in self.pins.iter() {
+            pin.write(out)?;
+            writeln!(out)?;
+        }
+        Ok(())
+    }
 }
 
 pub enum SubnetPin {
@@ -587,18 +789,79 @@ pub enum SubnetPin {
     VirtualPin { name: Ident },
 }
 
+impl WriteDef for SubnetPin {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            SubnetPin::Component {
+                comp_name,
+                pin_name,
+            } => {
+                write!(out, "( {comp_name} {pin_name} )")?;
+            }
+            SubnetPin::IoPin { name } => {
+                write!(out, "PIN {name}")?;
+            }
+            SubnetPin::VirtualPin { name } => {
+                write!(out, "VPIN {name}")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub struct RoutingXy {
     x: i64,
     y: i64,
-    ext: i64,
+    ext: Option<i64>,
 }
 
-pub struct RoutingPoints {
+impl WriteDef for RoutingXy {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        if let Some(ext) = self.ext {
+            write!(out, "( {} {} {} )", self.x, self.y, ext)
+        } else {
+            write!(out, "( {} {} )", self.x, self.y)
+        }
+    }
+}
+
+pub struct RegularRoutingPoints {
     start: RoutingXy,
-    points: Vec<RoutingPoint>,
+    points: Vec<RegularRoutingPoint>,
 }
 
-pub enum RoutingPoint {
+impl WriteDef for RegularRoutingPoints {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        self.start.write(out)?;
+        writeln!(out)?;
+
+        for pt in self.points.iter() {
+            pt.write(out)?;
+            writeln!(out)?;
+        }
+
+        Ok(())
+    }
+}
+
+pub struct SpecialRoutingPoints {
+    start: RoutingXy,
+    points: Vec<SpecialRoutingPoint>,
+}
+
+impl WriteDef for SpecialRoutingPoints {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        self.start.write(out)?;
+        writeln!(out)?;
+        for pt in self.points.iter() {
+            pt.write(out)?;
+            writeln!(out)?;
+        }
+        Ok(())
+    }
+}
+
+pub enum RegularRoutingPoint {
     Point {
         mask: Option<MaskNum>,
         pt: RoutingXy,
@@ -606,7 +869,7 @@ pub enum RoutingPoint {
     Via {
         mask: Option<MaskNum>,
         via_name: Ident,
-        orient: Orientation,
+        orient: Option<Orientation>,
     },
     Rect {
         mask: Option<MaskNum>,
@@ -621,6 +884,104 @@ pub enum RoutingPoint {
     },
 }
 
+impl WriteDef for RegularRoutingPoint {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            RegularRoutingPoint::Point { mask, pt } => {
+                if let Some(mask) = mask {
+                    write!(out, "MASK {} ", mask.0)?;
+                }
+                pt.write(out)?;
+            }
+            RegularRoutingPoint::Via {
+                mask,
+                via_name,
+                orient,
+            } => {
+                if let Some(mask) = mask {
+                    write!(out, "MASK {} ", mask.0)?;
+                }
+                write!(out, "{via_name}")?;
+                if let Some(o) = orient {
+                    write!(out, " {o}")?;
+                }
+            }
+            RegularRoutingPoint::Rect {
+                mask,
+                dx1,
+                dy1,
+                dx2,
+                dy2,
+            } => {
+                if let Some(mask) = mask {
+                    write!(out, "MASK {} ", mask.0)?;
+                }
+
+                write!(out, "RECT ( {dx1} {dy1}  {dx2} {dy2} )")?;
+            }
+            RegularRoutingPoint::Virtual { x, y } => {
+                write!(out, "VIRTUAL ( {x} {y} )")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct ViaArray {
+    nx: u32,
+    ny: u32,
+    step_x: i64,
+    step_y: i64,
+}
+
+pub enum SpecialRoutingPoint {
+    Point {
+        mask: Option<MaskNum>,
+        pt: RoutingXy,
+    },
+    Via {
+        mask: Option<MaskNum>,
+        via_name: Ident,
+        orient: Option<Orientation>,
+        array: Option<ViaArray>,
+    },
+}
+
+impl WriteDef for SpecialRoutingPoint {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            SpecialRoutingPoint::Point { mask, pt } => {
+                if let Some(mask) = mask {
+                    write!(out, "MASK {} ", mask.0)?;
+                }
+                pt.write(out)?;
+            }
+            SpecialRoutingPoint::Via {
+                mask,
+                via_name,
+                orient,
+                array,
+            } => {
+                if let Some(mask) = mask {
+                    write!(out, "MASK {} ", mask.0)?;
+                }
+                write!(out, "{}", via_name)?;
+                if let Some(orient) = orient {
+                    write!(out, " {}", orient)?;
+                }
+                if let Some(array) = array {
+                    write!(
+                        out,
+                        " DO {} BY {} STEP {} {}",
+                        array.nx, array.ny, array.step_x, array.step_y
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 pub enum RoutingStatus {
     Cover,
     Fixed,
@@ -628,21 +989,94 @@ pub enum RoutingStatus {
     NoShield,
 }
 
+impl RoutingStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RoutingStatus::Cover => "COVER",
+            RoutingStatus::Fixed => "FIXED",
+            RoutingStatus::Routed => "ROUTED",
+            RoutingStatus::NoShield => "NOSHIELD",
+        }
+    }
+}
+
+impl Display for RoutingStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl WriteDef for RoutingStatus {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{}", self.as_str())
+    }
+}
+
 pub enum Taper {
     Default,
     Rule(Ident),
 }
 
+impl WriteDef for Taper {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            Taper::Default => {
+                write!(out, "TAPER")
+            }
+            Taper::Rule(r) => {
+                write!(out, "TAPERRULE {r}")
+            }
+        }
+    }
+}
+
 pub struct RegularWiring {
     status: RoutingStatus,
-    entries: Vec<RegularWiringEntry>,
+    entries: NonEmptyVec<RegularWiringEntry>,
+}
+
+impl WriteDef for RegularWiring {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        writeln!(out, "+ {}", self.status)?;
+
+        let first = self
+            .entries
+            .first()
+            .expect("regular wiring entries must not be empty");
+        first.write(out)?;
+        writeln!(out)?;
+
+        for entry in self.entries.iter().skip(1) {
+            write!(out, "NEW ")?;
+            entry.write(out)?;
+            writeln!(out)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct RegularWiringEntry {
     layer: Ident,
     taper: Option<Taper>,
     style: Option<u32>,
-    points: RoutingPoints,
+    points: RegularRoutingPoints,
+}
+
+impl WriteDef for RegularWiringEntry {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{}", self.layer)?;
+        if let Some(t) = &self.taper {
+            write!(out, " ")?;
+            t.write(out)?;
+        }
+        if let Some(s) = self.style {
+            write!(out, " STYLE {s}")?;
+        }
+        writeln!(out)?;
+        self.points.write(out)?;
+
+        Ok(())
+    }
 }
 
 pub struct SpecialNets {
@@ -657,52 +1091,45 @@ impl WriteDef for SpecialNets {
         writeln!(out, "SPECIALNETS {} ;", self.nets.len())?;
         for n in self.nets.iter() {
             writeln!(out, "  - {}", n.name.name)?;
-            for pin in n.name.pins {
+            for pin in n.name.pins.iter() {
                 pin.write(out)?;
             }
-            if let Some(eeq) = &c.eeq_master {
-                writeln!(out, "    + EEQMASTER {}", eeq)?;
+            if let Some(voltage) = n.voltage {
+                writeln!(out, "    + VOLTAGE {voltage}")?;
             }
-            if let Some(s) = &c.source {
+            for w in n.wiring.iter() {
+                w.write(out)?;
+            }
+            if let Some(s) = &n.source {
                 writeln!(out, "    + SOURCE {}", s)?;
             }
-            if let Some(x) = &c.placement_status {
-                write!(out, "    ")?;
-                x.write(out)?;
+            if n.fixed_bump {
+                writeln!(out, "    + FIXEDBUMP")?;
             }
-            if let Some(x) = &c.mask_shift {
-                writeln!(out, "    + MASKSHIFT {}", x.0)?;
+            if let Some(o) = &n.original {
+                writeln!(out, "    + ORIGINAL {}", o)?;
             }
-            if let Some(x) = &c.halo {
-                let soft = if x.soft { " SOFT" } else { "" };
-                writeln!(
-                    out,
-                    "    + HALO{} {} {} {} {}",
-                    soft, x.left, x.bottom, x.right, x.top
-                )?;
+            if let Some(x) = &n.net_type {
+                writeln!(out, "    + USE {}", x)?;
             }
-            if let Some(x) = &c.route_halo {
-                writeln!(
-                    out,
-                    "    + ROUTEHALO {} {} {}",
-                    x.halo_dist, x.min_layer, x.max_layer
-                )?;
+            if let Some(x) = &n.pattern {
+                writeln!(out, "    + PATTERN {}", x)?;
             }
-            if let Some(x) = &c.weight {
+            if let Some(x) = n.est_cap {
+                writeln!(out, "    + ESTCAP {}", x)?;
+            }
+            if let Some(x) = &n.weight {
                 writeln!(out, "    + WEIGHT {}", x)?;
             }
-            if let Some(x) = &c.region {
-                writeln!(out, "    + REGION {}", x)?;
-            }
-            if !c.properties.is_empty() {
+            if !n.properties.is_empty() {
                 write!(out, "    + PROPERTY")?;
-                for p in c.properties.iter() {
+                for p in n.properties.iter() {
                     write!(out, "\"{}\" \"{}\"", p.name, p.val)?;
                 }
             }
             writeln!(out, "    ;")?;
         }
-        writeln!(out, "END COMPONENTS")?;
+        writeln!(out, "END SPECIALNETS")?;
         Ok(())
     }
 }
@@ -712,6 +1139,17 @@ pub struct NamedNetIdent {
     pins: Vec<NetPin>,
 }
 
+impl WriteDef for NamedNetIdent {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        writeln!(out, "{}", self.name)?;
+        for pin in self.pins.iter() {
+            pin.write(out)?;
+            writeln!(out)?;
+        }
+        Ok(())
+    }
+}
+
 pub struct SpecialNet {
     name: NamedNetIdent,
     /// Voltage in mV.
@@ -719,10 +1157,10 @@ pub struct SpecialNet {
     /// Example: + VOLTAGE 3300 means 3.3V.
     voltage: Option<i64>,
     wiring: Vec<SpecialWiring>,
-    source: Source,
+    source: Option<Source>,
     fixed_bump: bool,
     original: Option<Ident>,
-    net_type: NetType,
+    net_type: Option<NetType>,
     pattern: Option<NetPattern>,
     est_cap: Option<f64>,
     weight: Option<u32>,
@@ -734,11 +1172,41 @@ pub enum SpecialWiring {
     Path(PathSpecialWiring),
 }
 
+impl WriteDef for SpecialWiring {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            SpecialWiring::Geometry(x) => x.write(out),
+            SpecialWiring::Path(x) => x.write(out),
+        }
+    }
+}
+
 pub struct GeometrySpecialWiring {
     status: Option<SpecialRoutingStatus>,
     shape: Option<ShapeType>,
     mask: Option<MaskNum>,
     entries: Vec<GeometrySpecialWiringEntry>,
+}
+
+impl WriteDef for GeometrySpecialWiring {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        if let Some(s) = &self.status {
+            s.write(out)?;
+            writeln!(out)?;
+        }
+        if let Some(s) = &self.shape {
+            s.write(out)?;
+            writeln!(out)?;
+        }
+        if let Some(m) = &self.mask {
+            writeln!(out, "+ MASK {}", m.0)?;
+        }
+        for entry in self.entries.iter() {
+            entry.write(out)?;
+            writeln!(out)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct LayerRect {
@@ -753,14 +1221,38 @@ pub struct LayerPolygon {
     pub polygon: Polygon,
 }
 
+pub struct PlacedVia {
+    via_name: Ident,
+    orient: Option<Orientation>,
+    point: Point,
+}
+
+impl WriteDef for PlacedVia {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "+ VIA {}", self.via_name)?;
+        if let Some(orient) = self.orient {
+            write!(out, " {}", orient)?;
+        }
+        write!(out, " ")?;
+        self.point.write(out)?;
+        Ok(())
+    }
+}
+
 pub enum GeometrySpecialWiringEntry {
     Rect(LayerRect),
     Polygon(LayerPolygon),
-    Via {
-        name: Ident,
-        orient: Option<Orientation>,
-        point: Point,
-    },
+    Via(PlacedVia),
+}
+
+impl WriteDef for GeometrySpecialWiringEntry {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            GeometrySpecialWiringEntry::Rect(r) => r.write(out),
+            GeometrySpecialWiringEntry::Polygon(p) => p.write(out),
+            GeometrySpecialWiringEntry::Via(v) => v.write(out),
+        }
+    }
 }
 
 pub enum ShapeType {
@@ -778,9 +1270,60 @@ pub enum ShapeType {
     DrcFill,
 }
 
+impl ShapeType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ShapeType::Ring => "RING",
+            ShapeType::PadRing => "PADRING",
+            ShapeType::BlockRing => "BLOCKRING",
+            ShapeType::Stripe => "STRIPE",
+            ShapeType::FollowPin => "FOLLOWPIN",
+            ShapeType::IoWire => "IOWIRE",
+            ShapeType::CoreWire => "COREWIRE",
+            ShapeType::BlockWire => "BLOCKWIRE",
+            ShapeType::BlockageWire => "BLOCKAGEWIRE",
+            ShapeType::FillWire => "FILLWIRE",
+            ShapeType::FillWireOpc => "FILLWIREOPC",
+            ShapeType::DrcFill => "DRCFILL",
+        }
+    }
+}
+
+impl Display for ShapeType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl WriteDef for ShapeType {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        write!(out, "{}", self.as_str())
+    }
+}
+
 pub struct PathSpecialWiring {
     status: SpecialRoutingStatus,
     entries: NonEmptyVec<PathSpecialWiringEntry>,
+}
+
+impl WriteDef for PathSpecialWiring {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        self.status.write(out)?;
+        writeln!(out)?;
+        let first = self
+            .entries
+            .first()
+            .expect("path special wiring entries must not be empty");
+        first.write(out)?;
+        writeln!(out)?;
+
+        for entry in self.entries.iter().skip(1) {
+            write!(out, "NEW ")?;
+            entry.write(out)?;
+            writeln!(out)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct PathSpecialWiringEntry {
@@ -788,7 +1331,22 @@ pub struct PathSpecialWiringEntry {
     width: i64,
     shape: Option<ShapeType>,
     style: Option<u32>,
-    points: RoutingPoints,
+    points: SpecialRoutingPoints,
+}
+
+impl WriteDef for PathSpecialWiringEntry {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        writeln!(out, "{} {}", self.layer, self.width)?;
+        if let Some(shape) = &self.shape {
+            shape.write(out)?;
+            writeln!(out)?;
+        }
+        if let Some(style) = self.style {
+            writeln!(out, "+ STYLE {style}")?;
+        }
+        self.points.write(out)?;
+        Ok(())
+    }
 }
 
 pub enum SpecialRoutingStatus {
@@ -796,6 +1354,17 @@ pub enum SpecialRoutingStatus {
     Fixed,
     Routed,
     Shield { net: Ident },
+}
+
+impl WriteDef for SpecialRoutingStatus {
+    fn write<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        match self {
+            SpecialRoutingStatus::Cover => write!(out, "+ COVER"),
+            SpecialRoutingStatus::Fixed => write!(out, "+ FIXED"),
+            SpecialRoutingStatus::Routed => write!(out, "+ ROUTED"),
+            SpecialRoutingStatus::Shield { net } => write!(out, "+ SHIELD {net}"),
+        }
+    }
 }
 
 pub struct Vias {
@@ -809,9 +1378,9 @@ impl WriteDef for LayerRect {
             write!(out, "+ MASK {}", mask.0)?;
         }
         write!(out, " ")?;
-        write_pt(self.rect.lower_left(), out)?;
+        self.rect.lower_left().write(out)?;
         write!(out, " ")?;
-        write_pt(self.rect.upper_right(), out)?;
+        self.rect.upper_right().write(out)?;
         Ok(())
     }
 }
@@ -824,7 +1393,7 @@ impl WriteDef for LayerPolygon {
         }
         for pt in self.polygon.points() {
             write!(out, " ")?;
-            write_pt(*pt, out)?;
+            pt.write(out)?;
         }
         Ok(())
     }
