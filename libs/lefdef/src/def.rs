@@ -9,17 +9,17 @@ pub type Pattern = String;
 pub type NonEmptyVec<T> = Vec<T>;
 
 pub struct Def {
-    version: Option<Version>,
-    divider_char: Option<DividerChar>,
-    bus_bit_chars: Option<BusBitChars>,
-    design: Ident,
-    units: Option<Units>,
-    die_area: Option<DieArea>,
-    vias: Option<Vias>,
-    components: Option<Components>,
-    blockages: Option<Blockages>,
-    special_nets: Option<SpecialNets>,
-    nets: Option<Nets>,
+    pub version: Option<Version>,
+    pub divider_char: Option<DividerChar>,
+    pub bus_bit_chars: Option<BusBitChars>,
+    pub design: Ident,
+    pub units: Option<Units>,
+    pub die_area: Option<DieArea>,
+    pub vias: Option<Vias>,
+    pub components: Option<Components>,
+    pub blockages: Option<Blockages>,
+    pub special_nets: Option<SpecialNets>,
+    pub nets: Option<Nets>,
 }
 
 pub trait WriteDef {
@@ -64,6 +64,10 @@ impl WriteDef for Def {
             sn.write(out)?;
         }
 
+        if let Some(ref n) = self.nets {
+            n.write(out)?;
+        }
+
         writeln!(out, "END DESIGN {}", self.design)?;
 
         Ok(())
@@ -72,8 +76,8 @@ impl WriteDef for Def {
 
 /// Blockages.
 pub struct Blockages {
-    layer_blockages: Vec<LayerBlockage>,
-    placement_blockages: Vec<PlacementBlockage>,
+    pub layer_blockages: Vec<LayerBlockage>,
+    pub placement_blockages: Vec<PlacementBlockage>,
 }
 
 impl Blockages {
@@ -144,11 +148,11 @@ pub enum Blockage {
 }
 
 pub struct LayerBlockage {
-    layer: Ident,
-    kind: Option<LayerBlockageKind>,
-    spacing: Option<LayerBlockageSpacing>,
-    mask: Option<MaskNum>,
-    geometry: Vec<Geometry>,
+    pub layer: Ident,
+    pub kind: Option<LayerBlockageKind>,
+    pub spacing: Option<LayerBlockageSpacing>,
+    pub mask: Option<MaskNum>,
+    pub geometry: Vec<Geometry>,
 }
 
 pub enum LayerBlockageKind {
@@ -194,7 +198,7 @@ impl WriteDef for LayerBlockageSpacing {
     }
 }
 
-pub struct MaskNum(u32);
+pub struct MaskNum(pub u32);
 
 pub enum Geometry {
     Rect(Rect),
@@ -237,10 +241,10 @@ impl WriteDef for Geometry {
 }
 
 pub struct PlacementBlockage {
-    kind: Option<PlacementBlockageKind>,
-    pushdown: bool,
-    component: Option<Ident>,
-    rects: Vec<Rect>,
+    pub kind: Option<PlacementBlockageKind>,
+    pub pushdown: bool,
+    pub component: Option<Ident>,
+    pub rects: Vec<Rect>,
 }
 
 pub enum PlacementBlockageKind {
@@ -281,27 +285,22 @@ impl Default for BusBitChars {
     }
 }
 
-pub struct ComponentMaskShift {
-    /// Note: cannot be empty.
-    layers: NonEmptyVec<Ident>,
-}
-
 pub struct Components {
-    components: Vec<Component>,
+    pub components: Vec<Component>,
 }
 
 pub struct Component {
-    comp_name: Ident,
-    model_name: Ident,
-    eeq_master: Option<Ident>,
-    source: Option<Source>,
-    placement_status: Option<PlacementStatus>,
-    mask_shift: Option<MaskNum>,
-    halo: Option<ComponentPlaceHalo>,
-    route_halo: Option<ComponentRouteHalo>,
-    weight: Option<f64>,
-    region: Option<Ident>,
-    properties: Vec<Property>,
+    pub comp_name: Ident,
+    pub model_name: Ident,
+    pub eeq_master: Option<Ident>,
+    pub source: Option<Source>,
+    pub placement_status: Option<PlacementStatus>,
+    pub mask_shift: Option<MaskNum>,
+    pub halo: Option<ComponentPlaceHalo>,
+    pub route_halo: Option<ComponentRouteHalo>,
+    pub weight: Option<f64>,
+    pub region: Option<Ident>,
+    pub properties: Vec<Property>,
 }
 
 pub enum KnownPlacementKind {
@@ -333,9 +332,9 @@ impl WriteDef for KnownPlacementKind {
 }
 
 pub struct KnownPlacement {
-    kind: KnownPlacementKind,
-    pt: Point,
-    orient: Orientation,
+    pub kind: KnownPlacementKind,
+    pub pt: Point,
+    pub orient: Orientation,
 }
 
 impl WriteDef for KnownPlacement {
@@ -381,8 +380,8 @@ impl WriteDef for PlacementStatus {
 }
 
 pub struct Property {
-    name: String,
-    val: String,
+    pub name: String,
+    pub val: String,
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
@@ -479,22 +478,22 @@ impl Display for NetSource {
 }
 
 pub struct ComponentPlaceHalo {
-    soft: bool,
-    left: i64,
-    bottom: i64,
-    right: i64,
-    top: i64,
+    pub soft: bool,
+    pub left: i64,
+    pub bottom: i64,
+    pub right: i64,
+    pub top: i64,
 }
 
 pub struct ComponentRouteHalo {
-    halo_dist: i64,
-    min_layer: Ident,
-    max_layer: Ident,
+    pub halo_dist: i64,
+    pub min_layer: Ident,
+    pub max_layer: Ident,
 }
 
 pub struct DieArea {
     /// Must have at least 2 points.
-    pts: Vec<Point>,
+    pub pts: Vec<Point>,
 }
 
 impl WriteDef for Point {
@@ -517,18 +516,18 @@ impl WriteDef for DieArea {
 }
 
 pub struct Groups {
-    groups: Vec<Group>,
+    pub groups: Vec<Group>,
 }
 
 pub struct Group {
-    name: Ident,
-    comp_name_patterns: Vec<Pattern>,
-    region: Option<Ident>,
-    properties: Vec<Property>,
+    pub name: Ident,
+    pub comp_name_patterns: Vec<Pattern>,
+    pub region: Option<Ident>,
+    pub properties: Vec<Property>,
 }
 
 pub struct Nets {
-    nets: Vec<Net>,
+    pub nets: Vec<Net>,
 }
 
 impl WriteDef for Nets {
@@ -600,22 +599,22 @@ impl WriteDef for Nets {
 }
 
 pub struct Net {
-    ident: NetIdent,
-    shield_nets: Vec<Ident>,
-    virtual_pins: Vec<VirtualPin>,
-    subnets: Vec<Subnet>,
-    xtalk: Option<u8>,
-    nondefault_rule: Option<Ident>,
-    wiring: Vec<RegularWiring>,
-    source: Option<NetSource>,
-    fixed_bump: bool,
-    frequency: Option<f64>,
-    original: Option<Ident>,
-    net_type: Option<NetType>,
-    pattern: Option<NetPattern>,
-    est_cap: Option<f64>,
-    weight: Option<u32>,
-    properties: Vec<Property>,
+    pub ident: NetIdent,
+    pub shield_nets: Vec<Ident>,
+    pub virtual_pins: Vec<VirtualPin>,
+    pub subnets: Vec<Subnet>,
+    pub xtalk: Option<u8>,
+    pub nondefault_rule: Option<Ident>,
+    pub wiring: Vec<RegularWiring>,
+    pub source: Option<NetSource>,
+    pub fixed_bump: bool,
+    pub frequency: Option<f64>,
+    pub original: Option<Ident>,
+    pub net_type: Option<NetType>,
+    pub pattern: Option<NetPattern>,
+    pub est_cap: Option<f64>,
+    pub weight: Option<u32>,
+    pub properties: Vec<Property>,
 }
 
 pub enum NetType {
@@ -704,8 +703,8 @@ impl WriteDef for NetIdent {
 }
 
 pub struct NetPin {
-    kind: NetPinKind,
-    synthesized: bool,
+    pub kind: NetPinKind,
+    pub synthesized: bool,
 }
 
 impl WriteDef for NetPin {
@@ -742,11 +741,11 @@ impl WriteDef for NetPinKind {
 }
 
 pub struct VirtualPin {
-    name: Ident,
-    layer: Option<Ident>,
-    p0: Point,
-    p1: Point,
-    placement: Option<KnownPlacement>,
+    pub name: Ident,
+    pub layer: Option<Ident>,
+    pub p0: Point,
+    pub p1: Point,
+    pub placement: Option<KnownPlacement>,
 }
 
 impl WriteDef for VirtualPin {
@@ -768,8 +767,8 @@ impl WriteDef for VirtualPin {
 }
 
 pub struct Subnet {
-    name: Ident,
-    pins: Vec<SubnetPin>,
+    pub name: Ident,
+    pub pins: Vec<SubnetPin>,
 }
 
 impl WriteDef for Subnet {
@@ -810,9 +809,9 @@ impl WriteDef for SubnetPin {
 }
 
 pub struct RoutingXy {
-    x: i64,
-    y: i64,
-    ext: Option<i64>,
+    pub x: i64,
+    pub y: i64,
+    pub ext: Option<i64>,
 }
 
 impl WriteDef for RoutingXy {
@@ -826,8 +825,8 @@ impl WriteDef for RoutingXy {
 }
 
 pub struct RegularRoutingPoints {
-    start: RoutingXy,
-    points: Vec<RegularRoutingPoint>,
+    pub start: RoutingXy,
+    pub points: Vec<RegularRoutingPoint>,
 }
 
 impl WriteDef for RegularRoutingPoints {
@@ -845,8 +844,8 @@ impl WriteDef for RegularRoutingPoints {
 }
 
 pub struct SpecialRoutingPoints {
-    start: RoutingXy,
-    points: Vec<SpecialRoutingPoint>,
+    pub start: RoutingXy,
+    pub points: Vec<SpecialRoutingPoint>,
 }
 
 impl WriteDef for SpecialRoutingPoints {
@@ -928,10 +927,10 @@ impl WriteDef for RegularRoutingPoint {
 }
 
 pub struct ViaArray {
-    nx: u32,
-    ny: u32,
-    step_x: i64,
-    step_y: i64,
+    pub nx: u32,
+    pub ny: u32,
+    pub step_x: i64,
+    pub step_y: i64,
 }
 
 pub enum SpecialRoutingPoint {
@@ -1031,8 +1030,8 @@ impl WriteDef for Taper {
 }
 
 pub struct RegularWiring {
-    status: RoutingStatus,
-    entries: NonEmptyVec<RegularWiringEntry>,
+    pub status: RoutingStatus,
+    pub entries: NonEmptyVec<RegularWiringEntry>,
 }
 
 impl WriteDef for RegularWiring {
@@ -1056,10 +1055,10 @@ impl WriteDef for RegularWiring {
 }
 
 pub struct RegularWiringEntry {
-    layer: Ident,
-    taper: Option<Taper>,
-    style: Option<u32>,
-    points: RegularRoutingPoints,
+    pub layer: Ident,
+    pub taper: Option<Taper>,
+    pub style: Option<u32>,
+    pub points: RegularRoutingPoints,
 }
 
 impl WriteDef for RegularWiringEntry {
@@ -1080,7 +1079,7 @@ impl WriteDef for RegularWiringEntry {
 }
 
 pub struct SpecialNets {
-    nets: Vec<SpecialNet>,
+    pub nets: Vec<SpecialNet>,
 }
 
 impl WriteDef for SpecialNets {
@@ -1135,8 +1134,8 @@ impl WriteDef for SpecialNets {
 }
 
 pub struct NamedNetIdent {
-    name: Ident,
-    pins: Vec<NetPin>,
+    pub name: Ident,
+    pub pins: Vec<NetPin>,
 }
 
 impl WriteDef for NamedNetIdent {
@@ -1151,20 +1150,20 @@ impl WriteDef for NamedNetIdent {
 }
 
 pub struct SpecialNet {
-    name: NamedNetIdent,
+    pub name: NamedNetIdent,
     /// Voltage in mV.
     ///
     /// Example: + VOLTAGE 3300 means 3.3V.
-    voltage: Option<i64>,
-    wiring: Vec<SpecialWiring>,
-    source: Option<Source>,
-    fixed_bump: bool,
-    original: Option<Ident>,
-    net_type: Option<NetType>,
-    pattern: Option<NetPattern>,
-    est_cap: Option<f64>,
-    weight: Option<u32>,
-    properties: Vec<Property>,
+    pub voltage: Option<i64>,
+    pub wiring: Vec<SpecialWiring>,
+    pub source: Option<Source>,
+    pub fixed_bump: bool,
+    pub original: Option<Ident>,
+    pub net_type: Option<NetType>,
+    pub pattern: Option<NetPattern>,
+    pub est_cap: Option<f64>,
+    pub weight: Option<u32>,
+    pub properties: Vec<Property>,
 }
 
 pub enum SpecialWiring {
@@ -1182,10 +1181,10 @@ impl WriteDef for SpecialWiring {
 }
 
 pub struct GeometrySpecialWiring {
-    status: Option<SpecialRoutingStatus>,
-    shape: Option<ShapeType>,
-    mask: Option<MaskNum>,
-    entries: Vec<GeometrySpecialWiringEntry>,
+    pub status: Option<SpecialRoutingStatus>,
+    pub shape: Option<ShapeType>,
+    pub mask: Option<MaskNum>,
+    pub entries: Vec<GeometrySpecialWiringEntry>,
 }
 
 impl WriteDef for GeometrySpecialWiring {
@@ -1222,9 +1221,9 @@ pub struct LayerPolygon {
 }
 
 pub struct PlacedVia {
-    via_name: Ident,
-    orient: Option<Orientation>,
-    point: Point,
+    pub via_name: Ident,
+    pub orient: Option<Orientation>,
+    pub point: Point,
 }
 
 impl WriteDef for PlacedVia {
@@ -1302,8 +1301,8 @@ impl WriteDef for ShapeType {
 }
 
 pub struct PathSpecialWiring {
-    status: SpecialRoutingStatus,
-    entries: NonEmptyVec<PathSpecialWiringEntry>,
+    pub status: SpecialRoutingStatus,
+    pub entries: NonEmptyVec<PathSpecialWiringEntry>,
 }
 
 impl WriteDef for PathSpecialWiring {
@@ -1327,11 +1326,11 @@ impl WriteDef for PathSpecialWiring {
 }
 
 pub struct PathSpecialWiringEntry {
-    layer: Ident,
-    width: i64,
-    shape: Option<ShapeType>,
-    style: Option<u32>,
-    points: SpecialRoutingPoints,
+    pub layer: Ident,
+    pub width: i64,
+    pub shape: Option<ShapeType>,
+    pub style: Option<u32>,
+    pub points: SpecialRoutingPoints,
 }
 
 impl WriteDef for PathSpecialWiringEntry {
@@ -1368,7 +1367,7 @@ impl WriteDef for SpecialRoutingStatus {
 }
 
 pub struct Vias {
-    vias: Vec<Via>,
+    pub vias: Vec<Via>,
 }
 
 impl WriteDef for LayerRect {
