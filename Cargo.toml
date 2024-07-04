@@ -15,6 +15,7 @@ members = [
     "libs/gds",
     "libs/geometry",
     "libs/geometry_macros",
+    "libs/lefdef",
     "libs/pathtree",
     "libs/scir",
     "libs/spice",
