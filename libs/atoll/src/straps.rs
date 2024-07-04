@@ -404,6 +404,7 @@ impl<'a> GreedyStrapperState<'a> {
             if !strap.has_via {
                 continue;
             }
+            let mut via_coords = Vec::new();
             for track_coord in strap.start..=strap.stop {
                 let track_dir = self
                     .routing_state
@@ -421,6 +422,9 @@ impl<'a> GreedyStrapperState<'a> {
                     x,
                     y,
                 };
+                if self.routing_state.has_via(coord) {
+                    via_coords.push(track_coord);
+                }
                 self.routing_state[coord] = PointState::Routed {
                     net: strap.net,
                     has_via: track_coord == strap.start
@@ -436,8 +440,18 @@ impl<'a> GreedyStrapperState<'a> {
                 .dir()
                 .track_dir()
             {
-                Dir::Horiz => (strap.start, strap.track, strap.stop, strap.track),
-                Dir::Vert => (strap.track, strap.start, strap.track, strap.stop),
+                Dir::Horiz => (
+                    *via_coords.first().unwrap(),
+                    strap.track,
+                    *via_coords.last().unwrap(),
+                    strap.track,
+                ),
+                Dir::Vert => (
+                    strap.track,
+                    *via_coords.first().unwrap(),
+                    strap.track,
+                    *via_coords.last().unwrap(),
+                ),
             };
             self.paths.push(vec![(
                 GridCoord {
