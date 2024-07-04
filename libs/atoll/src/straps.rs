@@ -454,7 +454,9 @@ impl<'a> GreedyStrapperState<'a> {
                 };
                 self.routing_state[coord] = PointState::Routed {
                     net: strap.net,
-                    has_via: self.routing_state.has_via(coord),
+                    has_via: track_coord == start
+                        || track_coord == stop
+                        || self.routing_state.has_via(coord),
                 };
             }
             let (x1, y1, x2, y2) = match self
