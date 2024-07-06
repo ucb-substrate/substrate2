@@ -100,6 +100,14 @@ impl ShortPropagator {
                             manager.register_node(node.clone(), NodePriority::Default);
                         }
                     }
+                    Component::Bjt(bjt) => {
+                        for node in [&bjt.collector, &bjt.base, &bjt.emitter] {
+                            manager.register_node(node.clone(), NodePriority::Default);
+                        }
+                        if let Some(node) = &bjt.substrate {
+                            manager.register_node(node.clone(), NodePriority::Default);
+                        }
+                    }
                     Component::Cap(c) => {
                         for node in [&c.pos, &c.neg] {
                             manager.register_node(node.clone(), NodePriority::Default);
