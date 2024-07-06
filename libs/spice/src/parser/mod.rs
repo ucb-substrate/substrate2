@@ -323,7 +323,19 @@ impl Parser {
                         let ports = self.buffer[1..port_end_idx]
                             .iter()
                             .map(|x| x.try_ident().cloned())
-                            .collect::<Result<_, _>>()?;
+                            .collect::<Result<Vec<_>, _>>()?;
+
+                        let ports = if self.dialect == Dialect::Cdl {
+                            ports
+                                .into_iter()
+                                .flat_map(|x| match x.as_str() {
+                                    "/" => None,
+                                    _ => Some(Substr(x.substr_from(x.trim_start_matches('/')))),
+                                })
+                                .collect::<Vec<_>>()
+                        } else {
+                            ports
+                        };
 
                         let mut params = Params::default();
                         for i in (child_idx + 1..self.buffer.len()).step_by(3) {
@@ -681,7 +693,7 @@ impl Tokenizer {
         };
         let ignore_chars = match dialect {
             Dialect::Spice => HashSet::new(),
-            Dialect::Cdl => HashSet::from(['/']),
+            Dialect::Cdl => HashSet::new(),
         };
         Self {
             data: Substr(data),
