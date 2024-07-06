@@ -202,7 +202,7 @@ pub enum GateDir {
 ///
 /// This tile does not contain internal taps.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-struct MosTile {
+pub struct MosTile {
     /// Transistor width.
     w: i64,
 
@@ -221,7 +221,7 @@ struct MosTile {
 
 impl MosTile {
     /// Create a new MOS tile with the given physical transistor dimensions.
-    fn new(w: i64, len: MosLength, nf: i64) -> Self {
+    pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
         Self {
             w,
             len,
@@ -562,7 +562,7 @@ struct TapTileData {
 
 /// A tile containing taps.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
-struct TapTile {
+pub struct TapTile {
     /// x dimension, in number of li1 tracks
     xtracks: i64,
     /// y dimension, in number of m1 tracks
@@ -571,7 +571,7 @@ struct TapTile {
 
 impl TapTile {
     /// Create a new tap tile with the given dimensions.
-    fn new(xtracks: i64, ytracks: i64) -> Self {
+    pub fn new(xtracks: i64, ytracks: i64) -> Self {
         Self { xtracks, ytracks }
     }
 
