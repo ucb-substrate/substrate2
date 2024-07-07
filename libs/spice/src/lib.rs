@@ -178,6 +178,17 @@ pub enum Primitive {
         /// Parameters associated with the diode.
         params: HashMap<UniCase<ArcStr>, ParamValue>,
     },
+    /// A BJT primitive with ports "NC", "NB", and "NE".
+    ///
+    /// Optionally has the port "NS".
+    Bjt {
+        /// The name of the BJT model.
+        model: ArcStr,
+        /// Parameters associated with the BJT.
+        params: HashMap<UniCase<ArcStr>, ParamValue>,
+        /// Whether the primitive has a substrate port.
+        has_substrate_port: bool,
+    },
     /// A MOS primitive with ports "D", "G", "S", and "B".
     Mos {
         /// The name of the MOS model.
@@ -274,6 +285,15 @@ impl Primitive {
             Primitive::Res2 { .. } => vec!["1".into(), "2".into()],
             Primitive::Cap2 { .. } => vec!["1".into(), "2".into()],
             Primitive::Diode2 { .. } => vec!["1".into(), "2".into()],
+            Primitive::Bjt {
+                has_substrate_port, ..
+            } => {
+                if *has_substrate_port {
+                    vec!["NC".into(), "NB".into(), "NE".into(), "NS".into()]
+                } else {
+                    vec!["NC".into(), "NB".into(), "NE".into()]
+                }
+            }
             Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
             Primitive::RawInstance { ports, .. } => ports.clone(),
             Primitive::RawInstanceWithCell { ports, .. } => ports.clone(),

@@ -192,6 +192,36 @@ impl<'a> ScirConverter<'a> {
                     sinst.connect("2", node(&diode.neg, &mut cell));
                     cell.add_instance(sinst);
                 }
+                Component::Bjt(bjt) => {
+                    let model = ArcStr::from(bjt.model.as_str());
+                    let params = bjt
+                        .params
+                        .iter()
+                        .map(|(k, v)| {
+                            Ok((
+                                UniCase::new(ArcStr::from(k.as_str())),
+                                match substr_as_numeric_lit(v) {
+                                    Ok(v) => ParamValue::Numeric(v),
+                                    Err(_) => ParamValue::String(v.to_string().into()),
+                                },
+                            ))
+                        })
+                        .collect::<ConvResult<HashMap<_, _>>>()?;
+                    // TODO: Deduplicate primitives, though does not affect functionality
+                    let id = self.lib.add_primitive(Primitive::Bjt {
+                        model,
+                        params,
+                        has_substrate_port: bjt.substrate.is_some(),
+                    });
+                    let mut sinst = scir::Instance::new(&bjt.name[1..], id);
+                    sinst.connect("NC", node(&bjt.collector, &mut cell));
+                    sinst.connect("NB", node(&bjt.base, &mut cell));
+                    sinst.connect("NE", node(&bjt.emitter, &mut cell));
+                    if let Some(substrate) = &bjt.substrate {
+                        sinst.connect("NS", node(substrate, &mut cell));
+                    }
+                    cell.add_instance(sinst);
+                }
                 Component::Res(res) => {
                     let value = match &res.value {
                         DeviceValue::Value(value) => {

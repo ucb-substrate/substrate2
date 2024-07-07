@@ -272,6 +272,37 @@ impl Parser {
                             params,
                         }))
                     }
+                    'Q' => {
+                        // TODO: Does not support area factor or OFF.
+                        // TODO: this logic needs to change to support expressions
+                        // in parameter values.
+                        let pos = self.buffer.iter().position(|t| matches!(t, Token::Equals));
+                        let child_idx = pos.unwrap_or(self.buffer.len() + 1) - 2;
+                        let child = self.buffer[child_idx].try_ident()?.clone();
+                        let port_end_idx = child_idx;
+                        let ports = self.buffer[1..port_end_idx]
+                            .iter()
+                            .map(|x| x.try_ident().cloned())
+                            .collect::<Result<Vec<_>, _>>()?;
+
+                        let mut params = Params::default();
+                        for i in (child_idx + 1..self.buffer.len()).step_by(3) {
+                            let k = self.buffer[i].try_ident()?.clone();
+                            assert!(matches!(self.buffer[i + 1], Token::Equals));
+                            let v = self.buffer[i + 2].try_ident()?.clone();
+                            params.insert(k, v);
+                        }
+
+                        Line::Component(Component::Bjt(Bjt {
+                            name: self.buffer[0].try_ident()?.clone(),
+                            collector: ports[0].clone(),
+                            base: ports[1].clone(),
+                            emitter: ports[2].clone(),
+                            substrate: ports.get(3).cloned(),
+                            model: child,
+                            params,
+                        }))
+                    }
                     'R' => {
                         let mut params = Params::default();
                         for i in (4..self.buffer.len()).step_by(3) {
@@ -323,7 +354,19 @@ impl Parser {
                         let ports = self.buffer[1..port_end_idx]
                             .iter()
                             .map(|x| x.try_ident().cloned())
-                            .collect::<Result<_, _>>()?;
+                            .collect::<Result<Vec<_>, _>>()?;
+
+                        let ports = if self.dialect == Dialect::Cdl {
+                            ports
+                                .into_iter()
+                                .flat_map(|x| match x.as_str() {
+                                    "/" => None,
+                                    _ => Some(Substr(x.substr_from(x.trim_start_matches('/')))),
+                                })
+                                .collect::<Vec<_>>()
+                        } else {
+                            ports
+                        };
 
                         let mut params = Params::default();
                         for i in (child_idx + 1..self.buffer.len()).step_by(3) {
@@ -444,6 +487,8 @@ pub enum Component {
     Res(Res),
     /// A diode (declared with a 'D').
     Diode(Diode),
+    /// A bipolar junction transistor (BJT, declared with a 'Q').
+    Bjt(Bjt),
     /// A capacitor (declared with a 'C').
     Cap(Cap),
     /// An instance of a subcircuit (declared with an 'X').
@@ -484,6 +529,26 @@ pub struct Diode {
     /// The node connected to the negative terminal.
     pub neg: Node,
     /// The name of the associated diode model.
+    pub model: Substr,
+    /// Parameters and their values.
+    pub params: Params,
+}
+
+/// A bipolar junction transistor (BJT).
+// TODO: Area factor and OFF.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Bjt {
+    /// The name of the BJT instance.
+    pub name: Substr,
+    /// The node connected to the collector.
+    pub collector: Node,
+    /// The node connected to the base.
+    pub base: Node,
+    /// The node connected to the emitter.
+    pub emitter: Node,
+    /// The node connected to the substrate.
+    pub substrate: Option<Node>,
+    /// The name of the associated BJT model.
     pub model: Substr,
     /// Parameters and their values.
     pub params: Params,
@@ -681,7 +746,7 @@ impl Tokenizer {
         };
         let ignore_chars = match dialect {
             Dialect::Spice => HashSet::new(),
-            Dialect::Cdl => HashSet::from(['/']),
+            Dialect::Cdl => HashSet::new(),
         };
         Self {
             data: Substr(data),

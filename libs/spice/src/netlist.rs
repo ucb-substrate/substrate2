@@ -421,6 +421,28 @@ impl HasSpiceLikeNetlist for Spice {
                 }
                 name
             }
+            Primitive::Bjt {
+                model: mname,
+                params,
+                has_substrate_port,
+            } => {
+                let name = arcstr::format!("Q{}", name);
+                write!(out, "{}", name)?;
+                for &port in if *has_substrate_port {
+                    ["NC", "NB", "NE", "NS"].iter()
+                } else {
+                    ["NC", "NB", "NE"].iter()
+                } {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                write!(out, " {}", mname)?;
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                    write!(out, " {key}={value}")?;
+                }
+                name
+            }
             Primitive::Mos {
                 model: mname,
                 params,
