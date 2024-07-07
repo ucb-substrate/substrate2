@@ -182,9 +182,9 @@ pub enum Primitive {
     ///
     /// Optionally has the port "NS".
     Bjt {
-        /// The name of the diode model.
+        /// The name of the BJT model.
         model: ArcStr,
-        /// Parameters associated with the diode.
+        /// Parameters associated with the BJT.
         params: HashMap<UniCase<ArcStr>, ParamValue>,
         /// Whether the primitive has a substrate port.
         has_substrate_port: bool,
