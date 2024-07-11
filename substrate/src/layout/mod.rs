@@ -386,6 +386,11 @@ impl<T: ExportsLayoutData> Instance<T> {
     pub fn io(&self) -> Transformed<<T::Io as HardwareType>::Bundle> {
         self.cell().io
     }
+
+    /// The transformation of this instance.
+    pub fn transformation(&self) -> &Transformation {
+        &self.trans
+    }
 }
 
 impl<T: ExportsLayoutData> Bbox for Instance<T> {
