@@ -2,6 +2,7 @@
 
 use std::hash::Hash;
 
+use approx::abs_diff_eq;
 use serde::{Deserialize, Serialize};
 
 use crate::transform::Transformation;
@@ -93,6 +94,17 @@ impl NamedOrientation {
     #[inline]
     pub fn into_orientation(self) -> Orientation {
         Orientation::from(self)
+    }
+
+    /// Attempts to convert the given orientation to a named orientation.
+    ///
+    /// The conversion is based on approximate equality.
+    /// If no named orientation is approximately equal to `orientation`,
+    /// returns [`None`].
+    pub fn from_orientation(orientation: Orientation) -> Option<Self> {
+        Self::all_rectangular()
+            .into_iter()
+            .find(|o| orientation.approx_eq(&o.into_orientation()))
     }
 }
 
@@ -232,6 +244,13 @@ impl Orientation {
     fn wrap_angle(mut self) -> Self {
         self.angle = crate::wrap_angle(self.angle);
         self
+    }
+
+    /// Compares the two orientations for approximate equality.
+    pub fn approx_eq(&self, other: &Self) -> bool {
+        let a = self.wrap_angle();
+        let b = other.wrap_angle();
+        a.reflect_vert == b.reflect_vert && abs_diff_eq!(a.angle(), b.angle())
     }
 
     /// Returns the orientation represented by the given transformation.

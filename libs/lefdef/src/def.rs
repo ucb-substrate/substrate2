@@ -1,13 +1,16 @@
+use geometry::orientation::NamedOrientation;
 use geometry::point::Point;
 use geometry::polygon::Polygon;
 use geometry::rect::Rect;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
+use std::path::Path;
 
 pub type Ident = String;
 pub type Pattern = String;
 pub type NonEmptyVec<T> = Vec<T>;
 
+#[derive(Debug, Clone)]
 pub struct Def {
     pub version: Option<Version>,
     pub divider_char: Option<DividerChar>,
@@ -20,6 +23,40 @@ pub struct Def {
     pub blockages: Option<Blockages>,
     pub special_nets: Option<SpecialNets>,
     pub nets: Option<Nets>,
+}
+
+impl Def {
+    pub fn new(name: impl Into<Ident>) -> Self {
+        Self {
+            version: Some(Version("5.8".into())),
+            divider_char: Some(DividerChar { divider: '/' }),
+            bus_bit_chars: Some(BusBitChars {
+                open: '[',
+                close: ']',
+            }),
+            design: name.into(),
+            units: None,
+            die_area: None,
+            vias: None,
+            components: None,
+            blockages: None,
+            special_nets: None,
+            nets: None,
+        }
+    }
+
+    /// Writes this DEF to a file.
+    ///
+    /// The parent directory will be created if it does not exist.
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut file = std::fs::File::create(path)?;
+        self.write(&mut file)?;
+        Ok(())
+    }
 }
 
 pub trait WriteDef {
@@ -75,6 +112,7 @@ impl WriteDef for Def {
 }
 
 /// Blockages.
+#[derive(Debug, Clone)]
 pub struct Blockages {
     pub layer_blockages: Vec<LayerBlockage>,
     pub placement_blockages: Vec<PlacementBlockage>,
@@ -142,11 +180,13 @@ impl WriteDef for Blockages {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Blockage {
     Layer(LayerBlockage),
     Placement(PlacementBlockage),
 }
 
+#[derive(Debug, Clone)]
 pub struct LayerBlockage {
     pub layer: Ident,
     pub kind: Option<LayerBlockageKind>,
@@ -155,6 +195,7 @@ pub struct LayerBlockage {
     pub geometry: Vec<Geometry>,
 }
 
+#[derive(Debug, Clone)]
 pub enum LayerBlockageKind {
     Component(Ident),
     Slots,
@@ -184,6 +225,7 @@ impl WriteDef for LayerBlockageKind {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum LayerBlockageSpacing {
     Spacing(i64),
     DesignRuleWidth(i64),
@@ -198,8 +240,10 @@ impl WriteDef for LayerBlockageSpacing {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MaskNum(pub u32);
 
+#[derive(Debug, Clone)]
 pub enum Geometry {
     Rect(Rect),
     Polygon(Polygon),
@@ -240,6 +284,7 @@ impl WriteDef for Geometry {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PlacementBlockage {
     pub kind: Option<PlacementBlockageKind>,
     pub pushdown: bool,
@@ -247,6 +292,7 @@ pub struct PlacementBlockage {
     pub rects: Vec<Rect>,
 }
 
+#[derive(Debug, Clone)]
 pub enum PlacementBlockageKind {
     Soft,
     Partial(f64),
@@ -261,6 +307,7 @@ impl WriteDef for PlacementBlockageKind {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DividerChar {
     pub divider: char,
 }
@@ -271,6 +318,7 @@ impl Default for DividerChar {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct BusBitChars {
     pub open: char,
     pub close: char,
@@ -285,10 +333,22 @@ impl Default for BusBitChars {
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct Components {
     pub components: Vec<Component>,
 }
 
+impl Components {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push(&mut self, component: Component) {
+        self.components.push(component);
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Component {
     pub comp_name: Ident,
     pub model_name: Ident,
@@ -303,6 +363,25 @@ pub struct Component {
     pub properties: Vec<Property>,
 }
 
+impl Component {
+    pub fn new(comp_name: impl Into<Ident>, model_name: impl Into<Ident>) -> Self {
+        Self {
+            comp_name: comp_name.into(),
+            model_name: model_name.into(),
+            eeq_master: None,
+            source: None,
+            placement_status: None,
+            mask_shift: None,
+            halo: None,
+            route_halo: None,
+            weight: None,
+            region: None,
+            properties: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum KnownPlacementKind {
     Fixed,
     Cover,
@@ -331,6 +410,7 @@ impl WriteDef for KnownPlacementKind {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct KnownPlacement {
     pub kind: KnownPlacementKind,
     pub pt: Point,
@@ -346,6 +426,7 @@ impl WriteDef for KnownPlacement {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum PlacementStatus {
     Fixed { pt: Point, orient: Orientation },
     Cover { pt: Point, orient: Orientation },
@@ -359,17 +440,17 @@ impl WriteDef for PlacementStatus {
             PlacementStatus::Fixed { pt, orient } => {
                 write!(out, "+ FIXED ")?;
                 pt.write(out)?;
-                writeln!(out, "{orient}")?;
+                writeln!(out, " {orient}")?;
             }
             PlacementStatus::Cover { pt, orient } => {
                 write!(out, "+ COVER ")?;
                 pt.write(out)?;
-                writeln!(out, "{orient}")?;
+                writeln!(out, " {orient}")?;
             }
             PlacementStatus::Placed { pt, orient } => {
                 write!(out, "+ PLACED ")?;
                 pt.write(out)?;
-                writeln!(out, "{orient}")?;
+                writeln!(out, " {orient}")?;
             }
             PlacementStatus::Unplaced => {
                 writeln!(out, "+ UNPLACED")?;
@@ -379,6 +460,7 @@ impl WriteDef for PlacementStatus {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Property {
     pub name: String,
     pub val: String,
@@ -406,6 +488,23 @@ pub enum Orientation {
 }
 
 impl Orientation {
+    /// Produces the orientation corresponding to the given [`NamedOrientation`].
+    pub fn from_named(value: NamedOrientation) -> Option<Self> {
+        match value {
+            NamedOrientation::R0 => Some(Self::N),
+            NamedOrientation::ReflectVert => Some(Self::Fs),
+            NamedOrientation::ReflectHoriz => Some(Self::Fn),
+            NamedOrientation::R90 | NamedOrientation::R270Cw => Some(Self::W),
+            NamedOrientation::R180 | NamedOrientation::R180Cw => Some(Self::S),
+            NamedOrientation::R270 | NamedOrientation::R90Cw => Some(Self::E),
+            NamedOrientation::FlipYx => Some(Self::Fw),
+            NamedOrientation::FlipMinusYx => Some(Self::Fe),
+            _ => None,
+        }
+    }
+}
+
+impl Orientation {
     pub fn as_str(&self) -> &'static str {
         match self {
             Orientation::N => "N",
@@ -426,7 +525,7 @@ impl Display for Orientation {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Source {
     Netlist,
     Dist,
@@ -451,6 +550,7 @@ impl Display for Source {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum NetSource {
     Dist,
     Netlist,
@@ -477,6 +577,7 @@ impl Display for NetSource {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ComponentPlaceHalo {
     pub soft: bool,
     pub left: i64,
@@ -485,12 +586,14 @@ pub struct ComponentPlaceHalo {
     pub top: i64,
 }
 
+#[derive(Debug, Clone)]
 pub struct ComponentRouteHalo {
     pub halo_dist: i64,
     pub min_layer: Ident,
     pub max_layer: Ident,
 }
 
+#[derive(Debug, Clone)]
 pub struct DieArea {
     /// Must have at least 2 points.
     pub pts: Vec<Point>,
@@ -515,10 +618,12 @@ impl WriteDef for DieArea {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Groups {
     pub groups: Vec<Group>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Group {
     pub name: Ident,
     pub comp_name_patterns: Vec<Pattern>,
@@ -526,6 +631,7 @@ pub struct Group {
     pub properties: Vec<Property>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Nets {
     pub nets: Vec<Net>,
 }
@@ -598,6 +704,7 @@ impl WriteDef for Nets {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Net {
     pub ident: NetIdent,
     pub shield_nets: Vec<Ident>,
@@ -617,6 +724,7 @@ pub struct Net {
     pub properties: Vec<Property>,
 }
 
+#[derive(Debug, Clone)]
 pub enum NetType {
     Analog,
     Clock,
@@ -655,6 +763,7 @@ impl WriteDef for NetType {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum NetPattern {
     Balanced,
     Steiner,
@@ -685,6 +794,7 @@ impl WriteDef for NetPattern {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum NetIdent {
     Named(NamedNetIdent),
     MustJoin { component: Ident, pin: Ident },
@@ -702,6 +812,7 @@ impl WriteDef for NetIdent {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NetPin {
     pub kind: NetPinKind,
     pub synthesized: bool,
@@ -719,6 +830,7 @@ impl WriteDef for NetPin {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum NetPinKind {
     ComponentPin { comp_name: Ident, pin_name: Ident },
     IoPin { name: Ident },
@@ -740,6 +852,7 @@ impl WriteDef for NetPinKind {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct VirtualPin {
     pub name: Ident,
     pub layer: Option<Ident>,
@@ -766,6 +879,7 @@ impl WriteDef for VirtualPin {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Subnet {
     pub name: Ident,
     pub pins: Vec<SubnetPin>,
@@ -782,6 +896,7 @@ impl WriteDef for Subnet {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum SubnetPin {
     Component { comp_name: Ident, pin_name: Ident },
     IoPin { name: Ident },
@@ -808,6 +923,7 @@ impl WriteDef for SubnetPin {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RoutingXy {
     pub x: i64,
     pub y: i64,
@@ -824,6 +940,7 @@ impl WriteDef for RoutingXy {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RegularRoutingPoints {
     pub start: RoutingXy,
     pub points: Vec<RegularRoutingPoint>,
@@ -843,6 +960,7 @@ impl WriteDef for RegularRoutingPoints {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SpecialRoutingPoints {
     pub start: RoutingXy,
     pub points: Vec<SpecialRoutingPoint>,
@@ -860,6 +978,7 @@ impl WriteDef for SpecialRoutingPoints {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum RegularRoutingPoint {
     Point {
         mask: Option<MaskNum>,
@@ -926,6 +1045,7 @@ impl WriteDef for RegularRoutingPoint {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ViaArray {
     pub nx: u32,
     pub ny: u32,
@@ -933,6 +1053,7 @@ pub struct ViaArray {
     pub step_y: i64,
 }
 
+#[derive(Debug, Clone)]
 pub enum SpecialRoutingPoint {
     Point {
         mask: Option<MaskNum>,
@@ -981,6 +1102,7 @@ impl WriteDef for SpecialRoutingPoint {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum RoutingStatus {
     Cover,
     Fixed,
@@ -1011,6 +1133,7 @@ impl WriteDef for RoutingStatus {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Taper {
     Default,
     Rule(Ident),
@@ -1029,6 +1152,7 @@ impl WriteDef for Taper {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RegularWiring {
     pub status: RoutingStatus,
     pub entries: NonEmptyVec<RegularWiringEntry>,
@@ -1054,6 +1178,7 @@ impl WriteDef for RegularWiring {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RegularWiringEntry {
     pub layer: Ident,
     pub taper: Option<Taper>,
@@ -1078,6 +1203,7 @@ impl WriteDef for RegularWiringEntry {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SpecialNets {
     pub nets: Vec<SpecialNet>,
 }
@@ -1133,6 +1259,7 @@ impl WriteDef for SpecialNets {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NamedNetIdent {
     pub name: Ident,
     pub pins: Vec<NetPin>,
@@ -1149,6 +1276,7 @@ impl WriteDef for NamedNetIdent {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SpecialNet {
     pub name: NamedNetIdent,
     /// Voltage in mV.
@@ -1166,6 +1294,7 @@ pub struct SpecialNet {
     pub properties: Vec<Property>,
 }
 
+#[derive(Debug, Clone)]
 pub enum SpecialWiring {
     Geometry(GeometrySpecialWiring),
     Path(PathSpecialWiring),
@@ -1180,6 +1309,7 @@ impl WriteDef for SpecialWiring {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct GeometrySpecialWiring {
     pub status: Option<SpecialRoutingStatus>,
     pub shape: Option<ShapeType>,
@@ -1208,18 +1338,21 @@ impl WriteDef for GeometrySpecialWiring {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct LayerRect {
     pub layer: Ident,
     pub mask: Option<MaskNum>,
     pub rect: Rect,
 }
 
+#[derive(Debug, Clone)]
 pub struct LayerPolygon {
     pub layer: Ident,
     pub mask: Option<MaskNum>,
     pub polygon: Polygon,
 }
 
+#[derive(Debug, Clone)]
 pub struct PlacedVia {
     pub via_name: Ident,
     pub orient: Option<Orientation>,
@@ -1238,6 +1371,7 @@ impl WriteDef for PlacedVia {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum GeometrySpecialWiringEntry {
     Rect(LayerRect),
     Polygon(LayerPolygon),
@@ -1254,6 +1388,7 @@ impl WriteDef for GeometrySpecialWiringEntry {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum ShapeType {
     Ring,
     PadRing,
@@ -1300,6 +1435,7 @@ impl WriteDef for ShapeType {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PathSpecialWiring {
     pub status: SpecialRoutingStatus,
     pub entries: NonEmptyVec<PathSpecialWiringEntry>,
@@ -1325,6 +1461,7 @@ impl WriteDef for PathSpecialWiring {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PathSpecialWiringEntry {
     pub layer: Ident,
     pub width: i64,
@@ -1348,6 +1485,7 @@ impl WriteDef for PathSpecialWiringEntry {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum SpecialRoutingStatus {
     Cover,
     Fixed,
@@ -1366,6 +1504,7 @@ impl WriteDef for SpecialRoutingStatus {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Vias {
     pub vias: Vec<Via>,
 }
@@ -1521,16 +1660,19 @@ impl WriteDef for Components {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Via {
     pub name: Ident,
     pub definition: ViaDef,
 }
 
+#[derive(Debug, Clone)]
 pub enum ViaDef {
     Fixed(FixedVia),
     ViaRule(Box<ViaRuleVia>),
 }
 
+#[derive(Debug, Clone)]
 pub struct ViaRuleVia {
     pub via_rule_name: Ident,
     pub cut_size_x: i64,
@@ -1550,6 +1692,7 @@ pub struct ViaRuleVia {
     pub pattern: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct ViaOffset {
     pub bot_ofs_x: i64,
     pub bot_ofs_y: i64,
@@ -1557,19 +1700,23 @@ pub struct ViaOffset {
     pub top_ofs_y: i64,
 }
 
+#[derive(Debug, Clone)]
 pub struct FixedVia {
     pub geometry: Vec<ViaGeometry>,
 }
 
+#[derive(Debug, Clone)]
 pub enum ViaGeometry {
     Rect(LayerRect),
     Polygon(LayerPolygon),
 }
 
+#[derive(Debug, Clone)]
 pub struct Units {
     pub dbu_per_micron: i64,
 }
 
+#[derive(Debug, Clone)]
 pub struct Version(pub String);
 
 #[cfg(test)]
