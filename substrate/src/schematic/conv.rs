@@ -546,7 +546,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
                     cell: scir_cell, ..
                 } = cell_ctx;
 
-                let id = lib_ctx.lib.add_cell(scir_cell);
+                let id = lib_ctx.lib.merge_cell(scir_cell);
                 conv.cell_id = Some(id);
                 lib_ctx.conv.add_cell(self.id, conv);
 

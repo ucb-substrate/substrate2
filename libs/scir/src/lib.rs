@@ -35,6 +35,7 @@ use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
+use uniquify::Names;
 
 pub mod merge;
 pub mod schema;
@@ -483,6 +484,9 @@ pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
     /// Cell names are only guaranteed to be unique in a validated [`Library`].
     name_map: HashMap<ArcStr, CellId>,
 
+    /// Assigned names for purposes of auto-assigning names to new cells.
+    names: Names<CellId>,
+
     /// A map of the primitives in the library.
     primitives: IndexMap<PrimitiveId, S::Primitive>,
 
@@ -498,6 +502,7 @@ impl<S: Schema + ?Sized> Default for LibraryBuilder<S> {
             cells: IndexMap::new(),
             primitives: IndexMap::new(),
             name_map: HashMap::new(),
+            names: Names::new(),
             top: None,
         }
     }
@@ -510,6 +515,7 @@ impl<S: Schema<Primitive = impl Clone> + ?Sized> Clone for LibraryBuilder<S> {
             primitive_id: self.primitive_id,
             cells: self.cells.clone(),
             name_map: self.name_map.clone(),
+            names: self.names.clone(),
             primitives: self.primitives.clone(),
             top: self.top,
         }
@@ -523,6 +529,7 @@ impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for L
         let _ = builder.field("primitive_id", &self.primitive_id);
         let _ = builder.field("cells", &self.cells);
         let _ = builder.field("name_map", &self.name_map);
+        let _ = builder.field("names", &self.names);
         let _ = builder.field("primitives", &self.primitives);
         let _ = builder.field("top", &self.top);
         builder.finish()
@@ -845,6 +852,19 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
     pub fn add_cell(&mut self, cell: Cell) -> CellId {
         let id = self.alloc_cell_id();
         self.name_map.insert(cell.name.clone(), id);
+        self.names.reserve_name(id, cell.name.clone());
+        self.cells.insert(id, cell);
+        id
+    }
+
+    /// Merges the given cell into the library.
+    ///
+    /// Returns the ID of the newly added cell. May rename the cell if the name is already taken.
+    pub fn merge_cell(&mut self, mut cell: Cell) -> CellId {
+        let id = self.alloc_cell_id();
+        let n_name = self.names.assign_name(id, &cell.name);
+        cell.name = n_name;
+        self.name_map.insert(cell.name.clone(), id);
         self.cells.insert(id, cell);
         id
     }
@@ -872,6 +892,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
         assert!(!self.cells.contains_key(&id));
         self.cell_id = std::cmp::max(id.0, self.cell_id);
         self.name_map.insert(cell.name.clone(), id);
+        self.names.reserve_name(id, cell.name.clone());
         self.cells.insert(id, cell);
     }
 
@@ -1361,6 +1382,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
             name_map,
             primitives,
             top,
+            names,
         } = self;
 
         for (_, cell) in cells.iter_mut() {
@@ -1378,6 +1400,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
             primitive_id,
             cells,
             name_map,
+            names,
             primitives: primitives
                 .into_iter()
                 .map(|(k, v)| Ok((k, convert_primitive(v)?)))
