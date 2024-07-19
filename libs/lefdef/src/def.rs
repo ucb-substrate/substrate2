@@ -105,7 +105,7 @@ impl WriteDef for Def {
             n.write(out)?;
         }
 
-        writeln!(out, "END DESIGN {}", self.design)?;
+        write!(out, "END DESIGN {}", self.design)?;
 
         Ok(())
     }
