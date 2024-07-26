@@ -19,6 +19,10 @@ struct Merger<'a, S: Schema + ?Sized> {
     names: Names<CellId>,
     dst: &'a mut LibraryBuilder<S>,
     src: LibraryBuilder<S>,
+    /// The list of source cell IDs to merge into `dst`.
+    ///
+    /// If [`None`], all source cells will be merged.
+    merge_cells: Option<Vec<CellId>>,
 }
 
 impl<'a, S: Schema + ?Sized> Merger<'a, S> {
@@ -30,6 +34,23 @@ impl<'a, S: Schema + ?Sized> Merger<'a, S> {
             names: Names::with_capacity(src.cells.len() + dst.cells.len()),
             dst,
             src,
+            merge_cells: None,
+        }
+    }
+
+    #[inline]
+    fn merge_cells(
+        dst: &'a mut LibraryBuilder<S>,
+        src: LibraryBuilder<S>,
+        cells: impl IntoIterator<Item = CellId>,
+    ) -> Self {
+        Self {
+            cell_mapping: HashMap::with_capacity(src.cells.len()),
+            primitive_mapping: HashMap::with_capacity(src.primitives.len()),
+            names: Names::with_capacity(src.cells.len() + dst.cells.len()),
+            dst,
+            src,
+            merge_cells: Some(cells.into_iter().collect()),
         }
     }
 
@@ -37,7 +58,15 @@ impl<'a, S: Schema + ?Sized> Merger<'a, S> {
         for (id, cell) in self.dst.cells() {
             self.names.reserve_name(id, cell.name());
         }
-        let mut cells: Vec<_> = self.src.cells.drain(..).collect();
+        let mut cells: Vec<_> = if let Some(cells) = self.merge_cells.as_ref() {
+            self.src
+                .cells_used_by(cells.iter().copied())
+                .iter()
+                .map(|&id| (id, self.src.cell(id).clone()))
+                .collect()
+        } else {
+            self.src.cells.drain(..).collect()
+        };
         let primitives: Vec<_> = self.src.primitives.drain(..).collect();
         for (id, cell) in cells.iter_mut() {
             self.assign_cell_identifiers(*id, cell);
@@ -118,5 +147,14 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Merges another SCIR library into the current library.
     pub fn merge(&mut self, other: Self) -> MergedMapping {
         Merger::new(self, other).merge()
+    }
+
+    /// Merges the given cells from another SCIR library into the current library.
+    pub fn merge_cells(
+        &mut self,
+        other: Self,
+        cells: impl IntoIterator<Item = CellId>,
+    ) -> MergedMapping {
+        Merger::merge_cells(self, other, cells).merge()
     }
 }
