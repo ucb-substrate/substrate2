@@ -24,7 +24,7 @@
 //! Zero-width buses are not supported.
 #![warn(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
@@ -1043,6 +1043,32 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Iterates over the `(id, cell)` pairs in this library.
     pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell)> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
+    }
+
+    /// The list of cell IDs instantiated by the given root cells.
+    ///
+    /// The list returned will include the root cell IDs.
+    pub(crate) fn cells_used_by(&self, roots: impl IntoIterator<Item = CellId>) -> Vec<CellId> {
+        let mut stack = VecDeque::new();
+        let mut visited = HashSet::new();
+        for root in roots {
+            stack.push_back(root);
+        }
+
+        while let Some(id) = stack.pop_front() {
+            if visited.contains(&id) {
+                continue;
+            }
+            visited.insert(id);
+            let cell = self.cell(id);
+            for (_, inst) in cell.instances() {
+                if let ChildId::Cell(c) = inst.child {
+                    stack.push_back(c);
+                }
+            }
+        }
+
+        visited.drain().collect()
     }
 
     /// Gets the primitive with the given ID.
