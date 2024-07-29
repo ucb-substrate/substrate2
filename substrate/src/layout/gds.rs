@@ -756,7 +756,7 @@ impl<'a> GdsImporter<'a> {
             Ok(Shape::new(
                 layer,
                 Rect::from_spans(
-                    Span::from_center_span(pts[0].x, width as i64),
+                    Span::from_center_span(pts[0].x, width),
                     Span::new(
                         pts.iter().map(|pt| pt.y).min().unwrap(),
                         pts.iter().map(|pt| pt.y).max().unwrap(),
@@ -775,7 +775,7 @@ impl<'a> GdsImporter<'a> {
                     )
                     .union(Span::from_point(pts[0].x).expand_all(begin_extn))
                     .union(Span::from_point(pts[pts.len() - 1].x).expand_all(end_extn)),
-                    Span::from_center_span(pts[0].y, width as i64),
+                    Span::from_center_span(pts[0].y, width),
                 ),
             ))
         } else {
