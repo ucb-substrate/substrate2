@@ -738,6 +738,17 @@ impl<'a> GdsImporter<'a> {
 
         let layer = self.import_element_layer(x)?;
 
+        let extension = match x.path_type {
+            Some(0) => 0,
+            Some(2) => width / 2,
+            None => 0,
+            _ => {
+                return Err(GdsImportError::Unsupported(arcstr::literal!(
+                    "Only flush and square path ends are supported"
+                )))
+            }
+        };
+
         if pts.iter().all(|pt| pt.x == pts[0].x) {
             Ok(Shape::new(
                 layer,
@@ -746,7 +757,8 @@ impl<'a> GdsImporter<'a> {
                     Span::new(
                         pts.iter().map(|pt| pt.y).min().unwrap(),
                         pts.iter().map(|pt| pt.y).max().unwrap(),
-                    ),
+                    )
+                    .expand_all(extension as i64),
                 ),
             ))
         } else if pts.iter().all(|pt| pt.y == pts[0].y) {
