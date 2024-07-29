@@ -557,7 +557,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
                 cell: id,
                 port_map,
             }) => {
-                let map = lib_ctx.lib.merge((**lib).clone());
+                let map = lib_ctx.lib.merge_cells((**lib).clone(), [*id]);
                 let id = map.new_cell_id(*id);
                 let mut conv = ScirCellConversion::new();
                 conv.cell_id = Some(id);
