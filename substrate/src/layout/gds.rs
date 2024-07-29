@@ -729,7 +729,7 @@ impl<'a> GdsImporter<'a> {
 
         let pts = self.import_point_vec(&x.xy)?;
         let width = if let Some(w) = x.width {
-            w as usize
+            w as i64
         } else {
             return Err(GdsImportError::Unsupported(arcstr::literal!(
                 "GDS path width must be specified"
@@ -737,16 +737,32 @@ impl<'a> GdsImporter<'a> {
         };
 
         let layer = self.import_element_layer(x)?;
+        let (begin_extn, end_extn) = match x.path_type {
+            Some(0) => (0, 0),
+            Some(2) => (width / 2, width / 2),
+            Some(4) => (
+                x.begin_extn.unwrap_or_default() as i64,
+                x.end_extn.unwrap_or_default() as i64,
+            ),
+            None => (0, 0),
+            _ => {
+                return Err(GdsImportError::Unsupported(arcstr::literal!(
+                    "Only flush and square path ends are supported"
+                )))
+            }
+        };
 
         if pts.iter().all(|pt| pt.x == pts[0].x) {
             Ok(Shape::new(
                 layer,
                 Rect::from_spans(
-                    Span::from_center_span(pts[0].x, width as i64),
+                    Span::from_center_span(pts[0].x, width),
                     Span::new(
                         pts.iter().map(|pt| pt.y).min().unwrap(),
                         pts.iter().map(|pt| pt.y).max().unwrap(),
-                    ),
+                    )
+                    .union(Span::from_point(pts[0].y).expand_all(begin_extn))
+                    .union(Span::from_point(pts[pts.len() - 1].y).expand_all(end_extn)),
                 ),
             ))
         } else if pts.iter().all(|pt| pt.y == pts[0].y) {
@@ -756,8 +772,10 @@ impl<'a> GdsImporter<'a> {
                     Span::new(
                         pts.iter().map(|pt| pt.x).min().unwrap(),
                         pts.iter().map(|pt| pt.x).max().unwrap(),
-                    ),
-                    Span::from_center_span(pts[0].y, width as i64),
+                    )
+                    .union(Span::from_point(pts[0].x).expand_all(begin_extn))
+                    .union(Span::from_point(pts[pts.len() - 1].x).expand_all(end_extn)),
+                    Span::from_center_span(pts[0].y, width),
                 ),
             ))
         } else {
