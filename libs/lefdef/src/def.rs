@@ -1314,7 +1314,7 @@ pub struct GeometrySpecialWiring {
     pub status: Option<SpecialRoutingStatus>,
     pub shape: Option<ShapeType>,
     pub mask: Option<MaskNum>,
-    pub entries: Vec<GeometrySpecialWiringEntry>,
+    pub entry: GeometrySpecialWiringEntry,
 }
 
 impl WriteDef for GeometrySpecialWiring {
@@ -1330,10 +1330,8 @@ impl WriteDef for GeometrySpecialWiring {
         if let Some(m) = &self.mask {
             writeln!(out, "+ MASK {}", m.0)?;
         }
-        for entry in self.entries.iter() {
-            entry.write(out)?;
-            writeln!(out)?;
-        }
+        self.entry.write(out)?;
+        writeln!(out)?;
         Ok(())
     }
 }
@@ -1356,7 +1354,7 @@ pub struct LayerPolygon {
 pub struct PlacedVia {
     pub via_name: Ident,
     pub orient: Option<Orientation>,
-    pub point: Point,
+    pub points: Vec<Point>,
 }
 
 impl WriteDef for PlacedVia {
@@ -1365,8 +1363,10 @@ impl WriteDef for PlacedVia {
         if let Some(orient) = self.orient {
             write!(out, " {}", orient)?;
         }
-        write!(out, " ")?;
-        self.point.write(out)?;
+        for pt in self.points.iter() {
+            write!(out, " ")?;
+            pt.write(out)?;
+        }
         Ok(())
     }
 }
@@ -1775,18 +1775,11 @@ mod tests {
                         status: Some(SpecialRoutingStatus::Fixed),
                         shape: None,
                         mask: None,
-                        entries: vec![
-                            GeometrySpecialWiringEntry::Rect(LayerRect {
-                                layer: "m3".to_string(),
-                                mask: None,
-                                rect: Rect::new(Point::new(0, 0), Point::new(600, 100)),
-                            }),
-                            GeometrySpecialWiringEntry::Rect(LayerRect {
-                                layer: "m3".to_string(),
-                                mask: None,
-                                rect: Rect::new(Point::new(600, 100), Point::new(700, 900)),
-                            }),
-                        ],
+                        entry: GeometrySpecialWiringEntry::Rect(LayerRect {
+                            layer: "m3".to_string(),
+                            mask: None,
+                            rect: Rect::new(Point::new(0, 0), Point::new(600, 100)),
+                        }),
                     })],
                     source: None,
                     fixed_bump: false,
