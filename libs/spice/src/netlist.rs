@@ -383,7 +383,10 @@ impl HasSpiceLikeNetlist for Spice {
                 let name = arcstr::format!("R{}", name);
                 write!(out, "{}", name)?;
                 for port in ["1", "2"] {
-                    for part in connections.remove(port).unwrap() {
+                    for part in connections
+                        .remove(port)
+                        .unwrap_or_else(|| panic!("res2 instance `{name}` must connect to all ports; missing connection to port `{port}`"))
+                    {
                         write!(out, " {}", part)?;
                     }
                 }
@@ -411,7 +414,10 @@ impl HasSpiceLikeNetlist for Spice {
                 let name = arcstr::format!("D{}", name);
                 write!(out, "{}", name)?;
                 for port in ["1", "2"] {
-                    for part in connections.remove(port).unwrap() {
+                    for part in connections
+                        .remove(port)
+                        .unwrap_or_else(|| panic!("diode2 instance `{name}` must connect to all ports; missing connection to port `{port}`"))
+                    {
                         write!(out, " {}", part)?;
                     }
                 }
