@@ -1129,7 +1129,7 @@ impl HasSpiceLikeNetlist for Spectre {
             } => {
                 let connections = ports
                     .iter()
-                    .flat_map(|port| connections.remove(port).unwrap())
+                    .flat_map(|port| connections.remove(port).unwrap_or_else(|| panic!("raw instance `{name}` must connect to all ports; missing connection to port `{port}`")))
                     .collect();
                 let name = self.write_instance(out, name, connections, cell)?;
                 for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
