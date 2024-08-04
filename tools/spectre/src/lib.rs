@@ -1081,10 +1081,10 @@ impl HasSpiceLikeNetlist for Spectre {
         for sig in ports {
             if let Some(width) = sig.width {
                 for i in 0..width {
-                    write!(out, " {}\\[{}\\]", sig.name, i)?;
+                    write!(out, " {}\\[{}\\]", Spectre::escape_identifier(&sig.name), i)?;
                 }
             } else {
-                write!(out, " {}", sig.name)?;
+                write!(out, " {}", Spectre::escape_identifier(&sig.name))?;
             }
         }
         write!(out, " )")?;
