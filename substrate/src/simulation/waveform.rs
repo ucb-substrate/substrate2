@@ -903,7 +903,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use approx::{assert_abs_diff_eq, assert_relative_eq, assert_relative_ne};
+    use approx::{assert_relative_eq, assert_relative_ne};
 
     use super::*;
 
@@ -946,7 +946,7 @@ mod tests {
         assert_relative_eq!(wav.sample_at(4.0), 0.0, epsilon = 1e-15);
         assert_relative_eq!(wav.sample_at(4.3), 0.3, epsilon = 1e-15);
         assert_relative_eq!(wav.sample_at(4.5), 0.5, epsilon = 1e-15);
-        assert_abs_diff_eq!(wav.sample_at(4.9), 0.9, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.9), 0.9, epsilon = 1e-15);
         assert_relative_ne!(wav.sample_at(4.9) + 1e-12, 0.9, epsilon = 1e-15);
         assert_relative_eq!(wav.sample_at(4.99), 0.99, epsilon = 1e-15);
         assert_relative_ne!(wav.sample_at(4.99) + 1e-12, 0.99, epsilon = 1e-15);
