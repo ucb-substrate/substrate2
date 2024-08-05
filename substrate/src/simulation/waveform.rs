@@ -181,7 +181,6 @@ pub trait TimeWaveform {
         let idx = self
             .time_index_before(t)
             .expect("cannot extrapolate to the requested time");
-        println!("idx = {idx}");
         debug_assert!(
             idx < self.len() - 1,
             "cannot extrapolate beyond end of signal"
@@ -767,7 +766,6 @@ where
     let mut x;
     while lo <= hi {
         let mid = (lo + hi) / 2;
-        println!("lo = {lo}, hi = {hi}, mid = {mid}");
         x = data.get(mid).unwrap().t();
         match target.partial_cmp(&x)? {
             Ordering::Less => hi = mid - 1,
