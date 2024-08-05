@@ -181,6 +181,7 @@ pub trait TimeWaveform {
         let idx = self
             .time_index_before(t)
             .expect("cannot extrapolate to the requested time");
+        println!("idx = {idx}");
         debug_assert!(
             idx < self.len() - 1,
             "cannot extrapolate beyond end of signal"
@@ -764,8 +765,9 @@ where
     let mut lo = 0usize;
     let mut hi = data.len() - 1;
     let mut x;
-    while lo < hi {
+    while lo <= hi {
         let mid = (lo + hi) / 2;
+        println!("lo = {lo}, hi = {hi}, mid = {mid}");
         x = data.get(mid).unwrap().t();
         match target.partial_cmp(&x)? {
             Ordering::Less => hi = mid - 1,
@@ -903,7 +905,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use approx::{assert_relative_eq, assert_relative_ne};
+    use approx::{assert_abs_diff_eq, assert_relative_eq, assert_relative_ne};
 
     use super::*;
 
@@ -932,6 +934,25 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn waveform_sample_at() {
+        let wav =
+            Waveform::from_iter([(0., 0.), (1., 1.), (2., 0.9), (3., 0.1), (4., 0.), (5., 1.)]);
+        assert_relative_eq!(wav.sample_at(0.0), 0.0, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(0.5), 0.5, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(1.2), 0.98, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(1.8), 0.92, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(2.0), 0.9, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.0), 0.0, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.3), 0.3, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.5), 0.5, epsilon = 1e-15);
+        assert_abs_diff_eq!(wav.sample_at(4.9), 0.9, epsilon = 1e-15);
+        assert_relative_ne!(wav.sample_at(4.9) + 1e-12, 0.9, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.99), 0.99, epsilon = 1e-15);
+        assert_relative_ne!(wav.sample_at(4.99) + 1e-12, 0.99, epsilon = 1e-15);
+        assert_relative_ne!(wav.sample_at(4.99) - 1e-12, 0.99, epsilon = 1e-15);
     }
 
     #[test]
