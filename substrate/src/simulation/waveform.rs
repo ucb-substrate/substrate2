@@ -764,7 +764,7 @@ where
     let mut lo = 0usize;
     let mut hi = data.len() - 1;
     let mut x;
-    while lo < hi {
+    while lo <= hi {
         let mid = (lo + hi) / 2;
         x = data.get(mid).unwrap().t();
         match target.partial_cmp(&x)? {
@@ -932,6 +932,25 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn waveform_sample_at() {
+        let wav =
+            Waveform::from_iter([(0., 0.), (1., 1.), (2., 0.9), (3., 0.1), (4., 0.), (5., 1.)]);
+        assert_relative_eq!(wav.sample_at(0.0), 0.0, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(0.5), 0.5, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(1.2), 0.98, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(1.8), 0.92, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(2.0), 0.9, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.0), 0.0, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.3), 0.3, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.5), 0.5, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.9), 0.9, epsilon = 1e-15);
+        assert_relative_ne!(wav.sample_at(4.9) + 1e-12, 0.9, epsilon = 1e-15);
+        assert_relative_eq!(wav.sample_at(4.99), 0.99, epsilon = 1e-15);
+        assert_relative_ne!(wav.sample_at(4.99) + 1e-12, 0.99, epsilon = 1e-15);
+        assert_relative_ne!(wav.sample_at(4.99) - 1e-12, 0.99, epsilon = 1e-15);
     }
 
     #[test]
