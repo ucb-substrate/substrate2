@@ -190,6 +190,8 @@ pub struct Options {
     /// The simulation temperature.
     temp: Option<Decimal>,
     save: Option<SaveOption>,
+    /// Override the default Spectre flags.
+    override_flags: Option<String>,
 }
 
 /// The allowed values of the `save` option.
@@ -292,6 +294,13 @@ impl Options {
     pub fn save(&mut self, save: SaveOption) {
         self.save = Some(save);
     }
+
+    /// Sets the flags used to invoke Spectre.
+    ///
+    /// Overrides the default set of flags.
+    pub fn set_flags(&mut self, flags: impl Into<String>) {
+        self.override_flags = Some(flags.into());
+    }
 }
 
 impl SimOption<Spectre> for Temperature {
@@ -385,6 +394,8 @@ struct CachedSimState {
     run_script: PathBuf,
     work_dir: PathBuf,
     executor: Arc<dyn Executor>,
+    /// Override the default Spectre flags.
+    override_flags: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -461,6 +472,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 run_script,
                 work_dir,
                 executor,
+                override_flags,
             } = state;
             write_run_script(
                 RunScriptContext {
@@ -469,7 +481,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                     log_path: &log,
                     bashrc: None,
                     format: "psfbin",
-                    flags: "++aps +mt",
+                    flags: override_flags.as_deref().unwrap_or("++aps +mt"),
                 },
                 &run_script,
             )?;
@@ -592,6 +604,7 @@ impl Spectre {
                     run_script,
                     work_dir,
                     executor,
+                    override_flags: options.override_flags.clone(),
                 },
             )
             .try_inner()
@@ -612,7 +625,7 @@ impl Spectre {
 
     /// Escapes the given identifier to be Spectre-compatible.
     pub fn escape_identifier(node_name: &str) -> String {
-        // The name 0 is reserved, as it represents global ground.
+        // The name "0" is reserved, as it represents global ground.
         // To prevent nodes from being accidentally connected to global ground,
         // we rename 0 to x0, x0 to xx0, xx0 to xxx0, etc.
         lazy_static! {
