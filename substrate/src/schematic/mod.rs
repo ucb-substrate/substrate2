@@ -219,7 +219,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     /// before your generator returns.
     #[track_caller]
     pub fn add<B: ExportsNestedData>(&mut self, cell: SchemaCellHandle<S, B>) -> Instance<B> {
-        self.post_instantiate(cell, SourceInfo::from_caller())
+        self.post_instantiate(cell, SourceInfo::from_caller(), None)
     }
 
     /// Instantiates a schematic view of the given block.
@@ -242,7 +242,22 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     #[track_caller]
     pub fn instantiate<B: Schematic<S>>(&mut self, block: B) -> Instance<B> {
         let cell = self.ctx().generate_schematic(block);
-        self.post_instantiate(cell, SourceInfo::from_caller())
+        self.post_instantiate(cell, SourceInfo::from_caller(), None)
+    }
+
+    /// Instantiates a block and assigns a name to the instance.
+    ///
+    /// See [`CellBuilder::instantiate`] for details.
+    ///
+    /// Callers must ensure that instance names are unique.
+    #[track_caller]
+    pub fn instantiate_named<B: Schematic<S>>(
+        &mut self,
+        block: B,
+        name: impl Into<ArcStr>,
+    ) -> Instance<B> {
+        let cell = self.ctx().generate_schematic(block);
+        self.post_instantiate(cell, SourceInfo::from_caller(), Some(name.into()))
     }
 
     /// Instantiates a schematic view of the given block, blocking on generator for underlying
@@ -272,22 +287,23 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         self.connect(inst.io, io);
     }
 
-    /// Creates nodes for the newly-instantiated block's IOs.
+    /// Creates nodes for the newly-instantiated block's IOs and adds the raw instance.
     fn post_instantiate<B: ExportsNestedData>(
         &mut self,
         cell: SchemaCellHandle<S, B>,
         source_info: SourceInfo,
+        name: Option<ArcStr>,
     ) -> Instance<B> {
         let io = cell.cell.block.io();
         let cell_contents = self.contents.as_mut().unwrap_cell();
+        let name =
+            name.unwrap_or_else(|| arcstr::format!("xinst{}", cell_contents.instances.len()));
 
         let (nodes, io_data) =
             self.node_ctx
                 .instantiate_directed(&io, NodePriority::Auto, source_info);
 
-        let names = io.flat_names(Some(
-            arcstr::format!("xinst{}", cell_contents.instances.len()).into(),
-        ));
+        let names = io.flat_names(Some(name.clone().into()));
         assert_eq!(nodes.len(), names.len());
 
         self.node_names.extend(nodes.iter().copied().zip(names));
@@ -305,11 +321,12 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
 
             terminal_view: OnceCell::new(),
             nested_data: OnceCell::new(),
+            name: name.clone(),
         };
 
         cell_contents.instances.push(RawInstanceBuilder {
             id: inst.id,
-            name: arcstr::literal!("unnamed"),
+            name: name.clone(),
             connections: nodes,
             child: cell.handle.map(|handle| match handle {
                 Ok(Ok(SchemaCellCacheValue { raw, .. })) => Ok(raw.clone()),
@@ -428,7 +445,7 @@ impl<'a, S: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> SubCellBuilder<'a, S, 
     #[track_caller]
     pub fn instantiate<B: Schematic<S2>>(&mut self, block: B) -> Instance<B> {
         let cell = self.ctx().generate_cross_schematic(block);
-        self.post_instantiate(cell, SourceInfo::from_caller())
+        self.post_instantiate(cell, SourceInfo::from_caller(), None)
     }
 
     /// Instantiates a schematic view of the given block, blocking on generator for underlying
@@ -463,8 +480,9 @@ impl<'a, S: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> SubCellBuilder<'a, S, 
         &mut self,
         cell: SchemaCellHandle<S, B>,
         source_info: SourceInfo,
+        name: Option<ArcStr>,
     ) -> Instance<B> {
-        self.0.post_instantiate(cell, source_info)
+        self.0.post_instantiate(cell, source_info, name)
     }
 }
 
@@ -655,6 +673,7 @@ pub struct Instance<T: ExportsNestedData> {
     /// The cell's input/output interface.
     io: <T::Io as HardwareType>::Bundle,
     cell: CellHandle<T>,
+    name: ArcStr,
 
     /// Stored terminal view for io purposes.
     terminal_view: OnceCell<Arc<TerminalView<<T::Io as HardwareType>::Bundle>>>,
@@ -680,6 +699,7 @@ impl<B: ExportsNestedData> Clone for Instance<B> {
             path: self.path.clone(),
             io: self.io.clone(),
             cell: self.cell.clone(),
+            name: self.name.clone(),
 
             terminal_view: self.terminal_view.clone(),
             nested_data: self.nested_data.clone(),
