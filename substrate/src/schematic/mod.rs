@@ -296,19 +296,23 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     ) -> Instance<B> {
         let io = cell.cell.block.io();
         let cell_contents = self.contents.as_mut().unwrap_cell();
-        let name =
-            name.unwrap_or_else(|| arcstr::format!("xinst{}", cell_contents.instances.len()));
+        cell_contents.next_instance_id.increment();
+
+        let inst_name =
+            name.unwrap_or_else(|| arcstr::format!("xinst{}", cell_contents.next_instance_id.0));
+        println!(
+            "cell {} ({:?}): add inst `{}`",
+            self.cell_name, self.id.0, inst_name
+        );
 
         let (nodes, io_data) =
             self.node_ctx
                 .instantiate_directed(&io, NodePriority::Auto, source_info);
 
-        let names = io.flat_names(Some(name.clone().into()));
+        let names = io.flat_names(Some(inst_name.clone().into()));
         assert_eq!(nodes.len(), names.len());
 
         self.node_names.extend(nodes.iter().copied().zip(names));
-
-        cell_contents.next_instance_id.increment();
 
         let inst = Instance {
             id: cell_contents.next_instance_id,
@@ -318,15 +322,15 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
                 .append_segment(cell_contents.next_instance_id, cell.cell.id),
             cell: cell.cell,
             io: io_data,
-
             terminal_view: OnceCell::new(),
             nested_data: OnceCell::new(),
-            name: name.clone(),
+            name: inst_name.clone(),
         };
 
         cell_contents.instances.push(RawInstanceBuilder {
             id: inst.id,
-            name: name.clone(),
+            // name: inst_name.clone(),
+            name: arcstr::literal!("unnamed"),
             connections: nodes,
             child: cell.handle.map(|handle| match handle {
                 Ok(Ok(SchemaCellCacheValue { raw, .. })) => Ok(raw.clone()),
@@ -834,12 +838,21 @@ impl<T: ExportsNestedData> NestedInstance<T> {
 }
 
 /// A wrapper around schematic-specific context data.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SchematicContext {
     pub(crate) next_id: CellId,
     /// Cache from [`CellCacheKey`] and [`ConvCacheKey`]
     /// to `Result<(Arc<RawCell>, Arc<Cell>)>`.
     pub(crate) cell_cache: TypeCache,
+}
+
+impl Default for SchematicContext {
+    fn default() -> Self {
+        Self {
+            next_id: CellId(0),
+            cell_cache: Default::default(),
+        }
+    }
 }
 
 impl SchematicContext {
@@ -1343,7 +1356,7 @@ pub(crate) enum RawCellKind<C, S, P, CP> {
 
 pub(crate) struct RawCellInnerBuilder<S: Schema + ?Sized> {
     pub(crate) next_instance_id: InstanceId,
-    pub(crate) instances: Vec<RawInstanceBuilder<S>>,
+    instances: Vec<RawInstanceBuilder<S>>,
 }
 
 impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug
@@ -1491,12 +1504,13 @@ impl<S: Schema + ?Sized> ScirBinding<S> {
 }
 
 /// A context-wide unique identifier for a cell.
-#[derive(Default, Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CellId(u64);
 
 impl CellId {
     pub(crate) fn increment(&mut self) {
-        *self = CellId(self.0 + 1)
+        let next = self.0.checked_add(1).expect("integer overflow");
+        *self = CellId(next)
     }
 }
 
@@ -1506,6 +1520,7 @@ pub struct InstanceId(pub(crate) u64);
 
 impl InstanceId {
     pub(crate) fn increment(&mut self) {
-        *self = InstanceId(self.0 + 1)
+        let next = self.0.checked_add(1).expect("integer overflow");
+        *self = InstanceId(next)
     }
 }

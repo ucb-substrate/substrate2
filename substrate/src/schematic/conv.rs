@@ -643,6 +643,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
         let mut conv = ScirCellConversion::new();
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
+        let mut names = uniquify::Names::new();
 
         if let FlatExport::Yes(ref ports) = flatten {
             // Flattened cells need to add all non-IO nodes to the enclosing cell.
@@ -703,8 +704,15 @@ impl<S: Schema + ?Sized> RawCell<S> {
                             }
                         }
                     };
-                    let mut sinst =
-                        Instance::new(arcstr::format!("inst{}", cell_ctx.inst_idx), child_id);
+                    let name = names.assign_name((), &instance.name);
+                    // assert_eq!(
+                    //     name,
+                    //     instance.name,
+                    //     "instance name `{}` in cell `{}` is not unique",
+                    //     instance.name,
+                    //     cell_ctx.cell.name()
+                    // );
+                    let mut sinst = Instance::new(instance.name.clone(), child_id);
                     cell_ctx.inst_idx += 1;
 
                     assert_eq!(instance.child.ports.len(), instance.connections.len());

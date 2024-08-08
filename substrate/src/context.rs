@@ -277,6 +277,14 @@ impl Context {
         }
     }
 
+    /// Allocates a new [`CellId`].
+    fn alloc_cell_id(&self) -> CellId {
+        let mut inner = self.inner.write().unwrap();
+        let SchematicContext { next_id, .. } = &mut inner.schematic;
+        next_id.increment();
+        *next_id
+    }
+
     /// Steps to create schematic:
     /// - Check if block has already been generated
     /// - If not:
@@ -307,7 +315,7 @@ impl Context {
             |key| {
                 next_id.increment();
                 let (cell_builder, io_data) =
-                    prepare_cell_builder(*next_id, context, key.block.as_ref());
+                    prepare_cell_builder(Some(*next_id), context, key.block.as_ref());
                 let io_data = Arc::new(io_data);
                 (
                     CellMetadata::<B> {
@@ -647,12 +655,16 @@ impl<PDK: Pdk> PdkContext<PDK> {
 }
 
 /// Only public for use in ATOLL. Do NOT use externally.
+///
+/// If the `id` argument is Some, the cell will use the given ID.
+/// Otherwise, a new [`CellId`] will be allocated by calling [`Context::alloc_cell_id`].
 #[doc(hidden)]
 pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
-    id: CellId,
+    id: Option<CellId>,
     context: Context,
     block: &T,
 ) -> (CellBuilder<S>, <<T as Block>::Io as SchematicType>::Bundle) {
+    let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
     let io_outward = block.io();
