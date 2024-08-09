@@ -102,7 +102,7 @@ use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::{Layer, Layers};
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellId, ExportsNestedData, Schematic};
+use substrate::schematic::{ExportsNestedData, Schematic};
 use substrate::{geometry, io, layout, schematic};
 
 #[derive(Default, Debug)]
@@ -828,7 +828,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 .cell_cache
                 .generate(block.clone(), move |block| {
                     let (mut schematic_cell, schematic_io) =
-                        prepare_cell_builder(CellId::default(), ctx_clone.clone(), block);
+                        prepare_cell_builder(None, ctx_clone.clone(), block);
                     let mut layout_io = io::layout::HardwareType::builder(&block.io());
                     let mut layout_cell = layout::CellBuilder::new(ctx_clone.with_pdk());
                     let atoll_io = IoBuilder {
@@ -1144,7 +1144,7 @@ where
         cell: &mut layout::CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::LayoutData> {
         let (mut schematic_cell, schematic_io) =
-            prepare_cell_builder(CellId::default(), (**cell.ctx()).clone(), self);
+            prepare_cell_builder(None, (**cell.ctx()).clone(), self);
         let io = IoBuilder {
             schematic: &schematic_io,
             layout: io,
