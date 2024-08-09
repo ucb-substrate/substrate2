@@ -537,12 +537,12 @@ impl<S: Schema + ?Sized> RawCell<S> {
         }
 
         let name = lib_ctx.cell_names.assign_name(self.id, &self.name);
-        println!("exporting cell {} as {name}", self.id.0);
 
         Ok(match &self.contents {
             RawCellContents::Cell(_) => {
                 let mut cell_ctx = ScirCellExportContext::new(Cell::new(name));
-                let mut conv = self.export_instances(lib_ctx, &mut cell_ctx, FlatExport::No)?;
+                let mut conv =
+                    self.export_instances(lib_ctx, &mut cell_ctx, FlatExport::No, None)?;
                 let ScirCellExportContext {
                     cell: scir_cell, ..
                 } = cell_ctx;
@@ -634,6 +634,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
         lib_ctx: &mut ScirLibExportContext<S>,
         cell_ctx: &mut ScirCellExportContext,
         flatten: FlatExport,
+        name_prefix: Option<&str>,
     ) -> Result<ScirCellConversion, ConvError> {
         if flatten.is_yes() {
             assert!(
@@ -645,6 +646,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
         let mut nodes = HashMap::new();
         let mut roots_added = HashSet::new();
         let mut names = uniquify::Names::new();
+        let prefix = name_prefix.unwrap_or("");
 
         if let FlatExport::Yes(ref ports) = flatten {
             // Flattened cells need to add all non-IO nodes to the enclosing cell.
@@ -691,6 +693,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
                                     lib_ctx,
                                     cell_ctx,
                                     FlatExport::Yes(ports),
+                                    Some(&format!("{}{}_", prefix, &*instance.name)),
                                 )?;
                                 conv.instances.insert(
                                     instance.id,
@@ -713,12 +716,8 @@ impl<S: Schema + ?Sized> RawCell<S> {
                         instance.name,
                         cell_ctx.cell.name()
                     );
-                    println!(
-                        "cell {}: inst had original name: {}",
-                        cell_ctx.cell.name(),
-                        instance.name
-                    );
-                    let mut sinst = Instance::new(instance.name.clone(), child_id);
+                    let mut sinst =
+                        Instance::new(arcstr::format!("{}{}", prefix, instance.name), child_id);
                     cell_ctx.inst_idx += 1;
 
                     assert_eq!(instance.child.ports.len(), instance.connections.len());

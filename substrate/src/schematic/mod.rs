@@ -299,7 +299,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         cell_contents.next_instance_id.increment();
 
         let inst_name =
-            name.unwrap_or_else(|| arcstr::format!("xinst{}", cell_contents.next_instance_id.0));
+            name.unwrap_or_else(|| arcstr::format!("xinst{}", cell_contents.instances.len()));
         println!(
             "cell {} ({:?}): add inst `{}`",
             self.cell_name, self.id.0, inst_name
