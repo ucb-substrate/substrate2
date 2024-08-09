@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * type_dispatch bumped from 0.3.0 to 0.4.0
+
 ## 0.1.0 (2023-11-02)
 
 
