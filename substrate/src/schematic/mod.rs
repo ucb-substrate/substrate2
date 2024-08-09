@@ -300,10 +300,6 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
 
         let inst_name =
             name.unwrap_or_else(|| arcstr::format!("xinst{}", cell_contents.instances.len()));
-        println!(
-            "cell {} ({:?}): add inst `{}`",
-            self.cell_name, self.id.0, inst_name
-        );
 
         let (nodes, io_data) =
             self.node_ctx
