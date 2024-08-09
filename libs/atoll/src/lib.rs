@@ -876,6 +876,114 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         inst
     }
 
+    /// Generates a named ATOLL instance from a Substrate block that implements [`Schematic`]
+    /// and [`Layout`].
+    pub fn generate_primitive_named<B: Clone + Schematic<PDK> + Layout<PDK>>(
+        &mut self,
+        block: B,
+        name: impl Into<ArcStr>,
+    ) -> Instance<B> {
+        let layout = self.layout.generate(block.clone());
+        let schematic = self.schematic.instantiate_named(block, name);
+        self.register_bundle(schematic.io());
+        let abs = Abstract::generate(&self.layout.ctx, layout.raw_cell());
+
+        Instance {
+            layout,
+            schematic,
+            raw: RawInstance {
+                abs,
+                loc: Default::default(),
+                orientation: Default::default(),
+            },
+        }
+    }
+
+    /// Generates a named ATOLL instance from a Substrate block that implements [`Schematic`]
+    /// and [`Layout`] and connects its IO to the given bundle.
+    pub fn generate_primitive_connected_named<
+        B: Clone + Schematic<PDK> + Layout<PDK>,
+        C: IsBundle,
+    >(
+        &mut self,
+        block: B,
+        io: C,
+        name: impl Into<ArcStr>,
+    ) -> Instance<B>
+    where
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
+    {
+        let inst = self.generate_primitive_named(block, name);
+        self.connect(inst.io(), io);
+
+        inst
+    }
+
+    /// Generates a named ATOLL instance from a block that implements [`Tile`].
+    pub fn generate_named<B: Clone + Tile<PDK>>(
+        &mut self,
+        block: B,
+        name: impl Into<ArcStr>,
+    ) -> Instance<TileWrapper<B>> {
+        let atoll_ctx = self.ctx().get_or_install(AtollContext::default());
+        let ctx_clone = (**self.ctx()).clone();
+        let abs_path =
+            atoll_ctx
+                .0
+                .write()
+                .unwrap()
+                .cell_cache
+                .generate(block.clone(), move |block| {
+                    let (mut schematic_cell, schematic_io) =
+                        prepare_cell_builder(None, ctx_clone.clone(), block);
+                    let mut layout_io = io::layout::HardwareType::builder(&block.io());
+                    let mut layout_cell = layout::CellBuilder::new(ctx_clone.with_pdk());
+                    let atoll_io = IoBuilder {
+                        schematic: &schematic_io,
+                        layout: &mut layout_io,
+                    };
+                    let mut cell =
+                        TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
+                    let _ = <B as Tile<PDK>>::tile(block, atoll_io, &mut cell);
+
+                    cell.split_for_abstract(schematic_io.flatten_vec())
+                        .0
+                        .finalize_abstract()
+                });
+
+        let (abs, _) = abs_path.get().clone();
+        let wrapper = TileWrapper::new(block);
+        let layout = self.layout.generate(wrapper.clone());
+        let schematic = self.schematic.instantiate_named(wrapper, name);
+        self.register_bundle(schematic.io());
+        Instance {
+            layout,
+            schematic,
+            raw: RawInstance {
+                abs,
+                loc: Default::default(),
+                orientation: Default::default(),
+            },
+        }
+    }
+
+    /// Generates a named ATOLL instance from a block that implements [`Tile`]
+    /// and connects its IO to the given bundle.
+    pub fn generate_connected_named<B: Clone + Tile<PDK>, C: IsBundle>(
+        &mut self,
+        block: B,
+        io: C,
+        name: impl Into<ArcStr>,
+    ) -> Instance<TileWrapper<B>>
+    where
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
+    {
+        let inst = self.generate_named(block, name);
+        self.connect(inst.io(), io);
+
+        inst
+    }
+
     fn generate_net_id(&mut self) -> NetId {
         let ret = NetId(self.next_net_id);
         self.next_net_id += 1;
