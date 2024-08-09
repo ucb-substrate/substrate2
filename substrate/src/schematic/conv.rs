@@ -537,6 +537,7 @@ impl<S: Schema + ?Sized> RawCell<S> {
         }
 
         let name = lib_ctx.cell_names.assign_name(self.id, &self.name);
+        println!("exporting cell {} as {name}", self.id.0);
 
         Ok(match &self.contents {
             RawCellContents::Cell(_) => {
@@ -705,13 +706,18 @@ impl<S: Schema + ?Sized> RawCell<S> {
                         }
                     };
                     let name = names.assign_name((), &instance.name);
-                    // assert_eq!(
-                    //     name,
-                    //     instance.name,
-                    //     "instance name `{}` in cell `{}` is not unique",
-                    //     instance.name,
-                    //     cell_ctx.cell.name()
-                    // );
+                    assert_eq!(
+                        name,
+                        instance.name,
+                        "instance name `{}` in cell `{}` is not unique",
+                        instance.name,
+                        cell_ctx.cell.name()
+                    );
+                    println!(
+                        "cell {}: inst had original name: {}",
+                        cell_ctx.cell.name(),
+                        instance.name
+                    );
                     let mut sinst = Instance::new(instance.name.clone(), child_id);
                     cell_ctx.inst_idx += 1;
 

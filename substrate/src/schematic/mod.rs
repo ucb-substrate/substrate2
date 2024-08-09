@@ -324,13 +324,12 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
             io: io_data,
             terminal_view: OnceCell::new(),
             nested_data: OnceCell::new(),
-            name: inst_name.clone(),
         };
 
         cell_contents.instances.push(RawInstanceBuilder {
             id: inst.id,
-            // name: inst_name.clone(),
-            name: arcstr::literal!("unnamed"),
+            name: inst_name.clone(),
+            // name: arcstr::literal!("unnamed"),
             connections: nodes,
             child: cell.handle.map(|handle| match handle {
                 Ok(Ok(SchemaCellCacheValue { raw, .. })) => Ok(raw.clone()),
@@ -677,8 +676,6 @@ pub struct Instance<T: ExportsNestedData> {
     /// The cell's input/output interface.
     io: <T::Io as HardwareType>::Bundle,
     cell: CellHandle<T>,
-    name: ArcStr,
-
     /// Stored terminal view for io purposes.
     terminal_view: OnceCell<Arc<TerminalView<<T::Io as HardwareType>::Bundle>>>,
     /// Stored nested data for deref purposes.
@@ -703,8 +700,6 @@ impl<B: ExportsNestedData> Clone for Instance<B> {
             path: self.path.clone(),
             io: self.io.clone(),
             cell: self.cell.clone(),
-            name: self.name.clone(),
-
             terminal_view: self.terminal_view.clone(),
             nested_data: self.nested_data.clone(),
         }
