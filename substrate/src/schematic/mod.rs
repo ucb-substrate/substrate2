@@ -287,6 +287,17 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         self.connect(inst.io, io);
     }
 
+    /// Creates an instance using [`CellBuilder::instantiate`] and immediately connects its ports.
+    pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: C, name: impl Into<ArcStr>)
+    where
+        B: Schematic<S>,
+        C: IsBundle,
+        <B::Io as HardwareType>::Bundle: Connect<C>,
+    {
+        let inst = self.instantiate_named(block, name);
+        self.connect(inst.io, io);
+    }
+
     /// Creates nodes for the newly-instantiated block's IOs and adds the raw instance.
     fn post_instantiate<B: ExportsNestedData>(
         &mut self,
