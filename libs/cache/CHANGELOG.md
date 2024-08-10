@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.5.0...cache-v0.6.0) (2024-08-10)
+
+
+### Features
+
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.4.0...cache-v0.5.0) (2023-11-25)
 
 
