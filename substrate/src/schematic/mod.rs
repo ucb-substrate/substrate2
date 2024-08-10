@@ -458,6 +458,21 @@ impl<'a, S: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> SubCellBuilder<'a, S, 
         self.post_instantiate(cell, SourceInfo::from_caller(), None)
     }
 
+    /// Instantiates a block and assigns a name to the instance.
+    ///
+    /// See [`CellBuilder::instantiate`] for details.
+    ///
+    /// Callers must ensure that instance names are unique.
+    #[track_caller]
+    pub fn instantiate_named<B: Schematic<S2>>(
+        &mut self,
+        block: B,
+        name: impl Into<ArcStr>,
+    ) -> Instance<B> {
+        let cell = self.ctx().generate_cross_schematic(block);
+        self.post_instantiate(cell, SourceInfo::from_caller(), Some(name.into()))
+    }
+
     /// Instantiates a schematic view of the given block, blocking on generator for underlying
     /// cell. Returns an error if the generator returned an error.
     ///
@@ -482,6 +497,17 @@ impl<'a, S: FromSchema<S2> + ?Sized, S2: Schema + ?Sized> SubCellBuilder<'a, S, 
         <B::Io as HardwareType>::Bundle: Connect<C>,
     {
         let inst = self.instantiate(block);
+        self.connect(inst.io, io);
+    }
+
+    /// Creates an instance using [`SubCellBuilder::instantiate`] and immediately connects its ports.
+    pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: C, name: impl Into<ArcStr>)
+    where
+        B: Schematic<S2>,
+        C: IsBundle,
+        <B::Io as HardwareType>::Bundle: Connect<C>,
+    {
+        let inst = self.instantiate_named(block, name);
         self.connect(inst.io, io);
     }
 
