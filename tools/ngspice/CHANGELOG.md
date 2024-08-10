@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.3.1...ngspice-v0.4.0) (2024-08-10)
+
+
+### Features
+
+* **cdl:** add CDL parser ([#419](https://github.com/ucb-substrate/substrate2/issues/419)) ([23f0dab](https://github.com/ucb-substrate/substrate2/commit/23f0dab7b7a94cbe8960371b89d15211bddf51da))
+* **docs:** update docs for new simulation APIs ([#326](https://github.com/ucb-substrate/substrate2/issues/326)) ([ef133df](https://github.com/ucb-substrate/substrate2/commit/ef133dfac5f352121fe0e561b76541d5af62970e))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+
+
+### Bug Fixes
+
+* **simulation:** add missing SPICE functionality and update Sky 130 PDK ([#336](https://github.com/ucb-substrate/substrate2/issues/336)) ([f802be5](https://github.com/ucb-substrate/substrate2/commit/f802be5bf0361c38b415d976dbb0f2c984a2e304))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.5.0 to 0.6.0
+    * scir bumped from 0.7.0 to 0.8.0
+    * substrate bumped from 0.8.1 to 0.9.0
+    * nutlex bumped from 0.2.0 to 0.2.1
+    * spice bumped from 0.7.1 to 0.8.0
+
 ## [0.3.1](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.3.0...ngspice-v0.3.1) (2023-11-26)
 
 
