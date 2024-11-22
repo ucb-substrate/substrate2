@@ -1,17 +1,18 @@
 import clsx from 'clsx';
 import Heading from '@theme/Heading';
 import styles from './styles.module.css';
+import { Icon } from '@iconify/react'; // Import the entire Iconify library
 
 type FeatureItem = {
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
+  icon: string;
   description: JSX.Element;
 };
 
 const FeatureList: FeatureItem[] = [
   {
     title: 'Bring your Own Tools',
-    Svg: require('@site/static/img/CrossedTools.svg').default,
+    icon: "mdi:tools",
     description: (
       <>
         Design, verify, and tapeout your chip with a tool suite of your choice 
@@ -21,7 +22,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: '100% Performant Rust Code',
-    Svg: require('@site/static/img/rust_logo.svg').default,
+    icon: "mdi:code-block-tags",
     description: (
       <>
         Generators can be written entirely in Rust, providing high performance alongside memory safety and type checking.
@@ -30,7 +31,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Open Source',
-    Svg: require('@site/static/img/Globe_icon.svg').default,
+    icon: "mdi:web",
     description: (
       <>
         The core of Substrate is open source, meaning anyone can write a circuit generator without an expensive license.
@@ -39,11 +40,13 @@ const FeatureList: FeatureItem[] = [
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({title, icon, description}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={clsx("featureSvg", styles.featureSvg)} role="img" />
+        <Heading as="h3">
+        <Icon icon={icon} height="50" />
+        </Heading>
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>
@@ -56,7 +59,7 @@ function Feature({title, Svg, description}: FeatureItem) {
 export default function HomepageFeatures(): JSX.Element {
   return (
     <section className={styles.features}>
-      <div className="container">
+      <div className="container padding-vert--lg">
         <div className="row">
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
