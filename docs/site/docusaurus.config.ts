@@ -88,40 +88,12 @@ const config: Config = {
       },
       footer: {
         style: 'dark',
-        links: [
-          {
-            title: 'Docs',
-            items: [
-              {
-                label: 'Tutorial',
-                to: '/docs/category/getting-started',
-              },
-            ],
-          },
-          {
-            title: 'Community',
-            items: [
-              {
-                label: 'Discord',
-                href: 'https://discord.gg/XhtHzrEyaG',
-              },
-            ],
-          },
-          {
-            title: 'More',
-            items: [
-              {
-                label: 'GitHub',
-                href: 'https://github.com/substrate-labs/substrate2',
-              },
-            ],
-          },
-        ],
+        links: [],
         copyright: `Copyright © ${new Date().getFullYear()} Substrate Labs. Built with Docusaurus.`,
       },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: prismThemes.oneLight,
+      darkTheme: prismThemes.palenight, // nightowl
       additionalLanguages: ['rust', 'toml'],
     },
   } satisfies Preset.ThemeConfig,
