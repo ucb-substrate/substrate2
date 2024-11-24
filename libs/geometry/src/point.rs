@@ -89,12 +89,7 @@ impl TranslateMut for Point {
 
 impl TransformMut for Point {
     fn transform_mut(&mut self, trans: Transformation) {
-        let xf = self.x as f64;
-        let yf = self.y as f64;
-        let x = trans.a[0][0] * xf + trans.a[0][1] * yf + trans.b[0];
-        let y = trans.a[1][0] * xf + trans.a[1][1] * yf + trans.b[1];
-        self.x = x.round() as i64;
-        self.y = y.round() as i64;
+        *self = trans.mat * *self + trans.b;
     }
 }
 
@@ -145,6 +140,16 @@ impl std::ops::SubAssign<Point> for Point {
     fn sub_assign(&mut self, rhs: Point) {
         self.x -= rhs.x;
         self.y -= rhs.y;
+    }
+}
+
+impl std::ops::Neg for Point {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
