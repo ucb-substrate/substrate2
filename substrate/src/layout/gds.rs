@@ -9,7 +9,7 @@ use arcstr::ArcStr;
 use gds::{GdsUnits, HasLayer};
 use geometry::prelude::Polygon;
 use geometry::span::Span;
-use geometry::transform::Transformation;
+use geometry::transform::{Rotation, Transformation};
 use geometry::{
     prelude::{Corner, Orientation, Point},
     rect::Rect,
@@ -371,7 +371,7 @@ impl ExportGds for Orientation {
 
         Ok(gds::GdsStrans {
             reflected: self.reflect_vert(),
-            angle: Some(self.angle()),
+            angle: Some(self.angle().degrees()),
             ..Default::default()
         })
     }
@@ -911,8 +911,12 @@ impl<'a> GdsImporter<'a> {
             )));
         }
 
-        let orientation =
-            Orientation::from_reflect_and_angle(strans.reflected, strans.angle.unwrap_or_default());
+        let rotation = Rotation::try_from(strans.angle.unwrap_or_default()).map_err(|_| {
+            GdsImportError::Unsupported(arcstr::literal!(
+                "rotations must be in 90 degree increments"
+            ))
+        })?;
+        let orientation = Orientation::from_reflect_and_angle(strans.reflected, rotation);
         Ok(orientation)
     }
     /// Gets the [`LayerSpec`] for a GDS element implementing its [`gds::HasLayer`] trait.
