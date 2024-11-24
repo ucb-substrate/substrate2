@@ -2,7 +2,6 @@
 
 use std::hash::Hash;
 
-use approx::abs_diff_eq;
 use serde::{Deserialize, Serialize};
 
 use crate::transform::{Rotation, Transformation};

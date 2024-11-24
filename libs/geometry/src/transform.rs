@@ -326,6 +326,7 @@ impl Transformation {
     /// * (a) Reflect vertically, then
     /// * (b) Translate by (1,1)
     /// * (c) Place a point at (local coordinate) (1,1)
+    ///
     /// Lands said point at (2,-2) in top-level space,
     /// whereas reversing the order of (a) and (b) lands it at (2,0).
     pub fn cascade(parent: Transformation, child: Transformation) -> Transformation {
