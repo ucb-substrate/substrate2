@@ -7,10 +7,10 @@ use crate::layout::error::LayoutError;
 use crate::pdk::layers::{HasPin, LayerId};
 use arcstr::ArcStr;
 pub use codegen::LayoutType as HardwareType;
+use geometry::point::Point;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
-use geometry::transform;
-use geometry::transform::HasTransformedView;
+use geometry::transform::{self, TransformRef, TranslateRef};
 use geometry::union::BoundingUnion;
 use std::collections::HashMap;
 use substrate::layout::bbox::LayerBbox;
@@ -119,12 +119,12 @@ impl Bbox for PortGeometry {
     }
 }
 
-/// A type that can is a bundle of layout ports.
+/// A type that can be a bundle of layout ports.
 ///
 /// An instance of a [`HardwareType`].
-pub trait IsBundle: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+pub trait IsBundle: FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync {}
 
-impl<T> IsBundle for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+impl<T> IsBundle for T where T: FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync {}
 
 /// A layer ID that describes where the components of an [`IoShape`] are drawn.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -219,12 +219,19 @@ impl<T: Bbox> BoundingUnion<T> for IoShape {
     }
 }
 
-impl transform::HasTransformedView for IoShape {
-    type TransformedView = IoShape;
+impl TranslateRef for IoShape {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
+            shape: self.shape.translate_ref(p),
+            ..*self
+        }
+    }
+}
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        IoShape {
-            shape: self.shape.transformed_view(trans),
+impl TransformRef for IoShape {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            shape: self.shape.transform_ref(trans),
             ..*self
         }
     }
@@ -414,20 +421,29 @@ impl Flatten<PortGeometry> for PortGeometry {
     }
 }
 
-impl transform::HasTransformedView for PortGeometry {
-    type TransformedView = PortGeometry;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView {
-        Self::TransformedView {
-            primary: self.primary.transformed_view(trans),
-            unnamed_shapes: self.unnamed_shapes.transformed_view(trans),
+impl TranslateRef for PortGeometry {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
+            primary: self.primary.translate_ref(p),
+            unnamed_shapes: self.unnamed_shapes.translate_ref(p),
             named_shapes: self
                 .named_shapes
                 .iter()
-                .map(|(k, v)| (k.clone(), v.transformed_view(trans)))
+                .map(|(k, v)| (k.clone(), v.translate_ref(p)))
+                .collect(),
+        }
+    }
+}
+
+impl TransformRef for PortGeometry {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            primary: self.primary.transform_ref(trans),
+            unnamed_shapes: self.unnamed_shapes.transform_ref(trans),
+            named_shapes: self
+                .named_shapes
+                .iter()
+                .map(|(k, v)| (k.clone(), v.transform_ref(trans)))
                 .collect(),
         }
     }

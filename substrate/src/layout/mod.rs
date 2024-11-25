@@ -15,11 +15,10 @@ use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
 pub use codegen::{Layout, LayoutData};
 use examples::get_snippets;
 use geometry::prelude::Rect;
+use geometry::transform::{TransformRef, TranslateRef};
 use geometry::{
     prelude::{Bbox, Point},
-    transform::{
-        HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
-    },
+    transform::{Transform, TransformMut, Transformation, Translate, TranslateMut},
     union::BoundingUnion,
 };
 use once_cell::sync::OnceCell;
@@ -43,9 +42,9 @@ pub mod tracks;
 /// Data exported from a generated layout.
 ///
 /// Contained data is transformed with the containing instance
-/// according to its [`HasTransformedView`] implementation.
-pub trait LayoutData: HasTransformedView + Send + Sync {}
-impl<T: HasTransformedView + Send + Sync> LayoutData for T {}
+/// according to its [`TransformRef`] implementation.
+pub trait LayoutData: TransformRef + Send + Sync {}
+impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
 /// A block that exports data from its layout.
 ///
@@ -213,9 +212,9 @@ pub struct TransformedCell<T: ExportsLayoutData> {
     /// Block whose layout this cell represents.
     block: Arc<T>,
     /// Extra data created during layout generation.
-    data: Transformed<T::LayoutData>,
+    data: T::LayoutData,
     /// The geometry of the cell's IO.
-    io: Transformed<<T::Io as HardwareType>::Bundle>,
+    io: <T::Io as HardwareType>::Bundle,
     pub(crate) raw: Arc<RawCell>,
     pub(crate) trans: Transformation,
 }
@@ -227,19 +226,17 @@ impl<T: ExportsLayoutData> TransformedCell<T> {
     }
 
     /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&self) -> &Transformed<T::LayoutData> {
+    pub fn data(&self) -> &T::LayoutData {
         &self.data
     }
 }
 
-impl<T: ExportsLayoutData> HasTransformedView for Cell<T> {
-    type TransformedView = TransformedCell<T>;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        Self::TransformedView {
+impl<T: ExportsLayoutData> Cell<T> {
+    fn transformed_view(&self, trans: Transformation) -> TransformedCell<T> {
+        TransformedCell {
             block: self.block.clone(),
-            data: self.data.transformed_view(trans),
-            io: self.io.transformed_view(trans),
+            data: self.data.transform_ref(trans),
+            io: self.io.transform_ref(trans),
             raw: self.raw.clone(),
             trans,
         }
@@ -293,7 +290,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// consider using [`Instance::try_raw_cell`] instead.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<Transformed<Cell<T>>> {
+    pub fn try_cell(&self) -> Result<TransformedCell<T>> {
         self.cell
             .try_cell()
             .map(|cell| cell.transformed_view(self.trans))
@@ -310,7 +307,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> Transformed<Cell<T>> {
+    pub fn cell(&self) -> TransformedCell<T> {
         self.try_cell().expect("cell generation failed")
     }
 
@@ -347,7 +344,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<Transformed<T::LayoutData>> {
+    pub fn try_data(&self) -> Result<T::LayoutData> {
         Ok(self.try_cell()?.data)
     }
 
@@ -358,7 +355,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> Transformed<T::LayoutData> {
+    pub fn data(&self) -> T::LayoutData {
         self.cell().data
     }
 
@@ -372,7 +369,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<Transformed<<T::Io as HardwareType>::Bundle>> {
+    pub fn try_io(&self) -> Result<<T::Io as HardwareType>::Bundle> {
         Ok(self.try_cell()?.io)
     }
 
@@ -383,7 +380,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> Transformed<<T::Io as HardwareType>::Bundle> {
+    pub fn io(&self) -> <T::Io as HardwareType>::Bundle {
         self.cell().io
     }
 
@@ -417,10 +414,14 @@ impl<T: ExportsLayoutData> TransformMut for Instance<T> {
     }
 }
 
-impl<T: ExportsLayoutData> HasTransformedView for Instance<T> {
-    type TransformedView = Instance<T>;
+impl<T: ExportsLayoutData> TranslateRef for Instance<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.clone().translate(p)
+    }
+}
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+impl<T: ExportsLayoutData> TransformRef for Instance<T> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
         self.clone().transform(trans)
     }
 }

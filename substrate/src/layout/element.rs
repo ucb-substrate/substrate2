@@ -9,7 +9,8 @@ use geometry::{
     prelude::{Bbox, Point},
     rect::Rect,
     transform::{
-        HasTransformedView, Transform, TransformMut, Transformation, Transformed, TranslateMut,
+        Transform, TransformMut, TransformRef, Transformation, Translate, TranslateMut,
+        TranslateRef,
     },
     union::BoundingUnion,
 };
@@ -147,19 +148,34 @@ impl LayerBbox for RawCell {
     }
 }
 
-impl HasTransformedView for RawCell {
-    type TransformedView = RawCell;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        RawCell {
+impl TranslateRef for RawCell {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
             id: self.id,
             name: self.name.clone(),
-            elements: self.elements.transformed_view(trans),
-            blockages: self.blockages.transformed_view(trans),
+            elements: self.elements.translate_ref(p),
+            blockages: self.blockages.translate_ref(p),
             ports: self
                 .ports
                 .iter()
-                .map(|(k, v)| (k.clone(), v.transformed_view(trans)))
+                .map(|(k, v)| (k.clone(), v.translate_ref(p)))
+                .collect(),
+            port_names: self.port_names.clone(),
+        }
+    }
+}
+
+impl TransformRef for RawCell {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            elements: self.elements.transform_ref(trans),
+            blockages: self.blockages.transform_ref(trans),
+            ports: self
+                .ports
+                .iter()
+                .map(|(k, v)| (k.clone(), v.transform_ref(trans)))
                 .collect(),
             port_names: self.port_names.clone(),
         }
@@ -191,8 +207,8 @@ impl RawInstance {
     /// If you want coordinates in the child cell's coordinate system,
     /// consider using [`RawInstance::raw_cell`] instead.
     #[inline]
-    pub fn cell(&self) -> Transformed<RawCell> {
-        self.cell.transformed_view(self.trans)
+    pub fn cell(&self) -> RawCell {
+        self.cell.transform_ref(self.trans)
     }
 
     /// Returns a raw reference to the child cell.
@@ -250,10 +266,14 @@ impl TransformMut for RawInstance {
     }
 }
 
-impl HasTransformedView for RawInstance {
-    type TransformedView = RawInstance;
+impl TranslateRef for RawInstance {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.clone().translate(p)
+    }
+}
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+impl TransformRef for RawInstance {
+    fn transform_ref(&self, trans: Transformation) -> Self {
         self.clone().transform(trans)
     }
 }
@@ -310,13 +330,20 @@ impl<T: Bbox> BoundingUnion<T> for Shape {
     }
 }
 
-impl HasTransformedView for Shape {
-    type TransformedView = Shape;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+impl TransformRef for Shape {
+    fn transform_ref(&self, trans: Transformation) -> Self {
         Shape {
             layer: self.layer,
-            shape: self.shape.transformed_view(trans),
+            shape: self.shape.transform_ref(trans),
+        }
+    }
+}
+
+impl TranslateRef for Shape {
+    fn translate_ref(&self, p: Point) -> Self {
+        Shape {
+            layer: self.layer,
+            shape: self.shape.translate_ref(p),
         }
     }
 }
@@ -370,10 +397,14 @@ impl Text {
     }
 }
 
-impl HasTransformedView for Text {
-    type TransformedView = Text;
+impl TranslateRef for Text {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.clone().translate(p)
+    }
+}
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+impl TransformRef for Text {
+    fn transform_ref(&self, trans: Transformation) -> Self {
         self.clone().transform(trans)
     }
 }
@@ -527,10 +558,14 @@ impl From<Text> for Element {
     }
 }
 
-impl HasTransformedView for Element {
-    type TransformedView = Element;
+impl TranslateRef for Element {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.clone().translate(p)
+    }
+}
 
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
+impl TransformRef for Element {
+    fn transform_ref(&self, trans: Transformation) -> Self {
         self.clone().transform(trans)
     }
 }

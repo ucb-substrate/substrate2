@@ -7,7 +7,9 @@ use crate::dims::Dims;
 use crate::dir::Dir;
 use crate::prelude::Transform;
 use crate::snap::snap_to_grid;
-use crate::transform::{HasTransformedView, TransformMut, Transformation, TranslateMut};
+use crate::transform::{
+    TransformMut, TransformRef, Transformation, Translate, TranslateMut, TranslateRef,
+};
 
 /// A point in two-dimensional space.
 #[derive(
@@ -80,6 +82,12 @@ impl Point {
     }
 }
 
+impl TranslateRef for Point {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.translate(p)
+    }
+}
+
 impl TranslateMut for Point {
     fn translate_mut(&mut self, p: Point) {
         self.x += p.x;
@@ -87,17 +95,15 @@ impl TranslateMut for Point {
     }
 }
 
-impl TransformMut for Point {
-    fn transform_mut(&mut self, trans: Transformation) {
-        *self = trans.mat * *self + trans.b;
+impl TransformRef for Point {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.transform(trans)
     }
 }
 
-impl HasTransformedView for Point {
-    type TransformedView = Point;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        self.transform(trans)
+impl TransformMut for Point {
+    fn transform_mut(&mut self, trans: Transformation) {
+        *self = trans.mat * *self + trans.b;
     }
 }
 
