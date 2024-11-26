@@ -4,6 +4,41 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/spice-v0.7.1...spice-v0.8.0) (2024-11-26)
+
+
+### Features
+
+* **bjt:** add support for BJTs ([#432](https://github.com/ucb-substrate/substrate2/issues/432)) ([e0c4516](https://github.com/ucb-substrate/substrate2/commit/e0c45162da072ea21567b8e23d11dce36b4cff17))
+* **cdl2spice:** add CDL to SPICE conversion command line tool ([#420](https://github.com/ucb-substrate/substrate2/issues/420)) ([1edb23a](https://github.com/ucb-substrate/substrate2/commit/1edb23a7bbd45d96bbb1c11418eb0d0843b7138b))
+* **cdl:** add CDL parser ([#419](https://github.com/ucb-substrate/substrate2/issues/419)) ([23f0dab](https://github.com/ucb-substrate/substrate2/commit/23f0dab7b7a94cbe8960371b89d15211bddf51da))
+* **conv:** better error messages in schema conversions ([#440](https://github.com/ucb-substrate/substrate2/issues/440)) ([bad9503](https://github.com/ucb-substrate/substrate2/commit/bad9503b8a3b98d8e0bc19779ed45e7628164f41))
+* **dspf:** propagate nested nodes from DSPF instances ([#407](https://github.com/ucb-substrate/substrate2/issues/407)) ([8455bd2](https://github.com/ucb-substrate/substrate2/commit/8455bd2a523bb872dc1ce3fc0e89a185108dca3c))
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **parser:** add support for 2-terminal diodes ([b74afa1](https://github.com/ucb-substrate/substrate2/commit/b74afa1118cbb37f6865eb8d472218658ee6f1b4))
+* **parser:** be able to parse PEX netlists ([#363](https://github.com/ucb-substrate/substrate2/issues/363)) ([2e2f8ac](https://github.com/ucb-substrate/substrate2/commit/2e2f8ac229434fc0c03fce9e9f3ca1d0915b3469))
+* **parser:** parse negative numbers and exponents ([#364](https://github.com/ucb-substrate/substrate2/issues/364)) ([53c01f6](https://github.com/ucb-substrate/substrate2/commit/53c01f60177d3d50e0302e24873be3e29f55aaa3))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+* **scir:** expose port directions, update docs ([#426](https://github.com/ucb-substrate/substrate2/issues/426)) ([fd883b7](https://github.com/ucb-substrate/substrate2/commit/fd883b7ca803f7b45d4736a7b4b460e602b84704))
+* **spice:** add `RawInstanceWithCell` primitive ([#384](https://github.com/ucb-substrate/substrate2/issues/384)) ([847d76b](https://github.com/ucb-substrate/substrate2/commit/847d76b2a92265faf7b8bbd079f126d1b1ba4802))
+
+
+### Bug Fixes
+
+* **cdl:** CDL parser ignores slashes ([#423](https://github.com/ucb-substrate/substrate2/issues/423)) ([e2b259f](https://github.com/ucb-substrate/substrate2/commit/e2b259f040913df5d73a81f778be43b716a4bbfc))
+* **parser:** fix bug in SPICE exponent parser ([#366](https://github.com/ucb-substrate/substrate2/issues/366)) ([4ced97a](https://github.com/ucb-substrate/substrate2/commit/4ced97a660f166837ec6f1468bc5f363a7b1a3ba))
+* **scir:** add additional functionality for SCIR and SPICE libraries ([#337](https://github.com/ucb-substrate/substrate2/issues/337)) ([e49f075](https://github.com/ucb-substrate/substrate2/commit/e49f07529273c38cc8ec9ae1a5020ae48fb2a202))
+* **simulation:** add missing SPICE functionality and update Sky 130 PDK ([#336](https://github.com/ucb-substrate/substrate2/issues/336)) ([f802be5](https://github.com/ucb-substrate/substrate2/commit/f802be5bf0361c38b415d976dbb0f2c984a2e304))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.7.0 to 0.8.0
+    * substrate bumped from 0.8.1 to 0.9.0
+    * enumify bumped from 0.1.0 to 0.1.1
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/spice-v0.6.0...spice-v0.7.0) (2023-11-25)
 
 
