@@ -346,7 +346,11 @@ impl Transformation {
 
     /// Returns an [`Orientation`] corresponding to this transformation.
     pub fn orientation(&self) -> Orientation {
-        let reflect_vert = self.mat[0][0].signum() != self.mat[1][1].signum();
+        let reflect_vert = if self.mat[0][0] == 0 {
+            self.mat[0][1].signum() == self.mat[1][0].signum()
+        } else {
+            self.mat[0][0].signum() != self.mat[1][1].signum()
+        };
         let cos = self.mat[0][0];
         let sin = self.mat[1][0];
         let angle = match (cos, sin) {
@@ -368,15 +372,16 @@ impl Transformation {
     ///
     /// ```
     /// use geometry::transform::Transformation;
-    /// use approx::assert_relative_eq;
+    /// use geometry::transform::Rotation;
     ///
     /// let trans = Transformation::cascade(
-    ///     Transformation::rotate(90),
-    ///     Transformation::translate(5., 10),
+    ///     Transformation::rotate(Rotation::R90),
+    ///     Transformation::translate(5, 10),
     /// );
     /// let inv = trans.inv();
     ///
-    /// assert_relative_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_eq!(Transformation::cascade(trans, inv), Transformation::identity());
     /// ```
     pub fn inv(&self) -> Transformation {
         let inv = self.mat.inverse();
