@@ -384,21 +384,19 @@ impl ExportGds for Point {
         let span = span!(Level::INFO, "point", point = ?self);
         let _guard = span.enter();
 
-        let x = self.x.try_into().map_err(|e| {
+        let x = self.x.try_into().inspect_err(|_| {
             tracing::event!(
                 Level::ERROR,
                 "failed to convert coordinate to i32: {}",
                 self.x
             );
-            e
         })?;
-        let y = self.y.try_into().map_err(|e| {
+        let y = self.y.try_into().inspect_err(|_| {
             tracing::event!(
                 Level::ERROR,
                 "failed to convert coordinate to i32: {}",
                 self.x
             );
-            e
         })?;
         Ok(gds::GdsPoint::new(x, y))
     }
@@ -524,7 +522,7 @@ impl<'a> GdsImporter<'a> {
     fn import_and_add(&mut self, strukt: &gds::GdsStruct) -> GdsImportResult<Arc<RawCell>> {
         let name = &strukt.name;
         // Check whether we're already defined, and bail if so
-        if self.cells.get(name).is_some() {
+        if self.cells.contains_key(name) {
             return Err(GdsImportError::DuplicateCell(name.clone()));
         }
 
