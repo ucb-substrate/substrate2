@@ -480,7 +480,7 @@ impl<T: TransformRef> TransformRef for Option<T> {
 
 /// A trait for specifying how an object is changed by a [`Transformation`].
 #[impl_for_tuples(32)]
-pub trait TransformMut {
+pub trait TransformMut: TranslateMut {
     /// Applies matrix-vector [`Transformation`] `trans`.
     fn transform_mut(&mut self, trans: Transformation);
 }
@@ -504,7 +504,7 @@ impl<T: TransformMut> TransformMut for Option<T> {
 /// A trait for specifying how an object is changed by a [`Transformation`].
 ///
 /// Takes in an owned copy of the shape and returns the transformed version.
-pub trait Transform: TransformMut + Sized {
+pub trait Transform: Translate + TransformMut + Sized {
     /// Applies matrix-vector [`Transformation`] `trans`.
     ///
     /// Creates a new shape at a location equal to the transformation of the original.

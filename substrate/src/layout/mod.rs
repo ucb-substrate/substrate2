@@ -110,14 +110,13 @@ impl LayoutContext {
 /// # Examples
 ///
 #[doc = get_snippets!("core", "generate")]
-#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Cell<T: ExportsLayoutData> {
     /// Block whose layout this cell represents.
     block: Arc<T>,
     /// Extra data created during layout generation.
     data: T::LayoutData,
-    pub(crate) io: Arc<<T::Io as HardwareType>::Bundle>,
+    pub(crate) io: <T::Io as HardwareType>::Bundle,
     pub(crate) raw: Arc<RawCell>,
 }
 
@@ -125,7 +124,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
         data: T::LayoutData,
-        io: Arc<<T::Io as HardwareType>::Bundle>,
+        io: <T::Io as HardwareType>::Bundle,
         raw: Arc<RawCell>,
     ) -> Self {
         Self {
@@ -148,7 +147,7 @@ impl<T: ExportsLayoutData> Cell<T> {
 
     /// Returns the geometry of the cell's IO.
     pub fn io(&self) -> &<T::Io as HardwareType>::Bundle {
-        self.io.as_ref()
+        &self.io
     }
 
     /// The raw layout geometry contained by this cell.
@@ -207,51 +206,25 @@ impl<T: ExportsLayoutData> CellHandle<T> {
     }
 }
 
-/// A transformed view of a cell, usually created by accessing the cell of an instance.
-pub struct TransformedCell<T: ExportsLayoutData> {
-    /// Block whose layout this cell represents.
-    block: Arc<T>,
-    /// Extra data created during layout generation.
-    data: T::LayoutData,
-    /// The geometry of the cell's IO.
-    io: <T::Io as HardwareType>::Bundle,
-    pub(crate) raw: Arc<RawCell>,
-    pub(crate) trans: Transformation,
-}
-
-impl<T: ExportsLayoutData> TransformedCell<T> {
-    /// Returns the block whose layout this cell represents.
-    pub fn block(&self) -> &T {
-        &self.block
-    }
-
-    /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&self) -> &T::LayoutData {
-        &self.data
-    }
-}
-
-impl<T: ExportsLayoutData> Cell<T> {
-    fn transformed_view(&self, trans: Transformation) -> TransformedCell<T> {
-        TransformedCell {
+impl<T: ExportsLayoutData> TranslateRef for Cell<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
             block: self.block.clone(),
-            data: self.data.transform_ref(trans),
-            io: self.io.transform_ref(trans),
+            data: self.data.translate_ref(p),
+            io: self.io.translate_ref(p),
             raw: self.raw.clone(),
-            trans,
         }
     }
 }
 
-impl<T: ExportsLayoutData> Bbox for TransformedCell<T> {
-    fn bbox(&self) -> Option<geometry::rect::Rect> {
-        self.raw.bbox().transform(self.trans)
-    }
-}
-
-impl<T: ExportsLayoutData> LayerBbox for TransformedCell<T> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
-        self.raw.layer_bbox(layer).transform(self.trans)
+impl<T: ExportsLayoutData> TransformRef for Cell<T> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            block: self.block.clone(),
+            data: self.data.transform_ref(trans),
+            io: self.io.transform_ref(trans),
+            raw: self.raw.clone(),
+        }
     }
 }
 
@@ -290,10 +263,10 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// consider using [`Instance::try_raw_cell`] instead.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<TransformedCell<T>> {
+    pub fn try_cell(&self) -> Result<Cell<T>> {
         self.cell
             .try_cell()
-            .map(|cell| cell.transformed_view(self.trans))
+            .map(|cell| cell.transform_ref(self.trans))
     }
 
     /// Returns a transformed view of the underlying [`Cell`].
@@ -307,7 +280,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> TransformedCell<T> {
+    pub fn cell(&self) -> Cell<T> {
         self.try_cell().expect("cell generation failed")
     }
 
