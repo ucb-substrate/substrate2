@@ -656,7 +656,6 @@ where
     }
 }
 
-// TODO: Maybe do lazy translation here.
 impl<T: TranslateRef> TranslateRef for ArrayData<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
@@ -670,7 +669,6 @@ impl<T: TranslateRef> TranslateRef for ArrayData<T> {
     }
 }
 
-// TODO: Maybe do lazy transformation here.
 impl<T: TransformRef> TransformRef for ArrayData<T> {
     fn transform_ref(&self, trans: geometry::prelude::Transformation) -> Self {
         Self {
