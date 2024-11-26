@@ -9,9 +9,11 @@ use std::{
 };
 
 use crate::{
-    error::ArcResult, mem::NamespaceCache, persistent::client::Client, run_generator, CacheHandle,
-    CacheHandleInner, CacheValueHolder, Cacheable, CacheableWithState, GenerateFn,
-    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
+    error::{ArcResult, Error},
+    mem::NamespaceCache,
+    persistent::client::Client,
+    run_generator, CacheHandle, CacheHandleInner, CacheValueHolder, GenerateFn, GenerateResultFn,
+    Namespace,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -131,31 +133,9 @@ impl MultiCache {
         &mut self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) -> CacheHandle<V> {
         CacheHandle::from_inner(Arc::new(self.generate_inner(namespace, key, generate_fn)))
-    }
-
-    /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
-    /// to generate it if it has not already been generated.
-    ///
-    /// Returns a handle to the value. If the value is not yet generated, it is generated
-    /// in the background.
-    ///
-    /// See [`Client::generate_with_state`] and [`NamespaceCache::generate_with_state`] for related examples.
-    pub fn generate_with_state<
-        K: Serialize + Send + Sync + Any,
-        S: Send + Sync + Any,
-        V: Serialize + DeserializeOwned + Send + Sync + Any,
-    >(
-        &mut self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-        generate_fn: impl GenerateWithStateFn<K, S, V>,
-    ) -> CacheHandle<V> {
-        let namespace = namespace.into();
-        self.generate(namespace, key, move |k| generate_fn(k, state))
     }
 
     /// Ensures that a result corresponding to `key` is generated, using `generate_fn`
@@ -176,116 +156,13 @@ impl MultiCache {
         &mut self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateResultFn<K, V, E>,
+        generate_fn: impl GenerateResultFn<V, E>,
     ) -> CacheHandle<Result<V, E>> {
         CacheHandle::from_inner(Arc::new(self.generate_result_inner(
             namespace,
             key,
             generate_fn,
         )))
-    }
-
-    /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
-    /// to generate it if it has not already been generated.
-    ///
-    /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
-    /// As such, failures should happen quickly, or should be serializable and stored as part of
-    /// cached value using [`MultiCache::generate_with_state`].
-    ///
-    /// Returns a handle to the value. If the value is not yet generated, it is generated
-    /// in the background.
-    ///
-    /// See [`Client::generate_result_with_state`] and
-    /// [`NamespaceCache::generate_result_with_state`] for related examples.
-    pub fn generate_result_with_state<
-        K: Serialize + Send + Sync + Any,
-        S: Send + Sync + Any,
-        V: Serialize + DeserializeOwned + Send + Sync + Any,
-        E: Send + Sync + Any,
-    >(
-        &mut self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-        generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
-    ) -> CacheHandle<Result<V, E>> {
-        let namespace = namespace.into();
-        self.generate_result(namespace, key, move |k| generate_fn(k, state))
-    }
-
-    /// Gets a handle to a cacheable object from the cache, generating the object in the background
-    /// if needed.
-    ///
-    /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
-    /// to be cached should be included in the cached output or should be cached using
-    /// [`MultiCache::get_with_err`].
-    ///
-    /// See [`Client::get`] and [`NamespaceCache::get`] for related examples.
-    pub fn get<K: Cacheable>(
-        &mut self,
-        namespace: impl Into<Namespace>,
-        key: K,
-    ) -> CacheHandle<Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate_result(namespace, key, |key| key.generate())
-    }
-
-    /// Gets a handle to a cacheable object from the cache, caching failures as well.
-    ///
-    /// Generates the object in the background if needed.
-    ///
-    /// See [`Client::get_with_err`] and [`NamespaceCache::get_with_err`] for related examples.
-    pub fn get_with_err<
-        E: Send + Sync + Serialize + DeserializeOwned + Any,
-        K: Cacheable<Error = E>,
-    >(
-        &mut self,
-        namespace: impl Into<Namespace>,
-        key: K,
-    ) -> CacheHandle<Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate(namespace, key, |key| key.generate())
-    }
-
-    /// Gets a handle to a cacheable object from the cache, generating the object in the background
-    /// if needed.
-    ///
-    /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
-    /// to be cached should be included in the cached output or should be cached using
-    /// [`MultiCache::get_with_state_and_err`].
-    ///
-    /// See [`Client::get_with_state`] and [`NamespaceCache::get_with_state`] for related examples.
-    pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
-        &mut self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-    ) -> CacheHandle<Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate_result_with_state(namespace, key, state, |key, state| {
-            key.generate_with_state(state)
-        })
-    }
-
-    /// Gets a handle to a cacheable object from the cache, caching failures as well.
-    ///
-    /// Generates the object in the background if needed.
-    ///
-    /// See [`MultiCache::get_with_err`] and [`MultiCache::get_with_state`] for related examples.
-    pub fn get_with_state_and_err<
-        S: Send + Sync + Any,
-        E: Send + Sync + Serialize + DeserializeOwned + Any,
-        K: CacheableWithState<S, Error = E>,
-    >(
-        &mut self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-    ) -> CacheHandle<Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate_with_state(namespace, key, state, |key, state| {
-            key.generate_with_state(state)
-        })
     }
 
     /// Dispatches the provided generate_fn to a cache provider, attempting to recover the cached value in
@@ -302,7 +179,7 @@ impl MultiCache {
         let handle = generate_fn(cache, namespace, key, has_value_s.clone(), value_r);
 
         let handle_clone = handle.clone();
-        std::thread::spawn(move || {
+        rayon::spawn(move || {
             let _ = handle_clone.try_get();
             let _ = has_value_s.send(Some(handle_clone));
         });
@@ -321,7 +198,7 @@ impl MultiCache {
         &mut self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) -> CacheHandleInner<V> {
         let namespace = namespace.into();
         self.generate_inner_dispatch(
@@ -329,13 +206,13 @@ impl MultiCache {
             key,
             generate_fn,
             |cache, namespace, key, has_value_s, value_r| {
-                cache.generate_inner(namespace, key, move |_| {
+                cache.generate_inner(namespace, key, move || {
                     let _ = has_value_s.send(None);
                     value_r.recv().unwrap()
                 })
             },
             |cache, namespace, key, has_value_s, value_r| {
-                cache.generate_inner(namespace, key, move |_| {
+                cache.generate_inner(namespace, key, move || {
                     let _ = has_value_s.send(None);
                     // Panics if no value is provided. Clients do not cache generator panics.
                     value_r.recv().unwrap().unwrap()
@@ -354,7 +231,7 @@ impl MultiCache {
         &mut self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateResultFn<K, V, E>,
+        generate_fn: impl GenerateResultFn<V, E>,
     ) -> CacheHandleInner<Result<V, E>> {
         let namespace = namespace.into();
         self.generate_inner_dispatch(
@@ -362,13 +239,13 @@ impl MultiCache {
             key,
             generate_fn,
             |cache, namespace, key, has_value_s, value_r| {
-                cache.generate_result_inner(namespace, key, move |_| {
+                cache.generate_result_inner(namespace, key, move || {
                     let _ = has_value_s.send(None);
                     value_r.recv().unwrap()
                 })
             },
             |cache, namespace, key, has_value_s, value_r| {
-                cache.generate_result_inner(namespace, key, move |_| {
+                cache.generate_result_inner(namespace, key, move || {
                     let _ = has_value_s.send(None);
                     // Panics if no value is provided. Clients do not cache generator panics.
                     value_r.recv().unwrap().unwrap()
@@ -384,7 +261,7 @@ impl MultiCache {
         &mut self,
         namespace: Namespace,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
         namespace_generate: impl MultiGenerateFn<NamespaceCache, K, V, V>,
         client_generate: impl MultiGenerateFn<Client, K, V, Option<V>>,
         recover_value: impl FnOnce(ArcResult<&V>) -> Option<V> + Send + Any,
@@ -419,7 +296,7 @@ impl MultiCache {
         let handle_clone = handle.clone();
 
         tracing::debug!("spawning thread to aggregate results");
-        std::thread::spawn(move || {
+        rayon::spawn(move || {
             let mut retrieved_value: Option<V> = None;
             for (i, has_value_r) in mem_handle
                 .iter()
@@ -441,7 +318,7 @@ impl MultiCache {
 
             let value = retrieved_value.map(Ok).unwrap_or_else(|| {
                 tracing::debug!("did not receive a value, generating now");
-                run_generator(move || generate_fn(key.as_ref()))
+                run_generator(generate_fn)
             });
 
             if let Ok(value) = value.as_ref() {

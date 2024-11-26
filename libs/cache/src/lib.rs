@@ -7,13 +7,14 @@
 
 use std::fmt::Formatter;
 use std::ops::Deref;
-use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc, thread};
+use std::panic::AssertUnwindSafe;
+use std::{any::Any, fmt::Debug, hash::Hash, sync::Arc};
 
 use error::{ArcResult, Error, TryInnerError};
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 use regex::Regex;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod error;
@@ -36,30 +37,12 @@ pub trait ValueMapFn<V1, V2>: Fn(ArcResult<&V1>) -> ArcResult<V2> + Send + Sync 
 impl<V1, V2, T: Fn(ArcResult<&V1>) -> ArcResult<V2> + Send + Sync + Any> ValueMapFn<V1, V2> for T {}
 
 /// A function that can be used to generate a value in a background thread.
-pub trait RawGenerateFn<V>: FnOnce() -> V + Send + Any {}
-impl<V, T: FnOnce() -> V + Send + Any> RawGenerateFn<V> for T {}
+pub trait GenerateFn<V>: FnOnce() -> V + Send + Any {}
+impl<V, T: FnOnce() -> V + Send + Any> GenerateFn<V> for T {}
 
-/// A function that can be used to generate a value based on a key in a background thread.
-pub trait GenerateFn<K, V>: FnOnce(&K) -> V + Send + Any {}
-impl<K, V, T: FnOnce(&K) -> V + Send + Any> GenerateFn<K, V> for T {}
-
-/// A stateful function that can be used to generate a value based on a key in a background thread.
-pub trait GenerateWithStateFn<K, S, V>: FnOnce(&K, S) -> V + Send + Any {}
-impl<K, S, V, T: FnOnce(&K, S) -> V + Send + Any> GenerateWithStateFn<K, S, V> for T {}
-
-/// A function that can be used to generate a result based on a key in a background thread.
-pub trait GenerateResultFn<K, V, E>: FnOnce(&K) -> Result<V, E> + Send + Any {}
-impl<K, V, E, T: FnOnce(&K) -> Result<V, E> + Send + Any> GenerateResultFn<K, V, E> for T {}
-
-/// A stateful function that can be used to generate a result based on a key in a background thread.
-pub trait GenerateResultWithStateFn<K, S, V, E>:
-    FnOnce(&K, S) -> Result<V, E> + Send + Any
-{
-}
-impl<K, S, V, E, T: FnOnce(&K, S) -> Result<V, E> + Send + Any>
-    GenerateResultWithStateFn<K, S, V, E> for T
-{
-}
+/// A function that can be used to generate a result in a background thread.
+pub trait GenerateResultFn<V, E>: FnOnce() -> Result<V, E> + Send + Any {}
+impl<V, E, T: FnOnce() -> Result<V, E> + Send + Any> GenerateResultFn<V, E> for T {}
 
 /// A namespace used for addressing a set of cached items.
 ///
@@ -112,123 +95,6 @@ impl Deref for Namespace {
 impl AsRef<str> for Namespace {
     fn as_ref(&self) -> &str {
         &self.0
-    }
-}
-
-/// A cacheable object.
-///
-/// # Examples
-///
-/// ```
-/// use cache::Cacheable;
-/// use serde::{Deserialize, Serialize};
-///
-/// #[derive(Deserialize, Serialize, Hash, Eq, PartialEq)]
-/// pub struct Params {
-///     param1: u64,
-///     param2: String,
-/// };
-///
-/// impl Cacheable for Params {
-///     type Output = u64;
-///     type Error = anyhow::Error;
-///
-///     fn generate(&self) -> anyhow::Result<u64> {
-///         println!("Executing an expensive computation...");
-///
-///         // ...
-///         # let error_condition = true;
-///         # let computation_result = 64;
-///
-///         if error_condition {
-///             anyhow::bail!("an error occured during computation");
-///         }
-///
-///         Ok(computation_result)
-///     }
-/// }
-/// ```
-pub trait Cacheable: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
-    /// The output produced by generating the object.
-    type Output: Send + Sync + Serialize + DeserializeOwned;
-    /// The error type returned by [`Cacheable::generate`].
-    type Error: Send + Sync;
-
-    /// Generates the output of the cacheable object.
-    fn generate(&self) -> std::result::Result<Self::Output, Self::Error>;
-}
-
-impl<T: Cacheable> Cacheable for Arc<T> {
-    type Output = T::Output;
-    type Error = T::Error;
-
-    fn generate(&self) -> std::result::Result<Self::Output, Self::Error> {
-        <T as Cacheable>::generate(self)
-    }
-}
-
-/// A cacheable object whose generator needs to store state.
-///
-/// # Examples
-///
-/// ```
-/// use std::sync::{Arc, Mutex};
-/// use cache::CacheableWithState;
-/// use serde::{Deserialize, Serialize};
-///
-/// #[derive(Deserialize, Serialize, Clone, Hash, Eq, PartialEq)]
-/// pub struct Params {
-///     param1: u64,
-///     param2: String,
-/// };
-///
-/// #[derive(Clone)]
-/// pub struct Log(Arc<Mutex<Vec<Params>>>);
-///
-/// impl CacheableWithState<Log> for Params {
-///     type Output = u64;
-///     type Error = anyhow::Error;
-///
-///     fn generate_with_state(&self, state: Log) -> anyhow::Result<u64> {
-///         println!("Logging parameters...");
-///         state.0.lock().unwrap().push(self.clone());
-///
-///         println!("Executing an expensive computation...");
-///
-///         // ...
-///         # let error_condition = true;
-///         # let computation_result = 64;
-///
-///         if error_condition {
-///             anyhow::bail!("an error occured during computation");
-///         }
-///
-///         Ok(computation_result)
-///     }
-/// }
-/// ```
-pub trait CacheableWithState<S: Send + Sync + Any>:
-    Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any
-{
-    /// The output produced by generating the object.
-    type Output: Send + Sync + Serialize + DeserializeOwned;
-    /// The error type returned by [`CacheableWithState::generate_with_state`].
-    type Error: Send + Sync;
-
-    /// Generates the output of the cacheable object using `state`.
-    ///
-    /// **Note:** The state is not used to determine whether the object should be regenerated. As
-    /// such, it should not impact the output of this function but rather should only be used to
-    /// store collateral or reuse computation from other function calls.
-    fn generate_with_state(&self, state: S) -> std::result::Result<Self::Output, Self::Error>;
-}
-
-impl<S: Send + Sync + Any, T: CacheableWithState<S>> CacheableWithState<S> for Arc<T> {
-    type Output = T::Output;
-    type Error = T::Error;
-
-    fn generate_with_state(&self, state: S) -> std::result::Result<Self::Output, Self::Error> {
-        <T as CacheableWithState<S>>::generate_with_state(self, state)
     }
 }
 
@@ -308,7 +174,7 @@ impl<V: Any + Send + Sync> CacheHandle<V> {
     }
 
     /// Creates a new cache handle, generating its value immediately.
-    pub(crate) fn new_blocking(generate_fn: impl RawGenerateFn<V>) -> Self {
+    pub(crate) fn new_blocking(generate_fn: impl GenerateFn<V>) -> Self {
         let (handle, inner) = Self::empty();
         inner.set(run_generator(generate_fn));
         handle
@@ -316,11 +182,9 @@ impl<V: Any + Send + Sync> CacheHandle<V> {
 
     /// Creates a new cache handle, spawning a thread to generate its value using the provided
     /// function.
-    pub(crate) fn new(generate_fn: impl RawGenerateFn<V>) -> Self {
+    pub(crate) fn new(generate_fn: impl GenerateFn<V>) -> Self {
         let (handle, inner) = Self::empty();
-        thread::spawn(move || {
-            inner.set(run_generator(generate_fn));
-        });
+        rayon::spawn(move || inner.set(run_generator(generate_fn)));
         handle
     }
 
@@ -473,10 +337,7 @@ pub(crate) fn hash(val: &[u8]) -> Vec<u8> {
     hasher.finalize()[..].into()
 }
 
-/// Runs the provided generator in a new thread, returning the result.
-pub(crate) fn run_generator<V: Any + Send + Sync>(
-    generate_fn: impl FnOnce() -> V + Send + Any,
-) -> ArcResult<V> {
-    let join_handle = thread::spawn(generate_fn);
-    join_handle.join().map_err(|_| Arc::new(Error::Panic))
+// TODO: Decide if this is OK. Seems like the `rayon` source code does this too.
+pub(crate) fn run_generator<V>(generate_fn: impl GenerateFn<V>) -> ArcResult<V> {
+    std::panic::catch_unwind(AssertUnwindSafe(generate_fn)).map_err(|_| Arc::new(Error::Panic))
 }

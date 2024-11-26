@@ -25,8 +25,7 @@ use crate::{
         local::{self, local_cache_client},
         remote::{self, remote_cache_client},
     },
-    run_generator, CacheHandle, CacheHandleInner, Cacheable, CacheableWithState, GenerateFn,
-    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
+    run_generator, CacheHandle, CacheHandleInner, GenerateFn, GenerateResultFn, Namespace,
 };
 
 use super::server::Server;
@@ -255,7 +254,7 @@ impl Client {
     /// # Examples
     ///
     /// ```
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
+    /// use cache::{persistent::client::{Client, ClientKind}, error::Error};
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
@@ -276,7 +275,7 @@ impl Client {
         &self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) -> CacheHandle<V> {
         CacheHandle::from_inner(Arc::new(self.generate_inner(namespace, key, generate_fn)))
     }
@@ -288,7 +287,7 @@ impl Client {
         &self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) -> CacheHandleInner<V> {
         let namespace = namespace.into();
         let state = Client::setup_generate(namespace, key);
@@ -300,57 +299,6 @@ impl Client {
         }
 
         handle
-    }
-
-    /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
-    /// to generate it if it has not already been generated.
-    ///
-    /// Returns a handle to the value. If the value is not yet generated, it is generated
-    /// in the background.
-    ///
-    /// For more detailed examples, refer to
-    /// [`NamespaceCache::generate_with_state`](crate::mem::NamespaceCache::generate_with_state).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::sync::{Arc, Mutex};
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
-    ///
-    /// #[derive(Clone)]
-    /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
-    ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
-    /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
-    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_with_state").unwrap();
-    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
-    ///
-    /// fn generate_fn(tuple: &(u64, u64), state: Log) -> u64 {
-    ///     println!("Logging parameters...");
-    ///     state.0.lock().unwrap().push(*tuple);
-    ///     tuple.0 + tuple.1
-    /// }
-    ///
-    /// let handle = client.generate_with_state(
-    ///     "example.namespace", (5, 6), log.clone(), generate_fn
-    /// );
-    /// assert_eq!(*handle.get(), 11);
-    /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 6)]);
-    /// ```
-    pub fn generate_with_state<
-        K: Serialize + Send + Sync + Any,
-        V: Serialize + DeserializeOwned + Send + Sync + Any,
-        S: Send + Sync + Any,
-    >(
-        &self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-        generate_fn: impl GenerateWithStateFn<K, S, V>,
-    ) -> CacheHandle<V> {
-        let namespace = namespace.into();
-        self.generate(namespace, key, move |k| generate_fn(k, state))
     }
 
     /// Ensures that a result corresponding to `key` is generated, using `generate_fn`
@@ -369,7 +317,7 @@ impl Client {
     /// # Examples
     ///
     /// ```
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
+    /// use cache::{persistent::client::{Client, ClientKind}, error::Error};
     ///
     /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
     /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
@@ -395,7 +343,7 @@ impl Client {
         &self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateResultFn<K, V, E>,
+        generate_fn: impl GenerateResultFn<V, E>,
     ) -> CacheHandle<std::result::Result<V, E>> {
         CacheHandle::from_inner(Arc::new(self.generate_result_inner(
             namespace,
@@ -412,7 +360,7 @@ impl Client {
         &self,
         namespace: impl Into<Namespace>,
         key: K,
-        generate_fn: impl GenerateResultFn<K, V, E>,
+        generate_fn: impl GenerateResultFn<V, E>,
     ) -> CacheHandleInner<std::result::Result<V, E>> {
         let namespace = namespace.into();
         let state = Client::setup_generate(namespace, key);
@@ -429,252 +377,6 @@ impl Client {
         }
 
         handle
-    }
-
-    /// Ensures that a value corresponding to `key` is generated, using `generate_fn`
-    /// to generate it if it has not already been generated.
-    ///
-    /// Does not cache on failure as errors are not constrained to be serializable/deserializable.
-    /// As such, failures should happen quickly, or should be serializable and stored as part of
-    /// cached value using [`Client::generate_with_state`].
-    ///
-    /// Returns a handle to the value. If the value is not yet generated, it is generated
-    /// in the background.
-    ///
-    /// For more detailed examples, refer to
-    /// [`NamespaceCache::generate_result_with_state`](crate::mem::NamespaceCache::generate_result_with_state).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::sync::{Arc, Mutex};
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
-    ///
-    /// #[derive(Clone)]
-    /// pub struct Log(Arc<Mutex<Vec<(u64, u64)>>>);
-    ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
-    /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
-    /// # let (root, _, runtime) = setup_test("persistent_client_Client_generate_result_with_state").unwrap();
-    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
-    ///
-    /// fn generate_fn(tuple: &(u64, u64), state: Log) -> anyhow::Result<u64> {
-    ///     println!("Logging parameters...");
-    ///     state.0.lock().unwrap().push(*tuple);
-    ///
-    ///     if *tuple == (5, 5) {
-    ///         Err(anyhow::anyhow!("invalid tuple"))
-    ///     } else {
-    ///         Ok(tuple.0 + tuple.1)
-    ///     }
-    /// }
-    ///
-    /// let handle = client.generate_result_with_state(
-    ///     "example.namespace", (5, 5), log.clone(), generate_fn,
-    /// );
-    /// assert_eq!(format!("{}", handle.unwrap_err_inner().root_cause()), "invalid tuple");
-    /// assert_eq!(log.0.lock().unwrap().clone(), vec![(5, 5)]);
-    /// ```
-    pub fn generate_result_with_state<
-        K: Serialize + Send + Sync + Any,
-        V: Serialize + DeserializeOwned + Send + Sync + Any,
-        E: Send + Sync + Any,
-        S: Send + Sync + Any,
-    >(
-        &self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-        generate_fn: impl GenerateResultWithStateFn<K, S, V, E>,
-    ) -> CacheHandle<std::result::Result<V, E>> {
-        let namespace = namespace.into();
-        self.generate_result(namespace, key, move |k| generate_fn(k, state))
-    }
-
-    /// Gets a handle to a cacheable object from the cache, generating the object in the background
-    /// if needed.
-    ///
-    /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
-    /// to be cached should be included in the cached output or should be cached using
-    /// [`Client::get_with_err`].
-    ///
-    /// For more detailed examples, refer to
-    /// [`NamespaceCache::get`](crate::mem::NamespaceCache::get).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
-    /// use serde::{Deserialize, Serialize};
-    ///
-    /// #[derive(Deserialize, Serialize, Hash, Eq, PartialEq)]
-    /// pub struct Params {
-    ///     param1: u64,
-    ///     param2: String,
-    /// };
-    ///
-    /// impl Cacheable for Params {
-    ///     type Output = u64;
-    ///     type Error = anyhow::Error;
-    ///
-    ///     fn generate(&self) -> anyhow::Result<u64> {
-    ///         Ok(2 * self.param1)
-    ///     }
-    /// }
-    ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
-    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
-    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get").unwrap();
-    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
-    ///
-    /// let handle = client.get(
-    ///     "example.namespace", Params { param1: 50, param2: "cache".to_string() }
-    /// );
-    /// assert_eq!(*handle.unwrap_inner(), 100);
-    /// ```
-    pub fn get<K: Cacheable>(
-        &self,
-        namespace: impl Into<Namespace>,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate_result(namespace, key, |key| key.generate())
-    }
-
-    /// Gets a handle to a cacheable object from the cache, caching failures as well.
-    ///
-    /// Generates the object in the background if needed.
-    ///
-    /// For more detailed examples, refer to
-    /// [`NamespaceCache::get_with_err`](crate::mem::NamespaceCache::get_with_err).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, Cacheable};
-    /// use serde::{Deserialize, Serialize};
-    ///
-    /// #[derive(Deserialize, Serialize, Hash, Eq, PartialEq)]
-    /// pub struct Params {
-    ///     param1: u64,
-    ///     param2: String,
-    /// };
-    ///
-    /// impl Cacheable for Params {
-    ///     type Output = u64;
-    ///     type Error = String;
-    ///
-    ///     fn generate(&self) -> Result<Self::Output, Self::Error> {
-    ///         if self.param1 == 5 {
-    ///             Err("invalid param".to_string())
-    ///         } else {
-    ///             Ok(2 * self.param1)
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
-    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
-    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_err").unwrap();
-    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
-    ///
-    /// let handle = client.get_with_err(
-    ///     "example.namespace", Params { param1: 5, param2: "cache".to_string() }
-    /// );
-    /// assert_eq!(handle.unwrap_err_inner(), "invalid param");
-    /// ```
-    pub fn get_with_err<
-        E: Send + Sync + Serialize + DeserializeOwned + Any,
-        K: Cacheable<Error = E>,
-    >(
-        &self,
-        namespace: impl Into<Namespace>,
-        key: K,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate(namespace, key, |key| key.generate())
-    }
-
-    /// Gets a handle to a cacheable object from the cache, generating the object in the background
-    /// if needed.
-    ///
-    /// Does not cache errors, so any errors thrown should be thrown quickly. Any errors that need
-    /// to be cached should be included in the cached output or should be cached using
-    /// [`Client::get_with_state_and_err`].
-    ///
-    /// For more detailed examples, refer to
-    /// [`NamespaceCache::get_with_state`](crate::mem::NamespaceCache::get_with_state).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::sync::{Arc, Mutex};
-    /// use cache::{persistent::client::{Client, ClientKind}, error::Error, CacheableWithState};
-    /// use serde::{Deserialize, Serialize};
-    ///
-    /// #[derive(Debug, Deserialize, Serialize, Clone, Hash, Eq, PartialEq)]
-    /// pub struct Params(u64);
-    ///
-    /// #[derive(Clone)]
-    /// pub struct Log(Arc<Mutex<Vec<Params>>>);
-    ///
-    /// impl CacheableWithState<Log> for Params {
-    ///     type Output = u64;
-    ///     type Error = anyhow::Error;
-    ///
-    ///     fn generate_with_state(&self, state: Log) -> anyhow::Result<u64> {
-    ///         println!("Logging parameters...");
-    ///         state.0.lock().unwrap().push(self.clone());
-    ///         Ok(2 * self.0)
-    ///     }
-    /// }
-    ///
-    /// let client = Client::with_default_config(ClientKind::Local, "http://127.0.0.1:28055");
-    /// let log = Log(Arc::new(Mutex::new(Vec::new())));
-    /// # use cache::persistent::client::{setup_test, create_server_and_clients, ServerKind};
-    /// # let (root, _, runtime) = setup_test("persistent_client_Client_get_with_state").unwrap();
-    /// # let (_, client, _) = create_server_and_clients(root, ServerKind::Local, runtime.handle());
-    ///
-    /// let handle = client.get_with_state(
-    ///     "example.namespace",
-    ///     Params(0),
-    ///     log.clone(),
-    /// );
-    /// assert_eq!(*handle.unwrap_inner(), 0);
-    /// assert_eq!(log.0.lock().unwrap().clone(), vec![Params(0)]);
-    /// ```
-    pub fn get_with_state<S: Send + Sync + Any, K: CacheableWithState<S>>(
-        &self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate_result_with_state(namespace, key, state, |key, state| {
-            key.generate_with_state(state)
-        })
-    }
-
-    /// Gets a handle to a cacheable object from the cache, caching failures as well.
-    ///
-    /// Generates the object in the background if needed.
-    ///
-    /// See [`Client::get_with_err`] and [`Client::get_with_state`] for related examples.
-    pub fn get_with_state_and_err<
-        S: Send + Sync + Any,
-        E: Send + Sync + Serialize + DeserializeOwned + Any,
-        K: CacheableWithState<S, Error = E>,
-    >(
-        &self,
-        namespace: impl Into<Namespace>,
-        key: K,
-        state: S,
-    ) -> CacheHandle<std::result::Result<K::Output, K::Error>> {
-        let namespace = namespace.into();
-        self.generate_with_state(namespace, key, state, |key, state| {
-            key.generate_with_state(state)
-        })
     }
 
     /// Sets up the necessary objects to be passed in to [`Client::spawn_handler`].
@@ -695,7 +397,7 @@ impl Client {
         handle: CacheHandleInner<V>,
         handler: impl FnOnce() -> Result<()> + Send + Any,
     ) {
-        thread::spawn(move || {
+        rayon::spawn(move || {
             if let Err(e) = handler() {
                 tracing::error!("encountered error while executing handler: {}", e,);
                 handle.set(Err(Arc::new(e)));
@@ -775,10 +477,10 @@ impl Client {
     fn handle_unassigned<K: Send + Sync + Any, V: Send + Sync + Any>(
         handle: CacheHandleInner<V>,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) {
         tracing::debug!("entry is unassigned, generating locally");
-        let v = run_generator(move || generate_fn(&key));
+        let v = run_generator(generate_fn);
         handle.set(v);
     }
 
@@ -787,14 +489,14 @@ impl Client {
     fn handle_assigned<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
         key: K,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
         heartbeat_interval_ms: u64,
         send_heartbeat: impl HeartbeatFn,
     ) -> ArcResult<V> {
         tracing::debug!("entry has been assigned to the client, generating locally");
         let (s_heartbeat_stop, r_heartbeat_stopped) =
             self.start_heartbeats(Duration::from_millis(heartbeat_interval_ms), send_heartbeat);
-        let v = run_generator(move || generate_fn(&key));
+        let v = run_generator(generate_fn);
         let _ = s_heartbeat_stop.send(());
         let _ = r_heartbeat_stopped.recv();
         tracing::debug!("finished generating, writing value to cache");
@@ -914,7 +616,7 @@ impl Client {
     fn generate_loop_local<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
         state: GenerateState<K, V>,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
         write_generated_value: impl LocalWriteValueFn<V>,
         deserialize_cache_data: impl DeserializeValueFn<V>,
     ) -> Result<()> {
@@ -970,7 +672,7 @@ impl Client {
     >(
         self,
         state: GenerateState<K, V>,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) {
         tracing::debug!("generating using local cache API");
         self.clone().spawn_handler(state.handle.clone(), move || {
@@ -990,7 +692,7 @@ impl Client {
     >(
         self,
         state: GenerateState<K, std::result::Result<V, E>>,
-        generate_fn: impl GenerateResultFn<K, V, E>,
+        generate_fn: impl GenerateResultFn<V, E>,
     ) {
         self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_local(
@@ -1080,7 +782,7 @@ impl Client {
     fn generate_loop_remote<K: Send + Sync + Any, V: Send + Sync + Any>(
         &self,
         state: GenerateState<K, V>,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
         write_generated_value: impl RemoteWriteValueFn<V>,
         deserialize_cache_data: impl DeserializeValueFn<V>,
     ) -> Result<()> {
@@ -1130,7 +832,7 @@ impl Client {
     >(
         self,
         state: GenerateState<K, V>,
-        generate_fn: impl GenerateFn<K, V>,
+        generate_fn: impl GenerateFn<V>,
     ) {
         tracing::debug!("generating using remote cache API");
         self.clone().spawn_handler(state.handle.clone(), move || {
@@ -1150,7 +852,7 @@ impl Client {
     >(
         self,
         state: GenerateState<K, std::result::Result<V, E>>,
-        generate_fn: impl GenerateResultFn<K, V, E>,
+        generate_fn: impl GenerateResultFn<V, E>,
     ) {
         self.clone().spawn_handler(state.handle.clone(), move || {
             self.generate_loop_remote(
@@ -1200,6 +902,7 @@ pub(crate) fn client_url(port: u16) -> String {
     format!("http://127.0.0.1:{port}")
 }
 
+/// Used for doctests.
 #[doc(hidden)]
 pub fn create_server_and_clients(
     root: PathBuf,
@@ -1284,6 +987,7 @@ pub(crate) fn create_runtime() -> Runtime {
         .unwrap()
 }
 
+/// Used for doctests.
 #[doc(hidden)]
 pub fn setup_test(test_name: &str) -> Result<(PathBuf, Arc<Mutex<u64>>, Runtime)> {
     let path = PathBuf::from(BUILD_DIR).join(test_name);

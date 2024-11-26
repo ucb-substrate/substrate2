@@ -21,9 +21,9 @@ fn multi_cache_writes_through() -> Result<()> {
 
     let count_clone = count.clone();
 
-    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
@@ -34,7 +34,7 @@ fn multi_cache_writes_through() -> Result<()> {
         Some(count.clone()),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_GENERATE_FN,
+        || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
     );
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
@@ -58,9 +58,9 @@ fn multi_cache_blocks_on_generator_in_nested_cache() -> Result<()> {
         Some(count.clone()),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        move |key| {
+        move || {
             r.recv().unwrap();
-            BASIC_TEST_GENERATE_FN(key)
+            BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
         },
     );
 
@@ -68,9 +68,9 @@ fn multi_cache_blocks_on_generator_in_nested_cache() -> Result<()> {
 
     let count_clone = count.clone();
 
-    let handle2 = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle2 = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert!(handle1.poll().is_none());
@@ -96,9 +96,9 @@ fn multi_cache_caches_results_in_memory() -> Result<()> {
 
     let count_clone = count.clone();
 
-    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
@@ -107,9 +107,9 @@ fn multi_cache_caches_results_in_memory() -> Result<()> {
 
     let count_clone = count.clone();
 
-    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
@@ -132,18 +132,18 @@ fn multi_cache_works_without_in_memory_caching() -> Result<()> {
 
     let count_clone = count.clone();
 
-    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
 
     let count_clone = count.clone();
 
-    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
@@ -152,9 +152,9 @@ fn multi_cache_works_without_in_memory_caching() -> Result<()> {
 
     let count_clone = count.clone();
 
-    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move |key| {
+    let handle = cache.generate(BASIC_TEST_NAMESPACE, BASIC_TEST_PARAM, move || {
         *count_clone.lock().unwrap() += 1;
-        BASIC_TEST_GENERATE_FN(key)
+        BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM)
     });
 
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));

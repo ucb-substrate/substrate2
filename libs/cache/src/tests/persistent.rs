@@ -15,7 +15,6 @@ use crate::{
         create_runtime, create_server_and_clients, setup_test, ServerKind,
         TEST_SERVER_HEARTBEAT_TIMEOUT,
     },
-    tests::Key,
     CacheHandle,
 };
 
@@ -36,13 +35,13 @@ pub(crate) fn cached_generate<
     count: Option<Arc<Mutex<u64>>>,
     namespace: impl Into<String>,
     key: K,
-    generate_fn_inner: impl FnOnce(&K) -> V + Send + Any,
+    generate_fn_inner: impl FnOnce() -> V + Send + Any,
 ) -> CacheHandle<V> {
-    client.generate(namespace, key, move |k| {
+    client.generate(namespace, key, move || {
         if let Some(duration) = duration {
             std::thread::sleep(duration);
         }
-        let value = generate_fn_inner(k);
+        let value = generate_fn_inner();
         if let Some(inner) = count {
             *inner.lock().unwrap() += 1;
         }
@@ -85,7 +84,7 @@ pub(crate) fn run_basic_test(
         count.clone(),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_GENERATE_FN,
+        || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
     );
     let handle2 = cached_generate(
         &client,
@@ -93,7 +92,7 @@ pub(crate) fn run_basic_test(
         count.clone(),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_GENERATE_FN,
+        || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
     );
 
     assert_eq!(*handle1.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
@@ -105,7 +104,7 @@ pub(crate) fn run_basic_test(
         count.clone(),
         BASIC_TEST_ALT_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_ALT_GENERATE_FN,
+        || BASIC_TEST_ALT_GENERATE_FN(&BASIC_TEST_PARAM),
     );
     let handle2 = cached_generate(
         &client,
@@ -113,7 +112,7 @@ pub(crate) fn run_basic_test(
         count,
         BASIC_TEST_ALT_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_ALT_GENERATE_FN,
+        || BASIC_TEST_ALT_GENERATE_FN(&BASIC_TEST_PARAM),
     );
 
     assert_eq!(
@@ -156,7 +155,7 @@ pub(crate) fn run_basic_persistence_test(test_name: &str, client_kind: ClientKin
         Some(count.clone()),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_GENERATE_FN,
+        || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
     );
     assert_eq!(*handle.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
 
@@ -166,7 +165,7 @@ pub(crate) fn run_basic_persistence_test(test_name: &str, client_kind: ClientKin
         Some(count.clone()),
         BASIC_TEST_ALT_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_ALT_GENERATE_FN,
+        || BASIC_TEST_ALT_GENERATE_FN(&BASIC_TEST_PARAM),
     );
     assert_eq!(*handle.get(), BASIC_TEST_ALT_GENERATE_FN(&BASIC_TEST_PARAM));
 
@@ -214,7 +213,7 @@ pub(crate) fn run_failure_test(
         None,
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        |_param| -> u64 { panic!() },
+        || -> u64 { panic!() },
     );
 
     assert!(matches!(handle1.get_err().as_ref(), Error::Panic));
@@ -240,7 +239,7 @@ pub(crate) fn run_failure_test(
         Some(count.clone()),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_GENERATE_FN,
+        || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
     );
     let handle3 = cached_generate(
         &client,
@@ -248,50 +247,12 @@ pub(crate) fn run_failure_test(
         Some(count.clone()),
         BASIC_TEST_NAMESPACE,
         BASIC_TEST_PARAM,
-        BASIC_TEST_GENERATE_FN,
+        || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
     );
 
     assert_eq!(*handle2.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
     assert_eq!(*handle3.get(), BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM));
     assert_eq!(*count.lock().unwrap(), 1);
-    Ok(())
-}
-
-pub(crate) fn run_cacheable_api_test(test_name: &str, client_kind: ClientKind) -> Result<()> {
-    let (root, _, runtime) = setup_test(test_name)?;
-
-    let (_, local, remote) = create_server_and_clients(root, client_kind.into(), runtime.handle());
-
-    let client = match client_kind {
-        ClientKind::Local => local,
-        ClientKind::Remote => remote,
-    };
-
-    let handle1 = client.get(BASIC_TEST_NAMESPACE, Key(0));
-    let handle2 = client.get(BASIC_TEST_NAMESPACE, Key(5));
-    let handle3 = client.get(BASIC_TEST_NAMESPACE, Key(8));
-
-    assert_eq!(*handle1.unwrap_inner(), 0);
-    assert_eq!(
-        format!("{}", handle2.unwrap_err_inner().root_cause()),
-        "invalid key"
-    );
-    assert!(matches!(handle3.get_err().as_ref(), Error::Panic));
-
-    let state = Arc::new(Mutex::new(Vec::new()));
-    let handle1 = client.get_with_state(BASIC_TEST_ALT_NAMESPACE, Key(0), state.clone());
-    let handle2 = client.get_with_state(BASIC_TEST_ALT_NAMESPACE, Key(5), state.clone());
-    let handle3 = client.get_with_state(BASIC_TEST_ALT_NAMESPACE, Key(8), state.clone());
-
-    assert_eq!(*handle1.unwrap_inner(), 0);
-    assert_eq!(
-        format!("{}", handle2.unwrap_err_inner().root_cause()),
-        "invalid key"
-    );
-    assert!(matches!(handle3.get_err().as_ref(), Error::Panic));
-
-    assert_eq!(state.lock().unwrap().clone(), vec![0]);
-
     Ok(())
 }
 
@@ -316,16 +277,6 @@ fn remote_server_persists_cached_values() -> Result<()> {
 }
 
 #[test]
-fn local_client_cacheable_api_works() -> Result<()> {
-    run_cacheable_api_test("local_client_cacheable_api_works", ClientKind::Local)
-}
-
-#[test]
-fn remote_client_cacheable_api_works() -> Result<()> {
-    run_cacheable_api_test("remote_client_cacheable_api_works", ClientKind::Remote)
-}
-
-#[test]
 fn local_remote_apis_work_concurrently() -> Result<()> {
     let (root, count, runtime) = setup_test("local_remote_apis_work_concurrently")?;
 
@@ -342,7 +293,7 @@ fn local_remote_apis_work_concurrently() -> Result<()> {
                 Some(count.clone()),
                 BASIC_TEST_NAMESPACE,
                 BASIC_TEST_PARAM,
-                BASIC_TEST_GENERATE_FN,
+                || BASIC_TEST_GENERATE_FN(&BASIC_TEST_PARAM),
             ));
         }
     }
