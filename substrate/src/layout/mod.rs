@@ -651,6 +651,9 @@ impl<PDK: Pdk, T: Draw<PDK>> DrawBoxed<PDK> for T {
     }
 }
 
+/// Draws an object into a new [`Container`].
+// TODO: Decide if this trait should be made public.
+#[allow(dead_code)]
 pub(crate) trait DrawContainer<PDK: Pdk>: Draw<PDK> {
     /// Draws `self` into a new [`Container`].
     fn draw_container(self) -> Result<Container<PDK>>;
