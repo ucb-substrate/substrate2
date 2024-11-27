@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 
 use crate::substrate_ident;
-use type_dispatch::derive::{add_trait_bounds, struct_body};
+use type_dispatch::derive::add_trait_bounds;
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_any, enum_any), forward_attrs(allow, doc, cfg))]
@@ -12,8 +12,6 @@ pub struct DataInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     data: ast::Data<DataVariant, DataField>,
-    vis: syn::Visibility,
-    attrs: Vec<syn::Attribute>,
 }
 
 #[derive(Debug, FromVariant)]
@@ -29,9 +27,7 @@ pub struct DataVariant {
 #[darling(attributes(substrate), forward_attrs(allow, doc, cfg))]
 pub struct DataField {
     ident: Option<syn::Ident>,
-    vis: syn::Visibility,
     ty: syn::Type,
-    attrs: Vec<syn::Attribute>,
 }
 
 fn tuple_ident(idx: usize) -> syn::Ident {
@@ -143,8 +139,6 @@ impl ToTokens for DataInputReceiver {
             ref ident,
             ref generics,
             ref data,
-            ref vis,
-            ref attrs,
         } = *self;
         let mut xform_generics = generics.clone();
         add_trait_bounds(

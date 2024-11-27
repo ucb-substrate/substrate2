@@ -206,25 +206,84 @@ impl<T: ExportsLayoutData> CellHandle<T> {
     }
 }
 
-impl<T: ExportsLayoutData> TranslateRef for Cell<T> {
+/// A transformed view of a cell, usually created by accessing the cell of an instance.
+pub struct TransformedCell<T: ExportsLayoutData> {
+    /// Block whose layout this cell represents.
+    block: Arc<T>,
+    /// Extra data created during layout generation.
+    ///
+    /// This is the result of applying `trans` to the original cell's data.
+    /// If `trans` changes, this field must be updated.
+    data: T::LayoutData,
+    /// The geometry of the cell's IO.
+    ///
+    /// This is the result of applying `trans` to the original cell's IO.
+    /// If `trans` changes, this field must be updated.
+    io: <T::Io as HardwareType>::Bundle,
+    /// The underlying raw cell.
+    ///
+    /// This field should NOT be modified if `trans` changes.
+    raw: Arc<RawCell>,
+    /// The transformation applied to all geometry stored in the raw cell (`raw`).
+    trans: Transformation,
+}
+
+impl<T: ExportsLayoutData> TransformedCell<T> {
+    /// Creates a new transformed cell from the given cell and transformation.
+    pub fn new(cell: &Cell<T>, trans: Transformation) -> Self {
+        Self {
+            block: cell.block.clone(),
+            data: cell.data.transform_ref(trans),
+            io: cell.io.transform_ref(trans),
+            raw: cell.raw.clone(),
+            trans,
+        }
+    }
+
+    /// Returns the block whose layout this cell represents.
+    pub fn block(&self) -> &T {
+        &self.block
+    }
+
+    /// Returns extra data created by the cell's schematic generator.
+    pub fn data(&self) -> &T::LayoutData {
+        &self.data
+    }
+}
+
+impl<T: ExportsLayoutData> TranslateRef for TransformedCell<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
             block: self.block.clone(),
             data: self.data.translate_ref(p),
             io: self.io.translate_ref(p),
             raw: self.raw.clone(),
+            trans: self.trans.translate_ref(p.x, p.y),
         }
     }
 }
 
-impl<T: ExportsLayoutData> TransformRef for Cell<T> {
+impl<T: ExportsLayoutData> TransformRef for TransformedCell<T> {
     fn transform_ref(&self, trans: Transformation) -> Self {
         Self {
             block: self.block.clone(),
             data: self.data.transform_ref(trans),
             io: self.io.transform_ref(trans),
             raw: self.raw.clone(),
+            trans: Transformation::cascade(trans, self.trans),
         }
+    }
+}
+
+impl<T: ExportsLayoutData> Bbox for TransformedCell<T> {
+    fn bbox(&self) -> Option<geometry::rect::Rect> {
+        self.raw.bbox().transform(self.trans)
+    }
+}
+
+impl<T: ExportsLayoutData> LayerBbox for TransformedCell<T> {
+    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+        self.raw.layer_bbox(layer).transform(self.trans)
     }
 }
 
@@ -234,7 +293,7 @@ impl<T: ExportsLayoutData> TransformRef for Cell<T> {
 #[allow(dead_code)]
 pub struct Instance<T: ExportsLayoutData> {
     cell: CellHandle<T>,
-    pub(crate) trans: Transformation,
+    trans: Transformation,
 }
 
 impl<T: ExportsLayoutData> Clone for Instance<T> {
@@ -263,10 +322,11 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// consider using [`Instance::try_raw_cell`] instead.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_cell(&self) -> Result<Cell<T>> {
+    // TODO: this recomputes transformations every time it is called.
+    pub fn try_cell(&self) -> Result<TransformedCell<T>> {
         self.cell
             .try_cell()
-            .map(|cell| cell.transform_ref(self.trans))
+            .map(|cell| TransformedCell::new(cell, self.trans))
     }
 
     /// Returns a transformed view of the underlying [`Cell`].
@@ -280,7 +340,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn cell(&self) -> Cell<T> {
+    pub fn cell(&self) -> TransformedCell<T> {
         self.try_cell().expect("cell generation failed")
     }
 

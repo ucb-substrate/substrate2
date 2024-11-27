@@ -10,7 +10,7 @@ pub use codegen::LayoutType as HardwareType;
 use geometry::point::Point;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
-use geometry::transform::{self, TransformRef, TranslateRef};
+use geometry::transform::{TransformRef, TranslateRef};
 use geometry::union::BoundingUnion;
 use std::collections::HashMap;
 use substrate::layout::bbox::LayerBbox;

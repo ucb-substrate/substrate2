@@ -265,6 +265,14 @@ impl Transformation {
             b: Point::new(x, y),
         }
     }
+    /// Translates the current transformation by `(x, y)`, returning a new [`Transformation`].
+    pub fn translate_ref(&self, x: i64, y: i64) -> Self {
+        Self {
+            mat: self.mat,
+            b: Point::new(x, y) + self.b,
+        }
+    }
+
     /// Returns a rotatation by `angle` degrees.
     pub fn rotate(angle: Rotation) -> Self {
         let mat = TransformationMatrix::from(angle);
