@@ -6,7 +6,7 @@ use crate::bbox::Bbox;
 use crate::contains::{Containment, Contains};
 use crate::point::Point;
 use crate::rect::Rect;
-use crate::transform::{TransformMut, Transformation, TranslateMut};
+use crate::transform::{TransformMut, TransformRef, Transformation, TranslateMut, TranslateRef};
 use num_rational::Ratio;
 
 /// A polygon, with vertex coordinates given
@@ -151,9 +151,25 @@ fn triangle_area(v1: Point, v2: Point, v3: Point) -> Ratio<i64> {
     )
 }
 
+impl TranslateRef for Polygon {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
+            points: self.points.translate_ref(p),
+        }
+    }
+}
+
 impl TranslateMut for Polygon {
     fn translate_mut(&mut self, p: Point) {
         self.points.translate_mut(p);
+    }
+}
+
+impl TransformRef for Polygon {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            points: self.points.transform_ref(trans),
+        }
     }
 }
 

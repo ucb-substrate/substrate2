@@ -265,6 +265,14 @@ impl Transformation {
             b: Point::new(x, y),
         }
     }
+    /// Translates the current transformation by `(x, y)`, returning a new [`Transformation`].
+    pub fn translate_ref(&self, x: i64, y: i64) -> Self {
+        Self {
+            mat: self.mat,
+            b: Point::new(x, y) + self.b,
+        }
+    }
+
     /// Returns a rotatation by `angle` degrees.
     pub fn rotate(angle: Rotation) -> Self {
         let mat = TransformationMatrix::from(angle);
@@ -346,7 +354,11 @@ impl Transformation {
 
     /// Returns an [`Orientation`] corresponding to this transformation.
     pub fn orientation(&self) -> Orientation {
-        let reflect_vert = self.mat[0][0].signum() != self.mat[1][1].signum();
+        let reflect_vert = if self.mat[0][0] == 0 {
+            self.mat[0][1].signum() == self.mat[1][0].signum()
+        } else {
+            self.mat[0][0].signum() != self.mat[1][1].signum()
+        };
         let cos = self.mat[0][0];
         let sin = self.mat[1][0];
         let angle = match (cos, sin) {
@@ -368,15 +380,16 @@ impl Transformation {
     ///
     /// ```
     /// use geometry::transform::Transformation;
-    /// use approx::assert_relative_eq;
+    /// use geometry::transform::Rotation;
     ///
     /// let trans = Transformation::cascade(
-    ///     Transformation::rotate(90),
-    ///     Transformation::translate(5., 10),
+    ///     Transformation::rotate(Rotation::R90),
+    ///     Transformation::translate(5, 10),
     /// );
     /// let inv = trans.inv();
     ///
-    /// assert_relative_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_eq!(Transformation::cascade(trans, inv), Transformation::identity());
     /// ```
     pub fn inv(&self) -> Transformation {
         let inv = self.mat.inverse();
@@ -456,9 +469,31 @@ fn unitary_matinv(a: &[[i8; 2]; 2]) -> [[i8; 2]; 2] {
     [[a[1][1], -a[0][1]], [-a[1][0], a[0][0]]]
 }
 
-/// A trait for specifying how an object is changed by a transformation.
+/// A trait for specifying how an object is changed by a [`Transformation`].
+pub trait TransformRef: TranslateRef {
+    /// Applies matrix-vector [`Transformation`] `trans`.
+    fn transform_ref(&self, trans: Transformation) -> Self;
+}
+
+impl TransformRef for () {
+    fn transform_ref(&self, _trans: Transformation) -> Self {}
+}
+
+impl<T: TransformRef> TransformRef for Vec<T> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.iter().map(|elt| elt.transform_ref(trans)).collect()
+    }
+}
+
+impl<T: TransformRef> TransformRef for Option<T> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.as_ref().map(move |elt| elt.transform_ref(trans))
+    }
+}
+
+/// A trait for specifying how an object is changed by a [`Transformation`].
 #[impl_for_tuples(32)]
-pub trait TransformMut {
+pub trait TransformMut: TranslateMut {
     /// Applies matrix-vector [`Transformation`] `trans`.
     fn transform_mut(&mut self, trans: Transformation);
 }
@@ -479,13 +514,14 @@ impl<T: TransformMut> TransformMut for Option<T> {
     }
 }
 
-/// A trait for specifying how an object is changed by a transformation.
+/// A trait for specifying how an object is changed by a [`Transformation`].
 ///
 /// Takes in an owned copy of the shape and returns the transformed version.
-pub trait Transform: TransformMut + Sized {
+pub trait Transform: Translate + TransformMut + Sized {
     /// Applies matrix-vector [`Transformation`] `trans`.
     ///
     /// Creates a new shape at a location equal to the transformation of the original.
+    #[inline]
     fn transform(mut self, trans: Transformation) -> Self {
         self.transform_mut(trans);
         self
@@ -493,6 +529,28 @@ pub trait Transform: TransformMut + Sized {
 }
 
 impl<T: TransformMut + Sized> Transform for T {}
+
+/// A trait for specifying how a shape is translated by a [`Point`].
+pub trait TranslateRef: Sized {
+    /// Translates the shape by [`Point`], returning a new shape.
+    fn translate_ref(&self, p: Point) -> Self;
+}
+
+impl TranslateRef for () {
+    fn translate_ref(&self, _p: Point) -> Self {}
+}
+
+impl<T: TranslateRef> TranslateRef for Vec<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.iter().map(|elt| elt.translate_ref(p)).collect()
+    }
+}
+
+impl<T: TranslateRef> TranslateRef for Option<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.as_ref().map(move |elt| elt.translate_ref(p))
+    }
+}
 
 /// A trait for specifying how a shape is translated by a [`Point`].
 #[impl_for_tuples(32)]
@@ -531,36 +589,6 @@ pub trait Translate: TranslateMut + Sized {
 }
 
 impl<T: TranslateMut + Sized> Translate for T {}
-
-/// A trait for specifying how the transform of an object is computed.
-///
-/// For example, the transform view of a [`Rect`](crate::rect::Rect) may be an owned [`Rect`](crate::rect::Rect) since transformation can
-/// be applied quickly while the transform view of a [`Vec<Rect>`] only lazily transforms
-/// rectangles when they are queried.
-pub trait HasTransformedView {
-    /// An object storing a transformed view of `Self`.
-    type TransformedView;
-
-    /// Produces a transformed view of `self`.
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView;
-}
-
-/// The type of the transformed view of `T`.
-pub type Transformed<T> = <T as HasTransformedView>::TransformedView;
-
-impl HasTransformedView for () {
-    type TransformedView = ();
-
-    fn transformed_view(&self, _trans: Transformation) -> Self::TransformedView {}
-}
-
-impl<T: HasTransformedView> HasTransformedView for Vec<T> {
-    type TransformedView = Vec<Transformed<T>>;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        self.iter().map(|e| e.transformed_view(trans)).collect()
-    }
-}
 
 #[cfg(test)]
 mod tests {

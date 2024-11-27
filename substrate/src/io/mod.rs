@@ -7,7 +7,6 @@ use std::{
 
 use arcstr::ArcStr;
 pub use codegen::Io;
-use geometry::transform::{HasTransformedView, Transformed};
 use layout::{HardwareType as LayoutType, PortGeometry};
 use schematic::{HardwareType as SchematicType, Node};
 use serde::{Deserialize, Serialize};
