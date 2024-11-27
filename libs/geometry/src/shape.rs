@@ -3,10 +3,10 @@
 use crate::{
     bbox::Bbox,
     contains::{Containment, Contains},
+    point::Point,
     polygon::Polygon,
-    prelude::Transform,
     rect::Rect,
-    transform::{HasTransformedView, TransformMut, TranslateMut},
+    transform::{TransformMut, TransformRef, Transformation, TranslateMut, TranslateRef},
     union::BoundingUnion,
 };
 
@@ -39,8 +39,19 @@ impl Shape {
     }
 }
 
+impl TranslateRef for Shape {
+    #[inline]
+    fn translate_ref(&self, p: Point) -> Self {
+        match self {
+            Shape::Rect(rect) => Shape::Rect(rect.translate_ref(p)),
+            Shape::Polygon(polygon) => Shape::Polygon(polygon.translate_ref(p)),
+        }
+    }
+}
+
 impl TranslateMut for Shape {
-    fn translate_mut(&mut self, p: crate::point::Point) {
+    #[inline]
+    fn translate_mut(&mut self, p: Point) {
         match self {
             Shape::Rect(rect) => rect.translate_mut(p),
             Shape::Polygon(polygon) => polygon.translate_mut(p),
@@ -48,20 +59,23 @@ impl TranslateMut for Shape {
     }
 }
 
+impl TransformRef for Shape {
+    #[inline]
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        match self {
+            Shape::Rect(rect) => Shape::Rect(rect.transform_ref(trans)),
+            Shape::Polygon(polygon) => Shape::Polygon(polygon.transform_ref(trans)),
+        }
+    }
+}
+
 impl TransformMut for Shape {
+    #[inline]
     fn transform_mut(&mut self, trans: crate::prelude::Transformation) {
         match self {
             Shape::Rect(rect) => rect.transform_mut(trans),
             Shape::Polygon(polygon) => polygon.transform_mut(trans),
         }
-    }
-}
-
-impl HasTransformedView for Shape {
-    type TransformedView = Shape;
-
-    fn transformed_view(&self, trans: crate::prelude::Transformation) -> Self::TransformedView {
-        self.clone().transform(trans)
     }
 }
 

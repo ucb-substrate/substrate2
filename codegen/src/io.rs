@@ -377,16 +377,15 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let mut layout_data_len = Vec::new();
     let mut layout_data_fields = Vec::new();
     let mut layout_builder_fields = Vec::new();
-    let mut transformed_layout_data_fields = Vec::new();
     let mut flatten_port_geometry_fields = Vec::new();
     let mut create_builder_fields = Vec::new();
-    let mut transformed_view_fields = Vec::new();
+    let mut translated_fields = Vec::new();
+    let mut transformed_fields = Vec::new();
     let mut build_data_fields = Vec::new();
     let mut hierarchical_build_from_fields = Vec::new();
 
     let layout_data_ident = format_ident!("{}Layout", ident);
     let layout_builder_ident = format_ident!("{}LayoutBuilder", ident);
-    let transformed_layout_data_ident = format_ident!("{}TransformedLayout", ident);
 
     for (i, &f) in fields.iter().enumerate() {
         let (field_ty, switch_type) = match f.layout_type {
@@ -415,9 +414,6 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         layout_builder_fields.push(quote! {
             #declare <#field_ty as #substrate::io::layout::HardwareType>::Builder,
         });
-        transformed_layout_data_fields.push(quote! {
-                #declare #substrate::geometry::transform::Transformed<<#field_ty as #substrate::io::layout::HardwareType>::Bundle>,
-            });
         flatten_port_geometry_fields.push(quote! {
                 <<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::Flatten<#substrate::io::layout::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
             });
@@ -430,8 +426,11 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
                 #assign <#field_ty as #substrate::io::layout::HardwareType>::builder(&#refer),
             });
         }
-        transformed_view_fields.push(quote! {
-                #assign #substrate::geometry::transform::HasTransformedView::transformed_view(&#refer, trans),
+        translated_fields.push(quote! {
+                #assign #substrate::geometry::transform::TranslateRef::translate_ref(&#refer, p),
+        });
+        transformed_fields.push(quote! {
+                #assign #substrate::geometry::transform::TransformRef::transform_ref(&#refer, trans),
         });
         build_data_fields.push(quote! {
                 #assign #substrate::io::layout::BundleBuilder::<<#field_ty as #substrate::io::layout::HardwareType>::Bundle>::build(#refer)?,
@@ -457,16 +456,8 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         struct_body(fields.style, true, quote! { #( #layout_builder_fields )* });
     let create_builder_body =
         struct_body(fields.style, false, quote! { #( #create_builder_fields )* });
-    let transformed_layout_data_body = struct_body(
-        fields.style,
-        true,
-        quote! { #( #transformed_layout_data_fields )* },
-    );
-    let transformed_view_body = struct_body(
-        fields.style,
-        false,
-        quote! { #( #transformed_view_fields )* },
-    );
+    let translated_body = struct_body(fields.style, false, quote! { #( #translated_fields )* });
+    let transformed_body = struct_body(fields.style, false, quote! { #( #transformed_fields )* });
     let build_layout_data_body =
         struct_body(fields.style, false, quote! { #( #build_data_fields )* });
 
@@ -500,19 +491,24 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        #(#attrs)*
-        #vis struct #transformed_layout_data_ident #lt_generics #transformed_layout_data_body
-
-        impl #lt_any_imp #substrate::geometry::transform::HasTransformedView for #layout_data_ident #lt_any_ty #lt_any_where {
-            type TransformedView = #transformed_layout_data_ident #lt_ty;
-
-            fn transformed_view(
+        impl #lt_any_imp #substrate::geometry::transform::TranslateRef for #layout_data_ident #lt_any_ty #lt_any_where {
+            fn translate_ref(
                 &self,
-                trans: #substrate::geometry::transform::Transformation,
-            ) -> Self::TransformedView {
-                #transformed_layout_data_ident #transformed_view_body
+                p: #substrate::geometry::point::Point,
+            ) -> Self {
+                #layout_data_ident #translated_body
             }
         }
+
+        impl #lt_any_imp #substrate::geometry::transform::TransformRef for #layout_data_ident #lt_any_ty #lt_any_where {
+            fn transform_ref(
+                &self,
+                trans: #substrate::geometry::transform::Transformation,
+            ) -> Self {
+                #layout_data_ident #transformed_body
+            }
+        }
+
 
         impl #lt_any_imp #substrate::io::layout::BundleBuilder<#layout_data_ident #ty> for #layout_builder_ident #lt_any_ty #lt_any_where {
             fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {

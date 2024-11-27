@@ -1,5 +1,8 @@
 //! Built-in implementations of IO traits.
 
+use geometry::point::Point;
+use geometry::transform::{TransformRef, TranslateRef};
+
 use crate::io::layout::{
     BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometryBuilder,
 };
@@ -653,19 +656,26 @@ where
     }
 }
 
-// TODO: Maybe do lazy transformation here.
-impl<T: HasTransformedView> HasTransformedView for ArrayData<T> {
-    type TransformedView = ArrayData<Transformed<T>>;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView {
-        Self::TransformedView {
+impl<T: TranslateRef> TranslateRef for ArrayData<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
             elems: self
                 .elems
                 .iter()
-                .map(|elem| elem.transformed_view(trans))
+                .map(|elem| elem.translate_ref(p))
+                .collect(),
+            ty_len: self.ty_len,
+        }
+    }
+}
+
+impl<T: TransformRef> TransformRef for ArrayData<T> {
+    fn transform_ref(&self, trans: geometry::prelude::Transformation) -> Self {
+        Self {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem| elem.transform_ref(trans))
                 .collect(),
             ty_len: self.ty_len,
         }

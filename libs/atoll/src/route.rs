@@ -158,7 +158,7 @@ where
             cost: Zero::zero(),
             index: i,
         });
-        parents.insert(node.clone(), (usize::max_value(), Zero::zero()));
+        parents.insert(node.clone(), (usize::MAX, Zero::zero()));
     }
     let mut target_reached = None;
     while let Some(SmallestHolder { cost, index }) = to_see.pop() {
