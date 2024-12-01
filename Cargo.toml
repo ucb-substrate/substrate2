@@ -9,6 +9,7 @@ members = [
     "docs/examples",
     "libs/atoll",
     "libs/cache",
+    "libs/commonir",
     "libs/diagnostics",
     "libs/enumify",
     "libs/enumify_macros",
