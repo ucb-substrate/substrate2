@@ -2305,6 +2305,7 @@ name = "scir"
 version = "0.7.0"
 dependencies = [
  "arcstr",
+ "commonir",
  "diagnostics",
  "enumify",
  "indexmap 2.2.6",

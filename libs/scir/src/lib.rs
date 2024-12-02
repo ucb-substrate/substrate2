@@ -29,6 +29,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use arcstr::ArcStr;
+use commonir::Ir;
 use diagnostics::IssueSet;
 use drivers::DriverIssue;
 use indexmap::IndexMap;
@@ -50,6 +51,63 @@ pub mod validation;
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct NoData;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LibraryData<P> {
+    /// The current primitive ID counter.
+    ///
+    /// Initialized to 0 when the library is created.
+    /// Should be incremented before assigning a new ID.
+    primitive_id: u64,
+    /// A map of the primitives in the library.
+    primitives: IndexMap<PrimitiveId, P>,
+}
+
+impl<P> Default for LibraryData<P> {
+    fn default() -> Self {
+        Self {
+            primitive_id: 0,
+            primitives: IndexMap::new(),
+        }
+    }
+}
+
+/// A library of SCIR cells with schema `S`.
+pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema>(
+    commonir::LibraryBuilder<LibraryData<S::Primitive>, CellData, NoData, NoData, InstanceData>,
+);
+
+impl<S: Schema + ?Sized> Default for LibraryBuilder<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<S: Schema + ?Sized> Clone for LibraryBuilder<S>
+where
+    S::Primitive: Clone,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for LibraryBuilder<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_tuple("LibraryBuilder");
+        let _ = builder.field(&self.0);
+        builder.finish()
+    }
+}
+
+/// A SCIR library that is guaranteed to be valid (with the exception of primitives,
+/// which are opaque to SCIR).
+///
+/// The contents of the library cannot be mutated.
+pub struct Library<S: Schema + ?Sized = NoSchema>(LibraryBuilder<S>);
 
 /// A value of a parameter.
 #[enumify::enumify(no_as_ref, no_as_mut)]
@@ -221,206 +279,6 @@ impl SignalPathTail<SliceOne, NamedSliceOne> {
     }
 }
 
-/// A path to an instance in a SCIR library.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct InstancePath {
-    /// The top cell of the path.
-    top: InstancePathCell,
-    /// Path of SCIR instances.
-    elems: Vec<InstancePathElement>,
-}
-
-impl Deref for InstancePath {
-    type Target = Vec<InstancePathElement>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.elems
-    }
-}
-
-impl DerefMut for InstancePath {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.elems
-    }
-}
-
-impl InstancePath {
-    /// Creates a new empty [`InstancePath`] with the given reference point.
-    pub fn new(top: impl Into<InstancePathCell>) -> Self {
-        Self {
-            top: top.into(),
-            elems: Vec::new(),
-        }
-    }
-
-    /// Pushes a new instance to the path.
-    pub fn push(&mut self, elem: impl Into<InstancePathElement>) {
-        self.elems.push(elem.into())
-    }
-
-    /// Pushes an iterator of instances to the path.
-    pub fn push_iter<E: Into<InstancePathElement>>(&mut self, elems: impl IntoIterator<Item = E>) {
-        for elem in elems {
-            self.push(elem);
-        }
-    }
-
-    /// Returns the top cell of the path.
-    pub fn top(&self) -> &InstancePathCell {
-        &self.top
-    }
-
-    /// Returns `true` if the path is empty.
-    pub fn is_empty(&self) -> bool {
-        self.elems.is_empty()
-    }
-
-    /// Creates a [`SliceOnePath`] by appending the provided `tail`.
-    pub fn slice_one(
-        self,
-        tail: impl Into<SignalPathTail<SliceOne, NamedSliceOne>>,
-    ) -> SliceOnePath {
-        SliceOnePath(SignalPath {
-            instances: self,
-            tail: tail.into(),
-        })
-    }
-}
-
-/// The cell within an [`InstancePath`].
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-#[enumify::enumify]
-pub enum InstancePathCell {
-    /// A cell addressed by ID.
-    Id(CellId),
-    /// A cell addressed by name.
-    Name(ArcStr),
-}
-
-impl From<CellId> for InstancePathCell {
-    fn from(value: CellId) -> Self {
-        Self::Id(value)
-    }
-}
-
-impl<S: Into<ArcStr>> From<S> for InstancePathCell {
-    fn from(value: S) -> Self {
-        Self::Name(value.into())
-    }
-}
-
-/// An element of an [`InstancePath`].
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-#[enumify::enumify]
-pub enum InstancePathElement {
-    /// An instance addressed by ID.
-    Id(InstanceId),
-    /// An instance addressed by name.
-    Name(ArcStr),
-}
-
-impl From<InstanceId> for InstancePathElement {
-    fn from(value: InstanceId) -> Self {
-        Self::Id(value)
-    }
-}
-
-impl<S: Into<ArcStr>> From<S> for InstancePathElement {
-    fn from(value: S) -> Self {
-        Self::Name(value.into())
-    }
-}
-
-/// A path to an instance in a SCIR library with annotated metadata.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct AnnotatedInstancePath {
-    /// ID or name of the top cell.
-    ///
-    /// If the name corresponds to a SCIR cell, this should always be an ID.
-    pub top: InstancePathCell,
-    /// Path of SCIR instance IDs.
-    pub instances: Vec<AnnotatedInstancePathElement>,
-}
-
-impl AnnotatedInstancePath {
-    fn bot(&self) -> Option<CellId> {
-        self.instances
-            .last()
-            .and_then(|inst| inst.child?.into_cell())
-            .or_else(|| self.top.get_id().copied())
-    }
-}
-
-/// An element of an [`AnnotatedInstancePath`].
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct AnnotatedInstancePathElement {
-    /// The underlying instance path element.
-    pub elem: InstancePathElement,
-    /// The child associated with this element, if it exists.
-    pub child: Option<ChildId>,
-}
-
-impl From<AnnotatedInstancePath> for InstancePath {
-    fn from(value: AnnotatedInstancePath) -> Self {
-        let AnnotatedInstancePath { top, instances } = value;
-
-        InstancePath {
-            top,
-            elems: instances
-                .into_iter()
-                .map(|instance| instance.elem)
-                .collect(),
-        }
-    }
-}
-
-/// A path of strings to an instance or signal in a SCIR library.
-#[derive(Clone, Default, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NamedPath(Vec<ArcStr>);
-
-impl Deref for NamedPath {
-    type Target = Vec<ArcStr>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for NamedPath {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl NamedPath {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    /// Consumes the [`NamedPath`], returning the path as a [`Vec<ArcStr>`].
-    pub fn into_vec(self) -> Vec<ArcStr> {
-        self.0
-    }
-}
-
-/// An opaque cell identifier.
-///
-/// A cell ID created in the context of one library must
-/// *not* be used in the context of another library.
-/// You should instead create a new cell ID in the second library.
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct CellId(u64);
-
-/// An opaque instance identifier.
-///
-/// An instance ID created in the context of one cell must
-/// *not* be used in the context of another cell.
-/// You should instead create a new instance ID in the second cell.
-#[derive(
-    Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
-)]
-pub struct InstanceId(u64);
-
 /// An opaque primitive identifier.
 ///
 /// A primitive ID created in the context of one library must
@@ -429,21 +287,17 @@ pub struct InstanceId(u64);
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct PrimitiveId(u64);
 
+/// An opaque primitive instance identifier.
+///
+/// A primitive ID created in the context of one library must
+/// *not* be used in the context of another library.
+/// You should instead create a new primitive ID in the second library.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct PrimitiveInstanceId(u64);
+
 impl Display for SignalId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "signal{}", self.0)
-    }
-}
-
-impl Display for CellId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "cell{}", self.0)
-    }
-}
-
-impl Display for InstanceId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "inst{}", self.0)
     }
 }
 
@@ -453,94 +307,11 @@ impl Display for PrimitiveId {
     }
 }
 
-impl Display for ChildId {
+impl Display for PrimitiveInstanceId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChildId::Cell(c) => c.fmt(f),
-            ChildId::Primitive(p) => p.fmt(f),
-        }
+        write!(f, "primitiveinst{}", self.0)
     }
 }
-
-/// A library of SCIR cells with schema `S`.
-pub struct LibraryBuilder<S: Schema + ?Sized = NoSchema> {
-    /// The current cell ID counter.
-    ///
-    /// Initialized to 0 when the library is created.
-    /// Should be incremented before assigning a new ID.
-    cell_id: u64,
-
-    /// The current primitive ID counter.
-    ///
-    /// Initialized to 0 when the library is created.
-    /// Should be incremented before assigning a new ID.
-    primitive_id: u64,
-
-    /// A map of the cells in the library.
-    cells: IndexMap<CellId, Cell>,
-
-    /// A map of cell name to cell ID.
-    ///
-    /// Cell names are only guaranteed to be unique in a validated [`Library`].
-    name_map: HashMap<ArcStr, CellId>,
-
-    /// Assigned names for purposes of auto-assigning names to new cells.
-    names: Names<CellId>,
-
-    /// A map of the primitives in the library.
-    primitives: IndexMap<PrimitiveId, S::Primitive>,
-
-    /// The ID of the top cell, if there is one.
-    top: Option<CellId>,
-}
-
-impl<S: Schema + ?Sized> Default for LibraryBuilder<S> {
-    fn default() -> Self {
-        Self {
-            cell_id: 0,
-            primitive_id: 0,
-            cells: IndexMap::new(),
-            primitives: IndexMap::new(),
-            name_map: HashMap::new(),
-            names: Names::new(),
-            top: None,
-        }
-    }
-}
-
-impl<S: Schema<Primitive = impl Clone> + ?Sized> Clone for LibraryBuilder<S> {
-    fn clone(&self) -> Self {
-        Self {
-            cell_id: self.cell_id,
-            primitive_id: self.primitive_id,
-            cells: self.cells.clone(),
-            name_map: self.name_map.clone(),
-            names: self.names.clone(),
-            primitives: self.primitives.clone(),
-            top: self.top,
-        }
-    }
-}
-
-impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for LibraryBuilder<S> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("LibraryBuilder");
-        let _ = builder.field("cell_id", &self.cell_id);
-        let _ = builder.field("primitive_id", &self.primitive_id);
-        let _ = builder.field("cells", &self.cells);
-        let _ = builder.field("name_map", &self.name_map);
-        let _ = builder.field("names", &self.names);
-        let _ = builder.field("primitives", &self.primitives);
-        let _ = builder.field("top", &self.top);
-        builder.finish()
-    }
-}
-
-/// A SCIR library that is guaranteed to be valid (with the exception of primitives,
-/// which are opaque to SCIR).
-///
-/// The contents of the library cannot be mutated.
-pub struct Library<S: Schema + ?Sized = NoSchema>(LibraryBuilder<S>);
 
 impl<S: Schema<Primitive = impl std::fmt::Debug> + ?Sized> std::fmt::Debug for Library<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -705,13 +476,6 @@ impl Display for Direction {
     }
 }
 
-/// A signal exposed by a cell.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Port {
-    signal: SignalId,
-    direction: Direction,
-}
-
 /// Information about a signal in a cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalInfo {
@@ -748,100 +512,39 @@ impl SignalInfo {
 
 /// An instance of a child cell placed inside a parent cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Instance {
-    /// The ID of the child.
-    child: ChildId,
-    /// The name of this instance.
-    ///
-    /// This is not necessarily the name of the child cell.
-    name: ArcStr,
-    /// A map mapping port names to connections.
-    ///
-    /// The ports are the ports of the **child** cell.
-    /// The connected signals are signals of the **parent** cell.
+pub struct InstanceData {
     connections: HashMap<ArcStr, Concat>,
 }
 
-/// The ID of an instance's child.
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-#[enumify::enumify(no_as_ref, no_as_mut)]
-pub enum ChildId {
-    /// A child cell.
-    Cell(CellId),
-    /// A child primitive.
-    ///
-    /// The contents of instance's with a child primitive are opaque to SCIR.
-    Primitive(PrimitiveId),
-}
-
-impl From<CellId> for ChildId {
-    fn from(value: CellId) -> Self {
-        Self::Cell(value)
-    }
-}
-
-impl From<PrimitiveId> for ChildId {
-    fn from(value: PrimitiveId) -> Self {
-        Self::Primitive(value)
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrimitiveInstance {
+    child: PrimitiveId,
+    name: ArcStr,
+    connections: HashMap<ArcStr, Concat>,
 }
 
 /// A cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Cell {
-    /// The last signal ID used.
-    ///
-    /// Initialized to 0 upon cell creation.
-    signal_id: u64,
-    port_idx: usize,
-    pub(crate) name: ArcStr,
-    pub(crate) ports: IndexMap<ArcStr, Port>,
+pub struct CellData {
     pub(crate) signals: HashMap<SignalId, SignalInfo>,
     /// A map of instance name to instance ID.
     ///
     /// Signal names are only guaranteed to be unique in a validated [`Library`].
     signal_name_map: HashMap<ArcStr, SignalId>,
-    /// The last instance ID assigned.
+    /// The last primitive instance ID assigned.
     ///
     /// Initialized to 0 upon cell creation.
-    instance_id: u64,
-    pub(crate) instances: IndexMap<InstanceId, Instance>,
+    primitive_instance_id: u64,
+    pub(crate) primitives: IndexMap<PrimitiveInstanceId, PrimitiveInstance>,
     /// A map of instance name to instance ID.
     ///
     /// Instance names are only guaranteed to be unique in a validated [`Library`].
-    instance_name_map: HashMap<ArcStr, InstanceId>,
-}
-
-/// Metadata associated with the conversion from a SCIR library to a netlist.
-#[derive(Debug, Clone, Default)]
-pub struct NetlistLibConversion {
-    /// Conversion metadata for each cell in the SCIR library.
-    pub cells: HashMap<CellId, NetlistCellConversion>,
-}
-
-impl NetlistLibConversion {
-    /// Creates a new [`NetlistLibConversion`].
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-/// Metadata associated with the conversion from a SCIR cell to a netlisted subcircuit.
-#[derive(Debug, Clone, Default)]
-pub struct NetlistCellConversion {
-    /// The netlisted names of SCIR instances.
-    pub instances: HashMap<InstanceId, ArcStr>,
-}
-
-impl NetlistCellConversion {
-    /// Creates a new [`NetlistCellConversion`].
-    pub fn new() -> Self {
-        Self::default()
-    }
+    primitive_instance_name_map: HashMap<ArcStr, PrimitiveInstanceId>,
 }
 
 impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Creates a new, empty library.
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }

@@ -234,26 +234,9 @@ impl Display for InstanceId {
     }
 }
 
-pub trait Ir {
-    type LibraryData;
-    type CellData;
-    type InstanceData;
-    /// Data associated to a port (e.g. input[7:0]).
-    type PortData;
-    /// Data associated to one element of a port (e.g. input[2]).
-    type PortElementData;
-}
-
-impl Ir for () {
-    type LibraryData = ();
-    type CellData = ();
-    type InstanceData = ();
-    type PortData = ();
-    type PortElementData = ();
-}
-
 /// A library of SCIR cells with schema `S`.
-pub struct LibraryBuilder<IR: Ir + ?Sized = ()> {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LibraryBuilder<L, C, P, PE, I> {
     /// The current cell ID counter.
     ///
     /// Initialized to 0 when the library is created.
@@ -261,7 +244,7 @@ pub struct LibraryBuilder<IR: Ir + ?Sized = ()> {
     cell_id: u64,
 
     /// A map of the cells in the library.
-    cells: IndexMap<CellId, Cell<IR>>,
+    cells: IndexMap<CellId, Cell<C, P, PE, I>>,
 
     /// A map of cell name to cell ID.
     ///
@@ -271,99 +254,40 @@ pub struct LibraryBuilder<IR: Ir + ?Sized = ()> {
     /// Assigned names for purposes of auto-assigning names to new cells.
     names: Names<CellId>,
 
-    data: IR::LibraryData,
+    data: L,
 
     /// The ID of the top cell, if there is one.
     top: Option<CellId>,
 }
 
-impl<IR: Ir + ?Sized> Default for LibraryBuilder<IR>
-where
-    IR::LibraryData: Default,
-{
+impl<L: Default, C, P, PE, I> Default for LibraryBuilder<L, C, P, PE, I> {
     fn default() -> Self {
         Self {
             cell_id: 0,
             cells: IndexMap::new(),
             name_map: HashMap::new(),
             names: Names::new(),
-            top: None,
             data: Default::default(),
+            top: None,
         }
-    }
-}
-
-impl<IR> Clone for LibraryBuilder<IR>
-where
-    IR: Ir + ?Sized,
-    IR::LibraryData: Clone,
-    Cell<IR>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            cell_id: self.cell_id,
-            cells: self.cells.clone(),
-            name_map: self.name_map.clone(),
-            names: self.names.clone(),
-            top: self.top,
-            data: self.data.clone(),
-        }
-    }
-}
-
-impl<IR: Ir + ?Sized> Debug for LibraryBuilder<IR>
-where
-    IR::LibraryData: Debug,
-    Cell<IR>: Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("LibraryBuilder");
-        let _ = builder.field("cell_id", &self.cell_id);
-        let _ = builder.field("cells", &self.cells);
-        let _ = builder.field("name_map", &self.name_map);
-        let _ = builder.field("names", &self.names);
-        let _ = builder.field("top", &self.top);
-        let _ = builder.field("data", &self.data);
-        builder.finish()
     }
 }
 
 /// A SCIR library that is guaranteed to be valid.
 ///
 /// The contents of the library cannot be mutated.
-pub struct Library<IR: Ir + ?Sized>(LibraryBuilder<IR>);
+pub struct Library<L, C, P, PE, I>(LibraryBuilder<L, C, P, PE, I>);
 
-impl<IR> Debug for Library<IR>
-where
-    IR: Ir + ?Sized,
-    LibraryBuilder<IR>: Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("Library");
-        let _ = builder.field("0", &self.0);
-        builder.finish()
-    }
-}
-
-impl<IR: Ir + ?Sized> Clone for Library<IR>
-where
-    LibraryBuilder<IR>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<IR: Ir + ?Sized> Deref for Library<IR> {
-    type Target = LibraryBuilder<IR>;
+impl<L, C, P, PE, I> Deref for Library<L, C, P, PE, I> {
+    type Target = LibraryBuilder<L, C, P, PE, I>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<IR: Ir + ?Sized> Library<IR> {
+impl<L, C, P, PE, I> Library<L, C, P, PE, I> {
     /// Converts this library into a [`LibraryBuilder`] that can be modified.
-    pub fn into_builder(self) -> LibraryBuilder<IR> {
+    pub fn into_builder(self) -> LibraryBuilder<L, C, P, PE, I> {
         self.0
     }
 }
@@ -438,84 +362,42 @@ impl Display for Direction {
 }
 
 /// A signal exposed by a cell.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Port<IR: Ir + ?Sized> {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Port<P, PE> {
     /// The name of this port.
     pub name: ArcStr,
     direction: Direction,
-    data: IR::PortData,
-    #[serde(bound(
-        deserialize = "IR::PortElementData: Deserialize<'de>",
-        serialize = "IR::PortElementData: Serialize"
-    ))]
-    elems: Vec<IR::PortElementData>,
-}
-
-impl<IR: Ir + ?Sized> Clone for Port<IR>
-where
-    IR::PortData: Clone,
-    IR::PortElementData: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            direction: self.direction,
-            data: self.data.clone(),
-            elems: self.elems.clone(),
-        }
-    }
+    data: P,
+    elems: Vec<PE>,
 }
 
 /// An instance of a child cell placed inside a parent cell.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Instance<IR: Ir + ?Sized> {
+pub struct Instance<I> {
     /// The ID of the child.
     child: CellId,
     /// The name of this instance.
     ///
     /// This is not necessarily the name of the child cell.
     name: ArcStr,
-    data: IR::InstanceData,
+    data: I,
 }
 
 /// A cell.
-#[derive(Serialize, Deserialize)]
-pub struct Cell<IR: Ir + ?Sized> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Cell<C, P, PE, I> {
     pub(crate) name: ArcStr,
-    #[serde(bound(
-        deserialize = "Port<IR>: Deserialize<'de>",
-        serialize = "Port<IR>: Serialize"
-    ))]
-    pub(crate) ports: IndexMap<ArcStr, Port<IR>>,
+    pub(crate) ports: IndexMap<ArcStr, Port<P, PE>>,
     /// The last instance ID assigned.
     ///
     /// Initialized to 0 upon cell creation.
     instance_id: u64,
-    #[serde(bound(
-        deserialize = "Instance<IR>: Deserialize<'de>",
-        serialize = "Instance<IR>: Serialize"
-    ))]
-    pub(crate) instances: IndexMap<InstanceId, Instance<IR>>,
+    pub(crate) instances: IndexMap<InstanceId, Instance<I>>,
     /// A map of instance name to instance ID.
     ///
     /// Instance names are only guaranteed to be unique in a validated [`Library`].
     instance_name_map: HashMap<ArcStr, InstanceId>,
-}
-
-impl<IR: Ir + ?Sized> Clone for Cell<IR>
-where
-    Port<IR>: Clone,
-    Instance<IR>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            instance_id: self.instance_id,
-            ports: self.ports.clone(),
-            instances: self.instances.clone(),
-            instance_name_map: self.instance_name_map.clone(),
-        }
-    }
+    data: C,
 }
 
 /// Metadata associated with the conversion from a SCIR library to a netlist.
@@ -546,9 +428,9 @@ impl NetlistCellConversion {
     }
 }
 
-impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
+impl<L, C, P, PE, I> LibraryBuilder<L, C, P, PE, I> {
     /// Creates a new, empty library.
-    pub fn new(data: IR::LibraryData) -> Self {
+    pub fn new(data: L) -> Self {
         Self {
             cell_id: 0,
             cells: IndexMap::new(),
@@ -562,7 +444,7 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     /// Adds the given cell to the library.
     ///
     /// Returns the ID of the newly added cell.
-    pub fn add_cell(&mut self, cell: Cell<IR>) -> CellId {
+    pub fn add_cell(&mut self, cell: Cell<C, P, PE, I>) -> CellId {
         let id = self.alloc_cell_id();
         self.name_map.insert(cell.name.clone(), id);
         self.names.reserve_name(id, cell.name.clone());
@@ -573,7 +455,7 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     /// Merges the given cell into the library.
     ///
     /// Returns the ID of the newly added cell. May rename the cell if the name is already taken.
-    pub fn merge_cell(&mut self, mut cell: Cell<IR>) -> CellId {
+    pub fn merge_cell(&mut self, mut cell: Cell<C, P, PE, I>) -> CellId {
         let id = self.alloc_cell_id();
         let n_name = self.names.assign_name(id, &cell.name);
         cell.name = n_name;
@@ -600,7 +482,7 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     /// # Panics
     ///
     /// Panics if the ID is already in use.
-    pub(crate) fn add_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell<IR>) {
+    pub(crate) fn add_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell<C, P, PE, I>) {
         let id = id.into();
         assert!(!self.cells.contains_key(&id));
         self.cell_id = std::cmp::max(id.0, self.cell_id);
@@ -619,7 +501,7 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     ///
     /// Panics if the ID is **not** already in use.
     #[doc(hidden)]
-    pub fn overwrite_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell<IR>) {
+    pub fn overwrite_cell_with_id(&mut self, id: impl Into<CellId>, cell: Cell<C, P, PE, I>) {
         let id = id.into();
         assert!(self.cells.contains_key(&id));
         self.cell_id = std::cmp::max(id.0, self.cell_id);
@@ -649,13 +531,13 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     ///
     /// Panics if no cell has the given ID.
     /// For a non-panicking alternative, see [`try_cell`](LibraryBuilder::try_cell).
-    pub fn cell(&self, id: CellId) -> &Cell<IR> {
+    pub fn cell(&self, id: CellId) -> &Cell<C, P, PE, I> {
         self.cells.get(&id).unwrap()
     }
 
     /// Gets the cell with the given ID.
     #[inline]
-    pub fn try_cell(&self, id: CellId) -> Option<&Cell<IR>> {
+    pub fn try_cell(&self, id: CellId) -> Option<&Cell<C, P, PE, I>> {
         self.cells.get(&id)
     }
 
@@ -664,12 +546,12 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     /// # Panics
     ///
     /// Panics if no cell has the given name.
-    pub fn cell_named(&self, name: &str) -> &Cell<IR> {
+    pub fn cell_named(&self, name: &str) -> &Cell<C, P, PE, I> {
         self.cell(*self.name_map.get(name).unwrap())
     }
 
     /// Gets the cell with the given name.
-    pub fn try_cell_named(&self, name: &str) -> Option<&Cell<IR>> {
+    pub fn try_cell_named(&self, name: &str) -> Option<&Cell<C, P, PE, I>> {
         self.try_cell(*self.name_map.get(name)?)
     }
 
@@ -695,7 +577,7 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     }
 
     /// Iterates over the `(id, cell)` pairs in this library.
-    pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell<IR>)> {
+    pub fn cells(&self) -> impl Iterator<Item = (CellId, &Cell<C, P, PE, I>)> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
@@ -723,7 +605,10 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
         visited.drain().collect()
     }
 
-    fn convert_instance_path_cell(&self, top: &InstancePathCell) -> Option<(CellId, &Cell<IR>)> {
+    fn convert_instance_path_cell(
+        &self,
+        top: &InstancePathCell,
+    ) -> Option<(CellId, &Cell<C, P, PE, I>)> {
         Some(match top {
             InstancePathCell::Id(id) => (*id, self.cell(*id)),
             InstancePathCell::Name(name) => (
@@ -862,7 +747,7 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     /// If you want to inspect warnings/infos, consider using
     /// [`try_build`](LibraryBuilder::try_build) instead.
     #[inline]
-    pub fn build(self) -> Result<Library<IR>, ()> {
+    pub fn build(self) -> Result<Library<L, C, P, PE, I>, ()> {
         self.try_build().map(|ok| ok.0)
     }
 
@@ -877,20 +762,21 @@ impl<IR: Ir + ?Sized> LibraryBuilder<IR> {
     /// If you do not want to inspect warnings/infos, consider using
     /// [`build`](LibraryBuilder::build) instead.
     ///
-    pub fn try_build(self) -> Result<(Library<IR>, ()), ()> {
+    pub fn try_build(self) -> Result<(Library<L, C, P, PE, I>, ()), ()> {
         Ok((Library(self), ()))
     }
 }
 
-impl<IR: Ir + ?Sized> Cell<IR> {
+impl<C, P, PE, I> Cell<C, P, PE, I> {
     /// Creates a new cell with the given name.
-    pub fn new(name: impl Into<ArcStr>) -> Self {
+    pub fn new(name: impl Into<ArcStr>, data: C) -> Self {
         Self {
             name: name.into(),
             ports: IndexMap::new(),
             instance_id: 0,
             instances: IndexMap::new(),
             instance_name_map: HashMap::new(),
+            data,
         }
     }
 
@@ -902,7 +788,7 @@ impl<IR: Ir + ?Sized> Cell<IR> {
 
     /// Iterate over the ports of this cell.
     #[inline]
-    pub fn ports(&self) -> impl Iterator<Item = &Port<IR>> {
+    pub fn ports(&self) -> impl Iterator<Item = &Port<P, PE>> {
         self.ports.iter().map(|(_, port)| port)
     }
 
@@ -912,7 +798,7 @@ impl<IR: Ir + ?Sized> Cell<IR> {
     ///
     /// Panics if the provided port does not exist.
     #[inline]
-    pub fn port(&self, name: &str) -> &Port<IR> {
+    pub fn port(&self, name: &str) -> &Port<P, PE> {
         self.ports.get(name).unwrap()
     }
 
@@ -922,13 +808,13 @@ impl<IR: Ir + ?Sized> Cell<IR> {
     ///
     /// Panics if no instance with the given ID exists.
     #[inline]
-    pub fn instance(&self, id: InstanceId) -> &Instance<IR> {
+    pub fn instance(&self, id: InstanceId) -> &Instance<I> {
         self.instances.get(&id).unwrap()
     }
 
     /// Get the instance associated with the given ID.
     #[inline]
-    pub fn try_instance(&self, id: InstanceId) -> Option<&Instance<IR>> {
+    pub fn try_instance(&self, id: InstanceId) -> Option<&Instance<I>> {
         self.instances.get(&id)
     }
 
@@ -937,17 +823,17 @@ impl<IR: Ir + ?Sized> Cell<IR> {
     /// # Panics
     ///
     /// Panics if no instance has the given name.
-    pub fn instance_named(&self, name: &str) -> &Instance<IR> {
+    pub fn instance_named(&self, name: &str) -> &Instance<I> {
         self.instance(*self.instance_name_map.get(name).unwrap())
     }
 
     /// Gets the instance with the given name.
-    pub fn try_instance_named(&self, name: &str) -> Option<&Instance<IR>> {
+    pub fn try_instance_named(&self, name: &str) -> Option<&Instance<I>> {
         self.try_instance(*self.instance_name_map.get(name)?)
     }
 
     /// Gets the instance associated with the given path element.
-    pub fn instance_from_path_element(&self, elem: &InstancePathElement) -> &Instance<IR> {
+    pub fn instance_from_path_element(&self, elem: &InstancePathElement) -> &Instance<I> {
         match elem {
             InstancePathElement::Id(id) => self.instance(*id),
             InstancePathElement::Name(name) => self.instance_named(name),
@@ -956,7 +842,7 @@ impl<IR: Ir + ?Sized> Cell<IR> {
 
     /// Add the given instance to the cell.
     #[inline]
-    pub fn add_instance(&mut self, instance: Instance<IR>) -> InstanceId {
+    pub fn add_instance(&mut self, instance: Instance<I>) -> InstanceId {
         self.instance_id += 1;
         let id = InstanceId(self.instance_id);
         self.instance_name_map.insert(instance.name.clone(), id);
@@ -966,14 +852,14 @@ impl<IR: Ir + ?Sized> Cell<IR> {
 
     /// Iterate over the instances of this cell.
     #[inline]
-    pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance<IR>)> {
+    pub fn instances(&self) -> impl Iterator<Item = (InstanceId, &Instance<I>)> {
         self.instances.iter().map(|x| (*x.0, x.1))
     }
 }
 
-impl<IR: Ir + ?Sized> Instance<IR> {
+impl<I> Instance<I> {
     /// Create an instance of the given cell with the given name.
-    pub fn new(name: impl Into<ArcStr>, child: CellId, data: IR::InstanceData) -> Self {
+    pub fn new(name: impl Into<ArcStr>, child: CellId, data: I) -> Self {
         Self {
             child: child.into(),
             name: name.into(),
@@ -998,7 +884,7 @@ impl<IR: Ir + ?Sized> Instance<IR> {
     }
 }
 
-impl<IR: Ir + ?Sized> Port<IR> {
+impl<P, PE> Port<P, PE> {
     /// The direction of this port.
     #[inline]
     pub fn direction(&self) -> Direction {

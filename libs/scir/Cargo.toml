@@ -15,6 +15,7 @@ thiserror = "1"
 diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
 uniquify = { version = "0.2.0", path = "../uniquify", registry = "substrate" }
 enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
+commonir = { version = "0.1.0", path = "../commonir", registry = "substrate" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
