@@ -546,7 +546,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
                     LayoutCell::new(
                         block.clone(),
                         data,
-                        Arc::new(io),
+                        io,
                         Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
                     )
                 })

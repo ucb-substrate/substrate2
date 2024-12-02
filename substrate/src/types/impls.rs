@@ -2,6 +2,9 @@
 
 use schematic::{Node, Terminal};
 
+use geometry::point::Point;
+use geometry::transform::{TransformRef, TranslateRef};
+
 use crate::types::layout::{
     BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometryBuilder,
 };
@@ -454,19 +457,26 @@ where
     }
 }
 
-// TODO: Maybe do lazy transformation here.
-impl<T: HasTransformedView> HasTransformedView for ArrayBundle<T> {
-    type TransformedView = ArrayBundle<Transformed<T>>;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView {
-        Self::TransformedView {
+impl<T: TranslateRef> TranslateRef for ArrayBundle<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
             elems: self
                 .elems
                 .iter()
-                .map(|elem| elem.transformed_view(trans))
+                .map(|elem| elem.translate_ref(p))
+                .collect(),
+            ty_len: self.ty_len,
+        }
+    }
+}
+
+impl<T: TransformRef> TransformRef for ArrayBundle<T> {
+    fn transform_ref(&self, trans: geometry::prelude::Transformation) -> Self {
+        Self {
+            elems: self
+                .elems
+                .iter()
+                .map(|elem| elem.transform_ref(trans))
                 .collect(),
             ty_len: self.ty_len,
         }

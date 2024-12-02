@@ -1,27 +1,250 @@
 //! Transformation types and traits.
 
-use approx::{AbsDiffEq, RelativeEq, UlpsEq};
+use std::f64::consts::PI;
+
 pub use geometry_macros::{TransformMut, TranslateMut};
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 
 use super::orientation::Orientation;
 use crate::point::Point;
-use crate::wrap_angle;
 
-/// A transformation representing translation, rotation, and reflection of geometry.
+/// A transformation representing a Manhattan translation, rotation, and/or reflection of geometry.
 ///
 /// This object does not support scaling of geometry, and as such all transformation matrices
 /// should be unitary.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transformation {
-    /// The transformation matrix represented in row-major order.
-    pub(crate) a: [[f64; 2]; 2],
+    /// The transformation matrix.
+    pub(crate) mat: TransformationMatrix,
     /// The x-y translation applied after the transformation.
-    pub(crate) b: [f64; 2],
+    pub(crate) b: Point,
 }
 
 impl Default for Transformation {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
+/// A Manhattan rotation: 0, 90, 180, or 270 degrees counterclockwise.
+#[derive(Debug, Clone, Copy, Default, Eq, Ord, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum Rotation {
+    /// 0 degrees; no rotation.
+    #[default]
+    R0,
+    /// 90 degrees counterclockwise.
+    R90,
+    /// 180 degrees counterclockwise.
+    R180,
+    /// 270 degrees counterclockwise.
+    R270,
+}
+
+impl std::ops::Add<Rotation> for Rotation {
+    type Output = Rotation;
+    fn add(self, rhs: Rotation) -> Self::Output {
+        use Rotation::*;
+        match (self, rhs) {
+            (R0, R0) => R0,
+            (R0, R90) => R90,
+            (R0, R180) => R180,
+            (R0, R270) => R270,
+            (R90, R0) => R90,
+            (R90, R90) => R180,
+            (R90, R180) => R270,
+            (R90, R270) => R0,
+            (R180, R0) => R180,
+            (R180, R90) => R270,
+            (R180, R180) => R0,
+            (R180, R270) => R90,
+            (R270, R0) => R270,
+            (R270, R90) => R0,
+            (R270, R180) => R90,
+            (R270, R270) => R180,
+        }
+    }
+}
+
+impl std::ops::AddAssign for Rotation {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl std::ops::Sub<Rotation> for Rotation {
+    type Output = Rotation;
+    fn sub(self, rhs: Rotation) -> Self::Output {
+        use Rotation::*;
+        match (self, rhs) {
+            (R0, R0) => R0,
+            (R0, R90) => R270,
+            (R0, R180) => R180,
+            (R0, R270) => R90,
+            (R90, R0) => R90,
+            (R90, R90) => R0,
+            (R90, R180) => R270,
+            (R90, R270) => R180,
+            (R180, R0) => R180,
+            (R180, R90) => R90,
+            (R180, R180) => R0,
+            (R180, R270) => R270,
+            (R270, R0) => R270,
+            (R270, R90) => R180,
+            (R270, R180) => R90,
+            (R270, R270) => R0,
+        }
+    }
+}
+
+impl std::ops::SubAssign for Rotation {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
+impl Rotation {
+    /// The transformation matrix representing this rotation.
+    #[inline]
+    pub fn transformation_matrix(&self) -> TransformationMatrix {
+        TransformationMatrix::from(*self)
+    }
+
+    /// The angle of this rotation, in degrees.
+    pub fn degrees(&self) -> f64 {
+        match self {
+            Rotation::R0 => 0.,
+            Rotation::R90 => 90.,
+            Rotation::R180 => 180.,
+            Rotation::R270 => 270.,
+        }
+    }
+
+    /// The angle of this rotation, in radians.
+    pub fn radians(&self) -> f64 {
+        match self {
+            Rotation::R0 => 0.,
+            Rotation::R90 => PI / 2.,
+            Rotation::R180 => PI,
+            Rotation::R270 => PI * 1.5,
+        }
+    }
+}
+
+/// Indicates that an angle was not a valid Manhattan angle.
+///
+/// Manhattan angles (in degrees) are 0, 90, 180, 270,
+/// or any equivalent angle modulo 360 degrees.
+pub struct NonManhattanAngleError;
+
+impl TryFrom<f64> for Rotation {
+    type Error = NonManhattanAngleError;
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        let value = (((value % 360.) + 360.) % 360.).round() as i64;
+        match value {
+            0 => Ok(Rotation::R0),
+            90 => Ok(Rotation::R90),
+            180 => Ok(Rotation::R180),
+            270 => Ok(Rotation::R270),
+            _ => Err(NonManhattanAngleError),
+        }
+    }
+}
+
+/// A matrix representing a unitary transformation.
+///
+/// Can represent rotations, reflections, or combinations of rotations/reflections.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct TransformationMatrix([[i8; 2]; 2]);
+
+impl TransformationMatrix {
+    /// The identity transformation.
+    ///
+    /// Maps any point to itself.
+    #[inline]
+    pub fn identity() -> Self {
+        Self([[1, 0], [0, 1]])
+    }
+
+    /// A rotation matrix rotating by the given [`Rotation`].
+    pub fn rotate(&self, angle: Rotation) -> Self {
+        angle.transformation_matrix() * *self
+    }
+
+    /// A matrix representing a reflection across the x-axis.
+    pub fn reflect_vert(&self) -> Self {
+        Self([[1, 0], [0, -1]]) * *self
+    }
+
+    /// The inverse of the transformation matrix.
+    pub fn inverse(&self) -> Self {
+        Self(unitary_matinv(&self.0))
+    }
+}
+
+impl From<Rotation> for TransformationMatrix {
+    fn from(value: Rotation) -> Self {
+        Self(match value {
+            Rotation::R0 => [[1, 0], [0, 1]],
+            Rotation::R90 => [[0, -1], [1, 0]],
+            Rotation::R180 => [[-1, 0], [0, -1]],
+            Rotation::R270 => [[0, 1], [-1, 0]],
+        })
+    }
+}
+
+/// Multiples two 2x2 matrices, returning a new 2x2 matrix
+fn matmul_i8(a: &[[i8; 2]; 2], b: &[[i8; 2]; 2]) -> [[i8; 2]; 2] {
+    [
+        [
+            a[0][0] * b[0][0] + a[0][1] * b[1][0],
+            a[0][0] * b[0][1] + a[0][1] * b[1][1],
+        ],
+        [
+            a[1][0] * b[0][0] + a[1][1] * b[1][0],
+            a[1][0] * b[0][1] + a[1][1] * b[1][1],
+        ],
+    ]
+}
+
+/// Multiplies a 2x2 matrix by a 2-entry vector, returning a new 2-entry vector.
+fn matvec_i8_i64(a: &[[i8; 2]; 2], b: &[i64; 2]) -> [i64; 2] {
+    [
+        a[0][0] as i64 * b[0] + a[0][1] as i64 * b[1],
+        a[1][0] as i64 * b[0] + a[1][1] as i64 * b[1],
+    ]
+}
+
+impl std::ops::Mul<TransformationMatrix> for TransformationMatrix {
+    type Output = Self;
+    fn mul(self, rhs: TransformationMatrix) -> Self::Output {
+        Self(matmul_i8(&self.0, &rhs.0))
+    }
+}
+
+impl std::ops::Mul<Point> for TransformationMatrix {
+    type Output = Point;
+    fn mul(self, rhs: Point) -> Self::Output {
+        let out = matvec_i8_i64(&self.0, &[rhs.x, rhs.y]);
+        Point::new(out[0], out[1])
+    }
+}
+
+impl std::ops::Deref for TransformationMatrix {
+    type Target = [[i8; 2]; 2];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for TransformationMatrix {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Default for TransformationMatrix {
+    #[inline]
     fn default() -> Self {
         Self::identity()
     }
@@ -31,31 +254,38 @@ impl Transformation {
     /// Returns the identity transform, leaving any transformed object unmodified.
     pub fn identity() -> Self {
         Self {
-            a: [[1., 0.], [0., 1.]],
-            b: [0., 0.],
+            mat: TransformationMatrix::identity(),
+            b: Point::zero(),
         }
     }
     /// Returns a translation by `(x,y)`.
-    pub fn translate(x: f64, y: f64) -> Self {
+    pub fn translate(x: i64, y: i64) -> Self {
         Self {
-            a: [[1., 0.], [0., 1.]],
-            b: [x, y],
+            mat: TransformationMatrix::identity(),
+            b: Point::new(x, y),
         }
     }
-    /// Returns a rotatation by `angle` degrees.
-    pub fn rotate(angle: f64) -> Self {
-        let sin = angle.to_radians().sin();
-        let cos = angle.to_radians().cos();
+    /// Translates the current transformation by `(x, y)`, returning a new [`Transformation`].
+    pub fn translate_ref(&self, x: i64, y: i64) -> Self {
         Self {
-            a: [[cos, -sin], [sin, cos]],
-            b: [0., 0.],
+            mat: self.mat,
+            b: Point::new(x, y) + self.b,
+        }
+    }
+
+    /// Returns a rotatation by `angle` degrees.
+    pub fn rotate(angle: Rotation) -> Self {
+        let mat = TransformationMatrix::from(angle);
+        Self {
+            mat,
+            b: Point::zero(),
         }
     }
     /// Returns a reflection about the x-axis.
     pub fn reflect_vert() -> Self {
         Self {
-            a: [[1., 0.], [0., -1.]],
-            b: [0., 0.],
+            mat: TransformationMatrix([[1, 0], [0, -1]]),
+            b: Point::zero(),
         }
     }
 
@@ -86,7 +316,7 @@ impl Transformation {
 
     /// Creates a transform from an offset, angle, and a bool indicating
     /// whether or not to reflect vertically.
-    pub fn from_opts(offset: Point, reflect_vert: bool, angle: f64) -> Self {
+    pub fn from_opts(offset: Point, reflect_vert: bool, angle: Rotation) -> Self {
         Self::builder()
             .point(offset)
             .reflect_vert(reflect_vert)
@@ -104,37 +334,39 @@ impl Transformation {
     /// * (a) Reflect vertically, then
     /// * (b) Translate by (1,1)
     /// * (c) Place a point at (local coordinate) (1,1)
+    ///
     /// Lands said point at (2,-2) in top-level space,
     /// whereas reversing the order of (a) and (b) lands it at (2,0).
     pub fn cascade(parent: Transformation, child: Transformation) -> Transformation {
         // The result-transform's origin is the parent's origin,
         // plus the parent-transformed child's origin
-        let mut b = matvec(&parent.a, &child.b);
-        b[0] += parent.b[0];
-        b[1] += parent.b[1];
+        let mut b = parent.mat * child.b;
+        b += parent.b;
         // And the cascade-matrix is the product of the parent's and child's
-        let a = matmul(&parent.a, &child.a);
-        Self { a, b }
+        let mat = parent.mat * child.mat;
+        Self { mat, b }
     }
 
     /// The point representing the translation of this transformation.
     pub fn offset_point(&self) -> Point {
-        Point {
-            x: self.b[0].round() as i64,
-            y: self.b[1].round() as i64,
-        }
+        self.b
     }
 
     /// Returns an [`Orientation`] corresponding to this transformation.
     pub fn orientation(&self) -> Orientation {
-        let reflect_vert = self.a[0][0].signum() != self.a[1][1].signum();
-        let sin = self.a[1][0];
-        let cos = self.a[0][0];
-        let angle = cos.acos().to_degrees();
-        let angle = if sin > 0f64 {
-            angle
+        let reflect_vert = if self.mat[0][0] == 0 {
+            self.mat[0][1].signum() == self.mat[1][0].signum()
         } else {
-            wrap_angle(-angle)
+            self.mat[0][0].signum() != self.mat[1][1].signum()
+        };
+        let cos = self.mat[0][0];
+        let sin = self.mat[1][0];
+        let angle = match (cos, sin) {
+            (1, 0) => Rotation::R0,
+            (0, 1) => Rotation::R90,
+            (-1, 0) => Rotation::R180,
+            (0, -1) => Rotation::R270,
+            _ => panic!("transformation did not represent a valid Manhattan transformation"),
         };
         Orientation {
             reflect_vert,
@@ -148,23 +380,21 @@ impl Transformation {
     ///
     /// ```
     /// use geometry::transform::Transformation;
-    /// use approx::assert_relative_eq;
+    /// use geometry::transform::Rotation;
     ///
     /// let trans = Transformation::cascade(
-    ///     Transformation::rotate(90.),
-    ///     Transformation::translate(5., 10.),
+    ///     Transformation::rotate(Rotation::R90),
+    ///     Transformation::translate(5, 10),
     /// );
     /// let inv = trans.inv();
     ///
-    /// assert_relative_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_eq!(Transformation::cascade(inv, trans), Transformation::identity());
+    /// assert_eq!(Transformation::cascade(trans, inv), Transformation::identity());
     /// ```
     pub fn inv(&self) -> Transformation {
-        let inv = unitary_matinv(&self.a);
-        let invb = matvec(&inv, &self.b);
-        Self {
-            a: inv,
-            b: [-invb[0], -invb[1]],
-        }
+        let inv = self.mat.inverse();
+        let invb = inv * self.b;
+        Self { mat: inv, b: -invb }
     }
 }
 
@@ -177,63 +407,27 @@ where
     }
 }
 
-impl AbsDiffEq for Transformation {
-    type Epsilon = f64;
-
-    fn default_epsilon() -> Self::Epsilon {
-        f64::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: f64) -> bool {
-        self.a[0].abs_diff_eq(&other.a[0], epsilon)
-            && self.a[1].abs_diff_eq(&other.a[1], epsilon)
-            && self.b.abs_diff_eq(&other.b, epsilon)
-    }
-}
-
-impl RelativeEq for Transformation {
-    fn default_max_relative() -> f64 {
-        f64::default_max_relative()
-    }
-
-    fn relative_eq(&self, other: &Self, epsilon: f64, max_relative: f64) -> bool {
-        self.a[0].relative_eq(&other.a[0], epsilon, max_relative)
-            && self.a[1].relative_eq(&other.a[1], epsilon, max_relative)
-            && self.b.relative_eq(&other.b, epsilon, max_relative)
-    }
-}
-
-impl UlpsEq for Transformation {
-    fn default_max_ulps() -> u32 {
-        f64::default_max_ulps()
-    }
-
-    fn ulps_eq(&self, other: &Self, epsilon: f64, max_ulps: u32) -> bool {
-        self.a[0].ulps_eq(&other.a[0], epsilon, max_ulps)
-            && self.a[1].ulps_eq(&other.a[1], epsilon, max_ulps)
-            && self.b.ulps_eq(&other.b, epsilon, max_ulps)
-    }
-}
-
 /// A builder for creating transformations from translations and [`Orientation`]s.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct TransformationBuilder {
-    x: f64,
-    y: f64,
+    x: i64,
+    y: i64,
     reflect_vert: bool,
-    angle: f64,
+    angle: Rotation,
 }
 
 impl TransformationBuilder {
     /// Specifies the x-y translation encoded by the transformation.
     pub fn point(&mut self, point: impl Into<Point>) -> &mut Self {
         let point = point.into();
-        self.x = point.x as f64;
-        self.y = point.y as f64;
+        self.x = point.x;
+        self.y = point.y;
         self
     }
 
     /// Specifies the [`Orientation`] applied by this transformation.
+    ///
+    /// This overrides any angle and reflection settings previously applied.
     pub fn orientation(&mut self, o: impl Into<Orientation>) -> &mut Self {
         let o = o.into();
         self.reflect_vert = o.reflect_vert;
@@ -242,7 +436,7 @@ impl TransformationBuilder {
     }
 
     /// Specifies the angle of rotation encoded by this transformation.
-    pub fn angle(&mut self, angle: f64) -> &mut Self {
+    pub fn angle(&mut self, angle: Rotation) -> &mut Self {
         self.angle = angle;
         self
     }
@@ -255,49 +449,51 @@ impl TransformationBuilder {
 
     /// Builds a [`Transformation`] from the specified parameters.
     pub fn build(&mut self) -> Transformation {
-        let b = [self.x, self.y];
-        let sin = self.angle.to_radians().sin();
-        let cos = self.angle.to_radians().cos();
-        let sin_refl = if self.reflect_vert { sin } else { -sin };
-        let cos_refl = if self.reflect_vert { -cos } else { cos };
-        let a = [[cos, sin_refl], [sin, cos_refl]];
-        Transformation { a, b }
+        let mut mat = self.angle.transformation_matrix();
+        if self.reflect_vert {
+            mat[0][1] = -mat[0][1];
+            mat[1][1] = -mat[1][1];
+        }
+        Transformation {
+            mat,
+            b: Point::new(self.x, self.y),
+        }
     }
-}
-
-/// Multiples two 2x2 matrices, returning a new 2x2 matrix
-fn matmul(a: &[[f64; 2]; 2], b: &[[f64; 2]; 2]) -> [[f64; 2]; 2] {
-    [
-        [
-            a[0][0] * b[0][0] + a[0][1] * b[1][0],
-            a[0][0] * b[0][1] + a[0][1] * b[1][1],
-        ],
-        [
-            a[1][0] * b[0][0] + a[1][1] * b[1][0],
-            a[1][0] * b[0][1] + a[1][1] * b[1][1],
-        ],
-    ]
-}
-
-/// Multiplies a 2x2 matrix by a 2-entry vector, returning a new 2-entry vector.
-fn matvec(a: &[[f64; 2]; 2], b: &[f64; 2]) -> [f64; 2] {
-    [
-        a[0][0] * b[0] + a[0][1] * b[1],
-        a[1][0] * b[0] + a[1][1] * b[1],
-    ]
 }
 
 /// Finds the inverse of the matrix.
 ///
 /// The determinant factor is unecessary since all transformation matrices have determinant 1 (no
 /// scaling).
-fn unitary_matinv(a: &[[f64; 2]; 2]) -> [[f64; 2]; 2] {
+fn unitary_matinv(a: &[[i8; 2]; 2]) -> [[i8; 2]; 2] {
     [[a[1][1], -a[0][1]], [-a[1][0], a[0][0]]]
 }
 
-/// A trait for specifying how an object is changed by a transformation.
+/// A trait for specifying how an object is changed by a [`Transformation`].
+pub trait TransformRef: TranslateRef {
+    /// Applies matrix-vector [`Transformation`] `trans`.
+    fn transform_ref(&self, trans: Transformation) -> Self;
+}
+
+impl TransformRef for () {
+    fn transform_ref(&self, _trans: Transformation) -> Self {}
+}
+
+impl<T: TransformRef> TransformRef for Vec<T> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.iter().map(|elt| elt.transform_ref(trans)).collect()
+    }
+}
+
+impl<T: TransformRef> TransformRef for Option<T> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.as_ref().map(move |elt| elt.transform_ref(trans))
+    }
+}
+
+/// A trait for specifying how an object is changed by a [`Transformation`].
 #[impl_for_tuples(32)]
-pub trait TransformMut {
+pub trait TransformMut: TranslateMut {
     /// Applies matrix-vector [`Transformation`] `trans`.
     fn transform_mut(&mut self, trans: Transformation);
 }
@@ -318,13 +514,14 @@ impl<T: TransformMut> TransformMut for Option<T> {
     }
 }
 
-/// A trait for specifying how an object is changed by a transformation.
+/// A trait for specifying how an object is changed by a [`Transformation`].
 ///
 /// Takes in an owned copy of the shape and returns the transformed version.
-pub trait Transform: TransformMut + Sized {
+pub trait Transform: Translate + TransformMut + Sized {
     /// Applies matrix-vector [`Transformation`] `trans`.
     ///
     /// Creates a new shape at a location equal to the transformation of the original.
+    #[inline]
     fn transform(mut self, trans: Transformation) -> Self {
         self.transform_mut(trans);
         self
@@ -332,6 +529,28 @@ pub trait Transform: TransformMut + Sized {
 }
 
 impl<T: TransformMut + Sized> Transform for T {}
+
+/// A trait for specifying how a shape is translated by a [`Point`].
+pub trait TranslateRef: Sized {
+    /// Translates the shape by [`Point`], returning a new shape.
+    fn translate_ref(&self, p: Point) -> Self;
+}
+
+impl TranslateRef for () {
+    fn translate_ref(&self, _p: Point) -> Self {}
+}
+
+impl<T: TranslateRef> TranslateRef for Vec<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.iter().map(|elt| elt.translate_ref(p)).collect()
+    }
+}
+
+impl<T: TranslateRef> TranslateRef for Option<T> {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.as_ref().map(move |elt| elt.translate_ref(p))
+    }
+}
 
 /// A trait for specifying how a shape is translated by a [`Point`].
 #[impl_for_tuples(32)]
@@ -371,67 +590,34 @@ pub trait Translate: TranslateMut + Sized {
 
 impl<T: TranslateMut + Sized> Translate for T {}
 
-/// A trait for specifying how the transform of an object is computed.
-///
-/// For example, the transform view of a [`Rect`](crate::rect::Rect) may be an owned [`Rect`](crate::rect::Rect) since transformation can
-/// be applied quickly while the transform view of a [`Vec<Rect>`] only lazily transforms
-/// rectangles when they are queried.
-pub trait HasTransformedView {
-    /// An object storing a transformed view of `Self`.
-    type TransformedView;
-
-    /// Produces a transformed view of `self`.
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView;
-}
-
-/// The type of the transformed view of `T`.
-pub type Transformed<T> = <T as HasTransformedView>::TransformedView;
-
-impl HasTransformedView for () {
-    type TransformedView = ();
-
-    fn transformed_view(&self, _trans: Transformation) -> Self::TransformedView {}
-}
-
-impl<T: HasTransformedView> HasTransformedView for Vec<T> {
-    type TransformedView = Vec<Transformed<T>>;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        self.iter().map(|e| e.transformed_view(trans)).collect()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-
-    use approx::assert_relative_eq;
-
     use super::*;
     use crate::{orientation::NamedOrientation, rect::Rect};
 
     #[test]
     fn matvec_works() {
-        let a = [[1., 2.], [3., 4.]];
-        let b = [5., 6.];
-        assert_eq!(matvec(&a, &b), [17., 39.]);
+        let a = [[1, 2], [3, 4]];
+        let b = [5, 6];
+        assert_eq!(matvec_i8_i64(&a, &b), [17, 39]);
     }
 
     #[test]
     fn matmul_works() {
-        let a = [[1., 2.], [3., 4.]];
-        let b = [[5., 6.], [7., 8.]];
-        assert_eq!(matmul(&a, &b), [[19., 22.], [43., 50.]]);
+        let a = [[1, 2], [3, 4]];
+        let b = [[5, 6], [7, 8]];
+        assert_eq!(matmul_i8(&a, &b), [[19, 22], [43, 50]]);
     }
 
     #[test]
     fn unitary_matinv_works() {
-        let a = [[1., 1.], [3., 4.]];
+        let a = [[1, 1], [3, 4]];
         let inv = unitary_matinv(&a);
-        let a_mul_inv = matmul(&a, &inv);
-        assert_relative_eq!(a_mul_inv[0][0], 1.);
-        assert_relative_eq!(a_mul_inv[0][1], 0.);
-        assert_relative_eq!(a_mul_inv[1][0], 0.);
-        assert_relative_eq!(a_mul_inv[1][1], 1.);
+        let a_mul_inv = matmul_i8(&a, &inv);
+        assert_eq!(a_mul_inv[0][0], 1);
+        assert_eq!(a_mul_inv[0][1], 0);
+        assert_eq!(a_mul_inv[1][0], 0);
+        assert_eq!(a_mul_inv[1][1], 1);
     }
 
     #[test]

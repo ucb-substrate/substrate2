@@ -7,7 +7,9 @@ use crate::dims::Dims;
 use crate::dir::Dir;
 use crate::prelude::Transform;
 use crate::snap::snap_to_grid;
-use crate::transform::{HasTransformedView, TransformMut, Transformation, TranslateMut};
+use crate::transform::{
+    TransformMut, TransformRef, Transformation, Translate, TranslateMut, TranslateRef,
+};
 
 /// A point in two-dimensional space.
 #[derive(
@@ -80,6 +82,12 @@ impl Point {
     }
 }
 
+impl TranslateRef for Point {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.translate(p)
+    }
+}
+
 impl TranslateMut for Point {
     fn translate_mut(&mut self, p: Point) {
         self.x += p.x;
@@ -87,22 +95,15 @@ impl TranslateMut for Point {
     }
 }
 
-impl TransformMut for Point {
-    fn transform_mut(&mut self, trans: Transformation) {
-        let xf = self.x as f64;
-        let yf = self.y as f64;
-        let x = trans.a[0][0] * xf + trans.a[0][1] * yf + trans.b[0];
-        let y = trans.a[1][0] * xf + trans.a[1][1] * yf + trans.b[1];
-        self.x = x.round() as i64;
-        self.y = y.round() as i64;
+impl TransformRef for Point {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.transform(trans)
     }
 }
 
-impl HasTransformedView for Point {
-    type TransformedView = Point;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        self.transform(trans)
+impl TransformMut for Point {
+    fn transform_mut(&mut self, trans: Transformation) {
+        *self = trans.mat * *self + trans.b;
     }
 }
 
@@ -145,6 +146,16 @@ impl std::ops::SubAssign<Point> for Point {
     fn sub_assign(&mut self, rhs: Point) {
         self.x -= rhs.x;
         self.y -= rhs.y;
+    }
+}
+
+impl std::ops::Neg for Point {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
