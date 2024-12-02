@@ -1414,6 +1414,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "layir"
+version = "0.1.0"
+dependencies = [
+ "arcstr",
+ "diagnostics",
+ "enumify",
+ "geometry",
+ "indexmap 2.2.6",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "test-log",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "uniquify",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
