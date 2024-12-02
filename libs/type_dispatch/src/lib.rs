@@ -9,6 +9,7 @@ pub use duplicate;
 pub use type_dispatch_macros::*;
 
 pub mod derive;
+#[cfg(test)]
 mod tests;
 
 /// A dispatch of an object.

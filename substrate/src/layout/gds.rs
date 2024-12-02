@@ -21,12 +21,12 @@ use slotmap::{new_key_type, SlotMap};
 use tracing::{span, Level};
 use uniquify::Names;
 
-use crate::io::layout::{BundleBuilder, HardwareType, PortGeometry};
 use crate::layout::error::GdsExportError;
 use crate::pdk::layers::LayerInfo;
+use crate::types::layout::{BundleBuilder, HardwareType, PortGeometry};
 use crate::{
-    io::{layout::IoShape, NameBuf},
     pdk::layers::{GdsLayerSpec, HasPin, LayerContext, LayerId},
+    types::{layout::IoShape, NameBuf},
 };
 
 use super::error::{GdsImportError, GdsImportResult};

@@ -16,12 +16,12 @@ use geometry::{
 use indexmap::{map::Entry, IndexMap};
 use serde::{Deserialize, Serialize};
 
-use crate::io::layout::PortGeometry;
 use crate::layout::bbox::LayerBbox;
+use crate::types::layout::PortGeometry;
 use crate::{
     error::{Error, Result},
-    io::NameBuf,
     pdk::{layers::LayerId, Pdk},
+    types::NameBuf,
 };
 
 use super::{Draw, DrawReceiver, ExportsLayoutData, Instance};

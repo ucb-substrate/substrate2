@@ -8,12 +8,12 @@ pub mod cache;
 pub mod context;
 pub mod error;
 pub mod execute;
-pub mod io;
 pub mod layout;
 pub mod lut;
 pub mod pdk;
 pub mod schematic;
 pub mod simulation;
+pub mod types;
 
 mod diagnostics;
 

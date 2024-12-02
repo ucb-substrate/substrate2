@@ -2,41 +2,100 @@
 
 use crate::diagnostics::SourceInfo;
 use crate::error;
-use crate::io::{Directed, FlatLen, Flatten, HasNameTree};
 use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
+use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
-/// A schematic hardware type.
-pub trait HardwareType: FlatLen + HasNameTree + Clone {
-    /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Bundle: IsBundle;
+use super::{ArrayBundle, Directed, Signal};
 
+// Seal this trait?
+pub trait Connectable<T> {}
+
+impl<T> Connectable<&T> for T {}
+impl<T> Connectable<T> for &T {}
+impl<T> Connectable<T> for T {}
+
+/// A bundle representing an instantiation of a [`Signal`].
+pub trait SignalBundle: super::SignalBundle {
+    type NestedSignal: SignalBundle;
+    /// Creates a nested view of the bundle given a parent node.
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal;
+}
+
+impl<T: SignalBundle> HasNestedView for T {
+    type NestedView = T::NestedSignal;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        <Self as SignalBundle>::nested_view(self, parent)
+    }
+}
+
+pub trait Bundle: super::Bundle<BundleType = <Self as Bundle>::BundleType> + HasNestedView {
+    type BundleType: BundleType;
+}
+impl<T: super::Bundle<BundleType: BundleType> + HasNestedView> Bundle for T {
+    type BundleType = <T as super::Bundle>::BundleType;
+}
+
+pub trait BundleOf<T: SignalBundle>: super::BundleOf<T> + Bundle {}
+impl<S: SignalBundle, T: super::BundleOf<S> + Bundle> BundleOf<S> for T {}
+
+pub trait Connect: Bundle {
+    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle;
+}
+
+/// A schematic bundle type.
+pub trait BundleType:
+    super::BundleType
+    + BundleOfType<Node>
+    + BundleOfType<Terminal>
+    + BundleOfType<NestedNode>
+    + BundleOfType<NestedTerminal>
+{
     /// Instantiates a schematic data struct with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]);
+    fn instantiate<'n>(
+        &self,
+        ids: &'n [Node],
+    ) -> (<Self as BundleOfType<Node>>::Bundle, &'n [Node]);
 
     /// Instantiate a top-level schematic data struct from a node list
     ///
     /// This method wraps [`instantiate`](Self::instantiate) with sanity checks
     /// to ensure that the instantiation process consumed all the nodes
     /// provided.
-    fn instantiate_top(&self, ids: &[Node]) -> Self::Bundle {
+    fn instantiate_top(&self, ids: &[Node]) -> <Self as BundleOfType<Node>>::Bundle {
         let (data, ids_rest) = self.instantiate(ids);
         assert!(ids_rest.is_empty());
         debug_assert_eq!(ids, data.flatten_vec());
         data
     }
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &<Self as BundleOfType<Node>>::Bundle,
+        instance: InstanceId,
+        instance_io: &<Self as BundleOfType<Node>>::Bundle,
+    ) -> <Self as BundleOfType<Terminal>>::Bundle;
 }
 
-/// The associated bundle of a schematic type.
-pub type Bundle<T> = <T as HardwareType>::Bundle;
+pub trait BundleOfType<S: SignalBundle>:
+    super::BundleOfType<S, Bundle = <Self as BundleOfType<S>>::Bundle>
+{
+    type Bundle: BundleOf<S>;
+}
+impl<S: SignalBundle, T: super::BundleOfType<S>> BundleOfType<S> for T
+where
+    <T as super::BundleOfType<S>>::Bundle: Bundle,
+{
+    type Bundle = T::Bundle;
+}
 
-/// The associated terminal view of an object.
-pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
+// A schematic IO type.
+pub trait Io: super::Io + BundleType {}
+impl<T: super::Io + BundleType> Io for T {}
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -62,25 +121,28 @@ pub(crate) struct NodeConnectDirectionError {
     data: Vec<[(Direction, NodeDriverData); 2]>,
 }
 
-/// A trait indicating that this type can be connected to T.
-pub trait Connect<T> {}
-
-/// A bundle of schematic nodes.
-///
-/// An instance of a [`HardwareType`].
-pub trait IsBundle:
-    FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
-{
-}
-
-impl<T> IsBundle for T where
-    T: FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
-{
-}
-
 /// A single node in a circuit.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node(u32);
+
+impl super::SignalBundle for Node {}
+
+impl Connect for Node {
+    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
+        *self
+    }
+}
+
+impl SignalBundle for Node {
+    type NestedSignal = NestedNode;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
+        NestedNode {
+            node: *self,
+            instances: parent.clone(),
+        }
+    }
+}
 
 /// A nested node within a cell.
 ///
@@ -110,105 +172,11 @@ impl NestedNode {
     }
 }
 
-impl From<NestedNode> for NodePath {
-    fn from(value: NestedNode) -> Self {
-        value.path()
-    }
-}
+impl super::SignalBundle for NestedNode {}
 
-impl From<&NestedNode> for NodePath {
-    fn from(value: &NestedNode) -> Self {
-        value.path()
-    }
-}
-
-/// A terminal of an instance.
-#[derive(Copy, Clone, Debug)]
-pub struct Terminal {
-    cell_id: CellId,
-    cell_node: Node,
-    instance_id: InstanceId,
-    instance_node: Node,
-}
-
-impl Connect<Node> for Terminal {}
-
-impl Connect<&Node> for Terminal {}
-
-impl Connect<Node> for &Terminal {}
-
-impl Connect<&Node> for &Terminal {}
-
-impl Connect<Terminal> for Node {}
-
-impl Connect<&Terminal> for Node {}
-
-impl Connect<Terminal> for &Node {}
-
-impl Connect<&Terminal> for &Node {}
-
-impl Deref for Terminal {
-    type Target = Node;
-
-    fn deref(&self) -> &Self::Target {
-        &self.instance_node
-    }
-}
-
-impl AsRef<Node> for Terminal {
-    fn as_ref(&self) -> &Node {
-        self
-    }
-}
-
-impl HasTerminalView for Node {
-    type TerminalView = Terminal;
-
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView {
-        Terminal {
-            cell_id: cell,
-            cell_node: *cell_io,
-            instance_id: instance,
-            instance_node: *instance_io,
-        }
-    }
-}
-
-impl FlatLen for Node {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl Flatten<Node> for Node {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        output.extend(std::iter::once(*self));
-    }
-}
-
-impl HasNestedView for Node {
-    type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedNode {
-            node: *self,
-            instances: parent.clone(),
-        }
-    }
-}
-
-impl HasNestedView for NestedNode {
-    type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+impl SignalBundle for NestedNode {
+    type NestedSignal = NestedNode;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
         NestedNode {
             node: self.node,
             instances: self.instances.prepend(parent),
@@ -231,37 +199,56 @@ impl Flatten<Node> for Vec<Node> {
     }
 }
 
-impl FlatLen for Terminal {
-    fn len(&self) -> usize {
-        1
+impl From<NestedNode> for NodePath {
+    fn from(value: NestedNode) -> Self {
+        value.path()
     }
 }
 
-impl Flatten<Node> for Terminal {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Node>,
-    {
-        self.instance_node.flatten(output);
+impl From<&NestedNode> for NodePath {
+    fn from(value: &NestedNode) -> Self {
+        value.path()
     }
 }
 
-impl HasNestedView for Terminal {
-    type NestedView = NestedTerminal;
+/// A terminal of an instance.
+#[derive(Copy, Clone, Debug)]
+pub struct Terminal {
+    pub(crate) cell_id: CellId,
+    pub(crate) cell_node: Node,
+    pub(crate) instance_id: InstanceId,
+    pub(crate) instance_node: Node,
+}
 
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+impl Deref for Terminal {
+    type Target = Node;
+
+    fn deref(&self) -> &Self::Target {
+        &self.instance_node
+    }
+}
+
+impl AsRef<Node> for Terminal {
+    fn as_ref(&self) -> &Node {
+        self
+    }
+}
+
+impl super::SignalBundle for Terminal {}
+
+impl Connect for Terminal {
+    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
+        self.instance_node
+    }
+}
+
+impl SignalBundle for Terminal {
+    type NestedSignal = NestedTerminal;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
         NestedTerminal(NestedNode {
             instances: parent.append_segment(self.instance_id, self.cell_id),
             node: self.cell_node,
         })
-    }
-}
-
-impl HasNestedView for NestedTerminal {
-    type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedTerminal(self.0.nested_view(parent))
     }
 }
 
@@ -287,6 +274,16 @@ impl NestedTerminal {
     /// Returns the path to this [`NestedTerminal`].
     pub fn path(&self) -> TerminalPath {
         TerminalPath(self.0.path())
+    }
+}
+
+impl super::SignalBundle for NestedTerminal {}
+
+impl SignalBundle for NestedTerminal {
+    type NestedSignal = NestedTerminal;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
+        NestedTerminal(self.0.nested_view(parent))
     }
 }
 
@@ -317,47 +314,6 @@ impl From<NestedTerminal> for TerminalPath {
 impl From<&NestedTerminal> for TerminalPath {
     fn from(value: &NestedTerminal) -> Self {
         value.path()
-    }
-}
-
-/// A view of the terminals in an interface.
-pub trait HasTerminalView {
-    /// A view of the terminals in an interface.
-    type TerminalView: HasNestedView + Flatten<Node> + Send + Sync;
-
-    /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView;
-}
-
-impl<T> HasTerminalView for &T
-where
-    T: HasTerminalView,
-{
-    type TerminalView = T::TerminalView;
-
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView {
-        HasTerminalView::terminal_view(cell, *cell_io, instance, *instance_io)
-    }
-}
-
-impl HasTerminalView for () {
-    type TerminalView = ();
-    fn terminal_view(
-        _cell: CellId,
-        _cell_io: &Self,
-        _instance: InstanceId,
-        _instance_io: &Self,
-    ) -> Self::TerminalView {
     }
 }
 
@@ -552,23 +508,23 @@ impl NodeContext {
             .collect()
     }
 
-    pub fn instantiate_directed<TY: HardwareType + Directed>(
+    pub fn instantiate_directed<TY: BundleType + Directed>(
         &mut self,
         ty: &TY,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as HardwareType>::Bundle) {
+    ) -> (Vec<Node>, <TY as BundleOfType<Node>>::Bundle) {
         let nodes = self.nodes_directed(&ty.flatten_vec(), priority, source_info);
         let data = ty.instantiate_top(&nodes);
         (nodes, data)
     }
 
-    pub fn instantiate_undirected<TY: HardwareType>(
+    pub fn instantiate_undirected<TY: BundleType>(
         &mut self,
         ty: &TY,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as HardwareType>::Bundle) {
+    ) -> (Vec<Node>, <TY as BundleOfType<Node>>::Bundle) {
         let nodes = self.nodes_undirected(ty.len(), priority, source_info);
         let data = ty.instantiate_top(&nodes);
         (nodes, data)
@@ -673,7 +629,7 @@ impl Port {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::schematic::NodeContext;
+    use crate::types::schematic::NodeContext;
 
     #[test]
     fn conflicting_directions_error() {

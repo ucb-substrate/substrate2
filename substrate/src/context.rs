@@ -21,9 +21,6 @@ use crate::cache::Cache;
 use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
-use crate::io::layout::{BundleBuilder, HardwareType as LayoutType};
-use crate::io::schematic::{HardwareType as SchematicType, NodeContext, NodePriority, Port};
-use crate::io::{Flatten, Flipped, HasNameTree};
 use crate::layout::element::RawCell;
 use crate::layout::error::{GdsExportError, LayoutError};
 use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
@@ -39,10 +36,12 @@ use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
-    InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
-    SchematicContext,
+    CellValue, InstancePath, RawCellInnerBuilder, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
+use crate::types::layout::{BundleBuilder, HardwareType as LayoutType};
+use crate::types::schematic::{BundleType as SchematicType, NodeContext, NodePriority, Port};
+use crate::types::{Flatten, Flipped, HasNameTree};
 
 /// The global context.
 ///
@@ -294,13 +293,12 @@ impl Context {
     /// - If yes:
     ///     - Retrieve created cell ID, io_data, and handle to cell
     ///     - being generated and return immediately
-    pub(crate) fn generate_schematic_inner<S: Schema + ?Sized, B: Schematic<S>>(
+    pub(crate) fn generate_schematic_inner<B: Schematic>(
         &self,
         block: Arc<B>,
-    ) -> SchemaCellHandle<S, B> {
+    ) -> SchematicCellHandle<B> {
         let key = CellCacheKey {
             block: block.clone(),
-            phantom: PhantomData::<S>,
         };
         let block_clone = block.clone();
         let mut inner = self.inner.write().unwrap();
@@ -327,27 +325,14 @@ impl Context {
             },
             move |_key, (id, mut cell_builder, io_data)| {
                 let res = B::schematic(block_clone.as_ref(), io_data.as_ref(), &mut cell_builder);
-                res.map(|data| SchemaCellCacheValue {
+                res.map(|data| CellValue {
                     raw: Arc::new(cell_builder.finish()),
                     cell: Arc::new(SchematicCell::new(id, io_data, block_clone, Arc::new(data))),
                 })
             },
         );
 
-        SchemaCellHandle {
-            handle: handle.clone(),
-            cell: SchematicCellHandle {
-                id: metadata.id,
-                block,
-                io_data: metadata.io_data.clone(),
-                cell: handle.map(|res| {
-                    Ok(res?
-                        .as_ref()
-                        .map_err(|e| e.clone())
-                        .map(|SchemaCellCacheValue { cell, .. }| cell.clone()))
-                }),
-            },
-        }
+        handle.clone()
     }
 
     fn generate_cross_schematic_inner<
@@ -693,7 +678,6 @@ pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
     (
         CellBuilder {
             id,
-            root: InstancePath::new(id),
             cell_name,
             ctx: context,
             node_ctx,

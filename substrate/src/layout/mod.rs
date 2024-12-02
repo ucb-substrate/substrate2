@@ -24,10 +24,10 @@ use geometry::{
 };
 use once_cell::sync::OnceCell;
 
-use crate::io::layout::{Builder, HardwareType};
 use crate::layout::bbox::LayerBbox;
 use crate::pdk::layers::LayerId;
 use crate::pdk::Pdk;
+use crate::types::layout::{Builder, HardwareType};
 use crate::{block::Block, error::Error};
 use crate::{context::PdkContext, error::Result};
 

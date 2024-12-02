@@ -10,11 +10,11 @@ use serde::Serialize;
 
 use crate::block::Block;
 use crate::context::{Context, Installation};
-use crate::io::TestbenchIo;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, ExportsNestedData, Schematic};
+use crate::schematic::{Cell, Schematic};
 use crate::simulation::data::SaveTb;
+use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
 use substrate::simulation::data::FromSaved;
 
