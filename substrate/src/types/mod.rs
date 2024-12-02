@@ -7,7 +7,6 @@ use std::{
 
 use arcstr::ArcStr;
 pub use codegen::Io;
-use geometry::transform::{HasTransformedView, Transformed};
 use layout::{HardwareType as LayoutType, PortGeometry};
 use schematic::BundleType as SchematicType;
 use serde::{Deserialize, Serialize};
@@ -93,7 +92,7 @@ impl<T: SignalBundle> Flatten<Self> for T {
     where
         E: Extend<Self>,
     {
-        output.extend(self.clone());
+        output.extend(std::iter::once(self.clone()));
     }
 }
 

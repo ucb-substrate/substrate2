@@ -1,6 +1,7 @@
 //! A block that can be instantiated by Substrate.
 
 use std::any::Any;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use arcstr::ArcStr;
@@ -15,7 +16,7 @@ use crate::types::Io;
 /// # Examples
 ///
 #[doc = examples::get_snippets!("core", "inverter")]
-pub trait Block: Serialize + DeserializeOwned + Send + Sync + Any {
+pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;
 

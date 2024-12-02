@@ -617,7 +617,7 @@ impl<'a> GdsImporter<'a> {
                 tracing::debug!("importing port `{}`", net_name);
                 let pin_layer = pin_layer.unwrap();
                 let family = family.unwrap();
-                let mut port = crate::io::Signal.builder();
+                let mut port = crate::types::Signal.builder();
                 let mut has_geometry = false;
                 if let Some(layer) = layers.get_mut(&pin_layer) {
                     // Layer exists in geometry; see which elements intersect with this text

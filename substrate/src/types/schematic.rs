@@ -19,17 +19,21 @@ impl<T> Connectable<T> for &T {}
 impl<T> Connectable<T> for T {}
 
 /// A bundle representing an instantiation of a [`Signal`].
-pub trait SignalBundle: super::SignalBundle {
-    type NestedSignal: SignalBundle;
-    /// Creates a nested view of the bundle given a parent node.
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal;
+pub trait SignalBundle:
+    super::SignalBundle + HasNestedView<NestedView = <Self as SignalBundle>::NestedSignal>
+{
+    type NestedSignal: super::SignalBundle
+        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
 }
-
-impl<T: SignalBundle> HasNestedView for T {
-    type NestedView = T::NestedSignal;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        <Self as SignalBundle>::nested_view(self, parent)
-    }
+impl<
+        T: super::SignalBundle
+            + HasNestedView<
+                NestedView: super::SignalBundle
+                                + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
+            >,
+    > SignalBundle for T
+{
+    type NestedSignal = <Self as HasNestedView>::NestedView;
 }
 
 pub trait Bundle: super::Bundle<BundleType = <Self as Bundle>::BundleType> + HasNestedView {
@@ -39,8 +43,16 @@ impl<T: super::Bundle<BundleType: BundleType> + HasNestedView> Bundle for T {
     type BundleType = <T as super::Bundle>::BundleType;
 }
 
-pub trait BundleOf<T: SignalBundle>: super::BundleOf<T> + Bundle {}
-impl<S: SignalBundle, T: super::BundleOf<S> + Bundle> BundleOf<S> for T {}
+pub trait BundleOf<T: SignalBundle>:
+    super::BundleOf<T> + Bundle<BundleType: BundleOfType<T, Bundle = Self>>
+{
+}
+impl<
+        S: SignalBundle,
+        T: super::BundleOf<S> + Bundle<BundleType: BundleOfType<S, Bundle = Self>>,
+    > BundleOf<S> for T
+{
+}
 
 pub trait Connect: Bundle {
     fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle;
@@ -49,8 +61,8 @@ pub trait Connect: Bundle {
 /// A schematic bundle type.
 pub trait BundleType:
     super::BundleType
-    + BundleOfType<Node>
-    + BundleOfType<Terminal>
+    + BundleOfType<Node, Bundle: Connect>
+    + BundleOfType<Terminal, Bundle: Connect>
     + BundleOfType<NestedNode>
     + BundleOfType<NestedTerminal>
 {
@@ -133,10 +145,10 @@ impl Connect for Node {
     }
 }
 
-impl SignalBundle for Node {
-    type NestedSignal = NestedNode;
+impl HasNestedView for Node {
+    type NestedView = NestedNode;
 
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         NestedNode {
             node: *self,
             instances: parent.clone(),
@@ -174,9 +186,9 @@ impl NestedNode {
 
 impl super::SignalBundle for NestedNode {}
 
-impl SignalBundle for NestedNode {
-    type NestedSignal = NestedNode;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
+impl HasNestedView for NestedNode {
+    type NestedView = NestedNode;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         NestedNode {
             node: self.node,
             instances: self.instances.prepend(parent),
@@ -242,9 +254,9 @@ impl Connect for Terminal {
     }
 }
 
-impl SignalBundle for Terminal {
-    type NestedSignal = NestedTerminal;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
+impl HasNestedView for Terminal {
+    type NestedView = NestedTerminal;
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         NestedTerminal(NestedNode {
             instances: parent.append_segment(self.instance_id, self.cell_id),
             node: self.cell_node,
@@ -279,11 +291,11 @@ impl NestedTerminal {
 
 impl super::SignalBundle for NestedTerminal {}
 
-impl SignalBundle for NestedTerminal {
-    type NestedSignal = NestedTerminal;
+impl HasNestedView for NestedTerminal {
+    type NestedView = NestedTerminal;
 
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedSignal {
-        NestedTerminal(self.0.nested_view(parent))
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        NestedTerminal(<NestedNode as HasNestedView>::nested_view(&self.0, parent))
     }
 }
 

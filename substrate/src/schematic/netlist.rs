@@ -57,7 +57,7 @@ pub trait ConvertibleNetlister<S: Schema + ?Sized> {
         out: &mut W,
         opts: Self::Options<'_>,
     ) -> substrate::error::Result<(RawLib<S>, NetlistLibConversion)> {
-        let raw_lib = ctx.export_scir::<S, _>(block)?;
+        let raw_lib = ctx.export_scir(block)?;
 
         let conv = self
             .write_scir_netlist(&raw_lib.scir, out, opts)

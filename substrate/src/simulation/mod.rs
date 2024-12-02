@@ -14,7 +14,6 @@ use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, Schematic};
 use crate::simulation::data::SaveTb;
-use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
 use substrate::simulation::data::FromSaved;
 
@@ -87,7 +86,7 @@ pub trait SupportedBy<S: Simulator>: Analysis {
 }
 
 /// Controls simulation options.
-pub struct SimController<S: Simulator, T: ExportsNestedData> {
+pub struct SimController<S: Simulator, T: Schematic> {
     pub(crate) simulator: Arc<S>,
     /// The current testbench cell.
     pub tb: Arc<Cell<T>>,
@@ -139,7 +138,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<S: Simulator>: Schematic<S::Schema> + Block<Io = TestbenchIo> {
+pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block {
     /// The output produced by this testbench.
     type Output: Any + Serialize + DeserializeOwned;
     /// Run the testbench using the given simulation controller.

@@ -103,15 +103,6 @@ impl FlatLen for Signal {
     }
 }
 
-impl Flatten<Direction> for Signal {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Direction>,
-    {
-        output.extend(std::iter::once(Direction::InOut));
-    }
-}
-
 impl HasNameTree for Signal {
     fn names(&self) -> Option<Vec<NameTree>> {
         Some(vec![])
@@ -158,7 +149,7 @@ impl layout::HardwareType for Signal {
 }
 
 macro_rules! impl_direction {
-    ($dir:ident, $flatten_dir_body:item) => {
+    ($dir:ident, $flatten_dir_bound:path, $flatten_dir_body:item) => {
         impl<T> AsRef<T> for $dir<T> {
             fn as_ref(&self) -> &T {
                 &self.0
@@ -197,8 +188,8 @@ macro_rules! impl_direction {
             }
         }
 
-        impl<T: FlatLen> Flatten<Direction> for $dir<T> {
-                $flatten_dir_body
+        impl<T: $flatten_dir_bound> Flatten<Direction> for $dir<T> {
+            $flatten_dir_body
         }
 
         impl<T: HasNameTree> HasNameTree for $dir<T> {
@@ -264,6 +255,7 @@ macro_rules! impl_direction {
 
 impl_direction!(
     Input,
+    FlatLen,
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
@@ -273,6 +265,7 @@ impl_direction!(
 );
 impl_direction!(
     Output,
+    FlatLen,
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
@@ -282,6 +275,7 @@ impl_direction!(
 );
 impl_direction!(
     InOut,
+    FlatLen,
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
@@ -291,6 +285,7 @@ impl_direction!(
 );
 impl_direction!(
     Flipped,
+    Flatten<Direction>,
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<Direction>,
@@ -370,7 +365,12 @@ impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
                 .iter()
                 .zip(instance_io.elems.iter())
                 .map(|(cell_elem, instance_elem)| {
-                    schematic::BundleType::terminal_view(cell, cell_elem, instance, instance_elem)
+                    <T as schematic::BundleType>::terminal_view(
+                        cell,
+                        cell_elem,
+                        instance,
+                        instance_elem,
+                    )
                 })
                 .collect(),
             ty_len: cell_io.ty_len,
