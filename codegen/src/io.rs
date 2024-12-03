@@ -1,7 +1,7 @@
 use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::parse_quote;
+use syn::{parse_quote, GenericParam, TypeParam};
 use type_dispatch::derive::{
     add_trait_bounds, field_tokens, field_tokens_with_referent, struct_body, FieldTokens,
 };
@@ -47,13 +47,20 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
     let substrate = substrate_ident();
 
+    let bundle_ident = format_ident!("{}Bundle", ident);
+    let bundle_primitive_ty: syn::Ident = parse_quote!(__substrate_T);
+    let bundle_primitive_generic: syn::GenericParam =
+        parse_quote!(#bundle_primitive_ty: #substrate::types::schematic::BundlePrimitive);
+    let bundle_primitive_nested_view: syn::TypePath =
+        parse_quote!(<#bundle_primitive_ty as #substrate::schematic::HasNestedView>::NestedView);
+
     let mut hnt_generics = generics.clone();
-    add_trait_bounds(&mut hnt_generics, quote!(#substrate::io::HasNameTree));
+    add_trait_bounds(&mut hnt_generics, quote!(#substrate::types::HasNameTree));
 
     let mut st_generics = generics.clone();
     add_trait_bounds(
         &mut st_generics,
-        quote!(#substrate::io::schematic::HardwareType),
+        quote!(#substrate::types::schematic::BundleType),
     );
     let (st_imp, st_ty, st_where) = st_generics.split_for_impl();
 
@@ -61,55 +68,35 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     add_trait_bounds(&mut st_any_generics, quote!(::std::any::Any));
     let (st_any_imp, st_any_ty, st_any_where) = st_any_generics.split_for_impl();
 
+    let mut hnv_generics = st_any_generics.clone();
+    hnv_generics.params.push(bundle_primitive_generic.clone());
+    let (hnv_imp, hnv_ty, hnv_where) = hnv_generics.split_for_impl();
+    let generic_idents = generics
+        .params
+        .iter()
+        .map(|generic| match generic {
+            GenericParam::Lifetime(lt) => lt.lifetime.ident.clone(),
+            GenericParam::Type(ty) => ty.ident.clone(),
+            GenericParam::Const(c) => c.ident.clone(),
+        })
+        .collect::<Vec<_>>();
+
     let mut fd_generics = generics.clone();
     add_trait_bounds(
         &mut fd_generics,
-        quote!(#substrate::io::Flatten<#substrate::io::Direction>),
+        quote!(#substrate::types::Flatten<#substrate::types::Direction>),
     );
     let (fd_imp, fd_ty, fd_where) = fd_generics.split_for_impl();
-
-    let lifetime: syn::GenericParam = parse_quote!('__substrate_derive_lifetime);
-    let mut ref_generics = st_generics.clone();
-    add_trait_bounds(&mut ref_generics, quote!(::std::any::Any));
-    ref_generics.params.push(lifetime.clone());
-
-    let mut idents = Vec::new();
-    for param in &ref_generics.params {
-        if let syn::GenericParam::Type(ref type_param) = *param {
-            idents.push(type_param.ident.clone());
-        }
-    }
-    let ref_wher = ref_generics.make_where_clause();
-    for ident in idents {
-        ref_wher
-            .predicates
-            .push(syn::parse_quote!(<#ident as substrate::io::schematic::HardwareType>::Bundle: #lifetime));
-    }
 
     let (_imp, ty, _wher) = generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
-    let mut data_len = Vec::new();
-    let mut terminal_data_len = Vec::new();
-    let mut data_fields = Vec::new();
-    let mut nested_view_fields = Vec::new();
-    let mut terminal_view_fields = Vec::new();
-    let mut nested_terminal_view_fields = Vec::new();
     let mut construct_data_fields = Vec::new();
     let mut construct_nested_view_fields = Vec::new();
     let mut construct_terminal_view_fields = Vec::new();
-    let mut construct_nested_terminal_view_fields = Vec::new();
     let mut instantiate_fields = Vec::new();
-    let mut flatten_dir_fields = Vec::new();
-    let mut flatten_node_fields = Vec::new();
-    let mut terminal_view_flatten_node_fields = Vec::new();
-    let mut field_list_elems = Vec::new();
-    let mut field_match_arms = Vec::new();
-
-    let data_ident = format_ident!("{}Schematic", ident);
-    let nested_view_ident = format_ident!("{}NestedSchematicView", ident);
-    let terminal_view_ident = format_ident!("{}TerminalView", ident);
-    let nested_terminal_view_ident = format_ident!("{}NestedTerminalView", ident);
+    let mut construct_node_connect_fields = Vec::new();
+    let mut construct_terminal_connect_fields = Vec::new();
 
     for (i, &f) in fields.iter().enumerate() {
         let field_ty = &f.ty;
@@ -149,68 +136,28 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             quote! { instance_io },
         );
 
-        data_len.push(quote! {
-                <<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::FlatLen>::len(&#refer)
-            });
-        terminal_data_len.push(quote! {
-                <<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::schematic::HasTerminalView>::TerminalView as #substrate::io::FlatLen>::len(&#refer)
-            });
-        data_fields.push(quote! {
-            #declare <#field_ty as #substrate::io::schematic::HardwareType>::Bundle,
-        });
-        nested_view_fields.push(quote! {
-                #declare #substrate::schematic::NestedView<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle>,
-        });
-        terminal_view_fields.push(quote! {
-                #declare #substrate::io::schematic::TerminalView<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle>,
-        });
-        nested_terminal_view_fields.push(quote! {
-                #declare <#substrate::io::schematic::TerminalView<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle> as #substrate::schematic::HasNestedView>::NestedView,
-        });
         construct_data_fields.push(quote! {
             #assign #temp,
         });
         construct_nested_view_fields.push(quote! {
-                #assign <<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_terminal_view_fields.push(quote! {
-                #assign <<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::schematic::HasTerminalView>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
-        });
-        construct_nested_terminal_view_fields.push(quote! {
-                #assign <<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::schematic::HasTerminalView>::TerminalView as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <#field_ty as #substrate::types::schematic::BundleType>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
         });
         instantiate_fields.push(quote! {
-                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::io::schematic::HardwareType>::instantiate(&#refer, __substrate_node_ids);
+                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::types::schematic::BundleType>::instantiate(&#refer, __substrate_node_ids);
         });
-        flatten_dir_fields.push(quote! {
-                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&#refer, __substrate_output_sink);
+        construct_node_connect_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::BundleOfType<#substrate::types::schematic::Node>>::Bundle as #substrate::types::schematic::Connect>::view(&#refer),
         });
-        flatten_node_fields.push(quote! {
-                <<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::Flatten<#substrate::io::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
-        });
-        terminal_view_flatten_node_fields.push(quote! {
-                <<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::schematic::HasTerminalView>::TerminalView as #substrate::io::Flatten<#substrate::io::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
-        });
-        field_list_elems
-            .push(quote! { #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)) });
-        field_match_arms.push(quote! {
-            ::std::stringify!(#pretty_ident) => ::std::option::Option::Some(<<#field_ty as #substrate::io::schematic::HardwareType>::Bundle as #substrate::io::Flatten<#substrate::io::schematic::Node>>::flatten_vec(&#refer)),
+        construct_terminal_connect_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::BundleOfType<#substrate::types::schematic::Terminal>>::Bundle as #substrate::types::schematic::Connect>::view(&#refer),
         });
     }
 
-    // Return 0 from `FlatLen::len` if struct has no fields.
-    if data_len.is_empty() {
-        data_len.push(quote! { 0 });
-    }
-
-    let data_body = struct_body(fields.style, true, quote!( #(#data_fields)* ));
-    let nested_view_body = struct_body(fields.style, true, quote!( #(#nested_view_fields)* ));
-    let terminal_view_body = struct_body(fields.style, true, quote!( #(#terminal_view_fields)* ));
-    let nested_terminal_view_body = struct_body(
-        fields.style,
-        true,
-        quote!( #(#nested_terminal_view_fields)* ),
-    );
+    let construct_data_body =
+        struct_body(fields.style, false, quote!( #(#construct_data_fields)* ));
     let construct_nested_view_body = struct_body(
         fields.style,
         false,
@@ -221,100 +168,56 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         false,
         quote!( #(#construct_terminal_view_fields)* ),
     );
-    let construct_nested_terminal_view_body = struct_body(
+    let construct_node_connect_body = struct_body(
         fields.style,
         false,
-        quote!( #(#construct_nested_terminal_view_fields)* ),
+        quote!( #(#construct_node_connect_fields)* ),
     );
-    let construct_data_body =
-        struct_body(fields.style, false, quote!( #(#construct_data_fields)* ));
+    let construct_terminal_connect_body = struct_body(
+        fields.style,
+        false,
+        quote!( #(#construct_terminal_connect_fields)* ),
+    );
 
     quote! {
-        #[derive(Clone)]
-        #(#attrs)*
-        #vis struct #data_ident #st_generics #data_body
-        #(#attrs)*
-        #vis struct #nested_view_ident #st_generics #nested_view_body
-        #(#attrs)*
-        #vis struct #terminal_view_ident #st_generics #terminal_view_body
-        #(#attrs)*
-        #vis struct #nested_terminal_view_ident #st_generics #nested_terminal_view_body
-
-        impl #st_imp #substrate::io::FlatLen for #data_ident #st_ty #st_where {
-            fn len(&self) -> usize {
-                #( #data_len )+*
-            }
-        }
-
-        impl #fd_imp #substrate::io::Flatten<#substrate::io::Direction> for #ident #fd_ty #fd_where {
-            fn flatten<E>(&self, __substrate_output_sink: &mut E)
-            where
-                E: ::std::iter::Extend<#substrate::io::Direction> {
-                #( #flatten_dir_fields )*
-            }
-        }
-
-        impl #st_imp #substrate::io::Flatten<#substrate::io::schematic::Node> for #data_ident #st_ty #st_where {
-            fn flatten<E>(&self, __substrate_output_sink: &mut E)
-            where
-                E: ::std::iter::Extend<#substrate::io::schematic::Node> {
-                #( #flatten_node_fields )*
-            }
-        }
-
-        impl #st_any_imp #substrate::schematic::HasNestedView for #data_ident #st_any_ty #st_any_where {
-            type NestedView = #nested_view_ident #st_any_ty;
-
-            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView {
-                #nested_view_ident #construct_nested_view_body
-            }
-        }
-
-        impl #st_any_imp #substrate::io::schematic::HasTerminalView for #data_ident #st_any_ty #st_any_where {
-            type TerminalView = #terminal_view_ident #st_any_ty;
-
-            fn terminal_view(cell: #substrate::schematic::CellId, cell_io: &Self, instance: #substrate::schematic::InstanceId, instance_io: &Self) -> Self::TerminalView {
-                #terminal_view_ident #construct_terminal_view_body
-            }
-        }
-
-        impl #st_any_imp #substrate::schematic::HasNestedView for #terminal_view_ident #st_any_ty #st_any_where {
-            type NestedView = #nested_terminal_view_ident #st_any_ty;
-
-            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView {
-                #nested_terminal_view_ident #construct_nested_terminal_view_body
-            }
-        }
-
-        impl #st_imp #substrate::io::FlatLen for #terminal_view_ident #st_ty #st_where {
-            fn len(&self) -> usize {
-                #( #terminal_data_len )+*
-            }
-        }
-
-        impl #st_imp #substrate::io::Flatten<#substrate::io::schematic::Node> for #terminal_view_ident #st_ty #st_where {
-            fn flatten<E>(&self, __substrate_output_sink: &mut E)
-            where
-                E: ::std::iter::Extend<#substrate::io::schematic::Node> {
-                #( #terminal_view_flatten_node_fields )*
-            }
-        }
-
-        impl #st_imp #substrate::io::schematic::Connect<#terminal_view_ident #st_ty> for #data_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<&#terminal_view_ident #st_ty> for #data_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<#terminal_view_ident #st_ty> for &#data_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<&#terminal_view_ident #st_ty> for &#data_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<#data_ident #st_ty> for #terminal_view_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<&#data_ident #st_ty> for #terminal_view_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<#data_ident #st_ty> for &#terminal_view_ident #st_ty #st_where {}
-        impl #st_imp #substrate::io::schematic::Connect<&#data_ident #st_ty> for &#terminal_view_ident #st_ty #st_where {}
-
-        impl #st_any_imp #substrate::io::schematic::HardwareType for #ident #st_any_ty #st_any_where {
-            type Bundle = #data_ident #ty;
-            fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::io::schematic::Node]) -> (Self::Bundle, &'n [#substrate::io::schematic::Node]) {
+        impl #st_any_imp #substrate::types::schematic::BundleType for #ident #st_any_ty #st_any_where {
+            fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Node]) -> (<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle, &'n [#substrate::types::schematic::Node]) {
                 #( #instantiate_fields )*
                 #[allow(redundant_field_names)]
-                (#data_ident #construct_data_body, __substrate_node_ids)
+                (#bundle_ident #construct_data_body, __substrate_node_ids)
+            }
+
+            fn terminal_view(
+                cell: CellId,
+                cell_io: &<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle,
+                instance: InstanceId,
+                instance_io: &<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle,
+            ) -> <Self as schematic::BundleOfType<schematic::Terminal>>::Bundle {
+                #bundle_ident #construct_terminal_view_body
+            }
+        }
+
+        impl #hnv_imp #substrate::schematic::HasNestedView for #bundle_ident #hnv_ty #hnv_where {
+            type NestedView = #bundle_ident <#(#generic_idents,)*#bundle_primitive_nested_view>;
+
+            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> Self::NestedView {
+                #bundle_ident #construct_nested_view_body
+            }
+        }
+
+        impl #st_any_imp #substrate::types::schematic::Connect for #bundle_ident<#(#generic_idents,)*#substrate::types::schematic::Node> {
+            fn view(
+                &self,
+            ) -> <<Self as #substrate::types::schematic::Bundle>::BundleType as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle {
+                #bundle_ident #construct_node_connect_body
+            }
+        }
+
+        impl #st_any_imp #substrate::types::schematic::Connect for #bundle_ident<#(#generic_idents,)*#substrate::types::schematic::Terminal> {
+            fn view(
+                &self,
+            ) -> <<Self as #substrate::types::schematic::Bundle>::BundleType as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle {
+                #bundle_ident #construct_terminal_connect_body
             }
         }
     }
@@ -335,7 +238,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let mut lt_generics = generics.clone();
     add_trait_bounds(
         &mut lt_generics,
-        quote!(#substrate::io::layout::HardwareType),
+        quote!(#substrate::types::layout::HardwareType),
     );
     let (lt_imp, lt_ty, lt_where) = lt_generics.split_for_impl();
 
@@ -352,7 +255,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         }
     }
     for ident in idents {
-        hbf_generics.make_where_clause().predicates.push(syn::parse_quote!(<#ident as #substrate::io::layout::HardwareType>::Builder: #substrate::io::layout::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts>));
+        hbf_generics.make_where_clause().predicates.push(syn::parse_quote!(<#ident as #substrate::types::layout::HardwareType>::Builder: #substrate::types::layout::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts>));
     }
 
     let (hbf_imp, hbf_ty, hbf_where) = hbf_generics.split_for_impl();
@@ -362,12 +265,12 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
 
     if let Some(layout_type) = layout_type {
         return quote! {
-            impl #lt_any_imp #substrate::io::layout::HardwareType for #ident #lt_any_ty #lt_any_where {
-                type Bundle = <#layout_type as #substrate::io::layout::HardwareType>::Bundle;
-                type Builder = <#layout_type as #substrate::io::layout::HardwareType>::Builder;
+            impl #lt_any_imp #substrate::types::layout::HardwareType for #ident #lt_any_ty #lt_any_where {
+                type Bundle = <#layout_type as #substrate::types::layout::HardwareType>::Bundle;
+                type Builder = <#layout_type as #substrate::types::layout::HardwareType>::Builder;
 
                 fn builder(&self) -> Self::Builder {
-                    <#layout_type as #substrate::io::layout::HardwareType>::builder(&<#layout_type as #substrate::io::layout::CustomHardwareType<#ident>>::from_layout_type(self))
+                    <#layout_type as #substrate::types::layout::HardwareType>::builder(&<#layout_type as #substrate::types::layout::CustomHardwareType<#ident>>::from_layout_type(self))
                 }
             }
         };
@@ -403,27 +306,27 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         } = field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
 
         ty_len.push(quote! {
-            <#field_ty as #substrate::io::FlatLen>::len(&#refer)
+            <#field_ty as #substrate::types::FlatLen>::len(&#refer)
         });
         layout_data_len.push(quote! {
-                <<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::FlatLen>::len(&#refer)
+                <<#field_ty as #substrate::types::layout::HardwareType>::Bundle as #substrate::types::FlatLen>::len(&#refer)
             });
         layout_data_fields.push(quote! {
-            #declare <#field_ty as #substrate::io::layout::HardwareType>::Bundle,
+            #declare <#field_ty as #substrate::types::layout::HardwareType>::Bundle,
         });
         layout_builder_fields.push(quote! {
-            #declare <#field_ty as #substrate::io::layout::HardwareType>::Builder,
+            #declare <#field_ty as #substrate::types::layout::HardwareType>::Builder,
         });
         flatten_port_geometry_fields.push(quote! {
-                <<#field_ty as #substrate::io::layout::HardwareType>::Bundle as #substrate::io::Flatten<#substrate::io::layout::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
+                <<#field_ty as #substrate::types::layout::HardwareType>::Bundle as #substrate::types::Flatten<#substrate::types::layout::PortGeometry>>::flatten(&#refer, __substrate_output_sink);
             });
         if switch_type {
             create_builder_fields.push(quote! {
-                    #assign <#field_ty as #substrate::io::layout::HardwareType>::builder(&<#field_ty as #substrate::io::layout::CustomHardwareType<#original_field_ty>>::from_layout_type(&#refer)),
+                    #assign <#field_ty as #substrate::types::layout::HardwareType>::builder(&<#field_ty as #substrate::types::layout::CustomHardwareType<#original_field_ty>>::from_layout_type(&#refer)),
                 });
         } else {
             create_builder_fields.push(quote! {
-                #assign <#field_ty as #substrate::io::layout::HardwareType>::builder(&#refer),
+                #assign <#field_ty as #substrate::types::layout::HardwareType>::builder(&#refer),
             });
         }
         translated_fields.push(quote! {
@@ -433,12 +336,12 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
                 #assign #substrate::geometry::transform::TransformRef::transform_ref(&#refer, trans),
         });
         build_data_fields.push(quote! {
-                #assign #substrate::io::layout::BundleBuilder::<<#field_ty as #substrate::io::layout::HardwareType>::Bundle>::build(#refer)?,
+                #assign #substrate::types::layout::BundleBuilder::<<#field_ty as #substrate::types::layout::HardwareType>::Bundle>::build(#refer)?,
         });
         hierarchical_build_from_fields.push(quote! {
-            #substrate::io::NameBuf::push(path, #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)));
-            #substrate::io::layout::HierarchicalBuildFrom::<#substrate::layout::element::NamedPorts>::build_from(&mut #refer, path, source);
-            #substrate::io::NameBuf::pop(path);
+            #substrate::types::NameBuf::push(path, #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)));
+            #substrate::types::layout::HierarchicalBuildFrom::<#substrate::layout::element::NamedPorts>::build_from(&mut #refer, path, source);
+            #substrate::types::NameBuf::pop(path);
         });
     }
 
@@ -462,7 +365,7 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         struct_body(fields.style, false, quote! { #( #build_data_fields )* });
 
     quote! {
-        impl #lt_any_imp #substrate::io::layout::HardwareType for #ident #lt_any_ty #lt_any_where {
+        impl #lt_any_imp #substrate::types::layout::HardwareType for #ident #lt_any_ty #lt_any_where {
             type Bundle = #layout_data_ident #ty;
             type Builder = #layout_builder_ident #ty;
 
@@ -477,16 +380,16 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         #(#attrs)*
         #vis struct #layout_builder_ident #lt_generics #layout_builder_body
 
-        impl #lt_imp #substrate::io::FlatLen for #layout_data_ident #lt_ty #lt_where {
+        impl #lt_imp #substrate::types::FlatLen for #layout_data_ident #lt_ty #lt_where {
             fn len(&self) -> usize {
                 #( #layout_data_len )+*
             }
         }
 
-        impl #lt_imp #substrate::io::Flatten<#substrate::io::layout::PortGeometry> for #layout_data_ident #lt_ty #lt_where {
+        impl #lt_imp #substrate::types::Flatten<#substrate::types::layout::PortGeometry> for #layout_data_ident #lt_ty #lt_where {
             fn flatten<E>(&self, __substrate_output_sink: &mut E)
             where
-                E: ::std::iter::Extend<#substrate::io::layout::PortGeometry> {
+                E: ::std::iter::Extend<#substrate::types::layout::PortGeometry> {
                 #( #flatten_port_geometry_fields )*
             }
         }
@@ -510,14 +413,14 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
         }
 
 
-        impl #lt_any_imp #substrate::io::layout::BundleBuilder<#layout_data_ident #ty> for #layout_builder_ident #lt_any_ty #lt_any_where {
+        impl #lt_any_imp #substrate::types::layout::BundleBuilder<#layout_data_ident #ty> for #layout_builder_ident #lt_any_ty #lt_any_where {
             fn build(self) -> #substrate::error::Result<#layout_data_ident #ty> {
                 #substrate::error::Result::Ok(#layout_data_ident #build_layout_data_body)
             }
         }
 
-        impl #hbf_imp #substrate::io::layout::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts> for #layout_builder_ident #hbf_ty #hbf_where {
-            fn build_from(&mut self, path: &mut #substrate::io::NameBuf, source: &#substrate::layout::element::NamedPorts) {
+        impl #hbf_imp #substrate::types::layout::HierarchicalBuildFrom<#substrate::layout::element::NamedPorts> for #layout_builder_ident #hbf_ty #hbf_where {
+            fn build_from(&mut self, path: &mut #substrate::types::NameBuf, source: &#substrate::layout::element::NamedPorts) {
                 #(#hierarchical_build_from_fields)*
             }
         }
@@ -530,26 +433,36 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
         ref ident,
         ref generics,
         ref data,
+        ref vis,
+        ref attrs,
         ..
     } = *input;
 
+    let (generics_imp, generics_ty, generics_wher) = generics.split_for_impl();
+
+    let bundle_ident = format_ident!("{}Bundle", ident);
+    let bundle_primitive_ty: syn::Ident = parse_quote!(__substrate_T);
+    let bundle_primitive_generic: syn::GenericParam =
+        parse_quote!(#bundle_primitive_ty: #substrate::types::BundlePrimitive);
+
+    let mut bundle_generics = generics.clone();
+    bundle_generics.params.push(bundle_primitive_generic);
+    let (bundle_imp, bundle_ty, bundle_wher) = bundle_generics.split_for_impl();
+
     let mut hnt_generics = generics.clone();
-    add_trait_bounds(&mut hnt_generics, quote!(#substrate::io::HasNameTree));
-    add_trait_bounds(&mut hnt_generics, quote!(#substrate::io::FlatLen));
+    add_trait_bounds(&mut hnt_generics, quote!(#substrate::types::HasNameTree));
+    add_trait_bounds(&mut hnt_generics, quote!(#substrate::types::FlatLen));
 
     let mut io_generics = generics.clone();
+    add_trait_bounds(&mut io_generics, quote!(#substrate::types::BundleType));
     add_trait_bounds(
         &mut io_generics,
-        quote!(#substrate::io::schematic::HardwareType),
+        quote!(#substrate::types::layout::HardwareType),
     );
-    add_trait_bounds(
-        &mut io_generics,
-        quote!(#substrate::io::layout::HardwareType),
-    );
-    add_trait_bounds(&mut io_generics, quote!(#substrate::io::Directed));
+    add_trait_bounds(&mut io_generics, quote!(#substrate::types::Directed));
 
     let mut flatlen_generics = generics.clone();
-    add_trait_bounds(&mut flatlen_generics, quote!(#substrate::io::FlatLen));
+    add_trait_bounds(&mut flatlen_generics, quote!(#substrate::types::FlatLen));
 
     let (hnt_imp, hnt_ty, hnt_wher) = hnt_generics.split_for_impl();
     let (flatlen_imp, flatlen_ty, flatlen_wher) = flatlen_generics.split_for_impl();
@@ -558,21 +471,92 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
     let mut ty_len = Vec::new();
     let mut name_fields = Vec::new();
 
-    for (i, &f) in fields.iter().enumerate() {
-        let FieldTokens {
-            refer,
-            pretty_ident,
-            ..
-        } = field_tokens(fields.style, &f.vis, &f.attrs, i, &f.ident);
+    let mut st_generics = generics.clone();
+    add_trait_bounds(
+        &mut st_generics,
+        quote!(#substrate::types::schematic::BundleType),
+    );
+    let (st_imp, st_ty, st_where) = st_generics.split_for_impl();
 
+    let mut st_any_generics = st_generics.clone();
+    add_trait_bounds(&mut st_any_generics, quote!(::std::any::Any));
+    let (st_any_imp, st_any_ty, st_any_where) = st_any_generics.split_for_impl();
+
+    let mut fd_generics = generics.clone();
+    add_trait_bounds(
+        &mut fd_generics,
+        quote!(#substrate::types::Flatten<#substrate::types::Direction>),
+    );
+    let (fd_imp, fd_ty, fd_where) = fd_generics.split_for_impl();
+
+    let (_imp, ty, _wher) = generics.split_for_impl();
+    let fields = data.as_ref().take_struct().unwrap();
+
+    let mut data_len = Vec::new();
+    let mut data_fields = Vec::new();
+    let mut construct_data_fields = Vec::new();
+    let mut flatten_dir_fields = Vec::new();
+    let mut flatten_bundle_fields = Vec::new();
+
+    for (i, &f) in fields.iter().enumerate() {
         let field_ty = &f.ty;
+        let field_vis = &f.vis;
+        let field_ident = &f.ident;
+        let attrs = &f.attrs;
+
+        let FieldTokens {
+            declare,
+            refer,
+            assign,
+            temp,
+            pretty_ident,
+        } = field_tokens(fields.style, field_vis, attrs, i, field_ident);
+
+        let FieldTokens {
+            refer: cell_io_refer,
+            ..
+        } = field_tokens_with_referent(
+            fields.style,
+            field_vis,
+            attrs,
+            i,
+            field_ident,
+            quote! { cell_io },
+        );
+
+        let FieldTokens {
+            refer: instance_io_refer,
+            ..
+        } = field_tokens_with_referent(
+            fields.style,
+            field_vis,
+            attrs,
+            i,
+            field_ident,
+            quote! { instance_io },
+        );
 
         ty_len.push(quote! {
-            <#field_ty as #substrate::io::FlatLen>::len(&#refer)
+            <#field_ty as #substrate::types::FlatLen>::len(&#refer)
         });
         name_fields.push(quote! {
-                (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#field_ty as #substrate::io::HasNameTree>::names(&#refer))
+                (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#field_ty as #substrate::types::HasNameTree>::names(&#refer))
             });
+        flatten_dir_fields.push(quote! {
+                <#field_ty as #substrate::types::Flatten<#substrate::types::Direction>>::flatten(&#refer, __substrate_output_sink);
+        });
+        data_len.push(quote! {
+                <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::FlatLen>::len(&#refer)
+            });
+        data_fields.push(quote! {
+            #declare <#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle,
+        });
+        construct_data_fields.push(quote! {
+            #assign #temp,
+        });
+        flatten_bundle_fields.push(quote! {
+                <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Flatten<#bundle_primitive_ty>>::flatten(&#refer, __substrate_output_sink);
+        });
     }
 
     // Return 0 from `FlatLen::len` if struct has no fields.
@@ -580,21 +564,62 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
         ty_len.push(quote! { 0 });
     }
 
+    // Return 0 from `FlatLen::len` if struct has no fields.
+    if data_len.is_empty() {
+        data_len.push(quote! { 0 });
+    }
+
+    let data_body = struct_body(fields.style, true, quote!( #(#data_fields)* ));
+
     quote! {
-        impl #flatlen_imp #substrate::io::FlatLen for #ident #flatlen_ty #flatlen_wher {
+        #(#attrs)*
+        #vis struct #bundle_ident #bundle_generics #data_body
+
+        impl #flatlen_imp #substrate::types::FlatLen for #ident #flatlen_ty #flatlen_wher {
             fn len(&self) -> usize {
                 #( #ty_len )+*
             }
         }
 
-        impl #hnt_imp #substrate::io::HasNameTree for #ident #hnt_ty #hnt_wher {
-            fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::io::NameTree>> {
-                if <Self as #substrate::io::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
+        impl #fd_imp #substrate::types::Flatten<#substrate::types::Direction> for #ident #fd_ty #fd_where {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: ::std::iter::Extend<#substrate::types::Direction> {
+                #( #flatten_dir_fields )*
+            }
+        }
+
+        impl #hnt_imp #substrate::types::HasNameTree for #ident #hnt_ty #hnt_wher {
+            fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::types::NameTree>> {
+                if <Self as #substrate::types::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
                 ::std::option::Option::Some([ #( #name_fields ),* ]
                      .into_iter()
-                     .filter_map(|(frag, children)| children.map(|c| #substrate::io::NameTree::new(frag, c)))
+                     .filter_map(|(frag, children)| children.map(|c| #substrate::types::NameTree::new(frag, c)))
                      .collect()
                 )
+            }
+        }
+
+        impl #bundle_imp #substrate::types::Bundle for #bundle_ident #bundle_ty #bundle_wher {
+            type BundleType = #ident;
+        }
+
+        impl #bundle_imp #substrate::types::BundleOfType<#bundle_primitive_ty> for #ident #generics_ty #bundle_wher {
+            type Bundle = #bundle_ident #bundle_ty;
+        }
+
+        impl #bundle_imp #substrate::types::FlatLen for #bundle_ident #bundle_ty #bundle_wher {
+            fn len(&self) -> usize {
+                #( #data_len )+*
+            }
+        }
+
+        impl #bundle_imp #substrate::types::Flatten<#bundle_primitive_ty> for #bundle_ident #bundle_ty #bundle_wher {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: Extend<#bundle_primitive_ty>,
+            {
+                #( #flatten_bundle_fields )*
             }
         }
     }

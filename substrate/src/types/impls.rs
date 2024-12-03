@@ -31,7 +31,7 @@ impl Flatten<Direction> for () {
     }
 }
 
-impl<T: SignalBundle> Flatten<T> for () {
+impl<T: BundlePrimitive> Flatten<T> for () {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<T>,
@@ -45,7 +45,7 @@ impl HasNameTree for () {
     }
 }
 
-impl<B: SignalBundle> BundleOfType<B> for () {
+impl<B: BundlePrimitive> BundleOfType<B> for () {
     type Bundle = ();
 }
 
@@ -109,7 +109,7 @@ impl HasNameTree for Signal {
     }
 }
 
-impl<B: SignalBundle> BundleOfType<B> for Signal {
+impl<B: BundlePrimitive> BundleOfType<B> for Signal {
     type Bundle = B;
 }
 
@@ -207,7 +207,7 @@ macro_rules! impl_direction {
             }
         }
 
-        impl<B: SignalBundle, T: BundleOfType<B>> BundleOfType<B> for $dir<T> {
+        impl<B: BundlePrimitive, T: BundleOfType<B>> BundleOfType<B> for $dir<T> {
             type Bundle = <T as BundleOfType<B>>::Bundle;
         }
 
@@ -329,7 +329,7 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
-impl<B: SignalBundle, T: BundleOfType<B>> BundleOfType<B> for Array<T> {
+impl<B: BundlePrimitive, T: BundleOfType<B>> BundleOfType<B> for Array<T> {
     type Bundle = ArrayBundle<<T as BundleOfType<B>>::Bundle>;
 }
 
@@ -699,7 +699,7 @@ impl<T> ArrayBundle<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::io::*;
+    use crate::types::*;
 
     #[test]
     fn flatten_name_tree() {

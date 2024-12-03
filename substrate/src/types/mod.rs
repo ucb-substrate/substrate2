@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Result,
-    schematic::{CellId, InstanceId, InstancePath},
+    schematic::{CellId, HasNestedView, InstanceId, InstancePath},
 };
 
 pub use crate::scir::Direction;
@@ -34,6 +34,12 @@ pub trait FlatLen {
     }
 }
 
+impl<T: FlatLen> FlatLen for &T {
+    fn len(&self) -> usize {
+        (*self).len()
+    }
+}
+
 /// Flatten a structure into a list.
 pub trait Flatten<T>: FlatLen {
     /// Flatten a structure into a list.
@@ -48,6 +54,15 @@ pub trait Flatten<T>: FlatLen {
         self.flatten(&mut vec);
         assert_eq!(vec.len(), len, "Flatten::flatten_vec produced a Vec with an incorrect length: expected {} from FlatLen::len, got {}", len, vec.len());
         vec
+    }
+}
+
+impl<S, T: Flatten<S>> Flatten<S> for &T {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<S>,
+    {
+        (*self).flatten(output)
     }
 }
 
@@ -71,7 +86,7 @@ pub trait HasNameTree {
 pub trait BundleType: FlatLen + HasNameTree {}
 impl<T: FlatLen + HasNameTree> BundleType for T {}
 
-pub trait BundleOfType<B: SignalBundle>: BundleType {
+pub trait BundleOfType<B: BundlePrimitive>: BundleType {
     type Bundle: BundleOf<B>;
 }
 
@@ -84,27 +99,8 @@ impl<T: Flatten<Direction>> Directed for T {}
 pub trait Io: BundleType + Directed + layout::HardwareType {}
 impl<T: BundleType + Directed + layout::HardwareType> Io for T {}
 
-/// A bundle representing an instantiation of a [`Signal`].
-pub trait SignalBundle: Clone + BundleOf<Self> {}
-
-impl<T: SignalBundle> Flatten<Self> for T {
-    fn flatten<E>(&self, output: &mut E)
-    where
-        E: Extend<Self>,
-    {
-        output.extend(std::iter::once(self.clone()));
-    }
-}
-
-impl<T: SignalBundle> FlatLen for T {
-    fn len(&self) -> usize {
-        1
-    }
-}
-
-impl<T: SignalBundle> Bundle for T {
-    type BundleType = Signal;
-}
+/// A bundle primitive representing an instantiation of a [`Signal`].
+pub trait BundlePrimitive: Clone + Bundle<BundleType = Signal> + BundleOf<Self> {}
 
 /// A construct with an associated [`BundleType`].
 pub trait Bundle: Send + Sync {
@@ -112,12 +108,16 @@ pub trait Bundle: Send + Sync {
     type BundleType: BundleType;
 }
 
-pub trait BundleOf<T: SignalBundle>:
+impl<T: Bundle> Bundle for &T {
+    type BundleType = T::BundleType;
+}
+
+pub trait BundleOf<T: BundlePrimitive>:
     Bundle<BundleType: BundleOfType<T, Bundle = Self>> + FlatLen + Flatten<T>
 {
 }
 impl<
-        S: SignalBundle,
+        S: BundlePrimitive,
         T: Bundle<BundleType: BundleOfType<S, Bundle = Self>> + FlatLen + Flatten<S>,
     > BundleOf<S> for T
 {
@@ -211,90 +211,191 @@ pub struct ArrayBundle<T> {
 
 // BEGIN COMMON IO TYPES
 
-// /// The interface to a standard 4-terminal MOSFET.
-// #[derive(Debug, Default, Clone)]
-// pub struct MosIo {
-//     /// The drain.
-//     pub d: InOut<Signal>,
-//     /// The gate.
-//     pub g: Input<Signal>,
-//     /// The source.
-//     pub s: InOut<Signal>,
-//     /// The body.
-//     pub b: InOut<Signal>,
-// }
-//
-// pub struct MosIoBundle<T: substrate::types::SignalBundle> {
-//     pub d: <Signal as substrate::types::BundleType>::Bundle<T>,
-//     pub g: <Signal as substrate::types::BundleType>::Bundle<T>,
-//     pub s: <Signal as substrate::types::BundleType>::Bundle<T>,
-//     pub b: <Signal as substrate::types::BundleType>::Bundle<T>,
-//     ty: MosIo,
-// }
-//
-// impl substrate::types::BundleType for MosIo {
-//     type Bundle<B: SignalBundle> = MosIoBundle<B>;
-// }
-//
-// impl<T: substrate::types::Bundle> substrate::types::FlatLen for MosIoBundle<T> {
-//     fn len(&self) -> usize {
-//         0 + <<Signal as substrate::types::BundleType>::Bundle<T> as FlatLen>::len(&self.d)
-//     }
-// }
-//
-// impl<T: SignalBundle> Bundle for MosIoBundle<T> {
-//     type SignalBundle = T;
-//     type BundleType = MosIo;
-// }
-//
-// impl schematic::Connect for MosIoBundle<schematic::Node> {
-//     fn view(&self) -> <Self::BundleType as self::BundleType>::Bundle<schematic::Node> {
-//         MosIoBundle {
-//             d: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Connect>::view(&self.d),
-//             g: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Connect>::view(&self.g),
-//             s: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Connect>::view(&self.s),
-//             b: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Connect>::view(&self.b),
-//             ty: self.ty.clone(),
-//         }
-//     }
-// }
-//
-// impl schematic::Connect for MosIoBundle<schematic::Terminal> {
-//     fn view(&self) -> <Self::BundleType as self::BundleType>::Bundle<schematic::Node> {
-//         MosIoBundle {
-//             d: <<Signal as substrate::types::BundleType>::Bundle<schematic::Terminal> as schematic::Connect>::view(&self.d),
-//             g: <<Signal as substrate::types::BundleType>::Bundle<schematic::Terminal> as schematic::Connect>::view(&self.g),
-//             s: <<Signal as substrate::types::BundleType>::Bundle<schematic::Terminal> as schematic::Connect>::view(&self.s),
-//             b: <<Signal as substrate::types::BundleType>::Bundle<schematic::Terminal> as schematic::Connect>::view(&self.b),
-//             ty: self.ty.clone(),
-//         }
-//     }
-// }
-//
-// impl schematic::Bundle for MosIoBundle<schematic::Node> {
-//     fn nested_view(
-//         &self,
-//         parent: &InstancePath,
-//     ) -> <Self::BundleType as self::BundleType>::Bundle<
-//         <<Self as self::Bundle>::SignalBundle as schematic::SignalBundle>::NestedSignal,
-//     > {
-//         MosIoBundle {
-//             d: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Bundle>::nested_view(&self.d),
-//             g: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Bundle>::nested_view(&self.g),
-//             s: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Bundle>::nested_view(&self.s),
-//             b: <<Signal as substrate::types::BundleType>::Bundle<schematic::Node> as schematic::Bundle>::nested_view(&self.b),
-//             ty: self.ty.clone(),
-//         }
-//     }
-// }
-//
-// /// The interface to which simulation testbenches should conform.
-// #[derive(Debug, Default, Clone, Io)]
-// pub struct TestbenchIo {
-//     /// The global ground net.
-//     pub vss: InOut<Signal>,
-// }
-//
+/// The interface to a standard 4-terminal MOSFET.
+#[derive(Debug, Default, Clone)]
+pub struct MosIo {
+    /// The drain.
+    pub d: InOut<Signal>,
+    /// The gate.
+    pub g: Input<Signal>,
+    /// The source.
+    pub s: InOut<Signal>,
+    /// The body.
+    pub b: InOut<Signal>,
+}
+
+impl FlatLen for MosIo {
+    fn len(&self) -> usize {
+        4
+    }
+}
+
+impl Flatten<Direction> for MosIo {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Direction>,
+    {
+        output.extend([
+            Direction::InOut,
+            Direction::Input,
+            Direction::InOut,
+            Direction::InOut,
+        ]);
+    }
+}
+
+impl HasNameTree for MosIo {
+    fn names(&self) -> Option<Vec<NameTree>> {
+        Some(
+            ["d", "g", "s", "b"]
+                .iter()
+                .map(|name| NameTree {
+                    fragment: Some(NameFragment::Str(ArcStr::from(*name))),
+                    children: vec![],
+                })
+                .collect(),
+        )
+    }
+}
+
+impl<B: BundlePrimitive> BundleOfType<B> for MosIo {
+    type Bundle = MosIoBundle<B>;
+}
+
+impl schematic::BundleType for MosIo {
+    fn instantiate<'n>(
+        &self,
+        ids: &'n [schematic::Node],
+    ) -> (
+        <Self as schematic::BundleOfType<schematic::Node>>::Bundle,
+        &'n [schematic::Node],
+    ) {
+        if let [d, g, s, b, rest @ ..] = ids {
+            (
+                MosIoBundle {
+                    d: *d,
+                    g: *g,
+                    s: *s,
+                    b: *b,
+                },
+                rest,
+            )
+        } else {
+            unreachable!();
+        }
+    }
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &<Self as schematic::BundleOfType<schematic::Node>>::Bundle,
+        instance: InstanceId,
+        instance_io: &<Self as schematic::BundleOfType<schematic::Node>>::Bundle,
+    ) -> <Self as schematic::BundleOfType<schematic::Terminal>>::Bundle {
+        MosIoBundle {
+            d: <Signal as schematic::BundleType>::terminal_view(
+                cell,
+                &cell_io.d,
+                instance,
+                &instance_io.d,
+            ),
+            g: <Signal as schematic::BundleType>::terminal_view(
+                cell,
+                &cell_io.d,
+                instance,
+                &instance_io.d,
+            ),
+            s: <Signal as schematic::BundleType>::terminal_view(
+                cell,
+                &cell_io.d,
+                instance,
+                &instance_io.d,
+            ),
+            b: <Signal as schematic::BundleType>::terminal_view(
+                cell,
+                &cell_io.d,
+                instance,
+                &instance_io.d,
+            ),
+        }
+    }
+}
+
+pub struct MosIoBundle<T: BundlePrimitive> {
+    pub d: <Signal as BundleOfType<T>>::Bundle,
+    pub g: <Signal as BundleOfType<T>>::Bundle,
+    pub s: <Signal as BundleOfType<T>>::Bundle,
+    pub b: <Signal as BundleOfType<T>>::Bundle,
+}
+
+impl<T: substrate::types::BundlePrimitive> substrate::types::FlatLen for MosIoBundle<T> {
+    fn len(&self) -> usize {
+        4
+    }
+}
+
+impl<T: BundlePrimitive> Bundle for MosIoBundle<T> {
+    type BundleType = MosIo;
+}
+
+impl<B: BundlePrimitive> Flatten<B> for MosIoBundle<B> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<B>,
+    {
+        Flatten::<B>::flatten(&self.d, output);
+        Flatten::<B>::flatten(&self.g, output);
+        Flatten::<B>::flatten(&self.s, output);
+        Flatten::<B>::flatten(&self.b, output);
+    }
+}
+
+impl schematic::Connect for MosIoBundle<schematic::Node> {
+    fn view(
+        &self,
+    ) -> <<Self as schematic::Bundle>::BundleType as schematic::BundleOfType<schematic::Node>>::Bundle
+    {
+        MosIoBundle {
+            d: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.d),
+            g: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.g),
+            s: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.s),
+            b: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.b),
+        }
+    }
+}
+
+impl schematic::Connect for MosIoBundle<schematic::Terminal> {
+    fn view(
+        &self,
+    ) -> <<Self as schematic::Bundle>::BundleType as schematic::BundleOfType<schematic::Node>>::Bundle
+    {
+        MosIoBundle {
+            d: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.d),
+            g: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.g),
+            s: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.s),
+            b: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.b),
+        }
+    }
+}
+
+impl<T: schematic::BundlePrimitive> HasNestedView for MosIoBundle<T> {
+    type NestedView = MosIoBundle<T::NestedView>;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        MosIoBundle {
+            d: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.d, parent),
+            g: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.g, parent),
+            s: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.s, parent),
+            b: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.b, parent),
+        }
+    }
+}
+
+/// The interface to which simulation testbenches should conform.
+#[derive(Debug, Default, Clone, Io)]
+pub struct TestbenchIo {
+    /// The global ground net.
+    pub vss: InOut<Signal>,
+}
+
 // /// The interface for 2-terminal blocks.
 // #[derive(Debug, Default, Clone, Io)]
 // pub struct TwoTerminalIo {

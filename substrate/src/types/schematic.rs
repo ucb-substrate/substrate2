@@ -19,19 +19,19 @@ impl<T> Connectable<T> for &T {}
 impl<T> Connectable<T> for T {}
 
 /// A bundle representing an instantiation of a [`Signal`].
-pub trait SignalBundle:
-    super::SignalBundle + HasNestedView<NestedView = <Self as SignalBundle>::NestedSignal>
+pub trait BundlePrimitive:
+    super::BundlePrimitive + HasNestedView<NestedView = <Self as BundlePrimitive>::NestedSignal>
 {
-    type NestedSignal: super::SignalBundle
+    type NestedSignal: super::BundlePrimitive
         + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
 }
 impl<
-        T: super::SignalBundle
+        T: super::BundlePrimitive
             + HasNestedView<
-                NestedView: super::SignalBundle
+                NestedView: super::BundlePrimitive
                                 + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
             >,
-    > SignalBundle for T
+    > BundlePrimitive for T
 {
     type NestedSignal = <Self as HasNestedView>::NestedView;
 }
@@ -43,12 +43,12 @@ impl<T: super::Bundle<BundleType: BundleType> + HasNestedView> Bundle for T {
     type BundleType = <T as super::Bundle>::BundleType;
 }
 
-pub trait BundleOf<T: SignalBundle>:
+pub trait BundleOf<T: BundlePrimitive>:
     super::BundleOf<T> + Bundle<BundleType: BundleOfType<T, Bundle = Self>>
 {
 }
 impl<
-        S: SignalBundle,
+        S: BundlePrimitive,
         T: super::BundleOf<S> + Bundle<BundleType: BundleOfType<S, Bundle = Self>>,
     > BundleOf<S> for T
 {
@@ -56,6 +56,12 @@ impl<
 
 pub trait Connect: Bundle {
     fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle;
+}
+
+impl<T: Connect> Connect for &T {
+    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
+        (*self).view()
+    }
 }
 
 /// A schematic bundle type.
@@ -93,12 +99,12 @@ pub trait BundleType:
     ) -> <Self as BundleOfType<Terminal>>::Bundle;
 }
 
-pub trait BundleOfType<S: SignalBundle>:
+pub trait BundleOfType<S: BundlePrimitive>:
     super::BundleOfType<S, Bundle = <Self as BundleOfType<S>>::Bundle>
 {
     type Bundle: BundleOf<S>;
 }
-impl<S: SignalBundle, T: super::BundleOfType<S>> BundleOfType<S> for T
+impl<S: BundlePrimitive, T: super::BundleOfType<S>> BundleOfType<S> for T
 where
     <T as super::BundleOfType<S>>::Bundle: Bundle,
 {
@@ -137,7 +143,26 @@ pub(crate) struct NodeConnectDirectionError {
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node(u32);
 
-impl super::SignalBundle for Node {}
+impl FlatLen for Node {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Node> for Node {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(*self));
+    }
+}
+
+impl super::Bundle for Node {
+    type BundleType = Signal;
+}
+
+impl super::BundlePrimitive for Node {}
 
 impl Connect for Node {
     fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
@@ -184,7 +209,26 @@ impl NestedNode {
     }
 }
 
-impl super::SignalBundle for NestedNode {}
+impl FlatLen for NestedNode {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<NestedNode> for NestedNode {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedNode>,
+    {
+        output.extend(std::iter::once(self.clone()));
+    }
+}
+
+impl super::Bundle for NestedNode {
+    type BundleType = Signal;
+}
+
+impl super::BundlePrimitive for NestedNode {}
 
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
@@ -246,7 +290,26 @@ impl AsRef<Node> for Terminal {
     }
 }
 
-impl super::SignalBundle for Terminal {}
+impl FlatLen for Terminal {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Terminal> for Terminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Terminal>,
+    {
+        output.extend(std::iter::once(*self));
+    }
+}
+
+impl super::Bundle for Terminal {
+    type BundleType = Signal;
+}
+
+impl super::BundlePrimitive for Terminal {}
 
 impl Connect for Terminal {
     fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
@@ -289,7 +352,26 @@ impl NestedTerminal {
     }
 }
 
-impl super::SignalBundle for NestedTerminal {}
+impl FlatLen for NestedTerminal {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<NestedTerminal> for NestedTerminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedTerminal>,
+    {
+        output.extend(std::iter::once(self.clone()));
+    }
+}
+
+impl super::Bundle for NestedTerminal {
+    type BundleType = Signal;
+}
+
+impl super::BundlePrimitive for NestedTerminal {}
 
 impl HasNestedView for NestedTerminal {
     type NestedView = NestedTerminal;

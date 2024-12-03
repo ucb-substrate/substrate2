@@ -68,7 +68,7 @@ pub struct CellBuilder<B: Schematic> {
 }
 
 impl<T: Schematic> CellBuilder<T> {
-    pub(crate) fn finish(self) -> RawCell<T::Schema> {
+    pub(crate) fn finish(self) -> Cell<T> {
         let mut roots = HashMap::with_capacity(self.node_names.len());
         let mut uf = self.node_ctx.into_uf();
         for &node in self.node_names.keys() {
@@ -86,6 +86,11 @@ impl<T: Schematic> CellBuilder<T> {
             roots,
             contents: self.contents.build(),
         }
+    }
+
+    /// Returns the current cell's IO.
+    pub fn io(&self) -> &<<T as Schematic>::Io as BundleOfType<Node>>::Bundle {
+        self.io.as_ref()
     }
 
     /// Marks this cell to be flattened.
@@ -115,7 +120,7 @@ impl<T: Schematic> CellBuilder<T> {
     }
 
     /// Connect all signals in the given data instances.
-    pub fn connect<D1, D2>(&mut self, s1: &D1, s2: &D2)
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
         D1: crate::types::schematic::Connect,
         D2: crate::types::schematic::Connect,
@@ -1578,5 +1583,65 @@ impl InstanceId {
     pub(crate) fn increment(&mut self) {
         let next = self.0.checked_add(1).expect("integer overflow");
         *self = InstanceId(next)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{context::prepare_cell_builder, schematic::{PrimitiveBinding, Schematic}, types::{Io, InOut, Output, Signal}};
+
+    #[test]
+    fn test_schematic_api() {
+        pub struct Schema;
+
+        #[derive(Clone)]
+        pub enum Primitive {
+            Resistor,
+        }
+
+        impl scir::schema::Schema for Schema {
+            type Primitive = Primitive;
+        }
+
+        #[derive(Io, Clone, Default, Debug)]
+        pub struct ResistorIo {
+            pub p: InOut<Signal>,
+            pub n: InOut<Signal>,
+        }
+
+        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, Eq)]
+        #[substrate(io = "ResistorIo")]
+        pub struct Resistor;
+
+        impl Schematic for Resistor {
+            type Io = ResistorIo;
+            type Schema = Schema;
+            type NestedData = ();
+
+            fn schematic(&self, ctx: &crate::context::Context) -> crate::error::Result<super::Cell<Self>> {
+                let cell = prepare_cell_builder(None, ctx.clone(), self);
+                let mut prim = PrimitiveBinding::new(Primitive::Resistor);
+                prim.connect("p", cell.io().p);
+                prim.connect("n", cell.io().n);
+                cell.set_primitive(prim);
+                cell.finish()
+            }
+        }
+
+        #[derive(Io, Clone, Default, Debug)]
+        pub struct VdividerIo {
+            pub vdd: InOut<Signal>,
+            pub vss: InOut<Signal>,
+            pub dout: Output<Signal>,
+        }
+
+        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, Eq)]
+        #[substrate(io = "VdividerIo")]
+        pub struct Vdivider;
+
+        impl Schematic
+
+        impl Schematic for Vdivider {
+        }
     }
 }
