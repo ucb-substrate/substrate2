@@ -1,5 +1,7 @@
 //! An enumeration of geometric shapes and their properties.
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     bbox::Bbox,
     contains::{Containment, Contains},
@@ -11,7 +13,7 @@ use crate::{
 };
 
 /// An enumeration of geometric shapes.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
     /// A rectangle.
     Rect(Rect),

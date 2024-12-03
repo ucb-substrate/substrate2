@@ -3,14 +3,14 @@
 pub mod id;
 
 use std::{
-    any::Any,
     collections::{HashMap, HashSet, VecDeque},
+    ops::Deref,
 };
 
 use crate::id::Id;
 use arcstr::ArcStr;
-use geometry::{prelude::Transformation, transform::TransformationMatrix};
-use indexmap::IndexMap;
+use geometry::prelude::Transformation;
+use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use uniquify::Names;
 
@@ -21,6 +21,7 @@ pub struct Cells;
 pub type CellId = Id<Cells>;
 pub type InstanceId = Id<Instance>;
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LibraryBuilder<L> {
     cell_id: CellId,
     cells: IndexMap<CellId, Cell<L>>,
@@ -28,6 +29,9 @@ pub struct LibraryBuilder<L> {
     names: Names<CellId>,
 }
 
+pub struct Library<L>(LibraryBuilder<L>);
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Cell<L> {
     name: ArcStr,
     instance_id: InstanceId,
@@ -38,13 +42,14 @@ pub struct Cell<L> {
 }
 
 /// A location at which this cell should be connected.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Port<L> {
     direction: Direction,
     elements: Vec<Element<L>>,
 }
 
 /// Port directions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum Direction {
     /// Input.
     Input,
@@ -59,7 +64,7 @@ pub enum Direction {
 }
 
 /// A primitive layout element.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Element<L> {
     /// A primitive layout shape.
     Shape(Shape<L>),
@@ -68,20 +73,21 @@ pub enum Element<L> {
 }
 
 /// A primitive layout shape consisting of a layer and a geometric shape.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Shape<L> {
     layer: L,
     shape: geometry::shape::Shape,
 }
 
 /// A primitive text annotation consisting of a layer, string, and location.
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Text<L> {
     layer: L,
     text: ArcStr,
     trans: Transformation,
 }
 
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Instance {
     child: CellId,
     name: ArcStr,
@@ -154,6 +160,27 @@ impl<L> LibraryBuilder<L> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
+    /// Returns cell IDs in topological order.
+    pub fn topological_order(&self) -> Vec<CellId> {
+        let mut state = IndexSet::new();
+        for (cell, _) in self.cells() {
+            self.dfs_postorder(cell, &mut state);
+        }
+        state.into_iter().collect()
+    }
+
+    fn dfs_postorder(&self, id: CellId, state: &mut IndexSet<CellId>) {
+        if state.contains(&id) {
+            return;
+        }
+
+        let cell = self.cell(id);
+        for (_, inst) in cell.instances() {
+            self.dfs_postorder(inst.child(), state);
+        }
+        state.insert(id);
+    }
+
     /// The list of cell IDs instantiated by the given root cells.
     ///
     /// The list returned will include the root cell IDs.
@@ -177,6 +204,19 @@ impl<L> LibraryBuilder<L> {
 
         visited.drain().collect()
     }
+
+    pub fn build(self) -> Result<Library<L>, BuildError> {
+        Ok(Library(self))
+    }
+}
+
+pub struct BuildError;
+
+impl<L> Deref for Library<L> {
+    type Target = LibraryBuilder<L>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl<L> Cell<L> {
@@ -199,8 +239,8 @@ impl<L> Cell<L> {
 
     /// Iterate over the ports of this cell.
     #[inline]
-    pub fn ports(&self) -> impl Iterator<Item = &Port<L>> {
-        self.ports.iter().map(|(_, port)| port)
+    pub fn ports(&self) -> impl Iterator<Item = (&ArcStr, &Port<L>)> {
+        self.ports.iter()
     }
 
     pub fn add_port(&mut self, name: impl Into<ArcStr>, port: Port<L>) {

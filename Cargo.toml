@@ -29,7 +29,7 @@ members = [
     "substrate",
     "tests",
     "tools/ngspice",
-    "tools/spectre",
+    "tools/spectre", "libs/gdsconv",
 ]
 
 exclude = ["examples"]

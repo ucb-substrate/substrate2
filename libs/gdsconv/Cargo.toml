@@ -1,0 +1,12 @@
+[package]
+name = "gdsconv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arcstr = { version = "1", features = ["serde"] }
+
+layir = { version = "0.1.0", registry = "substrate", path = "../layir" }
+gds = { version = "0.3.0", registry = "substrate", path = "../gds" }
+serde = { version = "1.0.215", features = ["derive"] }
+geometry = { version = "0.5.0", registry = "substrate", path = "../geometry" }
