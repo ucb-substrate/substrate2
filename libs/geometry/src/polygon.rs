@@ -10,7 +10,7 @@ use crate::transform::{TransformMut, TransformRef, Transformation, TranslateMut,
 use num_rational::Ratio;
 
 /// A polygon, with vertex coordinates given
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Polygon {
     /// Vector of points that make up the polygon.
     points: Vec<Point>,

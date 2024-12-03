@@ -13,7 +13,7 @@ use crate::point::Point;
 ///
 /// This object does not support scaling of geometry, and as such all transformation matrices
 /// should be unitary.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Transformation {
     /// The transformation matrix.
     pub(crate) mat: TransformationMatrix,
@@ -154,7 +154,7 @@ impl TryFrom<f64> for Rotation {
 /// A matrix representing a unitary transformation.
 ///
 /// Can represent rotations, reflections, or combinations of rotations/reflections.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TransformationMatrix([[i8; 2]; 2]);
 
 impl TransformationMatrix {
