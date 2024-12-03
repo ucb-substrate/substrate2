@@ -12,6 +12,9 @@ use geometry::{
 use layir::{Cell, Element, Instance, Library, Shape, Text};
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+mod tests;
+
 /// A GDS layer specification.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct GdsLayer(pub u16, pub u16);
@@ -22,7 +25,7 @@ pub struct GdsExportOpts {
     units: Option<GdsUnits>,
 }
 
-pub fn export(lib: Library<GdsLayer>, opts: GdsExportOpts) -> GdsLibrary {
+pub fn export_gds(lib: Library<GdsLayer>, opts: GdsExportOpts) -> GdsLibrary {
     let exporter = GdsExporter { opts, lib: &lib };
     exporter.export()
 }

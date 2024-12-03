@@ -166,7 +166,9 @@ impl<L> LibraryBuilder<L> {
         for (cell, _) in self.cells() {
             self.dfs_postorder(cell, &mut state);
         }
-        state.into_iter().collect()
+        let ids = state.into_iter().collect::<Vec<_>>();
+        assert_eq!(ids.len(), self.cells.len());
+        ids
     }
 
     fn dfs_postorder(&self, id: CellId, state: &mut IndexSet<CellId>) {
@@ -210,6 +212,7 @@ impl<L> LibraryBuilder<L> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct BuildError;
 
 impl<L> Deref for Library<L> {
