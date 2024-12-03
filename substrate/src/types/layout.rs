@@ -1,7 +1,7 @@
-//! Traits and types for schematic IOs.
+//! Traits and types for layout IOs.
 
+use super::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
 use crate::error::Result;
-use crate::io::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
 use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
 use crate::pdk::layers::{HasPin, LayerId};
