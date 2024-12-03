@@ -7,8 +7,6 @@ use std::{
 
 use arcstr::ArcStr;
 pub use codegen::Io;
-use layout::{HardwareType as LayoutType, PortGeometry};
-use schematic::BundleType as SchematicType;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -86,7 +84,9 @@ pub trait HasNameTree {
 pub trait BundleType: FlatLen + HasNameTree {}
 impl<T: FlatLen + HasNameTree> BundleType for T {}
 
+/// A bundle type with an associated bundle `Bundle` of `B`.
 pub trait BundleOfType<B: BundlePrimitive>: BundleType {
+    /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: BundleOf<B>;
 }
 
@@ -112,6 +112,7 @@ impl<T: Bundle> Bundle for &T {
     type BundleType = T::BundleType;
 }
 
+/// A bundle that is made up of primitive `T`.
 pub trait BundleOf<T: BundlePrimitive>:
     Bundle<BundleType: BundleOfType<T, Bundle = Self>> + FlatLen + Flatten<T>
 {
@@ -377,7 +378,7 @@ impl schematic::Connect for MosIoBundle<schematic::Terminal> {
 }
 
 impl<T: schematic::BundlePrimitive> HasNestedView for MosIoBundle<T> {
-    type NestedView = MosIoBundle<T::NestedView>;
+    type NestedView = MosIoBundle<<T as HasNestedView>::NestedView>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         MosIoBundle {

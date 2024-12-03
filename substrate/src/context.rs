@@ -36,12 +36,11 @@ use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
-    InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
-    SchematicBlock, SchematicContext,
+    RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HardwareType as LayoutType};
-use crate::types::schematic::{BundleType as SchematicType, Node, NodeContext, NodePriority, Port};
+use crate::types::schematic::{Node, NodeContext, NodePriority, Port};
 use crate::types::{Flatten, Flipped, HasNameTree};
 
 /// The global context.
@@ -654,8 +653,8 @@ fn prepare_cell_builder<T: Schematic>(
     context: Context,
     block: &T,
 ) -> (
-    CellBuilder<T>,
-    <<T as SchematicBlock>::Io as crate::types::schematic::BundleOfType<Node>>::Bundle,
+    CellBuilder<T::Schema>,
+    <<T as crate::schematic::Block>::Io as crate::types::schematic::BundleOfType<Node>>::Bundle,
 ) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();

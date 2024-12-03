@@ -6,7 +6,7 @@ use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
 
 use crate::types::layout::{
-    BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometryBuilder,
+    BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometry, PortGeometryBuilder,
 };
 use crate::types::schematic::Connect;
 use std::fmt::Display;
@@ -32,7 +32,7 @@ impl Flatten<Direction> for () {
 }
 
 impl<T: BundlePrimitive> Flatten<T> for () {
-    fn flatten<E>(&self, output: &mut E)
+    fn flatten<E>(&self, _output: &mut E)
     where
         E: Extend<T>,
     {
@@ -68,10 +68,10 @@ impl schematic::BundleType for () {
         ((), ids)
     }
     fn terminal_view(
-        cell: CellId,
-        cell_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
-        instance: InstanceId,
-        instance_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
+        _cell: CellId,
+        _cell_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
+        _instance: InstanceId,
+        _instance_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
     ) -> <Self as schematic::BundleOfType<Terminal>>::Bundle {
     }
 }

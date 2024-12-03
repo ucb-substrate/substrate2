@@ -1,7 +1,7 @@
 use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_quote, GenericParam, TypeParam};
+use syn::{parse_quote, GenericParam};
 use type_dispatch::derive::{
     add_trait_bounds, field_tokens, field_tokens_with_referent, struct_body, FieldTokens,
 };
@@ -40,8 +40,6 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         ref ident,
         ref generics,
         ref data,
-        ref vis,
-        ref attrs,
         ..
     } = *input;
 

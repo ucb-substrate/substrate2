@@ -3,66 +3,13 @@
 use crate::diagnostics::SourceInfo;
 use crate::error;
 use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
-use crate::types::{FlatLen, Flatten, HasNameTree};
+use crate::types::{FlatLen, Flatten};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
-use super::{ArrayBundle, Directed, Signal};
-
-// Seal this trait?
-pub trait Connectable<T> {}
-
-impl<T> Connectable<&T> for T {}
-impl<T> Connectable<T> for &T {}
-impl<T> Connectable<T> for T {}
-
-/// A bundle representing an instantiation of a [`Signal`].
-pub trait BundlePrimitive:
-    super::BundlePrimitive + HasNestedView<NestedView = <Self as BundlePrimitive>::NestedSignal>
-{
-    type NestedSignal: super::BundlePrimitive
-        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
-}
-impl<
-        T: super::BundlePrimitive
-            + HasNestedView<
-                NestedView: super::BundlePrimitive
-                                + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
-            >,
-    > BundlePrimitive for T
-{
-    type NestedSignal = <Self as HasNestedView>::NestedView;
-}
-
-pub trait Bundle: super::Bundle<BundleType = <Self as Bundle>::BundleType> + HasNestedView {
-    type BundleType: BundleType;
-}
-impl<T: super::Bundle<BundleType: BundleType> + HasNestedView> Bundle for T {
-    type BundleType = <T as super::Bundle>::BundleType;
-}
-
-pub trait BundleOf<T: BundlePrimitive>:
-    super::BundleOf<T> + Bundle<BundleType: BundleOfType<T, Bundle = Self>>
-{
-}
-impl<
-        S: BundlePrimitive,
-        T: super::BundleOf<S> + Bundle<BundleType: BundleOfType<S, Bundle = Self>>,
-    > BundleOf<S> for T
-{
-}
-
-pub trait Connect: Bundle {
-    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle;
-}
-
-impl<T: Connect> Connect for &T {
-    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
-        (*self).view()
-    }
-}
+use super::{Directed, Signal};
 
 /// A schematic bundle type.
 pub trait BundleType:
@@ -91,6 +38,8 @@ pub trait BundleType:
         debug_assert_eq!(ids, data.flatten_vec());
         data
     }
+
+    /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
         cell_io: &<Self as BundleOfType<Node>>::Bundle,
@@ -99,9 +48,11 @@ pub trait BundleType:
     ) -> <Self as BundleOfType<Terminal>>::Bundle;
 }
 
+/// A bundle type with an associated bundle `Bundle` of `B`.
 pub trait BundleOfType<S: BundlePrimitive>:
     super::BundleOfType<S, Bundle = <Self as BundleOfType<S>>::Bundle>
 {
+    /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: BundleOf<S>;
 }
 impl<S: BundlePrimitive, T: super::BundleOfType<S>> BundleOfType<S> for T
@@ -111,9 +62,61 @@ where
     type Bundle = T::Bundle;
 }
 
-// A schematic IO type.
+/// A schematic IO type.
 pub trait Io: super::Io + BundleType {}
 impl<T: super::Io + BundleType> Io for T {}
+
+/// A schematic bundle representing an instantiation of a [`Signal`].
+pub trait BundlePrimitive:
+    super::BundlePrimitive + HasNestedView<NestedView = <Self as BundlePrimitive>::NestedView>
+{
+    /// The nested view of this primitive.
+    type NestedView: super::BundlePrimitive
+        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
+}
+impl<
+        T: super::BundlePrimitive
+            + HasNestedView<
+                NestedView: super::BundlePrimitive
+                                + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
+            >,
+    > BundlePrimitive for T
+{
+    type NestedView = <Self as HasNestedView>::NestedView;
+}
+
+/// A schematic bundle.
+pub trait Bundle: super::Bundle<BundleType = <Self as Bundle>::BundleType> + HasNestedView {
+    /// The Rust type of the [`BundleType`] associated with this bundle.
+    type BundleType: BundleType;
+}
+impl<T: super::Bundle<BundleType: BundleType> + HasNestedView> Bundle for T {
+    type BundleType = <T as super::Bundle>::BundleType;
+}
+
+/// A schematic bundle that is made up of primitive `T`.
+pub trait BundleOf<T: BundlePrimitive>:
+    super::BundleOf<T> + Bundle<BundleType: BundleOfType<T, Bundle = Self>>
+{
+}
+impl<
+        S: BundlePrimitive,
+        T: super::BundleOf<S> + Bundle<BundleType: BundleOfType<S, Bundle = Self>>,
+    > BundleOf<S> for T
+{
+}
+
+/// A bundle that can be connected.
+pub trait Connect: Bundle {
+    /// A view of this bundle as a bundle of [`Node`]s.
+    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle;
+}
+
+impl<T: Connect> Connect for &T {
+    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
+        (*self).view()
+    }
+}
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
