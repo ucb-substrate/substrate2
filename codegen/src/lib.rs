@@ -328,6 +328,7 @@ pub(crate) fn substrate_ident() -> TokenStream2 {
     match crate_name("substrate").expect("substrate is present in `Cargo.toml`") {
         FoundCrate::Itself => quote!(::substrate),
         FoundCrate::Name(name) => {
+            println!("asdfasdf {name}");
             let ident = Ident::new(&name, Span::call_site());
             quote!(::#ident)
         }

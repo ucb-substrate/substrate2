@@ -37,7 +37,7 @@ use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
     InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
-    SchematicContext,
+    SchematicBlock, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HardwareType as LayoutType};
@@ -305,7 +305,6 @@ impl Context {
         let block_clone = block.clone();
         let mut inner = self.inner.write().unwrap();
         let context = self.clone();
-        let context2 = self.clone();
         let SchematicContext {
             next_id,
             cell_cache,
@@ -315,21 +314,29 @@ impl Context {
             key,
             |key| {
                 next_id.increment();
-                let cell_builder =
+                let (cell_builder, io_data) =
                     prepare_cell_builder(Some(*next_id), context, key.block.as_ref());
+                let io_data = Arc::new(io_data);
                 (
                     CellMetadata::<B> {
                         id: *next_id,
-                        io_data: cell_builder.io.clone(),
+                        io_data: io_data.clone(),
                     },
-                    (*next_id, cell_builder),
+                    (*next_id, cell_builder, io_data),
                 )
             },
-            move |_key, (id, mut cell_builder)| {
-                let res = B::schematic(block_clone.as_ref(), &context2);
+            move |_key, (id, mut cell_builder, io_data)| {
+                let res = B::schematic(block_clone.as_ref(), io_data.as_ref(), &mut cell_builder);
+                let raw = Arc::new(cell_builder.finish());
                 res.map(|data| SchemaCellCacheValue {
-                    raw: data.raw.clone(),
-                    cell: Arc::new(data),
+                    raw: raw.clone(),
+                    cell: Arc::new(SchematicCell::new(
+                        id,
+                        io_data,
+                        block_clone,
+                        raw,
+                        Arc::new(data),
+                    )),
                 })
             },
         );
@@ -640,16 +647,16 @@ impl<PDK: Pdk> PdkContext<PDK> {
     }
 }
 
-/// Only public for use in ATOLL. Do NOT use externally.
-///
 /// If the `id` argument is Some, the cell will use the given ID.
 /// Otherwise, a new [`CellId`] will be allocated by calling [`Context::alloc_cell_id`].
-#[doc(hidden)]
-pub fn prepare_cell_builder<T: Schematic>(
+fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> CellBuilder<T> {
+) -> (
+    CellBuilder<T>,
+    <<T as SchematicBlock>::Io as crate::types::schematic::BundleOfType<Node>>::Bundle,
+) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
@@ -676,15 +683,17 @@ pub fn prepare_cell_builder<T: Schematic>(
 
     let node_names = HashMap::from_iter(nodes.into_iter().zip(names));
 
-    CellBuilder {
-        id,
-        io: Arc::new(io_data),
-        cell_name,
-        ctx: context,
-        node_ctx,
-        node_names,
-        ports,
-        flatten: false,
-        contents: RawCellContentsBuilder::Cell(RawCellInnerBuilder::default()),
-    }
+    (
+        CellBuilder {
+            id,
+            cell_name,
+            ctx: context,
+            node_ctx,
+            node_names,
+            ports,
+            flatten: false,
+            contents: RawCellContentsBuilder::Cell(RawCellInnerBuilder::default()),
+        },
+        io_data,
+    )
 }

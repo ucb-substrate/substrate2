@@ -188,11 +188,11 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
 
             fn terminal_view(
-                cell: CellId,
+                cell: #substrate::schematic::CellId,
                 cell_io: &<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle,
-                instance: InstanceId,
+                instance: #substrate::schematic::InstanceId,
                 instance_io: &<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle,
-            ) -> <Self as schematic::BundleOfType<schematic::Terminal>>::Bundle {
+            ) -> <Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Terminal>>::Bundle {
                 #bundle_ident #construct_terminal_view_body
             }
         }
