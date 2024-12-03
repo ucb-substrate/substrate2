@@ -14,6 +14,7 @@ members = [
     "libs/enumify",
     "libs/enumify_macros",
     "libs/gds",
+    "libs/gdsconv",
     "libs/geometry",
     "libs/geometry_macros",
     "libs/lefdef",
@@ -29,7 +30,7 @@ members = [
     "substrate",
     "tests",
     "tools/ngspice",
-    "tools/spectre", "libs/gdsconv",
+    "tools/spectre",
 ]
 
 exclude = ["examples"]
