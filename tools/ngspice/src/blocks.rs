@@ -81,3 +81,43 @@ impl Schematic<Ngspice> for DcVsource {
         Ok(())
     }
 }
+
+/// A current source.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
+#[substrate(io = "TwoTerminalIo")]
+pub enum Isource {
+    /// A dc current source.
+    Dc(Decimal),
+    /// A pulse current source.
+    Pulse(Pulse),
+}
+
+impl Isource {
+    /// Creates a new DC current source.
+    pub fn dc(value: Decimal) -> Self {
+        Self::Dc(value)
+    }
+
+    /// Creates a new pulse current source.
+    pub fn pulse(value: Pulse) -> Self {
+        Self::Pulse(value)
+    }
+}
+
+impl ExportsNestedData for Isource {
+    type NestedData = ();
+}
+
+impl Schematic<Ngspice> for Isource {
+    fn schematic(
+        &self,
+        io: &<<Self as Block>::Io as HardwareType>::Bundle,
+        cell: &mut CellBuilder<Ngspice>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut prim = PrimitiveBinding::new(Primitive::Isource(*self));
+        prim.connect("P", io.p);
+        prim.connect("N", io.n);
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}

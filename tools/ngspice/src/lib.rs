@@ -11,6 +11,7 @@ use std::sync::Arc;
 use crate::blocks::Vsource;
 use crate::tran::Tran;
 use arcstr::ArcStr;
+use blocks::Isource;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
 use error::*;
@@ -45,6 +46,8 @@ pub enum Primitive {
     Spice(spice::Primitive),
     /// A voltage source with ports "1" and "2".
     Vsource(Vsource),
+    /// A current source with ports "1" and "2".
+    Isource(Isource),
 }
 
 impl Primitive {
@@ -52,6 +55,7 @@ impl Primitive {
         match self {
             Primitive::Spice(prim) => prim.ports(),
             Primitive::Vsource(_) => vec!["1".into(), "2".into()],
+            Primitive::Isource(_) => vec!["1".into(), "2".into()],
         }
     }
 }
@@ -737,6 +741,35 @@ impl HasSpiceLikeNetlist for Ngspice {
                         write!(out, " DC {}", dc)?;
                     }
                     Vsource::Pulse(pulse) => {
+                        write!(
+                            out,
+                            " PULSE({} {} {} {} {} {} {} {})",
+                            pulse.val0,
+                            pulse.val1,
+                            pulse.delay.unwrap_or_default(),
+                            pulse.rise.unwrap_or_default(),
+                            pulse.fall.unwrap_or_default(),
+                            pulse.width.unwrap_or_default(),
+                            pulse.period.unwrap_or_default(),
+                            pulse.num_pulses.unwrap_or_default(),
+                        )?;
+                    }
+                }
+                Ok(name)
+            }
+            Primitive::Isource(isource) => {
+                let name = arcstr::format!("I{}", name);
+                write!(out, "{}", name)?;
+                for port in ["P", "N"] {
+                    for part in connections.remove(port).unwrap() {
+                        write!(out, " {}", part)?;
+                    }
+                }
+                match isource {
+                    Isource::Dc(dc) => {
+                        write!(out, " DC {}", dc)?;
+                    }
+                    Isource::Pulse(pulse) => {
                         write!(
                             out,
                             " PULSE({} {} {} {} {} {} {} {})",
