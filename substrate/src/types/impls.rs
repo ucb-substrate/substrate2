@@ -1,6 +1,6 @@
 //! Built-in implementations of IO traits.
 
-use schematic::{HasNestedBundle, Node, Terminal};
+use schematic::{Node, Terminal};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
@@ -409,8 +409,8 @@ impl<S, T: Bundle + Flatten<S>> Flatten<S> for ArrayBundle<T> {
     }
 }
 
-impl<T: schematic::Bundle + HasNestedBundle> HasNestedView for ArrayBundle<T> {
-    type NestedView = ArrayBundle<T::NestedBundle>;
+impl<T: schematic::Bundle> HasNestedView for ArrayBundle<T> {
+    type NestedView = ArrayBundle<<T as schematic::Bundle>::NestedView>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         ArrayBundle {

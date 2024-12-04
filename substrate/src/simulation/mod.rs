@@ -8,12 +8,12 @@ use impl_trait_for_tuples::impl_for_tuples;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::block::Block;
 use crate::context::{Context, Installation};
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, Schematic};
+use crate::schematic::{Block, Cell, Schematic};
 use crate::simulation::data::SaveTb;
+use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
 use substrate::simulation::data::FromSaved;
 
@@ -138,7 +138,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block {
+pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo> {
     /// The output produced by this testbench.
     type Output: Any + Serialize + DeserializeOwned;
     /// Run the testbench using the given simulation controller.

@@ -293,7 +293,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
     {
         let inst = self.instantiate(block);
-        self.connect(inst.io.as_ref(), io);
+        self.connect(inst.io(), io);
     }
 
     /// Creates an instance using [`CellBuilder::instantiate`] and immediately connects its ports.
@@ -303,7 +303,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
     {
         let inst = self.instantiate_named(block, name);
-        self.connect(inst.io.as_ref(), io);
+        self.connect(inst.io(), io);
     }
 
     /// Creates nodes for the newly-instantiated block's IOs and adds the raw instance.
@@ -391,7 +391,7 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
     }
 
     /// Connect all signals in the given data instances.
-    pub fn connect<D1, D2>(&mut self, s1: &D1, s2: &D2)
+    pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
         D1: Connect,
         D2: Connect + HasBundleType<BundleType = <D1 as HasBundleType>::BundleType>,
@@ -511,7 +511,7 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
         C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
     {
         let inst = self.instantiate(block);
-        self.connect(inst.io.as_ref(), &io);
+        self.connect(inst.io(), io);
     }
 
     /// Creates an instance using [`SubCellBuilder::instantiate`] and immediately connects its ports.
@@ -521,7 +521,7 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
         C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
     {
         let inst = self.instantiate_named(block, name);
-        self.connect(inst.io.as_ref(), &io);
+        self.connect(inst.io(), io);
     }
 
     /// Creates nodes for the newly-instantiated block's IOs.
@@ -1053,7 +1053,9 @@ impl<T: HasNestedView + Send + Sync> NestedData for T {}
 /// Stores a path of instances up to the current cell using an [`InstancePath`].
 pub trait HasNestedView {
     /// A view of the nested object.
-    type NestedView: Send + Sync;
+    ///
+    /// Nesting a nested view should return the same type.
+    type NestedView: HasNestedView<NestedView = <Self as HasNestedView>::NestedView> + Send + Sync;
 
     /// Creates a nested view of the object given a parent node.
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView;

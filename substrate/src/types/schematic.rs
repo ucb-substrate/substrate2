@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
-use super::{Directed, Signal};
+use super::Signal;
 
 /// A schematic bundle type.
 pub trait BundleType:
@@ -61,7 +61,7 @@ impl<
             + super::BundleOfType<
                 S,
                 Bundle: HasBundleType<BundleType = T>
-                            + HasNestedBundle<NestedView: HasBundleType<BundleType = T>>,
+                            + HasNestedView<NestedView: HasBundleType<BundleType = T>>,
             >,
     > BundleOfType<S> for T
 {
@@ -80,33 +80,10 @@ pub trait BundlePrimitive:
     type NestedView: super::BundlePrimitive
         + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
 }
-impl<
-        T: super::BundlePrimitive
-            + HasNestedView<
-                NestedView: super::BundlePrimitive
-                                + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
-            >,
-    > BundlePrimitive for T
+impl<T: super::BundlePrimitive + HasNestedView<NestedView: super::BundlePrimitive>> BundlePrimitive
+    for T
 {
     type NestedView = <Self as HasNestedView>::NestedView;
-}
-
-pub trait HasNestedBundle:
-    HasBundleType + HasNestedView<NestedView = <Self as HasNestedBundle>::NestedBundle>
-{
-    /// The nested view of this primitive.
-    type NestedBundle: Bundle
-        + HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
-        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
-}
-impl<T: HasBundleType + HasNestedView> HasNestedBundle for T
-where
-    <T as HasNestedView>::NestedView: Bundle
-        + HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
-        + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
-    <<T as HasNestedView>::NestedView as HasNestedView>::NestedView: Bundle,
-{
-    type NestedBundle = <Self as HasNestedView>::NestedView;
 }
 
 /// A construct with an associated [`BundleType`].
@@ -121,12 +98,28 @@ impl<T: super::HasBundleType<BundleType: BundleType>> HasBundleType for T {
 }
 
 /// A schematic bundle.
-pub trait Bundle: HasBundleType + super::Bundle {}
-impl<T: HasBundleType + super::Bundle> Bundle for T {}
+pub trait Bundle:
+    super::Bundle + HasBundleType + HasNestedView<NestedView = <Self as Bundle>::NestedView>
+{
+    type NestedView: super::Bundle
+        + HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
+        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
+}
+impl<
+        T: super::Bundle
+            + HasBundleType
+            + HasNestedView<
+                NestedView: HasBundleType<BundleType = <T as HasBundleType>::BundleType>
+                                + super::Bundle,
+            >,
+    > Bundle for T
+{
+    type NestedView = <Self as HasNestedView>::NestedView;
+}
 
 /// A schematic bundle that is made up of primitive `T`.
-pub trait BundleOf<T: BundlePrimitive>: super::BundleOf<T> + Bundle + HasNestedBundle {}
-impl<S: BundlePrimitive, T: super::BundleOf<S> + Bundle + HasNestedBundle> BundleOf<S> for T {}
+pub trait BundleOf<T: BundlePrimitive>: super::BundleOf<T> + Bundle {}
+impl<S: BundlePrimitive, T: super::BundleOf<S> + Bundle> BundleOf<S> for T {}
 
 /// A bundle that can be connected.
 pub trait Connect: BundleOf<Node> {}

@@ -433,31 +433,31 @@ pub struct TestbenchIo {
     pub vss: InOut<Signal>,
 }
 
-// /// The interface for 2-terminal blocks.
-// #[derive(Debug, Default, Clone, Io)]
-// pub struct TwoTerminalIo {
-//     /// The positive terminal.
-//     pub p: InOut<Signal>,
-//     /// The negative terminal.
-//     pub n: InOut<Signal>,
-// }
-//
-// /// The interface for VDD and VSS rails.
-// #[derive(Debug, Default, Clone, Io)]
-// pub struct PowerIo {
-//     /// The VDD rail.
-//     pub vdd: InOut<Signal>,
-//     /// The VSS rail.
-//     pub vss: InOut<Signal>,
-// }
-//
-// /// A pair of differential signals.
-// #[derive(Debug, Default, Copy, Clone, Io)]
-// pub struct DiffPair {
-//     /// The positive signal.
-//     pub p: InOut<Signal>,
-//     /// The negative signal.
-//     pub n: InOut<Signal>,
-// }
+/// The interface for 2-terminal blocks.
+#[derive(Debug, Default, Clone, Io)]
+pub struct TwoTerminalIo {
+    /// The positive terminal.
+    pub p: InOut<Signal>,
+    /// The negative terminal.
+    pub n: InOut<Signal>,
+}
+
+/// The interface for VDD and VSS rails.
+#[derive(Debug, Default, Clone, Io)]
+pub struct PowerIo {
+    /// The VDD rail.
+    pub vdd: InOut<Signal>,
+    /// The VSS rail.
+    pub vss: InOut<Signal>,
+}
+
+/// A pair of differential signals.
+#[derive(Debug, Default, Copy, Clone, Io)]
+pub struct DiffPair {
+    /// The positive signal.
+    pub p: InOut<Signal>,
+    /// The negative signal.
+    pub n: InOut<Signal>,
+}
 
 // END COMMON IO TYPES
