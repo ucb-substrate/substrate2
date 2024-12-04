@@ -447,6 +447,7 @@ impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
 impl<T: super::HasBundleType> super::HasBundleType for OptionBuilder<T> {
     type BundleType = T::BundleType;
 
+    // TODO: find way to store type
     fn ty(&self) -> Self::BundleType {
         if let Some(ref inner) = self.0 {
             inner.ty()

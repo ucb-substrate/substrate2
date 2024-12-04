@@ -46,6 +46,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     let substrate = substrate_ident();
 
     let bundle_ident = format_ident!("{}Bundle", ident);
+    let bundle_type_ident = format_ident!("{}BundleType", ident);
     let bundle_primitive_ty: syn::Ident = parse_quote!(__substrate_T);
     let bundle_primitive_generic: syn::GenericParam =
         parse_quote!(#bundle_primitive_ty: #substrate::types::schematic::BundlePrimitive);
@@ -93,8 +94,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     let mut construct_nested_view_fields = Vec::new();
     let mut construct_terminal_view_fields = Vec::new();
     let mut instantiate_fields = Vec::new();
-    let mut construct_node_connect_fields = Vec::new();
-    let mut construct_terminal_connect_fields = Vec::new();
+    let mut flatten_node_fields = Vec::new();
 
     for (i, &f) in fields.iter().enumerate() {
         let field_ty = &f.ty;
@@ -138,19 +138,16 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             #assign #temp,
         });
         construct_nested_view_fields.push(quote! {
-                #assign <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_terminal_view_fields.push(quote! {
-                #assign <#field_ty as #substrate::types::schematic::BundleType>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
+                #assign <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::schematic::BundleType>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
         });
         instantiate_fields.push(quote! {
-                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::types::schematic::BundleType>::instantiate(&#refer, __substrate_node_ids);
+                let (#temp, __substrate_node_ids) = <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::schematic::BundleType>::instantiate(&#refer, __substrate_node_ids);
         });
-        construct_node_connect_fields.push(quote! {
-            #assign <<#field_ty as #substrate::types::BundleOfType<#substrate::types::schematic::Node>>::Bundle as #substrate::types::schematic::Connect>::view(&#refer),
-        });
-        construct_terminal_connect_fields.push(quote! {
-            #assign <<#field_ty as #substrate::types::BundleOfType<#substrate::types::schematic::Terminal>>::Bundle as #substrate::types::schematic::Connect>::view(&#refer),
+        flatten_node_fields.push(quote! {
+                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#substrate::types::schematic::Terminal>>::Bundle as #substrate::types::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
         });
     }
 
@@ -166,19 +163,9 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         false,
         quote!( #(#construct_terminal_view_fields)* ),
     );
-    let construct_node_connect_body = struct_body(
-        fields.style,
-        false,
-        quote!( #(#construct_node_connect_fields)* ),
-    );
-    let construct_terminal_connect_body = struct_body(
-        fields.style,
-        false,
-        quote!( #(#construct_terminal_connect_fields)* ),
-    );
 
     quote! {
-        impl #st_any_imp #substrate::types::schematic::BundleType for #ident #st_any_ty #st_any_where {
+        impl #st_any_imp #substrate::types::schematic::BundleType for #bundle_type_ident #st_any_ty #st_any_where {
             fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Node]) -> (<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle, &'n [#substrate::types::schematic::Node]) {
                 #( #instantiate_fields )*
                 #[allow(redundant_field_names)]
@@ -203,19 +190,12 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #st_any_imp #substrate::types::schematic::Connect for #bundle_ident<#(#generic_idents,)*#substrate::types::schematic::Node> {
-            fn view(
-                &self,
-            ) -> <<Self as #substrate::types::schematic::Bundle>::BundleType as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle {
-                #bundle_ident #construct_node_connect_body
-            }
-        }
-
-        impl #st_any_imp #substrate::types::schematic::Connect for #bundle_ident<#(#generic_idents,)*#substrate::types::schematic::Terminal> {
-            fn view(
-                &self,
-            ) -> <<Self as #substrate::types::schematic::Bundle>::BundleType as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle {
-                #bundle_ident #construct_terminal_connect_body
+        impl #st_any_imp #substrate::types::Flatten<#substrate::types::schematic::Node> for #bundle_ident <#(#generic_idents,)* #substrate::types::schematic::Terminal> #st_any_where {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: Extend<#substrate::types::schematic::Node>,
+            {
+                #( #flatten_node_fields )*
             }
         }
     }
@@ -232,6 +212,8 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     } = *input;
 
     let substrate = substrate_ident();
+
+    let bundle_type_ident = format_ident!("{}BundleType", ident);
 
     let mut lt_generics = generics.clone();
     add_trait_bounds(
@@ -277,6 +259,8 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     let mut ty_len = Vec::new();
     let mut layout_data_len = Vec::new();
     let mut layout_data_fields = Vec::new();
+    let mut construct_data_ty_fields = Vec::new();
+    let mut construct_builder_ty_fields = Vec::new();
     let mut layout_builder_fields = Vec::new();
     let mut flatten_port_geometry_fields = Vec::new();
     let mut create_builder_fields = Vec::new();
@@ -311,6 +295,12 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
             });
         layout_data_fields.push(quote! {
             #declare <#field_ty as #substrate::types::layout::HardwareType>::Bundle,
+        });
+        construct_data_ty_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::layout::HardwareType>::Bundle as #substrate::types::HasBundleType>::ty(&#refer),
+        });
+        construct_builder_ty_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::layout::HardwareType>::Builder as #substrate::types::HasBundleType>::ty(&#refer),
         });
         layout_builder_fields.push(quote! {
             #declare <#field_ty as #substrate::types::layout::HardwareType>::Builder,
@@ -353,6 +343,16 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
     }
 
     let layout_data_body = struct_body(fields.style, true, quote! { #( #layout_data_fields )* });
+    let construct_data_ty_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #construct_data_ty_fields )* },
+    );
+    let construct_builder_ty_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #construct_builder_ty_fields )* },
+    );
     let layout_builder_body =
         struct_body(fields.style, true, quote! { #( #layout_builder_fields )* });
     let create_builder_body =
@@ -377,6 +377,22 @@ pub(crate) fn layout_io(input: &IoInputReceiver) -> TokenStream {
 
         #(#attrs)*
         #vis struct #layout_builder_ident #lt_generics #layout_builder_body
+
+        impl #lt_imp #substrate::types::HasBundleType for #layout_data_ident #lt_ty #lt_where {
+            type BundleType = #bundle_type_ident #lt_ty;
+
+            fn ty(&self) ->  <Self as #substrate::types::HasBundleType>::BundleType {
+                #bundle_type_ident #construct_data_ty_body
+            }
+        }
+
+        impl #lt_imp #substrate::types::HasBundleType for #layout_builder_ident #lt_ty #lt_where {
+            type BundleType = #bundle_type_ident #lt_ty;
+
+            fn ty(&self) -> <Self as #substrate::types::HasBundleType>::BundleType {
+                #bundle_type_ident #construct_builder_ty_body
+            }
+        }
 
         impl #lt_imp #substrate::types::FlatLen for #layout_data_ident #lt_ty #lt_where {
             fn len(&self) -> usize {
@@ -439,6 +455,7 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
     let (generics_imp, generics_ty, generics_wher) = generics.split_for_impl();
 
     let bundle_ident = format_ident!("{}Bundle", ident);
+    let bundle_type_ident = format_ident!("{}BundleType", ident);
     let bundle_primitive_ty: syn::Ident = parse_quote!(__substrate_T);
     let bundle_primitive_generic: syn::GenericParam =
         parse_quote!(#bundle_primitive_ty: #substrate::types::BundlePrimitive);
@@ -449,7 +466,6 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
 
     let mut hnt_generics = generics.clone();
     add_trait_bounds(&mut hnt_generics, quote!(#substrate::types::HasNameTree));
-    add_trait_bounds(&mut hnt_generics, quote!(#substrate::types::FlatLen));
 
     let mut io_generics = generics.clone();
     add_trait_bounds(&mut io_generics, quote!(#substrate::types::BundleType));
@@ -466,7 +482,7 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
     let (flatlen_imp, flatlen_ty, flatlen_wher) = flatlen_generics.split_for_impl();
     let fields = data.as_ref().take_struct().unwrap();
 
-    let mut ty_len = Vec::new();
+    let mut io_len = Vec::new();
     let mut name_fields = Vec::new();
 
     let mut st_generics = generics.clone();
@@ -492,7 +508,10 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
 
     let mut data_len = Vec::new();
     let mut data_fields = Vec::new();
+    let mut ty_fields = Vec::new();
     let mut construct_data_fields = Vec::new();
+    let mut construct_io_ty_fields = Vec::new();
+    let mut construct_ty_ty_fields = Vec::new();
     let mut construct_ty_fields = Vec::new();
     let mut flatten_dir_fields = Vec::new();
     let mut flatten_bundle_fields = Vec::new();
@@ -535,35 +554,44 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
             quote! { instance_io },
         );
 
-        ty_len.push(quote! {
+        io_len.push(quote! {
             <#field_ty as #substrate::types::FlatLen>::len(&#refer)
         });
         name_fields.push(quote! {
-                (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#field_ty as #substrate::types::HasNameTree>::names(&#refer))
+                (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasNameTree>::names(&#refer))
             });
         flatten_dir_fields.push(quote! {
                 <#field_ty as #substrate::types::Flatten<#substrate::types::Direction>>::flatten(&#refer, __substrate_output_sink);
         });
         data_len.push(quote! {
-                <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::FlatLen>::len(&#refer)
+                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::FlatLen>::len(&#refer)
             });
         data_fields.push(quote! {
-            #declare <#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle,
+            #declare <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle,
+        });
+        ty_fields.push(quote! {
+            #declare <#field_ty as #substrate::types::HasBundleType>::BundleType,
+        });
+        construct_io_ty_fields.push(quote! {
+            #assign <#field_ty as #substrate::types::HasBundleType>::ty(&#refer),
+        });
+        construct_ty_ty_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleType>::ty(&#refer),
         });
         construct_data_fields.push(quote! {
             #assign #temp,
         });
         construct_ty_fields.push(quote! {
-            #assign <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Bundle>::ty(&#refer),
+            #assign <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::HasBundleType>::ty(&#refer),
         });
         flatten_bundle_fields.push(quote! {
-                <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Flatten<#bundle_primitive_ty>>::flatten(&#refer, __substrate_output_sink);
+                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Flatten<#bundle_primitive_ty>>::flatten(&#refer, __substrate_output_sink);
         });
     }
 
     // Return 0 from `FlatLen::len` if struct has no fields.
-    if ty_len.is_empty() {
-        ty_len.push(quote! { 0 });
+    if io_len.is_empty() {
+        io_len.push(quote! { 0 });
     }
 
     // Return 0 from `FlatLen::len` if struct has no fields.
@@ -571,16 +599,46 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
         data_len.push(quote! { 0 });
     }
 
+    let ty_body = struct_body(fields.style, true, quote!( #(#ty_fields)* ));
     let data_body = struct_body(fields.style, true, quote!( #(#data_fields)* ));
+    let construct_io_ty_body =
+        struct_body(fields.style, false, quote!( #(#construct_io_ty_fields)* ));
+    let construct_ty_ty_body =
+        struct_body(fields.style, false, quote!( #(#construct_ty_ty_fields)* ));
     let construct_ty_body = struct_body(fields.style, false, quote!( #(#construct_ty_fields)* ));
 
     quote! {
         #(#attrs)*
+        #[derive(Clone, PartialEq, Eq)]
+        #vis struct #bundle_type_ident #generics #ty_body
+        #(#attrs)*
         #vis struct #bundle_ident #bundle_generics #data_body
+
+        impl #substrate::types::HasBundleType for #ident {
+            type BundleType = #bundle_type_ident;
+
+            fn ty(&self) -> Self::BundleType {
+                #bundle_type_ident #construct_io_ty_body
+            }
+        }
+
+        impl #substrate::types::HasBundleType for #bundle_type_ident {
+            type BundleType = #bundle_type_ident;
+
+            fn ty(&self) -> Self::BundleType {
+                #bundle_type_ident #construct_ty_ty_body
+            }
+        }
 
         impl #flatlen_imp #substrate::types::FlatLen for #ident #flatlen_ty #flatlen_wher {
             fn len(&self) -> usize {
-                #( #ty_len )+*
+                #( #io_len )+*
+            }
+        }
+
+        impl #hnt_imp #substrate::types::HasNameTree for #ident #hnt_ty #hnt_wher {
+            fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::types::NameTree>> {
+                <#bundle_type_ident as #substrate::types::HasNameTree>::names(&<#ident as #substrate::types::HasBundleType>::ty(self))
             }
         }
 
@@ -592,26 +650,25 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #hnt_imp #substrate::types::HasNameTree for #ident #hnt_ty #hnt_wher {
+        impl #hnt_imp #substrate::types::HasNameTree for #bundle_type_ident #hnt_ty #hnt_wher {
             fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::types::NameTree>> {
-                if <Self as #substrate::types::FlatLen>::len(&self) == 0 { return ::std::option::Option::None; }
-                ::std::option::Option::Some([ #( #name_fields ),* ]
+                let v: ::std::vec::Vec<#substrate::types::NameTree> = [ #( #name_fields ),* ]
                      .into_iter()
                      .filter_map(|(frag, children)| children.map(|c| #substrate::types::NameTree::new(frag, c)))
-                     .collect()
-                )
+                     .collect();
+                if v.len() == 0 { None } else { Some(v) }
             }
         }
 
-        impl #bundle_imp #substrate::types::Bundle for #bundle_ident #bundle_ty #bundle_wher {
-            type BundleType = #ident;
+        impl #bundle_imp #substrate::types::HasBundleType for #bundle_ident #bundle_ty #bundle_wher {
+            type BundleType = #bundle_type_ident;
 
-            fn ty(&self) -> <Self as #substrate::types::Bundle>::BundleType {
-                #ident #construct_ty_body
+            fn ty(&self) -> <Self as #substrate::types::HasBundleType>::BundleType {
+                #bundle_type_ident #construct_ty_body
             }
         }
 
-        impl #bundle_imp #substrate::types::BundleOfType<#bundle_primitive_ty> for #ident #generics_ty #bundle_wher {
+        impl #bundle_imp #substrate::types::BundleOfType<#bundle_primitive_ty> for #bundle_type_ident #generics_ty #bundle_wher {
             type Bundle = #bundle_ident #bundle_ty;
         }
 

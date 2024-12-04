@@ -155,28 +155,28 @@ pub struct NameTree {
     children: Vec<NameTree>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An input port of hardware type `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`Input`](Direction::Input)
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Input<T>(pub T);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An output port of hardware type `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`Output`](Direction::Output)
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Output<T>(pub T);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// An inout port of hardware type `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`InOut`](Direction::InOut)
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct InOut<T>(pub T);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// Flip the direction of all ports in `T`
 ///
 /// See [`Direction::flip`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Flipped<T>(pub T);
 
 /// A type representing a single hardware wire.
@@ -426,12 +426,12 @@ impl<T: schematic::BundlePrimitive> HasNestedView for MosIoBundle<T> {
     }
 }
 
-// /// The interface to which simulation testbenches should conform.
-// #[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
-// pub struct TestbenchIo {
-//     /// The global ground net.
-//     pub vss: InOut<Signal>,
-// }
+/// The interface to which simulation testbenches should conform.
+#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+pub struct TestbenchIo {
+    /// The global ground net.
+    pub vss: InOut<Signal>,
+}
 
 // /// The interface for 2-terminal blocks.
 // #[derive(Debug, Default, Clone, Io)]

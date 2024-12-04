@@ -156,7 +156,7 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     quote!(
         #io_core_impl
         #schematic
-        // #layout
+        #layout
     )
     .into()
 }

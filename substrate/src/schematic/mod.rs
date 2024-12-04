@@ -1589,7 +1589,7 @@ mod tests {
         context::Context,
         schematic::{PrimitiveBinding, Schematic},
         serde::{Deserialize, Serialize},
-        types::{InOut, Io, Output, Signal},
+        types::{Array, BundlePrimitive, Flipped, HasBundleType, InOut, Input, Io, Output, Signal},
     };
 
     #[test]
@@ -1621,15 +1621,119 @@ mod tests {
 
             fn schematic(
                 &self,
-                io: &<<<Self as super::Block>::Io as HasBundleType>::BundleType as BundleOfType<
-                    Node,
-                >>::Bundle,
+                io: &<<<Self as super::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::BundleOfType<crate::types::schematic::Node>>::Bundle,
                 cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let mut prim = PrimitiveBinding::new(Primitive::Resistor);
                 prim.connect("p", io.p);
                 prim.connect("n", io.n);
                 cell.set_primitive(prim);
+                Ok(())
+            }
+        }
+
+        #[derive(Io, Clone, Debug)]
+        pub struct DecoupledIo {
+            pub ready: Input<Signal>,
+            pub valid: Output<Signal>,
+            pub data: Output<Array<Signal>>,
+        }
+
+        impl DecoupledIo {
+            fn new(width: usize) -> Self {
+                Self {
+                    ready: Default::default(),
+                    valid: Default::default(),
+                    data: Output(Array::new(width, Default::default())),
+                }
+            }
+        }
+
+        #[derive(Io, Clone, Debug)]
+        pub struct MultiDecoupledIo {
+            pub d1: DecoupledIo,
+            pub d2: Flipped<DecoupledIo>,
+            pub d3: Input<DecoupledIo>,
+            pub d4: Output<DecoupledIo>,
+            pub d5: InOut<DecoupledIo>,
+            pub ready: Input<Signal>,
+            pub valid: Output<Signal>,
+            pub data: Output<Array<Signal>>,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        pub struct MultiDecoupledBlock;
+
+        impl Block for MultiDecoupledBlock {
+            type Io = MultiDecoupledIo;
+            fn name(&self) -> arcstr::ArcStr {
+                arcstr::literal!("multi_decoupled_block")
+            }
+            fn io(&self) -> Self::Io {
+                MultiDecoupledIo {
+                    d1: DecoupledIo::new(5),
+                    d2: Flipped(DecoupledIo::new(4)),
+                    d3: Input(DecoupledIo::new(5)),
+                    d4: Output(DecoupledIo::new(4)),
+                    d5: InOut(DecoupledIo::new(5)),
+                    ready: Default::default(),
+                    valid: Default::default(),
+                    data: Output(Array::new(4, Default::default())),
+                }
+            }
+        }
+
+        impl<T: BundlePrimitive> MultiDecoupledIoBundle<T> {
+            fn to_decoupled(&self) -> DecoupledIoBundle<T> {
+                DecoupledIoBundle {
+                    ready: self.ready.clone(),
+                    valid: self.valid.clone(),
+                    data: self.data.clone(),
+                }
+            }
+        }
+
+        impl Schematic for MultiDecoupledBlock {
+            type Schema = Schema;
+            type NestedData = ();
+            fn schematic(
+                &self,
+                io: &<<<Self as super::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::BundleOfType<crate::types::schematic::Node>>::Bundle,
+                cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
+            ) -> crate::error::Result<Self::NestedData> {
+                Ok(())
+            }
+        }
+
+        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[substrate(io = "()")]
+        pub struct SuperBlock;
+
+        impl Schematic for SuperBlock {
+            type Schema = Schema;
+            type NestedData = ();
+            fn schematic(
+                &self,
+                io: &<<<Self as super::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::BundleOfType<crate::types::schematic::Node>>::Bundle,
+                cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
+            ) -> crate::error::Result<Self::NestedData> {
+                let b1 = cell.instantiate(MultiDecoupledBlock);
+                let b2 = cell.instantiate(MultiDecoupledBlock);
+
+                assert!(b1.io().ty() == b2.io().ty());
+                assert!(b1.io().d1.ty() == b2.io().d1.ty());
+                assert!(b1.io().d1.ty() != b2.io().d2.ty());
+                assert!(b1.io().d1.ty() == b2.io().d3.ty());
+                assert!(b1.io().d1.ty() != b2.io().d4.ty());
+                assert!(b1.io().d1.ty() == b2.io().d5.ty());
+                assert!(b1.io().d2.ty() == b2.io().d4.ty());
+                assert!(b1.io().d2.ty() == b2.io().to_decoupled().ty());
+
+                cell.connect(&b1.io().d1, &b2.io().d1);
+                cell.connect(&b1.io().d1, &b2.io().d3);
+                cell.connect(&b1.io().d1, &b2.io().d5);
+                cell.connect(&b1.io().d2, b2.io().to_decoupled());
+
                 Ok(())
             }
         }
@@ -1658,6 +1762,8 @@ mod tests {
                 r1.try_data()?;
                 r2.try_data()?;
 
+                assert!(r1.io().ty() == r2.io().ty());
+
                 cell.connect(&&io.vdd, &r1.io().p);
                 cell.connect(&io.dout, &&&&&r1.io().n);
                 cell.connect(
@@ -1674,6 +1780,8 @@ mod tests {
 
         let ctx = Context::new();
         ctx.export_scir(Vdivider)
+            .expect("failed to generate raw lib");
+        ctx.export_scir(SuperBlock)
             .expect("failed to generate raw lib");
     }
 }
