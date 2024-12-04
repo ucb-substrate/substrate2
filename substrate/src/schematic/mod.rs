@@ -117,17 +117,18 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
 
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
-    pub fn signal<TY: BundleType>(
+    pub fn signal<TY: HasBundleType>(
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <TY as BundleOfType<Node>>::Bundle {
+    ) -> <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle {
         let (nodes, data) = self.node_ctx.instantiate_undirected(
             &ty,
             NodePriority::Named,
             SourceInfo::from_caller(),
         );
 
+        let ty = ty.ty();
         let names = ty.flat_names(Some(name.into().into()));
         assert_eq!(nodes.len(), names.len());
 
@@ -381,11 +382,11 @@ pub struct SubCellBuilder<'a, S1: Schema + ?Sized, S2: Schema + ?Sized>(
 impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
-    pub fn signal<TY: BundleType>(
+    pub fn signal<TY: HasBundleType>(
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <TY as BundleOfType<Node>>::Bundle {
+    ) -> <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle {
         self.0.signal(name, ty)
     }
 
@@ -1719,6 +1720,19 @@ mod tests {
             ) -> crate::error::Result<Self::NestedData> {
                 let b1 = cell.instantiate(MultiDecoupledBlock);
                 let b2 = cell.instantiate(MultiDecoupledBlock);
+                let wire = cell.signal(
+                    "abc",
+                    MultiDecoupledIo {
+                        d1: DecoupledIo::new(4),
+                        d2: Flipped(DecoupledIo::new(5)),
+                        d3: Input(DecoupledIo::new(4)),
+                        d4: Output(DecoupledIo::new(5)),
+                        d5: InOut(DecoupledIo::new(4)),
+                        ready: Default::default(),
+                        valid: Default::default(),
+                        data: Output(Array::new(5, Default::default())),
+                    },
+                );
 
                 assert!(b1.io().ty() == b2.io().ty());
                 assert!(b1.io().d1.ty() == b2.io().d1.ty());
@@ -1733,6 +1747,8 @@ mod tests {
                 cell.connect(&b1.io().d1, &b2.io().d3);
                 cell.connect(&b1.io().d1, &b2.io().d5);
                 cell.connect(&b1.io().d2, b2.io().to_decoupled());
+                cell.connect(&wire, b1.io());
+                cell.connect(wire.d2, &b1.io().d1);
 
                 Ok(())
             }

@@ -3,7 +3,7 @@
 use crate::diagnostics::SourceInfo;
 use crate::error;
 use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
-use crate::types::{FlatLen, Flatten};
+use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -646,7 +646,7 @@ impl NodeContext {
         (nodes, data)
     }
 
-    pub fn instantiate_undirected<TY: BundleType>(
+    pub fn instantiate_undirected<TY: HasBundleType>(
         &mut self,
         ty: &TY,
         priority: NodePriority,
@@ -655,8 +655,9 @@ impl NodeContext {
         Vec<Node>,
         <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle,
     ) {
+        let ty = ty.ty();
         let nodes = self.nodes_undirected(ty.flat_names(None).len(), priority, source_info);
-        let data = ty.ty().instantiate_top(&nodes);
+        let data = ty.instantiate_top(&nodes);
         (nodes, data)
     }
 
