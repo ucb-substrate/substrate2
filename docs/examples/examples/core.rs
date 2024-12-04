@@ -8,13 +8,15 @@ use spice::Spice;
 use substrate::block::Block;
 use substrate::context::{ContextBuilder, Installation, PdkContext};
 use substrate::geometry::prelude::*;
-use substrate::io::layout::{Builder, CustomHardwareType, IoShape, Port, PortGeometry, ShapePort};
-use substrate::io::schematic::{Bundle, Node};
-use substrate::io::{Array, Flipped, InOut, Input, Io, Output, Signal};
 use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Instance, Layout, LayoutData};
 use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
 use substrate::pdk::{Pdk, PdkLayers};
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+use substrate::schematic::{CellBuilder, Schematic};
+use substrate::types::layout::{
+    Builder, CustomHardwareType, IoShape, Port, PortGeometry, ShapePort,
+};
+use substrate::types::schematic::{Bundle, Node};
+use substrate::types::{Array, Flipped, InOut, Input, Io, Output, Signal};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -204,10 +206,6 @@ impl Inverter {
 // end-hidden-code
 impl Block for Inverter {
     type Io = InverterIo;
-
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("inverter")
-    }
 
     fn name(&self) -> arcstr::ArcStr {
         arcstr::format!("inverter_{}", self.strength)
@@ -418,10 +416,6 @@ impl Buffer {
 impl Block for Buffer {
     type Io = BufferIo;
 
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("buffer")
-    }
-
     fn name(&self) -> arcstr::ArcStr {
         arcstr::format!("buffer_{}", self.strength)
     }
@@ -446,8 +440,8 @@ mod single_process_buffer {
     use serde::{Deserialize, Serialize};
     use substrate::block::Block;
     use substrate::geometry::align::{AlignBbox, AlignMode};
-    use substrate::io::layout::Builder;
     use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
+    use substrate::types::layout::Builder;
 
     #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Block)]
     #[substrate(io = "BufferIo")]
@@ -522,11 +516,9 @@ where
 #[substrate(io = "BufferIo")]
 pub struct BufferInlineHardMacro;
 
-impl ExportsNestedData for BufferInlineHardMacro {
+impl Schematic for BufferInlineHardMacro {
+    type Schema = Sky130Pdk;
     type NestedData = ();
-}
-
-impl Schematic<Sky130Pdk> for BufferInlineHardMacro {
     fn schematic(
         &self,
         io: &Bundle<<Self as Block>::Io>,

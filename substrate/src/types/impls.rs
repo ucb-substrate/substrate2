@@ -1,6 +1,6 @@
 //! Built-in implementations of IO traits.
 
-use schematic::{Node, Terminal};
+use schematic::{HasNestedBundle, Node, Terminal};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
@@ -8,7 +8,6 @@ use geometry::transform::{TransformRef, TranslateRef};
 use crate::types::layout::{
     BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometry, PortGeometryBuilder,
 };
-use crate::types::schematic::Connect;
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
@@ -49,15 +48,10 @@ impl<B: BundlePrimitive> BundleOfType<B> for () {
     type Bundle = ();
 }
 
-impl Bundle for () {
+impl HasBundleType for () {
     type BundleType = ();
-}
 
-impl Connect for () {
-    fn view(
-        &self,
-    ) -> <<Self as schematic::Bundle>::BundleType as schematic::BundleOfType<Node>>::Bundle {
-    }
+    fn ty(&self) -> Self::BundleType {}
 }
 
 impl schematic::BundleType for () {
@@ -106,6 +100,14 @@ impl FlatLen for Signal {
 impl HasNameTree for Signal {
     fn names(&self) -> Option<Vec<NameTree>> {
         Some(vec![])
+    }
+}
+
+impl HasBundleType for Signal {
+    type BundleType = Signal;
+
+    fn ty(&self) -> Self::BundleType {
+        Signal
     }
 }
 
@@ -192,43 +194,20 @@ macro_rules! impl_direction {
             $flatten_dir_body
         }
 
+        impl<T: HasBundleType> HasBundleType for $dir<T> {
+            type BundleType = T::BundleType;
+
+            fn ty(&self) -> Self::BundleType {
+                self.0.ty()
+            }
+        }
+
         impl<T: HasNameTree> HasNameTree for $dir<T> {
             fn names(&self) -> Option<Vec<NameTree>> {
                 self.0.names()
             }
         }
 
-        impl<T: Flatten<Node>> Flatten<Node> for $dir<T> {
-            fn flatten<E>(&self, output: &mut E)
-            where
-                E: Extend<Node>,
-            {
-                self.0.flatten(output);
-            }
-        }
-
-        impl<B: BundlePrimitive, T: BundleOfType<B>> BundleOfType<B> for $dir<T> {
-            type Bundle = <T as BundleOfType<B>>::Bundle;
-        }
-
-        impl<T> schematic::BundleType for $dir<T>
-        where
-            T: schematic::BundleType,
-        {
-            fn instantiate<'n>(&self, ids: &'n [Node]) -> (<Self as schematic::BundleOfType<Node>>::Bundle, &'n [Node]) {
-                let (data, ids) = self.0.instantiate(ids);
-                (data, ids)
-            }
-
-            fn terminal_view(
-                cell: CellId,
-                cell_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
-                instance: InstanceId,
-                instance_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
-            ) -> <Self as schematic::BundleOfType<Terminal>>::Bundle {
-                <T as schematic::BundleType>::terminal_view(cell, cell_io, instance, instance_io)
-            }
-        }
 
         impl<T> layout::HardwareType for $dir<T>
         where
@@ -348,7 +327,7 @@ impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
         (
             ArrayBundle {
                 elems,
-                ty_len: self.ty.len(),
+                ty: self.ty.clone(),
             },
             ids,
         )
@@ -373,8 +352,16 @@ impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
                     )
                 })
                 .collect(),
-            ty_len: cell_io.ty_len,
+            ty: cell_io.ty.clone(),
         }
+    }
+}
+
+impl<T: HasBundleType> HasBundleType for Array<T> {
+    type BundleType = Array<<T as HasBundleType>::BundleType>;
+
+    fn ty(&self) -> Self::BundleType {
+        Array::new(self.len, self.ty.ty())
     }
 }
 
@@ -385,7 +372,7 @@ impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
     fn builder(&self) -> Self::Builder {
         Self::Builder {
             elems: (0..self.len).map(|_| self.ty.builder()).collect(),
-            ty_len: self.ty.len(),
+            ty: self.ty.ty(),
         }
     }
 }
@@ -399,17 +386,21 @@ impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array
     }
 }
 
-impl<T: Bundle> Bundle for ArrayBundle<T> {
-    type BundleType = Array<T::BundleType>;
-}
+impl<T: Bundle> HasBundleType for ArrayBundle<T> {
+    type BundleType = Array<<T as HasBundleType>::BundleType>;
 
-impl<T: FlatLen> FlatLen for ArrayBundle<T> {
-    fn len(&self) -> usize {
-        self.elems.len() * self.ty_len
+    fn ty(&self) -> Self::BundleType {
+        Array::new(self.elems.len(), self.ty.clone())
     }
 }
 
-impl<S, T: Flatten<S>> Flatten<S> for ArrayBundle<T> {
+impl<T: Bundle> FlatLen for ArrayBundle<T> {
+    fn len(&self) -> usize {
+        self.elems.len() * self.ty.flat_names(None).len()
+    }
+}
+
+impl<S, T: Bundle + Flatten<S>> Flatten<S> for ArrayBundle<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<S>,
@@ -418,8 +409,8 @@ impl<S, T: Flatten<S>> Flatten<S> for ArrayBundle<T> {
     }
 }
 
-impl<T: HasNestedView> HasNestedView for ArrayBundle<T> {
-    type NestedView = ArrayBundle<T::NestedView>;
+impl<T: schematic::Bundle + HasNestedBundle> HasNestedView for ArrayBundle<T> {
+    type NestedView = ArrayBundle<T::NestedBundle>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         ArrayBundle {
@@ -428,25 +419,14 @@ impl<T: HasNestedView> HasNestedView for ArrayBundle<T> {
                 .iter()
                 .map(|elem| elem.nested_view(parent))
                 .collect(),
-            ty_len: self.ty_len,
-        }
-    }
-}
-
-impl<T: Connect> Connect for ArrayBundle<T> {
-    fn view(
-        &self,
-    ) -> <<Self as schematic::Bundle>::BundleType as schematic::BundleOfType<Node>>::Bundle {
-        ArrayBundle {
-            elems: self.elems.iter().map(|x| x.view()).collect(),
-            ty_len: self.ty_len,
+            ty: self.ty.clone(),
         }
     }
 }
 
 impl<T, S> HierarchicalBuildFrom<S> for ArrayBundle<T>
 where
-    T: HierarchicalBuildFrom<S>,
+    T: Bundle + HierarchicalBuildFrom<S>,
 {
     fn build_from(&mut self, path: &mut NameBuf, source: &S) {
         for (i, elem) in self.elems.iter_mut().enumerate() {
@@ -457,7 +437,7 @@ where
     }
 }
 
-impl<T: TranslateRef> TranslateRef for ArrayBundle<T> {
+impl<T: Bundle + TranslateRef> TranslateRef for ArrayBundle<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
             elems: self
@@ -465,12 +445,12 @@ impl<T: TranslateRef> TranslateRef for ArrayBundle<T> {
                 .iter()
                 .map(|elem| elem.translate_ref(p))
                 .collect(),
-            ty_len: self.ty_len,
+            ty: self.ty.clone(),
         }
     }
 }
 
-impl<T: TransformRef> TransformRef for ArrayBundle<T> {
+impl<T: Bundle + TransformRef> TransformRef for ArrayBundle<T> {
     fn transform_ref(&self, trans: geometry::prelude::Transformation) -> Self {
         Self {
             elems: self
@@ -478,7 +458,7 @@ impl<T: TransformRef> TransformRef for ArrayBundle<T> {
                 .iter()
                 .map(|elem| elem.transform_ref(trans))
                 .collect(),
-            ty_len: self.ty_len,
+            ty: self.ty.clone(),
         }
     }
 }
@@ -491,12 +471,12 @@ impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayBundle<T>> for
         }
         Ok(ArrayBundle {
             elems,
-            ty_len: self.ty_len,
+            ty: self.ty.clone(),
         })
     }
 }
 
-impl<T, I> Index<I> for ArrayBundle<T>
+impl<T: Bundle, I> Index<I> for ArrayBundle<T>
 where
     I: SliceIndex<[T]>,
 {
@@ -507,7 +487,7 @@ where
     }
 }
 
-impl<T, I> IndexMut<I> for ArrayBundle<T>
+impl<T: Bundle, I> IndexMut<I> for ArrayBundle<T>
 where
     I: SliceIndex<[T]>,
 {
@@ -686,7 +666,7 @@ impl NameBuf {
     }
 }
 
-impl<T> ArrayBundle<T> {
+impl<T: Bundle> ArrayBundle<T> {
     /// The number of elements (of type T) in the array.
     ///
     /// Note that this may not be the same as the flattened length of the array.

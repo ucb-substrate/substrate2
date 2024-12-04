@@ -41,7 +41,7 @@ use crate::schematic::{
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HardwareType as LayoutType};
 use crate::types::schematic::{Node, NodeContext, NodePriority, Port};
-use crate::types::{Flatten, Flipped, HasNameTree};
+use crate::types::{Flatten, Flipped, HasBundleType, HasNameTree};
 
 /// The global context.
 ///
@@ -654,8 +654,8 @@ fn prepare_cell_builder<T: Schematic>(
     block: &T,
 ) -> (
     CellBuilder<T::Schema>,
-    <<T as crate::schematic::Block>::Io as crate::types::schematic::BundleOfType<Node>>::Bundle,
-) {
+    <<<T as crate::schematic::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::BundleOfType<Node>>::Bundle,
+){
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
@@ -668,7 +668,7 @@ fn prepare_cell_builder<T: Schematic>(
         node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
     let cell_name = block.name();
 
-    let names = io_outward.flat_names(None);
+    let names = <<T as Block>::Io as HasBundleType>::ty(&io_outward).flat_names(None);
     let outward_dirs = io_outward.flatten_vec();
     assert_eq!(nodes.len(), names.len());
     assert_eq!(nodes.len(), outward_dirs.len());

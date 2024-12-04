@@ -53,18 +53,24 @@ pub trait BundleOfType<S: BundlePrimitive>:
     super::BundleOfType<S, Bundle = <Self as BundleOfType<S>>::Bundle>
 {
     /// The bundle of primitive `B` associated with this bundle type.
-    type Bundle: BundleOf<S>;
+    type Bundle: Bundle + HasBundleType<BundleType = Self> + BundleOf<S>;
 }
-impl<S: BundlePrimitive, T: super::BundleOfType<S>> BundleOfType<S> for T
-where
-    <T as super::BundleOfType<S>>::Bundle: Bundle,
+impl<
+        S: BundlePrimitive,
+        T: BundleType
+            + super::BundleOfType<
+                S,
+                Bundle: HasBundleType<BundleType = T>
+                            + HasNestedBundle<NestedView: HasBundleType<BundleType = T>>,
+            >,
+    > BundleOfType<S> for T
 {
-    type Bundle = T::Bundle;
+    type Bundle = <T as super::BundleOfType<S>>::Bundle;
 }
 
 /// A schematic IO type.
-pub trait Io: super::Io + BundleType {}
-impl<T: super::Io + BundleType> Io for T {}
+pub trait Io: super::Io + HasBundleType {}
+impl<T: super::Io + HasBundleType> Io for T {}
 
 /// A schematic bundle representing an instantiation of a [`Signal`].
 pub trait BundlePrimitive:
@@ -85,38 +91,46 @@ impl<
     type NestedView = <Self as HasNestedView>::NestedView;
 }
 
-/// A schematic bundle.
-pub trait Bundle: super::Bundle<BundleType = <Self as Bundle>::BundleType> + HasNestedView {
+pub trait HasNestedBundle:
+    HasBundleType + HasNestedView<NestedView = <Self as HasNestedBundle>::NestedBundle>
+{
+    /// The nested view of this primitive.
+    type NestedBundle: Bundle
+        + HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
+        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
+}
+impl<T: HasBundleType + HasNestedView> HasNestedBundle for T
+where
+    <T as HasNestedView>::NestedView: Bundle
+        + HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
+        + HasNestedView<NestedView = <T as HasNestedView>::NestedView>,
+    <<T as HasNestedView>::NestedView as HasNestedView>::NestedView: Bundle,
+{
+    type NestedBundle = <Self as HasNestedView>::NestedView;
+}
+
+/// A construct with an associated [`BundleType`].
+pub trait HasBundleType:
+    super::HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
+{
     /// The Rust type of the [`BundleType`] associated with this bundle.
     type BundleType: BundleType;
 }
-impl<T: super::Bundle<BundleType: BundleType> + HasNestedView> Bundle for T {
-    type BundleType = <T as super::Bundle>::BundleType;
+impl<T: super::HasBundleType<BundleType: BundleType>> HasBundleType for T {
+    type BundleType = <Self as super::HasBundleType>::BundleType;
 }
+
+/// A schematic bundle.
+pub trait Bundle: HasBundleType + super::Bundle {}
+impl<T: HasBundleType + super::Bundle> Bundle for T {}
 
 /// A schematic bundle that is made up of primitive `T`.
-pub trait BundleOf<T: BundlePrimitive>:
-    super::BundleOf<T> + Bundle<BundleType: BundleOfType<T, Bundle = Self>>
-{
-}
-impl<
-        S: BundlePrimitive,
-        T: super::BundleOf<S> + Bundle<BundleType: BundleOfType<S, Bundle = Self>>,
-    > BundleOf<S> for T
-{
-}
+pub trait BundleOf<T: BundlePrimitive>: super::BundleOf<T> + Bundle + HasNestedBundle {}
+impl<S: BundlePrimitive, T: super::BundleOf<S> + Bundle + HasNestedBundle> BundleOf<S> for T {}
 
 /// A bundle that can be connected.
-pub trait Connect: Bundle {
-    /// A view of this bundle as a bundle of [`Node`]s.
-    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle;
-}
-
-impl<T: Connect> Connect for &T {
-    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
-        (*self).view()
-    }
-}
+pub trait Connect: BundleOf<Node> {}
+impl<T: BundleOf<Node>> Connect for T {}
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -161,17 +175,15 @@ impl Flatten<Node> for Node {
     }
 }
 
-impl super::Bundle for Node {
+impl super::HasBundleType for Node {
     type BundleType = Signal;
+
+    fn ty(&self) -> Self::BundleType {
+        Signal
+    }
 }
 
 impl super::BundlePrimitive for Node {}
-
-impl Connect for Node {
-    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
-        *self
-    }
-}
 
 impl HasNestedView for Node {
     type NestedView = NestedNode;
@@ -227,8 +239,12 @@ impl Flatten<NestedNode> for NestedNode {
     }
 }
 
-impl super::Bundle for NestedNode {
+impl super::HasBundleType for NestedNode {
     type BundleType = Signal;
+
+    fn ty(&self) -> Self::BundleType {
+        Signal
+    }
 }
 
 impl super::BundlePrimitive for NestedNode {}
@@ -299,6 +315,15 @@ impl FlatLen for Terminal {
     }
 }
 
+impl Flatten<Node> for Terminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(self.instance_node));
+    }
+}
+
 impl Flatten<Terminal> for Terminal {
     fn flatten<E>(&self, output: &mut E)
     where
@@ -308,17 +333,15 @@ impl Flatten<Terminal> for Terminal {
     }
 }
 
-impl super::Bundle for Terminal {
+impl super::HasBundleType for Terminal {
     type BundleType = Signal;
+
+    fn ty(&self) -> Self::BundleType {
+        Signal
+    }
 }
 
 impl super::BundlePrimitive for Terminal {}
-
-impl Connect for Terminal {
-    fn view(&self) -> <<Self as Bundle>::BundleType as BundleOfType<Node>>::Bundle {
-        self.instance_node
-    }
-}
 
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
@@ -370,8 +393,12 @@ impl Flatten<NestedTerminal> for NestedTerminal {
     }
 }
 
-impl super::Bundle for NestedTerminal {
+impl super::HasBundleType for NestedTerminal {
     type BundleType = Signal;
+
+    fn ty(&self) -> Self::BundleType {
+        Signal
+    }
 }
 
 impl super::BundlePrimitive for NestedTerminal {}
@@ -605,14 +632,17 @@ impl NodeContext {
             .collect()
     }
 
-    pub fn instantiate_directed<TY: BundleType + Directed>(
+    pub fn instantiate_directed<TY: Io>(
         &mut self,
         ty: &TY,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as BundleOfType<Node>>::Bundle) {
+    ) -> (
+        Vec<Node>,
+        <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle,
+    ) {
         let nodes = self.nodes_directed(&ty.flatten_vec(), priority, source_info);
-        let data = ty.instantiate_top(&nodes);
+        let data = ty.ty().instantiate_top(&nodes);
         (nodes, data)
     }
 
@@ -621,9 +651,12 @@ impl NodeContext {
         ty: &TY,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as BundleOfType<Node>>::Bundle) {
-        let nodes = self.nodes_undirected(ty.len(), priority, source_info);
-        let data = ty.instantiate_top(&nodes);
+    ) -> (
+        Vec<Node>,
+        <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle,
+    ) {
+        let nodes = self.nodes_undirected(ty.flat_names(None).len(), priority, source_info);
+        let data = ty.ty().instantiate_top(&nodes);
         (nodes, data)
     }
 

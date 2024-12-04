@@ -7,6 +7,7 @@ use std::{
 
 use arcstr::ArcStr;
 pub use codegen::Io;
+use schematic::{Node, Terminal};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -81,13 +82,16 @@ pub trait HasNameTree {
 }
 
 /// A bundle type.
-pub trait BundleType: FlatLen + HasNameTree {}
-impl<T: FlatLen + HasNameTree> BundleType for T {}
+pub trait BundleType:
+    HasNameTree + HasBundleType<BundleType = Self> + Clone + Eq + Send + Sync
+{
+}
+impl<T: HasNameTree + HasBundleType<BundleType = T> + Clone + Eq + Send + Sync> BundleType for T {}
 
 /// A bundle type with an associated bundle `Bundle` of `B`.
 pub trait BundleOfType<B: BundlePrimitive>: BundleType {
     /// The bundle of primitive `B` associated with this bundle type.
-    type Bundle: BundleOf<B>;
+    type Bundle: Bundle<BundleType = Self> + BundleOf<B>;
 }
 
 /// Indicates that a bundle type specifies signal directions for all of its fields.
@@ -96,33 +100,34 @@ impl<T: Flatten<Direction>> Directed for T {}
 
 /// A trait implemented by block input/output interfaces.
 // TODO: Remove layout hardware type requirement.
-pub trait Io: BundleType + Directed + layout::HardwareType {}
-impl<T: BundleType + Directed + layout::HardwareType> Io for T {}
+pub trait Io: Directed + HasBundleType + layout::HardwareType + Clone {}
+impl<T: Directed + HasBundleType + layout::HardwareType + Clone> Io for T {}
 
 /// A bundle primitive representing an instantiation of a [`Signal`].
 pub trait BundlePrimitive: Clone + Bundle<BundleType = Signal> + BundleOf<Self> {}
 
 /// A construct with an associated [`BundleType`].
-pub trait Bundle: Send + Sync {
+pub trait HasBundleType {
     /// The Rust type of the [`BundleType`] associated with this bundle.
     type BundleType: BundleType;
+
+    fn ty(&self) -> Self::BundleType;
 }
 
-impl<T: Bundle> Bundle for &T {
+impl<T: HasBundleType> HasBundleType for &T {
     type BundleType = T::BundleType;
+
+    fn ty(&self) -> Self::BundleType {
+        (*self).ty()
+    }
 }
+
+pub trait Bundle: HasBundleType + Send + Sync {}
+impl<T: HasBundleType + Send + Sync> Bundle for T {}
 
 /// A bundle that is made up of primitive `T`.
-pub trait BundleOf<T: BundlePrimitive>:
-    Bundle<BundleType: BundleOfType<T, Bundle = Self>> + FlatLen + Flatten<T>
-{
-}
-impl<
-        S: BundlePrimitive,
-        T: Bundle<BundleType: BundleOfType<S, Bundle = Self>> + FlatLen + Flatten<S>,
-    > BundleOf<S> for T
-{
-}
+pub trait BundleOf<T: BundlePrimitive>: Bundle + FlatLen + Flatten<T> {}
+impl<S: BundlePrimitive, T: Bundle + FlatLen + Flatten<S>> BundleOf<S> for T {}
 
 // END TRAITS
 
@@ -203,9 +208,9 @@ impl<T> Array<T> {
 
 /// An instantiated array containing a fixed number of elements of type `T`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ArrayBundle<T> {
+pub struct ArrayBundle<T: Bundle> {
     elems: Vec<T>,
-    ty_len: usize,
+    ty: T::BundleType,
 }
 
 // END TYPES
@@ -223,6 +228,45 @@ pub struct MosIo {
     pub s: InOut<Signal>,
     /// The body.
     pub b: InOut<Signal>,
+}
+
+/// The interface to a standard 4-terminal MOSFET.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct MosIoBundleType {
+    /// The drain.
+    pub d: Signal,
+    /// The gate.
+    pub g: Signal,
+    /// The source.
+    pub s: Signal,
+    /// The body.
+    pub b: Signal,
+}
+
+impl HasBundleType for MosIo {
+    type BundleType = MosIoBundleType;
+
+    fn ty(&self) -> Self::BundleType {
+        MosIoBundleType {
+            d: self.d.ty(),
+            g: self.g.ty(),
+            s: self.s.ty(),
+            b: self.b.ty(),
+        }
+    }
+}
+
+impl HasBundleType for MosIoBundleType {
+    type BundleType = MosIoBundleType;
+
+    fn ty(&self) -> Self::BundleType {
+        MosIoBundleType {
+            d: self.d.ty(),
+            g: self.g.ty(),
+            s: self.s.ty(),
+            b: self.b.ty(),
+        }
+    }
 }
 
 impl FlatLen for MosIo {
@@ -245,7 +289,7 @@ impl Flatten<Direction> for MosIo {
     }
 }
 
-impl HasNameTree for MosIo {
+impl HasNameTree for MosIoBundleType {
     fn names(&self) -> Option<Vec<NameTree>> {
         Some(
             ["d", "g", "s", "b"]
@@ -259,11 +303,11 @@ impl HasNameTree for MosIo {
     }
 }
 
-impl<B: BundlePrimitive> BundleOfType<B> for MosIo {
+impl<B: BundlePrimitive> BundleOfType<B> for MosIoBundleType {
     type Bundle = MosIoBundle<B>;
 }
 
-impl schematic::BundleType for MosIo {
+impl schematic::BundleType for MosIoBundleType {
     fn instantiate<'n>(
         &self,
         ids: &'n [schematic::Node],
@@ -333,8 +377,17 @@ impl<T: substrate::types::BundlePrimitive> substrate::types::FlatLen for MosIoBu
     }
 }
 
-impl<T: BundlePrimitive> Bundle for MosIoBundle<T> {
-    type BundleType = MosIo;
+impl<T: BundlePrimitive> HasBundleType for MosIoBundle<T> {
+    type BundleType = MosIoBundleType;
+
+    fn ty(&self) -> Self::BundleType {
+        MosIoBundleType {
+            d: Signal,
+            g: Signal,
+            s: Signal,
+            b: Signal,
+        }
+    }
 }
 
 impl<B: BundlePrimitive> Flatten<B> for MosIoBundle<B> {
@@ -349,34 +402,17 @@ impl<B: BundlePrimitive> Flatten<B> for MosIoBundle<B> {
     }
 }
 
-impl schematic::Connect for MosIoBundle<schematic::Node> {
-    fn view(
-        &self,
-    ) -> <<Self as schematic::Bundle>::BundleType as schematic::BundleOfType<schematic::Node>>::Bundle
+impl Flatten<Node> for MosIoBundle<Terminal> {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
     {
-        MosIoBundle {
-            d: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.d),
-            g: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.g),
-            s: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.s),
-            b: <<Signal as substrate::types::BundleOfType<schematic::Node>>::Bundle as schematic::Connect>::view(&self.b),
-        }
+        Flatten::<Node>::flatten(&self.d, output);
+        Flatten::<Node>::flatten(&self.g, output);
+        Flatten::<Node>::flatten(&self.s, output);
+        Flatten::<Node>::flatten(&self.b, output);
     }
 }
-
-impl schematic::Connect for MosIoBundle<schematic::Terminal> {
-    fn view(
-        &self,
-    ) -> <<Self as schematic::Bundle>::BundleType as schematic::BundleOfType<schematic::Node>>::Bundle
-    {
-        MosIoBundle {
-            d: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.d),
-            g: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.g),
-            s: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.s),
-            b: <<Signal as substrate::types::BundleOfType<schematic::Terminal>>::Bundle as schematic::Connect>::view(&self.b),
-        }
-    }
-}
-
 impl<T: schematic::BundlePrimitive> HasNestedView for MosIoBundle<T> {
     type NestedView = MosIoBundle<<T as HasNestedView>::NestedView>;
 
@@ -390,12 +426,12 @@ impl<T: schematic::BundlePrimitive> HasNestedView for MosIoBundle<T> {
     }
 }
 
-/// The interface to which simulation testbenches should conform.
-#[derive(Debug, Default, Clone, Io)]
-pub struct TestbenchIo {
-    /// The global ground net.
-    pub vss: InOut<Signal>,
-}
+// /// The interface to which simulation testbenches should conform.
+// #[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+// pub struct TestbenchIo {
+//     /// The global ground net.
+//     pub vss: InOut<Signal>,
+// }
 
 // /// The interface for 2-terminal blocks.
 // #[derive(Debug, Default, Clone, Io)]

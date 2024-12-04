@@ -493,6 +493,7 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
     let mut data_len = Vec::new();
     let mut data_fields = Vec::new();
     let mut construct_data_fields = Vec::new();
+    let mut construct_ty_fields = Vec::new();
     let mut flatten_dir_fields = Vec::new();
     let mut flatten_bundle_fields = Vec::new();
 
@@ -552,6 +553,9 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
         construct_data_fields.push(quote! {
             #assign #temp,
         });
+        construct_ty_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Bundle>::ty(&#refer),
+        });
         flatten_bundle_fields.push(quote! {
                 <<#field_ty as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Flatten<#bundle_primitive_ty>>::flatten(&#refer, __substrate_output_sink);
         });
@@ -568,6 +572,7 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
     }
 
     let data_body = struct_body(fields.style, true, quote!( #(#data_fields)* ));
+    let construct_ty_body = struct_body(fields.style, false, quote!( #(#construct_ty_fields)* ));
 
     quote! {
         #(#attrs)*
@@ -600,6 +605,10 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
 
         impl #bundle_imp #substrate::types::Bundle for #bundle_ident #bundle_ty #bundle_wher {
             type BundleType = #ident;
+
+            fn ty(&self) -> <Self as #substrate::types::Bundle>::BundleType {
+                #ident #construct_ty_body
+            }
         }
 
         impl #bundle_imp #substrate::types::BundleOfType<#bundle_primitive_ty> for #ident #generics_ty #bundle_wher {
