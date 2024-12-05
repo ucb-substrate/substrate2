@@ -25,8 +25,8 @@ pub mod schematic;
 // BEGIN TRAITS
 
 /// A trait implemented by block input/output interfaces.
-pub trait Io: Directed + SchematicType + LayoutType {}
-impl<T: Directed + SchematicType + LayoutType> Io for T {}
+pub trait Io: Directed + SchematicType {}
+impl<T: Directed + SchematicType> Io for T {}
 
 /// Indicates that a hardware type specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}
@@ -174,51 +174,51 @@ pub struct ArrayData<T> {
 
 // BEGIN COMMON IO TYPES
 
-/// The interface to a standard 4-terminal MOSFET.
-#[derive(Debug, Default, Clone, Io)]
-pub struct MosIo {
-    /// The drain.
-    pub d: InOut<Signal>,
-    /// The gate.
-    pub g: Input<Signal>,
-    /// The source.
-    pub s: InOut<Signal>,
-    /// The body.
-    pub b: InOut<Signal>,
-}
-
-/// The interface to which simulation testbenches should conform.
-#[derive(Debug, Default, Clone, Io)]
-pub struct TestbenchIo {
-    /// The global ground net.
-    pub vss: InOut<Signal>,
-}
-
-/// The interface for 2-terminal blocks.
-#[derive(Debug, Default, Clone, Io)]
-pub struct TwoTerminalIo {
-    /// The positive terminal.
-    pub p: InOut<Signal>,
-    /// The negative terminal.
-    pub n: InOut<Signal>,
-}
-
-/// The interface for VDD and VSS rails.
-#[derive(Debug, Default, Clone, Io)]
-pub struct PowerIo {
-    /// The VDD rail.
-    pub vdd: InOut<Signal>,
-    /// The VSS rail.
-    pub vss: InOut<Signal>,
-}
-
-/// A pair of differential signals.
-#[derive(Debug, Default, Copy, Clone, Io)]
-pub struct DiffPair {
-    /// The positive signal.
-    pub p: InOut<Signal>,
-    /// The negative signal.
-    pub n: InOut<Signal>,
-}
+// /// The interface to a standard 4-terminal MOSFET.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct MosIo {
+//     /// The drain.
+//     pub d: InOut<Signal>,
+//     /// The gate.
+//     pub g: Input<Signal>,
+//     /// The source.
+//     pub s: InOut<Signal>,
+//     /// The body.
+//     pub b: InOut<Signal>,
+// }
+//
+// /// The interface to which simulation testbenches should conform.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct TestbenchIo {
+//     /// The global ground net.
+//     pub vss: InOut<Signal>,
+// }
+//
+// /// The interface for 2-terminal blocks.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct TwoTerminalIo {
+//     /// The positive terminal.
+//     pub p: InOut<Signal>,
+//     /// The negative terminal.
+//     pub n: InOut<Signal>,
+// }
+//
+// /// The interface for VDD and VSS rails.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct PowerIo {
+//     /// The VDD rail.
+//     pub vdd: InOut<Signal>,
+//     /// The VSS rail.
+//     pub vss: InOut<Signal>,
+// }
+//
+// /// A pair of differential signals.
+// #[derive(Debug, Default, Copy, Clone, Io)]
+// pub struct DiffPair {
+//     /// The positive signal.
+//     pub p: InOut<Signal>,
+//     /// The negative signal.
+//     pub n: InOut<Signal>,
+// }
 
 // END COMMON IO TYPES

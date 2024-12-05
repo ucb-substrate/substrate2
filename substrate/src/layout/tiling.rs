@@ -15,12 +15,12 @@ use slotmap::{new_key_type, SlotMap};
 
 use crate::pdk::Pdk;
 
-use super::{Draw, DrawReceiver};
+use super::{schema::Schema, Draw, DrawReceiver};
 
 /// A tileable layout object.
-pub trait Tileable<PDK: Pdk>: Draw<PDK> + AlignRectMut + Downcast {}
-impl<PDK: Pdk, T: Draw<PDK> + AlignRectMut + Downcast> Tileable<PDK> for T {}
-impl_downcast!(Tileable<PDK> where PDK: Pdk);
+pub trait Tileable<S: Schema>: Draw<S> + AlignRectMut + Downcast {}
+impl<S: Schema, T: Draw<S> + AlignRectMut + Downcast> Tileable<S> for T {}
+impl_downcast!(Tileable<S> where S: Schema);
 
 new_key_type! {
     struct RawTileKey;
@@ -49,8 +49,8 @@ pub struct Tile<T> {
     pub rect: Rect,
 }
 
-struct RawTile<PDK: Pdk> {
-    inner: Box<dyn Tileable<PDK>>,
+struct RawTile<S: Schema> {
+    inner: Box<dyn Tileable<S>>,
     rect: Rect,
 }
 
@@ -75,7 +75,7 @@ impl<T: Bbox> Tile<T> {
     }
 }
 
-impl<PDK: Pdk, T: Tileable<PDK>> From<Tile<T>> for RawTile<PDK> {
+impl<S: Schema, T: Tileable<S>> From<Tile<T>> for RawTile<S> {
     fn from(value: Tile<T>) -> Self {
         Self {
             inner: Box::new(value.inner),
@@ -84,15 +84,15 @@ impl<PDK: Pdk, T: Tileable<PDK>> From<Tile<T>> for RawTile<PDK> {
     }
 }
 
-impl<PDK: Pdk> TranslateMut for RawTile<PDK> {
+impl<S: Schema> TranslateMut for RawTile<S> {
     fn translate_mut(&mut self, p: geometry::prelude::Point) {
         self.inner.translate_mut(p);
         self.rect.translate_mut(p);
     }
 }
 
-impl<PDK: Pdk> Draw<PDK> for RawTile<PDK> {
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> crate::error::Result<()> {
+impl<S: Schema> Draw<S> for RawTile<S> {
+    fn draw(self, recv: &mut DrawReceiver<S>) -> crate::error::Result<()> {
         self.inner.draw(recv)
     }
 }
@@ -113,9 +113,9 @@ pub enum TileAlignMode {
 }
 
 /// An array tiler.
-pub struct ArrayTiler<PDK: Pdk> {
+pub struct ArrayTiler<S: Schema> {
     config: ArrayTilerConfig,
-    tiles: SlotMap<RawTileKey, RawTile<PDK>>,
+    tiles: SlotMap<RawTileKey, RawTile<S>>,
     array: Vec<RawTileKey>,
 }
 
@@ -125,7 +125,7 @@ struct ArrayTilerConfig {
     vert_mode: TileAlignMode,
 }
 
-impl<PDK: Pdk, T: Tileable<PDK>> std::ops::Index<ArrayTileKey<T>> for ArrayTiler<PDK> {
+impl<S: Schema + 'static, T: Tileable<S>> std::ops::Index<ArrayTileKey<T>> for ArrayTiler<S> {
     type Output = T;
 
     fn index(&self, index: ArrayTileKey<T>) -> &Self::Output {
@@ -133,8 +133,8 @@ impl<PDK: Pdk, T: Tileable<PDK>> std::ops::Index<ArrayTileKey<T>> for ArrayTiler
     }
 }
 
-impl<PDK: Pdk> Draw<PDK> for ArrayTiler<PDK> {
-    fn draw(mut self, cell: &mut DrawReceiver<PDK>) -> crate::error::Result<()> {
+impl<S: Schema> Draw<S> for ArrayTiler<S> {
+    fn draw(mut self, cell: &mut DrawReceiver<S>) -> crate::error::Result<()> {
         for key in self.array {
             self.tiles.remove(key).unwrap().draw(cell)?;
         }
@@ -142,7 +142,7 @@ impl<PDK: Pdk> Draw<PDK> for ArrayTiler<PDK> {
     }
 }
 
-impl<PDK: Pdk> ArrayTiler<PDK> {
+impl<S: Schema> ArrayTiler<S> {
     /// Creates an [`ArrayTiler`].
     ///
     /// `horiz_mode` and `vert_mode` specify how to align tiles in the horizontal and vertical
@@ -159,7 +159,7 @@ impl<PDK: Pdk> ArrayTiler<PDK> {
     }
 
     /// Pushes a new tile to the tiler, returning a key for accessing the tiled object.
-    pub fn push<T: Tileable<PDK>>(&mut self, tile: Tile<T>) -> ArrayTileKey<T> {
+    pub fn push<T: Tileable<S>>(&mut self, tile: Tile<T>) -> ArrayTileKey<T> {
         let mut raw_tile: RawTile<_> = tile.into();
         if let Some(key) = self.array.last() {
             let srect = raw_tile.rect;
@@ -175,7 +175,7 @@ impl<PDK: Pdk> ArrayTiler<PDK> {
 
     /// Pushes a `num` repetitions of a the given tile to the tiler, returning a set of keys to the
     /// new tiled objects.
-    pub fn push_num<T: Tileable<PDK> + Clone>(
+    pub fn push_num<T: Tileable<S> + Clone>(
         &mut self,
         tile: Tile<T>,
         num: usize,
@@ -185,26 +185,14 @@ impl<PDK: Pdk> ArrayTiler<PDK> {
 
     /// Pushes each tile in the provided iterator to the tiler, returning an iterator of keys to the new
     /// tiled objects.
-    pub fn push_iter<'a, T: Tileable<PDK>>(
+    pub fn push_iter<'a, T: Tileable<S>>(
         &'a mut self,
         tiles: impl Iterator<Item = Tile<T>> + 'a,
     ) -> impl Iterator<Item = ArrayTileKey<T>> + 'a {
         tiles.into_iter().map(|tile| self.push(tile))
     }
 
-    /// Gets a tiled object using its [`ArrayTileKey`].
-    pub fn get<T: Tileable<PDK>>(&self, key: ArrayTileKey<T>) -> Option<&T> {
-        self.tiles
-            .get(key.key)
-            .and_then(|raw| raw.inner.as_ref().downcast_ref())
-    }
-
-    fn align_with_prev(
-        tile: &mut RawTile<PDK>,
-        config: &ArrayTilerConfig,
-        srect: Rect,
-        orect: Rect,
-    ) {
+    fn align_with_prev(tile: &mut RawTile<S>, config: &ArrayTilerConfig, srect: Rect, orect: Rect) {
         tile.align_mut(
             match config.horiz_mode {
                 TileAlignMode::PosFlush => AlignMode::Right,
@@ -231,6 +219,14 @@ impl<PDK: Pdk> ArrayTiler<PDK> {
         );
     }
 }
+impl<S: Schema + 'static> ArrayTiler<S> {
+    /// Gets a tiled object using its [`ArrayTileKey`].
+    pub fn get<T: Tileable<S>>(&self, key: ArrayTileKey<T>) -> Option<&T> {
+        self.tiles
+            .get(key.key)
+            .and_then(|raw| raw.inner.as_ref().downcast_ref())
+    }
+}
 
 /// A key for indexing a [`GridTile`] within an [`GridTiler`].
 pub struct GridTileKey<T> {
@@ -254,8 +250,8 @@ pub struct GridTile<T> {
     rowspan: usize,
 }
 
-struct RawGridTile<PDK: Pdk> {
-    raw: Option<RawTile<PDK>>,
+struct RawGridTile<S: Schema> {
+    raw: Option<RawTile<S>>,
     colspan: usize,
     rowspan: usize,
 }
@@ -298,7 +294,7 @@ impl<T> From<Tile<T>> for GridTile<T> {
     }
 }
 
-impl<PDK: Pdk, T: Tileable<PDK>> From<GridTile<T>> for RawGridTile<PDK> {
+impl<S: Schema, T: Tileable<S>> From<GridTile<T>> for RawGridTile<S> {
     fn from(value: GridTile<T>) -> Self {
         Self {
             raw: value.tile.map(|x| x.into()),
@@ -309,14 +305,14 @@ impl<PDK: Pdk, T: Tileable<PDK>> From<GridTile<T>> for RawGridTile<PDK> {
 }
 
 /// A grid tiler.
-pub struct GridTiler<PDK: Pdk> {
+pub struct GridTiler<S: Schema> {
     #[allow(dead_code)]
     config: GridTilerConfig,
-    tiles: SlotMap<RawTileKey, RawGridTile<PDK>>,
+    tiles: SlotMap<RawTileKey, RawGridTile<S>>,
     grid: Vec<Vec<RawTileKey>>,
 }
 
-impl<PDK: Pdk> Default for GridTiler<PDK> {
+impl<S: Schema> Default for GridTiler<S> {
     fn default() -> Self {
         Self {
             config: GridTilerConfig {},
@@ -386,11 +382,11 @@ impl GridConstraintSolver {
 }
 
 /// An immutable tiled grid created by a [`GridTiler`].
-pub struct TiledGrid<PDK: Pdk> {
-    tiles: SlotMap<RawTileKey, RawGridTile<PDK>>,
+pub struct TiledGrid<S: Schema> {
+    tiles: SlotMap<RawTileKey, RawGridTile<S>>,
 }
 
-impl<PDK: Pdk> GridTiler<PDK> {
+impl<S: Schema> GridTiler<S> {
     /// Creates a [`GridTiler`].
     ///
     /// Populated from left-to-right and top-to-bottom.
@@ -399,7 +395,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
     }
 
     /// Pushes a new tile to the tiler, returning a key for accessing the tiled object.
-    pub fn push<T: Tileable<PDK>>(&mut self, tile: impl Into<GridTile<T>>) -> GridTileKey<T> {
+    pub fn push<T: Tileable<S>>(&mut self, tile: impl Into<GridTile<T>>) -> GridTileKey<T> {
         let raw_tile: RawGridTile<_> = tile.into().into();
         let key = self.tiles.insert(raw_tile);
         self.last_row_mut().push(key);
@@ -411,7 +407,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
 
     /// Pushes a `num` repetitions of a the given tile to the tiler, returning a set of keys to the
     /// new tiled objects.
-    pub fn push_num<T: Tileable<PDK> + Clone>(
+    pub fn push_num<T: Tileable<S> + Clone>(
         &mut self,
         tile: impl Into<GridTile<T>>,
         num: usize,
@@ -422,7 +418,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
 
     /// Pushes each tile in the provided iterator to the tiler, returning an iterator of keys to the new
     /// tiled objects.
-    pub fn push_iter<'a, T: Tileable<PDK>>(
+    pub fn push_iter<'a, T: Tileable<S>>(
         &'a mut self,
         tiles: impl Iterator<Item = impl Into<GridTile<T>>> + 'a,
     ) -> impl Iterator<Item = GridTileKey<T>> + 'a {
@@ -482,7 +478,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
     }
 
     /// Aligns the inserted tiles in a [`TiledGrid`].
-    pub fn tile(mut self) -> TiledGrid<PDK> {
+    pub fn tile(mut self) -> TiledGrid<S> {
         let mut row_constraints = GridConstraintSolver::new();
         let mut col_constraints = GridConstraintSolver::new();
 
@@ -520,7 +516,7 @@ impl<PDK: Pdk> GridTiler<PDK> {
     }
 }
 
-impl<PDK: Pdk, T: Tileable<PDK>> std::ops::Index<GridTileKey<T>> for TiledGrid<PDK> {
+impl<S: Schema + 'static, T: Tileable<S>> std::ops::Index<GridTileKey<T>> for TiledGrid<S> {
     type Output = T;
 
     fn index(&self, index: GridTileKey<T>) -> &Self::Output {
@@ -528,9 +524,9 @@ impl<PDK: Pdk, T: Tileable<PDK>> std::ops::Index<GridTileKey<T>> for TiledGrid<P
     }
 }
 
-impl<PDK: Pdk> TiledGrid<PDK> {
+impl<S: Schema + 'static> TiledGrid<S> {
     /// Gets a tiled object using its [`GridTileKey`].
-    pub fn get<T: Tileable<PDK>>(&self, key: GridTileKey<T>) -> Option<&T> {
+    pub fn get<T: Tileable<S>>(&self, key: GridTileKey<T>) -> Option<&T> {
         self.tiles
             .get(key.key)
             .and_then(|raw| raw.raw.as_ref())
@@ -538,8 +534,8 @@ impl<PDK: Pdk> TiledGrid<PDK> {
     }
 }
 
-impl<PDK: Pdk> Draw<PDK> for TiledGrid<PDK> {
-    fn draw(self, cell: &mut DrawReceiver<PDK>) -> crate::error::Result<()> {
+impl<S: Schema> Draw<S> for TiledGrid<S> {
+    fn draw(self, cell: &mut DrawReceiver<S>) -> crate::error::Result<()> {
         for (_, tile) in self.tiles {
             if let Some(raw) = tile.raw {
                 raw.draw(cell)?;

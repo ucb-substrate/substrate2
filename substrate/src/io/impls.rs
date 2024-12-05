@@ -7,6 +7,7 @@ use crate::io::layout::{
     BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometryBuilder,
 };
 use crate::io::schematic::{Connect, HasTerminalView};
+use crate::layout::schema::Schema;
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
@@ -71,23 +72,23 @@ impl Flatten<Node> for () {
     }
 }
 
-impl layout::HardwareType for () {
+impl<S: Schema> layout::HardwareType<S> for () {
     type Bundle = ();
     type Builder = ();
 
     fn builder(&self) {}
 }
 
-impl BundleBuilder<()> for () {
+impl<S: Schema> BundleBuilder<S, ()> for () {
     fn build(self) -> Result<()> {
         Ok(())
     }
 }
 
-impl Flatten<PortGeometry> for () {
+impl<L> Flatten<PortGeometry<L>> for () {
     fn flatten<E>(&self, _output: &mut E)
     where
-        E: Extend<PortGeometry>,
+        E: Extend<PortGeometry<L>>,
     {
     }
 }
@@ -118,9 +119,9 @@ impl schematic::HardwareType for Signal {
     }
 }
 
-impl layout::HardwareType for Signal {
-    type Bundle = PortGeometry;
-    type Builder = PortGeometryBuilder;
+impl<S: Schema> layout::HardwareType<S> for Signal {
+    type Bundle = PortGeometry<S::Layer>;
+    type Builder = PortGeometryBuilder<S::Layer>;
 
     fn builder(&self) -> Self::Builder {
         PortGeometryBuilder::default()
@@ -177,9 +178,9 @@ where
     }
 }
 
-impl<T> layout::HardwareType for Input<T>
+impl<S: Schema, T> layout::HardwareType<S> for Input<T>
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -189,12 +190,12 @@ where
     }
 }
 
-impl<T, U: CustomHardwareType<T>> CustomHardwareType<Input<T>> for U
+impl<S: Schema, T, U: CustomHardwareType<S, T>> CustomHardwareType<S, Input<T>> for U
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     fn from_layout_type(other: &Input<T>) -> Self {
-        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<S, T>>::from_layout_type(&other.0)
     }
 }
 
@@ -260,9 +261,9 @@ where
     }
 }
 
-impl<T> layout::HardwareType for Output<T>
+impl<S: Schema, T> layout::HardwareType<S> for Output<T>
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -272,12 +273,12 @@ where
     }
 }
 
-impl<T, U: CustomHardwareType<T>> CustomHardwareType<Output<T>> for U
+impl<S: Schema, T, U: CustomHardwareType<S, T>> CustomHardwareType<S, Output<T>> for U
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     fn from_layout_type(other: &Output<T>) -> Self {
-        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<S, T>>::from_layout_type(&other.0)
     }
 }
 
@@ -375,9 +376,9 @@ where
     }
 }
 
-impl<T> layout::HardwareType for InOut<T>
+impl<S: Schema, T> layout::HardwareType<S> for InOut<T>
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -387,12 +388,12 @@ where
     }
 }
 
-impl<T, U: CustomHardwareType<T>> CustomHardwareType<InOut<T>> for U
+impl<S: Schema, T, U: CustomHardwareType<S, T>> CustomHardwareType<S, InOut<T>> for U
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     fn from_layout_type(other: &InOut<T>) -> Self {
-        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<S, T>>::from_layout_type(&other.0)
     }
 }
 
@@ -487,9 +488,9 @@ where
     }
 }
 
-impl<T> layout::HardwareType for Flipped<T>
+impl<S: Schema, T> layout::HardwareType<S> for Flipped<T>
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     type Bundle = T::Bundle;
     type Builder = T::Builder;
@@ -499,12 +500,12 @@ where
     }
 }
 
-impl<T, U: CustomHardwareType<T>> CustomHardwareType<Flipped<T>> for U
+impl<S: Schema, T, U: CustomHardwareType<S, T>> CustomHardwareType<S, Flipped<T>> for U
 where
-    T: layout::HardwareType,
+    T: layout::HardwareType<S>,
 {
     fn from_layout_type(other: &Flipped<T>) -> Self {
-        <U as CustomHardwareType<T>>::from_layout_type(&other.0)
+        <U as CustomHardwareType<S, T>>::from_layout_type(&other.0)
     }
 }
 
@@ -682,7 +683,9 @@ impl<T: TransformRef> TransformRef for ArrayData<T> {
     }
 }
 
-impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayData<T>> for ArrayData<B> {
+impl<S: Schema, T: layout::IsBundle<S>, B: BundleBuilder<S, T>> BundleBuilder<S, ArrayData<T>>
+    for ArrayData<B>
+{
     fn build(self) -> Result<ArrayData<T>> {
         let mut elems = Vec::new();
         for e in self.elems {
@@ -759,10 +762,10 @@ impl<T: HasTerminalView> HasTerminalView for ArrayData<T> {
     }
 }
 
-impl<T: Flatten<PortGeometry>> Flatten<PortGeometry> for ArrayData<T> {
+impl<L, T: Flatten<PortGeometry<L>>> Flatten<PortGeometry<L>> for ArrayData<T> {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<PortGeometry>,
+        E: Extend<PortGeometry<L>>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
     }

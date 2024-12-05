@@ -509,28 +509,13 @@ impl Context {
     pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
         retrieve_installation(&self.installations)
     }
-}
-
-fn retrieve_installation<I: Any + Send + Sync>(
-    map: &HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
-) -> Option<Arc<I>> {
-    map.get(&TypeId::of::<I>())
-        .map(|arc| arc.clone().downcast().unwrap())
-}
-
-impl<PDK: Pdk> PdkContext<PDK> {
-    /// Creates a new global context.
-    #[inline]
-    pub fn new(pdk: PDK) -> Self {
-        ContextBuilder::new().install(pdk).build().with_pdk()
-    }
 
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: Layout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: Layout>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
-        let mut inner_mut = self.ctx.inner.write().unwrap();
+        let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
         let block = Arc::new(block);
 
@@ -567,6 +552,21 @@ impl<PDK: Pdk> PdkContext<PDK> {
                 })
             }),
         }
+    }
+}
+
+fn retrieve_installation<I: Any + Send + Sync>(
+    map: &HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+) -> Option<Arc<I>> {
+    map.get(&TypeId::of::<I>())
+        .map(|arc| arc.clone().downcast().unwrap())
+}
+
+impl<PDK: Pdk> PdkContext<PDK> {
+    /// Creates a new global context.
+    #[inline]
+    pub fn new(pdk: PDK) -> Self {
+        ContextBuilder::new().install(pdk).build().with_pdk()
     }
 
     /// Writes a layout to a GDS file.
