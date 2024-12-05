@@ -3,6 +3,8 @@
 
 extern crate self as substrate;
 
+pub use test_log::test;
+
 pub mod block;
 pub mod cache;
 pub mod context;

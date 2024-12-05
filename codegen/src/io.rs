@@ -138,7 +138,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             #assign #temp,
         });
         construct_nested_view_fields.push(quote! {
-                #assign <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleOf<#bundle_primitive_ty>>::Bundle as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_terminal_view_fields.push(quote! {
                 #assign <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::schematic::BundleType>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
@@ -147,7 +147,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
                 let (#temp, __substrate_node_ids) = <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::schematic::BundleType>::instantiate(&#refer, __substrate_node_ids);
         });
         flatten_node_fields.push(quote! {
-                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#substrate::types::schematic::Terminal>>::Bundle as #substrate::types::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
+                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleOf<#substrate::types::schematic::Terminal>>::Bundle as #substrate::types::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
         });
     }
 
@@ -166,7 +166,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
     quote! {
         impl #st_any_imp #substrate::types::schematic::BundleType for #bundle_type_ident #st_any_ty #st_any_where {
-            fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Node]) -> (<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle, &'n [#substrate::types::schematic::Node]) {
+            fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Node]) -> (<Self as #substrate::types::schematic::HasBundleOf<#substrate::types::schematic::Node>>::Bundle, &'n [#substrate::types::schematic::Node]) {
                 #( #instantiate_fields )*
                 #[allow(redundant_field_names)]
                 (#bundle_ident #construct_data_body, __substrate_node_ids)
@@ -174,10 +174,10 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
 
             fn terminal_view(
                 cell: #substrate::schematic::CellId,
-                cell_io: &<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle,
+                cell_io: &<Self as #substrate::types::schematic::HasBundleOf<#substrate::types::schematic::Node>>::Bundle,
                 instance: #substrate::schematic::InstanceId,
-                instance_io: &<Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Node>>::Bundle,
-            ) -> <Self as #substrate::types::schematic::BundleOfType<#substrate::types::schematic::Terminal>>::Bundle {
+                instance_io: &<Self as #substrate::types::schematic::HasBundleOf<#substrate::types::schematic::Node>>::Bundle,
+            ) -> <Self as #substrate::types::schematic::HasBundleOf<#substrate::types::schematic::Terminal>>::Bundle {
                 #bundle_ident #construct_terminal_view_body
             }
         }
@@ -564,10 +564,10 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
                 <#field_ty as #substrate::types::Flatten<#substrate::types::Direction>>::flatten(&#refer, __substrate_output_sink);
         });
         data_len.push(quote! {
-                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::FlatLen>::len(&#refer)
+                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleOf<#bundle_primitive_ty>>::Bundle as #substrate::types::FlatLen>::len(&#refer)
             });
         data_fields.push(quote! {
-            #declare <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle,
+            #declare <<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleOf<#bundle_primitive_ty>>::Bundle,
         });
         ty_fields.push(quote! {
             #declare <#field_ty as #substrate::types::HasBundleType>::BundleType,
@@ -582,10 +582,10 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
             #assign #temp,
         });
         construct_ty_fields.push(quote! {
-            #assign <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::HasBundleType>::ty(&#refer),
+            #assign <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleOf<#bundle_primitive_ty>>::Bundle as #substrate::types::HasBundleType>::ty(&#refer),
         });
         flatten_bundle_fields.push(quote! {
-                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::BundleOfType<#bundle_primitive_ty>>::Bundle as #substrate::types::Flatten<#bundle_primitive_ty>>::flatten(&#refer, __substrate_output_sink);
+                <<<#field_ty as #substrate::types::HasBundleType>::BundleType as #substrate::types::HasBundleOf<#bundle_primitive_ty>>::Bundle as #substrate::types::Flatten<#bundle_primitive_ty>>::flatten(&#refer, __substrate_output_sink);
         });
     }
 
@@ -668,7 +668,7 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #bundle_imp #substrate::types::BundleOfType<#bundle_primitive_ty> for #bundle_type_ident #generics_ty #bundle_wher {
+        impl #bundle_imp #substrate::types::HasBundleOf<#bundle_primitive_ty> for #bundle_type_ident #generics_ty #bundle_wher {
             type Bundle = #bundle_ident #bundle_ty;
         }
 

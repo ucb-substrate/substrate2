@@ -2,7 +2,7 @@
 
 use crate::diagnostics::SourceInfo;
 use crate::error;
-use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
+use crate::schematic::{Block, CellId, HasNestedView, InstanceId, InstancePath};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
@@ -14,25 +14,23 @@ use super::Signal;
 /// A schematic bundle type.
 pub trait BundleType:
     super::BundleType
-    + BundleOfType<Node, Bundle: Connect>
-    + BundleOfType<Terminal, Bundle: Connect>
-    + BundleOfType<NestedNode>
-    + BundleOfType<NestedTerminal>
+    + HasBundleOf<Node, Bundle: Connect>
+    + HasBundleOf<Terminal, Bundle: Connect>
+    + HasBundleOf<NestedNode>
+    + HasBundleOf<NestedTerminal>
 {
     /// Instantiates a schematic data struct with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate<'n>(
-        &self,
-        ids: &'n [Node],
-    ) -> (<Self as BundleOfType<Node>>::Bundle, &'n [Node]);
+    fn instantiate<'n>(&self, ids: &'n [Node])
+        -> (<Self as HasBundleOf<Node>>::Bundle, &'n [Node]);
 
     /// Instantiate a top-level schematic data struct from a node list
     ///
     /// This method wraps [`instantiate`](Self::instantiate) with sanity checks
     /// to ensure that the instantiation process consumed all the nodes
     /// provided.
-    fn instantiate_top(&self, ids: &[Node]) -> <Self as BundleOfType<Node>>::Bundle {
+    fn instantiate_top(&self, ids: &[Node]) -> <Self as HasBundleOf<Node>>::Bundle {
         let (data, ids_rest) = self.instantiate(ids);
         assert!(ids_rest.is_empty());
         debug_assert_eq!(ids, data.flatten_vec());
@@ -42,15 +40,15 @@ pub trait BundleType:
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as BundleOfType<Node>>::Bundle,
+        cell_io: &<Self as HasBundleOf<Node>>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as BundleOfType<Node>>::Bundle,
-    ) -> <Self as BundleOfType<Terminal>>::Bundle;
+        instance_io: &<Self as HasBundleOf<Node>>::Bundle,
+    ) -> <Self as HasBundleOf<Terminal>>::Bundle;
 }
 
 /// A bundle type with an associated bundle `Bundle` of `B`.
-pub trait BundleOfType<S: BundlePrimitive>:
-    super::BundleOfType<S, Bundle = <Self as BundleOfType<S>>::Bundle>
+pub trait HasBundleOf<S: BundlePrimitive>:
+    super::HasBundleOf<S, Bundle = <Self as HasBundleOf<S>>::Bundle>
 {
     /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: Bundle + HasBundleType<BundleType = Self> + BundleOf<S>;
@@ -58,14 +56,14 @@ pub trait BundleOfType<S: BundlePrimitive>:
 impl<
         S: BundlePrimitive,
         T: BundleType
-            + super::BundleOfType<
+            + super::HasBundleOf<
                 S,
                 Bundle: HasBundleType<BundleType = T>
                             + HasNestedView<NestedView: HasBundleType<BundleType = T>>,
             >,
-    > BundleOfType<S> for T
+    > HasBundleOf<S> for T
 {
-    type Bundle = <T as super::BundleOfType<S>>::Bundle;
+    type Bundle = <T as super::HasBundleOf<S>>::Bundle;
 }
 
 /// A schematic IO type.
@@ -124,6 +122,9 @@ impl<S: BundlePrimitive, T: super::BundleOf<S> + Bundle> BundleOf<S> for T {}
 /// A bundle that can be connected.
 pub trait Connect: BundleOf<Node> {}
 impl<T: BundleOf<Node>> Connect for T {}
+
+pub type IoType<T> = <<T as Block>::Io as HasBundleType>::BundleType;
+pub type IoBundle<T, B> = <IoType<T> as HasBundleOf<B>>::Bundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -632,7 +633,7 @@ impl NodeContext {
         source_info: SourceInfo,
     ) -> (
         Vec<Node>,
-        <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle,
+        <<TY as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle,
     ) {
         let nodes = self.nodes_directed(&ty.flatten_vec(), priority, source_info);
         let data = ty.ty().instantiate_top(&nodes);
@@ -646,7 +647,7 @@ impl NodeContext {
         source_info: SourceInfo,
     ) -> (
         Vec<Node>,
-        <<TY as HasBundleType>::BundleType as BundleOfType<Node>>::Bundle,
+        <<TY as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle,
     ) {
         let ty = ty.ty();
         let nodes = self.nodes_undirected(ty.flat_names(None).len(), priority, source_info);

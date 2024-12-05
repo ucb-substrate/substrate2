@@ -89,7 +89,7 @@ pub trait BundleType:
 impl<T: HasNameTree + HasBundleType<BundleType = T> + Clone + Eq + Send + Sync> BundleType for T {}
 
 /// A bundle type with an associated bundle `Bundle` of `B`.
-pub trait BundleOfType<B: BundlePrimitive>: BundleType {
+pub trait HasBundleOf<B: BundlePrimitive>: BundleType {
     /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: Bundle<BundleType = Self> + BundleOf<B>;
 }
@@ -303,7 +303,7 @@ impl HasNameTree for MosIoBundleType {
     }
 }
 
-impl<B: BundlePrimitive> BundleOfType<B> for MosIoBundleType {
+impl<B: BundlePrimitive> HasBundleOf<B> for MosIoBundleType {
     type Bundle = MosIoBundle<B>;
 }
 
@@ -312,7 +312,7 @@ impl schematic::BundleType for MosIoBundleType {
         &self,
         ids: &'n [schematic::Node],
     ) -> (
-        <Self as schematic::BundleOfType<schematic::Node>>::Bundle,
+        <Self as schematic::HasBundleOf<schematic::Node>>::Bundle,
         &'n [schematic::Node],
     ) {
         if let [d, g, s, b, rest @ ..] = ids {
@@ -331,10 +331,10 @@ impl schematic::BundleType for MosIoBundleType {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as schematic::BundleOfType<schematic::Node>>::Bundle,
+        cell_io: &<Self as schematic::HasBundleOf<schematic::Node>>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as schematic::BundleOfType<schematic::Node>>::Bundle,
-    ) -> <Self as schematic::BundleOfType<schematic::Terminal>>::Bundle {
+        instance_io: &<Self as schematic::HasBundleOf<schematic::Node>>::Bundle,
+    ) -> <Self as schematic::HasBundleOf<schematic::Terminal>>::Bundle {
         MosIoBundle {
             d: <Signal as schematic::BundleType>::terminal_view(
                 cell,
@@ -365,10 +365,10 @@ impl schematic::BundleType for MosIoBundleType {
 }
 
 pub struct MosIoBundle<T: BundlePrimitive> {
-    pub d: <Signal as BundleOfType<T>>::Bundle,
-    pub g: <Signal as BundleOfType<T>>::Bundle,
-    pub s: <Signal as BundleOfType<T>>::Bundle,
-    pub b: <Signal as BundleOfType<T>>::Bundle,
+    pub d: <Signal as HasBundleOf<T>>::Bundle,
+    pub g: <Signal as HasBundleOf<T>>::Bundle,
+    pub s: <Signal as HasBundleOf<T>>::Bundle,
+    pub b: <Signal as HasBundleOf<T>>::Bundle,
 }
 
 impl<T: substrate::types::BundlePrimitive> substrate::types::FlatLen for MosIoBundle<T> {
@@ -418,10 +418,18 @@ impl<T: schematic::BundlePrimitive> HasNestedView for MosIoBundle<T> {
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         MosIoBundle {
-            d: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.d, parent),
-            g: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.g, parent),
-            s: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.s, parent),
-            b: <<Signal as substrate::types::BundleOfType<T>>::Bundle as HasNestedView>::nested_view(&self.b, parent),
+            d: <<Signal as substrate::types::HasBundleOf<T>>::Bundle as HasNestedView>::nested_view(
+                &self.d, parent,
+            ),
+            g: <<Signal as substrate::types::HasBundleOf<T>>::Bundle as HasNestedView>::nested_view(
+                &self.g, parent,
+            ),
+            s: <<Signal as substrate::types::HasBundleOf<T>>::Bundle as HasNestedView>::nested_view(
+                &self.s, parent,
+            ),
+            b: <<Signal as substrate::types::HasBundleOf<T>>::Bundle as HasNestedView>::nested_view(
+                &self.b, parent,
+            ),
         }
     }
 }

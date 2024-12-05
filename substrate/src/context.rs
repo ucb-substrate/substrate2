@@ -646,16 +646,19 @@ impl<PDK: Pdk> PdkContext<PDK> {
     }
 }
 
+/// Only public for use in ATOLL. Do NOT use externally.
+///
 /// If the `id` argument is Some, the cell will use the given ID.
 /// Otherwise, a new [`CellId`] will be allocated by calling [`Context::alloc_cell_id`].
-fn prepare_cell_builder<T: Schematic>(
+#[doc(hidden)]
+pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
 ) -> (
     CellBuilder<T::Schema>,
-    <<<T as crate::schematic::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::BundleOfType<Node>>::Bundle,
-){
+    crate::types::schematic::IoBundle<T, Node>,
+) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)

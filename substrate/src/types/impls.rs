@@ -44,7 +44,7 @@ impl HasNameTree for () {
     }
 }
 
-impl<B: BundlePrimitive> BundleOfType<B> for () {
+impl<B: BundlePrimitive> HasBundleOf<B> for () {
     type Bundle = ();
 }
 
@@ -58,15 +58,15 @@ impl schematic::BundleType for () {
     fn instantiate<'n>(
         &self,
         ids: &'n [Node],
-    ) -> (<Self as schematic::BundleOfType<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as schematic::HasBundleOf<Node>>::Bundle, &'n [Node]) {
         ((), ids)
     }
     fn terminal_view(
         _cell: CellId,
-        _cell_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
+        _cell_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
         _instance: InstanceId,
-        _instance_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
-    ) -> <Self as schematic::BundleOfType<Terminal>>::Bundle {
+        _instance_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
+    ) -> <Self as schematic::HasBundleOf<Terminal>>::Bundle {
     }
 }
 
@@ -111,7 +111,7 @@ impl HasBundleType for Signal {
     }
 }
 
-impl<B: BundlePrimitive> BundleOfType<B> for Signal {
+impl<B: BundlePrimitive> HasBundleOf<B> for Signal {
     type Bundle = B;
 }
 
@@ -119,7 +119,7 @@ impl schematic::BundleType for Signal {
     fn instantiate<'n>(
         &self,
         ids: &'n [Node],
-    ) -> (<Self as schematic::BundleOfType<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as schematic::HasBundleOf<Node>>::Bundle, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -128,10 +128,10 @@ impl schematic::BundleType for Signal {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
+        cell_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
-    ) -> <Self as schematic::BundleOfType<Terminal>>::Bundle {
+        instance_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
+    ) -> <Self as schematic::HasBundleOf<Terminal>>::Bundle {
         Terminal {
             cell_id: cell,
             cell_node: *cell_io,
@@ -308,15 +308,15 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
-impl<B: BundlePrimitive, T: BundleOfType<B>> BundleOfType<B> for Array<T> {
-    type Bundle = ArrayBundle<<T as BundleOfType<B>>::Bundle>;
+impl<B: BundlePrimitive, T: HasBundleOf<B>> HasBundleOf<B> for Array<T> {
+    type Bundle = ArrayBundle<<T as HasBundleOf<B>>::Bundle>;
 }
 
 impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
     fn instantiate<'n>(
         &self,
         mut ids: &'n [Node],
-    ) -> (<Self as schematic::BundleOfType<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as schematic::HasBundleOf<Node>>::Bundle, &'n [Node]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
                 let (elem, new_ids) = self.ty.instantiate(ids);
@@ -334,10 +334,10 @@ impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
+        cell_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as schematic::BundleOfType<Node>>::Bundle,
-    ) -> <Self as schematic::BundleOfType<Terminal>>::Bundle {
+        instance_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
+    ) -> <Self as schematic::HasBundleOf<Terminal>>::Bundle {
         ArrayBundle {
             elems: cell_io
                 .elems
