@@ -2,6 +2,7 @@
 
 use std::{
     borrow::Borrow,
+    fmt::Debug,
     ops::{Deref, Index},
 };
 
@@ -83,15 +84,19 @@ pub trait HasNameTree {
 
 /// A bundle type.
 pub trait BundleType:
-    HasNameTree + HasBundleType<BundleType = Self> + Clone + Eq + Send + Sync
+    HasNameTree + HasBundleType<BundleType = Self> + Debug + Clone + Eq + Send + Sync
 {
+    type Bundle<B: BundlePrimitive>: Bundle<BundleType = Self> + BundleOf<B>;
 }
-impl<T: HasNameTree + HasBundleType<BundleType = T> + Clone + Eq + Send + Sync> BundleType for T {}
 
 /// A bundle type with an associated bundle `Bundle` of `B`.
 pub trait HasBundleOf<B: BundlePrimitive>: BundleType {
     /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: Bundle<BundleType = Self> + BundleOf<B>;
+}
+
+impl<B: BundlePrimitive, T: BundleType> HasBundleOf<B> for T {
+    type Bundle = <T as BundleType>::Bundle<B>;
 }
 
 /// Indicates that a bundle type specifies signal directions for all of its fields.
@@ -303,8 +308,8 @@ impl HasNameTree for MosIoBundleType {
     }
 }
 
-impl<B: BundlePrimitive> HasBundleOf<B> for MosIoBundleType {
-    type Bundle = MosIoBundle<B>;
+impl BundleType for MosIoBundleType {
+    type Bundle<B: BundlePrimitive> = MosIoBundle<B>;
 }
 
 impl schematic::BundleType for MosIoBundleType {

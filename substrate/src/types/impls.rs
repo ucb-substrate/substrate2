@@ -44,8 +44,8 @@ impl HasNameTree for () {
     }
 }
 
-impl<B: BundlePrimitive> HasBundleOf<B> for () {
-    type Bundle = ();
+impl BundleType for () {
+    type Bundle<B: BundlePrimitive> = ();
 }
 
 impl HasBundleType for () {
@@ -111,8 +111,8 @@ impl HasBundleType for Signal {
     }
 }
 
-impl<B: BundlePrimitive> HasBundleOf<B> for Signal {
-    type Bundle = B;
+impl BundleType for Signal {
+    type Bundle<B: BundlePrimitive> = B;
 }
 
 impl schematic::BundleType for Signal {
@@ -308,8 +308,8 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
-impl<B: BundlePrimitive, T: HasBundleOf<B>> HasBundleOf<B> for Array<T> {
-    type Bundle = ArrayBundle<<T as HasBundleOf<B>>::Bundle>;
+impl<T: BundleType> BundleType for Array<T> {
+    type Bundle<B: BundlePrimitive> = ArrayBundle<<T as BundleType>::Bundle<B>>;
 }
 
 impl<T: schematic::BundleType> schematic::BundleType for Array<T> {

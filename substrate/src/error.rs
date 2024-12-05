@@ -23,6 +23,9 @@ pub enum Error {
     /// An internal Substrate error that indicates a bug in the source code.
     #[error("internal Substrate error")]
     Internal,
+    /// An error indicating that one or more fatal errors occured while building a cell.
+    #[error("fatal errors occured while building cell")]
+    CellBuildFatal,
     /// An error thrown by caching functions.
     #[error(transparent)]
     CacheError(#[from] Arc<cache::error::Error>),

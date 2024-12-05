@@ -80,6 +80,8 @@ pub struct CellBuilder<S: Schema + ?Sized> {
     pub(crate) flatten: bool,
     pub(crate) node_ctx: NodeContext,
     pub(crate) node_names: HashMap<Node, NameBuf>,
+    /// Whether a fatal error occured while building the cell.
+    pub(crate) fatal_error: bool,
     /// Outward-facing ports of this cell.
     ///
     /// Directions are as viewed by a parent cell instantiating this cell; these
@@ -138,22 +140,30 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     }
 
     /// Connect all signals in the given data instances.
+    #[track_caller]
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
         D1: Connect,
         D2: Connect + HasBundleType<BundleType = <D1 as HasBundleType>::BundleType>,
     {
-        let s1f: Vec<Node> = s1.flatten_vec();
-        let s2f: Vec<Node> = s2.flatten_vec();
-        assert_eq!(s1f.len(), s2f.len());
-        s1f.into_iter().zip(s2f).for_each(|(a, b)| {
-            // FIXME: proper error handling mechanism (collect all errors into
-            // context and emit later)
-            let res = self.node_ctx.connect(a, b);
-            if let Err(err) = res {
-                tracing::warn!(?err, "connection failed");
-            }
-        });
+        let sinfo = SourceInfo::from_caller();
+        let s1_ty = s1.ty();
+        let s2_ty = s2.ty();
+        if s1_ty != s2_ty {
+            tracing::error!(
+                ?sinfo,
+                ?s1_ty,
+                ?s2_ty,
+                "tried to connect bundles of different types",
+            );
+            self.fatal_error = true;
+        } else {
+            let s1f: Vec<Node> = s1.flatten_vec();
+            let s2f: Vec<Node> = s2.flatten_vec();
+            s1f.into_iter().zip(s2f).for_each(|(a, b)| {
+                self.node_ctx.connect(a, b, sinfo.clone());
+            });
+        }
     }
 
     /// Connect all signals in the given data instances.
@@ -1743,11 +1753,32 @@ mod tests {
                 assert!(b1.io().d2.ty() == b2.io().to_decoupled().ty());
 
                 cell.connect(&b1.io().d1, &b2.io().d1);
+                cell.connect(&b1.io().d1, &b2.io().d1);
+                cell.connect(&b1.io().d1, &b2.io().d1);
                 cell.connect(&b1.io().d1, &b2.io().d3);
                 cell.connect(&b1.io().d1, &b2.io().d5);
                 cell.connect(&b1.io().d2, b2.io().to_decoupled());
-                cell.connect(&wire, b1.io());
                 cell.connect(wire.d2, &b1.io().d1);
+
+                Ok(())
+            }
+        }
+
+        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[substrate(io = "()")]
+        pub struct NestedBlock<T>(T);
+
+        impl<S: crate::schematic::schema::Schema, T: Schematic<Schema = S> + Clone> Schematic
+            for NestedBlock<T>
+        {
+            type Schema = S;
+            type NestedData = ();
+            fn schematic(
+                &self,
+                io: &IoBundle<Self, Node>,
+                cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+            ) -> crate::error::Result<Self::NestedData> {
+                let b1 = cell.instantiate(self.0.clone());
 
                 Ok(())
             }
@@ -1796,7 +1827,7 @@ mod tests {
         let ctx = Context::new();
         ctx.export_scir(Vdivider)
             .expect("failed to generate raw lib");
-        ctx.export_scir(SuperBlock)
+        ctx.export_scir(NestedBlock(NestedBlock(SuperBlock)))
             .expect("failed to generate raw lib");
     }
 }

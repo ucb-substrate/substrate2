@@ -48,7 +48,7 @@ pub trait BundleType:
 
 /// A bundle type with an associated bundle `Bundle` of `B`.
 pub trait HasBundleOf<S: BundlePrimitive>:
-    super::HasBundleOf<S, Bundle = <Self as HasBundleOf<S>>::Bundle>
+    super::BundleType<Bundle<S> = <Self as HasBundleOf<S>>::Bundle>
 {
     /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: Bundle + HasBundleType<BundleType = Self> + BundleOf<S>;
@@ -56,14 +56,13 @@ pub trait HasBundleOf<S: BundlePrimitive>:
 impl<
         S: BundlePrimitive,
         T: BundleType
-            + super::HasBundleOf<
-                S,
-                Bundle: HasBundleType<BundleType = T>
-                            + HasNestedView<NestedView: HasBundleType<BundleType = T>>,
+            + super::BundleType<
+                Bundle<S>: HasBundleType<BundleType = T>
+                               + HasNestedView<NestedView: HasBundleType<BundleType = T>>,
             >,
     > HasBundleOf<S> for T
 {
-    type Bundle = <T as super::HasBundleOf<S>>::Bundle;
+    type Bundle = <T as super::BundleType>::Bundle<S>;
 }
 
 /// A schematic IO type.
@@ -107,8 +106,9 @@ impl<
         T: super::Bundle
             + HasBundleType
             + HasNestedView<
-                NestedView: HasBundleType<BundleType = <T as HasBundleType>::BundleType>
-                                + super::Bundle,
+                NestedView: super::Bundle
+                                + HasBundleType<BundleType = <T as HasBundleType>::BundleType>
+                                + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>,
             >,
     > Bundle for T
 {
@@ -655,11 +655,7 @@ impl NodeContext {
         (nodes, data)
     }
 
-    pub(crate) fn connect(
-        &mut self,
-        n1: Node,
-        n2: Node,
-    ) -> error::Result<(), NodeConnectDirectionError> {
+    pub(crate) fn connect(&mut self, n1: Node, n2: Node, source_info: SourceInfo) {
         fn get_root(this: &mut NodeContext, n: Node) -> Node {
             this.uf
                 .probe_value(n)
@@ -669,6 +665,11 @@ impl NodeContext {
 
         let n1_root = get_root(self, n1);
         let n2_root = get_root(self, n2);
+
+        if n1_root == n2_root {
+            tracing::info!(?source_info, "connecting nodes that are already connected");
+            return;
+        }
 
         let n1_connections_data = self
             .connections_data(n1_root)
@@ -686,18 +687,18 @@ impl NodeContext {
             .flat_map(|e1| n2_connections_data.drivers.iter().map(move |e2| [e1, e2]))
             .filter(|[(&k1, _), (&k2, _)]| !k1.is_compatible_with(k2))
             .collect();
-        let mut result = Ok(());
         if !incompatible_drivers.is_empty() {
             // If drivers are not compatible, return an error but connect them
             // anyways, because (1) we would like to detect further errors
             // that may be caused by the connection being made and (2) the
             // error might be spurious and waived by the user.
-            result = Err(NodeConnectDirectionError {
+            let err = NodeConnectDirectionError {
                 data: incompatible_drivers
                     .iter()
                     .map(|&[(&k1, v1), (&k2, v2)]| [(k1, v1.clone()), (k2, v2.clone())])
                     .collect(),
-            });
+            };
+            tracing::warn!(?err, "incompatible drivers");
         }
 
         self.uf.union(n1, n2);
@@ -720,8 +721,6 @@ impl NodeContext {
             .as_mut()
             .expect("new root should be populated")
             .merge_from(old_connections_data);
-
-        result
     }
 }
 
@@ -748,44 +747,5 @@ impl Port {
     #[inline]
     pub(crate) fn node(&self) -> Node {
         self.node
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::schematic::NodeContext;
-
-    #[test]
-    fn conflicting_directions_error() {
-        let mut ctx = NodeContext::new();
-        let source_a = SourceInfo::from_caller();
-        let source_b = SourceInfo::from_caller();
-        let n_a = ctx.node(
-            Some(Direction::Output),
-            NodePriority::Named,
-            source_a.clone(),
-        );
-        let n_b = ctx.node(
-            Some(Direction::Output),
-            NodePriority::Named,
-            source_b.clone(),
-        );
-        let n_c = ctx.node(
-            Some(Direction::Input),
-            NodePriority::Named,
-            SourceInfo::from_caller(),
-        );
-
-        ctx.connect(n_a, n_c).expect("connect should succeed");
-
-        let res = ctx.connect(n_c, n_b);
-        let err = res.expect_err("connection should have failed");
-        let [c_a, c_b] = &err.data[0];
-        assert_eq!(c_a.0, Direction::Output);
-        assert_eq!(c_b.0, Direction::Output);
-
-        assert_eq!(c_a.1.sources, [source_a]);
-        assert_eq!(c_b.1.sources, [source_b]);
     }
 }

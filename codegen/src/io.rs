@@ -609,7 +609,7 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
 
     quote! {
         #(#attrs)*
-        #[derive(Clone, PartialEq, Eq)]
+        #[derive(Clone, Debug, PartialEq, Eq)]
         #vis struct #bundle_type_ident #generics #ty_body
         #(#attrs)*
         #vis struct #bundle_ident #bundle_generics #data_body
@@ -668,8 +668,8 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #bundle_imp #substrate::types::HasBundleOf<#bundle_primitive_ty> for #bundle_type_ident #generics_ty #bundle_wher {
-            type Bundle = #bundle_ident #bundle_ty;
+        impl #generics_imp #substrate::types::BundleType for #bundle_type_ident #generics_ty #generics_wher {
+            type Bundle<#bundle_primitive_ty: #substrate::types::BundlePrimitive> = #bundle_ident #bundle_ty;
         }
 
         impl #bundle_imp #substrate::types::FlatLen for #bundle_ident #bundle_ty #bundle_wher {

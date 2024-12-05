@@ -326,17 +326,21 @@ impl Context {
             },
             move |_key, (id, mut cell_builder, io_data)| {
                 let res = B::schematic(block_clone.as_ref(), io_data.as_ref(), &mut cell_builder);
+                let fatal = cell_builder.fatal_error;
                 let raw = Arc::new(cell_builder.finish());
-                res.map(|data| SchemaCellCacheValue {
-                    raw: raw.clone(),
-                    cell: Arc::new(SchematicCell::new(
-                        id,
-                        io_data,
-                        block_clone,
-                        raw,
-                        Arc::new(data),
-                    )),
-                })
+                (!fatal)
+                    .then_some(())
+                    .ok_or(crate::error::Error::CellBuildFatal)
+                    .and(res.map(|data| SchemaCellCacheValue {
+                        raw: raw.clone(),
+                        cell: Arc::new(SchematicCell::new(
+                            id,
+                            io_data,
+                            block_clone,
+                            raw,
+                            Arc::new(data),
+                        )),
+                    }))
             },
         );
 
@@ -692,6 +696,7 @@ pub fn prepare_cell_builder<T: Schematic>(
             ctx: context,
             node_ctx,
             node_names,
+            fatal_error: false,
             ports,
             flatten: false,
             contents: RawCellContentsBuilder::Cell(RawCellInnerBuilder::default()),
