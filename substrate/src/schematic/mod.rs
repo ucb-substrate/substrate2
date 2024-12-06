@@ -26,19 +26,14 @@ use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
-    Bundle, BundleType, Connect, HasBundleOf, HasBundleType, Io, IoBundle, Node, NodeContext,
-    NodePriority, NodeUf, Port, Terminal,
+    BundleType, Connect, HasBundleOf, HasBundleType, Io, IoBundle, Node, NodeContext, NodePriority,
+    NodeUf, Port, Terminal,
 };
 use crate::types::{Flatten, HasNameTree, NameBuf};
 
 /// A block that can have a schematic.
-pub trait Block: crate::block::Block<Io = <Self as Block>::Io> {
-    /// The block's schematic-compatible IO.
-    type Io: Io;
-}
-impl<T: crate::block::Block<Io: Io>> Block for T {
-    type Io = <T as crate::block::Block>::Io;
-}
+pub trait Block: crate::block::Block<Io: Io> {}
+impl<T: crate::block::Block<Io: Io>> Block for T {}
 
 /// A block that has a schematic.
 pub trait Schematic: Block {
@@ -64,7 +59,9 @@ impl<T: Schematic> Schematic for Arc<T> {
 
     fn schematic(
         &self,
-        io: &<<<Self as Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle,
+        io: &<<<Self as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<
+            Node,
+        >>::Bundle,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
         T::schematic(self.as_ref(), io, cell)
@@ -300,7 +297,10 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     pub fn instantiate_connected<B, C>(&mut self, block: B, io: &C)
     where
         B: Schematic<Schema = S>,
-        C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
+        C: Connect
+            + HasBundleType<
+                BundleType = <<B as crate::block::Block>::Io as HasBundleType>::BundleType,
+            >,
     {
         let inst = self.instantiate(block);
         self.connect(inst.io(), io);
@@ -310,7 +310,10 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: &C, name: impl Into<ArcStr>)
     where
         B: Schematic<Schema = S>,
-        C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
+        C: Connect
+            + HasBundleType<
+                BundleType = <<B as crate::block::Block>::Io as HasBundleType>::BundleType,
+            >,
     {
         let inst = self.instantiate_named(block, name);
         self.connect(inst.io(), io);
@@ -337,7 +340,8 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
             self.node_ctx
                 .instantiate_directed(&io, NodePriority::Auto, source_info);
 
-        let names = io.flat_names(Some(inst_name.clone().into()));
+        let names = <<B as crate::block::Block>::Io as crate::types::HasBundleType>::ty(&io)
+            .flat_names(Some(inst_name.clone().into()));
         assert_eq!(nodes.len(), names.len());
 
         self.node_names.extend(nodes.iter().copied().zip(names));
@@ -518,7 +522,10 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
     pub fn instantiate_connected<B, C>(&mut self, block: B, io: C)
     where
         B: Schematic<Schema = S2>,
-        C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
+        C: Connect
+            + HasBundleType<
+                BundleType = <<B as crate::block::Block>::Io as HasBundleType>::BundleType,
+            >,
     {
         let inst = self.instantiate(block);
         self.connect(inst.io(), io);
@@ -528,7 +535,10 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
     pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: C, name: impl Into<ArcStr>)
     where
         B: Schematic<Schema = S2>,
-        C: Connect + HasBundleType<BundleType = <<B as Block>::Io as HasBundleType>::BundleType>,
+        C: Connect
+            + HasBundleType<
+                BundleType = <<B as crate::block::Block>::Io as HasBundleType>::BundleType,
+            >,
     {
         let inst = self.instantiate_named(block, name);
         self.connect(inst.io(), io);
@@ -552,7 +562,7 @@ pub struct Cell<T: Schematic> {
     /// Data returned by the cell's schematic generator.
     nodes: Arc<T::NestedData>,
     /// The cell's input/output interface.
-    io: Arc<<<<T as Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
+    io: Arc<<<<T as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
     /// The path corresponding to this cell.
     path: InstancePath,
 
@@ -588,7 +598,7 @@ impl<T: Schematic> Clone for Cell<T> {
 impl<T: Schematic> Cell<T> {
     pub(crate) fn new(
         id: CellId,
-        io: Arc<<<<T as Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
+        io: Arc<<<<T as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
         block: Arc<T>,
         raw: Arc<RawCell<T::Schema>>,
         data: Arc<T::NestedData>,
@@ -621,7 +631,7 @@ impl<T: Schematic> Cell<T> {
     /// Returns this cell's IO.
     pub fn io(
         &self,
-    ) -> NestedView<<<<T as Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>
+    ) -> NestedView<<<<T as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>
     {
         self.io.nested_view(&self.path)
     }
@@ -632,7 +642,7 @@ pub struct CellHandle<B: Schematic> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<B>,
     pub(crate) io_data:
-        Arc<<<<B as Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
+        Arc<<<<B as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
     pub(crate) cell: CacheHandle<Result<Arc<Cell<B>>>>,
 }
 
@@ -790,7 +800,7 @@ impl<T: Schematic> Instance<T> {
         self.terminal_view
             .get_or_init(|| {
                 Arc::new(
-                    <<<T as Block>::Io as HasBundleType>::BundleType as BundleType>::terminal_view(
+                    <<<T as crate::block::Block>::Io as HasBundleType>::BundleType as BundleType>::terminal_view(
                         self.cell.id,
                         self.cell.io_data.as_ref(),
                         self.id,
@@ -1800,7 +1810,7 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                io: &<<<Self as super::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::HasBundleOf<crate::types::schematic::Node>>::Bundle,
+                io: &<<<Self as crate::block::Block>::Io as crate::types::schematic::HasBundleType>::BundleType as crate::types::schematic::HasBundleOf<crate::types::schematic::Node>>::Bundle,
                 cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let r1 = cell.instantiate(Resistor);

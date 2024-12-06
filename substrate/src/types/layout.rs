@@ -1,8 +1,6 @@
 //! Traits and types for layout IOs.
 
-use super::{
-    FlatLen, Flatten, HasBundleType, HasNameTree, NameBuf, NameFragment, NameTree, Signal,
-};
+use super::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
 use crate::error::Result;
 use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
@@ -18,24 +16,34 @@ use std::collections::HashMap;
 use substrate::layout::bbox::LayerBbox;
 use tracing::Level;
 
+/// A type with an associated layout hardware type.
+pub trait HasHardwareType {
+    /// The associated hardware type.
+    type HardwareType: HardwareType;
+
+    /// Creates an instance of the builder of the associated type.
+    fn builder(&self) -> <<Self as HasHardwareType>::HardwareType as HardwareType>::Builder;
+}
+
 /// A layout hardware type.
-pub trait HardwareType: super::HasBundleType + FlatLen + HasNameTree + Clone {
+pub trait HardwareType: super::HasBundleType + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
     type Bundle: IsBundle
         + super::HasBundleType<BundleType = <Self as super::HasBundleType>::BundleType>;
     /// A builder for creating [`HardwareType::Bundle`].
     type Builder: BundleBuilder<Self::Bundle>
         + super::HasBundleType<BundleType = <Self as super::HasBundleType>::BundleType>;
-
-    /// Instantiates a schematic data struct with populated nodes.
-    fn builder(&self) -> Self::Builder;
 }
 
+/// A layout IO type.
+pub trait Io: super::Io + HasHardwareType {}
+impl<T: super::Io + HasHardwareType> Io for T {}
+
 /// The associated bundle of a layout type.
-pub type Bundle<T> = <T as HardwareType>::Bundle;
+pub type Bundle<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Bundle;
 
 /// The associated builder of a layout type.
-pub type Builder<T> = <T as HardwareType>::Builder;
+pub type Builder<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Builder;
 
 /// Layout hardware data builder.
 ///
@@ -48,7 +56,7 @@ pub trait BundleBuilder<T: IsBundle>:
 }
 
 /// A custom layout type that can be derived from an existing layout type.
-pub trait CustomHardwareType<T: HardwareType>: HardwareType {
+pub trait CustomHardwareType<T>: HardwareType {
     /// Creates this layout type from another layout type.
     fn from_layout_type(other: &T) -> Self;
 }
@@ -355,7 +363,7 @@ impl FlatLen for ShapePort {
     }
 }
 
-impl HasBundleType for ShapePort {
+impl super::HasBundleType for ShapePort {
     type BundleType = Signal;
 
     fn ty(&self) -> Self::BundleType {
@@ -363,13 +371,16 @@ impl HasBundleType for ShapePort {
     }
 }
 
+impl HasHardwareType for ShapePort {
+    type HardwareType = ShapePort;
+    fn builder(&self) -> <<Self as HasHardwareType>::HardwareType as HardwareType>::Builder {
+        Default::default()
+    }
+}
+
 impl HardwareType for ShapePort {
     type Bundle = IoShape;
     type Builder = OptionBuilder<IoShape>;
-
-    fn builder(&self) -> Self::Builder {
-        Default::default()
-    }
 }
 
 impl HasNameTree for ShapePort {
@@ -390,7 +401,7 @@ impl FlatLen for Port {
     }
 }
 
-impl HasBundleType for Port {
+impl super::HasBundleType for Port {
     type BundleType = Signal;
 
     fn ty(&self) -> Self::BundleType {
@@ -398,13 +409,17 @@ impl HasBundleType for Port {
     }
 }
 
+impl HasHardwareType for Port {
+    type HardwareType = Port;
+
+    fn builder(&self) -> <<Self as HasHardwareType>::HardwareType as HardwareType>::Builder {
+        Default::default()
+    }
+}
+
 impl HardwareType for Port {
     type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
-
-    fn builder(&self) -> Self::Builder {
-        Default::default()
-    }
 }
 
 impl HasNameTree for Port {

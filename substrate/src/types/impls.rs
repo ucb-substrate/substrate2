@@ -70,11 +70,18 @@ impl schematic::BundleType for () {
     }
 }
 
+impl layout::HasHardwareType for () {
+    type HardwareType = ();
+
+    fn builder(
+        &self,
+    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
+    }
+}
+
 impl layout::HardwareType for () {
     type Bundle = ();
     type Builder = ();
-
-    fn builder(&self) {}
 }
 
 impl BundleBuilder<()> for () {
@@ -141,13 +148,19 @@ impl schematic::BundleType for Signal {
     }
 }
 
+impl layout::HasHardwareType for Signal {
+    type HardwareType = Signal;
+
+    fn builder(
+        &self,
+    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
+        PortGeometryBuilder::default()
+    }
+}
+
 impl layout::HardwareType for Signal {
     type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
-
-    fn builder(&self) -> Self::Builder {
-        PortGeometryBuilder::default()
-    }
 }
 
 macro_rules! impl_direction {
@@ -208,6 +221,17 @@ macro_rules! impl_direction {
             }
         }
 
+        impl<T> layout::HasHardwareType for $dir<T>
+        where
+            T: layout::HasHardwareType,
+        {
+            type HardwareType = <T as layout::HasHardwareType>::HardwareType;
+
+            fn builder(&self) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
+                self.0.builder()
+            }
+        }
+
 
         impl<T> layout::HardwareType for $dir<T>
         where
@@ -215,10 +239,6 @@ macro_rules! impl_direction {
         {
             type Bundle = T::Bundle;
             type Builder = T::Builder;
-
-            fn builder(&self) -> Self::Builder {
-                self.0.builder()
-            }
         }
 
         impl<T, U: CustomHardwareType<T>> CustomHardwareType<$dir<T>> for U
@@ -365,16 +385,22 @@ impl<T: HasBundleType> HasBundleType for Array<T> {
     }
 }
 
+impl<T: layout::HasHardwareType> layout::HasHardwareType for Array<T> {
+    type HardwareType = Array<T::HardwareType>;
+
+    fn builder(
+        &self,
+    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
+        ArrayBundle {
+            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
+            ty: self.ty.builder().ty(),
+        }
+    }
+}
+
 impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
     type Bundle = ArrayBundle<T::Bundle>;
     type Builder = ArrayBundle<T::Builder>;
-
-    fn builder(&self) -> Self::Builder {
-        Self::Builder {
-            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
-            ty: self.ty.ty(),
-        }
-    }
 }
 
 impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array<T>> for Array<U> {

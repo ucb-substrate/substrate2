@@ -39,7 +39,7 @@ use crate::schematic::{
     RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use crate::types::layout::{BundleBuilder, HardwareType as LayoutType};
+use crate::types::layout::{BundleBuilder, HasHardwareType as HasLayoutType};
 use crate::types::schematic::{Node, NodeContext, NodePriority, Port};
 use crate::types::{Flatten, Flipped, HasBundleType, HasNameTree};
 
@@ -549,6 +549,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
                 let ports = IndexMap::from_iter(
                     block
                         .io()
+                        .ty()
                         .flat_names(None)
                         .into_iter()
                         .zip(io.flatten_vec()),

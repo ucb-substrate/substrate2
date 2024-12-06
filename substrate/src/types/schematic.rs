@@ -1,8 +1,8 @@
 //! Traits and types for schematic IOs.
 
+use crate::block::Block;
 use crate::diagnostics::SourceInfo;
-use crate::error;
-use crate::schematic::{Block, CellId, HasNestedView, InstanceId, InstancePath};
+use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
@@ -98,6 +98,7 @@ impl<T: super::HasBundleType<BundleType: BundleType>> HasBundleType for T {
 pub trait Bundle:
     super::Bundle + HasBundleType + HasNestedView<NestedView = <Self as Bundle>::NestedView>
 {
+    /// The nested view of a schematic bundle.
     type NestedView: super::Bundle
         + HasBundleType<BundleType = <Self as HasBundleType>::BundleType>
         + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
@@ -107,8 +108,7 @@ impl<
             + HasBundleType
             + HasNestedView<
                 NestedView: super::Bundle
-                                + HasBundleType<BundleType = <T as HasBundleType>::BundleType>
-                                + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>,
+                                + HasBundleType<BundleType = <T as HasBundleType>::BundleType>,
             >,
     > Bundle for T
 {
@@ -123,7 +123,9 @@ impl<S: BundlePrimitive, T: super::BundleOf<S> + Bundle> BundleOf<S> for T {}
 pub trait Connect: BundleOf<Node> {}
 impl<T: BundleOf<Node>> Connect for T {}
 
+/// The [`BundleType`] of a block's IO.
 pub type IoType<T> = <<T as Block>::Io as HasBundleType>::BundleType;
+/// The [`Bundle`] of a block's IO consisting of bundle primitive `B`.
 pub type IoBundle<T, B> = <IoType<T> as HasBundleOf<B>>::Bundle;
 
 /// The priority a node has in determining the name of a merged node.

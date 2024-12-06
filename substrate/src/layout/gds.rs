@@ -23,7 +23,7 @@ use uniquify::Names;
 
 use crate::layout::error::GdsExportError;
 use crate::pdk::layers::LayerInfo;
-use crate::types::layout::{BundleBuilder, HardwareType, PortGeometry};
+use crate::types::layout::{BundleBuilder, HasHardwareType, PortGeometry};
 use crate::{
     pdk::layers::{GdsLayerSpec, HasPin, LayerContext, LayerId},
     types::{layout::IoShape, NameBuf},
