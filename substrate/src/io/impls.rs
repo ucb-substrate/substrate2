@@ -606,7 +606,7 @@ impl<T: schematic::HardwareType> schematic::HardwareType for Array<T> {
     }
 }
 
-impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
+impl<S: Schema, T: layout::HardwareType<S>> layout::HardwareType<S> for Array<T> {
     type Bundle = ArrayData<T::Bundle>;
     type Builder = ArrayData<T::Builder>;
 
@@ -618,10 +618,12 @@ impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
     }
 }
 
-impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array<T>> for Array<U> {
+impl<S: Schema, T: layout::HardwareType<S>, U: CustomHardwareType<S, T>>
+    CustomHardwareType<S, Array<T>> for Array<U>
+{
     fn from_layout_type(other: &Array<T>) -> Self {
         Self {
-            ty: <U as CustomHardwareType<T>>::from_layout_type(&other.ty),
+            ty: <U as CustomHardwareType<S, T>>::from_layout_type(&other.ty),
             len: other.len,
         }
     }

@@ -13,8 +13,6 @@ use geometry::{
 use serde::{Deserialize, Serialize};
 use slotmap::{new_key_type, SlotMap};
 
-use crate::pdk::Pdk;
-
 use super::{schema::Schema, Draw, DrawReceiver};
 
 /// A tileable layout object.

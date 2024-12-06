@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use gds::GdsError;
 
+use crate::layout::conv::LayirExportError;
 use crate::layout::error::{GdsImportError, LayoutError};
 use crate::schematic::conv::ConvError;
 
@@ -50,6 +51,9 @@ pub enum Error {
     /// An error indicating that the schema does not support an instantiated primitive.
     #[error("schema does not support primitive")]
     UnsupportedPrimitive,
+    /// Indicates an error exporting a layout cell to LayIR.
+    #[error("error exporting to LayIR")]
+    LayirExport(#[from] LayirExportError),
 }
 
 impl From<std::io::Error> for Error {

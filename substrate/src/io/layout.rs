@@ -5,7 +5,6 @@ use crate::io::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, 
 use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
 use crate::layout::schema::Schema;
-use crate::pdk::layers::{HasPin, LayerId};
 use arcstr::ArcStr;
 pub use codegen::LayoutType as HardwareType;
 use geometry::point::Point;
@@ -159,26 +158,6 @@ where
     S: Schema,
     T: FlatLen + Flatten<PortGeometry<S::Layer>> + TransformRef + Send + Sync,
 {
-}
-
-/// A layer ID that describes where the components of an [`Shape`] are drawn.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct IoLayerId {
-    drawing: LayerId,
-    pin: LayerId,
-    label: LayerId,
-}
-
-impl HasPin for IoLayerId {
-    fn drawing(&self) -> LayerId {
-        self.drawing
-    }
-    fn pin(&self) -> LayerId {
-        self.pin
-    }
-    fn label(&self) -> LayerId {
-        self.label
-    }
 }
 
 /// A set of geometry associated with a layout port.

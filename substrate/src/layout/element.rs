@@ -18,12 +18,11 @@ use indexmap::{map::Entry, IndexMap};
 use layir::{LayerBbox, Shape, Text};
 use serde::{Deserialize, Serialize};
 
+use crate::io::layout::PortGeometry;
 use crate::{
     error::{Error, Result},
     io::NameBuf,
-    pdk::{layers::LayerId, Pdk},
 };
-use crate::{io::layout::PortGeometry, pdk::layers::Layer};
 
 use super::{schema::Schema, Draw, DrawReceiver, Instance, Layout};
 
