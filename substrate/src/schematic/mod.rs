@@ -26,8 +26,8 @@ use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
-    BundleType, Connect, HasBundleOf, HasBundleType, Io, IoBundle, Node, NodeContext, NodePriority,
-    NodeUf, Port, Terminal,
+    BundleOfType, BundleType, Connect, HasBundleType, Io, IoBundle, IoType, Node, NodeContext,
+    NodePriority, NodeUf, Port, Terminal,
 };
 use crate::types::{Flatten, HasNameTree, NameBuf};
 
@@ -59,9 +59,7 @@ impl<T: Schematic> Schematic for Arc<T> {
 
     fn schematic(
         &self,
-        io: &<<<Self as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<
-            Node,
-        >>::Bundle,
+        io: &IoBundle<Self, Node>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
         T::schematic(self.as_ref(), io, cell)
@@ -159,7 +157,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <<TY as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle {
+    ) -> BundleOfType<TY, Node> {
         let (nodes, data) = self.node_ctx.instantiate_undirected(
             &ty,
             NodePriority::Named,
@@ -336,10 +334,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     pub fn instantiate_connected<B, C>(&mut self, block: B, io: &C)
     where
         B: Schematic<Schema = S>,
-        C: Connect
-            + HasBundleType<
-                BundleType = <<B as crate::block::Block>::Io as HasBundleType>::BundleType,
-            >,
+        C: Connect + HasBundleType<BundleType = IoType<B>>,
     {
         let inst = self.instantiate(block);
         self.connect(inst.io(), io);
@@ -349,10 +344,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: &C, name: impl Into<ArcStr>)
     where
         B: Schematic<Schema = S>,
-        C: Connect
-            + HasBundleType<
-                BundleType = <<B as crate::block::Block>::Io as HasBundleType>::BundleType,
-            >,
+        C: Connect + HasBundleType<BundleType = IoType<B>>,
     {
         let inst = self.instantiate_named(block, name);
         self.connect(inst.io(), io);
@@ -439,7 +431,7 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <<TY as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle {
+    ) -> BundleOfType<TY, Node> {
         self.0.signal(name, ty)
     }
 
@@ -601,7 +593,7 @@ pub struct Cell<T: Schematic> {
     /// Data returned by the cell's schematic generator.
     nodes: Arc<T::NestedData>,
     /// The cell's input/output interface.
-    io: Arc<<<<T as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
+    io: Arc<IoBundle<T, Node>>,
     /// The path corresponding to this cell.
     path: InstancePath,
 
@@ -637,7 +629,7 @@ impl<T: Schematic> Clone for Cell<T> {
 impl<T: Schematic> Cell<T> {
     pub(crate) fn new(
         id: CellId,
-        io: Arc<<<<T as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
+        io: Arc<IoBundle<T, Node>>,
         block: Arc<T>,
         raw: Arc<RawCell<T::Schema>>,
         data: Arc<T::NestedData>,
@@ -668,10 +660,7 @@ impl<T: Schematic> Cell<T> {
     }
 
     /// Returns this cell's IO.
-    pub fn io(
-        &self,
-    ) -> NestedView<<<<T as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>
-    {
+    pub fn io(&self) -> NestedView<IoBundle<T, Node>> {
         self.io.nested_view(&self.path)
     }
 }
@@ -680,8 +669,7 @@ impl<T: Schematic> Cell<T> {
 pub struct CellHandle<B: Schematic> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<B>,
-    pub(crate) io_data:
-        Arc<<<<B as crate::block::Block>::Io as HasBundleType>::BundleType as HasBundleOf<Node>>::Bundle>,
+    pub(crate) io_data: Arc<IoBundle<B, Node>>,
     pub(crate) cell: CacheHandle<Result<Arc<Cell<B>>>>,
 }
 

@@ -125,6 +125,8 @@ impl<T: BundleOf<Node>> Connect for T {}
 
 /// The [`BundleType`] of a block's IO.
 pub type IoType<T> = <<T as Block>::Io as HasBundleType>::BundleType;
+/// A bundle of type `T` consisting of bundle primitive `B`.
+pub type BundleOfType<T, B> = <<T as HasBundleType>::BundleType as HasBundleOf<B>>::Bundle;
 /// The [`Bundle`] of a block's IO consisting of bundle primitive `B`.
 pub type IoBundle<T, B> = <IoType<T> as HasBundleOf<B>>::Bundle;
 
