@@ -76,7 +76,6 @@ use ena::unify::UnifyKey;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::ops::Deref;
 
 use cache::mem::TypeCache;
@@ -90,10 +89,10 @@ use substrate::geometry::prelude::{Dir, Point};
 use substrate::geometry::transform::{
     Transform, TransformMut, Transformation, Translate, TranslateMut,
 };
+use substrate::io::layout::Builder;
+use substrate::io::schematic::{Bundle, Connect, HardwareType, IsBundle, Node, TerminalView};
+use substrate::io::Flatten;
 use substrate::layout::element::Shape;
-use substrate::types::layout::Builder;
-use substrate::types::schematic::{Connect, IoBundle, Node, Terminal};
-use substrate::types::{Flatten, HasBundleType};
 
 use crate::straps::{Strapper, StrappingParams};
 use substrate::geometry::align::AlignMode;
@@ -103,8 +102,8 @@ use substrate::layout::{ExportsLayoutData, Layout};
 use substrate::pdk::layers::{Layer, Layers};
 use substrate::pdk::Pdk;
 use substrate::schematic::schema::Schema;
-use substrate::schematic::Schematic;
-use substrate::{geometry, layout, schematic, types};
+use substrate::schematic::{ExportsNestedData, Schematic};
+use substrate::{geometry, io, layout, schematic};
 
 #[derive(Default, Debug)]
 struct AtollContext(RwLock<AtollContextInner>);
@@ -296,7 +295,7 @@ impl From<Orientation> for geometry::orientation::Orientation {
 }
 
 /// An ATOLL instance representing both a schematic and layout instance.
-pub struct Instance<T: Schematic + ExportsLayoutData> {
+pub struct Instance<T: ExportsNestedData + ExportsLayoutData> {
     schematic: schematic::Instance<T>,
     layout: layout::Instance<T>,
     raw: RawInstance,
@@ -426,7 +425,7 @@ impl RawInstance {
     }
 }
 
-impl<T: Schematic + ExportsLayoutData> Instance<T> {
+impl<T: ExportsNestedData + ExportsLayoutData> Instance<T> {
     /// Translates this instance by the given XY-coordinates in LCM units.
     pub fn translate_mut(&mut self, p: Point) {
         self.raw.translate_mut(p);
@@ -452,7 +451,7 @@ impl<T: Schematic + ExportsLayoutData> Instance<T> {
     }
 
     /// Aligns this instance with another instance.
-    pub fn align_mut<T2: Schematic + ExportsLayoutData>(
+    pub fn align_mut<T2: ExportsNestedData + ExportsLayoutData>(
         &mut self,
         other: &Instance<T2>,
         mode: AlignMode,
@@ -462,7 +461,7 @@ impl<T: Schematic + ExportsLayoutData> Instance<T> {
     }
 
     /// Aligns this instance with another instance with the same top layer.
-    pub fn align<T2: Schematic + ExportsLayoutData>(
+    pub fn align<T2: ExportsNestedData + ExportsLayoutData>(
         mut self,
         other: &Instance<T2>,
         mode: AlignMode,
@@ -486,7 +485,7 @@ impl<T: Schematic + ExportsLayoutData> Instance<T> {
     /// The ports of this instance.
     ///
     /// Used for node connection purposes.
-    pub fn io(&self) -> &IoBundle<T, Terminal> {
+    pub fn io(&self) -> &TerminalView<<T::Io as io::schematic::HardwareType>::Bundle> {
         self.schematic.io()
     }
 
@@ -589,7 +588,7 @@ struct TileBuilderUnused<'a, PDK: Pdk + Schema + ?Sized> {
 }
 
 /// A drawn ATOLL instance.
-pub struct DrawnInstance<T: Schematic + ExportsLayoutData> {
+pub struct DrawnInstance<T: ExportsNestedData + ExportsLayoutData> {
     /// The underlying Substrate schematic instance.
     pub schematic: schematic::Instance<T>,
     /// The underlying Substrate layout instance.
@@ -740,7 +739,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
         );
     }
 
-    fn new<T: types::schematic::Bundle>(
+    fn new<T: io::schematic::IsBundle>(
         schematic_io: &'a T,
         schematic: &'a mut schematic::CellBuilder<PDK>,
         layout: &'a mut layout::CellBuilder<PDK>,
@@ -781,7 +780,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
     /// and [`Layout`].
-    pub fn generate_primitive<B: Clone + Schematic<Schema = PDK> + Layout<PDK>>(
+    pub fn generate_primitive<B: Clone + Schematic<PDK> + Layout<PDK>>(
         &mut self,
         block: B,
     ) -> Instance<B> {
@@ -803,13 +802,13 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates an ATOLL instance from a Substrate block that implements [`Schematic`]
     /// and [`Layout`] and connects its IO to the given bundle.
-    pub fn generate_primitive_connected<B: Clone + Schematic<Schema = PDK> + Layout<PDK>, C>(
+    pub fn generate_primitive_connected<B: Clone + Schematic<PDK> + Layout<PDK>, C: IsBundle>(
         &mut self,
         block: B,
         io: C,
     ) -> Instance<B>
     where
-        C: Connect + HasBundleType<BundleType = <B::Io as HasBundleType>::BundleType>,
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
     {
         let inst = self.generate_primitive(block);
         self.connect(inst.io(), io);
@@ -818,7 +817,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     }
 
     /// Generates an ATOLL instance from a block that implements [`Tile`].
-    pub fn generate<B: Clone + Tile<PDK>>(&mut self, block: B) -> Instance<TileWrapper<B, PDK>> {
+    pub fn generate<B: Clone + Tile<PDK>>(&mut self, block: B) -> Instance<TileWrapper<B>> {
         let atoll_ctx = self.ctx().get_or_install(AtollContext::default());
         let ctx_clone = (**self.ctx()).clone();
         let abs_path =
@@ -830,7 +829,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 .generate(block.clone(), move |block| {
                     let (mut schematic_cell, schematic_io) =
                         prepare_cell_builder(None, ctx_clone.clone(), block);
-                    let mut layout_io = types::layout::HasHardwareType::builder(&block.io());
+                    let mut layout_io = io::layout::HardwareType::builder(&block.io());
                     let mut layout_cell = layout::CellBuilder::new(ctx_clone.with_pdk());
                     let atoll_io = IoBuilder {
                         schematic: &schematic_io,
@@ -863,13 +862,13 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates an ATOLL instance from a block that implements [`Tile`]
     /// and connects its IO to the given bundle.
-    pub fn generate_connected<B: Clone + Tile<PDK>, C>(
+    pub fn generate_connected<B: Clone + Tile<PDK>, C: IsBundle>(
         &mut self,
         block: B,
         io: C,
-    ) -> Instance<TileWrapper<B, PDK>>
+    ) -> Instance<TileWrapper<B>>
     where
-        C: Connect + HasBundleType<BundleType = <B::Io as HasBundleType>::BundleType>,
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
     {
         let inst = self.generate(block);
         self.connect(inst.io(), io);
@@ -879,7 +878,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates a named ATOLL instance from a Substrate block that implements [`Schematic`]
     /// and [`Layout`].
-    pub fn generate_primitive_named<B: Clone + Schematic<Schema = PDK> + Layout<PDK>>(
+    pub fn generate_primitive_named<B: Clone + Schematic<PDK> + Layout<PDK>>(
         &mut self,
         block: B,
         name: impl Into<ArcStr>,
@@ -902,14 +901,17 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates a named ATOLL instance from a Substrate block that implements [`Schematic`]
     /// and [`Layout`] and connects its IO to the given bundle.
-    pub fn generate_primitive_connected_named<B: Clone + Schematic<Schema = PDK> + Layout<PDK>, C>(
+    pub fn generate_primitive_connected_named<
+        B: Clone + Schematic<PDK> + Layout<PDK>,
+        C: IsBundle,
+    >(
         &mut self,
         block: B,
         io: C,
         name: impl Into<ArcStr>,
     ) -> Instance<B>
     where
-        C: Connect + HasBundleType<BundleType = <B::Io as HasBundleType>::BundleType>,
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
     {
         let inst = self.generate_primitive_named(block, name);
         self.connect(inst.io(), io);
@@ -934,7 +936,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
                 .generate(block.clone(), move |block| {
                     let (mut schematic_cell, schematic_io) =
                         prepare_cell_builder(None, ctx_clone.clone(), block);
-                    let mut layout_io = types::layout::HasHardwareType::builder(&block.io());
+                    let mut layout_io = io::layout::HardwareType::builder(&block.io());
                     let mut layout_cell = layout::CellBuilder::new(ctx_clone.with_pdk());
                     let atoll_io = IoBuilder {
                         schematic: &schematic_io,
@@ -967,14 +969,14 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Generates a named ATOLL instance from a block that implements [`Tile`]
     /// and connects its IO to the given bundle.
-    pub fn generate_connected_named<B: Clone + Tile<PDK>, C>(
+    pub fn generate_connected_named<B: Clone + Tile<PDK>, C: IsBundle>(
         &mut self,
         block: B,
         io: C,
         name: impl Into<ArcStr>,
     ) -> Instance<TileWrapper<B>>
     where
-        C: Connect + HasBundleType<BundleType = <B::Io as HasBundleType>::BundleType>,
+        for<'b> &'b TerminalView<<B::Io as HardwareType>::Bundle>: Connect<C>,
     {
         let inst = self.generate_named(block, name);
         self.connect(inst.io(), io);
@@ -989,7 +991,7 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     }
 
     /// Draws an ATOLL instance in layout.
-    pub fn draw<B: Schematic + Layout<PDK>>(
+    pub fn draw<B: ExportsNestedData + Layout<PDK>>(
         &mut self,
         instance: Instance<B>,
     ) -> substrate::error::Result<DrawnInstance<B>> {
@@ -1044,8 +1046,9 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
     /// Connect all signals in the given data instances.
     pub fn connect<D1, D2>(&mut self, s1: D1, s2: D2)
     where
-        D1: Connect,
-        D2: Connect + HasBundleType<BundleType = <D1 as HasBundleType>::BundleType>,
+        D1: Flatten<Node>,
+        D2: Flatten<Node>,
+        D1: Connect<D2>,
     {
         let s1f: Vec<Node> = s1.flatten_vec();
         let s2f: Vec<Node> = s2.flatten_vec();
@@ -1059,11 +1062,11 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
-    pub fn signal<TY: types::schematic::BundleType>(
+    pub fn signal<TY: io::schematic::HardwareType>(
         &mut self,
         name: impl Into<ArcStr>,
         ty: TY,
-    ) -> <TY as types::schematic::HasBundleOf<Node>>::Bundle {
+    ) -> <TY as io::schematic::HardwareType>::Bundle {
         let bundle = self.schematic.signal(name, ty);
 
         self.register_bundle(&bundle);
@@ -1152,46 +1155,41 @@ impl<'a, PDK: Pdk + Schema> TileBuilder<'a, PDK> {
 }
 
 /// A builder for an ATOLL tile's IOs.
-pub struct IoBuilder<'a, B: schematic::Block + layout::Block> {
+pub struct IoBuilder<'a, B: Block> {
     /// The schematic bundle representation of the block's IO.
-    pub schematic: &'a IoBundle<B, Node>,
+    pub schematic: &'a Bundle<<B as Block>::Io>,
     /// The layout builder representation of the block's IO.
     pub layout: &'a mut Builder<<B as Block>::Io>,
 }
 
 /// A tile that can be instantiated in ATOLL.
-pub trait Tile<PDK: Pdk + Schema + ?Sized>: Schematic + ExportsLayoutData {
+pub trait Tile<PDK: Pdk + Schema + ?Sized>: ExportsNestedData + ExportsLayoutData {
     /// Builds a block's ATOLL tile.
     fn tile<'a>(
         &self,
         io: IoBuilder<'a, Self>,
         cell: &mut TileBuilder<'a, PDK>,
     ) -> substrate::error::Result<(
-        <Self as Schematic>::NestedData,
+        <Self as ExportsNestedData>::NestedData,
         <Self as ExportsLayoutData>::LayoutData,
     )>;
 }
 
 /// A wrapper of a block implementing [`Tile`] that can be instantiated in Substrate
 /// schematics and layouts.
-#[derive_where::derive_where(Debug, Copy, Clone, Debug, Hash, PartialEq, Eq)]
-#[derive(Serialize, Deserialize)]
-pub struct TileWrapper<T, PDK> {
+#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TileWrapper<T> {
     block: T,
-    phantom: PhantomData<PDK>,
 }
 
-impl<T, PDK> TileWrapper<T, PDK> {
+impl<T> TileWrapper<T> {
     /// Creates a new wrapper of `block`.
     pub fn new(block: T) -> Self {
-        Self {
-            block,
-            phantom: PhantomData,
-        }
+        Self { block }
     }
 }
 
-impl<T, PDK> Deref for TileWrapper<T, PDK> {
+impl<T> Deref for TileWrapper<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -1199,8 +1197,12 @@ impl<T, PDK> Deref for TileWrapper<T, PDK> {
     }
 }
 
-impl<T: Block, PDK: Pdk> Block for TileWrapper<T, PDK> {
+impl<T: Block> Block for TileWrapper<T> {
     type Io = <T as Block>::Io;
+
+    fn id() -> ArcStr {
+        <T as Block>::id()
+    }
 
     fn name(&self) -> ArcStr {
         <T as Block>::name(&self.block)
@@ -1211,23 +1213,24 @@ impl<T: Block, PDK: Pdk> Block for TileWrapper<T, PDK> {
     }
 }
 
-impl<T: ExportsLayoutData, PDK: Pdk> ExportsLayoutData for TileWrapper<T, PDK> {
+impl<T: ExportsNestedData> ExportsNestedData for TileWrapper<T> {
+    type NestedData = <T as ExportsNestedData>::NestedData;
+}
+
+impl<T: ExportsLayoutData> ExportsLayoutData for TileWrapper<T> {
     type LayoutData = <T as ExportsLayoutData>::LayoutData;
 }
 
-impl<T, PDK: Pdk + Schema> Schematic for TileWrapper<T, PDK>
+impl<T, PDK: Pdk + Schema> Schematic<PDK> for TileWrapper<T>
 where
     T: Tile<PDK>,
 {
-    type Schema = PDK;
-    type NestedData = <T as Schematic>::NestedData;
-
     fn schematic(
         &self,
-        io: &IoBundle<Self, Node>,
-        cell: &mut schematic::CellBuilder<<Self as Schematic>::Schema>,
+        io: &Bundle<<Self as Block>::Io>,
+        cell: &mut schematic::CellBuilder<PDK>,
     ) -> substrate::error::Result<Self::NestedData> {
-        let mut layout_io = types::layout::HasHardwareType::builder(&self.io());
+        let mut layout_io = io::layout::HardwareType::builder(&self.io());
         let mut layout_cell = layout::CellBuilder::new(cell.ctx().with_pdk());
         let atoll_io = IoBuilder {
             schematic: io,
@@ -1239,7 +1242,7 @@ where
     }
 }
 
-impl<T, PDK: Pdk + Schema> Layout<PDK> for TileWrapper<T, PDK>
+impl<T, PDK: Pdk + Schema> Layout<PDK> for TileWrapper<T>
 where
     T: Tile<PDK> + Clone,
 {
