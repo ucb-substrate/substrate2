@@ -3,8 +3,7 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use sky130pdk::Sky130Pdk;
-use spice::Spice;
+use spice::{Resistor, Spice};
 use substrate::block::Block;
 use substrate::context::{ContextBuilder, Installation, PdkContext};
 use substrate::geometry::prelude::*;
@@ -521,7 +520,7 @@ where
 pub struct BufferInlineHardMacro;
 
 impl Schematic for BufferInlineHardMacro {
-    type Schema = Sky130Pdk;
+    type Schema = Spice;
     type NestedData = ();
     fn schematic(
         &self,
@@ -543,8 +542,7 @@ impl Schematic for BufferInlineHardMacro {
                 .ends
             "#,
             "buffer",
-        )
-        .convert_schema::<Sky130Pdk>()?;
+        );
 
         scir.connect("din", io.din);
         scir.connect("dout", io.dout);

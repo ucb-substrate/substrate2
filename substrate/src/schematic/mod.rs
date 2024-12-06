@@ -1757,8 +1757,8 @@ mod tests {
 
             fn schematic(
                 &self,
-                io: &IoBundle<Self, Node>,
-                cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+                _io: &IoBundle<Self, Node>,
+                _cell: &mut CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 Ok(())
             }
@@ -1773,7 +1773,7 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                io: &IoBundle<Self, Node>,
+                _io: &IoBundle<Self, Node>,
                 cell: &mut CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let b1 = cell.instantiate(MultiDecoupledBlock);
@@ -1824,10 +1824,10 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                io: &IoBundle<Self, Node>,
+                _io: &IoBundle<Self, Node>,
                 cell: &mut CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
-                let b1 = cell.instantiate(self.0.clone());
+                let _b1 = cell.instantiate(self.0.clone());
 
                 Ok(())
             }

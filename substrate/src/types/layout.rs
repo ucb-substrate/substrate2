@@ -326,7 +326,7 @@ impl PortGeometryBuilder {
 /// A simple builder that allows setting data at runtime.
 ///
 /// ```
-/// # use substrate::io::layout::OptionBuilder;
+/// # use substrate::types::layout::OptionBuilder;
 /// let mut builder = OptionBuilder::default();
 /// builder.set(5);
 /// assert_eq!(builder.build().unwrap(), 5);
