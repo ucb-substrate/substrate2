@@ -68,6 +68,45 @@ impl<T: Schematic> Schematic for Arc<T> {
     }
 }
 
+/// Block that implements [`Schematic`] in schema `S` for block `B`.
+#[derive_where::derive_where(Debug, Hash, PartialEq, Eq; B)]
+#[derive(Serialize, Deserialize)]
+pub struct ConvertSchema<B, S>(Arc<B>, #[serde(bound(deserialize = ""))] PhantomData<S>);
+
+impl<B, S> Clone for ConvertSchema<B, S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), PhantomData)
+    }
+}
+
+impl<B: crate::block::Block, S: Schema> crate::block::Block for ConvertSchema<B, S> {
+    type Io = <B as crate::block::Block>::Io;
+
+    fn name(&self) -> ArcStr {
+        self.0.name()
+    }
+
+    fn io(&self) -> Self::Io {
+        self.0.io()
+    }
+}
+
+impl<B: Schematic, S: FromSchema<B::Schema>> Schematic for ConvertSchema<B, S> {
+    type Schema = S;
+    type NestedData = NestedView<B::NestedData>;
+    fn schematic(
+        &self,
+        io: &IoBundle<Self, Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+    ) -> Result<Self::NestedData> {
+        let mut s = cell.sub_builder::<B::Schema>();
+        let b = s.instantiate_blocking(self.0.clone())?;
+        cell.connect(io, b.io());
+        cell.flatten();
+        Ok(b.data())
+    }
+}
+
 /// A builder for creating a schematic cell.
 pub struct CellBuilder<S: Schema + ?Sized> {
     /// The current global context.
