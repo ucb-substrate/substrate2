@@ -26,18 +26,14 @@ pub trait HasHardwareType {
 }
 
 /// A layout hardware type.
-pub trait HardwareType: super::HasBundleType + HasNameTree + Clone {
+pub trait HardwareType: super::HasBundleKind + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
     type Bundle: IsBundle
-        + super::HasBundleType<BundleType = <Self as super::HasBundleType>::BundleType>;
+        + super::HasBundleKind<BundleKind = <Self as super::HasBundleKind>::BundleKind>;
     /// A builder for creating [`HardwareType::Bundle`].
     type Builder: BundleBuilder<Self::Bundle>
-        + super::HasBundleType<BundleType = <Self as super::HasBundleType>::BundleType>;
+        + super::HasBundleKind<BundleKind = <Self as super::HasBundleKind>::BundleKind>;
 }
-
-/// A layout IO type.
-pub trait Io: super::Io + HasHardwareType {}
-impl<T: super::Io + HasHardwareType> Io for T {}
 
 /// The associated bundle of a layout type.
 pub type Bundle<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Bundle;
@@ -49,7 +45,7 @@ pub type Builder<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Bu
 ///
 /// A builder for an instance of bundle `T`.
 pub trait BundleBuilder<T: IsBundle>:
-    super::Bundle + super::HasBundleType<BundleType = <T as super::HasBundleType>::BundleType>
+    super::Bundle + super::HasBundleKind<BundleKind = <T as super::HasBundleKind>::BundleKind>
 {
     /// Builds an instance of bundle `T`.
     fn build(self) -> Result<T>;
@@ -133,10 +129,10 @@ impl Bbox for PortGeometry {
     }
 }
 
-impl super::HasBundleType for PortGeometry {
-    type BundleType = Signal;
+impl super::HasBundleKind for PortGeometry {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
@@ -265,10 +261,10 @@ impl TransformRef for IoShape {
     }
 }
 
-impl super::HasBundleType for IoShape {
-    type BundleType = Signal;
+impl super::HasBundleKind for IoShape {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
@@ -363,10 +359,10 @@ impl FlatLen for ShapePort {
     }
 }
 
-impl super::HasBundleType for ShapePort {
-    type BundleType = Signal;
+impl super::HasBundleKind for ShapePort {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
@@ -401,10 +397,10 @@ impl FlatLen for Port {
     }
 }
 
-impl super::HasBundleType for Port {
-    type BundleType = Signal;
+impl super::HasBundleKind for Port {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
@@ -459,13 +455,13 @@ impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
     }
 }
 
-impl<T: super::HasBundleType> super::HasBundleType for OptionBuilder<T> {
-    type BundleType = T::BundleType;
+impl<T: super::HasBundleKind> super::HasBundleKind for OptionBuilder<T> {
+    type BundleKind = T::BundleKind;
 
     // TODO: find way to store type
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         if let Some(ref inner) = self.0 {
-            inner.ty()
+            inner.kind()
         } else {
             unimplemented!()
         }
@@ -527,10 +523,10 @@ impl FlatLen for PortGeometryBuilder {
     }
 }
 
-impl super::HasBundleType for PortGeometryBuilder {
-    type BundleType = Signal;
+impl super::HasBundleKind for PortGeometryBuilder {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
