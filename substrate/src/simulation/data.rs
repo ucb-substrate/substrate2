@@ -2,76 +2,36 @@
 
 pub use codegen::FromSaved;
 
-use crate::schematic::{Cell, Schematic};
+use crate::schematic::Schematic;
 use crate::simulation::{Analysis, SimulationContext, Simulator};
 
-/// A simulation output that can be recovered from the output of a particular analysis.
-pub trait FromSaved<S: Simulator, A: Analysis> {
-    /// The key type used to address the saved output within the analysis.
-    ///
-    /// This key is assigned in [`Save::save`].
-    type SavedKey;
-
-    /// Recovers the desired simulation output from the analysis's output.
-    fn from_saved(output: &<A as Analysis>::Output, key: &Self::SavedKey) -> Self;
-}
-
-impl<S, A1, A2, O1, O2> FromSaved<S, (A1, A2)> for (O1, O2)
-where
-    S: Simulator,
-    A1: Analysis,
-    A2: Analysis,
-    O1: FromSaved<S, A1>,
-    O2: FromSaved<S, A2>,
-    (A1, A2): Analysis<Output = (A1::Output, A2::Output)>,
-{
-    type SavedKey = (
-        <O1 as FromSaved<S, A1>>::SavedKey,
-        <O2 as FromSaved<S, A2>>::SavedKey,
-    );
-
-    fn from_saved(output: &<(A1, A2) as Analysis>::Output, key: &Self::SavedKey) -> Self {
-        let o1 = <O1 as FromSaved<S, A1>>::from_saved(&output.0, &key.0);
-        let o2 = <O2 as FromSaved<S, A2>>::from_saved(&output.1, &key.1);
-        (o1, o2)
-    }
-}
-
-/// Gets the [`FromSaved::SavedKey`] corresponding to type `T`.
-pub type SavedKey<S, A, T> = <T as FromSaved<S, A>>::SavedKey;
-
-impl<S: Simulator, A: Analysis, T: FromSaved<S, A>> FromSaved<S, A> for Vec<T> {
-    type SavedKey = Vec<<T as FromSaved<S, A>>::SavedKey>;
-
-    fn from_saved(output: &<A as Analysis>::Output, key: &Self::SavedKey) -> Self {
-        key.iter().map(|key| T::from_saved(output, key)).collect()
-    }
-}
+/// Gets the [`Save::SaveKey`] corresponding to type `T`.
+pub type SaveKey<T, S, A> = <T as Save<S, A>>::SaveKey;
 
 /// A simulation output that can be saved in an analysis within a given simulator.
 ///
 /// `T` is any type that can be used as arguments for deciding what should be saved in
 /// this simulation output.
-pub trait Save<S: Simulator, A: Analysis, T>: FromSaved<S, A> {
+pub trait Save<S: Simulator, A: Analysis> {
+    type Save;
+    /// The key type used to address the saved output within the analysis.
+    ///
+    /// This key is assigned in [`Save::save`].
+    type SaveKey;
+
     /// Marks the given output for saving, returning a key that can be used to recover
     /// the output once the simulation is complete.
     fn save(
         ctx: &SimulationContext<S>,
-        to_save: T,
+        to_save: &Self,
         opts: &mut <S as Simulator>::Options,
-    ) -> <Self as FromSaved<S, A>>::SavedKey;
-}
+    ) -> <Self as Save<S, A>>::SaveKey;
 
-/// A testbench that can save data of type `T`.
-pub trait SaveTb<S: Simulator, A: Analysis, T: FromSaved<S, A>>:
-    Schematic<Schema = S::Schema>
-{
-    /// Saves data `T` from cell `cell`.
-    fn save_tb(
-        ctx: &SimulationContext<S>,
-        cell: &Cell<Self>,
-        opts: &mut <S as Simulator>::Options,
-    ) -> <T as FromSaved<S, A>>::SavedKey;
+    /// Recovers the desired simulation output from the analysis's output.
+    fn from_saved(
+        output: &<A as Analysis>::Output,
+        key: &<Self as Save<S, A>>::SaveKey,
+    ) -> <Self as Save<S, A>>::Save;
 }
 
 /// Transient data definitions.

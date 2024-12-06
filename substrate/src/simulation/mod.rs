@@ -4,6 +4,7 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use data::Save;
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -11,7 +12,7 @@ use serde::Serialize;
 use crate::context::{Context, Installation};
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Block, Cell, Schematic};
+use crate::schematic::{Block, Cell, HasNestedView, Schematic};
 use crate::simulation::data::SaveTb;
 use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
@@ -120,12 +121,15 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
         input: A,
     ) -> Result<O, S::Error>
     where
-        O: FromSaved<S, A>,
-        T: SaveTb<S, A, O>,
+        T: Schematic<NestedData: HasNestedView<NestedView: Save<S, A>>>,
     {
-        let key = T::save_tb(&self.ctx, &self.tb, &mut options);
+        let key = self.tb.data().save(&self.ctx, &mut options);
         let output = self.simulate_default(options, input)?;
-        Ok(O::from_saved(&output, &key))
+        Ok(
+            <<<T as Schematic>::NestedData as HasNestedView>::NestedView>::from_saved(
+                &output, &key,
+            ),
+        )
     }
 
     /// Set an option by mutating the given options.
@@ -138,12 +142,8 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo> {
-    /// The output produced by this testbench.
-    type Output: Any + Serialize + DeserializeOwned;
-    /// Run the testbench using the given simulation controller.
-    fn run(&self, sim: SimController<S, Self>) -> Self::Output;
-}
+pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo> {}
+impl<S: Simulator, T: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo>> Testbench<S> for T {}
 
 #[impl_for_tuples(64)]
 impl Analysis for Tuple {
