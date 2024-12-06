@@ -493,9 +493,9 @@ where
 {
     fn layout(
         &self,
-        io: &mut <<<Self as Block>::Io as HasHardwareType>::HardwareType as HardwareType>::Builder,
+        io: &mut Builder<<Self as substrate::block::Block>::Io>,
         cell: &mut layout::CellBuilder<PDK>,
-    ) -> substrate::error::Result<<Self as ExportsLayoutData>::LayoutData> {
+    ) -> substrate::error::Result<Self::LayoutData> {
         let inv1 = cell.generate(Inverter::new(self.strength));
         let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
 
