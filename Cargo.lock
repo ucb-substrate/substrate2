@@ -751,6 +751,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-where"
+version = "1.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62d671cc41a825ebabc75757b62d3d168c577f9149b2d49ece1dad1f72119d25"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
 name = "derive_builder"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -871,6 +882,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_filter"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f2c92ceda6ceec50f43169f9ee8424fe2db276791afde7b2cd8bc084cb376ab"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e13fa619b91fb2381732789fc5de83b45675e882f66623b7d8cb4f643017018d"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "env_filter",
+ "log",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -898,8 +930,6 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
- "sky130pdk",
- "spectre",
  "spice",
  "substrate",
  "syn 2.0.90",
@@ -2580,6 +2610,7 @@ dependencies = [
  "cache",
  "codegen",
  "config",
+ "derive-where",
  "derive_builder",
  "downcast-rs",
  "duplicate",
@@ -2598,11 +2629,10 @@ dependencies = [
  "rust_decimal_macros",
  "scir",
  "serde",
- "sky130pdk",
  "slotmap",
- "spectre",
  "spice",
  "splines",
+ "test-log",
  "thiserror",
  "toml",
  "tracing",
@@ -2696,6 +2726,7 @@ version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3dffced63c2b5c7be278154d76b479f9f9920ed34e7574201407f0b14e2bbb93"
 dependencies = [
+ "env_logger",
  "test-log-macros",
  "tracing-subscriber",
 ]

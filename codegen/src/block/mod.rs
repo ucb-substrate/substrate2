@@ -49,9 +49,6 @@ impl ToTokens for BlockInputReceiver {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
 
-                fn id() -> #substrate::arcstr::ArcStr {
-                    #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))
-                }
                 fn name(&self) -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(#name)
                 }
