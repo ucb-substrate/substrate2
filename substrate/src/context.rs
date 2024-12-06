@@ -40,7 +40,7 @@ use crate::schematic::{
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HasHardwareType as HasLayoutType};
-use crate::types::schematic::{Node, NodeContext, NodePriority, Port};
+use crate::types::schematic::{IoBundle, Node, NodeContext, NodePriority, Port};
 use crate::types::{Flatten, Flipped, HasBundleKind, HasNameTree};
 
 /// The global context.
@@ -660,10 +660,7 @@ pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (
-    CellBuilder<T::Schema>,
-    crate::types::schematic::IoBundle<T, Node>,
-) {
+) -> (CellBuilder<T::Schema>, IoBundle<T, Node>) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)

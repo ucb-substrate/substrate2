@@ -30,7 +30,7 @@ use crate::types::schematic::{
     BundleOfKind, Connect, HasSchematicBundleKind, IoBundle, IoKind, Node, NodeContext,
     NodePriority, NodeUf, Port, SchematicBundleKind, Terminal,
 };
-use crate::types::{Flatten, HasNameTree, Io, NameBuf};
+use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, NameBuf};
 
 /// A block that has a schematic.
 pub trait Schematic: Block<Io: Io + HasSchematicBundleKind> {
@@ -150,19 +150,19 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
 
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
-    pub fn signal<TY: HasSchematicBundleKind>(
+    pub fn signal<K: HasSchematicBundleKind>(
         &mut self,
         name: impl Into<ArcStr>,
-        ty: TY,
-    ) -> BundleOfKind<TY, Node> {
+        kind: K,
+    ) -> BundleOfKind<K, Node> {
         let (nodes, data) = self.node_ctx.instantiate_undirected(
-            &ty,
+            &kind,
             NodePriority::Named,
             SourceInfo::from_caller(),
         );
 
-        let ty = ty.kind();
-        let names = ty.flat_names(Some(name.into().into()));
+        let kind = kind.kind();
+        let names = kind.flat_names(Some(name.into().into()));
         assert_eq!(nodes.len(), names.len());
 
         self.node_names.extend(nodes.iter().copied().zip(names));
@@ -179,14 +179,14 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
             + HasSchematicBundleKind<BundleKind = <D1 as HasSchematicBundleKind>::BundleKind>,
     {
         let sinfo = SourceInfo::from_caller();
-        let s1_ty = s1.kind();
-        let s2_ty = s2.kind();
-        if s1_ty != s2_ty {
+        let s1_kind = s1.kind();
+        let s2_kind = s2.kind();
+        if s1_kind != s2_kind {
             tracing::error!(
                 ?sinfo,
-                ?s1_ty,
-                ?s2_ty,
-                "tried to connect bundles of different types",
+                ?s1_kind,
+                ?s2_kind,
+                "tried to connect bundles of different kinds",
             );
             self.fatal_error = true;
         } else {
@@ -369,7 +369,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
             self.node_ctx
                 .instantiate_directed(&io, NodePriority::Auto, source_info);
 
-        let names = <<B as Block>::Io as crate::types::HasBundleKind>::kind(&io)
+        let names = <<B as Block>::Io as HasBundleKind>::kind(&io)
             .flat_names(Some(inst_name.clone().into()));
         assert_eq!(nodes.len(), names.len());
 
@@ -425,12 +425,12 @@ pub struct SubCellBuilder<'a, S1: Schema + ?Sized, S2: Schema + ?Sized>(
 impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
-    pub fn signal<TY: HasSchematicBundleKind>(
+    pub fn signal<K: HasSchematicBundleKind>(
         &mut self,
         name: impl Into<ArcStr>,
-        ty: TY,
-    ) -> BundleOfKind<TY, Node> {
-        self.0.signal(name, ty)
+        kind: K,
+    ) -> BundleOfKind<K, Node> {
+        self.0.signal(name, kind)
     }
 
     /// Connect all signals in the given data instances.
@@ -1666,7 +1666,7 @@ mod tests {
 
             fn schematic(
                 &self,
-                io: &crate::types::schematic::IoBundle<Resistor, Node>,
+                io: &IoBundle<Resistor, Node>,
                 cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let mut prim = PrimitiveBinding::new(Primitive::Resistor);
