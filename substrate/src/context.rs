@@ -427,10 +427,12 @@ impl Context {
         export_multi_top_scir_lib(cells)
     }
 
-    /// Simulate the given testbench.
-    ///
-    /// The simulator must be installed in the context.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    /// Returns a simulation controller for the given testbench and simulator.
+    pub fn get_sim_controller<S, T>(
+        &self,
+        block: T,
+        work_dir: impl Into<PathBuf>,
+    ) -> Result<SimController<S, T>>
     where
         S: Simulator,
         T: Testbench<S>,
@@ -448,14 +450,11 @@ impl Context {
             work_dir: work_dir.into(),
             ctx: self.clone(),
         };
-        let controller = SimController {
+        Ok(SimController {
             tb: cell.clone(),
             simulator,
             ctx,
-        };
-
-        // TODO caching
-        Ok(block.run(controller))
+        })
     }
 
     /// Installs the given [`PrivateInstallation`].
