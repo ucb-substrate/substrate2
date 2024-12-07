@@ -1,6 +1,6 @@
 //! Built-in implementations of IO traits.
 
-use schematic::{Node, Terminal};
+use schematic::{HasSchematicBundleOf, Node, SchematicBundle, SchematicBundleKind, Terminal};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
@@ -45,29 +45,29 @@ impl HasNameTree for () {
     }
 }
 
-impl BundleType for () {
+impl BundleKind for () {
     type Bundle<B: BundlePrimitive> = ();
 }
 
-impl HasBundleType for () {
-    type BundleType = ();
+impl HasBundleKind for () {
+    type BundleKind = ();
 
-    fn ty(&self) -> Self::BundleType {}
+    fn kind(&self) -> Self::BundleKind {}
 }
 
-impl schematic::BundleType for () {
+impl SchematicBundleKind for () {
     fn instantiate<'n>(
         &self,
         ids: &'n [Node],
-    ) -> (<Self as schematic::HasBundleOf<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]) {
         ((), ids)
     }
     fn terminal_view(
         _cell: CellId,
-        _cell_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
+        _cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
         _instance: InstanceId,
-        _instance_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
-    ) -> <Self as schematic::HasBundleOf<Terminal>>::Bundle {
+        _instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle {
     }
 }
 
@@ -120,23 +120,23 @@ impl HasNameTree for Signal {
     }
 }
 
-impl HasBundleType for Signal {
-    type BundleType = Signal;
+impl HasBundleKind for Signal {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
 
-impl BundleType for Signal {
+impl BundleKind for Signal {
     type Bundle<B: BundlePrimitive> = B;
 }
 
-impl schematic::BundleType for Signal {
+impl SchematicBundleKind for Signal {
     fn instantiate<'n>(
         &self,
         ids: &'n [Node],
-    ) -> (<Self as schematic::HasBundleOf<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -145,10 +145,10 @@ impl schematic::BundleType for Signal {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
+        cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
-    ) -> <Self as schematic::HasBundleOf<Terminal>>::Bundle {
+        instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle {
         Terminal {
             cell_id: cell,
             cell_node: *cell_io,
@@ -217,11 +217,11 @@ macro_rules! impl_direction {
             $flatten_dir_body
         }
 
-        impl<T: HasBundleType> HasBundleType for $dir<T> {
-            type BundleType = T::BundleType;
+        impl<T: HasBundleKind> HasBundleKind for $dir<T> {
+            type BundleKind = T::BundleKind;
 
-            fn ty(&self) -> Self::BundleType {
-                self.0.ty()
+            fn kind(&self) -> Self::BundleKind {
+                self.0.kind()
             }
         }
 
@@ -327,7 +327,7 @@ impl_direction!(
 
 impl<T: FlatLen> FlatLen for Array<T> {
     fn len(&self) -> usize {
-        self.ty.len() * self.len
+        self.kind.len() * self.len
     }
 }
 
@@ -359,7 +359,7 @@ impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
         E: Extend<Direction>,
     {
         for _ in 0..self.len {
-            self.ty.flatten(output);
+            self.kind.flatten(output);
         }
     }
 }
@@ -369,7 +369,7 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
         if self.len == 0 {
             return None;
         }
-        let inner = self.ty.names()?;
+        let inner = self.kind.names()?;
         Some(
             (0..self.len)
                 .map(|i| NameTree {
@@ -381,18 +381,18 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
-impl<T: BundleType> BundleType for Array<T> {
-    type Bundle<B: BundlePrimitive> = ArrayBundle<<T as BundleType>::Bundle<B>>;
+impl<T: BundleKind> BundleKind for Array<T> {
+    type Bundle<B: BundlePrimitive> = ArrayBundle<<T as BundleKind>::Bundle<B>>;
 }
 
-impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
+impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
     fn instantiate<'n>(
         &self,
         mut ids: &'n [Node],
-    ) -> (<Self as schematic::HasBundleOf<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
-                let (elem, new_ids) = self.ty.instantiate(ids);
+                let (elem, new_ids) = self.kind.instantiate(ids);
                 **ids = new_ids;
                 Some(elem)
             })
@@ -400,24 +400,24 @@ impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
         (
             ArrayBundle {
                 elems,
-                ty: self.ty.clone(),
+                kind: self.kind.clone(),
             },
             ids,
         )
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
+        cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as schematic::HasBundleOf<Node>>::Bundle,
-    ) -> <Self as schematic::HasBundleOf<Terminal>>::Bundle {
+        instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle {
         ArrayBundle {
             elems: cell_io
                 .elems
                 .iter()
                 .zip(instance_io.elems.iter())
                 .map(|(cell_elem, instance_elem)| {
-                    <T as schematic::BundleType>::terminal_view(
+                    <T as SchematicBundleKind>::terminal_view(
                         cell,
                         cell_elem,
                         instance,
@@ -425,16 +425,16 @@ impl<T: schematic::BundleType> schematic::BundleType for Array<T> {
                     )
                 })
                 .collect(),
-            ty: cell_io.ty.clone(),
+            kind: cell_io.kind.clone(),
         }
     }
 }
 
-impl<T: HasBundleType> HasBundleType for Array<T> {
-    type BundleType = Array<<T as HasBundleType>::BundleType>;
+impl<T: HasBundleKind> HasBundleKind for Array<T> {
+    type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
 
-    fn ty(&self) -> Self::BundleType {
-        Array::new(self.len, self.ty.ty())
+    fn kind(&self) -> Self::BundleKind {
+        Array::new(self.len, self.kind.kind())
     }
 }
 
@@ -445,8 +445,8 @@ impl<T: layout::HasBundleKind> layout::HasBundleKind for Array<T> {
         &self,
     ) -> <<Self as layout::HasBundleKind>::BundleKind as layout::BundleKind>::Builder {
         ArrayBundle {
-            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
-            ty: self.ty.builder().ty(),
+            elems: (0..self.len).map(|_| self.kind.builder()).collect(),
+            kind: self.kind.builder().kind(),
         }
     }
 }
@@ -459,23 +459,23 @@ impl<T: layout::BundleKind> layout::BundleKind for Array<T> {
 impl<T: layout::BundleKind, U: CustomBundleKind<T>> CustomBundleKind<Array<T>> for Array<U> {
     fn from_layout_type(other: &Array<T>) -> Self {
         Self {
-            ty: <U as CustomBundleKind<T>>::from_layout_type(&other.ty),
+            kind: <U as CustomBundleKind<T>>::from_layout_type(&other.kind),
             len: other.len,
         }
     }
 }
 
-impl<T: Bundle> HasBundleType for ArrayBundle<T> {
-    type BundleType = Array<<T as HasBundleType>::BundleType>;
+impl<T: Bundle> HasBundleKind for ArrayBundle<T> {
+    type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
 
-    fn ty(&self) -> Self::BundleType {
-        Array::new(self.elems.len(), self.ty.clone())
+    fn kind(&self) -> Self::BundleKind {
+        Array::new(self.elems.len(), self.kind.clone())
     }
 }
 
 impl<T: Bundle> FlatLen for ArrayBundle<T> {
     fn len(&self) -> usize {
-        self.elems.len() * self.ty.flat_names(None).len()
+        self.elems.len() * self.kind.flat_names(None).len()
     }
 }
 
@@ -488,8 +488,8 @@ impl<S, T: Bundle + Flatten<S>> Flatten<S> for ArrayBundle<T> {
     }
 }
 
-impl<T: schematic::Bundle> HasNestedView for ArrayBundle<T> {
-    type NestedView = ArrayBundle<<T as schematic::Bundle>::NestedView>;
+impl<T: SchematicBundle> HasNestedView for ArrayBundle<T> {
+    type NestedView = ArrayBundle<<T as SchematicBundle>::NestedView>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         ArrayBundle {
@@ -498,7 +498,7 @@ impl<T: schematic::Bundle> HasNestedView for ArrayBundle<T> {
                 .iter()
                 .map(|elem| elem.nested_view(parent))
                 .collect(),
-            ty: self.ty.clone(),
+            kind: self.kind.clone(),
         }
     }
 }
@@ -524,7 +524,7 @@ impl<T: Bundle + TranslateRef> TranslateRef for ArrayBundle<T> {
                 .iter()
                 .map(|elem| elem.translate_ref(p))
                 .collect(),
-            ty: self.ty.clone(),
+            kind: self.kind.clone(),
         }
     }
 }
@@ -537,7 +537,7 @@ impl<T: Bundle + TransformRef> TransformRef for ArrayBundle<T> {
                 .iter()
                 .map(|elem| elem.transform_ref(trans))
                 .collect(),
-            ty: self.ty.clone(),
+            kind: self.kind.clone(),
         }
     }
 }
@@ -552,7 +552,7 @@ impl<S: Schema, T: layout::IsBundle<S>, B: BundleBuilder<S, T>> BundleBuilder<S,
         }
         Ok(ArrayBundle {
             elems,
-            ty: self.ty.clone(),
+            kind: self.kind.clone(),
         })
     }
 }

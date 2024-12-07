@@ -81,56 +81,55 @@ pub trait HasNameTree {
     }
 }
 
-/// A bundle type.
-pub trait BundleType:
-    HasNameTree + HasBundleType<BundleType = Self> + Debug + Clone + Eq + Send + Sync
+/// A bundle kind.
+pub trait BundleKind:
+    HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
     /// An associated bundle type that allows swapping in any [`BundlePrimitive`].
-    type Bundle<B: BundlePrimitive>: Bundle<BundleType = Self> + BundleOf<B>;
+    type Bundle<B: BundlePrimitive>: Bundle<BundleKind = Self> + BundleOf<B>;
 }
 
-/// A bundle type with an associated bundle `Bundle` of `B`.
-pub trait HasBundleOf<B: BundlePrimitive>: BundleType {
-    /// The bundle of primitive `B` associated with this bundle type.
-    type Bundle: Bundle<BundleType = Self> + BundleOf<B>;
+/// A bundle kind with an associated bundle `Bundle` of `B`.
+pub trait HasBundleOf<B: BundlePrimitive>: BundleKind {
+    /// The bundle of primitive `B` associated with this bundle kind.
+    type Bundle: Bundle<BundleKind = Self> + BundleOf<B>;
 }
 
-impl<B: BundlePrimitive, T: BundleType> HasBundleOf<B> for T {
-    type Bundle = <T as BundleType>::Bundle<B>;
+impl<B: BundlePrimitive, T: BundleKind> HasBundleOf<B> for T {
+    type Bundle = <T as BundleKind>::Bundle<B>;
 }
 
-/// Indicates that a bundle type specifies signal directions for all of its fields.
+/// Indicates that an IO specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}
 impl<T: Flatten<Direction>> Directed for T {}
 
 /// A trait implemented by block input/output interfaces.
-// TODO: Remove layout hardware type requirement.
-pub trait Io: Directed + HasBundleType + Clone {}
-impl<T: Directed + HasBundleType + Clone> Io for T {}
+pub trait Io: Directed + HasBundleKind + Clone {}
+impl<T: Directed + HasBundleKind + Clone> Io for T {}
 
 /// A bundle primitive representing an instantiation of a [`Signal`].
-pub trait BundlePrimitive: Clone + Bundle<BundleType = Signal> + BundleOf<Self> {}
+pub trait BundlePrimitive: Clone + Bundle<BundleKind = Signal> + BundleOf<Self> {}
 
-/// A construct with an associated [`BundleType`].
-pub trait HasBundleType {
-    /// The Rust type of the [`BundleType`] associated with this bundle.
-    type BundleType: BundleType;
+/// A construct with an associated [`BundleKind`].
+pub trait HasBundleKind {
+    /// The Rust type of the [`BundleKind`] associated with this bundle.
+    type BundleKind: BundleKind;
 
-    /// Returns the [`BundleType`] of this bundle.
-    fn ty(&self) -> Self::BundleType;
+    /// Returns the [`BundleKind`] of this bundle.
+    fn kind(&self) -> Self::BundleKind;
 }
 
-impl<T: HasBundleType> HasBundleType for &T {
-    type BundleType = T::BundleType;
+impl<T: HasBundleKind> HasBundleKind for &T {
+    type BundleKind = T::BundleKind;
 
-    fn ty(&self) -> Self::BundleType {
-        (*self).ty()
+    fn kind(&self) -> Self::BundleKind {
+        (*self).kind()
     }
 }
 
 /// A bundle of hardware wires.
-pub trait Bundle: HasBundleType + Send + Sync {}
-impl<T: HasBundleType + Send + Sync> Bundle for T {}
+pub trait Bundle: HasBundleKind + Send + Sync {}
+impl<T: HasBundleKind + Send + Sync> Bundle for T {}
 
 /// A bundle that is made up of primitive `T`.
 pub trait BundleOf<T: BundlePrimitive>: Bundle + FlatLen + Flatten<T> {}
@@ -162,19 +161,19 @@ pub struct NameTree {
     children: Vec<NameTree>,
 }
 
-/// An input port of hardware type `T`.
+/// An input port of kind `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`Input`](Direction::Input)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Input<T>(pub T);
 
-/// An output port of hardware type `T`.
+/// An output port of kind `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`Output`](Direction::Output)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Output<T>(pub T);
 
-/// An inout port of hardware type `T`.
+/// An inout port of kind `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`InOut`](Direction::InOut)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
@@ -186,7 +185,7 @@ pub struct InOut<T>(pub T);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Flipped<T>(pub T);
 
-/// A type representing a single hardware wire.
+/// A type representing a single hardware wire in a [`BundleKind`].
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Signal;
 
@@ -198,26 +197,26 @@ impl Signal {
     }
 }
 
-/// An array containing some number of elements of type `T`.
+/// An array containing some number of elements of kind `T`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Array<T> {
     len: usize,
-    ty: T,
+    kind: T,
 }
 
 impl<T> Array<T> {
-    /// Create a new array of the given length and hardware type.
+    /// Create a new array of the given length and bundle kind.
     #[inline]
-    pub fn new(len: usize, ty: T) -> Self {
-        Self { len, ty }
+    pub fn new(len: usize, kind: T) -> Self {
+        Self { len, kind }
     }
 }
 
-/// An instantiated array containing a fixed number of elements of type `T`.
+/// An instantiated array containing a fixed number of elements of `T`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ArrayBundle<T: Bundle> {
     elems: Vec<T>,
-    ty: T::BundleType,
+    kind: T::BundleKind,
 }
 
 // END TYPES

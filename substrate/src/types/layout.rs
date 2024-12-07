@@ -149,10 +149,10 @@ impl<L> Bbox for PortGeometry<L> {
     }
 }
 
-impl super::HasBundleType for PortGeometry {
-    type BundleType = Signal;
+impl super::HasBundleKind for PortGeometry {
+    type BundleKind = Signal;
 
-    fn ty(&self) -> Self::BundleType {
+    fn kind(&self) -> Self::BundleKind {
         Signal
     }
 }
