@@ -1,9 +1,8 @@
 //! Interfaces for interacting with simulation data.
 
 pub use codegen::FromSaved;
-use substrate::schematic::ExportsNestedData;
 
-use crate::schematic::Cell;
+use crate::schematic::{Cell, Schematic};
 use crate::simulation::{Analysis, SimulationContext, Simulator};
 
 /// A simulation output that can be recovered from the output of a particular analysis.
@@ -64,7 +63,9 @@ pub trait Save<S: Simulator, A: Analysis, T>: FromSaved<S, A> {
 }
 
 /// A testbench that can save data of type `T`.
-pub trait SaveTb<S: Simulator, A: Analysis, T: FromSaved<S, A>>: ExportsNestedData {
+pub trait SaveTb<S: Simulator, A: Analysis, T: FromSaved<S, A>>:
+    Schematic<Schema = S::Schema>
+{
     /// Saves data `T` from cell `cell`.
     fn save_tb(
         ctx: &SimulationContext<S>,

@@ -2,6 +2,7 @@ use darling::ast::{Fields, Style};
 use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
+use syn::parse_quote;
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
@@ -16,7 +17,7 @@ pub struct DataInputReceiver {
     attrs: Vec<syn::Attribute>,
 }
 
-#[derive(Debug, FromVariant)]
+#[derive(Debug, Clone, FromVariant)]
 #[darling(forward_attrs(allow, doc, cfg))]
 #[allow(dead_code)]
 pub struct DataVariant {
@@ -25,7 +26,7 @@ pub struct DataVariant {
     attrs: Vec<syn::Attribute>,
 }
 
-#[derive(Debug, FromField)]
+#[derive(Debug, Clone, FromField)]
 #[darling(forward_attrs(allow, doc, cfg))]
 pub struct DataField {
     ident: Option<syn::Ident>,
@@ -152,6 +153,12 @@ impl ToTokens for DataInputReceiver {
 
         let expanded = match data {
             ast::Data::Struct(ref fields) => {
+                let nested_fields = fields.clone().map(|mut f| {
+                    let ty = f.ty.clone();
+                    f.ty = parse_quote!(<#ty as #substrate::schematic::HasNestedView>::NestedView);
+                    f
+                });
+
                 let decls = fields
                     .iter()
                     .enumerate()
@@ -167,6 +174,16 @@ impl ToTokens for DataInputReceiver {
                 };
                 let body = struct_body(fields.style, true, quote! {#( #decls )*});
 
+                let nested_assignments = nested_fields
+                    .iter()
+                    .enumerate()
+                    .map(|(i, f)| transform_field_assign(true, i, f));
+                let nested_retval = match nested_fields.style {
+                    Style::Unit => quote!(#transformed_ident),
+                    Style::Tuple => quote!(#transformed_ident( #(#nested_assignments)* )),
+                    Style::Struct => quote!(#transformed_ident { #(#nested_assignments)* }),
+                };
+
                 quote! {
                     #(#attrs)*
                     #vis struct #transformed_ident #generics #body
@@ -181,11 +198,33 @@ impl ToTokens for DataInputReceiver {
                             #retval
                         }
                     }
+                    impl #imp #substrate::schematic::HasNestedView for #transformed_ident #ty #wher {
+                        type NestedView = #transformed_ident #ty;
+
+                        fn nested_view(
+                            &self,
+                            __substrate_derive_parent: &#substrate::schematic::InstancePath,
+                        ) -> Self::NestedView {
+                            #nested_retval
+                        }
+                    }
                 }
             }
             ast::Data::Enum(ref variants) => {
+                let mut nested_variants = (*variants).clone();
+                nested_variants.iter_mut().for_each(|v| {
+                    v.fields = v.fields.clone().map(|mut f| {
+                        let ty = f.ty.clone();
+                        f.ty =
+                            parse_quote!(<#ty as #substrate::schematic::HasNestedView>::NestedView);
+                        f
+                    });
+                });
                 let decls = variants.iter().map(transform_variant_decl);
                 let arms = variants
+                    .iter()
+                    .map(|v| transform_variant_match_arm(transformed_ident.clone(), v));
+                let nested_arms = nested_variants
                     .iter()
                     .map(|v| transform_variant_match_arm(transformed_ident.clone(), v));
                 quote! {
@@ -202,6 +241,18 @@ impl ToTokens for DataInputReceiver {
                         ) -> Self::NestedView {
                             match self {
                                 #(#arms)*
+                            }
+                        }
+                    }
+                    impl #imp #substrate::schematic::HasNestedView for #transformed_ident #ty #wher {
+                        type NestedView = #transformed_ident #ty;
+
+                        fn nested_view(
+                            &self,
+                            __substrate_derive_parent: &#substrate::schematic::InstancePath,
+                        ) -> Self::NestedView {
+                            match self {
+                                #(#nested_arms)*
                             }
                         }
                     }

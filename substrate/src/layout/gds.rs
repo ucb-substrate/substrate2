@@ -9,7 +9,7 @@ use arcstr::ArcStr;
 use gds::{GdsUnits, HasLayer};
 use geometry::prelude::Polygon;
 use geometry::span::Span;
-use geometry::transform::Transformation;
+use geometry::transform::{Rotation, Transformation};
 use geometry::{
     prelude::{Corner, Orientation, Point},
     rect::Rect,
@@ -21,12 +21,12 @@ use slotmap::{new_key_type, SlotMap};
 use tracing::{span, Level};
 use uniquify::Names;
 
-use crate::io::layout::{BundleBuilder, HardwareType, PortGeometry};
 use crate::layout::error::GdsExportError;
 use crate::pdk::layers::LayerInfo;
+use crate::types::layout::{BundleBuilder, HasHardwareType, PortGeometry};
 use crate::{
-    io::{layout::IoShape, NameBuf},
     pdk::layers::{GdsLayerSpec, HasPin, LayerContext, LayerId},
+    types::{layout::IoShape, NameBuf},
 };
 
 use super::error::{GdsImportError, GdsImportResult};
@@ -371,7 +371,7 @@ impl ExportGds for Orientation {
 
         Ok(gds::GdsStrans {
             reflected: self.reflect_vert(),
-            angle: Some(self.angle()),
+            angle: Some(self.angle().degrees()),
             ..Default::default()
         })
     }
@@ -384,21 +384,19 @@ impl ExportGds for Point {
         let span = span!(Level::INFO, "point", point = ?self);
         let _guard = span.enter();
 
-        let x = self.x.try_into().map_err(|e| {
+        let x = self.x.try_into().inspect_err(|_| {
             tracing::event!(
                 Level::ERROR,
                 "failed to convert coordinate to i32: {}",
                 self.x
             );
-            e
         })?;
-        let y = self.y.try_into().map_err(|e| {
+        let y = self.y.try_into().inspect_err(|_| {
             tracing::event!(
                 Level::ERROR,
                 "failed to convert coordinate to i32: {}",
                 self.x
             );
-            e
         })?;
         Ok(gds::GdsPoint::new(x, y))
     }
@@ -524,7 +522,7 @@ impl<'a> GdsImporter<'a> {
     fn import_and_add(&mut self, strukt: &gds::GdsStruct) -> GdsImportResult<Arc<RawCell>> {
         let name = &strukt.name;
         // Check whether we're already defined, and bail if so
-        if self.cells.get(name).is_some() {
+        if self.cells.contains_key(name) {
             return Err(GdsImportError::DuplicateCell(name.clone()));
         }
 
@@ -619,7 +617,7 @@ impl<'a> GdsImporter<'a> {
                 tracing::debug!("importing port `{}`", net_name);
                 let pin_layer = pin_layer.unwrap();
                 let family = family.unwrap();
-                let mut port = crate::io::Signal.builder();
+                let mut port = crate::types::Signal.builder();
                 let mut has_geometry = false;
                 if let Some(layer) = layers.get_mut(&pin_layer) {
                     // Layer exists in geometry; see which elements intersect with this text
@@ -911,8 +909,12 @@ impl<'a> GdsImporter<'a> {
             )));
         }
 
-        let orientation =
-            Orientation::from_reflect_and_angle(strans.reflected, strans.angle.unwrap_or_default());
+        let rotation = Rotation::try_from(strans.angle.unwrap_or_default()).map_err(|_| {
+            GdsImportError::Unsupported(arcstr::literal!(
+                "rotations must be in 90 degree increments"
+            ))
+        })?;
+        let orientation = Orientation::from_reflect_and_angle(strans.reflected, rotation);
         Ok(orientation)
     }
     /// Gets the [`LayerSpec`] for a GDS element implementing its [`gds::HasLayer`] trait.

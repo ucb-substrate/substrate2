@@ -13,9 +13,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 use substrate::block::Block;
-use substrate::io::schematic::HardwareType;
-use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{CellBuilder, Schematic};
+use substrate::serde::{Deserialize, Serialize};
+use substrate::types::TwoTerminalIo;
 use unicase::UniCase;
 
 pub mod netlist;
@@ -314,11 +314,48 @@ impl Primitive {
     }
 }
 
-impl Schematic<Spice> for Resistor {
+/// An ideal 2-terminal resistor.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(crate = "substrate::serde")]
+pub struct Resistor {
+    /// The resistor value.
+    value: Decimal,
+}
+impl Resistor {
+    /// Create a new resistor with the given value.
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+
+    /// The value of the resistor.
+    #[inline]
+    pub fn value(&self) -> Decimal {
+        self.value
+    }
+}
+impl Block for Resistor {
+    type Io = TwoTerminalIo;
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("ideal_resistor_{}", self.value)
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl Schematic for Resistor {
+    type Schema = Spice;
+    type NestedData = ();
+
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spice>,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {
             value: ComponentValue::Fixed(self.value()),

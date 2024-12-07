@@ -1,42 +1,133 @@
 //! Traits and types for schematic IOs.
 
+use crate::block::Block;
 use crate::diagnostics::SourceInfo;
-use crate::error;
-use crate::io::{Directed, FlatLen, Flatten, HasNameTree};
 use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
+use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
-/// A schematic hardware type.
-pub trait HardwareType: FlatLen + HasNameTree + Clone {
-    /// The **Rust** type representing schematic instances of this **hardware** type.
-    type Bundle: IsBundle;
+use super::{Bundle, BundleKind, BundleOf, BundlePrimitive, HasBundleKind, Io, Signal};
 
+/// A schematic bundle type.
+pub trait SchematicBundleKind:
+    BundleKind
+    + HasSchematicBundleOf<Node, Bundle: Connect>
+    + HasSchematicBundleOf<Terminal, Bundle: Connect>
+{
     /// Instantiates a schematic data struct with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate<'n>(&self, ids: &'n [Node]) -> (Self::Bundle, &'n [Node]);
+    fn instantiate<'n>(
+        &self,
+        ids: &'n [Node],
+    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]);
 
     /// Instantiate a top-level schematic data struct from a node list
     ///
     /// This method wraps [`instantiate`](Self::instantiate) with sanity checks
     /// to ensure that the instantiation process consumed all the nodes
     /// provided.
-    fn instantiate_top(&self, ids: &[Node]) -> Self::Bundle {
+    fn instantiate_top(&self, ids: &[Node]) -> <Self as HasSchematicBundleOf<Node>>::Bundle {
         let (data, ids_rest) = self.instantiate(ids);
         assert!(ids_rest.is_empty());
         debug_assert_eq!(ids, data.flatten_vec());
         data
     }
+
+    /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
+    fn terminal_view(
+        cell: CellId,
+        cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+        instance: InstanceId,
+        instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle;
 }
 
-/// The associated bundle of a schematic type.
-pub type Bundle<T> = <T as HardwareType>::Bundle;
+/// A bundle type with an associated bundle `Bundle` of `B`.
+pub trait HasSchematicBundleOf<S: SchematicBundlePrimitive>:
+    BundleKind<Bundle<S> = <Self as HasSchematicBundleOf<S>>::Bundle>
+{
+    /// The bundle of primitive `B` associated with this bundle type.
+    type Bundle: SchematicBundle + HasSchematicBundleKind<BundleKind = Self> + SchematicBundleOf<S>;
+}
+impl<
+        S: SchematicBundlePrimitive,
+        T: SchematicBundleKind
+            + BundleKind<
+                Bundle<S>: HasSchematicBundleKind<BundleKind = T>
+                               + HasNestedView<NestedView: HasSchematicBundleKind<BundleKind = T>>,
+            >,
+    > HasSchematicBundleOf<S> for T
+{
+    type Bundle = <T as BundleKind>::Bundle<S>;
+}
 
-/// The associated terminal view of an object.
-pub type TerminalView<T> = <T as HasTerminalView>::TerminalView;
+/// A schematic bundle representing an instantiation of a [`Signal`].
+pub trait SchematicBundlePrimitive:
+    BundlePrimitive + HasNestedView<NestedView = <Self as SchematicBundlePrimitive>::NestedView>
+{
+    /// The nested view of this primitive.
+    type NestedView: BundlePrimitive
+        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
+}
+impl<T: BundlePrimitive + HasNestedView<NestedView: BundlePrimitive>> SchematicBundlePrimitive
+    for T
+{
+    type NestedView = <Self as HasNestedView>::NestedView;
+}
+
+/// A construct with an associated [`BundleKind`].
+pub trait HasSchematicBundleKind:
+    HasBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
+{
+    /// The Rust type of the [`BundleKind`] associated with this bundle.
+    type BundleKind: SchematicBundleKind;
+}
+impl<T: HasBundleKind<BundleKind: SchematicBundleKind>> HasSchematicBundleKind for T {
+    type BundleKind = <Self as HasBundleKind>::BundleKind;
+}
+
+/// A schematic bundle.
+pub trait SchematicBundle:
+    Bundle + HasSchematicBundleKind + HasNestedView<NestedView = <Self as SchematicBundle>::NestedView>
+{
+    /// The nested view of a schematic bundle.
+    type NestedView: Bundle
+        + HasSchematicBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
+        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
+}
+impl<
+        T: Bundle
+            + HasSchematicBundleKind
+            + HasNestedView<
+                NestedView: Bundle
+                                + HasSchematicBundleKind<
+                    BundleKind = <T as HasSchematicBundleKind>::BundleKind,
+                >,
+            >,
+    > SchematicBundle for T
+{
+    type NestedView = <Self as HasNestedView>::NestedView;
+}
+
+/// A schematic bundle that is made up of primitive `T`.
+pub trait SchematicBundleOf<T: SchematicBundlePrimitive>: BundleOf<T> + SchematicBundle {}
+impl<S: SchematicBundlePrimitive, T: BundleOf<S> + SchematicBundle> SchematicBundleOf<S> for T {}
+
+/// A bundle that can be connected.
+pub trait Connect: SchematicBundleOf<Node> {}
+impl<T: SchematicBundleOf<Node>> Connect for T {}
+
+/// The [`BundleKind`] of a block's IO.
+pub type IoKind<T> = <<T as Block>::Io as HasSchematicBundleKind>::BundleKind;
+/// A bundle of type `T` consisting of bundle primitive `B`.
+pub type BundleOfKind<T, B> =
+    <<T as HasSchematicBundleKind>::BundleKind as HasSchematicBundleOf<B>>::Bundle;
+/// The [`Bundle`] of a block's IO consisting of bundle primitive `B`.
+pub type IoBundle<T, B> = <IoKind<T> as HasSchematicBundleOf<B>>::Bundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -62,25 +153,45 @@ pub(crate) struct NodeConnectDirectionError {
     data: Vec<[(Direction, NodeDriverData); 2]>,
 }
 
-/// A trait indicating that this type can be connected to T.
-pub trait Connect<T> {}
-
-/// A bundle of schematic nodes.
-///
-/// An instance of a [`HardwareType`].
-pub trait IsBundle:
-    FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
-{
-}
-
-impl<T> IsBundle for T where
-    T: FlatLen + Flatten<Node> + HasTerminalView + HasNestedView + Clone + Send + Sync
-{
-}
-
 /// A single node in a circuit.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node(u32);
+
+impl FlatLen for Node {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<Node> for Node {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Node>,
+    {
+        output.extend(std::iter::once(*self));
+    }
+}
+
+impl HasBundleKind for Node {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
+
+impl BundlePrimitive for Node {}
+
+impl HasNestedView for Node {
+    type NestedView = NestedNode;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        NestedNode {
+            node: *self,
+            instances: parent.clone(),
+        }
+    }
+}
 
 /// A nested node within a cell.
 ///
@@ -110,104 +221,33 @@ impl NestedNode {
     }
 }
 
-impl From<NestedNode> for NodePath {
-    fn from(value: NestedNode) -> Self {
-        value.path()
-    }
-}
-
-impl From<&NestedNode> for NodePath {
-    fn from(value: &NestedNode) -> Self {
-        value.path()
-    }
-}
-
-/// A terminal of an instance.
-#[derive(Copy, Clone, Debug)]
-pub struct Terminal {
-    cell_id: CellId,
-    cell_node: Node,
-    instance_id: InstanceId,
-    instance_node: Node,
-}
-
-impl Connect<Node> for Terminal {}
-
-impl Connect<&Node> for Terminal {}
-
-impl Connect<Node> for &Terminal {}
-
-impl Connect<&Node> for &Terminal {}
-
-impl Connect<Terminal> for Node {}
-
-impl Connect<&Terminal> for Node {}
-
-impl Connect<Terminal> for &Node {}
-
-impl Connect<&Terminal> for &Node {}
-
-impl Deref for Terminal {
-    type Target = Node;
-
-    fn deref(&self) -> &Self::Target {
-        &self.instance_node
-    }
-}
-
-impl AsRef<Node> for Terminal {
-    fn as_ref(&self) -> &Node {
-        self
-    }
-}
-
-impl HasTerminalView for Node {
-    type TerminalView = Terminal;
-
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView {
-        Terminal {
-            cell_id: cell,
-            cell_node: *cell_io,
-            instance_id: instance,
-            instance_node: *instance_io,
-        }
-    }
-}
-
-impl FlatLen for Node {
+impl FlatLen for NestedNode {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl Flatten<Node> for Node {
+impl Flatten<NestedNode> for NestedNode {
     fn flatten<E>(&self, output: &mut E)
     where
-        E: Extend<Node>,
+        E: Extend<NestedNode>,
     {
-        output.extend(std::iter::once(*self));
+        output.extend(std::iter::once(self.clone()));
     }
 }
 
-impl HasNestedView for Node {
-    type NestedView = NestedNode;
+impl HasBundleKind for NestedNode {
+    type BundleKind = Signal;
 
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedNode {
-            node: *self,
-            instances: parent.clone(),
-        }
+    fn kind(&self) -> Self::BundleKind {
+        Signal
     }
 }
+
+impl BundlePrimitive for NestedNode {}
 
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
-
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         NestedNode {
             node: self.node,
@@ -231,6 +271,41 @@ impl Flatten<Node> for Vec<Node> {
     }
 }
 
+impl From<NestedNode> for NodePath {
+    fn from(value: NestedNode) -> Self {
+        value.path()
+    }
+}
+
+impl From<&NestedNode> for NodePath {
+    fn from(value: &NestedNode) -> Self {
+        value.path()
+    }
+}
+
+/// A terminal of an instance.
+#[derive(Copy, Clone, Debug)]
+pub struct Terminal {
+    pub(crate) cell_id: CellId,
+    pub(crate) cell_node: Node,
+    pub(crate) instance_id: InstanceId,
+    pub(crate) instance_node: Node,
+}
+
+impl Deref for Terminal {
+    type Target = Node;
+
+    fn deref(&self) -> &Self::Target {
+        &self.instance_node
+    }
+}
+
+impl AsRef<Node> for Terminal {
+    fn as_ref(&self) -> &Node {
+        self
+    }
+}
+
 impl FlatLen for Terminal {
     fn len(&self) -> usize {
         1
@@ -242,26 +317,36 @@ impl Flatten<Node> for Terminal {
     where
         E: Extend<Node>,
     {
-        self.instance_node.flatten(output);
+        output.extend(std::iter::once(self.instance_node));
     }
 }
 
+impl Flatten<Terminal> for Terminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<Terminal>,
+    {
+        output.extend(std::iter::once(*self));
+    }
+}
+
+impl HasBundleKind for Terminal {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
+
+impl BundlePrimitive for Terminal {}
+
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
-
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         NestedTerminal(NestedNode {
             instances: parent.append_segment(self.instance_id, self.cell_id),
             node: self.cell_node,
         })
-    }
-}
-
-impl HasNestedView for NestedTerminal {
-    type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        NestedTerminal(self.0.nested_view(parent))
     }
 }
 
@@ -287,6 +372,39 @@ impl NestedTerminal {
     /// Returns the path to this [`NestedTerminal`].
     pub fn path(&self) -> TerminalPath {
         TerminalPath(self.0.path())
+    }
+}
+
+impl FlatLen for NestedTerminal {
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl Flatten<NestedTerminal> for NestedTerminal {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<NestedTerminal>,
+    {
+        output.extend(std::iter::once(self.clone()));
+    }
+}
+
+impl HasBundleKind for NestedTerminal {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
+
+impl BundlePrimitive for NestedTerminal {}
+
+impl HasNestedView for NestedTerminal {
+    type NestedView = NestedTerminal;
+
+    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+        NestedTerminal(<NestedNode as HasNestedView>::nested_view(&self.0, parent))
     }
 }
 
@@ -317,47 +435,6 @@ impl From<NestedTerminal> for TerminalPath {
 impl From<&NestedTerminal> for TerminalPath {
     fn from(value: &NestedTerminal) -> Self {
         value.path()
-    }
-}
-
-/// A view of the terminals in an interface.
-pub trait HasTerminalView {
-    /// A view of the terminals in an interface.
-    type TerminalView: HasNestedView + Flatten<Node> + Send + Sync;
-
-    /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView;
-}
-
-impl<T> HasTerminalView for &T
-where
-    T: HasTerminalView,
-{
-    type TerminalView = T::TerminalView;
-
-    fn terminal_view(
-        cell: CellId,
-        cell_io: &Self,
-        instance: InstanceId,
-        instance_io: &Self,
-    ) -> Self::TerminalView {
-        HasTerminalView::terminal_view(cell, *cell_io, instance, *instance_io)
-    }
-}
-
-impl HasTerminalView for () {
-    type TerminalView = ();
-    fn terminal_view(
-        _cell: CellId,
-        _cell_io: &Self,
-        _instance: InstanceId,
-        _instance_io: &Self,
-    ) -> Self::TerminalView {
     }
 }
 
@@ -552,33 +629,36 @@ impl NodeContext {
             .collect()
     }
 
-    pub fn instantiate_directed<TY: HardwareType + Directed>(
+    pub fn instantiate_directed<IO: Io + HasSchematicBundleKind>(
         &mut self,
-        ty: &TY,
+        io: &IO,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as HardwareType>::Bundle) {
-        let nodes = self.nodes_directed(&ty.flatten_vec(), priority, source_info);
-        let data = ty.instantiate_top(&nodes);
+    ) -> (
+        Vec<Node>,
+        <<IO as HasSchematicBundleKind>::BundleKind as HasSchematicBundleOf<Node>>::Bundle,
+    ) {
+        let nodes = self.nodes_directed(&io.flatten_vec(), priority, source_info);
+        let data = io.kind().instantiate_top(&nodes);
         (nodes, data)
     }
 
-    pub fn instantiate_undirected<TY: HardwareType>(
+    pub fn instantiate_undirected<K: HasSchematicBundleKind>(
         &mut self,
-        ty: &TY,
+        kind: &K,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, <TY as HardwareType>::Bundle) {
-        let nodes = self.nodes_undirected(ty.len(), priority, source_info);
-        let data = ty.instantiate_top(&nodes);
+    ) -> (
+        Vec<Node>,
+        <<K as HasSchematicBundleKind>::BundleKind as HasSchematicBundleOf<Node>>::Bundle,
+    ) {
+        let kind = kind.kind();
+        let nodes = self.nodes_undirected(kind.flat_names(None).len(), priority, source_info);
+        let data = kind.instantiate_top(&nodes);
         (nodes, data)
     }
 
-    pub(crate) fn connect(
-        &mut self,
-        n1: Node,
-        n2: Node,
-    ) -> error::Result<(), NodeConnectDirectionError> {
+    pub(crate) fn connect(&mut self, n1: Node, n2: Node, source_info: SourceInfo) {
         fn get_root(this: &mut NodeContext, n: Node) -> Node {
             this.uf
                 .probe_value(n)
@@ -588,6 +668,11 @@ impl NodeContext {
 
         let n1_root = get_root(self, n1);
         let n2_root = get_root(self, n2);
+
+        if n1_root == n2_root {
+            tracing::info!(?source_info, "connecting nodes that are already connected");
+            return;
+        }
 
         let n1_connections_data = self
             .connections_data(n1_root)
@@ -605,18 +690,18 @@ impl NodeContext {
             .flat_map(|e1| n2_connections_data.drivers.iter().map(move |e2| [e1, e2]))
             .filter(|[(&k1, _), (&k2, _)]| !k1.is_compatible_with(k2))
             .collect();
-        let mut result = Ok(());
         if !incompatible_drivers.is_empty() {
             // If drivers are not compatible, return an error but connect them
             // anyways, because (1) we would like to detect further errors
             // that may be caused by the connection being made and (2) the
             // error might be spurious and waived by the user.
-            result = Err(NodeConnectDirectionError {
+            let err = NodeConnectDirectionError {
                 data: incompatible_drivers
                     .iter()
                     .map(|&[(&k1, v1), (&k2, v2)]| [(k1, v1.clone()), (k2, v2.clone())])
                     .collect(),
-            });
+            };
+            tracing::warn!(?err, "incompatible drivers");
         }
 
         self.uf.union(n1, n2);
@@ -639,8 +724,6 @@ impl NodeContext {
             .as_mut()
             .expect("new root should be populated")
             .merge_from(old_connections_data);
-
-        result
     }
 }
 
@@ -667,44 +750,5 @@ impl Port {
     #[inline]
     pub(crate) fn node(&self) -> Node {
         self.node
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::io::schematic::NodeContext;
-
-    #[test]
-    fn conflicting_directions_error() {
-        let mut ctx = NodeContext::new();
-        let source_a = SourceInfo::from_caller();
-        let source_b = SourceInfo::from_caller();
-        let n_a = ctx.node(
-            Some(Direction::Output),
-            NodePriority::Named,
-            source_a.clone(),
-        );
-        let n_b = ctx.node(
-            Some(Direction::Output),
-            NodePriority::Named,
-            source_b.clone(),
-        );
-        let n_c = ctx.node(
-            Some(Direction::Input),
-            NodePriority::Named,
-            SourceInfo::from_caller(),
-        );
-
-        ctx.connect(n_a, n_c).expect("connect should succeed");
-
-        let res = ctx.connect(n_c, n_b);
-        let err = res.expect_err("connection should have failed");
-        let [c_a, c_b] = &err.data[0];
-        assert_eq!(c_a.0, Direction::Output);
-        assert_eq!(c_b.0, Direction::Output);
-
-        assert_eq!(c_a.1.sources, [source_a]);
-        assert_eq!(c_b.1.sources, [source_b]);
     }
 }
