@@ -29,10 +29,12 @@ use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
-    InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
-    SchematicContext,
+    RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
+use crate::types::layout::{BundleBuilder, HasHardwareType as HasLayoutType};
+use crate::types::schematic::{Node, NodeContext, NodePriority, Port};
+use crate::types::{Flatten, Flipped, HasBundleType, HasNameTree};
 
 /// The global context.
 ///
@@ -203,13 +205,13 @@ impl Context {
     /// - If yes:
     ///     - Retrieve created cell ID, io_data, and handle to cell
     ///     - being generated and return immediately
-    pub(crate) fn generate_schematic_inner<S: Schema + ?Sized, B: Schematic<S>>(
+    pub(crate) fn generate_schematic_inner<B: Schematic>(
         &self,
         block: Arc<B>,
-    ) -> SchemaCellHandle<S, B> {
+    ) -> SchemaCellHandle<B::Schema, B> {
         let key = CellCacheKey {
             block: block.clone(),
-            phantom: PhantomData::<S>,
+            phantom: PhantomData::<B::Schema>,
         };
         let block_clone = block.clone();
         let mut inner = self.inner.write().unwrap();
@@ -236,10 +238,21 @@ impl Context {
             },
             move |_key, (id, mut cell_builder, io_data)| {
                 let res = B::schematic(block_clone.as_ref(), io_data.as_ref(), &mut cell_builder);
-                res.map(|data| SchemaCellCacheValue {
-                    raw: Arc::new(cell_builder.finish()),
-                    cell: Arc::new(SchematicCell::new(id, io_data, block_clone, Arc::new(data))),
-                })
+                let fatal = cell_builder.fatal_error;
+                let raw = Arc::new(cell_builder.finish());
+                (!fatal)
+                    .then_some(())
+                    .ok_or(crate::error::Error::CellBuildFatal)
+                    .and(res.map(|data| SchemaCellCacheValue {
+                        raw: raw.clone(),
+                        cell: Arc::new(SchematicCell::new(
+                            id,
+                            io_data,
+                            block_clone,
+                            raw,
+                            Arc::new(data),
+                        )),
+                    }))
             },
         );
 
@@ -259,11 +272,7 @@ impl Context {
         }
     }
 
-    fn generate_cross_schematic_inner<
-        S1: Schema + ?Sized,
-        S2: FromSchema<S1> + ?Sized,
-        B: Schematic<S1>,
-    >(
+    fn generate_cross_schematic_inner<B: Schematic, S2: FromSchema<B::Schema> + ?Sized>(
         &self,
         block: Arc<B>,
     ) -> SchemaCellHandle<S2, B> {
@@ -271,7 +280,7 @@ impl Context {
         let mut inner = self.inner.write().unwrap();
         SchemaCellHandle {
             handle: inner.schematic.cell_cache.generate(
-                ConvCacheKey::<B, S2, S1> {
+                ConvCacheKey::<B, S2, B::Schema> {
                     block: handle.cell.block.clone(),
                     phantom: PhantomData,
                 },
@@ -295,11 +304,7 @@ impl Context {
     /// Generates a schematic of a block in schema `S1` for use in schema `S2`.
     ///
     /// Can only generate a cross schematic with one layer of [`FromSchema`] indirection.
-    pub fn generate_cross_schematic<
-        S1: Schema + ?Sized,
-        S2: FromSchema<S1> + ?Sized,
-        B: Schematic<S1>,
-    >(
+    pub fn generate_cross_schematic<B: Schematic, S2: FromSchema<B::Schema> + ?Sized>(
         &self,
         block: B,
     ) -> SchemaCellHandle<S2, B> {
@@ -309,10 +314,7 @@ impl Context {
     /// Generates a schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_schematic<S: Schema + ?Sized, T: Schematic<S>>(
-        &self,
-        block: T,
-    ) -> SchemaCellHandle<S, T> {
+    pub fn generate_schematic<T: Schematic>(&self, block: T) -> SchemaCellHandle<T::Schema, T> {
         let block = Arc::new(block);
         self.generate_schematic_inner(block)
     }
@@ -320,10 +322,7 @@ impl Context {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<S: Schema + ?Sized, T: Schematic<S>>(
-        &self,
-        block: T,
-    ) -> Result<RawLib<S>, ConvError> {
+    pub fn export_scir<T: Schematic>(&self, block: T) -> Result<RawLib<T::Schema>, ConvError> {
         let cell = self.generate_schematic(block);
         // TODO: Handle errors.
         let SchemaCellCacheValue { raw, .. } = cell.handle.unwrap_inner();
@@ -352,7 +351,7 @@ impl Context {
             .get_installation::<S>()
             .expect("Simulator must be installed");
         let block = Arc::new(block);
-        let cell = self.generate_schematic_inner::<<S as Simulator>::Schema, _>(block.clone());
+        let cell = self.generate_schematic_inner(block.clone());
         // TODO: Handle errors.
         let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
         let lib = raw.to_scir_lib()?;
@@ -447,6 +446,7 @@ impl Context {
                 let ports = IndexMap::from_iter(
                     block
                         .io()
+                        .ty()
                         .flat_names(None)
                         .into_iter()
                         .zip(io.flatten_vec()),
@@ -498,11 +498,14 @@ fn retrieve_installation<I: Any + Send + Sync>(
 /// If the `id` argument is Some, the cell will use the given ID.
 /// Otherwise, a new [`CellId`] will be allocated by calling [`Context::alloc_cell_id`].
 #[doc(hidden)]
-pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
+pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (CellBuilder<S>, <<T as Block>::Io as SchematicType>::Bundle) {
+) -> (
+    CellBuilder<T::Schema>,
+    crate::types::schematic::IoBundle<T, Node>,
+) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
@@ -515,7 +518,7 @@ pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
         node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
     let cell_name = block.name();
 
-    let names = io_outward.flat_names(None);
+    let names = <<T as Block>::Io as HasBundleType>::ty(&io_outward).flat_names(None);
     let outward_dirs = io_outward.flatten_vec();
     assert_eq!(nodes.len(), names.len());
     assert_eq!(nodes.len(), outward_dirs.len());
@@ -532,11 +535,11 @@ pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
     (
         CellBuilder {
             id,
-            root: InstancePath::new(id),
             cell_name,
             ctx: context,
             node_ctx,
             node_names,
+            fatal_error: false,
             ports,
             flatten: false,
             contents: RawCellContentsBuilder::Cell(RawCellInnerBuilder::default()),

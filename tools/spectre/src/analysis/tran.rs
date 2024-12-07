@@ -8,11 +8,11 @@ use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use substrate::io::schematic::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::simulation::data::{tran, FromSaved, Save};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
+use substrate::types::schematic::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]

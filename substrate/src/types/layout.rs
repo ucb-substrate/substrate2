@@ -1,7 +1,7 @@
-//! Traits and types for schematic IOs.
+//! Traits and types for layout IOs.
 
+use super::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
 use crate::error::Result;
-use crate::io::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
 use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
 use crate::layout::schema::Schema;
@@ -19,21 +19,31 @@ use std::marker::PhantomData;
 use tracing::Level;
 
 /// A layout hardware type.
-pub trait HardwareType<S: Schema>: FlatLen + HasNameTree + Clone {
+pub trait BundleKind<S: Schema>: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
     type Bundle: IsBundle<S>;
     /// A builder for creating [`HardwareType::Bundle`].
     type Builder: BundleBuilder<S, Self::Bundle>;
 
-    /// Instantiates a schematic data struct with populated nodes.
+    /// Creates an instance of the builder of the associated type.
     fn builder(&self) -> Self::Builder;
 }
 
-/// The associated bundle of a layout type.
-pub type Bundle<S: Schema, T> = <T as HardwareType<S>>::Bundle;
+pub trait HasBundleKind<S: Schema> {
+    type BundleKind: BundleKind<S>;
+    /// Creates an instance of the builder of the associated type.
+    fn builder(&self) -> <<Self as HasBundleKind<S>>::BundleKind as BundleKind<S>>::Builder;
+}
+
+/// A layout IO type.
+pub trait Io<S: Schema>: super::Io + HasBundleKind<S> {}
+impl<S: Schema, T: super::Io + HasBundleKind<S>> Io<S> for T {}
+
+/// The associated bundle of a layout bundle kind.
+pub type Bundle<S, T> = <T as BundleKind<S>>::Bundle;
 
 /// The associated builder of a layout type.
-pub type Builder<S: Schema, T> = <T as HardwareType<S>>::Builder;
+pub type Builder<S, T> = <T as BundleKind<S>>::Builder;
 
 /// Layout hardware data builder.
 ///
@@ -41,12 +51,6 @@ pub type Builder<S: Schema, T> = <T as HardwareType<S>>::Builder;
 pub trait BundleBuilder<S: Schema, T: IsBundle<S>> {
     /// Builds an instance of bundle `T`.
     fn build(self) -> Result<T>;
-}
-
-/// A custom layout type that can be derived from an existing layout type.
-pub trait CustomHardwareType<S: Schema, T: HardwareType<S>>: HardwareType<S> {
-    /// Creates this layout type from another layout type.
-    fn from_layout_type(other: &T) -> Self;
 }
 
 /// Construct an instance of `Self` hierarchically given a name buffer and a source of type `T`.
@@ -145,9 +149,17 @@ impl<L> Bbox for PortGeometry<L> {
     }
 }
 
+impl super::HasBundleType for PortGeometry {
+    type BundleType = Signal;
+
+    fn ty(&self) -> Self::BundleType {
+        Signal
+    }
+}
+
 /// A type that can be a bundle of layout ports.
 ///
-/// An instance of a [`HardwareType`].
+/// An instance of a [`BundleKind`].
 pub trait IsBundle<S: Schema>:
     FlatLen + Flatten<PortGeometry<S::Layer>> + TransformRef + Send + Sync
 {
@@ -225,7 +237,7 @@ impl<L> PortGeometryBuilder<L> {
 /// A simple builder that allows setting data at runtime.
 ///
 /// ```
-/// # use substrate::io::layout::OptionBuilder;
+/// # use substrate::types::layout::OptionBuilder;
 /// let mut builder = OptionBuilder::default();
 /// builder.set(5);
 /// assert_eq!(builder.build().unwrap(), 5);
@@ -262,7 +274,7 @@ impl<L> FlatLen for ShapePort<L> {
     }
 }
 
-impl<S: Schema> HardwareType<S> for ShapePort<S::Layer> {
+impl<S: Schema> BundleKind<S> for ShapePort<S::Layer> {
     type Bundle = Shape<S::Layer>;
     type Builder = OptionBuilder<Shape<S::Layer>>;
 
@@ -277,19 +289,13 @@ impl<L> HasNameTree for ShapePort<L> {
     }
 }
 
-impl<S: Schema> CustomHardwareType<S, Signal> for ShapePort<S::Layer> {
-    fn from_layout_type(_other: &Signal) -> Self {
-        ShapePort::new()
-    }
-}
-
 impl<L> FlatLen for Port<L> {
     fn len(&self) -> usize {
         1
     }
 }
 
-impl<S: Schema> HardwareType<S> for Port<S::Layer> {
+impl<S: Schema> BundleKind<S> for Port<S::Layer> {
     type Bundle = PortGeometry<S::Layer>;
     type Builder = PortGeometryBuilder<S::Layer>;
 
@@ -301,12 +307,6 @@ impl<S: Schema> HardwareType<S> for Port<S::Layer> {
 impl<L> HasNameTree for Port<L> {
     fn names(&self) -> Option<Vec<NameTree>> {
         Some(vec![])
-    }
-}
-
-impl<S: Schema> CustomHardwareType<S, Signal> for Port<S::Layer> {
-    fn from_layout_type(_other: &Signal) -> Self {
-        Port::new()
     }
 }
 

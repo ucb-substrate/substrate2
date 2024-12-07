@@ -27,9 +27,9 @@ use once_cell::sync::OnceCell;
 use schema::Schema;
 
 use crate::context::Context;
+use crate::error::Error;
 use crate::error::Result;
-use crate::io::layout::{Builder, HardwareType};
-use crate::{block::Block, error::Error};
+use crate::types::layout::{Builder, Bundle, BundleKind, HasBundleKind, Io};
 
 use self::element::{CellId, Element, RawCell, RawInstance};
 
@@ -40,6 +40,8 @@ pub mod schema;
 pub mod tiling;
 pub mod tracks;
 
+use crate::block::Block;
+
 /// Data exported from a generated layout.
 ///
 /// Contained data is transformed with the containing instance
@@ -48,15 +50,21 @@ pub trait LayoutData: TransformRef + Send + Sync {}
 impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
 type CellLayer<T: Layout> = <T::Schema as Schema>::Layer;
+pub type IoBuilder<T> =
+    <<<T as Block>::Io as HasBundleKind<<T as Layout>::Schema>>::BundleKind as BundleKind<
+        <T as Layout>::Schema,
+    >>::Builder;
+pub type IoBundleKind<T> = <<T as Block>::Io as HasBundleKind<<T as Layout>::Schema>>::BundleKind;
+pub type IoBundle<T> = <IoBundleKind<T> as BundleKind<<T as Layout>::Schema>>::Bundle;
 
 /// A block that can be laid out in a given layout [`Schema`].
-pub trait Layout: Block<Io: HardwareType<Self::Schema>> {
+pub trait Layout: Block<Io: HasBundleKind<Self::Schema>> {
     type Schema: Schema;
     type Data: LayoutData;
     /// Generates the block's layout.
     fn layout(
         &self,
-        io: &mut Builder<Self::Schema, <Self as Block>::Io>,
+        io: &mut IoBuilder<Self>,
         cell: &mut CellBuilder<Self::Schema>,
     ) -> Result<Self::Data>;
 }
@@ -66,7 +74,7 @@ impl<T: Layout> Layout for Arc<T> {
     type Data = T::Data;
     fn layout(
         &self,
-        io: &mut Builder<Self::Schema, <Self as Block>::Io>,
+        io: &mut IoBuilder<Self>,
         cell: &mut CellBuilder<Self::Schema>,
     ) -> Result<Self::Data> {
         T::layout(self.as_ref(), io, cell)
@@ -108,7 +116,7 @@ pub struct Cell<T: Layout> {
     block: Arc<T>,
     /// Extra data created during layout generation.
     data: T::Data,
-    pub(crate) io: <T::Io as HardwareType<T::Schema>>::Bundle,
+    pub(crate) io: IoBundle<T>,
     pub(crate) raw: Arc<RawCell<<T::Schema as Schema>::Layer>>,
 }
 
@@ -116,8 +124,8 @@ impl<T: Layout> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
         data: T::Data,
-        io: <T::Io as HardwareType<T::Schema>>::Bundle,
-        raw: Arc<RawCell<<T::Schema as Schema>::Layer>>,
+        io: IoBundle<T>,
+        raw: Arc<RawCell<T::Schema>>,
     ) -> Self {
         Self {
             block,
@@ -138,7 +146,7 @@ impl<T: Layout> Cell<T> {
     }
 
     /// Returns the geometry of the cell's IO.
-    pub fn io(&self) -> &<T::Io as HardwareType<T::Schema>>::Bundle {
+    pub fn io(&self) -> &IoBundle<T> {
         &self.io
     }
 
@@ -214,7 +222,7 @@ pub struct TransformedCell<T: Layout> {
     ///
     /// This is the result of applying `trans` to the original cell's IO.
     /// If `trans` changes, this field must be updated.
-    io: <T::Io as HardwareType<T::Schema>>::Bundle,
+    io: IoBundle<T>,
     /// The underlying raw cell.
     ///
     /// This field should NOT be modified if `trans` changes.
@@ -400,7 +408,7 @@ impl<T: Layout> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<<T::Io as HardwareType<T::Schema>>::Bundle> {
+    pub fn try_io(&self) -> Result<IoBundle<T>> {
         Ok(self.try_cell()?.io)
     }
 
@@ -411,7 +419,7 @@ impl<T: Layout> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> <T::Io as HardwareType<T::Schema>>::Bundle {
+    pub fn io(&self) -> IoBundle<T> {
         self.cell().io
     }
 

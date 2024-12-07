@@ -19,9 +19,16 @@ use layir::{LayerBbox, Shape, Text};
 use serde::{Deserialize, Serialize};
 
 use crate::io::layout::PortGeometry;
+use crate::layout::bbox::LayerBbox;
+use crate::types::layout::PortGeometry;
 use crate::{
     error::{Error, Result},
     io::NameBuf,
+};
+use crate::{
+    error::{Error, Result},
+    pdk::{layers::LayerId, Pdk},
+    types::NameBuf,
 };
 
 use super::{schema::Schema, Draw, DrawReceiver, Instance, Layout};

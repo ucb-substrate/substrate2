@@ -50,14 +50,14 @@ pub trait ConvertibleNetlister<S: Schema + ?Sized> {
     }
 
     /// Writes a netlist of a Substrate block to the given output stream.
-    fn write_netlist<B: Schematic<S>, W: Write>(
+    fn write_netlist<B: Schematic<Schema = S>, W: Write>(
         &self,
         ctx: &Context,
         block: B,
         out: &mut W,
         opts: Self::Options<'_>,
     ) -> substrate::error::Result<(RawLib<S>, NetlistLibConversion)> {
-        let raw_lib = ctx.export_scir::<S, _>(block)?;
+        let raw_lib = ctx.export_scir(block)?;
 
         let conv = self
             .write_scir_netlist(&raw_lib.scir, out, opts)
@@ -68,7 +68,7 @@ pub trait ConvertibleNetlister<S: Schema + ?Sized> {
     /// Writes a netlist of a Substrate block to a file at the given path.
     ///
     /// The file and any parent directories will be created if necessary.
-    fn write_netlist_to_file<B: Schematic<S>>(
+    fn write_netlist_to_file<B: Schematic<Schema = S>>(
         &self,
         ctx: &Context,
         block: B,

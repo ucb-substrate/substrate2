@@ -1,14 +1,15 @@
 //! A block that can be instantiated by Substrate.
 
+use std::any::Any;
+use std::hash::Hash;
 use std::sync::Arc;
-use std::{any::Any, hash::Hash};
 
 use arcstr::ArcStr;
 pub use codegen::Block;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::io::Io;
+use crate::types::Io;
 
 /// A block that can be instantiated by Substrate.
 ///
@@ -18,9 +19,6 @@ use crate::io::Io;
 pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;
-
-    /// A crate-wide unique identifier for this block.
-    fn id() -> ArcStr;
 
     /// A name for a specific parametrization of this block.
     ///
@@ -37,10 +35,6 @@ pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
 
 impl<T: Block> Block for Arc<T> {
     type Io = T::Io;
-
-    fn id() -> ArcStr {
-        T::id()
-    }
 
     fn name(&self) -> ArcStr {
         T::name(self)
