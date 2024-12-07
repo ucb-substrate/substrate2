@@ -9,14 +9,13 @@ use impl_trait_for_tuples::impl_for_tuples;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+use crate::block::Block;
 use crate::context::{Context, Installation};
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Block, Cell, HasNestedView, Schematic};
-use crate::simulation::data::SaveTb;
+use crate::schematic::{Cell, HasNestedView, NestedView, Schematic};
 use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
-use substrate::simulation::data::FromSaved;
 
 pub mod data;
 pub mod options;
@@ -96,11 +95,6 @@ pub struct SimController<S: Simulator, T: Schematic> {
 
 impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// Run the given analysis, returning the default output.
-    ///
-    /// Note that providing [`None`] for `corner` will result in model files not being included,
-    /// potentially causing simulator errors due to missing models.
-    ///
-    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
     pub fn simulate_default<A: SupportedBy<S>>(
         &self,
         options: S::Options,
@@ -110,20 +104,19 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     }
 
     /// Run the given analysis, returning the desired output type.
-    ///
-    /// Note that providing [`None`] for `corner` will result in model files not being included,
-    /// potentially causing simulator errors due to missing models.
-    ///
-    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<A: SupportedBy<S>, O>(
+    pub fn simulate<A: SupportedBy<S>>(
         &self,
         mut options: S::Options,
         input: A,
-    ) -> Result<O, S::Error>
+    ) -> Result<<NestedView<<T as Schematic>::NestedData> as Save<S, A>>::Save, S::Error>
     where
         T: Schematic<NestedData: HasNestedView<NestedView: Save<S, A>>>,
     {
-        let key = self.tb.data().save(&self.ctx, &mut options);
+        let key = <NestedView<<T as Schematic>::NestedData> as Save<S, A>>::save(
+            &self.tb.data(),
+            &self.ctx,
+            &mut options,
+        );
         let output = self.simulate_default(options, input)?;
         Ok(
             <<<T as Schematic>::NestedData as HasNestedView>::NestedView>::from_saved(

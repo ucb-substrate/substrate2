@@ -40,8 +40,8 @@ use crate::schematic::{
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HasHardwareType as HasLayoutType};
-use crate::types::schematic::{Node, NodeContext, NodePriority, Port};
-use crate::types::{Flatten, Flipped, HasBundleType, HasNameTree};
+use crate::types::schematic::{IoBundle, Node, NodeContext, NodePriority, Port};
+use crate::types::{Flatten, Flipped, HasBundleKind, HasNameTree};
 
 /// The global context.
 ///
@@ -427,10 +427,12 @@ impl Context {
         export_multi_top_scir_lib(cells)
     }
 
-    /// Simulate the given testbench.
-    ///
-    /// The simulator must be installed in the context.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    /// Returns a simulation controller for the given testbench and simulator.
+    pub fn get_sim_controller<S, T>(
+        &self,
+        block: T,
+        work_dir: impl Into<PathBuf>,
+    ) -> Result<SimController<S, T>>
     where
         S: Simulator,
         T: Testbench<S>,
@@ -448,14 +450,11 @@ impl Context {
             work_dir: work_dir.into(),
             ctx: self.clone(),
         };
-        let controller = SimController {
+        Ok(SimController {
             tb: cell.clone(),
             simulator,
             ctx,
-        };
-
-        // TODO caching
-        Ok(block.run(controller))
+        })
     }
 
     /// Installs the given [`PrivateInstallation`].
@@ -549,7 +548,7 @@ impl<PDK: Pdk> PdkContext<PDK> {
                 let ports = IndexMap::from_iter(
                     block
                         .io()
-                        .ty()
+                        .kind()
                         .flat_names(None)
                         .into_iter()
                         .zip(io.flatten_vec()),
@@ -660,10 +659,7 @@ pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (
-    CellBuilder<T::Schema>,
-    crate::types::schematic::IoBundle<T, Node>,
-) {
+) -> (CellBuilder<T::Schema>, IoBundle<T, Node>) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
@@ -676,7 +672,7 @@ pub fn prepare_cell_builder<T: Schematic>(
         node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
     let cell_name = block.name();
 
-    let names = <<T as Block>::Io as HasBundleType>::ty(&io_outward).flat_names(None);
+    let names = <<T as Block>::Io as HasBundleKind>::kind(&io_outward).flat_names(None);
     let outward_dirs = io_outward.flatten_vec();
     assert_eq!(nodes.len(), names.len());
     assert_eq!(nodes.len(), outward_dirs.len());

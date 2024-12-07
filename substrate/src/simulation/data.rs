@@ -22,8 +22,8 @@ pub trait Save<S: Simulator, A: Analysis> {
     /// Marks the given output for saving, returning a key that can be used to recover
     /// the output once the simulation is complete.
     fn save(
+        &self,
         ctx: &SimulationContext<S>,
-        to_save: &Self,
         opts: &mut <S as Simulator>::Options,
     ) -> <Self as Save<S, A>>::SaveKey;
 
