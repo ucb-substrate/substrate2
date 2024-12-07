@@ -23,11 +23,13 @@ use geometry::{
 };
 use once_cell::sync::OnceCell;
 
+use crate::block::Block;
 use crate::error::Error;
 use crate::layout::bbox::LayerBbox;
 use crate::pdk::layers::LayerId;
 use crate::pdk::Pdk;
-use crate::types::layout::{Builder, Bundle, Io};
+use crate::types::layout::{Builder, Bundle, HasHardwareType};
+use crate::types::Io;
 use crate::{context::PdkContext, error::Result};
 
 use self::element::{CellId, Element, RawCell, RawInstance, Shape};
@@ -39,11 +41,6 @@ pub mod gds;
 pub mod tiling;
 pub mod tracks;
 
-/// A block that can have a layout.
-pub trait Block: crate::block::Block<Io: Io> {}
-
-impl<T: crate::block::Block<Io: Io>> Block for T {}
-
 /// Data exported from a generated layout.
 ///
 /// Contained data is transformed with the containing instance
@@ -54,7 +51,7 @@ impl<T: TransformRef + Send + Sync> LayoutData for T {}
 /// A block that exports data from its layout.
 ///
 /// All blocks that have a layout implementation must export data.
-pub trait ExportsLayoutData: Block {
+pub trait ExportsLayoutData: Block<Io: Io + HasHardwareType> {
     /// Extra layout data to be stored with the block's generated cell.
     ///
     /// When the block is instantiated and transformed, all contained data
@@ -67,7 +64,7 @@ pub trait Layout<PDK: Pdk>: ExportsLayoutData {
     /// Generates the block's layout.
     fn layout(
         &self,
-        io: &mut Builder<<Self as crate::block::Block>::Io>,
+        io: &mut Builder<<Self as Block>::Io>,
         cell: &mut CellBuilder<PDK>,
     ) -> Result<Self::LayoutData>;
 }
@@ -79,7 +76,7 @@ impl<T: ExportsLayoutData> ExportsLayoutData for Arc<T> {
 impl<PDK: Pdk, T: Layout<PDK>> Layout<PDK> for Arc<T> {
     fn layout(
         &self,
-        io: &mut Builder<<Self as crate::block::Block>::Io>,
+        io: &mut Builder<<Self as Block>::Io>,
         cell: &mut CellBuilder<PDK>,
     ) -> Result<Self::LayoutData> {
         T::layout(self.as_ref(), io, cell)
@@ -121,7 +118,7 @@ pub struct Cell<T: ExportsLayoutData> {
     block: Arc<T>,
     /// Extra data created during layout generation.
     data: T::LayoutData,
-    pub(crate) io: Bundle<<T as crate::block::Block>::Io>,
+    pub(crate) io: Bundle<<T as Block>::Io>,
     pub(crate) raw: Arc<RawCell>,
 }
 
@@ -129,7 +126,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
         data: T::LayoutData,
-        io: Bundle<<T as crate::block::Block>::Io>,
+        io: Bundle<<T as Block>::Io>,
         raw: Arc<RawCell>,
     ) -> Self {
         Self {
@@ -151,7 +148,7 @@ impl<T: ExportsLayoutData> Cell<T> {
     }
 
     /// Returns the geometry of the cell's IO.
-    pub fn io(&self) -> &Bundle<<T as crate::block::Block>::Io> {
+    pub fn io(&self) -> &Bundle<<T as Block>::Io> {
         &self.io
     }
 
@@ -224,7 +221,7 @@ pub struct TransformedCell<T: ExportsLayoutData> {
     ///
     /// This is the result of applying `trans` to the original cell's IO.
     /// If `trans` changes, this field must be updated.
-    io: Bundle<<T as crate::block::Block>::Io>,
+    io: Bundle<<T as Block>::Io>,
     /// The underlying raw cell.
     ///
     /// This field should NOT be modified if `trans` changes.
@@ -407,7 +404,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<Bundle<<T as crate::block::Block>::Io>> {
+    pub fn try_io(&self) -> Result<Bundle<<T as Block>::Io>> {
         Ok(self.try_cell()?.io)
     }
 
@@ -418,7 +415,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> Bundle<<T as crate::block::Block>::Io> {
+    pub fn io(&self) -> Bundle<<T as Block>::Io> {
         self.cell().io
     }
 
