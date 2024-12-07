@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
-use super::{Io, Signal};
+use super::{Bundle, BundleKind, BundleOf, BundlePrimitive, HasBundleKind, Io, Signal};
 
 /// A schematic bundle type.
 pub trait SchematicBundleKind:
-    super::BundleKind
+    BundleKind
     + HasSchematicBundleOf<Node, Bundle: Connect>
     + HasSchematicBundleOf<Terminal, Bundle: Connect>
 {
@@ -48,7 +48,7 @@ pub trait SchematicBundleKind:
 
 /// A bundle type with an associated bundle `Bundle` of `B`.
 pub trait HasSchematicBundleOf<S: SchematicBundlePrimitive>:
-    super::BundleKind<Bundle<S> = <Self as HasSchematicBundleOf<S>>::Bundle>
+    BundleKind<Bundle<S> = <Self as HasSchematicBundleOf<S>>::Bundle>
 {
     /// The bundle of primitive `B` associated with this bundle type.
     type Bundle: SchematicBundle + HasSchematicBundleKind<BundleKind = Self> + SchematicBundleOf<S>;
@@ -56,56 +56,54 @@ pub trait HasSchematicBundleOf<S: SchematicBundlePrimitive>:
 impl<
         S: SchematicBundlePrimitive,
         T: SchematicBundleKind
-            + super::BundleKind<
+            + BundleKind<
                 Bundle<S>: HasSchematicBundleKind<BundleKind = T>
                                + HasNestedView<NestedView: HasSchematicBundleKind<BundleKind = T>>,
             >,
     > HasSchematicBundleOf<S> for T
 {
-    type Bundle = <T as super::BundleKind>::Bundle<S>;
+    type Bundle = <T as BundleKind>::Bundle<S>;
 }
 
 /// A schematic bundle representing an instantiation of a [`Signal`].
 pub trait SchematicBundlePrimitive:
-    super::BundlePrimitive + HasNestedView<NestedView = <Self as SchematicBundlePrimitive>::NestedView>
+    BundlePrimitive + HasNestedView<NestedView = <Self as SchematicBundlePrimitive>::NestedView>
 {
     /// The nested view of this primitive.
-    type NestedView: super::BundlePrimitive
+    type NestedView: BundlePrimitive
         + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
 }
-impl<T: super::BundlePrimitive + HasNestedView<NestedView: super::BundlePrimitive>>
-    SchematicBundlePrimitive for T
+impl<T: BundlePrimitive + HasNestedView<NestedView: BundlePrimitive>> SchematicBundlePrimitive
+    for T
 {
     type NestedView = <Self as HasNestedView>::NestedView;
 }
 
 /// A construct with an associated [`BundleKind`].
 pub trait HasSchematicBundleKind:
-    super::HasBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
+    HasBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
 {
     /// The Rust type of the [`BundleKind`] associated with this bundle.
     type BundleKind: SchematicBundleKind;
 }
-impl<T: super::HasBundleKind<BundleKind: SchematicBundleKind>> HasSchematicBundleKind for T {
-    type BundleKind = <Self as super::HasBundleKind>::BundleKind;
+impl<T: HasBundleKind<BundleKind: SchematicBundleKind>> HasSchematicBundleKind for T {
+    type BundleKind = <Self as HasBundleKind>::BundleKind;
 }
 
 /// A schematic bundle.
 pub trait SchematicBundle:
-    super::Bundle
-    + HasSchematicBundleKind
-    + HasNestedView<NestedView = <Self as SchematicBundle>::NestedView>
+    Bundle + HasSchematicBundleKind + HasNestedView<NestedView = <Self as SchematicBundle>::NestedView>
 {
     /// The nested view of a schematic bundle.
-    type NestedView: super::Bundle
+    type NestedView: Bundle
         + HasSchematicBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
         + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
 }
 impl<
-        T: super::Bundle
+        T: Bundle
             + HasSchematicBundleKind
             + HasNestedView<
-                NestedView: super::Bundle
+                NestedView: Bundle
                                 + HasSchematicBundleKind<
                     BundleKind = <T as HasSchematicBundleKind>::BundleKind,
                 >,
@@ -116,14 +114,8 @@ impl<
 }
 
 /// A schematic bundle that is made up of primitive `T`.
-pub trait SchematicBundleOf<T: SchematicBundlePrimitive>:
-    super::BundleOf<T> + SchematicBundle
-{
-}
-impl<S: SchematicBundlePrimitive, T: super::BundleOf<S> + SchematicBundle> SchematicBundleOf<S>
-    for T
-{
-}
+pub trait SchematicBundleOf<T: SchematicBundlePrimitive>: BundleOf<T> + SchematicBundle {}
+impl<S: SchematicBundlePrimitive, T: BundleOf<S> + SchematicBundle> SchematicBundleOf<S> for T {}
 
 /// A bundle that can be connected.
 pub trait Connect: SchematicBundleOf<Node> {}
@@ -180,7 +172,7 @@ impl Flatten<Node> for Node {
     }
 }
 
-impl super::HasBundleKind for Node {
+impl HasBundleKind for Node {
     type BundleKind = Signal;
 
     fn kind(&self) -> Self::BundleKind {
@@ -188,7 +180,7 @@ impl super::HasBundleKind for Node {
     }
 }
 
-impl super::BundlePrimitive for Node {}
+impl BundlePrimitive for Node {}
 
 impl HasNestedView for Node {
     type NestedView = NestedNode;
@@ -244,7 +236,7 @@ impl Flatten<NestedNode> for NestedNode {
     }
 }
 
-impl super::HasBundleKind for NestedNode {
+impl HasBundleKind for NestedNode {
     type BundleKind = Signal;
 
     fn kind(&self) -> Self::BundleKind {
@@ -252,7 +244,7 @@ impl super::HasBundleKind for NestedNode {
     }
 }
 
-impl super::BundlePrimitive for NestedNode {}
+impl BundlePrimitive for NestedNode {}
 
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
@@ -338,7 +330,7 @@ impl Flatten<Terminal> for Terminal {
     }
 }
 
-impl super::HasBundleKind for Terminal {
+impl HasBundleKind for Terminal {
     type BundleKind = Signal;
 
     fn kind(&self) -> Self::BundleKind {
@@ -346,7 +338,7 @@ impl super::HasBundleKind for Terminal {
     }
 }
 
-impl super::BundlePrimitive for Terminal {}
+impl BundlePrimitive for Terminal {}
 
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
@@ -398,7 +390,7 @@ impl Flatten<NestedTerminal> for NestedTerminal {
     }
 }
 
-impl super::HasBundleKind for NestedTerminal {
+impl HasBundleKind for NestedTerminal {
     type BundleKind = Signal;
 
     fn kind(&self) -> Self::BundleKind {
@@ -406,7 +398,7 @@ impl super::HasBundleKind for NestedTerminal {
     }
 }
 
-impl super::BundlePrimitive for NestedTerminal {}
+impl BundlePrimitive for NestedTerminal {}
 
 impl HasNestedView for NestedTerminal {
     type NestedView = NestedTerminal;
