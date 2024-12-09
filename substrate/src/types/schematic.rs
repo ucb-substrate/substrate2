@@ -11,15 +11,19 @@ use std::ops::Deref;
 
 use super::{BundleKind, HasBundleKind, Io, Signal};
 
-/// A schematic bundle type.
+/// A schematic bundle kind.
 pub trait SchematicBundleKind: BundleKind {
+    /// A bundle of nodes of this kind.
     type NodeBundle: HasBundleKind<BundleKind = Self>
         + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
         + Flatten<Node>;
+
+    /// A bundle of terminals of this kind.
     type TerminalBundle: HasBundleKind<BundleKind = Self>
         + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
         + Flatten<Terminal>
         + Flatten<Node>;
+
     /// Instantiates a node bundle with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
@@ -66,7 +70,12 @@ pub trait SchematicBundleKind: BundleKind {
     ) -> <Self as SchematicBundleKind>::TerminalBundle;
 }
 
+/// A schematic bundle kind that can be viewed as another bundle kind `T`.
 pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
+    /// Views a node bundle as a node bundle of a different kind.
+    fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<T>;
+
+    /// Views a terminal bundle as a terminal bundle of a different kind.
     fn view_terminals_as(terminals: &TerminalBundle<Self>) -> TerminalBundle<T> {
         let kind = terminals.kind();
         let flat_terminals = Flatten::<Terminal>::flatten_vec(terminals);
@@ -88,8 +97,6 @@ pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
             .collect::<Vec<_>>();
         T::instantiate_terminals_top(&nodes_view_kind, &flat_terminals_view)
     }
-
-    fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<T>;
 }
 
 /// The [`BundleKind`] of a block's IO.

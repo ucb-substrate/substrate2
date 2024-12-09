@@ -15,11 +15,10 @@ use substrate::schematic::{
     CellBuilder, HasNestedView, InstancePath, NestedData, NestedView, Schematic,
 };
 use substrate::types::layout::{
-    Builder, CustomHardwareType, HardwareType, HasHardwareType, IoShape, Port, PortGeometry,
-    ShapePort,
+    Builder, CustomHardwareType, IoShape, Port, PortGeometry, ShapePort,
 };
 use substrate::types::schematic::{IoBundle, Node};
-use substrate::types::{Array, BundlePrimitive, Flipped, InOut, Input, Io, Output, Signal};
+use substrate::types::{Array, Flipped, InOut, Input, Io, Output, Signal};
 
 // begin-code-snippet pdk
 pub struct ExamplePdk;
@@ -443,7 +442,7 @@ mod single_process_buffer {
     use serde::{Deserialize, Serialize};
     use substrate::block::Block;
     use substrate::geometry::align::{AlignBbox, AlignMode};
-    use substrate::layout::{self, CellBuilder, ExportsLayoutData, Layout};
+    use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
     use substrate::types::layout::Builder;
 
     #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Block)]
@@ -524,7 +523,7 @@ impl Schematic for BufferInlineHardMacro {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &IoBundle<Self, Node>,
+        io: &IoBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut scir = Spice::scir_cell_from_str(
@@ -590,39 +589,6 @@ fn main() {
     generate_layout();
 }
 
-/// Demonstrates how to save simulator output.
-mod sim {
-    use substrate::simulation::data::{tran, FromSaved};
-
-    // begin-code-snippet sim_from_saved
-    #[derive(Debug, Clone, FromSaved)]
-    #[allow(unused)]
-    pub enum SavedEnum {
-        Fields {
-            vout: tran::Voltage,
-            iout: tran::Current,
-        },
-        Tuple(tran::Voltage, tran::Current),
-        Unit,
-    }
-
-    #[derive(Debug, Clone, FromSaved)]
-    #[allow(unused)]
-    pub struct NamedFields {
-        vout: tran::Voltage,
-        iout: tran::Current,
-    }
-
-    #[derive(Debug, Clone, FromSaved)]
-    #[allow(unused)]
-    pub struct NewType(NamedFields);
-
-    #[derive(Debug, Clone, FromSaved)]
-    #[allow(unused)]
-    pub struct Tuple(NamedFields, SavedEnum);
-    // end-code-snippet sim_from_saved
-}
-
 fn io() {
     // begin-code-snippet array-io
     #[derive(Io, Clone, Debug)]
@@ -665,30 +631,31 @@ fn io() {
     }
     // end-code-snippet mos-io
 
+    // TODO: replace with data view API
     // begin-code-snippet mos-io-from
-    impl<T: BundlePrimitive> From<ThreePortMosIoBundle<T>> for FourPortMosIoBundle<T> {
-        fn from(value: ThreePortMosIoBundle<T>) -> Self {
-            Self {
-                d: value.d,
-                g: value.g,
-                s: value.s.clone(),
-                b: value.s,
-            }
-        }
-    }
+    // impl<T: BundlePrimitive> From<ThreePortMosIoBundle<T>> for FourPortMosIoBundle<T> {
+    //     fn from(value: ThreePortMosIoBundle<T>) -> Self {
+    //         Self {
+    //             d: value.d,
+    //             g: value.g,
+    //             s: value.s.clone(),
+    //             b: value.s,
+    //         }
+    //     }
+    // }
     // end-code-snippet mos-io-from
 
     // begin-code-snippet mos-io-body
-    impl<T: BundlePrimitive> ThreePortMosIoBundle<T> {
-        fn with_body(&self, b: T) -> FourPortMosIoBundle<T> {
-            FourPortMosIoBundle {
-                d: self.d.clone(),
-                g: self.g.clone(),
-                s: self.s.clone(),
-                b,
-            }
-        }
-    }
+    //impl<T: BundlePrimitive> ThreePortMosIoBundle<T> {
+    //    fn with_body(&self, b: T) -> FourPortMosIoBundle<T> {
+    //        FourPortMosIoBundle {
+    //            d: self.d.clone(),
+    //            g: self.g.clone(),
+    //            s: self.s.clone(),
+    //            b,
+    //        }
+    //    }
+    //}
     // end-code-snippet mos-io-body
 
     // begin-code-snippet sram-io
@@ -778,7 +745,7 @@ pub mod nested_data {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self, Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             Ok(())
@@ -878,7 +845,7 @@ mod try_data {
 
         fn schematic(
             &self,
-            io: &IoBundle<Self, substrate::types::schematic::Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let r1 = cell.instantiate(Resistor::new(self.r1));
@@ -915,7 +882,7 @@ mod instantiate_blocking {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self, substrate::types::schematic::Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let r1 = cell.instantiate_blocking(Resistor::new(self.r1))?;
@@ -950,7 +917,7 @@ mod instantiate_blocking_bad {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self, Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             if let Ok(r1) = cell.instantiate_blocking(Resistor::new(self.r1)) {
@@ -987,7 +954,7 @@ mod generate {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self, Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let r1_cell = cell.generate(Resistor::new(self.r1));
@@ -1044,7 +1011,7 @@ mod scir {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self, substrate::types::schematic::Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let mut prim = PrimitiveBinding::new(MyPrimitive::Resistor(self.0));
@@ -1068,7 +1035,7 @@ mod scir {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self, substrate::types::schematic::Node>,
+            io: &IoBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             // Creates a SCIR library containing the desired cell.

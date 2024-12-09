@@ -1,7 +1,6 @@
 use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_quote, GenericParam};
 use type_dispatch::derive::{
     add_trait_bounds, field_tokens, field_tokens_with_referent, struct_body, FieldTokens,
 };
@@ -95,7 +94,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             refer,
             assign,
             temp,
-            pretty_ident,
+            ..
         } = field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         let FieldTokens {
@@ -213,12 +212,14 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         #vis struct #terminal_view_ident #st_generics #terminal_view_body
 
         impl #st_imp #data_ident #st_ty #st_where {
+            /// Views this node bundle as a node bundle of a different kind.
             #vis fn view_as<__substrate_T: #substrate::types::HasBundleKind<BundleKind: #substrate::types::schematic::SchematicBundleKind>>(&self) -> #substrate::types::schematic::NodeBundle<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind> where <Self as #substrate::types::HasBundleKind>::BundleKind: #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>{
                 <<Self as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>>::view_nodes_as(self)
             }
         }
 
         impl #st_imp #terminal_view_ident #st_ty #st_where {
+            /// Views this terminal bundle as a terminal bundle of a different kind.
             #vis fn view_as<__substrate_T: #substrate::types::HasBundleKind<BundleKind: #substrate::types::schematic::SchematicBundleKind>>(&self) -> #substrate::types::schematic::TerminalBundle<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind> where <Self as #substrate::types::HasBundleKind>::BundleKind: #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>{
                 <<Self as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>>::view_terminals_as(self)
             }
@@ -574,8 +575,6 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
         ..
     } = *input;
 
-    let (generics_imp, generics_ty, generics_wher) = generics.split_for_impl();
-
     let bundle_type_ident = format_ident!("{}BundleKind", ident);
 
     let mut hnt_generics = generics.clone();
@@ -621,8 +620,8 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
             declare,
             refer,
             assign,
-            temp,
             pretty_ident,
+            ..
         } = field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         io_len.push(quote! {

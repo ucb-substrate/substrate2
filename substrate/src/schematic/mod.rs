@@ -28,7 +28,7 @@ use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
     IoBundle, IoKind, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
-    SchematicBundleKind, Terminal,
+    SchematicBundleKind,
 };
 use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, NameBuf};
 
