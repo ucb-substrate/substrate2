@@ -10,10 +10,11 @@ use crate::dir::Dir;
 use crate::edge::Edge;
 use crate::intersect::Intersect;
 use crate::point::Point;
-use crate::prelude::Transform;
 use crate::side::{Side, Sides};
 use crate::span::Span;
-use crate::transform::{HasTransformedView, TransformMut, Transformation, TranslateMut};
+use crate::transform::{
+    Transform, TransformMut, TransformRef, Transformation, Translate, TranslateMut, TranslateRef,
+};
 use crate::union::BoundingUnion;
 
 /// An axis-aligned rectangle, specified by lower-left and upper-right corners.
@@ -1350,10 +1351,24 @@ impl Intersect<Rect> for Rect {
     }
 }
 
+impl TranslateRef for Rect {
+    #[inline]
+    fn translate_ref(&self, p: Point) -> Self {
+        self.translate(p)
+    }
+}
+
 impl TranslateMut for Rect {
     fn translate_mut(&mut self, p: Point) {
         self.p0.translate_mut(p);
         self.p1.translate_mut(p);
+    }
+}
+
+impl TransformRef for Rect {
+    #[inline]
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.transform(trans)
     }
 }
 
@@ -1365,14 +1380,6 @@ impl TransformMut for Rect {
 
         self.p0 = Point::new(std::cmp::min(p0.x, p1.x), std::cmp::min(p0.y, p1.y));
         self.p1 = Point::new(std::cmp::max(p0.x, p1.x), std::cmp::max(p0.y, p1.y));
-    }
-}
-
-impl HasTransformedView for Rect {
-    type TransformedView = Rect;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        self.transform(trans)
     }
 }
 

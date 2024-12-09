@@ -1083,7 +1083,7 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
     /// * We find two track coordinates on M(N+1): one by rounding up; the other by rounding down.
     /// * If the two coordinates are equal, we report a successor to that grid point.
     /// * Otherwise, we report a successor to the track with a closer physical coordinate, assuming
-    /// the farther coordinate is unobstructed.
+    ///   the farther coordinate is unobstructed.
     pub fn successors(
         &self,
         node: RoutingNode,

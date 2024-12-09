@@ -1,16 +1,14 @@
 //! Spectre-specific blocks for use in testbenches.
 
+use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::ParamValue;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use substrate::block::Block;
-use substrate::io::schematic::HardwareType;
-use substrate::io::{Array, Io, TwoTerminalIo};
-use substrate::schematic::primitives::DcVsource;
-use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
+use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::waveform::{TimeWaveform, Waveform};
+use substrate::types::{Array, InOut, Io, Signal, TwoTerminalIo};
 
 use crate::{Primitive, Spectre};
 
@@ -69,9 +67,6 @@ impl Vsource {
 impl Block for Vsource {
     type Io = TwoTerminalIo;
 
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("vsource")
-    }
     fn name(&self) -> arcstr::ArcStr {
         // `vsource` is a reserved Spectre keyword,
         // so we call this block `uservsource`.
@@ -82,41 +77,40 @@ impl Block for Vsource {
     }
 }
 
-impl ExportsNestedData for Vsource {
+impl Schematic for Vsource {
+    type Schema = Spectre;
     type NestedData = ();
-}
 
-impl Schematic<Spectre> for Vsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         use arcstr::literal;
-        let mut params = HashMap::new();
+        let mut params = Vec::new();
         match self {
             Vsource::Dc(dc) => {
-                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
-                params.insert(literal!("dc"), ParamValue::Numeric(*dc));
+                params.push((literal!("type"), ParamValue::String(literal!("dc"))));
+                params.push((literal!("dc"), ParamValue::Numeric(*dc)));
             }
             Vsource::Pulse(pulse) => {
-                params.insert(literal!("type"), ParamValue::String(literal!("pulse")));
-                params.insert(literal!("val0"), ParamValue::Numeric(pulse.val0));
-                params.insert(literal!("val1"), ParamValue::Numeric(pulse.val1));
+                params.push((literal!("type"), ParamValue::String(literal!("pulse"))));
+                params.push((literal!("val0"), ParamValue::Numeric(pulse.val0)));
+                params.push((literal!("val1"), ParamValue::Numeric(pulse.val1)));
                 if let Some(period) = pulse.period {
-                    params.insert(literal!("period"), ParamValue::Numeric(period));
+                    params.push((literal!("period"), ParamValue::Numeric(period)));
                 }
                 if let Some(rise) = pulse.rise {
-                    params.insert(literal!("rise"), ParamValue::Numeric(rise));
+                    params.push((literal!("rise"), ParamValue::Numeric(rise)));
                 }
                 if let Some(fall) = pulse.fall {
-                    params.insert(literal!("fall"), ParamValue::Numeric(fall));
+                    params.push((literal!("fall"), ParamValue::Numeric(fall)));
                 }
                 if let Some(width) = pulse.width {
-                    params.insert(literal!("width"), ParamValue::Numeric(width));
+                    params.push((literal!("width"), ParamValue::Numeric(width)));
                 }
                 if let Some(delay) = pulse.delay {
-                    params.insert(literal!("delay"), ParamValue::Numeric(delay));
+                    params.push((literal!("delay"), ParamValue::Numeric(delay)));
                 }
             }
             Vsource::Pwl(waveform) => {
@@ -130,14 +124,14 @@ impl Schematic<Spectre> for Vsource {
                     write!(&mut pwl, "{} {}", pt.t(), pt.x()).unwrap();
                 }
                 pwl.push(']');
-                params.insert(literal!("type"), ParamValue::String(literal!("pwl")));
-                params.insert(literal!("wave"), ParamValue::String(pwl.into()));
+                params.push((literal!("type"), ParamValue::String(literal!("pwl"))));
+                params.push((literal!("wave"), ParamValue::String(pwl.into())));
             }
             Vsource::Ac(ac) => {
-                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
-                params.insert(literal!("dc"), ParamValue::Numeric(ac.dc));
-                params.insert(literal!("mag"), ParamValue::Numeric(ac.mag));
-                params.insert(literal!("phase"), ParamValue::Numeric(ac.phase));
+                params.push((literal!("type"), ParamValue::String(literal!("dc"))));
+                params.push((literal!("dc"), ParamValue::Numeric(ac.dc)));
+                params.push((literal!("mag"), ParamValue::Numeric(ac.mag)));
+                params.push((literal!("phase"), ParamValue::Numeric(ac.phase)));
             }
         };
 
@@ -149,18 +143,6 @@ impl Schematic<Spectre> for Vsource {
         prim.connect("p", io.p);
         prim.connect("n", io.n);
         cell.set_primitive(prim);
-        Ok(())
-    }
-}
-
-impl Schematic<Spectre> for DcVsource {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        cell.flatten();
-        cell.instantiate_connected(Vsource::dc(self.value()), io);
         Ok(())
     }
 }
@@ -212,9 +194,6 @@ impl Isource {
 impl Block for Isource {
     type Io = TwoTerminalIo;
 
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("isource")
-    }
     fn name(&self) -> arcstr::ArcStr {
         // `isource` is a reserved Spectre keyword,
         // so we call this block `userisource`.
@@ -225,48 +204,47 @@ impl Block for Isource {
     }
 }
 
-impl ExportsNestedData for Isource {
+impl Schematic for Isource {
+    type Schema = Spectre;
     type NestedData = ();
-}
 
-impl Schematic<Spectre> for Isource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         use arcstr::literal;
-        let mut params = HashMap::new();
+        let mut params = Vec::new();
         match self {
             Isource::Dc(dc) => {
-                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
-                params.insert(literal!("dc"), ParamValue::Numeric(*dc));
+                params.push((literal!("type"), ParamValue::String(literal!("dc"))));
+                params.push((literal!("dc"), ParamValue::Numeric(*dc)));
             }
             Isource::Pulse(pulse) => {
-                params.insert(literal!("type"), ParamValue::String(literal!("pulse")));
-                params.insert(literal!("val0"), ParamValue::Numeric(pulse.val0));
-                params.insert(literal!("val1"), ParamValue::Numeric(pulse.val1));
+                params.push((literal!("type"), ParamValue::String(literal!("pulse"))));
+                params.push((literal!("val0"), ParamValue::Numeric(pulse.val0)));
+                params.push((literal!("val1"), ParamValue::Numeric(pulse.val1)));
                 if let Some(period) = pulse.period {
-                    params.insert(literal!("period"), ParamValue::Numeric(period));
+                    params.push((literal!("period"), ParamValue::Numeric(period)));
                 }
                 if let Some(rise) = pulse.rise {
-                    params.insert(literal!("rise"), ParamValue::Numeric(rise));
+                    params.push((literal!("rise"), ParamValue::Numeric(rise)));
                 }
                 if let Some(fall) = pulse.fall {
-                    params.insert(literal!("fall"), ParamValue::Numeric(fall));
+                    params.push((literal!("fall"), ParamValue::Numeric(fall)));
                 }
                 if let Some(width) = pulse.width {
-                    params.insert(literal!("width"), ParamValue::Numeric(width));
+                    params.push((literal!("width"), ParamValue::Numeric(width)));
                 }
                 if let Some(delay) = pulse.delay {
-                    params.insert(literal!("delay"), ParamValue::Numeric(delay));
+                    params.push((literal!("delay"), ParamValue::Numeric(delay)));
                 }
             }
             Isource::Ac(ac) => {
-                params.insert(literal!("type"), ParamValue::String(literal!("dc")));
-                params.insert(literal!("dc"), ParamValue::Numeric(ac.dc));
-                params.insert(literal!("mag"), ParamValue::Numeric(ac.mag));
-                params.insert(literal!("phase"), ParamValue::Numeric(ac.phase));
+                params.push((literal!("type"), ParamValue::String(literal!("dc"))));
+                params.push((literal!("dc"), ParamValue::Numeric(ac.dc)));
+                params.push((literal!("mag"), ParamValue::Numeric(ac.mag)));
+                params.push((literal!("phase"), ParamValue::Numeric(ac.phase)));
             }
         };
 
@@ -289,9 +267,6 @@ pub struct Iprobe;
 impl Block for Iprobe {
     type Io = TwoTerminalIo;
 
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("iprobe")
-    }
     fn name(&self) -> arcstr::ArcStr {
         // `iprobe` is a reserved Spectre keyword,
         // so we call this block `useriprobe`.
@@ -302,20 +277,18 @@ impl Block for Iprobe {
     }
 }
 
-impl ExportsNestedData for Iprobe {
+impl Schematic for Iprobe {
+    type Schema = Spectre;
     type NestedData = ();
-}
-
-impl Schematic<Spectre> for Iprobe {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("iprobe"),
             ports: vec!["in".into(), "out".into()],
-            params: HashMap::new(),
+            params: Vec::new(),
         });
         prim.connect("in", io.p);
         prim.connect("out", io.n);
@@ -353,9 +326,6 @@ pub struct NportIo {
 impl Block for Nport {
     type Io = NportIo;
 
-    fn id() -> arcstr::ArcStr {
-        arcstr::literal!("nport")
-    }
     fn name(&self) -> arcstr::ArcStr {
         // `nport` is a reserved Spectre keyword,
         // so we call this block `usernport`.
@@ -368,22 +338,20 @@ impl Block for Nport {
     }
 }
 
-impl ExportsNestedData for Nport {
+impl Schematic for Nport {
+    type Schema = Spectre;
     type NestedData = ();
-}
-
-impl Schematic<Spectre> for Nport {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
             cell: arcstr::literal!("nport"),
             ports: (1..=self.ports)
                 .flat_map(|i| [arcstr::format!("t{i}"), arcstr::format!("b{i}")])
                 .collect(),
-            params: HashMap::from_iter([(
+            params: Vec::from_iter([(
                 arcstr::literal!("file"),
                 ParamValue::String(arcstr::format!("{:?}", self.parameter_file)),
             )]),
@@ -391,6 +359,183 @@ impl Schematic<Spectre> for Nport {
         for i in 0..self.ports {
             prim.connect(arcstr::format!("t{}", i + 1), io.ports[i].p);
             prim.connect(arcstr::format!("b{}", i + 1), io.ports[i].n);
+        }
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+/// An ideal 2-terminal resistor.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(crate = "substrate::serde")]
+pub struct Resistor {
+    /// The resistor value.
+    value: Decimal,
+}
+impl Resistor {
+    /// Create a new resistor with the given value.
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+
+    /// The value of the resistor.
+    #[inline]
+    pub fn value(&self) -> Decimal {
+        self.value
+    }
+}
+impl Block for Resistor {
+    type Io = TwoTerminalIo;
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("ideal_resistor_{}", self.value)
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl Schematic for Resistor {
+    type Schema = Spectre;
+    type NestedData = ();
+    fn schematic(
+        &self,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
+            cell: arcstr::literal!("resistor"),
+            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
+            params: Vec::from_iter([(arcstr::literal!("r"), ParamValue::Numeric(self.value()))]),
+        });
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+/// An ideal 2-terminal capacitor.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Capacitor {
+    /// The resistor value.
+    value: Decimal,
+}
+
+impl Capacitor {
+    /// Create a new capacitor with the given value.
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+
+    /// The value of the capacitor.
+    #[inline]
+    pub fn value(&self) -> Decimal {
+        self.value
+    }
+}
+
+impl Block for Capacitor {
+    type Io = TwoTerminalIo;
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("capacitor_{}", self.value)
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
+}
+
+impl Schematic for Capacitor {
+    type Schema = Spectre;
+    type NestedData = ();
+    fn schematic(
+        &self,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
+            cell: arcstr::literal!("capacitor"),
+            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
+            params: Vec::from_iter([(arcstr::literal!("c"), ParamValue::Numeric(self.value()))]),
+        });
+        prim.connect("1", io.p);
+        prim.connect("2", io.n);
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+/// An instance with a pre-defined cell.
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
+pub struct RawInstance {
+    /// The name of the underlying cell.
+    pub cell: ArcStr,
+    /// The name of the ports of the underlying cell.
+    pub ports: Vec<ArcStr>,
+    /// The parameters to pass to the instance.
+    pub params: Vec<(ArcStr, ParamValue)>,
+}
+
+impl RawInstance {
+    /// Create a new raw instance with the given parameters.
+    #[inline]
+    pub fn with_params(
+        cell: ArcStr,
+        ports: Vec<ArcStr>,
+        params: impl Into<Vec<(ArcStr, ParamValue)>>,
+    ) -> Self {
+        Self {
+            cell,
+            ports,
+            params: params.into(),
+        }
+    }
+    /// Create a new raw instance with no parameters.
+    #[inline]
+    pub fn new(cell: ArcStr, ports: Vec<ArcStr>) -> Self {
+        Self {
+            cell,
+            ports,
+            params: Vec::new(),
+        }
+    }
+}
+impl Block for RawInstance {
+    type Io = InOut<Array<Signal>>;
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("raw_instance_{}", self.cell)
+    }
+
+    fn io(&self) -> Self::Io {
+        InOut(Array::new(self.ports.len(), Default::default()))
+    }
+}
+
+impl Schematic for RawInstance {
+    type Schema = Spectre;
+    type NestedData = ();
+    fn schematic(
+        &self,
+        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
+            cell: self.cell.clone(),
+            ports: self.ports.clone(),
+            params: self.params.clone(),
+        });
+        for (i, port) in self.ports.iter().enumerate() {
+            prim.connect(port, io[i]);
         }
         cell.set_primitive(prim);
         Ok(())

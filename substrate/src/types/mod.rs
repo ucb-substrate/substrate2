@@ -2,14 +2,12 @@
 
 use std::{
     borrow::Borrow,
+    fmt::Debug,
     ops::{Deref, Index},
 };
 
 use arcstr::ArcStr;
 pub use codegen::Io;
-use geometry::transform::{HasTransformedView, Transformed};
-use layout::{HardwareType as LayoutType, PortGeometry};
-use schematic::{HardwareType as SchematicType, Node};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -25,13 +23,21 @@ pub mod schematic;
 
 // BEGIN TRAITS
 
-/// A trait implemented by block input/output interfaces.
-pub trait Io: Directed + SchematicType + LayoutType {}
-impl<T: Directed + SchematicType + LayoutType> Io for T {}
+/// The length of the flattened list.
+pub trait FlatLen {
+    /// The length of the flattened list.
+    fn len(&self) -> usize;
+    /// Whether or not the flattened representation is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
 
-/// Indicates that a hardware type specifies signal directions for all of its fields.
-pub trait Directed: Flatten<Direction> {}
-impl<T: Flatten<Direction>> Directed for T {}
+impl<T: FlatLen> FlatLen for &T {
+    fn len(&self) -> usize {
+        (*self).len()
+    }
+}
 
 /// Flatten a structure into a list.
 pub trait Flatten<T>: FlatLen {
@@ -50,13 +56,12 @@ pub trait Flatten<T>: FlatLen {
     }
 }
 
-/// The length of the flattened list.
-pub trait FlatLen {
-    /// The length of the flattened list.
-    fn len(&self) -> usize;
-    /// Whether or not the flattened representation is empty.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
+impl<S, T: Flatten<S>> Flatten<S> for &T {
+    fn flatten<E>(&self, output: &mut E)
+    where
+        E: Extend<S>,
+    {
+        (*self).flatten(output)
     }
 }
 
@@ -76,15 +81,39 @@ pub trait HasNameTree {
     }
 }
 
-/// A schematic hardware data struct.
-///
-/// Only intended for use by Substrate procedural macros.
-pub trait StructData {
-    /// Returns a list of the names of the fields in this struct.
-    fn fields(&self) -> Vec<ArcStr>;
+/// A bundle kind.
+pub trait BundleKind:
+    HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
+{
+}
+impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
+    for T
+{
+}
 
-    /// Returns the list of nodes contained by the field of the given name.
-    fn field_nodes(&self, name: &str) -> Option<Vec<Node>>;
+/// Indicates that an IO specifies signal directions for all of its fields.
+pub trait Directed: Flatten<Direction> {}
+impl<T: Flatten<Direction>> Directed for T {}
+
+/// A trait implemented by block input/output interfaces.
+pub trait Io: Directed + HasBundleKind + Clone {}
+impl<T: Directed + HasBundleKind + Clone> Io for T {}
+
+/// A construct with an associated [`BundleKind`].
+pub trait HasBundleKind: Send + Sync {
+    /// The Rust type of the [`BundleKind`] associated with this bundle.
+    type BundleKind: BundleKind;
+
+    /// Returns the [`BundleKind`] of this bundle.
+    fn kind(&self) -> Self::BundleKind;
+}
+
+impl<T: HasBundleKind> HasBundleKind for &T {
+    type BundleKind = T::BundleKind;
+
+    fn kind(&self) -> Self::BundleKind {
+        (*self).kind()
+    }
 }
 
 // END TRAITS
@@ -113,32 +142,32 @@ pub struct NameTree {
     children: Vec<NameTree>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
-/// An input port of hardware type `T`.
+/// An input port of kind `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`Input`](Direction::Input)
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Input<T>(pub T);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
-/// An output port of hardware type `T`.
+/// An output port of kind `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`Output`](Direction::Output)
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Output<T>(pub T);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
-/// An inout port of hardware type `T`.
+/// An inout port of kind `T`.
 ///
 /// Recursively overrides the direction of all components of `T` to be [`InOut`](Direction::InOut)
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct InOut<T>(pub T);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 /// Flip the direction of all ports in `T`
 ///
 /// See [`Direction::flip`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Flipped<T>(pub T);
 
-/// A type representing a single hardware wire.
-#[derive(Debug, Default, Clone, Copy)]
+/// A type representing a single hardware wire in a [`BundleKind`].
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Signal;
 
 impl Signal {
@@ -149,26 +178,26 @@ impl Signal {
     }
 }
 
-/// An array containing some number of elements of type `T`.
+/// An array containing some number of elements of kind `T`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Array<T> {
     len: usize,
-    ty: T,
+    kind: T,
 }
 
 impl<T> Array<T> {
-    /// Create a new array of the given length and hardware type.
+    /// Create a new array of the given length and bundle kind.
     #[inline]
-    pub fn new(len: usize, ty: T) -> Self {
-        Self { len, ty }
+    pub fn new(len: usize, kind: T) -> Self {
+        Self { len, kind }
     }
 }
 
-/// An instantiated array containing a fixed number of elements of type `T`.
+/// An instantiated array containing a fixed number of elements of `T`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ArrayData<T> {
+pub struct ArrayBundle<T: HasBundleKind> {
     elems: Vec<T>,
-    ty_len: usize,
+    kind: T::BundleKind,
 }
 
 // END TYPES
@@ -189,7 +218,7 @@ pub struct MosIo {
 }
 
 /// The interface to which simulation testbenches should conform.
-#[derive(Debug, Default, Clone, Io)]
+#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
 pub struct TestbenchIo {
     /// The global ground net.
     pub vss: InOut<Signal>,
@@ -214,6 +243,7 @@ pub struct PowerIo {
 }
 
 /// A pair of differential signals.
+// TODO: Create proc macro for defining un-directioned (non-IO) bundle types directly.
 #[derive(Debug, Default, Copy, Clone, Io)]
 pub struct DiffPair {
     /// The positive signal.

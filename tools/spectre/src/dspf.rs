@@ -3,9 +3,9 @@
 use scir::{NamedSliceOne, NetlistLibConversion, SliceOnePath};
 use spice::Spice;
 use std::sync::Arc;
-use substrate::io::schematic::{NestedNode, Node};
 use substrate::schematic::conv::{ConvertedNodePath, RawLib};
 use substrate::schematic::{HasNestedView, InstancePath};
+use substrate::types::schematic::{NestedNode, Node};
 
 /// A set of nodes in a DSPF netlist.
 #[derive(Debug, Clone)]
@@ -52,7 +52,7 @@ pub trait ReconstructDspfView<T> {
 impl<T> HasNestedView for DspfNodes<T>
 where
     T: HasNestedDspfView,
-    <T as HasNestedDspfView>::Strings: Send + Sync,
+    <T as HasNestedDspfView>::Strings: Send + Sync + Clone,
 {
     type NestedView = DspfNestedNodes<<T as HasNestedDspfView>::Strings>;
 

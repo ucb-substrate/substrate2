@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Substrate Labs',
   tagline: '21st century electronic design automation tools, written in Rust.',
-  favicon: 'img/substrate_logo2_blue.png',
+  favicon: 'img/substrate_logo_blue.png',
 
   // Set the production url of your site here
   url: 'https://docs.substratelabs.io',
@@ -59,13 +59,13 @@ const config: Config = {
 
   themeConfig: {
       // Replace with your project's social card
-      image: 'img/substrate_logo2.png',
+      image: 'img/substrate_logo.png',
       navbar: {
         title: 'Substrate Labs',
         logo: {
           alt: 'Substrate Labs Logo',
-          src: 'img/substrate_logo2.png',
-          srcDark: 'img/substrate_logo2_dark.png',
+          src: 'img/substrate_logo.png',
+          srcDark: 'img/substrate_logo_dark.png',
         },
         items: [
           {
@@ -88,40 +88,12 @@ const config: Config = {
       },
       footer: {
         style: 'dark',
-        links: [
-          {
-            title: 'Docs',
-            items: [
-              {
-                label: 'Tutorial',
-                to: '/docs/category/getting-started',
-              },
-            ],
-          },
-          {
-            title: 'Community',
-            items: [
-              {
-                label: 'Discord',
-                href: 'https://discord.gg/XhtHzrEyaG',
-              },
-            ],
-          },
-          {
-            title: 'More',
-            items: [
-              {
-                label: 'GitHub',
-                href: 'https://github.com/substrate-labs/substrate2',
-              },
-            ],
-          },
-        ],
+        links: [],
         copyright: `Copyright © ${new Date().getFullYear()} Substrate Labs. Built with Docusaurus.`,
       },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: prismThemes.oneLight,
+      darkTheme: prismThemes.palenight, // nightowl
       additionalLanguages: ['rust', 'toml'],
     },
   } satisfies Preset.ThemeConfig,

@@ -1,48 +1,59 @@
-//! Traits and types for schematic IOs.
+//! Traits and types for layout IOs.
 
+use super::{
+    FlatLen, Flatten, HasBundleKind, HasNameTree, NameBuf, NameFragment, NameTree, Signal,
+};
 use crate::error::Result;
-use crate::io::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
 use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
 use crate::pdk::layers::{HasPin, LayerId};
 use arcstr::ArcStr;
 pub use codegen::LayoutType as HardwareType;
+use geometry::point::Point;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
-use geometry::transform;
-use geometry::transform::HasTransformedView;
+use geometry::transform::{TransformRef, TranslateRef};
 use geometry::union::BoundingUnion;
 use std::collections::HashMap;
 use substrate::layout::bbox::LayerBbox;
 use tracing::Level;
 
-/// A layout hardware type.
-pub trait HardwareType: FlatLen + HasNameTree + Clone {
-    /// The **Rust** type representing layout instances of this **hardware** type.
-    type Bundle: IsBundle;
-    /// A builder for creating [`HardwareType::Bundle`].
-    type Builder: BundleBuilder<Self::Bundle>;
+/// A type with an associated layout hardware type.
+pub trait HasHardwareType {
+    /// The associated hardware type.
+    type HardwareType: HardwareType;
 
-    /// Instantiates a schematic data struct with populated nodes.
-    fn builder(&self) -> Self::Builder;
+    /// Creates an instance of the builder of the associated type.
+    fn builder(&self) -> <<Self as HasHardwareType>::HardwareType as HardwareType>::Builder;
+}
+
+/// A layout hardware type.
+pub trait HardwareType: super::HasBundleKind + HasNameTree + Clone {
+    /// The **Rust** type representing layout instances of this **hardware** type.
+    type Bundle: IsBundle + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
+    /// A builder for creating [`HardwareType::Bundle`].
+    type Builder: BundleBuilder<Self::Bundle>
+        + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
 }
 
 /// The associated bundle of a layout type.
-pub type Bundle<T> = <T as HardwareType>::Bundle;
+pub type Bundle<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Bundle;
 
 /// The associated builder of a layout type.
-pub type Builder<T> = <T as HardwareType>::Builder;
+pub type Builder<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Builder;
 
 /// Layout hardware data builder.
 ///
 /// A builder for an instance of bundle `T`.
-pub trait BundleBuilder<T: IsBundle> {
+pub trait BundleBuilder<T: IsBundle>:
+    HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>
+{
     /// Builds an instance of bundle `T`.
     fn build(self) -> Result<T>;
 }
 
 /// A custom layout type that can be derived from an existing layout type.
-pub trait CustomHardwareType<T: HardwareType>: HardwareType {
+pub trait CustomHardwareType<T>: HardwareType {
     /// Creates this layout type from another layout type.
     fn from_layout_type(other: &T) -> Self;
 }
@@ -119,12 +130,26 @@ impl Bbox for PortGeometry {
     }
 }
 
-/// A type that can is a bundle of layout ports.
+impl super::HasBundleKind for PortGeometry {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
+
+/// A type that can be a bundle of layout ports.
 ///
 /// An instance of a [`HardwareType`].
-pub trait IsBundle: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+pub trait IsBundle:
+    HasBundleKind + FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync
+{
+}
 
-impl<T> IsBundle for T where T: FlatLen + Flatten<PortGeometry> + HasTransformedView + Send + Sync {}
+impl<T> IsBundle for T where
+    T: HasBundleKind + FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync
+{
+}
 
 /// A layer ID that describes where the components of an [`IoShape`] are drawn.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -219,14 +244,29 @@ impl<T: Bbox> BoundingUnion<T> for IoShape {
     }
 }
 
-impl transform::HasTransformedView for IoShape {
-    type TransformedView = IoShape;
-
-    fn transformed_view(&self, trans: Transformation) -> Self::TransformedView {
-        IoShape {
-            shape: self.shape.transformed_view(trans),
+impl TranslateRef for IoShape {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
+            shape: self.shape.translate_ref(p),
             ..*self
         }
+    }
+}
+
+impl TransformRef for IoShape {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            shape: self.shape.transform_ref(trans),
+            ..*self
+        }
+    }
+}
+
+impl super::HasBundleKind for IoShape {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
     }
 }
 
@@ -283,7 +323,7 @@ impl PortGeometryBuilder {
 /// A simple builder that allows setting data at runtime.
 ///
 /// ```
-/// # use substrate::io::layout::OptionBuilder;
+/// # use substrate::types::layout::OptionBuilder;
 /// let mut builder = OptionBuilder::default();
 /// builder.set(5);
 /// assert_eq!(builder.build().unwrap(), 5);
@@ -320,13 +360,24 @@ impl FlatLen for ShapePort {
     }
 }
 
+impl super::HasBundleKind for ShapePort {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
+
+impl HasHardwareType for ShapePort {
+    type HardwareType = ShapePort;
+    fn builder(&self) -> <<Self as HasHardwareType>::HardwareType as HardwareType>::Builder {
+        Default::default()
+    }
+}
+
 impl HardwareType for ShapePort {
     type Bundle = IoShape;
     type Builder = OptionBuilder<IoShape>;
-
-    fn builder(&self) -> Self::Builder {
-        Default::default()
-    }
 }
 
 impl HasNameTree for ShapePort {
@@ -347,13 +398,25 @@ impl FlatLen for Port {
     }
 }
 
+impl super::HasBundleKind for Port {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
+
+impl HasHardwareType for Port {
+    type HardwareType = Port;
+
+    fn builder(&self) -> <<Self as HasHardwareType>::HardwareType as HardwareType>::Builder {
+        Default::default()
+    }
+}
+
 impl HardwareType for Port {
     type Bundle = PortGeometry;
     type Builder = PortGeometryBuilder;
-
-    fn builder(&self) -> Self::Builder {
-        Default::default()
-    }
 }
 
 impl HasNameTree for Port {
@@ -393,6 +456,19 @@ impl HierarchicalBuildFrom<NamedPorts> for OptionBuilder<IoShape> {
     }
 }
 
+impl<T: super::HasBundleKind> super::HasBundleKind for OptionBuilder<T> {
+    type BundleKind = T::BundleKind;
+
+    // TODO: find way to store type
+    fn kind(&self) -> Self::BundleKind {
+        if let Some(ref inner) = self.0 {
+            inner.kind()
+        } else {
+            unimplemented!()
+        }
+    }
+}
+
 impl<T: IsBundle> BundleBuilder<T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
         self.build()
@@ -414,20 +490,29 @@ impl Flatten<PortGeometry> for PortGeometry {
     }
 }
 
-impl transform::HasTransformedView for PortGeometry {
-    type TransformedView = PortGeometry;
-
-    fn transformed_view(
-        &self,
-        trans: geometry::transform::Transformation,
-    ) -> Self::TransformedView {
-        Self::TransformedView {
-            primary: self.primary.transformed_view(trans),
-            unnamed_shapes: self.unnamed_shapes.transformed_view(trans),
+impl TranslateRef for PortGeometry {
+    fn translate_ref(&self, p: Point) -> Self {
+        Self {
+            primary: self.primary.translate_ref(p),
+            unnamed_shapes: self.unnamed_shapes.translate_ref(p),
             named_shapes: self
                 .named_shapes
                 .iter()
-                .map(|(k, v)| (k.clone(), v.transformed_view(trans)))
+                .map(|(k, v)| (k.clone(), v.translate_ref(p)))
+                .collect(),
+        }
+    }
+}
+
+impl TransformRef for PortGeometry {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Self {
+            primary: self.primary.transform_ref(trans),
+            unnamed_shapes: self.unnamed_shapes.transform_ref(trans),
+            named_shapes: self
+                .named_shapes
+                .iter()
+                .map(|(k, v)| (k.clone(), v.transform_ref(trans)))
                 .collect(),
         }
     }
@@ -436,6 +521,14 @@ impl transform::HasTransformedView for PortGeometry {
 impl FlatLen for PortGeometryBuilder {
     fn len(&self) -> usize {
         1
+    }
+}
+
+impl super::HasBundleKind for PortGeometryBuilder {
+    type BundleKind = Signal;
+
+    fn kind(&self) -> Self::BundleKind {
+        Signal
     }
 }
 
