@@ -65,8 +65,7 @@ impl<T: Schematic> Schematic for Arc<T> {
 
 /// Block that implements [`Schematic`] in schema `S` for block `B`.
 #[derive_where::derive_where(Debug, Hash, PartialEq, Eq; B)]
-#[derive(Serialize, Deserialize)]
-pub struct ConvertSchema<B, S>(Arc<B>, #[serde(bound(deserialize = ""))] PhantomData<S>);
+pub struct ConvertSchema<B, S>(Arc<B>, PhantomData<S>);
 
 impl<B, S> Clone for ConvertSchema<B, S> {
     fn clone(&self) -> Self {
@@ -1651,7 +1650,7 @@ mod tests {
             pub n: InOut<Signal>,
         }
 
-        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "ResistorIo")]
         pub struct Resistor;
 
@@ -1701,7 +1700,7 @@ mod tests {
             pub data: Output<Array<Signal>>,
         }
 
-        #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
         pub struct MultiDecoupledBlock;
 
         impl Block for MultiDecoupledBlock {
@@ -1746,7 +1745,7 @@ mod tests {
             }
         }
 
-        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "()")]
         pub struct SuperBlock;
 
@@ -1795,7 +1794,7 @@ mod tests {
             }
         }
 
-        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "()")]
         pub struct NestedBlock<T>(T);
 
@@ -1822,7 +1821,7 @@ mod tests {
             pub dout: Output<Signal>,
         }
 
-        #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "VdividerIo")]
         pub struct Vdivider;
 
