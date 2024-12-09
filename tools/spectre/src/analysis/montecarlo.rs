@@ -82,32 +82,32 @@ impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for MonteCarlo<Vec<Input>> {
     }
 }
 
-impl<A: Analysis, T: FromSaved<Spectre, A>> FromSaved<Spectre, MonteCarlo<A>> for Output<T> {
-    type SavedKey = T::SavedKey;
-
-    fn from_saved(output: &<MonteCarlo<A> as Analysis>::Output, key: &Self::SavedKey) -> Self {
-        Output(
-            output
-                .0
-                .iter()
-                .map(|output| T::from_saved(output, key))
-                .collect(),
-        )
-    }
-}
-
-impl<A: SupportedBy<Spectre>, T, S> Save<Spectre, MonteCarlo<A>, T> for Output<S>
-where
-    S: Save<Spectre, A, T>,
-{
-    fn save(
-        ctx: &SimulationContext<Spectre>,
-        to_save: T,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as FromSaved<Spectre, MonteCarlo<A>>>::SavedKey {
-        S::save(ctx, to_save, opts)
-    }
-}
+// impl<A: Analysis, T: FromSaved<Spectre, A>> FromSaved<Spectre, MonteCarlo<A>> for Output<T> {
+//     type SavedKey = T::SavedKey;
+//
+//     fn from_saved(output: &<MonteCarlo<A> as Analysis>::Output, key: &Self::SavedKey) -> Self {
+//         Output(
+//             output
+//                 .0
+//                 .iter()
+//                 .map(|output| T::from_saved(output, key))
+//                 .collect(),
+//         )
+//     }
+// }
+//
+// impl<A: SupportedBy<Spectre>, T, S> Save<Spectre, MonteCarlo<A>, T> for Output<S>
+// where
+//     S: Save<Spectre, A, T>,
+// {
+//     fn save(
+//         ctx: &SimulationContext<Spectre>,
+//         to_save: T,
+//         opts: &mut <Spectre as Simulator>::Options,
+//     ) -> <Self as FromSaved<Spectre, MonteCarlo<A>>>::SavedKey {
+//         S::save(ctx, to_save, opts)
+//     }
+// }
 
 impl<A: Analysis> Analysis for MonteCarlo<A> {
     type Output = Output<A::Output>;

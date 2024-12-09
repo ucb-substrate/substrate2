@@ -39,7 +39,5 @@ splines = { version = "4.3.1", features = ["serde"] }
 
 [dev-dependencies]
 toml = "0.8"
-# TODO: use one or the other
 approx = "0.5"
-float_eq = "1.0.1"
 spice = { version = "<=0.7.1", registry = "substrate", path = "../libs/spice" }

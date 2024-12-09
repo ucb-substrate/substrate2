@@ -6,32 +6,56 @@ use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 
-use super::{Bundle, BundleKind, BundleOf, BundlePrimitive, HasBundleKind, Io, Signal};
+use super::{BundleKind, HasBundleKind, Io, Signal};
 
-/// A schematic bundle type.
-pub trait SchematicBundleKind:
-    BundleKind
-    + HasSchematicBundleOf<Node, Bundle: Connect>
-    + HasSchematicBundleOf<Terminal, Bundle: Connect>
-{
-    /// Instantiates a schematic data struct with populated nodes.
+/// A schematic bundle kind.
+pub trait SchematicBundleKind: BundleKind {
+    /// A bundle of nodes of this kind.
+    type NodeBundle: HasBundleKind<BundleKind = Self>
+        + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + Flatten<Node>;
+
+    /// A bundle of terminals of this kind.
+    type TerminalBundle: HasBundleKind<BundleKind = Self>
+        + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + Flatten<Terminal>
+        + Flatten<Node>;
+
+    /// Instantiates a node bundle with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate<'n>(
-        &self,
-        ids: &'n [Node],
-    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]);
+    fn instantiate_nodes<'n>(&self, ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]);
 
-    /// Instantiate a top-level schematic data struct from a node list
+    /// Instantiates a terminal bundle with populated nodes.
     ///
-    /// This method wraps [`instantiate`](Self::instantiate) with sanity checks
+    /// Must consume exactly [`FlatLen::len`] elements of the node list.
+    fn instantiate_terminals<'n>(
+        &self,
+        ids: &'n [Terminal],
+    ) -> (TerminalBundle<Self>, &'n [Terminal]);
+
+    /// Instantiate a top-level node bundle from a node list
+    ///
+    /// This method wraps [`instantiate_nodes`](Self::instantiate_nodes) with sanity checks
     /// to ensure that the instantiation process consumed all the nodes
     /// provided.
-    fn instantiate_top(&self, ids: &[Node]) -> <Self as HasSchematicBundleOf<Node>>::Bundle {
-        let (data, ids_rest) = self.instantiate(ids);
+    fn instantiate_nodes_top(&self, ids: &[Node]) -> NodeBundle<Self> {
+        let (data, ids_rest) = self.instantiate_nodes(ids);
+        assert!(ids_rest.is_empty());
+        debug_assert_eq!(ids, data.flatten_vec());
+        data
+    }
+
+    /// Instantiate a top-level node bundle from a node list
+    ///
+    /// This method wraps [`instantiate_terminals`](Self::instantiate_terminals) with sanity checks
+    /// to ensure that the instantiation process consumed all the nodes
+    /// provided.
+    fn instantiate_terminals_top(&self, ids: &[Terminal]) -> TerminalBundle<Self> {
+        let (data, ids_rest) = self.instantiate_terminals(ids);
         assert!(ids_rest.is_empty());
         debug_assert_eq!(ids, data.flatten_vec());
         data
@@ -40,94 +64,52 @@ pub trait SchematicBundleKind:
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
         instance: InstanceId,
-        instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
-    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle;
+        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
+    ) -> <Self as SchematicBundleKind>::TerminalBundle;
 }
 
-/// A bundle type with an associated bundle `Bundle` of `B`.
-pub trait HasSchematicBundleOf<S: SchematicBundlePrimitive>:
-    BundleKind<Bundle<S> = <Self as HasSchematicBundleOf<S>>::Bundle>
-{
-    /// The bundle of primitive `B` associated with this bundle type.
-    type Bundle: SchematicBundle + HasSchematicBundleKind<BundleKind = Self> + SchematicBundleOf<S>;
-}
-impl<
-        S: SchematicBundlePrimitive,
-        T: SchematicBundleKind
-            + BundleKind<
-                Bundle<S>: HasSchematicBundleKind<BundleKind = T>
-                               + HasNestedView<NestedView: HasSchematicBundleKind<BundleKind = T>>,
-            >,
-    > HasSchematicBundleOf<S> for T
-{
-    type Bundle = <T as BundleKind>::Bundle<S>;
-}
+/// A schematic bundle kind that can be viewed as another bundle kind `T`.
+pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
+    /// Views a node bundle as a node bundle of a different kind.
+    fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<T>;
 
-/// A schematic bundle representing an instantiation of a [`Signal`].
-pub trait SchematicBundlePrimitive:
-    BundlePrimitive + HasNestedView<NestedView = <Self as SchematicBundlePrimitive>::NestedView>
-{
-    /// The nested view of this primitive.
-    type NestedView: BundlePrimitive
-        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
+    /// Views a terminal bundle as a terminal bundle of a different kind.
+    fn view_terminals_as(terminals: &TerminalBundle<Self>) -> TerminalBundle<T> {
+        let kind = terminals.kind();
+        let flat_terminals = Flatten::<Terminal>::flatten_vec(terminals);
+        let terminal_map = flat_terminals
+            .iter()
+            .map(|terminal| (terminal.instance_node, terminal))
+            .collect::<HashMap<_, _>>();
+        let flat_nodes = flat_terminals
+            .iter()
+            .map(|terminal| terminal.instance_node)
+            .collect::<Vec<_>>();
+        let nodes = Self::instantiate_nodes_top(&kind, &flat_nodes);
+        let nodes_view = Self::view_nodes_as(&nodes);
+        let nodes_view_kind = nodes_view.kind();
+        let flat_nodes_view = Flatten::<Node>::flatten_vec(&nodes_view);
+        let flat_terminals_view = flat_nodes_view
+            .iter()
+            .map(|node| *terminal_map[node])
+            .collect::<Vec<_>>();
+        T::instantiate_terminals_top(&nodes_view_kind, &flat_terminals_view)
+    }
 }
-impl<T: BundlePrimitive + HasNestedView<NestedView: BundlePrimitive>> SchematicBundlePrimitive
-    for T
-{
-    type NestedView = <Self as HasNestedView>::NestedView;
-}
-
-/// A construct with an associated [`BundleKind`].
-pub trait HasSchematicBundleKind:
-    HasBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
-{
-    /// The Rust type of the [`BundleKind`] associated with this bundle.
-    type BundleKind: SchematicBundleKind;
-}
-impl<T: HasBundleKind<BundleKind: SchematicBundleKind>> HasSchematicBundleKind for T {
-    type BundleKind = <Self as HasBundleKind>::BundleKind;
-}
-
-/// A schematic bundle.
-pub trait SchematicBundle:
-    Bundle + HasSchematicBundleKind + HasNestedView<NestedView = <Self as SchematicBundle>::NestedView>
-{
-    /// The nested view of a schematic bundle.
-    type NestedView: Bundle
-        + HasSchematicBundleKind<BundleKind = <Self as HasSchematicBundleKind>::BundleKind>
-        + HasNestedView<NestedView = <Self as HasNestedView>::NestedView>;
-}
-impl<
-        T: Bundle
-            + HasSchematicBundleKind
-            + HasNestedView<
-                NestedView: Bundle
-                                + HasSchematicBundleKind<
-                    BundleKind = <T as HasSchematicBundleKind>::BundleKind,
-                >,
-            >,
-    > SchematicBundle for T
-{
-    type NestedView = <Self as HasNestedView>::NestedView;
-}
-
-/// A schematic bundle that is made up of primitive `T`.
-pub trait SchematicBundleOf<T: SchematicBundlePrimitive>: BundleOf<T> + SchematicBundle {}
-impl<S: SchematicBundlePrimitive, T: BundleOf<S> + SchematicBundle> SchematicBundleOf<S> for T {}
-
-/// A bundle that can be connected.
-pub trait Connect: SchematicBundleOf<Node> {}
-impl<T: SchematicBundleOf<Node>> Connect for T {}
 
 /// The [`BundleKind`] of a block's IO.
-pub type IoKind<T> = <<T as Block>::Io as HasSchematicBundleKind>::BundleKind;
-/// A bundle of type `T` consisting of bundle primitive `B`.
-pub type BundleOfKind<T, B> =
-    <<T as HasSchematicBundleKind>::BundleKind as HasSchematicBundleOf<B>>::Bundle;
-/// The [`Bundle`] of a block's IO consisting of bundle primitive `B`.
-pub type IoBundle<T, B> = <IoKind<T> as HasSchematicBundleOf<B>>::Bundle;
+pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
+/// The type of a bundle associated with an IO.
+pub type IoBundle<T> = NodeBundle<<T as Block>::Io>;
+/// The type of a terminal bundle associated with an IO.
+pub type IoTerminalBundle<T> = TerminalBundle<<T as Block>::Io>;
+/// The type of a node bundle associated with [`SchematicBundleKind`] `T`.
+pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::NodeBundle;
+/// The type of a terminal bundle associated with [`SchematicBundleKind`] `T`.
+pub type TerminalBundle<T> =
+    <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::TerminalBundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -179,8 +161,6 @@ impl HasBundleKind for Node {
         Signal
     }
 }
-
-impl BundlePrimitive for Node {}
 
 impl HasNestedView for Node {
     type NestedView = NestedNode;
@@ -244,8 +224,6 @@ impl HasBundleKind for NestedNode {
     }
 }
 
-impl BundlePrimitive for NestedNode {}
-
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
@@ -284,7 +262,7 @@ impl From<&NestedNode> for NodePath {
 }
 
 /// A terminal of an instance.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Terminal {
     pub(crate) cell_id: CellId,
     pub(crate) cell_node: Node,
@@ -337,8 +315,6 @@ impl HasBundleKind for Terminal {
         Signal
     }
 }
-
-impl BundlePrimitive for Terminal {}
 
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
@@ -397,8 +373,6 @@ impl HasBundleKind for NestedTerminal {
         Signal
     }
 }
-
-impl BundlePrimitive for NestedTerminal {}
 
 impl HasNestedView for NestedTerminal {
     type NestedView = NestedTerminal;
@@ -629,32 +603,26 @@ impl NodeContext {
             .collect()
     }
 
-    pub fn instantiate_directed<IO: Io + HasSchematicBundleKind>(
+    pub fn instantiate_directed<IO: Io + HasBundleKind<BundleKind: SchematicBundleKind>>(
         &mut self,
         io: &IO,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (
-        Vec<Node>,
-        <<IO as HasSchematicBundleKind>::BundleKind as HasSchematicBundleOf<Node>>::Bundle,
-    ) {
+    ) -> (Vec<Node>, NodeBundle<IO>) {
         let nodes = self.nodes_directed(&io.flatten_vec(), priority, source_info);
-        let data = io.kind().instantiate_top(&nodes);
+        let data = io.kind().instantiate_nodes_top(&nodes);
         (nodes, data)
     }
 
-    pub fn instantiate_undirected<K: HasSchematicBundleKind>(
+    pub fn instantiate_undirected<K: HasBundleKind<BundleKind: SchematicBundleKind>>(
         &mut self,
         kind: &K,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (
-        Vec<Node>,
-        <<K as HasSchematicBundleKind>::BundleKind as HasSchematicBundleOf<Node>>::Bundle,
-    ) {
+    ) -> (Vec<Node>, NodeBundle<K>) {
         let kind = kind.kind();
         let nodes = self.nodes_undirected(kind.flat_names(None).len(), priority, source_info);
-        let data = kind.instantiate_top(&nodes);
+        let data = kind.instantiate_nodes_top(&nodes);
         (nodes, data)
     }
 

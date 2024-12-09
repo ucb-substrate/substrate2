@@ -85,18 +85,10 @@ pub trait HasNameTree {
 pub trait BundleKind:
     HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
-    /// An associated bundle type that allows swapping in any [`BundlePrimitive`].
-    type Bundle<B: BundlePrimitive>: Bundle<BundleKind = Self> + BundleOf<B>;
 }
-
-/// A bundle kind with an associated bundle `Bundle` of `B`.
-pub trait HasBundleOf<B: BundlePrimitive>: BundleKind {
-    /// The bundle of primitive `B` associated with this bundle kind.
-    type Bundle: Bundle<BundleKind = Self> + BundleOf<B>;
-}
-
-impl<B: BundlePrimitive, T: BundleKind> HasBundleOf<B> for T {
-    type Bundle = <T as BundleKind>::Bundle<B>;
+impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
+    for T
+{
 }
 
 /// Indicates that an IO specifies signal directions for all of its fields.
@@ -107,11 +99,8 @@ impl<T: Flatten<Direction>> Directed for T {}
 pub trait Io: Directed + HasBundleKind + Clone {}
 impl<T: Directed + HasBundleKind + Clone> Io for T {}
 
-/// A bundle primitive representing an instantiation of a [`Signal`].
-pub trait BundlePrimitive: Clone + Bundle<BundleKind = Signal> + BundleOf<Self> {}
-
 /// A construct with an associated [`BundleKind`].
-pub trait HasBundleKind {
+pub trait HasBundleKind: Send + Sync {
     /// The Rust type of the [`BundleKind`] associated with this bundle.
     type BundleKind: BundleKind;
 
@@ -126,14 +115,6 @@ impl<T: HasBundleKind> HasBundleKind for &T {
         (*self).kind()
     }
 }
-
-/// A bundle of hardware wires.
-pub trait Bundle: HasBundleKind + Send + Sync {}
-impl<T: HasBundleKind + Send + Sync> Bundle for T {}
-
-/// A bundle that is made up of primitive `T`.
-pub trait BundleOf<T: BundlePrimitive>: Bundle + FlatLen + Flatten<T> {}
-impl<S: BundlePrimitive, T: Bundle + FlatLen + Flatten<S>> BundleOf<S> for T {}
 
 // END TRAITS
 
@@ -214,7 +195,7 @@ impl<T> Array<T> {
 
 /// An instantiated array containing a fixed number of elements of `T`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ArrayBundle<T: Bundle> {
+pub struct ArrayBundle<T: HasBundleKind> {
     elems: Vec<T>,
     kind: T::BundleKind,
 }

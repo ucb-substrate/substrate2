@@ -40,7 +40,7 @@ use crate::schematic::{
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HasHardwareType as HasLayoutType};
-use crate::types::schematic::{IoBundle, Node, NodeContext, NodePriority, Port};
+use crate::types::schematic::{IoBundle, NodeContext, NodePriority, Port};
 use crate::types::{Flatten, Flipped, HasBundleKind, HasNameTree};
 
 /// The global context.
@@ -427,10 +427,12 @@ impl Context {
         export_multi_top_scir_lib(cells)
     }
 
-    /// Simulate the given testbench.
-    ///
-    /// The simulator must be installed in the context.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    /// Returns a simulation controller for the given testbench and simulator.
+    pub fn get_sim_controller<S, T>(
+        &self,
+        block: T,
+        work_dir: impl Into<PathBuf>,
+    ) -> Result<SimController<S, T>>
     where
         S: Simulator,
         T: Testbench<S>,
@@ -448,14 +450,11 @@ impl Context {
             work_dir: work_dir.into(),
             ctx: self.clone(),
         };
-        let controller = SimController {
+        Ok(SimController {
             tb: cell.clone(),
             simulator,
             ctx,
-        };
-
-        // TODO caching
-        Ok(block.run(controller))
+        })
     }
 
     /// Installs the given [`PrivateInstallation`].
@@ -660,7 +659,7 @@ pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (CellBuilder<T::Schema>, IoBundle<T, Node>) {
+) -> (CellBuilder<T::Schema>, IoBundle<T>) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)

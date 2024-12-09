@@ -1,6 +1,8 @@
 //! Traits and types for layout IOs.
 
-use super::{FlatLen, Flatten, HasNameTree, NameBuf, NameFragment, NameTree, Signal};
+use super::{
+    FlatLen, Flatten, HasBundleKind, HasNameTree, NameBuf, NameFragment, NameTree, Signal,
+};
 use crate::error::Result;
 use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
@@ -28,11 +30,10 @@ pub trait HasHardwareType {
 /// A layout hardware type.
 pub trait HardwareType: super::HasBundleKind + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
-    type Bundle: IsBundle
-        + super::HasBundleKind<BundleKind = <Self as super::HasBundleKind>::BundleKind>;
+    type Bundle: IsBundle + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
     /// A builder for creating [`HardwareType::Bundle`].
     type Builder: BundleBuilder<Self::Bundle>
-        + super::HasBundleKind<BundleKind = <Self as super::HasBundleKind>::BundleKind>;
+        + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
 }
 
 /// The associated bundle of a layout type.
@@ -45,7 +46,7 @@ pub type Builder<T> = <<T as HasHardwareType>::HardwareType as HardwareType>::Bu
 ///
 /// A builder for an instance of bundle `T`.
 pub trait BundleBuilder<T: IsBundle>:
-    super::Bundle + super::HasBundleKind<BundleKind = <T as super::HasBundleKind>::BundleKind>
+    HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>
 {
     /// Builds an instance of bundle `T`.
     fn build(self) -> Result<T>;
@@ -141,12 +142,12 @@ impl super::HasBundleKind for PortGeometry {
 ///
 /// An instance of a [`HardwareType`].
 pub trait IsBundle:
-    super::Bundle + FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync
+    HasBundleKind + FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync
 {
 }
 
 impl<T> IsBundle for T where
-    T: super::Bundle + FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync
+    T: HasBundleKind + FlatLen + Flatten<PortGeometry> + TransformRef + Send + Sync
 {
 }
 
