@@ -219,10 +219,9 @@ pub fn derive_nested_data(input: TokenStream) -> TokenStream {
 ///
 /// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
 /// ```
-/// use serde::{Serialize, Deserialize};
 /// use substrate::block::Block;
 ///
-/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 /// #[substrate(io = "substrate::io::TestbenchIo")]
 /// pub struct MyBlock {
 ///   // ...

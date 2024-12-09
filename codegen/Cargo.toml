@@ -17,7 +17,6 @@ type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/typ
 
 [dev-dependencies]
 arcstr = "1"
-serde = { version = "1", features = ["derive"] }
 substrate = { version = "<=0.8.1", registry = "substrate", path = "../substrate" }
 sky130pdk = { version = "<=0.8.1", registry = "substrate", path = "../pdks/sky130pdk" }
 spectre = { version = "<=0.9.1", registry = "substrate", path = "../tools/spectre" }

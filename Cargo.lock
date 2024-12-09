@@ -565,7 +565,6 @@ dependencies = [
  "quote",
  "rust_decimal",
  "rust_decimal_macros",
- "serde",
  "sky130pdk",
  "spectre",
  "spice",
