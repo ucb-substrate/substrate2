@@ -1,7 +1,4 @@
 //! Interfaces for interacting with simulation data.
-
-pub use codegen::FromSaved;
-
 use crate::schematic::HasNestedView;
 use crate::simulation::{Analysis, SimulationContext, Simulator};
 
