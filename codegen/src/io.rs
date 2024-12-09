@@ -1,7 +1,6 @@
 use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_quote, GenericParam};
 use type_dispatch::derive::{
     add_trait_bounds, field_tokens, field_tokens_with_referent, struct_body, FieldTokens,
 };
@@ -67,19 +66,25 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
     let mut data_fields = Vec::new();
     let mut terminal_view_fields = Vec::new();
     let mut construct_data_fields = Vec::new();
+    let mut construct_data_ty_fields = Vec::new();
+    let mut construct_data_nested_ty_fields = Vec::new();
     let mut construct_terminal_view_fields = Vec::new();
-    let mut instantiate_fields = Vec::new();
-    let mut flatten_dir_fields = Vec::new();
+    let mut construct_terminal_view_ty_fields = Vec::new();
+    let mut construct_terminal_view_nested_ty_fields = Vec::new();
+    let mut instantiate_nodes_fields = Vec::new();
+    let mut instantiate_terminals_fields = Vec::new();
     let mut flatten_node_fields = Vec::new();
     let mut terminal_view_flatten_node_fields = Vec::new();
-    let mut field_list_elems = Vec::new();
-    let mut field_match_arms = Vec::new();
+    let mut terminal_view_flatten_terminal_fields = Vec::new();
 
-    let data_ident = format_ident!("{}Bundle", ident);
+    let data_ident = format_ident!("{}NodeBundle", ident);
+    let data_nested_ident = format_ident!("{}Nested", data_ident);
     let terminal_view_ident = format_ident!("{}TerminalBundle", ident);
+    let terminal_view_nested_ident = format_ident!("{}Nested", terminal_view_ident);
 
     for (i, &f) in fields.iter().enumerate() {
         let field_ty = &f.ty;
+        let field_ty = quote! { <#field_ty as #substrate::types::HasBundleKind>::BundleKind };
         let field_vis = &f.vis;
         let field_ident = &f.ident;
         let attrs = &f.attrs;
@@ -89,7 +94,7 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             refer,
             assign,
             temp,
-            pretty_ident,
+            ..
         } = field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         let FieldTokens {
@@ -117,39 +122,49 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         );
 
         data_len.push(quote! {
-                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle as #substrate::io::FlatLen>::len(&#refer)
+                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::NodeBundle as #substrate::types::FlatLen>::len(&#refer)
             });
         terminal_data_len.push(quote! {
-                <<<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle as #substrate::types::schematic::HasTerminalView>::TerminalView as #substrate::io::FlatLen>::len(&#refer)
+                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle as #substrate::types::FlatLen>::len(&#refer)
             });
         data_fields.push(quote! {
-            #declare <#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle,
+            #declare <#field_ty as #substrate::types::schematic::SchematicBundleKind>::NodeBundle,
         });
         terminal_view_fields.push(quote! {
-                #declare #substrate::types::schematic::TerminalView<<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle>,
+                #declare <#field_ty as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle,
         });
         construct_data_fields.push(quote! {
             #assign #temp,
         });
+        construct_data_ty_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::NodeBundle as #substrate::types::HasBundleKind>::kind(&#refer),
+        });
+        construct_data_nested_ty_fields.push(quote! {
+            #assign <#substrate::schematic::NestedView<<#field_ty as #substrate::types::schematic::SchematicBundleKind>::NodeBundle> as #substrate::types::HasBundleKind>::kind(&#refer),
+        });
         construct_terminal_view_fields.push(quote! {
-                #assign <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle as #substrate::types::schematic::HasTerminalView>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
+                #assign <#field_ty as #substrate::types::schematic::SchematicBundleKind>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
         });
-        instantiate_fields.push(quote! {
-                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::types::schematic::SchematicBundleKind>::instantiate(&#refer, __substrate_node_ids);
+        construct_terminal_view_ty_fields.push(quote! {
+            #assign <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle as #substrate::types::HasBundleKind>::kind(&#refer),
         });
-        flatten_dir_fields.push(quote! {
-                <#field_ty as #substrate::io::Flatten<#substrate::io::Direction>>::flatten(&#refer, __substrate_output_sink);
+        construct_terminal_view_nested_ty_fields.push(quote! {
+            #assign <#substrate::schematic::NestedView<<#field_ty as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle> as #substrate::types::HasBundleKind>::kind(&#refer),
+        });
+        instantiate_nodes_fields.push(quote! {
+                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::types::schematic::SchematicBundleKind>::instantiate_nodes(&#refer, __substrate_node_ids);
+        });
+        instantiate_terminals_fields.push(quote! {
+                let (#temp, __substrate_node_ids) = <#field_ty as #substrate::types::schematic::SchematicBundleKind>::instantiate_terminals(&#refer, __substrate_node_ids);
         });
         flatten_node_fields.push(quote! {
-                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle as #substrate::io::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
+                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::NodeBundle as #substrate::types::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
         });
         terminal_view_flatten_node_fields.push(quote! {
-                <<<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle as #substrate::types::schematic::HasTerminalView>::TerminalView as #substrate::io::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
+                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle as #substrate::types::Flatten<#substrate::types::schematic::Node>>::flatten(&#refer, __substrate_output_sink);
         });
-        field_list_elems
-            .push(quote! { #substrate::arcstr::literal!(::std::stringify!(#pretty_ident)) });
-        field_match_arms.push(quote! {
-            ::std::stringify!(#pretty_ident) => ::std::option::Option::Some(<<#field_ty as #substrate::types::schematic::SchematicBundleKind>::Bundle as #substrate::io::Flatten<#substrate::types::schematic::Node>>::flatten_vec(&#refer)),
+        terminal_view_flatten_terminal_fields.push(quote! {
+                <<#field_ty as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle as #substrate::types::Flatten<#substrate::types::schematic::Terminal>>::flatten(&#refer, __substrate_output_sink);
         });
     }
 
@@ -165,8 +180,28 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         false,
         quote!( #(#construct_terminal_view_fields)* ),
     );
+    let construct_terminal_view_ty_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #construct_terminal_view_ty_fields )* },
+    );
+    let construct_terminal_view_nested_ty_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #construct_terminal_view_nested_ty_fields )* },
+    );
     let construct_data_body =
         struct_body(fields.style, false, quote!( #(#construct_data_fields)* ));
+    let construct_data_ty_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #construct_data_ty_fields )* },
+    );
+    let construct_data_nested_ty_body = struct_body(
+        fields.style,
+        true,
+        quote! { #( #construct_data_nested_ty_fields )* },
+    );
 
     quote! {
         #[derive(Clone, #substrate::schematic::NestedData)]
@@ -176,13 +211,27 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
         #(#attrs)*
         #vis struct #terminal_view_ident #st_generics #terminal_view_body
 
-        impl #st_imp #substrate::io::FlatLen for #data_ident #st_ty #st_where {
+        impl #st_imp #data_ident #st_ty #st_where {
+            /// Views this node bundle as a node bundle of a different kind.
+            #vis fn view_as<__substrate_T: #substrate::types::HasBundleKind<BundleKind: #substrate::types::schematic::SchematicBundleKind>>(&self) -> #substrate::types::schematic::NodeBundle<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind> where <Self as #substrate::types::HasBundleKind>::BundleKind: #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>{
+                <<Self as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>>::view_nodes_as(self)
+            }
+        }
+
+        impl #st_imp #terminal_view_ident #st_ty #st_where {
+            /// Views this terminal bundle as a terminal bundle of a different kind.
+            #vis fn view_as<__substrate_T: #substrate::types::HasBundleKind<BundleKind: #substrate::types::schematic::SchematicBundleKind>>(&self) -> #substrate::types::schematic::TerminalBundle<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind> where <Self as #substrate::types::HasBundleKind>::BundleKind: #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>{
+                <<Self as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>>::view_terminals_as(self)
+            }
+        }
+
+        impl #st_imp #substrate::types::FlatLen for #data_ident #st_ty #st_where {
             fn len(&self) -> usize {
                 #( #data_len )+*
             }
         }
 
-        impl #st_imp #substrate::io::Flatten<#substrate::types::schematic::Node> for #data_ident #st_ty #st_where {
+        impl #st_imp #substrate::types::Flatten<#substrate::types::schematic::Node> for #data_ident #st_ty #st_where {
             fn flatten<E>(&self, __substrate_output_sink: &mut E)
             where
                 E: ::std::iter::Extend<#substrate::types::schematic::Node> {
@@ -190,21 +239,13 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #st_any_imp #substrate::types::schematic::HasTerminalView for #data_ident #st_any_ty #st_any_where {
-            type TerminalView = #terminal_view_ident #st_any_ty;
-
-            fn terminal_view(cell: #substrate::schematic::CellId, cell_io: &Self, instance: #substrate::schematic::InstanceId, instance_io: &Self) -> Self::TerminalView {
-                #terminal_view_ident #construct_terminal_view_body
-            }
-        }
-
-        impl #st_imp #substrate::io::FlatLen for #terminal_view_ident #st_ty #st_where {
+        impl #st_imp #substrate::types::FlatLen for #terminal_view_ident #st_ty #st_where {
             fn len(&self) -> usize {
                 #( #terminal_data_len )+*
             }
         }
 
-        impl #st_imp #substrate::io::Flatten<#substrate::types::schematic::Node> for #terminal_view_ident #st_ty #st_where {
+        impl #st_imp #substrate::types::Flatten<#substrate::types::schematic::Node> for #terminal_view_ident #st_ty #st_where {
             fn flatten<E>(&self, __substrate_output_sink: &mut E)
             where
                 E: ::std::iter::Extend<#substrate::types::schematic::Node> {
@@ -212,14 +253,69 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
+        impl #st_imp #substrate::types::Flatten<#substrate::types::schematic::Terminal> for #terminal_view_ident #st_ty #st_where {
+            fn flatten<E>(&self, __substrate_output_sink: &mut E)
+            where
+                E: ::std::iter::Extend<#substrate::types::schematic::Terminal> {
+                #( #terminal_view_flatten_terminal_fields )*
+            }
+        }
+
         impl #st_any_imp #substrate::types::schematic::SchematicBundleKind for #bundle_type_ident #st_any_ty #st_any_where {
-            type Bundle = #data_ident #st_any_ty;
+            type NodeBundle = #data_ident #st_any_ty;
             type TerminalBundle = #terminal_view_ident #st_any_ty;
 
-            fn instantiate<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Node]) -> (Self::Bundle, &'n [#substrate::types::schematic::Node]) {
-                #( #instantiate_fields )*
+            fn instantiate_nodes<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Node]) -> (<Self as #substrate::types::schematic::SchematicBundleKind>::NodeBundle, &'n [#substrate::types::schematic::Node]) {
+                #( #instantiate_nodes_fields )*
                 #[allow(redundant_field_names)]
                 (#data_ident #construct_data_body, __substrate_node_ids)
+            }
+
+            fn instantiate_terminals<'n>(&self, __substrate_node_ids: &'n [#substrate::types::schematic::Terminal]) -> (<Self as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle, &'n [#substrate::types::schematic::Terminal]) {
+                #( #instantiate_terminals_fields )*
+                #[allow(redundant_field_names)]
+                (#terminal_view_ident #construct_data_body, __substrate_node_ids)
+            }
+
+            fn terminal_view(
+                cell: #substrate::schematic::CellId,
+                cell_io: &<Self as #substrate::types::schematic::SchematicBundleKind>::NodeBundle,
+                instance: #substrate::schematic::InstanceId,
+                instance_io: &<Self as #substrate::types::schematic::SchematicBundleKind>::NodeBundle,
+            ) -> <Self as #substrate::types::schematic::SchematicBundleKind>::TerminalBundle {
+                #terminal_view_ident #construct_terminal_view_body
+            }
+        }
+
+        impl #st_any_imp #substrate::types::HasBundleKind for #data_ident #st_any_ty #st_any_where {
+            type BundleKind = #bundle_type_ident #st_any_ty;
+
+            fn kind(&self) ->  <Self as #substrate::types::HasBundleKind>::BundleKind {
+                #bundle_type_ident #construct_data_ty_body
+            }
+        }
+
+        impl #st_any_imp #substrate::types::HasBundleKind for #terminal_view_ident #st_any_ty #st_any_where {
+            type BundleKind = #bundle_type_ident #st_any_ty;
+
+            fn kind(&self) -> <Self as #substrate::types::HasBundleKind>::BundleKind {
+                #bundle_type_ident #construct_terminal_view_ty_body
+            }
+        }
+
+        impl #st_any_imp #substrate::types::HasBundleKind for #data_nested_ident #st_any_ty #st_any_where {
+            type BundleKind = #bundle_type_ident #st_any_ty;
+
+            fn kind(&self) ->  <Self as #substrate::types::HasBundleKind>::BundleKind {
+                #bundle_type_ident #construct_data_nested_ty_body
+            }
+        }
+
+        impl #st_any_imp #substrate::types::HasBundleKind for #terminal_view_nested_ident #st_any_ty #st_any_where {
+            type BundleKind = #bundle_type_ident #st_any_ty;
+
+            fn kind(&self) -> <Self as #substrate::types::HasBundleKind>::BundleKind {
+                #bundle_type_ident #construct_terminal_view_nested_ty_body
             }
         }
     }
@@ -479,8 +575,6 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
         ..
     } = *input;
 
-    let (generics_imp, generics_ty, generics_wher) = generics.split_for_impl();
-
     let bundle_type_ident = format_ident!("{}BundleKind", ident);
 
     let mut hnt_generics = generics.clone();
@@ -526,8 +620,8 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
             declare,
             refer,
             assign,
-            temp,
             pretty_ident,
+            ..
         } = field_tokens(fields.style, field_vis, attrs, i, field_ident);
 
         io_len.push(quote! {

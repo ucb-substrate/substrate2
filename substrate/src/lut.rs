@@ -111,7 +111,7 @@ pub type FloatLut2 = Lut2<f64, f64, f64>;
 
 #[cfg(test)]
 mod tests {
-    use float_eq::float_eq;
+    use approx::assert_relative_eq;
 
     use super::*;
 
@@ -141,9 +141,9 @@ mod tests {
             .build()
             .unwrap();
 
-        assert!(float_eq!(lut.getf(5., 2.).unwrap(), 5., r2nd <= 1e-8));
-        assert!(float_eq!(lut.getf(5., 2.5).unwrap(), 7., r2nd <= 1e-8));
-        assert!(float_eq!(lut.getf(6.5, 1.5).unwrap(), 3.75, r2nd <= 1e-8));
+        assert_relative_eq!(lut.getf(5., 2.).unwrap(), 5., max_relative = 1e-8);
+        assert_relative_eq!(lut.getf(5., 2.5).unwrap(), 7., max_relative = 1e-8);
+        assert_relative_eq!(lut.getf(6.5, 1.5).unwrap(), 3.75, max_relative = 1e-8);
         assert_eq!(lut.getf(4.5, 2.5), None);
     }
 }

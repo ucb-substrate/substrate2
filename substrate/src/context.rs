@@ -30,7 +30,7 @@ use crate::schematic::{
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::{BundleBuilder, HasBundleKind as HasLayoutBundleKind};
-use crate::types::schematic::{IoBundle, Node, NodeContext, NodePriority, Port};
+use crate::types::schematic::{IoBundle, NodeContext, NodePriority, Port};
 use crate::types::{Flatten, Flipped, HasBundleKind, HasNameTree};
 
 /// The global context.

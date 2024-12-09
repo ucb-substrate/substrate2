@@ -27,8 +27,8 @@ use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
-    Bundle, IoBundle, IoKind, IoTerminalBundle, Node, NodeContext, NodePriority, NodeUf, Port,
-    SchematicBundleKind, Terminal,
+    IoBundle, IoKind, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
+    SchematicBundleKind,
 };
 use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, NameBuf};
 
@@ -153,7 +153,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
         &mut self,
         name: impl Into<ArcStr>,
         kind: K,
-    ) -> Bundle<K> {
+    ) -> NodeBundle<K> {
         let (nodes, data) = self.node_ctx.instantiate_undirected(
             &kind,
             NodePriority::Named,
@@ -199,7 +199,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     /// Connect all signals in the given data instances.
     pub fn connect_multiple<D>(&mut self, s2: &[D])
     where
-        D: Flatten<Node>,
+        D: Flatten<Node> + HasBundleKind,
     {
         if s2.len() > 1 {
             for s in &s2[1..] {
@@ -427,7 +427,7 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
         &mut self,
         name: impl Into<ArcStr>,
         kind: K,
-    ) -> Bundle<K> {
+    ) -> NodeBundle<K> {
         self.0.signal(name, kind)
     }
 
@@ -1614,10 +1614,9 @@ mod tests {
         block::Block,
         context::Context,
         schematic::{CellBuilder, PrimitiveBinding, Schematic},
-        serde::{Deserialize, Serialize},
         types::{
-            schematic::{IoBundle, Node},
-            Array, BundlePrimitive, Flipped, HasBundleKind, InOut, Input, Io, Output, Signal,
+            schematic::{DataView, IoBundle, Node, NodeBundle},
+            Array, Flipped, HasBundleKind, InOut, Input, Io, Output, Signal,
         },
     };
 
@@ -1712,12 +1711,12 @@ mod tests {
             }
         }
 
-        impl<T: BundlePrimitive> MultiDecoupledIoBundle<T> {
-            fn to_decoupled(&self) -> DecoupledIoBundle<T> {
-                DecoupledIoBundle {
-                    ready: self.ready.clone(),
-                    valid: self.valid.clone(),
-                    data: self.data.clone(),
+        impl DataView<DecoupledIoBundleKind> for MultiDecoupledIoBundleKind {
+            fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<DecoupledIo> {
+                NodeBundle::<DecoupledIo> {
+                    ready: nodes.ready,
+                    valid: nodes.valid,
+                    data: nodes.data.clone(),
                 }
             }
         }
@@ -1770,14 +1769,14 @@ mod tests {
                 assert!(b1.io().d1.kind() != b2.io().d4.kind());
                 assert!(b1.io().d1.kind() == b2.io().d5.kind());
                 assert!(b1.io().d2.kind() == b2.io().d4.kind());
-                assert!(b1.io().d2.kind() == b2.io().to_decoupled().kind());
+                assert!(b1.io().d2.kind() == b2.io().view_as::<DecoupledIoBundleKind>().kind());
 
                 cell.connect(&b1.io().d1, &b2.io().d1);
                 cell.connect(&b1.io().d1, &b2.io().d1);
                 cell.connect(&b1.io().d1, &b2.io().d1);
                 cell.connect(&b1.io().d1, &b2.io().d3);
                 cell.connect(&b1.io().d1, &b2.io().d5);
-                cell.connect(&b1.io().d2, b2.io().to_decoupled());
+                cell.connect(&b1.io().d2, b2.io().view_as::<DecoupledIoBundleKind>());
                 cell.connect(wire.d2, &b1.io().d1);
 
                 Ok(())
@@ -1833,7 +1832,7 @@ mod tests {
                 cell.connect(&&io.vdd, &r1.io().p);
                 cell.connect(&io.dout, &&&&&r1.io().n);
                 cell.connect(
-                    ResistorIoBundle {
+                    NodeBundle::<ResistorIo> {
                         p: io.dout,
                         n: io.vss,
                     },

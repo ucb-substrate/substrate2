@@ -31,11 +31,6 @@ impl ToTokens for BlockInputReceiver {
         } = *self;
 
         let mut generics = generics.clone();
-        add_trait_bounds(&mut generics, quote!(#substrate::serde::Serialize));
-        add_trait_bounds(
-            &mut generics,
-            quote!(#substrate::serde::de::DeserializeOwned),
-        );
         add_trait_bounds(&mut generics, quote!(::std::hash::Hash));
         add_trait_bounds(&mut generics, quote!(::std::cmp::Eq));
         add_trait_bounds(&mut generics, quote!(::std::marker::Send));

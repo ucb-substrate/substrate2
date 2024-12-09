@@ -3,7 +3,7 @@ use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::token::Where;
-use syn::{parse_quote, Token, WhereClause};
+use syn::{parse_quote, WhereClause};
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
@@ -322,7 +322,7 @@ impl ToTokens for DataInputReceiver {
                 }
             }
             ast::Data::Enum(ref variants) => {
-                let mut save_generics = save_generics.clone();
+                let save_generics = save_generics.clone();
                 let mut save_where_clause =
                     save_generics.where_clause.clone().unwrap_or(WhereClause {
                         where_token: Where {
