@@ -85,18 +85,10 @@ pub trait HasNameTree {
 pub trait BundleKind:
     HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
-    /// An associated bundle type that allows swapping in any [`BundlePrimitive`].
-    type Bundle<B: BundlePrimitive>: Bundle<BundleKind = Self> + BundleOf<B>;
 }
-
-/// A bundle kind with an associated bundle `Bundle` of `B`.
-pub trait HasBundleOf<B: BundlePrimitive>: BundleKind {
-    /// The bundle of primitive `B` associated with this bundle kind.
-    type Bundle: Bundle<BundleKind = Self> + BundleOf<B>;
-}
-
-impl<B: BundlePrimitive, T: BundleKind> HasBundleOf<B> for T {
-    type Bundle = <T as BundleKind>::Bundle<B>;
+impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
+    for T
+{
 }
 
 /// Indicates that an IO specifies signal directions for all of its fields.
@@ -107,11 +99,8 @@ impl<T: Flatten<Direction>> Directed for T {}
 pub trait Io: Directed + HasBundleKind + Clone {}
 impl<T: Directed + HasBundleKind + Clone> Io for T {}
 
-/// A bundle primitive representing an instantiation of a [`Signal`].
-pub trait BundlePrimitive: Clone + Bundle<BundleKind = Signal> + BundleOf<Self> {}
-
 /// A construct with an associated [`BundleKind`].
-pub trait HasBundleKind {
+pub trait HasBundleKind: Send + Sync {
     /// The Rust type of the [`BundleKind`] associated with this bundle.
     type BundleKind: BundleKind;
 
@@ -126,14 +115,6 @@ impl<T: HasBundleKind> HasBundleKind for &T {
         (*self).kind()
     }
 }
-
-/// A bundle of hardware wires.
-pub trait Bundle: HasBundleKind + Send + Sync {}
-impl<T: HasBundleKind + Send + Sync> Bundle for T {}
-
-/// A bundle that is made up of primitive `T`.
-pub trait BundleOf<T: BundlePrimitive>: Bundle + FlatLen + Flatten<T> {}
-impl<S: BundlePrimitive, T: Bundle + FlatLen + Flatten<S>> BundleOf<S> for T {}
 
 // END TRAITS
 
@@ -214,7 +195,7 @@ impl<T> Array<T> {
 
 /// An instantiated array containing a fixed number of elements of `T`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ArrayBundle<T: Bundle> {
+pub struct ArrayBundle<T: HasBundleKind> {
     elems: Vec<T>,
     kind: T::BundleKind,
 }
@@ -223,18 +204,18 @@ pub struct ArrayBundle<T: Bundle> {
 
 // BEGIN COMMON IO TYPES
 
-/// The interface to a standard 4-terminal MOSFET.
-#[derive(Debug, Default, Clone, Io)]
-pub struct MosIo {
-    /// The drain.
-    pub d: InOut<Signal>,
-    /// The gate.
-    pub g: Input<Signal>,
-    /// The source.
-    pub s: InOut<Signal>,
-    /// The body.
-    pub b: InOut<Signal>,
-}
+// /// The interface to a standard 4-terminal MOSFET.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct MosIo {
+//     /// The drain.
+//     pub d: InOut<Signal>,
+//     /// The gate.
+//     pub g: Input<Signal>,
+//     /// The source.
+//     pub s: InOut<Signal>,
+//     /// The body.
+//     pub b: InOut<Signal>,
+// }
 
 /// The interface to which simulation testbenches should conform.
 #[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
@@ -243,32 +224,32 @@ pub struct TestbenchIo {
     pub vss: InOut<Signal>,
 }
 
-/// The interface for 2-terminal blocks.
-#[derive(Debug, Default, Clone, Io)]
-pub struct TwoTerminalIo {
-    /// The positive terminal.
-    pub p: InOut<Signal>,
-    /// The negative terminal.
-    pub n: InOut<Signal>,
-}
-
-/// The interface for VDD and VSS rails.
-#[derive(Debug, Default, Clone, Io)]
-pub struct PowerIo {
-    /// The VDD rail.
-    pub vdd: InOut<Signal>,
-    /// The VSS rail.
-    pub vss: InOut<Signal>,
-}
-
-/// A pair of differential signals.
-// TODO: Create proc macro for defining un-directioned (non-IO) bundle types directly.
-#[derive(Debug, Default, Copy, Clone, Io)]
-pub struct DiffPair {
-    /// The positive signal.
-    pub p: InOut<Signal>,
-    /// The negative signal.
-    pub n: InOut<Signal>,
-}
+// /// The interface for 2-terminal blocks.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct TwoTerminalIo {
+//     /// The positive terminal.
+//     pub p: InOut<Signal>,
+//     /// The negative terminal.
+//     pub n: InOut<Signal>,
+// }
+//
+// /// The interface for VDD and VSS rails.
+// #[derive(Debug, Default, Clone, Io)]
+// pub struct PowerIo {
+//     /// The VDD rail.
+//     pub vdd: InOut<Signal>,
+//     /// The VSS rail.
+//     pub vss: InOut<Signal>,
+// }
+//
+// /// A pair of differential signals.
+// // TODO: Create proc macro for defining un-directioned (non-IO) bundle types directly.
+// #[derive(Debug, Default, Copy, Clone, Io)]
+// pub struct DiffPair {
+//     /// The positive signal.
+//     pub p: InOut<Signal>,
+//     /// The negative signal.
+//     pub n: InOut<Signal>,
+// }
 
 // END COMMON IO TYPES

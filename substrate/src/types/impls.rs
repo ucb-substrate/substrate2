@@ -1,6 +1,6 @@
 //! Built-in implementations of IO traits.
 
-use schematic::{HasSchematicBundleOf, Node, SchematicBundle, SchematicBundleKind, Terminal};
+use schematic::{Node, SchematicBundleKind, Terminal};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
@@ -30,10 +30,18 @@ impl Flatten<Direction> for () {
     }
 }
 
-impl<T: BundlePrimitive> Flatten<T> for () {
+impl Flatten<Node> for () {
     fn flatten<E>(&self, _output: &mut E)
     where
-        E: Extend<T>,
+        E: Extend<Node>,
+    {
+    }
+}
+
+impl Flatten<Terminal> for () {
+    fn flatten<E>(&self, _output: &mut E)
+    where
+        E: Extend<Terminal>,
     {
     }
 }
@@ -44,10 +52,6 @@ impl HasNameTree for () {
     }
 }
 
-impl BundleKind for () {
-    type Bundle<B: BundlePrimitive> = ();
-}
-
 impl HasBundleKind for () {
     type BundleKind = ();
 
@@ -55,18 +59,20 @@ impl HasBundleKind for () {
 }
 
 impl SchematicBundleKind for () {
+    type Bundle = ();
+    type TerminalBundle = ();
     fn instantiate<'n>(
         &self,
         ids: &'n [Node],
-    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as SchematicBundleKind>::Bundle, &'n [Node]) {
         ((), ids)
     }
     fn terminal_view(
-        _cell: CellId,
-        _cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
-        _instance: InstanceId,
-        _instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
-    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle {
+        cell: CellId,
+        cell_io: &<Self as SchematicBundleKind>::Bundle,
+        instance: InstanceId,
+        instance_io: &<Self as SchematicBundleKind>::TerminalBundle,
+    ) -> <Self as SchematicBundleKind>::TerminalBundle {
     }
 }
 
@@ -118,15 +124,13 @@ impl HasBundleKind for Signal {
     }
 }
 
-impl BundleKind for Signal {
-    type Bundle<B: BundlePrimitive> = B;
-}
-
 impl SchematicBundleKind for Signal {
+    type Bundle = Node;
+    type TerminalBundle = Terminal;
     fn instantiate<'n>(
         &self,
         ids: &'n [Node],
-    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]) {
+    ) -> (<Self as SchematicBundleKind>::Bundle, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -135,10 +139,10 @@ impl SchematicBundleKind for Signal {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+        cell_io: &<Self as SchematicBundleKind>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
-    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle {
+        instance_io: &<Self as SchematicBundleKind>::TerminalBundle,
+    ) -> <Self as SchematicBundleKind>::TerminalBundle {
         Terminal {
             cell_id: cell,
             cell_node: *cell_io,
@@ -328,15 +332,13 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
-impl<T: BundleKind> BundleKind for Array<T> {
-    type Bundle<B: BundlePrimitive> = ArrayBundle<<T as BundleKind>::Bundle<B>>;
-}
-
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
+    type Bundle = ArrayBundle<T::Bundle>;
+    type TerminalBundle = ArrayBundle<T::TerminalBundle>;
     fn instantiate<'n>(
         &self,
-        mut ids: &'n [Node],
-    ) -> (<Self as HasSchematicBundleOf<Node>>::Bundle, &'n [Node]) {
+        ids: &'n [Node],
+    ) -> (<Self as SchematicBundleKind>::Bundle, &'n [Node]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
                 let (elem, new_ids) = self.kind.instantiate(ids);
@@ -354,10 +356,10 @@ impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
+        cell_io: &<Self as SchematicBundleKind>::Bundle,
         instance: InstanceId,
-        instance_io: &<Self as HasSchematicBundleOf<Node>>::Bundle,
-    ) -> <Self as HasSchematicBundleOf<Terminal>>::Bundle {
+        instance_io: &<Self as SchematicBundleKind>::TerminalBundle,
+    ) -> <Self as SchematicBundleKind>::TerminalBundle {
         ArrayBundle {
             elems: cell_io
                 .elems
@@ -412,7 +414,7 @@ impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array
     }
 }
 
-impl<T: Bundle> HasBundleKind for ArrayBundle<T> {
+impl<T: HasBundleKind> HasBundleKind for ArrayBundle<T> {
     type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
 
     fn kind(&self) -> Self::BundleKind {
@@ -420,13 +422,13 @@ impl<T: Bundle> HasBundleKind for ArrayBundle<T> {
     }
 }
 
-impl<T: Bundle> FlatLen for ArrayBundle<T> {
+impl<T: HasBundleKind + FlatLen> FlatLen for ArrayBundle<T> {
     fn len(&self) -> usize {
-        self.elems.len() * self.kind.flat_names(None).len()
+        self.elems.len() * self.kind.len()
     }
 }
 
-impl<S, T: Bundle + Flatten<S>> Flatten<S> for ArrayBundle<T> {
+impl<S, T: HasBundleKind + Flatten<S>> Flatten<S> for ArrayBundle<T> {
     fn flatten<E>(&self, output: &mut E)
     where
         E: Extend<S>,
@@ -435,8 +437,12 @@ impl<S, T: Bundle + Flatten<S>> Flatten<S> for ArrayBundle<T> {
     }
 }
 
-impl<T: SchematicBundle> HasNestedView for ArrayBundle<T> {
-    type NestedView = ArrayBundle<<T as SchematicBundle>::NestedView>;
+impl<
+        T: HasBundleKind
+            + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
+    > HasNestedView for ArrayBundle<T>
+{
+    type NestedView = ArrayBundle<<T as HasNestedView>::NestedView>;
 
     fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
         ArrayBundle {
@@ -452,7 +458,7 @@ impl<T: SchematicBundle> HasNestedView for ArrayBundle<T> {
 
 impl<T, S> HierarchicalBuildFrom<S> for ArrayBundle<T>
 where
-    T: Bundle + HierarchicalBuildFrom<S>,
+    T: HasBundleKind + HierarchicalBuildFrom<S>,
 {
     fn build_from(&mut self, path: &mut NameBuf, source: &S) {
         for (i, elem) in self.elems.iter_mut().enumerate() {
@@ -463,7 +469,7 @@ where
     }
 }
 
-impl<T: Bundle + TranslateRef> TranslateRef for ArrayBundle<T> {
+impl<T: HasBundleKind + TranslateRef> TranslateRef for ArrayBundle<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
             elems: self
@@ -476,7 +482,7 @@ impl<T: Bundle + TranslateRef> TranslateRef for ArrayBundle<T> {
     }
 }
 
-impl<T: Bundle + TransformRef> TransformRef for ArrayBundle<T> {
+impl<T: HasBundleKind + TransformRef> TransformRef for ArrayBundle<T> {
     fn transform_ref(&self, trans: geometry::prelude::Transformation) -> Self {
         Self {
             elems: self
@@ -502,7 +508,7 @@ impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayBundle<T>> for
     }
 }
 
-impl<T: Bundle, I> Index<I> for ArrayBundle<T>
+impl<T: HasBundleKind, I> Index<I> for ArrayBundle<T>
 where
     I: SliceIndex<[T]>,
 {
@@ -513,7 +519,7 @@ where
     }
 }
 
-impl<T: Bundle, I> IndexMut<I> for ArrayBundle<T>
+impl<T: HasBundleKind, I> IndexMut<I> for ArrayBundle<T>
 where
     I: SliceIndex<[T]>,
 {
@@ -692,7 +698,7 @@ impl NameBuf {
     }
 }
 
-impl<T: Bundle> ArrayBundle<T> {
+impl<T: HasBundleKind> ArrayBundle<T> {
     /// The number of elements (of type T) in the array.
     ///
     /// Note that this may not be the same as the flattened length of the array.

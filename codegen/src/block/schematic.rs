@@ -161,7 +161,7 @@ impl ToTokens for DataInputReceiver {
             .params
             .push(parse_quote!(__substrate_A: #substrate::simulation::Analysis));
 
-        let has_nested_view_ident = format_ident!("{}NestedView", ident);
+        let has_nested_view_ident = format_ident!("{}Nested", ident);
         let save_key_ident = format_ident!("{}SaveKey", ident);
         let save_ident = format_ident!("{}Save", ident);
 
