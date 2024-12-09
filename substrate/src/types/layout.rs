@@ -21,7 +21,7 @@ use tracing::Level;
 /// A layout hardware type.
 pub trait BundleKind<S: Schema>: FlatLen + HasNameTree + Clone {
     /// The **Rust** type representing layout instances of this **hardware** type.
-    type Bundle: IsBundle<S>;
+    type Bundle: Bundle<S>;
     /// A builder for creating [`HardwareType::Bundle`].
     type Builder: BundleBuilder<S, Self::Bundle>;
 
@@ -29,7 +29,7 @@ pub trait BundleKind<S: Schema>: FlatLen + HasNameTree + Clone {
     fn builder(&self) -> Self::Builder;
 }
 
-pub trait HasBundleKind<S: Schema> {
+pub trait HasBundleKind<S: Schema>: super::HasBundleKind {
     type BundleKind: BundleKind<S>;
     /// Creates an instance of the builder of the associated type.
     fn builder(&self) -> <<Self as HasBundleKind<S>>::BundleKind as BundleKind<S>>::Builder;
@@ -40,7 +40,7 @@ pub trait Io<S: Schema>: super::Io + HasBundleKind<S> {}
 impl<S: Schema, T: super::Io + HasBundleKind<S>> Io<S> for T {}
 
 /// The associated bundle of a layout bundle kind.
-pub type Bundle<S, T> = <T as BundleKind<S>>::Bundle;
+pub type SchemaBundle<S, T> = <T as BundleKind<S>>::Bundle;
 
 /// The associated builder of a layout type.
 pub type Builder<S, T> = <T as BundleKind<S>>::Builder;
@@ -48,7 +48,7 @@ pub type Builder<S, T> = <T as BundleKind<S>>::Builder;
 /// Layout hardware data builder.
 ///
 /// A builder for an instance of bundle `T`.
-pub trait BundleBuilder<S: Schema, T: IsBundle<S>> {
+pub trait BundleBuilder<S: Schema, T: Bundle<S>>: super::Bundle {
     /// Builds an instance of bundle `T`.
     fn build(self) -> Result<T>;
 }
@@ -149,7 +149,14 @@ impl<L> Bbox for PortGeometry<L> {
     }
 }
 
-impl super::HasBundleKind for PortGeometry {
+impl<S: Schema> HasBundleKind<S> for PortGeometry<S::Layer> {
+    type BundleKind = Signal;
+
+    fn builder(&self) -> <<Self as HasBundleKind<S>>::BundleKind as BundleKind<S>>::Builder {
+        PortGeometryBuilder::default()
+    }
+}
+impl<L> super::HasBundleKind for PortGeometry<L> {
     type BundleKind = Signal;
 
     fn kind(&self) -> Self::BundleKind {
@@ -160,15 +167,27 @@ impl super::HasBundleKind for PortGeometry {
 /// A type that can be a bundle of layout ports.
 ///
 /// An instance of a [`BundleKind`].
-pub trait IsBundle<S: Schema>:
-    FlatLen + Flatten<PortGeometry<S::Layer>> + TransformRef + Send + Sync
+pub trait Bundle<S: Schema>:
+    super::Bundle
+    + HasBundleKind<S>
+    + FlatLen
+    + Flatten<PortGeometry<S::Layer>>
+    + TransformRef
+    + Send
+    + Sync
 {
 }
 
-impl<S, T> IsBundle<S> for T
+impl<S, T> Bundle<S> for T
 where
     S: Schema,
-    T: FlatLen + Flatten<PortGeometry<S::Layer>> + TransformRef + Send + Sync,
+    T: super::Bundle
+        + HasBundleKind<S>
+        + FlatLen
+        + Flatten<PortGeometry<S::Layer>>
+        + TransformRef
+        + Send
+        + Sync,
 {
 }
 
@@ -335,7 +354,14 @@ impl<L: Clone> HierarchicalBuildFrom<NamedPorts<L>> for OptionBuilder<Shape<L>> 
     }
 }
 
-impl<S: Schema, T: IsBundle<S>> BundleBuilder<S, T> for OptionBuilder<T> {
+impl<T: super::HasBundleKind> super::HasBundleKind for OptionBuilder<T> {
+    type BundleKind = <T as super::HasBundleKind>::BundleKind;
+    fn kind(&self) -> Self::BundleKind {
+        self.0.as_ref().map(|k| k.kind())
+    }
+}
+
+impl<S: Schema, T: Bundle<S>> BundleBuilder<S, T> for OptionBuilder<T> {
     fn build(self) -> Result<T> {
         self.build()
     }

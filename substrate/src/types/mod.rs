@@ -85,8 +85,8 @@ pub trait HasNameTree {
 pub trait BundleKind:
     HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
-    /// An associated bundle type that allows swapping in any [`BundlePrimitive`].
-    type Bundle<B: BundlePrimitive>: Bundle<BundleKind = Self> + BundleOf<B>;
+    // /// An associated bundle type that allows swapping in any [`BundlePrimitive`].
+    // type Bundle<B: BundlePrimitive>: Bundle<BundleKind = Self> + BundleOf<B>;
 }
 
 /// A bundle kind with an associated bundle `Bundle` of `B`.

@@ -17,9 +17,6 @@ use crate::cache::Cache;
 use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
-use crate::io::layout::{BundleBuilder, HardwareType as LayoutType};
-use crate::io::schematic::{HardwareType as SchematicType, NodeContext, NodePriority, Port};
-use crate::io::{Flatten, Flipped, HasNameTree};
 use crate::layout::conv::export_multi_top_layir_lib;
 use crate::layout::element::RawCell;
 use crate::layout::CellBuilder as LayoutCellBuilder;
@@ -32,7 +29,7 @@ use crate::schematic::{
     RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use crate::types::layout::{BundleBuilder, HasHardwareType as HasLayoutType};
+use crate::types::layout::{BundleBuilder, HasBundleKind as HasLayoutBundleKind};
 use crate::types::schematic::{IoBundle, Node, NodeContext, NodePriority, Port};
 use crate::types::{Flatten, Flipped, HasBundleKind, HasNameTree};
 

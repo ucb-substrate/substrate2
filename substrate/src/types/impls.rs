@@ -71,18 +71,19 @@ impl SchematicBundleKind for () {
     }
 }
 
-impl layout::HasBundleKind for () {
+impl<S: Schema> layout::HasBundleKind<S> for () {
     type BundleKind = ();
 
     fn builder(
         &self,
-    ) -> <<Self as layout::HasBundleKind>::BundleKind as layout::BundleKind>::Builder {
+    ) -> <<Self as layout::HasBundleKind<S>>::BundleKind as layout::BundleKind<S>>::Builder {
     }
 }
 
 impl<S: Schema> layout::BundleKind<S> for () {
     type Bundle = ();
     type Builder = ();
+    fn builder(&self) -> Self::Builder {}
 }
 
 impl<S: Schema> BundleBuilder<S, ()> for () {
@@ -158,19 +159,14 @@ impl SchematicBundleKind for Signal {
     }
 }
 
-impl layout::HasBundleKind for Signal {
+impl<S: Schema> layout::HasBundleKind<S> for Signal {
     type BundleKind = Signal;
 
     fn builder(
         &self,
-    ) -> <<Self as layout::HasBundleKind>::BundleKind as layout::BundleKind>::Builder {
+    ) -> <<Self as layout::HasBundleKind<S>>::BundleKind as layout::BundleKind<S>>::Builder {
         PortGeometryBuilder::default()
     }
-}
-
-impl layout::BundleKind for Signal {
-    type Bundle = PortGeometry;
-    type Builder = PortGeometryBuilder;
 }
 
 macro_rules! impl_direction {
@@ -231,56 +227,39 @@ macro_rules! impl_direction {
             }
         }
 
-        impl<T> layout::HasBundleKind for $dir<T>
+        impl<S: Schema, T> layout::HasBundleKind<S> for $dir<T>
         where
-            T: layout::HasBundleKind,
+            T: layout::HasBundleKind<S>,
         {
-            type BundleKind = <T as layout::HasBundleKind>::BundleKind;
+            type BundleKind = <T as layout::HasBundleKind<S>>::BundleKind;
 
-            fn builder(&self) -> <<Self as layout::HasBundleKind>::BundleKind as layout::BundleKind>::Builder {
+            fn builder(&self) -> <<Self as layout::HasBundleKind<S>>::BundleKind as layout::BundleKind<S>>::Builder {
                 self.0.builder()
             }
         }
 
 
-        impl<T> layout::BundleKind for $dir<T>
+        impl<S: Schema, T> layout::BundleKind<S> for $dir<T>
         where
-            T: layout::BundleKind,
+            T: layout::BundleKind<S>,
         {
             type Bundle = T::Bundle;
             type Builder = T::Builder;
-        }
 
-        impl<T, U: CustomBundleKind<T>> CustomBundleKind<$dir<T>> for U
-        where
-            T: layout::BundleKind,
-        {
-            fn from_layout_type(other: &$dir<T>) -> Self {
-                <U as CustomBundleKind<T>>::from_layout_type(&other.0)
+            fn builder(&self) -> Self::Builder {
+                self.0.builder()
             }
         }
+
+        // impl<T, U: CustomBundleKind<T>> CustomBundleKind<$dir<T>> for U
+        // where
+        //     T: layout::BundleKind,
+        // {
+        //     fn from_layout_type(other: &$dir<T>) -> Self {
+        //         <U as CustomBundleKind<T>>::from_layout_type(&other.0)
+        //     }
+        // }
     };
-}
-
-impl<S: Schema, T> layout::BundleKind<S> for Input<T>
-where
-    T: layout::BundleKind<S>,
-{
-    type Bundle = T::Bundle;
-    type Builder = T::Builder;
-
-    fn builder(&self) -> Self::Builder {
-        self.0.builder()
-    }
-}
-
-impl<S: Schema, T, U: CustomBundleKind<S, T>> CustomBundleKind<S, Input<T>> for U
-where
-    T: layout::BundleKind<S>,
-{
-    fn from_layout_type(other: &Input<T>) -> Self {
-        <U as CustomBundleKind<S, T>>::from_layout_type(&other.0)
-    }
 }
 
 impl_direction!(
@@ -336,23 +315,23 @@ impl<S: Schema, T: layout::BundleKind<S>> layout::BundleKind<S> for Array<T> {
     type Builder = ArrayBundle<T::Builder>;
 
     fn builder(&self) -> Self::Builder {
-        Self::Builder {
-            elems: (0..self.len).map(|_| self.ty.builder()).collect(),
-            ty: self.ty,
+        ArrayBundle {
+            elems: (0..self.len).map(|_| self.kind.builder()).collect(),
+            kind: self.kind,
         }
     }
 }
 
-impl<S: Schema, T: layout::BundleKind<S>, U: CustomBundleKind<S, T>> CustomBundleKind<S, Array<T>>
-    for Array<U>
-{
-    fn from_layout_type(other: &Array<T>) -> Self {
-        Self {
-            ty: <U as CustomBundleKind<S, T>>::from_layout_type(&other.ty),
-            len: other.len,
-        }
-    }
-}
+// impl<S: Schema, T: layout::BundleKind<S>, U: CustomBundleKind<S, T>> CustomBundleKind<S, Array<T>>
+//     for Array<U>
+// {
+//     fn from_layout_type(other: &Array<T>) -> Self {
+//         Self {
+//             ty: <U as CustomBundleKind<S, T>>::from_layout_type(&other.ty),
+//             len: other.len,
+//         }
+//     }
+// }
 impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
     fn flatten<E>(&self, output: &mut E)
     where
@@ -438,12 +417,12 @@ impl<T: HasBundleKind> HasBundleKind for Array<T> {
     }
 }
 
-impl<T: layout::HasBundleKind> layout::HasBundleKind for Array<T> {
+impl<S: Schema, T: layout::HasBundleKind<S>> layout::HasBundleKind<S> for Array<T> {
     type BundleKind = Array<T::BundleKind>;
 
     fn builder(
         &self,
-    ) -> <<Self as layout::HasBundleKind>::BundleKind as layout::BundleKind>::Builder {
+    ) -> <<Self as layout::HasBundleKind<S>>::BundleKind as layout::BundleKind<S>>::Builder {
         ArrayBundle {
             elems: (0..self.len).map(|_| self.kind.builder()).collect(),
             kind: self.kind.builder().kind(),
@@ -451,19 +430,14 @@ impl<T: layout::HasBundleKind> layout::HasBundleKind for Array<T> {
     }
 }
 
-impl<T: layout::BundleKind> layout::BundleKind for Array<T> {
-    type Bundle = ArrayBundle<T::Bundle>;
-    type Builder = ArrayBundle<T::Builder>;
-}
-
-impl<T: layout::BundleKind, U: CustomBundleKind<T>> CustomBundleKind<Array<T>> for Array<U> {
-    fn from_layout_type(other: &Array<T>) -> Self {
-        Self {
-            kind: <U as CustomBundleKind<T>>::from_layout_type(&other.kind),
-            len: other.len,
-        }
-    }
-}
+// impl<T: layout::BundleKind, U: CustomBundleKind<T>> CustomBundleKind<Array<T>> for Array<U> {
+//     fn from_layout_type(other: &Array<T>) -> Self {
+//         Self {
+//             kind: <U as CustomBundleKind<T>>::from_layout_type(&other.kind),
+//             len: other.len,
+//         }
+//     }
+// }
 
 impl<T: Bundle> HasBundleKind for ArrayBundle<T> {
     type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
@@ -542,10 +516,10 @@ impl<T: Bundle + TransformRef> TransformRef for ArrayBundle<T> {
     }
 }
 
-impl<S: Schema, T: layout::IsBundle<S>, B: BundleBuilder<S, T>> BundleBuilder<S, ArrayData<T>>
-    for ArrayData<B>
+impl<S: Schema, T: layout::Bundle<S>, B: layout::Bundle<S> + BundleBuilder<S, T>>
+    BundleBuilder<S, ArrayBundle<T>> for ArrayBundle<B>
 {
-    fn build(self) -> Result<ArrayData<T>> {
+    fn build(self) -> Result<ArrayBundle<T>> {
         let mut elems = Vec::new();
         for e in self.elems {
             elems.push(e.build()?);
