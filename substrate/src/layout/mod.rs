@@ -29,7 +29,7 @@ use schema::Schema;
 use crate::context::Context;
 use crate::error::Error;
 use crate::error::Result;
-use crate::types::layout::{Builder, Bundle, BundleKind, HasBundleKind, Io};
+use crate::types::layout::{HasLayoutBundleKind, Io, LayoutBundle, LayoutBundleKind};
 
 use self::element::{CellId, Element, RawCell, RawInstance};
 
@@ -51,14 +51,15 @@ impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
 type CellLayer<T: Layout> = <T::Schema as Schema>::Layer;
 pub type IoBuilder<T> =
-    <<<T as Block>::Io as HasBundleKind<<T as Layout>::Schema>>::BundleKind as BundleKind<
+    <<<T as Block>::Io as HasLayoutBundleKind<<T as Layout>::Schema>>::BundleKind as LayoutBundleKind<
         <T as Layout>::Schema,
     >>::Builder;
-pub type IoBundleKind<T> = <<T as Block>::Io as HasBundleKind<<T as Layout>::Schema>>::BundleKind;
-pub type IoBundle<T> = <IoBundleKind<T> as BundleKind<<T as Layout>::Schema>>::Bundle;
+pub type IoBundleKind<T> =
+    <<T as Block>::Io as HasLayoutBundleKind<<T as Layout>::Schema>>::BundleKind;
+pub type IoBundle<T> = <IoBundleKind<T> as LayoutBundleKind<<T as Layout>::Schema>>::Bundle;
 
 /// A block that can be laid out in a given layout [`Schema`].
-pub trait Layout: Block<Io: HasBundleKind<Self::Schema>> {
+pub trait Layout: Block<Io: HasLayoutBundleKind<Self::Schema>> {
     type Schema: Schema;
     type Data: LayoutData;
     /// Generates the block's layout.

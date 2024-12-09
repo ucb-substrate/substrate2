@@ -4,19 +4,16 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use data::Save;
 use impl_trait_for_tuples::impl_for_tuples;
-use rust_decimal::Decimal;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::context::{Context, Installation};
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, Schematic};
-use crate::simulation::data::SaveTb;
+use crate::schematic::{Cell, HasNestedView, NestedView, Schematic};
+use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
-use substrate::simulation::data::FromSaved;
 
 pub mod data;
 pub mod options;
@@ -121,11 +118,6 @@ pub struct SimController<S: Simulator, T: Schematic> {
 
 impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// Run the given analysis, returning the default output.
-    ///
-    /// Note that providing [`None`] for `corner` will result in model files not being included,
-    /// potentially causing simulator errors due to missing models.
-    ///
-    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
     pub fn simulate_default<A: SupportedBy<S>>(
         &self,
         options: S::Options,
@@ -135,23 +127,25 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     }
 
     /// Run the given analysis, returning the desired output type.
-    ///
-    /// Note that providing [`None`] for `corner` will result in model files not being included,
-    /// potentially causing simulator errors due to missing models.
-    ///
-    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<A: SupportedBy<S>, O>(
+    pub fn simulate<A: SupportedBy<S>>(
         &self,
         mut options: S::Options,
         input: A,
-    ) -> Result<O, S::Error>
+    ) -> Result<<NestedView<<T as Schematic>::NestedData> as Save<S, A>>::Save, S::Error>
     where
-        O: FromSaved<S, A>,
-        T: SaveTb<S, A, O>,
+        T: Schematic<NestedData: HasNestedView<NestedView: Save<S, A>>>,
     {
-        let key = T::save_tb(&self.ctx, &self.tb, &mut options);
+        let key = <NestedView<<T as Schematic>::NestedData> as Save<S, A>>::save(
+            &self.tb.data(),
+            &self.ctx,
+            &mut options,
+        );
         let output = self.simulate_default(options, input)?;
-        Ok(O::from_saved(&output, &key))
+        Ok(
+            <<<T as Schematic>::NestedData as HasNestedView>::NestedView>::from_saved(
+                &output, &key,
+            ),
+        )
     }
 
     /// Set an option by mutating the given options.
@@ -164,12 +158,8 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo> {
-    /// The output produced by this testbench.
-    type Output: Any + Serialize + DeserializeOwned;
-    /// Run the testbench using the given simulation controller.
-    fn run(&self, sim: SimController<S, Self>) -> Self::Output;
-}
+pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo> {}
+impl<S: Simulator, T: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo>> Testbench<S> for T {}
 
 #[impl_for_tuples(64)]
 impl Analysis for Tuple {

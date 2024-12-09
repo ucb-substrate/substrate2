@@ -6,8 +6,6 @@ use std::sync::Arc;
 
 use arcstr::ArcStr;
 pub use codegen::Block;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
 
 use crate::types::Io;
 
@@ -16,7 +14,7 @@ use crate::types::Io;
 /// # Examples
 ///
 #[doc = examples::get_snippets!("core", "inverter")]
-pub trait Block: Serialize + DeserializeOwned + Hash + Eq + Send + Sync + Any {
+pub trait Block: Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;
 
