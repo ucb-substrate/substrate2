@@ -21,7 +21,9 @@ use std::marker::PhantomData;
 use tracing::Level;
 
 /// A layout hardware type.
-pub trait LayoutBundleKind<S: Schema>: super::BundleKind + FlatLen + HasNameTree + Clone {
+pub trait LayoutBundleKind<S: Schema>:
+    super::HasBundleKind + FlatLen + HasNameTree + Clone
+{
     /// The **Rust** type representing layout instances of this **hardware** type.
     type Bundle: LayoutBundle<S>;
     /// A builder for creating [`HardwareType::Bundle`].
@@ -95,7 +97,7 @@ impl<L> ShapePort<L> {
 }
 
 /// A generic layout port that consists of several shapes.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Port<L>(PhantomData<L>);
 
 impl<L> Default for Port<L> {
@@ -292,7 +294,7 @@ impl<L> FlatLen for ShapePort<L> {
     }
 }
 
-impl<S: Schema> HasBundleKind for ShapePort<S::Layer> {
+impl<L: Send + Sync> HasBundleKind for ShapePort<L> {
     type BundleKind = Signal;
     fn kind(&self) -> <Self as HasBundleKind>::BundleKind {
         Signal
@@ -320,12 +322,19 @@ impl<L> FlatLen for Port<L> {
     }
 }
 
-impl<S: Schema> LayoutBundleKind<S> for Port<S::Layer> {
-    type Bundle = PortGeometry<S::Layer>;
-    type Builder = PortGeometryBuilder<S::Layer>;
+impl<L: Send + Sync> HasBundleKind for Port<L> {
+    type BundleKind = Signal;
+    fn kind(&self) -> Self::BundleKind {
+        Signal
+    }
+}
 
-    fn builder(&self) -> Self::Builder {
-        Default::default()
+impl<S: Schema> HasLayoutBundleKind<S> for Port<S::Layer> {
+    type BundleKind = Signal;
+    fn builder(
+        &self,
+    ) -> <<Self as HasLayoutBundleKind<S>>::BundleKind as LayoutBundleKind<S>>::Builder {
+        PortGeometryBuilder::default()
     }
 }
 

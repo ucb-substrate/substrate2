@@ -10,7 +10,6 @@ use geometry::{
     rect::Rect,
 };
 use layir::{Cell, Element, Instance, Library, LibraryBuilder, Shape, Text};
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 pub mod import;

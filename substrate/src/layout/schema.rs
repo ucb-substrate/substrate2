@@ -1,6 +1,5 @@
 use std::{any::Any, fmt::Debug};
 
 pub trait Schema {
-    type Layer: Debug + Send + Sync + Any + Clone + Eq + PartialEq;
-    type Data;
+    type Layer: Debug + Send + Sync + Any + Clone + Eq;
 }
