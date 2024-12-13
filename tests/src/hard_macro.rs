@@ -18,12 +18,6 @@ use test_log::test;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block, Layout)]
 #[substrate(io = "BufferIo")]
-#[substrate(layout(
-    source = "crate::paths::test_data(\"gds/buffer.gds\")",
-    name = "buffer",
-    fmt = "gds",
-    pdk = "Sky130Pdk"
-))]
 pub struct BufferHardMacro;
 
 impl Layout for BufferHardMacro {
