@@ -60,6 +60,19 @@ pub trait Flatten<T>: FlatLen {
     }
 }
 
+/// Unflatten a structure from an iterator.
+pub trait Unflatten<D, T>: FlatLen + Sized {
+    /// Unflatten a structure from an iterator.
+    ///
+    /// A correct implementation must only return [`None`]
+    /// if the iterator has insufficient elements.
+    /// Returning None for any other reason is a logic error.
+    /// Unsafe code should not rely on implementations of this method being correct.
+    fn unflatten<I>(data: &D, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = T>;
+}
+
 impl<S, T: Flatten<S>> Flatten<S> for &T {
     fn flatten<E>(&self, output: &mut E)
     where
