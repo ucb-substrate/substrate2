@@ -1,13 +1,13 @@
 //! Built-in implementations of IO traits.
 
+use layout::LayoutBundle;
 use schematic::{Node, SchematicBundleKind, Terminal};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
 
-use crate::types::layout::{
-    BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometry, PortGeometryBuilder,
-};
+use crate::layout::schema::Schema;
+use crate::types::layout::{PortGeometry, PortGeometryBuilder};
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
@@ -85,34 +85,6 @@ impl SchematicBundleKind for () {
     }
 }
 
-impl layout::HasHardwareType for () {
-    type HardwareType = ();
-
-    fn builder(
-        &self,
-    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-    }
-}
-
-impl layout::HardwareType for () {
-    type Bundle = ();
-    type Builder = ();
-}
-
-impl BundleBuilder<()> for () {
-    fn build(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl Flatten<PortGeometry> for () {
-    fn flatten<E>(&self, _output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
-    }
-}
-
 impl FlatLen for Signal {
     fn len(&self) -> usize {
         1
@@ -174,21 +146,6 @@ impl SchematicBundleKind for Signal {
     }
 }
 
-impl layout::HasHardwareType for Signal {
-    type HardwareType = Signal;
-
-    fn builder(
-        &self,
-    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-        PortGeometryBuilder::default()
-    }
-}
-
-impl layout::HardwareType for Signal {
-    type Bundle = PortGeometry;
-    type Builder = PortGeometryBuilder;
-}
-
 macro_rules! impl_direction {
     ($dir:ident, $flatten_dir_bound:path, $flatten_dir_body:item) => {
         impl<T> AsRef<T> for $dir<T> {
@@ -244,35 +201,6 @@ macro_rules! impl_direction {
         impl<T: HasNameTree> HasNameTree for $dir<T> {
             fn names(&self) -> Option<Vec<NameTree>> {
                 self.0.names()
-            }
-        }
-
-        impl<T> layout::HasHardwareType for $dir<T>
-        where
-            T: layout::HasHardwareType,
-        {
-            type HardwareType = <T as layout::HasHardwareType>::HardwareType;
-
-            fn builder(&self) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-                self.0.builder()
-            }
-        }
-
-
-        impl<T> layout::HardwareType for $dir<T>
-        where
-            T: layout::HardwareType,
-        {
-            type Bundle = T::Bundle;
-            type Builder = T::Builder;
-        }
-
-        impl<T, U: CustomHardwareType<T>> CustomHardwareType<$dir<T>> for U
-        where
-            T: layout::HardwareType,
-        {
-            fn from_layout_type(other: &$dir<T>) -> Self {
-                <U as CustomHardwareType<T>>::from_layout_type(&other.0)
             }
         }
     };
@@ -431,33 +359,6 @@ impl<T: HasBundleKind> HasBundleKind for Array<T> {
     }
 }
 
-impl<T: layout::HasHardwareType> layout::HasHardwareType for Array<T> {
-    type HardwareType = Array<T::HardwareType>;
-
-    fn builder(
-        &self,
-    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-        ArrayBundle {
-            elems: (0..self.len).map(|_| self.kind.builder()).collect(),
-            kind: self.kind.builder().kind(),
-        }
-    }
-}
-
-impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
-    type Bundle = ArrayBundle<T::Bundle>;
-    type Builder = ArrayBundle<T::Builder>;
-}
-
-impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array<T>> for Array<U> {
-    fn from_layout_type(other: &Array<T>) -> Self {
-        Self {
-            kind: <U as CustomHardwareType<T>>::from_layout_type(&other.kind),
-            len: other.len,
-        }
-    }
-}
-
 impl<T: HasBundleKind> HasBundleKind for ArrayBundle<T> {
     type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
 
@@ -500,19 +401,6 @@ impl<
     }
 }
 
-impl<T, S> HierarchicalBuildFrom<S> for ArrayBundle<T>
-where
-    T: HasBundleKind + HierarchicalBuildFrom<S>,
-{
-    fn build_from(&mut self, path: &mut NameBuf, source: &S) {
-        for (i, elem) in self.elems.iter_mut().enumerate() {
-            path.push(i);
-            HierarchicalBuildFrom::<S>::build_from(elem, path, source);
-            path.pop();
-        }
-    }
-}
-
 impl<T: HasBundleKind + TranslateRef> TranslateRef for ArrayBundle<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
@@ -536,19 +424,6 @@ impl<T: HasBundleKind + TransformRef> TransformRef for ArrayBundle<T> {
                 .collect(),
             kind: self.kind.clone(),
         }
-    }
-}
-
-impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayBundle<T>> for ArrayBundle<B> {
-    fn build(self) -> Result<ArrayBundle<T>> {
-        let mut elems = Vec::new();
-        for e in self.elems {
-            elems.push(e.build()?);
-        }
-        Ok(ArrayBundle {
-            elems,
-            kind: self.kind.clone(),
-        })
     }
 }
 

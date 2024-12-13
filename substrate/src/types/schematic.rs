@@ -99,8 +99,6 @@ pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
     }
 }
 
-/// The [`BundleKind`] of a block's IO.
-pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 /// The type of a bundle associated with an IO.
 pub type IoBundle<T> = NodeBundle<<T as Block>::Io>;
 /// The type of a terminal bundle associated with an IO.

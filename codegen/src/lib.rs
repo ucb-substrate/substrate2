@@ -151,12 +151,11 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let schematic = schematic_io(&input);
-    let layout = layout_io(&input);
+    // let layout = layout_io(&input);
     let io_core_impl = io_core_impl(&input, true);
     quote!(
         #io_core_impl
         #schematic
-        #layout
     )
     .into()
 }

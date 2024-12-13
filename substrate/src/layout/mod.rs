@@ -8,6 +8,7 @@
 //! ## With data
 #![doc = examples::get_snippets!("core", "buffer_layout")]
 
+use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
@@ -21,25 +22,26 @@ use geometry::{
     transform::{Transform, TransformMut, Transformation, Translate, TranslateMut},
     union::BoundingUnion,
 };
+use layir::LayerBbox;
 use once_cell::sync::OnceCell;
+use schema::Schema;
 
-use crate::block::Block;
+use crate::context::Context;
 use crate::error::Error;
-use crate::layout::bbox::LayerBbox;
-use crate::pdk::layers::LayerId;
-use crate::pdk::Pdk;
-use crate::types::layout::{Builder, Bundle, HasHardwareType};
-use crate::types::Io;
-use crate::{context::PdkContext, error::Result};
+use crate::error::Result;
+use crate::types::layout::LayoutBundle;
+use crate::types::{HasBundleKind, IoKind};
 
-use self::element::{CellId, Element, RawCell, RawInstance, Shape};
+use self::element::{CellId, Element, RawCell, RawInstance};
 
-pub mod bbox;
+pub mod conv;
 pub mod element;
 pub mod error;
-pub mod gds;
+pub mod schema;
 pub mod tiling;
 pub mod tracks;
+
+use crate::block::Block;
 
 /// Data exported from a generated layout.
 ///
@@ -48,38 +50,23 @@ pub mod tracks;
 pub trait LayoutData: TransformRef + Send + Sync {}
 impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
-/// A block that exports data from its layout.
-///
-/// All blocks that have a layout implementation must export data.
-pub trait ExportsLayoutData: Block<Io: Io + HasHardwareType> {
-    /// Extra layout data to be stored with the block's generated cell.
-    ///
-    /// When the block is instantiated and transformed, all contained data
-    /// will be transformed with the block.
-    type LayoutData: LayoutData;
-}
+type CellLayer<T: Layout> = <<T as Layout>::Schema as Schema>::Layer;
 
-/// A block that can be laid out in process design kit `PDK`.
-pub trait Layout<PDK: Pdk>: ExportsLayoutData {
+/// A block that can be laid out in a given layout [`Schema`].
+pub trait Layout: Block {
+    type Schema: Schema;
+    type Bundle: LayoutBundle<Self::Schema> + HasBundleKind<BundleKind = IoKind<Self>>;
+    type Data: LayoutData;
     /// Generates the block's layout.
-    fn layout(
-        &self,
-        io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut CellBuilder<PDK>,
-    ) -> Result<Self::LayoutData>;
+    fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)>;
 }
 
-impl<T: ExportsLayoutData> ExportsLayoutData for Arc<T> {
-    type LayoutData = T::LayoutData;
-}
-
-impl<PDK: Pdk, T: Layout<PDK>> Layout<PDK> for Arc<T> {
-    fn layout(
-        &self,
-        io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut CellBuilder<PDK>,
-    ) -> Result<Self::LayoutData> {
-        T::layout(self.as_ref(), io, cell)
+impl<T: Layout> Layout for Arc<T> {
+    type Schema = T::Schema;
+    type Bundle = T::Bundle;
+    type Data = T::Data;
+    fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)> {
+        T::layout(self.as_ref(), cell)
     }
 }
 
@@ -113,21 +100,21 @@ impl LayoutContext {
 ///
 #[doc = get_snippets!("core", "generate")]
 #[allow(dead_code)]
-pub struct Cell<T: ExportsLayoutData> {
+pub struct Cell<T: Layout> {
     /// Block whose layout this cell represents.
     block: Arc<T>,
     /// Extra data created during layout generation.
-    data: T::LayoutData,
-    pub(crate) io: Bundle<<T as Block>::Io>,
-    pub(crate) raw: Arc<RawCell>,
+    data: T::Data,
+    pub(crate) io: T::Bundle,
+    pub(crate) raw: Arc<RawCell<<T::Schema as Schema>::Layer>>,
 }
 
-impl<T: ExportsLayoutData> Cell<T> {
+impl<T: Layout> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
-        data: T::LayoutData,
-        io: Bundle<<T as Block>::Io>,
-        raw: Arc<RawCell>,
+        data: T::Data,
+        io: T::Bundle,
+        raw: Arc<RawCell<CellLayer<T>>>,
     ) -> Self {
         Self {
             block,
@@ -143,40 +130,43 @@ impl<T: ExportsLayoutData> Cell<T> {
     }
 
     /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&self) -> &T::LayoutData {
+    pub fn data(&self) -> &T::Data {
         &self.data
     }
 
     /// Returns the geometry of the cell's IO.
-    pub fn io(&self) -> &Bundle<<T as Block>::Io> {
+    pub fn io(&self) -> &T::Bundle {
         &self.io
     }
 
     /// The raw layout geometry contained by this cell.
-    pub fn raw(&self) -> &Arc<RawCell> {
+    pub fn raw(&self) -> &Arc<RawCell<CellLayer<T>>> {
         &self.raw
     }
 }
 
-impl<T: ExportsLayoutData> Bbox for Cell<T> {
+impl<T: Layout> Bbox for Cell<T> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.raw.bbox()
     }
 }
 
-impl<T: ExportsLayoutData> LayerBbox for Cell<T> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+impl<T: Layout> LayerBbox<<T::Schema as Schema>::Layer> for Cell<T>
+where
+    <T::Schema as Schema>::Layer: PartialEq,
+{
+    fn layer_bbox(&self, layer: &<T::Schema as Schema>::Layer) -> Option<Rect> {
         self.raw.layer_bbox(layer)
     }
 }
 
 /// A handle to a schematic cell that is being generated.
-pub struct CellHandle<T: ExportsLayoutData> {
+pub struct CellHandle<T: Layout> {
     pub(crate) block: Arc<T>,
     pub(crate) cell: CacheHandle<Result<Cell<T>>>,
 }
 
-impl<T: ExportsLayoutData> Clone for CellHandle<T> {
+impl<T: Layout> Clone for CellHandle<T> {
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -185,7 +175,7 @@ impl<T: ExportsLayoutData> Clone for CellHandle<T> {
     }
 }
 
-impl<T: ExportsLayoutData> CellHandle<T> {
+impl<T: Layout> CellHandle<T> {
     /// Tries to access the underlying [`Cell`].
     ///
     /// Blocks until cell generation completes and returns an error if one was thrown during generation.
@@ -209,28 +199,28 @@ impl<T: ExportsLayoutData> CellHandle<T> {
 }
 
 /// A transformed view of a cell, usually created by accessing the cell of an instance.
-pub struct TransformedCell<T: ExportsLayoutData> {
+pub struct TransformedCell<T: Layout> {
     /// Block whose layout this cell represents.
     block: Arc<T>,
     /// Extra data created during layout generation.
     ///
     /// This is the result of applying `trans` to the original cell's data.
     /// If `trans` changes, this field must be updated.
-    data: T::LayoutData,
+    data: T::Data,
     /// The geometry of the cell's IO.
     ///
     /// This is the result of applying `trans` to the original cell's IO.
     /// If `trans` changes, this field must be updated.
-    io: Bundle<<T as Block>::Io>,
+    io: T::Bundle,
     /// The underlying raw cell.
     ///
     /// This field should NOT be modified if `trans` changes.
-    raw: Arc<RawCell>,
+    raw: Arc<RawCell<CellLayer<T>>>,
     /// The transformation applied to all geometry stored in the raw cell (`raw`).
     trans: Transformation,
 }
 
-impl<T: ExportsLayoutData> TransformedCell<T> {
+impl<T: Layout> TransformedCell<T> {
     /// Creates a new transformed cell from the given cell and transformation.
     pub fn new(cell: &Cell<T>, trans: Transformation) -> Self {
         Self {
@@ -248,12 +238,12 @@ impl<T: ExportsLayoutData> TransformedCell<T> {
     }
 
     /// Returns extra data created by the cell's schematic generator.
-    pub fn data(&self) -> &T::LayoutData {
+    pub fn data(&self) -> &T::Data {
         &self.data
     }
 }
 
-impl<T: ExportsLayoutData> TranslateRef for TransformedCell<T> {
+impl<T: Layout> TranslateRef for TransformedCell<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
             block: self.block.clone(),
@@ -265,7 +255,7 @@ impl<T: ExportsLayoutData> TranslateRef for TransformedCell<T> {
     }
 }
 
-impl<T: ExportsLayoutData> TransformRef for TransformedCell<T> {
+impl<T: Layout> TransformRef for TransformedCell<T> {
     fn transform_ref(&self, trans: Transformation) -> Self {
         Self {
             block: self.block.clone(),
@@ -277,14 +267,17 @@ impl<T: ExportsLayoutData> TransformRef for TransformedCell<T> {
     }
 }
 
-impl<T: ExportsLayoutData> Bbox for TransformedCell<T> {
+impl<T: Layout> Bbox for TransformedCell<T> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.raw.bbox().transform(self.trans)
     }
 }
 
-impl<T: ExportsLayoutData> LayerBbox for TransformedCell<T> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+impl<T: Layout> LayerBbox<<T::Schema as Schema>::Layer> for TransformedCell<T>
+where
+    CellLayer<T>: PartialEq,
+{
+    fn layer_bbox(&self, layer: &<T::Schema as Schema>::Layer) -> Option<Rect> {
         self.raw.layer_bbox(layer).transform(self.trans)
     }
 }
@@ -293,12 +286,12 @@ impl<T: ExportsLayoutData> LayerBbox for TransformedCell<T> {
 ///
 /// Stores a pointer to its underlying cell and its instantiated transformation.
 #[allow(dead_code)]
-pub struct Instance<T: ExportsLayoutData> {
+pub struct Instance<T: Layout> {
     cell: CellHandle<T>,
     trans: Transformation,
 }
 
-impl<T: ExportsLayoutData> Clone for Instance<T> {
+impl<T: Layout> Clone for Instance<T> {
     fn clone(&self) -> Self {
         Self {
             cell: self.cell.clone(),
@@ -307,7 +300,7 @@ impl<T: ExportsLayoutData> Clone for Instance<T> {
     }
 }
 
-impl<T: ExportsLayoutData> Instance<T> {
+impl<T: Layout> Instance<T> {
     pub(crate) fn new(cell: CellHandle<T>) -> Self {
         Instance {
             cell,
@@ -379,7 +372,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_data(&self) -> Result<T::LayoutData> {
+    pub fn try_data(&self) -> Result<T::Data> {
         Ok(self.try_cell()?.data)
     }
 
@@ -390,7 +383,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn data(&self) -> T::LayoutData {
+    pub fn data(&self) -> T::Data {
         self.cell().data
     }
 
@@ -404,7 +397,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<Bundle<<T as Block>::Io>> {
+    pub fn try_io(&self) -> Result<T::Bundle> {
         Ok(self.try_cell()?.io)
     }
 
@@ -415,7 +408,7 @@ impl<T: ExportsLayoutData> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> Bundle<<T as Block>::Io> {
+    pub fn io(&self) -> T::Bundle {
         self.cell().io
     }
 
@@ -425,51 +418,54 @@ impl<T: ExportsLayoutData> Instance<T> {
     }
 }
 
-impl<T: ExportsLayoutData> Bbox for Instance<T> {
+impl<T: Layout> Bbox for Instance<T> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.cell().bbox()
     }
 }
 
-impl<T: ExportsLayoutData> LayerBbox for Instance<T> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+impl<T: Layout> LayerBbox<<T::Schema as Schema>::Layer> for Instance<T>
+where
+    CellLayer<T>: PartialEq,
+{
+    fn layer_bbox(&self, layer: &<T::Schema as Schema>::Layer) -> Option<Rect> {
         self.cell().layer_bbox(layer)
     }
 }
 
-impl<T: ExportsLayoutData> TranslateMut for Instance<T> {
+impl<T: Layout> TranslateMut for Instance<T> {
     fn translate_mut(&mut self, p: Point) {
         self.transform_mut(Transformation::from_offset(p))
     }
 }
 
-impl<T: ExportsLayoutData> TransformMut for Instance<T> {
+impl<T: Layout> TransformMut for Instance<T> {
     fn transform_mut(&mut self, trans: Transformation) {
         self.trans = Transformation::cascade(trans, self.trans);
     }
 }
 
-impl<T: ExportsLayoutData> TranslateRef for Instance<T> {
+impl<T: Layout> TranslateRef for Instance<T> {
     fn translate_ref(&self, p: Point) -> Self {
         self.clone().translate(p)
     }
 }
 
-impl<T: ExportsLayoutData> TransformRef for Instance<T> {
+impl<T: Layout> TransformRef for Instance<T> {
     fn transform_ref(&self, trans: Transformation) -> Self {
         self.clone().transform(trans)
     }
 }
 
-impl<PDK: Pdk, I: Layout<PDK>> Draw<PDK> for Instance<I> {
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+impl<I: Layout> Draw<I::Schema> for Instance<I> {
+    fn draw(self, recv: &mut DrawReceiver<I::Schema>) -> Result<()> {
         recv.draw_instance(self);
         Ok(())
     }
 }
 
-impl<PDK: Pdk, I: Layout<PDK>> Draw<PDK> for &Instance<I> {
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+impl<I: Layout> Draw<I::Schema> for &Instance<I> {
+    fn draw(self, recv: &mut DrawReceiver<I::Schema>) -> Result<()> {
         recv.draw_instance((*self).clone());
         Ok(())
     }
@@ -478,26 +474,25 @@ impl<PDK: Pdk, I: Layout<PDK>> Draw<PDK> for &Instance<I> {
 /// A layout cell builder.
 ///
 /// Constructed once for each invocation of [`Layout::layout`].
-pub struct CellBuilder<PDK: Pdk + ?Sized> {
-    container: Container<PDK>,
+pub struct CellBuilder<S: Schema> {
+    container: Container<S>,
     /// The current global context.
-    pub ctx: PdkContext<PDK>,
+    pub ctx: Context,
 }
 
-impl<PDK: Pdk> CellBuilder<PDK> {
+impl<S: Schema> CellBuilder<S> {
     /// Creates a new layout builder.
-    pub fn new(ctx: PdkContext<PDK>) -> Self {
+    pub fn new(ctx: Context) -> Self {
         Self {
             container: Container::new(),
             ctx,
         }
     }
 
-    pub(crate) fn finish(self, id: CellId, name: ArcStr) -> RawCell {
+    pub(crate) fn finish(self, id: CellId, name: ArcStr) -> RawCell<S::Layer> {
         let mut cell = RawCell::new(id, name);
 
-        self.container
-            .finish(&mut cell.elements, &mut cell.blockages);
+        self.container.finish(&mut cell.elements);
 
         cell
     }
@@ -510,7 +505,7 @@ impl<PDK: Pdk> CellBuilder<PDK> {
     /// # Examples
     ///
     #[doc = get_snippets!("core", "cell_builder_generate")]
-    pub fn generate<I: Layout<PDK>>(&mut self, block: I) -> Instance<I> {
+    pub fn generate<I: Layout>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
         Instance::new(cell)
     }
@@ -519,15 +514,10 @@ impl<PDK: Pdk> CellBuilder<PDK> {
     ///
     /// Blocks on generation, returning only once the instance's cell is populated. Useful for
     /// handling errors thrown by the generation of a cell immediately.
-    pub fn generate_blocking<I: Layout<PDK>>(&mut self, block: I) -> Result<Instance<I>> {
+    pub fn generate_blocking<I: Layout>(&mut self, block: I) -> Result<Instance<I>> {
         let cell = self.ctx.generate_layout(block);
         cell.try_cell()?;
         Ok(Instance::new(cell))
-    }
-
-    /// Draw a blockage.
-    pub fn draw_blockage(&mut self, shape: Shape) {
-        self.container.draw_blockage(shape)
     }
 
     /// Draw layout object `obj`.
@@ -542,24 +532,24 @@ impl<PDK: Pdk> CellBuilder<PDK> {
     /// # Panics
     ///
     /// May cause a panic if generation of an underlying instance fails.
-    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
+    pub fn draw(&mut self, obj: impl Draw<S>) -> Result<()> {
         Container::draw(&mut self.container, obj)
     }
 
     /// Gets the global context.
-    pub fn ctx(&self) -> &PdkContext<PDK> {
+    pub fn ctx(&self) -> &Context {
         &self.ctx
     }
 }
 
-impl<PDK: Pdk> Bbox for CellBuilder<PDK> {
+impl<S: Schema> Bbox for CellBuilder<S> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.container.bbox()
     }
 }
 
-impl<PDK: Pdk> LayerBbox for CellBuilder<PDK> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+impl<S: Schema> LayerBbox<S::Layer> for CellBuilder<S> {
+    fn layer_bbox(&self, layer: &S::Layer) -> Option<Rect> {
         self.container.layer_bbox(layer)
     }
 }
@@ -567,37 +557,64 @@ impl<PDK: Pdk> LayerBbox for CellBuilder<PDK> {
 /// A receiver for drawing layout objects.
 ///
 /// Implements the primitive functions that layout objects need to implement [`Draw`].
-#[derive(Debug, Clone)]
-pub struct DrawReceiver<PDK: ?Sized> {
-    phantom: PhantomData<PDK>,
-    containers: Vec<Container<PDK>>,
-    instances: Vec<Arc<OnceCell<Option<RawInstance>>>>,
-    elements: Vec<Element>,
-    blockages: Vec<Shape>,
+pub struct DrawReceiver<S: Schema> {
+    phantom: PhantomData<S>,
+    containers: Vec<Container<S>>,
+    instances: Vec<Arc<OnceCell<Option<RawInstance<S::Layer>>>>>,
+    elements: Vec<Element<S::Layer>>,
     trans: Transformation,
 }
 
-impl<PDK> DrawReceiver<PDK> {
+impl<S: Schema> Debug for DrawReceiver<S>
+where
+    S::Layer: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DrawReceiver")
+            .field("phantom", &self.phantom)
+            .field("containers", &self.containers)
+            .field("instances", &self.instances)
+            .field("elements", &self.elements)
+            .field("trans", &self.trans)
+            .finish()
+    }
+}
+
+impl<S: Schema> Clone for DrawReceiver<S>
+where
+    S::Layer: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            phantom: PhantomData,
+            containers: self.containers.clone(),
+            instances: self.instances.clone(),
+            elements: self.elements.clone(),
+            trans: self.trans.clone(),
+        }
+    }
+}
+
+impl<S: Schema> DrawReceiver<S> {
     pub(crate) fn new() -> Self {
         Self {
             phantom: PhantomData,
             containers: Vec::new(),
             instances: Vec::new(),
             elements: Vec::new(),
-            blockages: Vec::new(),
             trans: Transformation::default(),
         }
     }
 
     /// Blocks on instances and returns pointers to them.
-    fn get_instances(&self) -> Vec<&RawInstance> {
+    fn get_instances(&self) -> Vec<&RawInstance<S::Layer>> {
         self.instances
             .iter()
             .map(|instance| instance.wait().as_ref().unwrap())
             .collect()
     }
 
-    pub(crate) fn finish(self, elements: &mut Vec<Element>, blockages: &mut Vec<Shape>) {
+    pub(crate) fn finish(self, elements: &mut Vec<Element<S::Layer>>) {
         for instance in self
             .instances
             .into_iter()
@@ -611,35 +628,25 @@ impl<PDK> DrawReceiver<PDK> {
                 .into_iter()
                 .map(|element| element.transform(self.trans)),
         );
-        blockages.extend(
-            self.blockages
-                .into_iter()
-                .map(|blockage| blockage.transform(self.trans)),
-        );
 
         for mut container in self.containers {
             container.transform_mut(self.trans);
-            container.finish(elements, blockages);
+            container.finish(elements);
         }
     }
 
-    pub(crate) fn draw_container(&mut self, container: Container<PDK>) {
+    pub(crate) fn draw_container(&mut self, container: Container<S>) {
         self.containers.push(container);
     }
 
-    pub(crate) fn draw_element(&mut self, element: impl Into<Element>) {
+    pub(crate) fn draw_element(&mut self, element: impl Into<Element<S::Layer>>) {
         let element = element.into();
         self.elements.push(element);
     }
-
-    /// Draw a blockage.
-    pub fn draw_blockage(&mut self, shape: impl Into<Shape>) {
-        self.blockages.push(shape.into());
-    }
 }
 
-impl<PDK: Pdk> DrawReceiver<PDK> {
-    pub(crate) fn draw_instance<I: Layout<PDK>>(&mut self, inst: Instance<I>) {
+impl<S: Schema> DrawReceiver<S> {
+    pub(crate) fn draw_instance<I: Layout<Schema = S>>(&mut self, inst: Instance<I>) {
         let instance = Arc::new(OnceCell::new());
         self.instances.push(instance.clone());
 
@@ -664,22 +671,22 @@ impl<PDK: Pdk> DrawReceiver<PDK> {
     /// # Panics
     ///
     /// May cause a panic if generation of an underlying instance fails.
-    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
+    pub fn draw(&mut self, obj: impl Draw<S>) -> Result<()> {
         obj.draw(self)
     }
 }
 
-impl<PDK: Pdk> Draw<PDK> for DrawReceiver<PDK> {
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+impl<S: Schema> Draw<S> for DrawReceiver<S> {
+    fn draw(self, recv: &mut DrawReceiver<S>) -> Result<()> {
         recv.containers.extend(self.containers);
         recv.instances.extend(self.instances);
         recv.elements.extend(self.elements);
-        recv.blockages.extend(self.blockages);
         Ok(())
     }
 }
 
-impl<PDK> Bbox for DrawReceiver<PDK> {
+impl<S: Schema> Bbox for DrawReceiver<S> {
+    // TODO: process containers?
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.get_instances()
             .bbox()
@@ -687,8 +694,8 @@ impl<PDK> Bbox for DrawReceiver<PDK> {
     }
 }
 
-impl<PDK> LayerBbox for DrawReceiver<PDK> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+impl<S: Schema> LayerBbox<S::Layer> for DrawReceiver<S> {
+    fn layer_bbox(&self, layer: &S::Layer) -> Option<Rect> {
         self.get_instances()
             .layer_bbox(layer)
             .bounding_union(&self.elements.layer_bbox(layer))
@@ -696,19 +703,19 @@ impl<PDK> LayerBbox for DrawReceiver<PDK> {
 }
 
 /// An object that can be drawn in a [`CellBuilder`].
-pub trait Draw<PDK: Pdk>: DrawBoxed<PDK> {
+pub trait Draw<S: Schema>: DrawBoxed<S> {
     /// Draws `self` inside `recv`.
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()>;
+    fn draw(self, recv: &mut DrawReceiver<S>) -> Result<()>;
 }
 
 /// An object where `Box<Self>` can be drawn.
-pub trait DrawBoxed<PDK: Pdk> {
+pub trait DrawBoxed<S: Schema> {
     /// Draws `self` inside `recv`.
-    fn draw_boxed(self: Box<Self>, recv: &mut DrawReceiver<PDK>) -> Result<()>;
+    fn draw_boxed(self: Box<Self>, recv: &mut DrawReceiver<S>) -> Result<()>;
 }
 
-impl<PDK: Pdk, T: Draw<PDK>> DrawBoxed<PDK> for T {
-    fn draw_boxed(self: Box<Self>, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+impl<S: Schema, T: Draw<S>> DrawBoxed<S> for T {
+    fn draw_boxed(self: Box<Self>, recv: &mut DrawReceiver<S>) -> Result<()> {
         (*self).draw(recv)
     }
 }
@@ -716,33 +723,56 @@ impl<PDK: Pdk, T: Draw<PDK>> DrawBoxed<PDK> for T {
 /// Draws an object into a new [`Container`].
 // TODO: Decide if this trait should be made public.
 #[allow(dead_code)]
-pub(crate) trait DrawContainer<PDK: Pdk>: Draw<PDK> {
+pub(crate) trait DrawContainer<S: Schema>: Draw<S> {
     /// Draws `self` into a new [`Container`].
-    fn draw_container(self) -> Result<Container<PDK>>;
+    fn draw_container(self) -> Result<Container<S>>;
 }
 
-impl<PDK: Pdk, T: Draw<PDK>> DrawContainer<PDK> for T {
-    fn draw_container(self) -> Result<Container<PDK>> {
+impl<S: Schema, T: Draw<S>> DrawContainer<S> for T {
+    fn draw_container(self) -> Result<Container<S>> {
         let mut container = Container::new();
         Container::draw(&mut container, self)?;
         Ok(container)
     }
 }
 
-impl<PDK: Pdk, T: Draw<PDK> + ?Sized> Draw<PDK> for Box<T> {
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+impl<S: Schema, T: Draw<S> + ?Sized> Draw<S> for Box<T> {
+    fn draw(self, recv: &mut DrawReceiver<S>) -> Result<()> {
         self.draw_boxed(recv)
     }
 }
 
 /// TODO: Temporarily private until we decide whether it is worth exposing.
-#[derive(Debug, Clone)]
-pub(crate) struct Container<PDK: ?Sized> {
-    recvs: Vec<DrawReceiver<PDK>>,
+pub(crate) struct Container<S: Schema> {
+    recvs: Vec<DrawReceiver<S>>,
     trans: Transformation,
 }
 
-impl<PDK> Default for Container<PDK> {
+impl<S: Schema> Clone for Container<S>
+where
+    S::Layer: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            recvs: self.recvs.clone(),
+            trans: self.trans,
+        }
+    }
+}
+
+impl<S: Schema> Debug for Container<S>
+where
+    S::Layer: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Container")
+            .field("recvs", &self.recvs)
+            .field("trans", &self.trans)
+            .finish()
+    }
+}
+
+impl<S: Schema> Default for Container<S> {
     fn default() -> Self {
         Self {
             recvs: vec![DrawReceiver::new()],
@@ -751,29 +781,24 @@ impl<PDK> Default for Container<PDK> {
     }
 }
 
-impl<PDK> Container<PDK> {
+impl<S: Schema> Container<S> {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub(crate) fn finish(self, elements: &mut Vec<Element>, blockages: &mut Vec<Shape>) {
+    pub(crate) fn finish(self, elements: &mut Vec<Element<S::Layer>>) {
         for mut recv in self.recvs {
             recv.trans = Transformation::cascade(self.trans, recv.trans);
-            recv.finish(elements, blockages);
+            recv.finish(elements);
         }
     }
 
-    pub(crate) fn recv_mut(&mut self) -> &mut DrawReceiver<PDK> {
+    pub(crate) fn recv_mut(&mut self) -> &mut DrawReceiver<S> {
         self.recvs.last_mut().unwrap()
-    }
-
-    /// Draw a blockage.
-    pub fn draw_blockage(&mut self, shape: impl Into<Shape>) {
-        self.recv_mut().draw_blockage(shape);
     }
 }
 
-impl<PDK: Pdk> Container<PDK> {
+impl<S: Schema> Container<S> {
     /// Draw layout object `obj`.
     ///
     /// For instances, a new thread is spawned to add the instance once the underlying cell has
@@ -786,41 +811,45 @@ impl<PDK: Pdk> Container<PDK> {
     /// # Panics
     ///
     /// May cause a panic if generation of an underlying instance fails.
-    pub fn draw(&mut self, obj: impl Draw<PDK>) -> Result<()> {
+    pub fn draw(&mut self, obj: impl Draw<S>) -> Result<()> {
         self.recv_mut().draw(obj)
     }
 }
 
-impl<PDK> Bbox for Container<PDK> {
+impl<S: Schema> Bbox for Container<S> {
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.recvs.bbox().transform(self.trans)
     }
 }
 
-impl<PDK> LayerBbox for Container<PDK> {
-    fn layer_bbox(&self, layer: LayerId) -> Option<Rect> {
+impl<S: Schema> LayerBbox<S::Layer> for Container<S> {
+    fn layer_bbox(&self, layer: &S::Layer) -> Option<Rect> {
         self.recvs.layer_bbox(layer).transform(self.trans)
     }
 }
 
-impl<PDK: Pdk> Draw<PDK> for Container<PDK> {
-    fn draw(self, recv: &mut DrawReceiver<PDK>) -> Result<()> {
+impl<S: Schema> Draw<S> for Container<S> {
+    fn draw(self, recv: &mut DrawReceiver<S>) -> Result<()> {
         recv.draw_container(self);
         Ok(())
     }
 }
 
-impl<PDK> TranslateMut for Container<PDK> {
+impl<S: Schema> TranslateMut for Container<S> {
     fn translate_mut(&mut self, p: Point) {
         self.transform_mut(Transformation::from_offset(p))
     }
 }
 
-impl<PDK> TransformMut for Container<PDK> {
+impl<S: Schema> TransformMut for Container<S> {
     fn transform_mut(&mut self, trans: Transformation) {
         self.trans = Transformation::cascade(trans, self.trans);
         let mut recv = DrawReceiver::new();
         recv.trans = self.trans.inv();
         self.recvs.push(recv);
     }
+}
+
+pub struct LayoutLibrary<S: Schema> {
+    inner: layir::Library<S::Layer>,
 }
