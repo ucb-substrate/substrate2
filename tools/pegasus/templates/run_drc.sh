@@ -9,4 +9,4 @@ set -x
 set -euf -o pipefail
 
 # Run Pegasus DRC
-pegasus -drc -dp 12 -license_dp_continue -control {{ runset_path }} -ui_data {{ rules_path }}
+PEGASUS_DRC="{{ rules_dir }}" pegasus -drc -dp 12 -license_dp_continue -control {{ runset_path }} -ui_data {{ rules_path }}

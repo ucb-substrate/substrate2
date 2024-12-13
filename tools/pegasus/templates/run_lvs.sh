@@ -8,6 +8,6 @@ set -x
 # which we'll just ignore.
 set -euf -o pipefail
 
-# Run Calibre LVS
-pegasus -lvs -dp 12 -license_dp_continue -automatch -check_schematic \
+# Run Pegasus LVS
+PEGASUS_LVS="{{ rules_dir }}" pegasus -lvs -dp 12 -license_dp_continue -automatch -check_schematic \
     -control {{ run_file_path }} -rc_data -ui_data {{ rules_path }}

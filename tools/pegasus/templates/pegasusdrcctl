@@ -1,4 +1,4 @@
-layout_path {{ layout_path }};
-layout_primary {{ cell_name }};
+layout_path "{{ layout_path }}";
+layout_primary "{{ cell_name }}";
 results_db -drc "{{ results_path }}";
 report_summary -drc "{{ summary_path }}";

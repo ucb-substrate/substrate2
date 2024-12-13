@@ -14,6 +14,7 @@ pub struct LvsParams<'a> {
     pub layout_cell_name: &'a str,
     pub source_paths: &'a [PathBuf],
     pub source_cell_name: &'a str,
+    pub rules_dir: &'a Path,
     pub rules_path: &'a Path,
 }
 
@@ -33,7 +34,6 @@ struct LvsTemplateContext<'a> {
     lvs_rpt_path: &'a Path,
     erc_db_path: &'a Path,
     erc_summary_path: &'a Path,
-    rules_path: &'a Path,
 }
 
 pub struct LvsData {
@@ -71,7 +71,6 @@ pub fn write_lvs_run_file(params: &LvsParams) -> Result<LvsGeneratedPaths, Error
         lvs_rpt_path: &lvs_rpt_path,
         erc_db_path: &erc_db_path,
         erc_summary_path: &erc_summary_path,
-        rules_path: params.rules_path,
     };
 
     let lvs_contents = TEMPLATES
@@ -115,6 +114,7 @@ pub fn write_lvs_run_file(params: &LvsParams) -> Result<LvsGeneratedPaths, Error
 pub fn write_lvs_run_script(
     work_dir: impl AsRef<Path>,
     run_file_path: impl AsRef<Path>,
+    rules_dir: impl AsRef<Path>,
     rules_path: impl AsRef<Path>,
 ) -> Result<PathBuf, Error> {
     fs::create_dir_all(&work_dir).map_err(Error::Io)?;
@@ -123,6 +123,7 @@ pub fn write_lvs_run_script(
 
     let mut context = Context::new();
     context.insert("run_file_path", run_file_path.as_ref());
+    context.insert("rules_dir", rules_dir.as_ref());
     context.insert("rules_path", rules_path.as_ref());
 
     let contents = TEMPLATES
@@ -147,8 +148,11 @@ pub fn parse_pegasus_lvs_results(
     lvs_rpt_path: impl AsRef<Path>,
     erc_summary_path: impl AsRef<Path>,
 ) -> Result<LvsData, Error> {
-    let re = Regex::new(r"INCORRECT").unwrap();
-    let lvs_rpt = fs::File::open(&lvs_rpt_path).map_err(Error::Io)?;
+    let re = Regex::new(r"MISMATCH").unwrap();
+    let lvs_rpt_path = lvs_rpt_path.as_ref();
+    let mut ext = lvs_rpt_path.extension().unwrap_or_default().to_owned();
+    ext.push(".cls");
+    let lvs_rpt = fs::File::open(&lvs_rpt_path.with_extension(ext)).map_err(Error::Io)?;
     let correct = !(io::BufReader::new(lvs_rpt).lines().any(|s| {
         if let Ok(line) = s {
             re.is_match(&line)
@@ -157,7 +161,7 @@ pub fn parse_pegasus_lvs_results(
         }
     }));
 
-    let re = Regex::new(r"^RULECHECK (.+) \.* TOTAL Result Count = (\d+)$").unwrap();
+    let re = Regex::new(r"^RULECHECK (.+) \.* Total Result .* (\d+) \(.*(\d+)\)").unwrap();
     let erc_summary = fs::File::open(&erc_summary_path).map_err(Error::Io)?;
     let erc_rule_checks: Vec<RuleCheck> = io::BufReader::new(erc_summary)
         .lines()
@@ -191,7 +195,12 @@ pub fn run_lvs(params: &LvsParams) -> Result<LvsData, Error> {
         erc_summary_path,
         ..
     } = write_lvs_run_file(params)?;
-    let run_script_path = write_lvs_run_script(params.work_dir, run_file_path, params.rules_path)?;
+    let run_script_path = write_lvs_run_script(
+        params.work_dir,
+        run_file_path,
+        params.rules_dir,
+        params.rules_path,
+    )?;
     run_pegasus_lvs(params.work_dir, run_script_path)?;
     parse_pegasus_lvs_results(lvs_rpt_path, erc_summary_path)
 }
@@ -201,7 +210,7 @@ mod tests {
     use crate::lvs::{
         parse_pegasus_lvs_results, run_lvs, write_lvs_run_file, LvsParams, LvsStatus,
     };
-    use crate::tests::{EXAMPLES_PATH, SKY130_LVS_RULES_PATH, TEST_BUILD_PATH};
+    use crate::tests::{EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, TEST_BUILD_PATH};
     use std::path::PathBuf;
 
     #[test]
@@ -216,6 +225,7 @@ mod tests {
             layout_cell_name: "test_col_inv_array",
             source_paths: &[source_path],
             source_cell_name: "col_inv_array",
+            rules_dir: &PathBuf::from(SKY130_LVS),
             rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
         })?;
         Ok(())
@@ -256,6 +266,7 @@ mod tests {
                     layout_cell_name: "test_col_inv_array",
                     source_paths: &[source_path],
                     source_cell_name: "col_inv_array",
+                    rules_dir: &PathBuf::from(SKY130_LVS),
                     rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
                 .status,
@@ -292,6 +303,7 @@ mod tests {
                         source_path_control_simple,
                     ],
                     source_cell_name: "sramgen_sram_32x32m2",
+                    rules_dir: &PathBuf::from(SKY130_LVS),
                     rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
                 .status,
@@ -328,6 +340,7 @@ mod tests {
                         source_path_control_simple,
                     ],
                     source_cell_name: "sramgen_sram_32x32m2",
+                    rules_dir: &PathBuf::from(SKY130_LVS),
                     rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
                 .status,
