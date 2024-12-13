@@ -1,13 +1,13 @@
 //! Built-in implementations of IO traits.
 
-use layout::{HasLayoutBundleKind, LayoutBundle, LayoutBundleBuilder, LayoutBundleKind};
+use layout::LayoutBundle;
 use schematic::{Node, SchematicBundleKind, Terminal};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
 
 use crate::layout::schema::Schema;
-use crate::types::layout::{HierarchicalBuildFrom, PortGeometry, PortGeometryBuilder};
+use crate::types::layout::{PortGeometry, PortGeometryBuilder};
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
@@ -85,47 +85,9 @@ impl SchematicBundleKind for () {
     }
 }
 
-impl<S: Schema> HasLayoutBundleKind<S> for () {
-    type BundleKind = ();
-
-    fn builder(
-        &self,
-    ) -> <<Self as HasLayoutBundleKind<S>>::BundleKind as LayoutBundleKind<S>>::Builder {
-    }
-}
-
-impl<S: Schema> LayoutBundleKind<S> for () {
-    type Bundle = ();
-    type Builder = ();
-    fn builder(&self) -> Self::Builder {}
-}
-
-impl<S: Schema> LayoutBundleBuilder<S, ()> for () {
-    fn build(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl<L> Flatten<PortGeometry<L>> for () {
-    fn flatten<E>(&self, _output: &mut E)
-    where
-        E: Extend<PortGeometry<L>>,
-    {
-    }
-}
-
 impl FlatLen for Signal {
     fn len(&self) -> usize {
         1
-    }
-}
-
-impl<S: Schema> LayoutBundleKind<S> for Signal {
-    type Bundle = PortGeometry<S::Layer>;
-    type Builder = PortGeometryBuilder<S::Layer>;
-
-    fn builder(&self) -> Self::Builder {
-        PortGeometryBuilder::default()
     }
 }
 
@@ -181,16 +143,6 @@ impl SchematicBundleKind for Signal {
             instance_id: instance,
             instance_node: *instance_io,
         }
-    }
-}
-
-impl<S: Schema> HasLayoutBundleKind<S> for Signal {
-    type BundleKind = Signal;
-
-    fn builder(
-        &self,
-    ) -> <<Self as HasLayoutBundleKind<S>>::BundleKind as LayoutBundleKind<S>>::Builder {
-        PortGeometryBuilder::default()
     }
 }
 
@@ -251,39 +203,6 @@ macro_rules! impl_direction {
                 self.0.names()
             }
         }
-
-        impl<S: Schema, T> HasLayoutBundleKind<S> for $dir<T>
-        where
-            T: HasLayoutBundleKind<S>,
-        {
-            type BundleKind = <T as HasLayoutBundleKind<S>>::BundleKind;
-
-            fn builder(&self) -> <<Self as HasLayoutBundleKind<S>>::BundleKind as LayoutBundleKind<S>>::Builder {
-                self.0.builder()
-            }
-        }
-
-
-        impl<S: Schema, T> LayoutBundleKind<S> for $dir<T>
-        where
-            T: LayoutBundleKind<S>,
-        {
-            type Bundle = T::Bundle;
-            type Builder = T::Builder;
-
-            fn builder(&self) -> Self::Builder {
-                self.0.builder()
-            }
-        }
-
-        // impl<T, U: CustomBundleKind<T>> CustomBundleKind<$dir<T>> for U
-        // where
-        //     T: LayoutBundleKind,
-        // {
-        //     fn from_layout_type(other: &$dir<T>) -> Self {
-        //         <U as CustomBundleKind<T>>::from_layout_type(&other.0)
-        //     }
-        // }
     };
 }
 
@@ -335,28 +254,6 @@ impl<T: FlatLen> FlatLen for Array<T> {
     }
 }
 
-impl<S: Schema, T: LayoutBundleKind<S>> LayoutBundleKind<S> for Array<T> {
-    type Bundle = ArrayBundle<T::Bundle>;
-    type Builder = ArrayBundle<T::Builder>;
-
-    fn builder(&self) -> Self::Builder {
-        ArrayBundle {
-            elems: (0..self.len).map(|_| self.kind.builder()).collect(),
-            kind: self.kind,
-        }
-    }
-}
-
-// impl<S: Schema, T: LayoutBundleKind<S>, U: CustomBundleKind<S, T>> CustomBundleKind<S, Array<T>>
-//     for Array<U>
-// {
-//     fn from_layout_type(other: &Array<T>) -> Self {
-//         Self {
-//             ty: <U as CustomBundleKind<S, T>>::from_layout_type(&other.ty),
-//             len: other.len,
-//         }
-//     }
-// }
 impl<T: Flatten<Direction>> Flatten<Direction> for Array<T> {
     fn flatten<E>(&self, output: &mut E)
     where
@@ -462,28 +359,6 @@ impl<T: HasBundleKind> HasBundleKind for Array<T> {
     }
 }
 
-impl<S: Schema, T: HasLayoutBundleKind<S>> HasLayoutBundleKind<S> for Array<T> {
-    type BundleKind = Array<<T as HasLayoutBundleKind<S>>::BundleKind>;
-
-    fn builder(
-        &self,
-    ) -> <<Self as HasLayoutBundleKind<S>>::BundleKind as LayoutBundleKind<S>>::Builder {
-        ArrayBundle {
-            elems: (0..self.len).map(|_| self.kind.builder()).collect(),
-            kind: self.kind.builder().kind(),
-        }
-    }
-}
-
-// impl<T: LayoutBundleKind, U: CustomBundleKind<T>> CustomBundleKind<Array<T>> for Array<U> {
-//     fn from_layout_type(other: &Array<T>) -> Self {
-//         Self {
-//             kind: <U as CustomBundleKind<T>>::from_layout_type(&other.kind),
-//             len: other.len,
-//         }
-//     }
-// }
-
 impl<T: HasBundleKind> HasBundleKind for ArrayBundle<T> {
     type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
 
@@ -526,19 +401,6 @@ impl<
     }
 }
 
-impl<T, S> HierarchicalBuildFrom<S> for ArrayBundle<T>
-where
-    T: HasBundleKind + HierarchicalBuildFrom<S>,
-{
-    fn build_from(&mut self, path: &mut NameBuf, source: &S) {
-        for (i, elem) in self.elems.iter_mut().enumerate() {
-            path.push(i);
-            HierarchicalBuildFrom::<S>::build_from(elem, path, source);
-            path.pop();
-        }
-    }
-}
-
 impl<T: HasBundleKind + TranslateRef> TranslateRef for ArrayBundle<T> {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
@@ -562,21 +424,6 @@ impl<T: HasBundleKind + TransformRef> TransformRef for ArrayBundle<T> {
                 .collect(),
             kind: self.kind.clone(),
         }
-    }
-}
-
-impl<S: Schema, T: LayoutBundle<S>, B: LayoutBundle<S> + LayoutBundleBuilder<S, T>>
-    LayoutBundleBuilder<S, ArrayBundle<T>> for ArrayBundle<B>
-{
-    fn build(self) -> Result<ArrayBundle<T>> {
-        let mut elems = Vec::new();
-        for e in self.elems {
-            elems.push(e.build()?);
-        }
-        Ok(ArrayBundle {
-            elems,
-            kind: self.kind.clone(),
-        })
     }
 }
 

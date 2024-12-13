@@ -29,7 +29,8 @@ use schema::Schema;
 use crate::context::Context;
 use crate::error::Error;
 use crate::error::Result;
-use crate::types::layout::{HasLayoutBundleKind, Io, LayoutBundle, LayoutBundleKind};
+use crate::types::layout::LayoutBundle;
+use crate::types::{HasBundleKind, IoKind};
 
 use self::element::{CellId, Element, RawCell, RawInstance};
 
@@ -49,36 +50,23 @@ use crate::block::Block;
 pub trait LayoutData: TransformRef + Send + Sync {}
 impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
-type CellLayer<T: Layout> = <T::Schema as Schema>::Layer;
-pub type IoBuilder<T> =
-    <<<T as Block>::Io as HasLayoutBundleKind<<T as Layout>::Schema>>::BundleKind as LayoutBundleKind<
-        <T as Layout>::Schema,
-    >>::Builder;
-pub type IoBundleKind<T> =
-    <<T as Block>::Io as HasLayoutBundleKind<<T as Layout>::Schema>>::BundleKind;
-pub type IoBundle<T> = <IoBundleKind<T> as LayoutBundleKind<<T as Layout>::Schema>>::Bundle;
+type CellLayer<T: Layout> = <<T as Layout>::Schema as Schema>::Layer;
 
 /// A block that can be laid out in a given layout [`Schema`].
-pub trait Layout: Block<Io: HasLayoutBundleKind<Self::Schema>> {
+pub trait Layout: Block {
     type Schema: Schema;
+    type Bundle: LayoutBundle<Self::Schema> + HasBundleKind<BundleKind = IoKind<Self>>;
     type Data: LayoutData;
     /// Generates the block's layout.
-    fn layout(
-        &self,
-        io: &mut IoBuilder<Self>,
-        cell: &mut CellBuilder<Self::Schema>,
-    ) -> Result<Self::Data>;
+    fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)>;
 }
 
 impl<T: Layout> Layout for Arc<T> {
     type Schema = T::Schema;
+    type Bundle = T::Bundle;
     type Data = T::Data;
-    fn layout(
-        &self,
-        io: &mut IoBuilder<Self>,
-        cell: &mut CellBuilder<Self::Schema>,
-    ) -> Result<Self::Data> {
-        T::layout(self.as_ref(), io, cell)
+    fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)> {
+        T::layout(self.as_ref(), cell)
     }
 }
 
@@ -117,7 +105,7 @@ pub struct Cell<T: Layout> {
     block: Arc<T>,
     /// Extra data created during layout generation.
     data: T::Data,
-    pub(crate) io: IoBundle<T>,
+    pub(crate) io: T::Bundle,
     pub(crate) raw: Arc<RawCell<<T::Schema as Schema>::Layer>>,
 }
 
@@ -125,8 +113,8 @@ impl<T: Layout> Cell<T> {
     pub(crate) fn new(
         block: Arc<T>,
         data: T::Data,
-        io: IoBundle<T>,
-        raw: Arc<RawCell<T::Schema>>,
+        io: T::Bundle,
+        raw: Arc<RawCell<CellLayer<T>>>,
     ) -> Self {
         Self {
             block,
@@ -147,7 +135,7 @@ impl<T: Layout> Cell<T> {
     }
 
     /// Returns the geometry of the cell's IO.
-    pub fn io(&self) -> &IoBundle<T> {
+    pub fn io(&self) -> &T::Bundle {
         &self.io
     }
 
@@ -223,7 +211,7 @@ pub struct TransformedCell<T: Layout> {
     ///
     /// This is the result of applying `trans` to the original cell's IO.
     /// If `trans` changes, this field must be updated.
-    io: IoBundle<T>,
+    io: T::Bundle,
     /// The underlying raw cell.
     ///
     /// This field should NOT be modified if `trans` changes.
@@ -409,7 +397,7 @@ impl<T: Layout> Instance<T> {
     /// Blocks until cell generation completes.
     ///
     /// Returns an error if one was thrown during generation.
-    pub fn try_io(&self) -> Result<IoBundle<T>> {
+    pub fn try_io(&self) -> Result<T::Bundle> {
         Ok(self.try_cell()?.io)
     }
 
@@ -420,7 +408,7 @@ impl<T: Layout> Instance<T> {
     /// # Panics
     ///
     /// Panics if an error was thrown during generation.
-    pub fn io(&self) -> IoBundle<T> {
+    pub fn io(&self) -> T::Bundle {
         self.cell().io
     }
 
@@ -864,5 +852,4 @@ impl<S: Schema> TransformMut for Container<S> {
 
 pub struct LayoutLibrary<S: Schema> {
     inner: layir::Library<S::Layer>,
-    data: S::Data,
 }

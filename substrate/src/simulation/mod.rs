@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use data::Save;
 use impl_trait_for_tuples::impl_for_tuples;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::context::{Context, Installation};

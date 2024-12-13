@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use config::Config;
+use ena::snapshot_vec::VecLike;
 use examples::get_snippets;
 use indexmap::IndexMap;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
@@ -19,6 +20,7 @@ use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::layout::conv::export_multi_top_layir_lib;
 use crate::layout::element::RawCell;
+use crate::layout::error::LayoutError;
 use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::layout::{Layout, LayoutContext};
@@ -29,9 +31,8 @@ use crate::schematic::{
     RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use crate::types::layout::{BundleBuilder, HasBundleKind as HasLayoutBundleKind};
 use crate::types::schematic::{IoBundle, NodeContext, NodePriority, Port};
-use crate::types::{Flatten, Flipped, HasBundleKind, HasNameTree};
+use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree};
 
 /// The global context.
 ///
@@ -433,12 +434,19 @@ impl Context {
         LayoutCellHandle {
             block: block.clone(),
             cell: inner_mut.layout.cell_cache.generate(block, move |block| {
-                let mut io_builder = block.io().builder();
+                let block_io = block.io();
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
-                let data = block.layout(&mut io_builder, &mut cell_builder);
-
-                let io = io_builder.build()?;
+                let (io, data) = block.layout(&mut cell_builder)?;
+                if block_io.kind() != io.kind()
+                    || block_io.kind().flat_names(None).len() != io.len()
+                {
+                    tracing::event!(
+                        Level::ERROR,
+                        "layout IO and block IO have different bundle kinds or flattened lengths"
+                    );
+                    return Err(LayoutError::IoDefinition.into());
+                }
                 let ports = IndexMap::from_iter(
                     block
                         .io()
@@ -447,14 +455,12 @@ impl Context {
                         .into_iter()
                         .zip(io.flatten_vec()),
                 );
-                data.map(|data| {
-                    LayoutCell::new(
-                        block.clone(),
-                        data,
-                        io,
-                        Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
-                    )
-                })
+                Ok(LayoutCell::new(
+                    block.clone(),
+                    data,
+                    io,
+                    Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
+                ))
             }),
         }
     }

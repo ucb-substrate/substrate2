@@ -27,10 +27,10 @@ use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
-    IoBundle, IoKind, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
+    IoBundle, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundleKind,
 };
-use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, NameBuf};
+use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, IoKind, NameBuf};
 
 /// A block that has a schematic.
 pub trait Schematic: Block<Io: Io + HasBundleKind<BundleKind: SchematicBundleKind>> {

@@ -11,6 +11,7 @@ pub use codegen::Io;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    block::Block,
     error::Result,
     schematic::{CellId, InstanceId, InstancePath},
 };
@@ -20,6 +21,9 @@ pub use crate::scir::Direction;
 mod impls;
 pub mod layout;
 pub mod schematic;
+
+/// The [`BundleKind`] of a block's IO.
+pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 
 // BEGIN TRAITS
 
