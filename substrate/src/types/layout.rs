@@ -98,6 +98,22 @@ pub struct PortGeometryBuilder<L> {
     named_shapes: HashMap<ArcStr, Shape<L>>,
 }
 
+impl<L> PortGeometryBuilder<L> {
+    pub fn build(self) -> Result<PortGeometry<L>> {
+        Ok(PortGeometry {
+            primary: self.primary.ok_or_else(|| {
+                tracing::event!(
+                    Level::ERROR,
+                    "primary shape in port geometry was not specified"
+                );
+                LayoutError::IoDefinition
+            })?,
+            unnamed_shapes: self.unnamed_shapes,
+            named_shapes: self.named_shapes,
+        })
+    }
+}
+
 impl<L> Default for PortGeometryBuilder<L> {
     fn default() -> Self {
         Self {

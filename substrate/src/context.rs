@@ -19,7 +19,7 @@ use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::layout::conv::export_multi_top_layir_lib;
-use crate::layout::element::RawCell;
+use crate::layout::element::{NamedPorts, RawCell};
 use crate::layout::error::LayoutError;
 use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
@@ -31,8 +31,9 @@ use crate::schematic::{
     RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
+use crate::types::layout::{PortGeometry, PortGeometryBuilder};
 use crate::types::schematic::{IoBundle, NodeContext, NodePriority, Port};
-use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree};
+use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBuf};
 
 /// The global context.
 ///
@@ -485,6 +486,47 @@ impl Context {
         let cells = cells.into_iter().collect::<Vec<_>>();
         let lib = export_multi_top_layir_lib(&cells)?;
         Ok(lib)
+    }
+
+    /// Imports a LayIR library into the context.
+    pub fn import_layir<S: crate::layout::schema::Schema>(
+        &self,
+        lib: layir::Library<S::Layer>,
+        top: layir::CellId,
+    ) -> Result<Arc<crate::layout::element::RawCell<S::Layer>>> {
+        use crate::layout::element::{RawCell, RawInstance};
+        let mut inner = self.inner.write().unwrap();
+        let mut cells: HashMap<layir::CellId, Arc<RawCell<S::Layer>>> = HashMap::new();
+        for id in lib.topological_order() {
+            let cell = lib.cell(id);
+            let sid = inner.layout.get_id();
+            let mut raw = RawCell::new(sid, cell.name());
+            for elt in cell.elements() {
+                raw.add_element(elt.clone());
+            }
+            for (_, inst) in cell.instances() {
+                let rinst = RawInstance::new(
+                    cells.get(&inst.child()).unwrap().clone(),
+                    inst.transformation(),
+                );
+                raw.add_element(rinst);
+            }
+            let mut ports = NamedPorts::new();
+            for (name, port) in cell.ports() {
+                let mut pg = PortGeometryBuilder::default();
+                for elt in port.elements() {
+                    if let layir::Element::Shape(s) = elt {
+                        pg.push(s.clone());
+                    }
+                }
+                let pg = pg.build()?;
+                ports.insert(NameBuf::from(name), pg);
+            }
+            raw = raw.with_ports(ports);
+            let cell = Arc::new(raw);
+            cells.insert(id, cell);
+        }
+        Ok(cells.get(&top).unwrap().clone())
     }
 }
 

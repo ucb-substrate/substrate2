@@ -346,6 +346,15 @@ impl<L> Element<L> {
     }
 }
 
+impl<L> From<layir::Element<L>> for Element<L> {
+    fn from(value: layir::Element<L>) -> Self {
+        match value {
+            layir::Element::Text(t) => Self::Text(t),
+            layir::Element::Shape(s) => Self::Shape(s),
+        }
+    }
+}
+
 impl<'a, L> ElementRef<'a, L> {
     /// If this is an `Instance` variant, returns the contained instance.
     /// Otherwise, returns [`None`].
