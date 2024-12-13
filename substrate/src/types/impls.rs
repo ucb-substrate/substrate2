@@ -1,7 +1,7 @@
 //! Built-in implementations of IO traits.
 
 use layout::LayoutBundle;
-use schematic::{Node, SchematicBundleKind, Terminal};
+use schematic::{Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
@@ -58,30 +58,26 @@ impl HasBundleKind for () {
     fn kind(&self) -> Self::BundleKind {}
 }
 
+impl<B> HasBundleOf<B> for () {
+    type Bundle = ();
+}
+
 impl SchematicBundleKind for () {
-    type NodeBundle = ();
-    type TerminalBundle = ();
-    fn instantiate_nodes<'n>(
-        &self,
-        ids: &'n [Node],
-    ) -> (<Self as SchematicBundleKind>::NodeBundle, &'n [Node]) {
+    fn instantiate_nodes<'n>(&self, ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]) {
         ((), ids)
     }
     fn instantiate_terminals<'n>(
         &self,
         ids: &'n [Terminal],
-    ) -> (
-        <Self as SchematicBundleKind>::TerminalBundle,
-        &'n [Terminal],
-    ) {
+    ) -> (TerminalBundle<Self>, &'n [Terminal]) {
         ((), ids)
     }
     fn terminal_view(
         _cell: CellId,
-        _cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        _cell_io: &NodeBundle<Self>,
         _instance: InstanceId,
-        _instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle {
+        _instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
     }
 }
 
@@ -105,13 +101,12 @@ impl HasBundleKind for Signal {
     }
 }
 
+impl<B: HasBundleKind<BundleKind = Signal>> HasBundleOf<B> for Signal {
+    type Bundle = B;
+}
+
 impl SchematicBundleKind for Signal {
-    type NodeBundle = Node;
-    type TerminalBundle = Terminal;
-    fn instantiate_nodes<'n>(
-        &self,
-        ids: &'n [Node],
-    ) -> (<Self as SchematicBundleKind>::NodeBundle, &'n [Node]) {
+    fn instantiate_nodes<'n>(&self, ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -121,10 +116,7 @@ impl SchematicBundleKind for Signal {
     fn instantiate_terminals<'n>(
         &self,
         ids: &'n [Terminal],
-    ) -> (
-        <Self as SchematicBundleKind>::TerminalBundle,
-        &'n [Terminal],
-    ) {
+    ) -> (TerminalBundle<Self>, &'n [Terminal]) {
         if let [id, rest @ ..] = ids {
             (*id, rest)
         } else {
@@ -133,10 +125,10 @@ impl SchematicBundleKind for Signal {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle {
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
         Terminal {
             cell_id: cell,
             cell_node: *cell_io,
@@ -282,13 +274,12 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
+impl<B, T: HasBundleOf<B>> HasBundleOf<B> for Array<T> {
+    type Bundle = ArrayBundle<T::Bundle>;
+}
+
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
-    type NodeBundle = ArrayBundle<T::NodeBundle>;
-    type TerminalBundle = ArrayBundle<T::TerminalBundle>;
-    fn instantiate_nodes<'n>(
-        &self,
-        mut ids: &'n [Node],
-    ) -> (<Self as SchematicBundleKind>::NodeBundle, &'n [Node]) {
+    fn instantiate_nodes<'n>(&self, mut ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
                 let (elem, new_ids) = self.kind.instantiate_nodes(ids);
@@ -307,10 +298,7 @@ impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
     fn instantiate_terminals<'n>(
         &self,
         mut ids: &'n [Terminal],
-    ) -> (
-        <Self as SchematicBundleKind>::TerminalBundle,
-        &'n [Terminal],
-    ) {
+    ) -> (TerminalBundle<Self>, &'n [Terminal]) {
         let elems = (0..self.len)
             .scan(&mut ids, |ids, _| {
                 let (elem, new_ids) = self.kind.instantiate_terminals(ids);
@@ -328,10 +316,10 @@ impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
     }
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle {
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
         ArrayBundle {
             elems: cell_io
                 .elems

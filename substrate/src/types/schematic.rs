@@ -9,21 +9,23 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 
-use super::{BundleKind, HasBundleKind, Io, Signal};
+use super::{BundleKind, HasBundleKind, HasBundleOf, Io, Signal};
 
 /// A schematic bundle kind.
-pub trait SchematicBundleKind: BundleKind {
-    /// A bundle of nodes of this kind.
-    type NodeBundle: HasBundleKind<BundleKind = Self>
-        + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
-        + Flatten<Node>;
-
-    /// A bundle of terminals of this kind.
-    type TerminalBundle: HasBundleKind<BundleKind = Self>
-        + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
-        + Flatten<Terminal>
-        + Flatten<Node>;
-
+pub trait SchematicBundleKind:
+    BundleKind
+    + HasBundleOf<
+        Node,
+        Bundle: HasNestedView<NestedView = <Self as HasBundleOf<NestedNode>>::Bundle>
+                    + Flatten<Node>,
+    > + HasBundleOf<
+        Terminal,
+        Bundle: HasNestedView<NestedView = <Self as HasBundleOf<NestedTerminal>>::Bundle>
+                    + Flatten<Terminal>
+                    + Flatten<Node>,
+    > + HasBundleOf<NestedNode>
+    + HasBundleOf<NestedTerminal>
+{
     /// Instantiates a node bundle with populated nodes.
     ///
     /// Must consume exactly [`FlatLen::len`] elements of the node list.
@@ -64,10 +66,10 @@ pub trait SchematicBundleKind: BundleKind {
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle;
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self>;
 }
 
 /// A schematic bundle kind that can be viewed as another bundle kind `T`.
@@ -104,10 +106,9 @@ pub type IoBundle<T> = NodeBundle<<T as Block>::Io>;
 /// The type of a terminal bundle associated with an IO.
 pub type IoTerminalBundle<T> = TerminalBundle<<T as Block>::Io>;
 /// The type of a node bundle associated with [`SchematicBundleKind`] `T`.
-pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::NodeBundle;
+pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as HasBundleOf<Node>>::Bundle;
 /// The type of a terminal bundle associated with [`SchematicBundleKind`] `T`.
-pub type TerminalBundle<T> =
-    <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::TerminalBundle;
+pub type TerminalBundle<T> = <<T as HasBundleKind>::BundleKind as HasBundleOf<Terminal>>::Bundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]

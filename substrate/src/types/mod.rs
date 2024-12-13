@@ -95,6 +95,13 @@ impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send 
 {
 }
 
+/// A bundle kind that has a bundle with [`Signal`]s replaced with bundles of type `B`.
+///
+/// Intended primarily for codegen.
+pub trait HasBundleOf<B>: BundleKind {
+    type Bundle: HasBundleKind<BundleKind = Self>;
+}
+
 /// Indicates that an IO specifies signal directions for all of its fields.
 pub trait Directed: Flatten<Direction> {}
 impl<T: Flatten<Direction>> Directed for T {}
