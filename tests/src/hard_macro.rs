@@ -10,6 +10,7 @@ use spice::netlist::NetlisterInstance;
 use spice::Spice;
 use substrate::block::Block;
 use substrate::io::schematic::HardwareType;
+use substrate::layout::element::RawInstance;
 use substrate::layout::Layout;
 use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
@@ -24,6 +25,29 @@ use test_log::test;
     pdk = "Sky130Pdk"
 ))]
 pub struct BufferHardMacro;
+
+impl Layout for BufferHardMacro {
+    type Schema = Sky130Pdk;
+    type Bundle = BufferIoLayout;
+    type Data = ();
+    fn layout(
+        &self,
+        cell: &mut substrate::layout::CellBuilder<Self::Schema>,
+    ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+        let raw = cell
+            .ctx
+            .import_layir::<Sky130Pdk>(todo!("layirlib"), todo!("topcellid"))?;
+        let bundle = BufferIoLayout {
+            vdd: raw.port_named("vdd").unwrap().clone(),
+            vss: raw.port_named("vss").unwrap().clone(),
+            din: raw.port_named("din").unwrap().clone(),
+            dout: raw.port_named("dout").unwrap().clone(),
+        };
+        let inst = RawInstance::new(raw, Default::default());
+        cell.draw(inst)?;
+        Ok((bundle, ()))
+    }
+}
 
 impl ExportsNestedData for BufferHardMacro {
     type NestedData = ();
