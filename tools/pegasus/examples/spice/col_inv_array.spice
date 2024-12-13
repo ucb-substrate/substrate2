@@ -1,0 +1,210 @@
+*SPICE NETLIST
+* OPEN SOURCE CONVERSION PRELUDE
+
+.SUBCKT sky130_fd_pr__special_nfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b npass l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__special_nfet_latch d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b npd l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__nfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b nshort l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__pfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b pshort l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__special_pfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b ppu l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__pfet_01v8_hvt d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b phighvt l='l' w='w' mult='mult'
+.ENDS
+* circuit.Package sramgen_col_inv_array
+* Written by SpiceNetlister
+* 
+
+.SUBCKT col_data_inv 
++ din din_b vdd vss 
+
+xMP0 
++ din_b din vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.6' l='0.15' 
+
+xMN0 
++ din_b din vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='1.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT col_inv_array 
++ din_31 din_30 din_29 din_28 din_27 din_26 din_25 din_24 din_23 din_22 din_21 din_20 din_19 din_18 din_17 din_16 din_15 din_14 din_13 din_12 din_11 din_10 din_9 din_8 din_7 din_6 din_5 din_4 din_3 din_2 din_1 din_0 din_b_31 din_b_30 din_b_29 din_b_28 din_b_27 din_b_26 din_b_25 din_b_24 din_b_23 din_b_22 din_b_21 din_b_20 din_b_19 din_b_18 din_b_17 din_b_16 din_b_15 din_b_14 din_b_13 din_b_12 din_b_11 din_b_10 din_b_9 din_b_8 din_b_7 din_b_6 din_b_5 din_b_4 din_b_3 din_b_2 din_b_1 din_b_0 vdd vss 
+
+xinv_0 
++ din_0 din_b_0 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_1 
++ din_1 din_b_1 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_2 
++ din_2 din_b_2 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_3 
++ din_3 din_b_3 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_4 
++ din_4 din_b_4 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_5 
++ din_5 din_b_5 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_6 
++ din_6 din_b_6 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_7 
++ din_7 din_b_7 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_8 
++ din_8 din_b_8 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_9 
++ din_9 din_b_9 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_10 
++ din_10 din_b_10 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_11 
++ din_11 din_b_11 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_12 
++ din_12 din_b_12 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_13 
++ din_13 din_b_13 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_14 
++ din_14 din_b_14 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_15 
++ din_15 din_b_15 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_16 
++ din_16 din_b_16 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_17 
++ din_17 din_b_17 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_18 
++ din_18 din_b_18 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_19 
++ din_19 din_b_19 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_20 
++ din_20 din_b_20 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_21 
++ din_21 din_b_21 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_22 
++ din_22 din_b_22 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_23 
++ din_23 din_b_23 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_24 
++ din_24 din_b_24 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_25 
++ din_25 din_b_25 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_26 
++ din_26 din_b_26 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_27 
++ din_27 din_b_27 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_28 
++ din_28 din_b_28 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_29 
++ din_29 din_b_29 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_30 
++ din_30 din_b_30 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_31 
++ din_31 din_b_31 vdd vss 
++ col_data_inv 
+* No parameters
+
+.ENDS
+

@@ -1819,6 +1819,17 @@ name = "pathtree"
 version = "0.2.0"
 
 [[package]]
+name = "pegasus"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "regex",
+ "serde",
+ "tera",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -315,8 +315,8 @@ impl Primitive {
 }
 
 /// An ideal 2-terminal resistor.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(crate = "substrate::serde")]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Block)]
+#[substrate(io = "TwoTerminalIo")]
 pub struct Resistor {
     /// The resistor value.
     value: Decimal,
@@ -334,17 +334,6 @@ impl Resistor {
     #[inline]
     pub fn value(&self) -> Decimal {
         self.value
-    }
-}
-impl Block for Resistor {
-    type Io = TwoTerminalIo;
-
-    fn name(&self) -> ArcStr {
-        arcstr::format!("ideal_resistor_{}", self.value)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
     }
 }
 

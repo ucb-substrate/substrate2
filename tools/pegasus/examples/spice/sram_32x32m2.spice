@@ -1,0 +1,7355 @@
+*SPICE NETLIST
+* OPEN SOURCE CONVERSION PRELUDE
+
+.SUBCKT sky130_fd_pr__special_nfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b npass l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__special_nfet_latch d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b npd l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__nfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b nshort l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__pfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b pshort l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__special_pfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b ppu l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__pfet_01v8_hvt d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b phighvt l='l' w='w' mult='mult'
+.ENDS
+* circuit.Package sramgen_sram_32x32m2
+* Written by SpiceNetlister
+* 
+
+.SUBCKT hierarchical_decoder_nand_2 
++ gnd vdd a b y 
+
+xn1 
++ x a gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xn2 
++ y b x gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xp1 
++ y a vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+xp2 
++ y b vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT hierarchical_decoder_inv_3 
++ gnd vdd din din_b 
+
+xn 
++ din_b din gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='1.6' l='0.15' 
+
+xp 
++ din_b din vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT hierarchical_decoder_nand_17 
++ gnd vdd a b c y 
+
+xn1 
++ x1 a gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xn2 
++ x2 b x1 gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xn3 
++ y c x2 gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xp1 
++ y a vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+xp2 
++ y b vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+xp3 
++ y c vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT hierarchical_decoder 
++ vdd gnd addr_4 addr_3 addr_2 addr_1 addr_0 addr_b_4 addr_b_3 addr_b_2 addr_b_1 addr_b_0 decode_31 decode_30 decode_29 decode_28 decode_27 decode_26 decode_25 decode_24 decode_23 decode_22 decode_21 decode_20 decode_19 decode_18 decode_17 decode_16 decode_15 decode_14 decode_13 decode_12 decode_11 decode_10 decode_9 decode_8 decode_7 decode_6 decode_5 decode_4 decode_3 decode_2 decode_1 decode_0 decode_b_31 decode_b_30 decode_b_29 decode_b_28 decode_b_27 decode_b_26 decode_b_25 decode_b_24 decode_b_23 decode_b_22 decode_b_21 decode_b_20 decode_b_19 decode_b_18 decode_b_17 decode_b_16 decode_b_15 decode_b_14 decode_b_13 decode_b_12 decode_b_11 decode_b_10 decode_b_9 decode_b_8 decode_b_7 decode_b_6 decode_b_5 decode_b_4 decode_b_3 decode_b_2 decode_b_1 decode_b_0 
+
+xnand_5 
++ gnd vdd addr_b_4 addr_b_3 net_4 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_6 
++ gnd vdd net_4 predecode_1_0 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_8 
++ gnd vdd addr_b_4 addr_3 net_7 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_9 
++ gnd vdd net_7 predecode_1_1 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_11 
++ gnd vdd addr_4 addr_b_3 net_10 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_12 
++ gnd vdd net_10 predecode_1_2 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_14 
++ gnd vdd addr_4 addr_3 net_13 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_15 
++ gnd vdd net_13 predecode_1_3 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_19 
++ gnd vdd addr_b_2 addr_b_1 addr_b_0 net_18 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_20 
++ gnd vdd net_18 predecode_16_0 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_22 
++ gnd vdd addr_b_2 addr_b_1 addr_0 net_21 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_23 
++ gnd vdd net_21 predecode_16_1 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_25 
++ gnd vdd addr_b_2 addr_1 addr_b_0 net_24 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_26 
++ gnd vdd net_24 predecode_16_2 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_28 
++ gnd vdd addr_b_2 addr_1 addr_0 net_27 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_29 
++ gnd vdd net_27 predecode_16_3 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_31 
++ gnd vdd addr_2 addr_b_1 addr_b_0 net_30 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_32 
++ gnd vdd net_30 predecode_16_4 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_34 
++ gnd vdd addr_2 addr_b_1 addr_0 net_33 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_35 
++ gnd vdd net_33 predecode_16_5 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_37 
++ gnd vdd addr_2 addr_1 addr_b_0 net_36 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_38 
++ gnd vdd net_36 predecode_16_6 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_40 
++ gnd vdd addr_2 addr_1 addr_0 net_39 
++ hierarchical_decoder_nand_17 
+* No parameters
+
+xinv_41 
++ gnd vdd net_39 predecode_16_7 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_42 
++ gnd vdd predecode_1_0 predecode_16_0 decode_b_0 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_43 
++ gnd vdd decode_b_0 decode_0 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_44 
++ gnd vdd predecode_1_0 predecode_16_1 decode_b_1 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_45 
++ gnd vdd decode_b_1 decode_1 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_46 
++ gnd vdd predecode_1_0 predecode_16_2 decode_b_2 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_47 
++ gnd vdd decode_b_2 decode_2 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_48 
++ gnd vdd predecode_1_0 predecode_16_3 decode_b_3 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_49 
++ gnd vdd decode_b_3 decode_3 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_50 
++ gnd vdd predecode_1_0 predecode_16_4 decode_b_4 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_51 
++ gnd vdd decode_b_4 decode_4 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_52 
++ gnd vdd predecode_1_0 predecode_16_5 decode_b_5 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_53 
++ gnd vdd decode_b_5 decode_5 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_54 
++ gnd vdd predecode_1_0 predecode_16_6 decode_b_6 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_55 
++ gnd vdd decode_b_6 decode_6 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_56 
++ gnd vdd predecode_1_0 predecode_16_7 decode_b_7 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_57 
++ gnd vdd decode_b_7 decode_7 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_58 
++ gnd vdd predecode_1_1 predecode_16_0 decode_b_8 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_59 
++ gnd vdd decode_b_8 decode_8 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_60 
++ gnd vdd predecode_1_1 predecode_16_1 decode_b_9 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_61 
++ gnd vdd decode_b_9 decode_9 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_62 
++ gnd vdd predecode_1_1 predecode_16_2 decode_b_10 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_63 
++ gnd vdd decode_b_10 decode_10 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_64 
++ gnd vdd predecode_1_1 predecode_16_3 decode_b_11 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_65 
++ gnd vdd decode_b_11 decode_11 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_66 
++ gnd vdd predecode_1_1 predecode_16_4 decode_b_12 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_67 
++ gnd vdd decode_b_12 decode_12 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_68 
++ gnd vdd predecode_1_1 predecode_16_5 decode_b_13 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_69 
++ gnd vdd decode_b_13 decode_13 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_70 
++ gnd vdd predecode_1_1 predecode_16_6 decode_b_14 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_71 
++ gnd vdd decode_b_14 decode_14 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_72 
++ gnd vdd predecode_1_1 predecode_16_7 decode_b_15 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_73 
++ gnd vdd decode_b_15 decode_15 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_74 
++ gnd vdd predecode_1_2 predecode_16_0 decode_b_16 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_75 
++ gnd vdd decode_b_16 decode_16 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_76 
++ gnd vdd predecode_1_2 predecode_16_1 decode_b_17 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_77 
++ gnd vdd decode_b_17 decode_17 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_78 
++ gnd vdd predecode_1_2 predecode_16_2 decode_b_18 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_79 
++ gnd vdd decode_b_18 decode_18 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_80 
++ gnd vdd predecode_1_2 predecode_16_3 decode_b_19 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_81 
++ gnd vdd decode_b_19 decode_19 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_82 
++ gnd vdd predecode_1_2 predecode_16_4 decode_b_20 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_83 
++ gnd vdd decode_b_20 decode_20 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_84 
++ gnd vdd predecode_1_2 predecode_16_5 decode_b_21 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_85 
++ gnd vdd decode_b_21 decode_21 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_86 
++ gnd vdd predecode_1_2 predecode_16_6 decode_b_22 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_87 
++ gnd vdd decode_b_22 decode_22 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_88 
++ gnd vdd predecode_1_2 predecode_16_7 decode_b_23 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_89 
++ gnd vdd decode_b_23 decode_23 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_90 
++ gnd vdd predecode_1_3 predecode_16_0 decode_b_24 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_91 
++ gnd vdd decode_b_24 decode_24 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_92 
++ gnd vdd predecode_1_3 predecode_16_1 decode_b_25 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_93 
++ gnd vdd decode_b_25 decode_25 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_94 
++ gnd vdd predecode_1_3 predecode_16_2 decode_b_26 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_95 
++ gnd vdd decode_b_26 decode_26 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_96 
++ gnd vdd predecode_1_3 predecode_16_3 decode_b_27 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_97 
++ gnd vdd decode_b_27 decode_27 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_98 
++ gnd vdd predecode_1_3 predecode_16_4 decode_b_28 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_99 
++ gnd vdd decode_b_28 decode_28 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_100 
++ gnd vdd predecode_1_3 predecode_16_5 decode_b_29 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_101 
++ gnd vdd decode_b_29 decode_29 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_102 
++ gnd vdd predecode_1_3 predecode_16_6 decode_b_30 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_103 
++ gnd vdd decode_b_30 decode_30 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+xnand_104 
++ gnd vdd predecode_1_3 predecode_16_7 decode_b_31 
++ hierarchical_decoder_nand_2 
+* No parameters
+
+xinv_105 
++ gnd vdd decode_b_31 decode_31 
++ hierarchical_decoder_inv_3 
+* No parameters
+
+.ENDS
+
+.SUBCKT wordline_driver_and2_nand 
++ gnd vdd a b y 
+
+xn1 
++ x a gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xn2 
++ y b x gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='3.2' l='0.15' 
+
+xp1 
++ y a vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+xp2 
++ y b vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT wordline_driver_and2_inv 
++ gnd vdd din din_b 
+
+xn 
++ din_b din gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='1.6' l='0.15' 
+
+xp 
++ din_b din vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT wordline_driver_and2 
++ a b y vdd vss 
+
+xnand 
++ vss vdd a b tmp 
++ wordline_driver_and2_nand 
+* No parameters
+
+xinv 
++ vss vdd tmp y 
++ wordline_driver_and2_inv 
+* No parameters
+
+.ENDS
+
+.SUBCKT wordline_driver 
++ vdd vss din wl_en wl 
+
+xand2 
++ din wl_en wl vdd vss 
++ wordline_driver_and2 
+* No parameters
+
+.ENDS
+
+.SUBCKT wordline_driver_array 
++ vdd vss din_31 din_30 din_29 din_28 din_27 din_26 din_25 din_24 din_23 din_22 din_21 din_20 din_19 din_18 din_17 din_16 din_15 din_14 din_13 din_12 din_11 din_10 din_9 din_8 din_7 din_6 din_5 din_4 din_3 din_2 din_1 din_0 wl_en wl_31 wl_30 wl_29 wl_28 wl_27 wl_26 wl_25 wl_24 wl_23 wl_22 wl_21 wl_20 wl_19 wl_18 wl_17 wl_16 wl_15 wl_14 wl_13 wl_12 wl_11 wl_10 wl_9 wl_8 wl_7 wl_6 wl_5 wl_4 wl_3 wl_2 wl_1 wl_0 
+
+xwl_driver_0 
++ vdd vss din_0 wl_en wl_0 
++ wordline_driver 
+* No parameters
+
+xwl_driver_1 
++ vdd vss din_1 wl_en wl_1 
++ wordline_driver 
+* No parameters
+
+xwl_driver_2 
++ vdd vss din_2 wl_en wl_2 
++ wordline_driver 
+* No parameters
+
+xwl_driver_3 
++ vdd vss din_3 wl_en wl_3 
++ wordline_driver 
+* No parameters
+
+xwl_driver_4 
++ vdd vss din_4 wl_en wl_4 
++ wordline_driver 
+* No parameters
+
+xwl_driver_5 
++ vdd vss din_5 wl_en wl_5 
++ wordline_driver 
+* No parameters
+
+xwl_driver_6 
++ vdd vss din_6 wl_en wl_6 
++ wordline_driver 
+* No parameters
+
+xwl_driver_7 
++ vdd vss din_7 wl_en wl_7 
++ wordline_driver 
+* No parameters
+
+xwl_driver_8 
++ vdd vss din_8 wl_en wl_8 
++ wordline_driver 
+* No parameters
+
+xwl_driver_9 
++ vdd vss din_9 wl_en wl_9 
++ wordline_driver 
+* No parameters
+
+xwl_driver_10 
++ vdd vss din_10 wl_en wl_10 
++ wordline_driver 
+* No parameters
+
+xwl_driver_11 
++ vdd vss din_11 wl_en wl_11 
++ wordline_driver 
+* No parameters
+
+xwl_driver_12 
++ vdd vss din_12 wl_en wl_12 
++ wordline_driver 
+* No parameters
+
+xwl_driver_13 
++ vdd vss din_13 wl_en wl_13 
++ wordline_driver 
+* No parameters
+
+xwl_driver_14 
++ vdd vss din_14 wl_en wl_14 
++ wordline_driver 
+* No parameters
+
+xwl_driver_15 
++ vdd vss din_15 wl_en wl_15 
++ wordline_driver 
+* No parameters
+
+xwl_driver_16 
++ vdd vss din_16 wl_en wl_16 
++ wordline_driver 
+* No parameters
+
+xwl_driver_17 
++ vdd vss din_17 wl_en wl_17 
++ wordline_driver 
+* No parameters
+
+xwl_driver_18 
++ vdd vss din_18 wl_en wl_18 
++ wordline_driver 
+* No parameters
+
+xwl_driver_19 
++ vdd vss din_19 wl_en wl_19 
++ wordline_driver 
+* No parameters
+
+xwl_driver_20 
++ vdd vss din_20 wl_en wl_20 
++ wordline_driver 
+* No parameters
+
+xwl_driver_21 
++ vdd vss din_21 wl_en wl_21 
++ wordline_driver 
+* No parameters
+
+xwl_driver_22 
++ vdd vss din_22 wl_en wl_22 
++ wordline_driver 
+* No parameters
+
+xwl_driver_23 
++ vdd vss din_23 wl_en wl_23 
++ wordline_driver 
+* No parameters
+
+xwl_driver_24 
++ vdd vss din_24 wl_en wl_24 
++ wordline_driver 
+* No parameters
+
+xwl_driver_25 
++ vdd vss din_25 wl_en wl_25 
++ wordline_driver 
+* No parameters
+
+xwl_driver_26 
++ vdd vss din_26 wl_en wl_26 
++ wordline_driver 
+* No parameters
+
+xwl_driver_27 
++ vdd vss din_27 wl_en wl_27 
++ wordline_driver 
+* No parameters
+
+xwl_driver_28 
++ vdd vss din_28 wl_en wl_28 
++ wordline_driver 
+* No parameters
+
+xwl_driver_29 
++ vdd vss din_29 wl_en wl_29 
++ wordline_driver 
+* No parameters
+
+xwl_driver_30 
++ vdd vss din_30 wl_en wl_30 
++ wordline_driver 
+* No parameters
+
+xwl_driver_31 
++ vdd vss din_31 wl_en wl_31 
++ wordline_driver 
+* No parameters
+
+.ENDS
+
+.SUBCKT bitcell_array 
++ vdd vss bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 wl_31 wl_30 wl_29 wl_28 wl_27 wl_26 wl_25 wl_24 wl_23 wl_22 wl_21 wl_20 wl_19 wl_18 wl_17 wl_16 wl_15 wl_14 wl_13 wl_12 wl_11 wl_10 wl_9 wl_8 wl_7 wl_6 wl_5 wl_4 wl_3 wl_2 wl_1 wl_0 vnb vpb 
+
+xbitcell_0_0 
++ bl_0 br_0 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_1 
++ bl_1 br_1 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_2 
++ bl_2 br_2 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_3 
++ bl_3 br_3 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_4 
++ bl_4 br_4 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_5 
++ bl_5 br_5 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_6 
++ bl_6 br_6 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_7 
++ bl_7 br_7 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_8 
++ bl_8 br_8 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_9 
++ bl_9 br_9 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_10 
++ bl_10 br_10 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_11 
++ bl_11 br_11 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_12 
++ bl_12 br_12 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_13 
++ bl_13 br_13 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_14 
++ bl_14 br_14 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_15 
++ bl_15 br_15 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_16 
++ bl_16 br_16 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_17 
++ bl_17 br_17 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_18 
++ bl_18 br_18 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_19 
++ bl_19 br_19 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_20 
++ bl_20 br_20 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_21 
++ bl_21 br_21 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_22 
++ bl_22 br_22 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_23 
++ bl_23 br_23 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_24 
++ bl_24 br_24 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_25 
++ bl_25 br_25 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_26 
++ bl_26 br_26 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_27 
++ bl_27 br_27 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_28 
++ bl_28 br_28 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_29 
++ bl_29 br_29 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_30 
++ bl_30 br_30 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_0_31 
++ bl_31 br_31 vdd vss wl_0 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_0 
++ bl_0 br_0 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_1 
++ bl_1 br_1 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_2 
++ bl_2 br_2 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_3 
++ bl_3 br_3 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_4 
++ bl_4 br_4 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_5 
++ bl_5 br_5 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_6 
++ bl_6 br_6 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_7 
++ bl_7 br_7 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_8 
++ bl_8 br_8 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_9 
++ bl_9 br_9 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_10 
++ bl_10 br_10 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_11 
++ bl_11 br_11 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_12 
++ bl_12 br_12 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_13 
++ bl_13 br_13 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_14 
++ bl_14 br_14 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_15 
++ bl_15 br_15 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_16 
++ bl_16 br_16 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_17 
++ bl_17 br_17 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_18 
++ bl_18 br_18 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_19 
++ bl_19 br_19 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_20 
++ bl_20 br_20 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_21 
++ bl_21 br_21 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_22 
++ bl_22 br_22 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_23 
++ bl_23 br_23 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_24 
++ bl_24 br_24 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_25 
++ bl_25 br_25 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_26 
++ bl_26 br_26 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_27 
++ bl_27 br_27 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_28 
++ bl_28 br_28 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_29 
++ bl_29 br_29 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_30 
++ bl_30 br_30 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_1_31 
++ bl_31 br_31 vdd vss wl_1 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_0 
++ bl_0 br_0 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_1 
++ bl_1 br_1 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_2 
++ bl_2 br_2 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_3 
++ bl_3 br_3 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_4 
++ bl_4 br_4 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_5 
++ bl_5 br_5 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_6 
++ bl_6 br_6 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_7 
++ bl_7 br_7 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_8 
++ bl_8 br_8 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_9 
++ bl_9 br_9 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_10 
++ bl_10 br_10 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_11 
++ bl_11 br_11 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_12 
++ bl_12 br_12 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_13 
++ bl_13 br_13 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_14 
++ bl_14 br_14 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_15 
++ bl_15 br_15 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_16 
++ bl_16 br_16 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_17 
++ bl_17 br_17 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_18 
++ bl_18 br_18 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_19 
++ bl_19 br_19 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_20 
++ bl_20 br_20 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_21 
++ bl_21 br_21 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_22 
++ bl_22 br_22 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_23 
++ bl_23 br_23 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_24 
++ bl_24 br_24 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_25 
++ bl_25 br_25 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_26 
++ bl_26 br_26 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_27 
++ bl_27 br_27 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_28 
++ bl_28 br_28 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_29 
++ bl_29 br_29 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_30 
++ bl_30 br_30 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_2_31 
++ bl_31 br_31 vdd vss wl_2 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_0 
++ bl_0 br_0 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_1 
++ bl_1 br_1 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_2 
++ bl_2 br_2 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_3 
++ bl_3 br_3 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_4 
++ bl_4 br_4 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_5 
++ bl_5 br_5 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_6 
++ bl_6 br_6 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_7 
++ bl_7 br_7 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_8 
++ bl_8 br_8 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_9 
++ bl_9 br_9 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_10 
++ bl_10 br_10 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_11 
++ bl_11 br_11 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_12 
++ bl_12 br_12 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_13 
++ bl_13 br_13 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_14 
++ bl_14 br_14 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_15 
++ bl_15 br_15 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_16 
++ bl_16 br_16 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_17 
++ bl_17 br_17 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_18 
++ bl_18 br_18 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_19 
++ bl_19 br_19 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_20 
++ bl_20 br_20 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_21 
++ bl_21 br_21 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_22 
++ bl_22 br_22 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_23 
++ bl_23 br_23 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_24 
++ bl_24 br_24 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_25 
++ bl_25 br_25 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_26 
++ bl_26 br_26 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_27 
++ bl_27 br_27 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_28 
++ bl_28 br_28 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_29 
++ bl_29 br_29 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_30 
++ bl_30 br_30 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_3_31 
++ bl_31 br_31 vdd vss wl_3 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_0 
++ bl_0 br_0 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_1 
++ bl_1 br_1 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_2 
++ bl_2 br_2 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_3 
++ bl_3 br_3 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_4 
++ bl_4 br_4 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_5 
++ bl_5 br_5 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_6 
++ bl_6 br_6 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_7 
++ bl_7 br_7 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_8 
++ bl_8 br_8 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_9 
++ bl_9 br_9 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_10 
++ bl_10 br_10 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_11 
++ bl_11 br_11 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_12 
++ bl_12 br_12 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_13 
++ bl_13 br_13 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_14 
++ bl_14 br_14 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_15 
++ bl_15 br_15 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_16 
++ bl_16 br_16 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_17 
++ bl_17 br_17 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_18 
++ bl_18 br_18 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_19 
++ bl_19 br_19 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_20 
++ bl_20 br_20 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_21 
++ bl_21 br_21 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_22 
++ bl_22 br_22 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_23 
++ bl_23 br_23 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_24 
++ bl_24 br_24 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_25 
++ bl_25 br_25 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_26 
++ bl_26 br_26 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_27 
++ bl_27 br_27 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_28 
++ bl_28 br_28 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_29 
++ bl_29 br_29 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_30 
++ bl_30 br_30 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_4_31 
++ bl_31 br_31 vdd vss wl_4 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_0 
++ bl_0 br_0 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_1 
++ bl_1 br_1 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_2 
++ bl_2 br_2 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_3 
++ bl_3 br_3 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_4 
++ bl_4 br_4 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_5 
++ bl_5 br_5 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_6 
++ bl_6 br_6 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_7 
++ bl_7 br_7 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_8 
++ bl_8 br_8 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_9 
++ bl_9 br_9 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_10 
++ bl_10 br_10 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_11 
++ bl_11 br_11 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_12 
++ bl_12 br_12 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_13 
++ bl_13 br_13 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_14 
++ bl_14 br_14 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_15 
++ bl_15 br_15 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_16 
++ bl_16 br_16 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_17 
++ bl_17 br_17 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_18 
++ bl_18 br_18 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_19 
++ bl_19 br_19 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_20 
++ bl_20 br_20 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_21 
++ bl_21 br_21 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_22 
++ bl_22 br_22 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_23 
++ bl_23 br_23 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_24 
++ bl_24 br_24 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_25 
++ bl_25 br_25 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_26 
++ bl_26 br_26 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_27 
++ bl_27 br_27 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_28 
++ bl_28 br_28 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_29 
++ bl_29 br_29 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_30 
++ bl_30 br_30 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_5_31 
++ bl_31 br_31 vdd vss wl_5 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_0 
++ bl_0 br_0 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_1 
++ bl_1 br_1 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_2 
++ bl_2 br_2 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_3 
++ bl_3 br_3 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_4 
++ bl_4 br_4 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_5 
++ bl_5 br_5 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_6 
++ bl_6 br_6 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_7 
++ bl_7 br_7 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_8 
++ bl_8 br_8 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_9 
++ bl_9 br_9 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_10 
++ bl_10 br_10 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_11 
++ bl_11 br_11 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_12 
++ bl_12 br_12 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_13 
++ bl_13 br_13 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_14 
++ bl_14 br_14 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_15 
++ bl_15 br_15 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_16 
++ bl_16 br_16 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_17 
++ bl_17 br_17 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_18 
++ bl_18 br_18 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_19 
++ bl_19 br_19 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_20 
++ bl_20 br_20 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_21 
++ bl_21 br_21 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_22 
++ bl_22 br_22 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_23 
++ bl_23 br_23 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_24 
++ bl_24 br_24 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_25 
++ bl_25 br_25 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_26 
++ bl_26 br_26 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_27 
++ bl_27 br_27 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_28 
++ bl_28 br_28 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_29 
++ bl_29 br_29 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_30 
++ bl_30 br_30 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_6_31 
++ bl_31 br_31 vdd vss wl_6 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_0 
++ bl_0 br_0 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_1 
++ bl_1 br_1 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_2 
++ bl_2 br_2 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_3 
++ bl_3 br_3 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_4 
++ bl_4 br_4 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_5 
++ bl_5 br_5 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_6 
++ bl_6 br_6 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_7 
++ bl_7 br_7 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_8 
++ bl_8 br_8 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_9 
++ bl_9 br_9 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_10 
++ bl_10 br_10 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_11 
++ bl_11 br_11 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_12 
++ bl_12 br_12 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_13 
++ bl_13 br_13 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_14 
++ bl_14 br_14 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_15 
++ bl_15 br_15 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_16 
++ bl_16 br_16 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_17 
++ bl_17 br_17 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_18 
++ bl_18 br_18 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_19 
++ bl_19 br_19 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_20 
++ bl_20 br_20 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_21 
++ bl_21 br_21 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_22 
++ bl_22 br_22 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_23 
++ bl_23 br_23 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_24 
++ bl_24 br_24 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_25 
++ bl_25 br_25 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_26 
++ bl_26 br_26 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_27 
++ bl_27 br_27 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_28 
++ bl_28 br_28 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_29 
++ bl_29 br_29 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_30 
++ bl_30 br_30 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_7_31 
++ bl_31 br_31 vdd vss wl_7 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_0 
++ bl_0 br_0 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_1 
++ bl_1 br_1 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_2 
++ bl_2 br_2 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_3 
++ bl_3 br_3 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_4 
++ bl_4 br_4 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_5 
++ bl_5 br_5 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_6 
++ bl_6 br_6 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_7 
++ bl_7 br_7 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_8 
++ bl_8 br_8 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_9 
++ bl_9 br_9 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_10 
++ bl_10 br_10 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_11 
++ bl_11 br_11 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_12 
++ bl_12 br_12 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_13 
++ bl_13 br_13 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_14 
++ bl_14 br_14 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_15 
++ bl_15 br_15 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_16 
++ bl_16 br_16 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_17 
++ bl_17 br_17 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_18 
++ bl_18 br_18 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_19 
++ bl_19 br_19 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_20 
++ bl_20 br_20 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_21 
++ bl_21 br_21 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_22 
++ bl_22 br_22 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_23 
++ bl_23 br_23 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_24 
++ bl_24 br_24 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_25 
++ bl_25 br_25 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_26 
++ bl_26 br_26 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_27 
++ bl_27 br_27 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_28 
++ bl_28 br_28 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_29 
++ bl_29 br_29 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_30 
++ bl_30 br_30 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_8_31 
++ bl_31 br_31 vdd vss wl_8 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_0 
++ bl_0 br_0 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_1 
++ bl_1 br_1 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_2 
++ bl_2 br_2 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_3 
++ bl_3 br_3 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_4 
++ bl_4 br_4 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_5 
++ bl_5 br_5 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_6 
++ bl_6 br_6 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_7 
++ bl_7 br_7 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_8 
++ bl_8 br_8 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_9 
++ bl_9 br_9 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_10 
++ bl_10 br_10 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_11 
++ bl_11 br_11 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_12 
++ bl_12 br_12 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_13 
++ bl_13 br_13 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_14 
++ bl_14 br_14 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_15 
++ bl_15 br_15 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_16 
++ bl_16 br_16 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_17 
++ bl_17 br_17 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_18 
++ bl_18 br_18 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_19 
++ bl_19 br_19 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_20 
++ bl_20 br_20 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_21 
++ bl_21 br_21 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_22 
++ bl_22 br_22 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_23 
++ bl_23 br_23 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_24 
++ bl_24 br_24 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_25 
++ bl_25 br_25 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_26 
++ bl_26 br_26 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_27 
++ bl_27 br_27 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_28 
++ bl_28 br_28 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_29 
++ bl_29 br_29 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_30 
++ bl_30 br_30 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_9_31 
++ bl_31 br_31 vdd vss wl_9 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_0 
++ bl_0 br_0 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_1 
++ bl_1 br_1 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_2 
++ bl_2 br_2 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_3 
++ bl_3 br_3 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_4 
++ bl_4 br_4 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_5 
++ bl_5 br_5 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_6 
++ bl_6 br_6 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_7 
++ bl_7 br_7 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_8 
++ bl_8 br_8 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_9 
++ bl_9 br_9 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_10 
++ bl_10 br_10 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_11 
++ bl_11 br_11 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_12 
++ bl_12 br_12 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_13 
++ bl_13 br_13 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_14 
++ bl_14 br_14 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_15 
++ bl_15 br_15 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_16 
++ bl_16 br_16 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_17 
++ bl_17 br_17 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_18 
++ bl_18 br_18 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_19 
++ bl_19 br_19 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_20 
++ bl_20 br_20 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_21 
++ bl_21 br_21 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_22 
++ bl_22 br_22 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_23 
++ bl_23 br_23 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_24 
++ bl_24 br_24 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_25 
++ bl_25 br_25 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_26 
++ bl_26 br_26 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_27 
++ bl_27 br_27 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_28 
++ bl_28 br_28 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_29 
++ bl_29 br_29 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_30 
++ bl_30 br_30 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_10_31 
++ bl_31 br_31 vdd vss wl_10 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_0 
++ bl_0 br_0 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_1 
++ bl_1 br_1 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_2 
++ bl_2 br_2 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_3 
++ bl_3 br_3 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_4 
++ bl_4 br_4 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_5 
++ bl_5 br_5 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_6 
++ bl_6 br_6 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_7 
++ bl_7 br_7 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_8 
++ bl_8 br_8 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_9 
++ bl_9 br_9 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_10 
++ bl_10 br_10 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_11 
++ bl_11 br_11 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_12 
++ bl_12 br_12 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_13 
++ bl_13 br_13 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_14 
++ bl_14 br_14 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_15 
++ bl_15 br_15 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_16 
++ bl_16 br_16 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_17 
++ bl_17 br_17 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_18 
++ bl_18 br_18 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_19 
++ bl_19 br_19 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_20 
++ bl_20 br_20 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_21 
++ bl_21 br_21 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_22 
++ bl_22 br_22 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_23 
++ bl_23 br_23 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_24 
++ bl_24 br_24 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_25 
++ bl_25 br_25 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_26 
++ bl_26 br_26 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_27 
++ bl_27 br_27 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_28 
++ bl_28 br_28 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_29 
++ bl_29 br_29 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_30 
++ bl_30 br_30 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_11_31 
++ bl_31 br_31 vdd vss wl_11 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_0 
++ bl_0 br_0 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_1 
++ bl_1 br_1 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_2 
++ bl_2 br_2 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_3 
++ bl_3 br_3 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_4 
++ bl_4 br_4 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_5 
++ bl_5 br_5 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_6 
++ bl_6 br_6 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_7 
++ bl_7 br_7 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_8 
++ bl_8 br_8 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_9 
++ bl_9 br_9 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_10 
++ bl_10 br_10 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_11 
++ bl_11 br_11 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_12 
++ bl_12 br_12 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_13 
++ bl_13 br_13 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_14 
++ bl_14 br_14 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_15 
++ bl_15 br_15 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_16 
++ bl_16 br_16 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_17 
++ bl_17 br_17 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_18 
++ bl_18 br_18 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_19 
++ bl_19 br_19 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_20 
++ bl_20 br_20 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_21 
++ bl_21 br_21 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_22 
++ bl_22 br_22 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_23 
++ bl_23 br_23 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_24 
++ bl_24 br_24 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_25 
++ bl_25 br_25 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_26 
++ bl_26 br_26 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_27 
++ bl_27 br_27 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_28 
++ bl_28 br_28 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_29 
++ bl_29 br_29 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_30 
++ bl_30 br_30 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_12_31 
++ bl_31 br_31 vdd vss wl_12 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_0 
++ bl_0 br_0 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_1 
++ bl_1 br_1 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_2 
++ bl_2 br_2 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_3 
++ bl_3 br_3 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_4 
++ bl_4 br_4 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_5 
++ bl_5 br_5 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_6 
++ bl_6 br_6 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_7 
++ bl_7 br_7 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_8 
++ bl_8 br_8 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_9 
++ bl_9 br_9 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_10 
++ bl_10 br_10 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_11 
++ bl_11 br_11 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_12 
++ bl_12 br_12 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_13 
++ bl_13 br_13 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_14 
++ bl_14 br_14 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_15 
++ bl_15 br_15 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_16 
++ bl_16 br_16 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_17 
++ bl_17 br_17 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_18 
++ bl_18 br_18 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_19 
++ bl_19 br_19 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_20 
++ bl_20 br_20 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_21 
++ bl_21 br_21 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_22 
++ bl_22 br_22 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_23 
++ bl_23 br_23 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_24 
++ bl_24 br_24 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_25 
++ bl_25 br_25 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_26 
++ bl_26 br_26 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_27 
++ bl_27 br_27 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_28 
++ bl_28 br_28 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_29 
++ bl_29 br_29 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_30 
++ bl_30 br_30 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_13_31 
++ bl_31 br_31 vdd vss wl_13 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_0 
++ bl_0 br_0 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_1 
++ bl_1 br_1 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_2 
++ bl_2 br_2 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_3 
++ bl_3 br_3 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_4 
++ bl_4 br_4 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_5 
++ bl_5 br_5 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_6 
++ bl_6 br_6 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_7 
++ bl_7 br_7 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_8 
++ bl_8 br_8 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_9 
++ bl_9 br_9 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_10 
++ bl_10 br_10 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_11 
++ bl_11 br_11 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_12 
++ bl_12 br_12 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_13 
++ bl_13 br_13 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_14 
++ bl_14 br_14 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_15 
++ bl_15 br_15 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_16 
++ bl_16 br_16 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_17 
++ bl_17 br_17 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_18 
++ bl_18 br_18 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_19 
++ bl_19 br_19 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_20 
++ bl_20 br_20 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_21 
++ bl_21 br_21 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_22 
++ bl_22 br_22 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_23 
++ bl_23 br_23 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_24 
++ bl_24 br_24 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_25 
++ bl_25 br_25 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_26 
++ bl_26 br_26 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_27 
++ bl_27 br_27 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_28 
++ bl_28 br_28 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_29 
++ bl_29 br_29 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_30 
++ bl_30 br_30 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_14_31 
++ bl_31 br_31 vdd vss wl_14 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_0 
++ bl_0 br_0 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_1 
++ bl_1 br_1 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_2 
++ bl_2 br_2 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_3 
++ bl_3 br_3 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_4 
++ bl_4 br_4 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_5 
++ bl_5 br_5 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_6 
++ bl_6 br_6 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_7 
++ bl_7 br_7 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_8 
++ bl_8 br_8 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_9 
++ bl_9 br_9 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_10 
++ bl_10 br_10 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_11 
++ bl_11 br_11 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_12 
++ bl_12 br_12 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_13 
++ bl_13 br_13 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_14 
++ bl_14 br_14 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_15 
++ bl_15 br_15 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_16 
++ bl_16 br_16 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_17 
++ bl_17 br_17 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_18 
++ bl_18 br_18 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_19 
++ bl_19 br_19 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_20 
++ bl_20 br_20 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_21 
++ bl_21 br_21 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_22 
++ bl_22 br_22 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_23 
++ bl_23 br_23 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_24 
++ bl_24 br_24 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_25 
++ bl_25 br_25 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_26 
++ bl_26 br_26 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_27 
++ bl_27 br_27 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_28 
++ bl_28 br_28 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_29 
++ bl_29 br_29 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_30 
++ bl_30 br_30 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_15_31 
++ bl_31 br_31 vdd vss wl_15 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_0 
++ bl_0 br_0 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_1 
++ bl_1 br_1 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_2 
++ bl_2 br_2 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_3 
++ bl_3 br_3 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_4 
++ bl_4 br_4 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_5 
++ bl_5 br_5 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_6 
++ bl_6 br_6 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_7 
++ bl_7 br_7 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_8 
++ bl_8 br_8 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_9 
++ bl_9 br_9 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_10 
++ bl_10 br_10 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_11 
++ bl_11 br_11 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_12 
++ bl_12 br_12 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_13 
++ bl_13 br_13 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_14 
++ bl_14 br_14 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_15 
++ bl_15 br_15 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_16 
++ bl_16 br_16 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_17 
++ bl_17 br_17 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_18 
++ bl_18 br_18 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_19 
++ bl_19 br_19 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_20 
++ bl_20 br_20 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_21 
++ bl_21 br_21 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_22 
++ bl_22 br_22 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_23 
++ bl_23 br_23 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_24 
++ bl_24 br_24 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_25 
++ bl_25 br_25 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_26 
++ bl_26 br_26 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_27 
++ bl_27 br_27 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_28 
++ bl_28 br_28 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_29 
++ bl_29 br_29 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_30 
++ bl_30 br_30 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_16_31 
++ bl_31 br_31 vdd vss wl_16 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_0 
++ bl_0 br_0 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_1 
++ bl_1 br_1 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_2 
++ bl_2 br_2 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_3 
++ bl_3 br_3 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_4 
++ bl_4 br_4 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_5 
++ bl_5 br_5 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_6 
++ bl_6 br_6 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_7 
++ bl_7 br_7 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_8 
++ bl_8 br_8 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_9 
++ bl_9 br_9 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_10 
++ bl_10 br_10 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_11 
++ bl_11 br_11 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_12 
++ bl_12 br_12 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_13 
++ bl_13 br_13 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_14 
++ bl_14 br_14 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_15 
++ bl_15 br_15 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_16 
++ bl_16 br_16 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_17 
++ bl_17 br_17 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_18 
++ bl_18 br_18 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_19 
++ bl_19 br_19 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_20 
++ bl_20 br_20 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_21 
++ bl_21 br_21 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_22 
++ bl_22 br_22 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_23 
++ bl_23 br_23 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_24 
++ bl_24 br_24 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_25 
++ bl_25 br_25 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_26 
++ bl_26 br_26 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_27 
++ bl_27 br_27 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_28 
++ bl_28 br_28 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_29 
++ bl_29 br_29 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_30 
++ bl_30 br_30 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_17_31 
++ bl_31 br_31 vdd vss wl_17 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_0 
++ bl_0 br_0 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_1 
++ bl_1 br_1 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_2 
++ bl_2 br_2 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_3 
++ bl_3 br_3 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_4 
++ bl_4 br_4 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_5 
++ bl_5 br_5 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_6 
++ bl_6 br_6 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_7 
++ bl_7 br_7 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_8 
++ bl_8 br_8 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_9 
++ bl_9 br_9 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_10 
++ bl_10 br_10 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_11 
++ bl_11 br_11 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_12 
++ bl_12 br_12 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_13 
++ bl_13 br_13 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_14 
++ bl_14 br_14 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_15 
++ bl_15 br_15 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_16 
++ bl_16 br_16 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_17 
++ bl_17 br_17 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_18 
++ bl_18 br_18 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_19 
++ bl_19 br_19 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_20 
++ bl_20 br_20 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_21 
++ bl_21 br_21 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_22 
++ bl_22 br_22 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_23 
++ bl_23 br_23 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_24 
++ bl_24 br_24 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_25 
++ bl_25 br_25 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_26 
++ bl_26 br_26 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_27 
++ bl_27 br_27 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_28 
++ bl_28 br_28 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_29 
++ bl_29 br_29 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_30 
++ bl_30 br_30 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_18_31 
++ bl_31 br_31 vdd vss wl_18 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_0 
++ bl_0 br_0 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_1 
++ bl_1 br_1 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_2 
++ bl_2 br_2 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_3 
++ bl_3 br_3 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_4 
++ bl_4 br_4 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_5 
++ bl_5 br_5 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_6 
++ bl_6 br_6 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_7 
++ bl_7 br_7 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_8 
++ bl_8 br_8 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_9 
++ bl_9 br_9 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_10 
++ bl_10 br_10 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_11 
++ bl_11 br_11 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_12 
++ bl_12 br_12 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_13 
++ bl_13 br_13 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_14 
++ bl_14 br_14 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_15 
++ bl_15 br_15 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_16 
++ bl_16 br_16 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_17 
++ bl_17 br_17 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_18 
++ bl_18 br_18 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_19 
++ bl_19 br_19 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_20 
++ bl_20 br_20 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_21 
++ bl_21 br_21 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_22 
++ bl_22 br_22 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_23 
++ bl_23 br_23 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_24 
++ bl_24 br_24 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_25 
++ bl_25 br_25 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_26 
++ bl_26 br_26 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_27 
++ bl_27 br_27 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_28 
++ bl_28 br_28 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_29 
++ bl_29 br_29 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_30 
++ bl_30 br_30 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_19_31 
++ bl_31 br_31 vdd vss wl_19 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_0 
++ bl_0 br_0 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_1 
++ bl_1 br_1 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_2 
++ bl_2 br_2 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_3 
++ bl_3 br_3 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_4 
++ bl_4 br_4 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_5 
++ bl_5 br_5 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_6 
++ bl_6 br_6 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_7 
++ bl_7 br_7 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_8 
++ bl_8 br_8 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_9 
++ bl_9 br_9 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_10 
++ bl_10 br_10 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_11 
++ bl_11 br_11 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_12 
++ bl_12 br_12 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_13 
++ bl_13 br_13 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_14 
++ bl_14 br_14 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_15 
++ bl_15 br_15 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_16 
++ bl_16 br_16 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_17 
++ bl_17 br_17 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_18 
++ bl_18 br_18 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_19 
++ bl_19 br_19 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_20 
++ bl_20 br_20 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_21 
++ bl_21 br_21 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_22 
++ bl_22 br_22 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_23 
++ bl_23 br_23 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_24 
++ bl_24 br_24 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_25 
++ bl_25 br_25 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_26 
++ bl_26 br_26 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_27 
++ bl_27 br_27 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_28 
++ bl_28 br_28 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_29 
++ bl_29 br_29 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_30 
++ bl_30 br_30 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_20_31 
++ bl_31 br_31 vdd vss wl_20 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_0 
++ bl_0 br_0 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_1 
++ bl_1 br_1 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_2 
++ bl_2 br_2 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_3 
++ bl_3 br_3 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_4 
++ bl_4 br_4 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_5 
++ bl_5 br_5 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_6 
++ bl_6 br_6 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_7 
++ bl_7 br_7 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_8 
++ bl_8 br_8 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_9 
++ bl_9 br_9 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_10 
++ bl_10 br_10 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_11 
++ bl_11 br_11 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_12 
++ bl_12 br_12 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_13 
++ bl_13 br_13 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_14 
++ bl_14 br_14 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_15 
++ bl_15 br_15 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_16 
++ bl_16 br_16 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_17 
++ bl_17 br_17 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_18 
++ bl_18 br_18 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_19 
++ bl_19 br_19 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_20 
++ bl_20 br_20 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_21 
++ bl_21 br_21 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_22 
++ bl_22 br_22 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_23 
++ bl_23 br_23 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_24 
++ bl_24 br_24 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_25 
++ bl_25 br_25 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_26 
++ bl_26 br_26 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_27 
++ bl_27 br_27 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_28 
++ bl_28 br_28 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_29 
++ bl_29 br_29 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_30 
++ bl_30 br_30 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_21_31 
++ bl_31 br_31 vdd vss wl_21 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_0 
++ bl_0 br_0 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_1 
++ bl_1 br_1 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_2 
++ bl_2 br_2 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_3 
++ bl_3 br_3 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_4 
++ bl_4 br_4 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_5 
++ bl_5 br_5 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_6 
++ bl_6 br_6 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_7 
++ bl_7 br_7 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_8 
++ bl_8 br_8 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_9 
++ bl_9 br_9 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_10 
++ bl_10 br_10 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_11 
++ bl_11 br_11 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_12 
++ bl_12 br_12 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_13 
++ bl_13 br_13 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_14 
++ bl_14 br_14 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_15 
++ bl_15 br_15 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_16 
++ bl_16 br_16 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_17 
++ bl_17 br_17 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_18 
++ bl_18 br_18 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_19 
++ bl_19 br_19 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_20 
++ bl_20 br_20 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_21 
++ bl_21 br_21 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_22 
++ bl_22 br_22 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_23 
++ bl_23 br_23 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_24 
++ bl_24 br_24 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_25 
++ bl_25 br_25 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_26 
++ bl_26 br_26 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_27 
++ bl_27 br_27 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_28 
++ bl_28 br_28 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_29 
++ bl_29 br_29 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_30 
++ bl_30 br_30 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_22_31 
++ bl_31 br_31 vdd vss wl_22 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_0 
++ bl_0 br_0 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_1 
++ bl_1 br_1 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_2 
++ bl_2 br_2 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_3 
++ bl_3 br_3 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_4 
++ bl_4 br_4 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_5 
++ bl_5 br_5 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_6 
++ bl_6 br_6 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_7 
++ bl_7 br_7 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_8 
++ bl_8 br_8 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_9 
++ bl_9 br_9 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_10 
++ bl_10 br_10 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_11 
++ bl_11 br_11 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_12 
++ bl_12 br_12 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_13 
++ bl_13 br_13 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_14 
++ bl_14 br_14 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_15 
++ bl_15 br_15 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_16 
++ bl_16 br_16 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_17 
++ bl_17 br_17 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_18 
++ bl_18 br_18 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_19 
++ bl_19 br_19 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_20 
++ bl_20 br_20 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_21 
++ bl_21 br_21 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_22 
++ bl_22 br_22 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_23 
++ bl_23 br_23 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_24 
++ bl_24 br_24 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_25 
++ bl_25 br_25 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_26 
++ bl_26 br_26 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_27 
++ bl_27 br_27 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_28 
++ bl_28 br_28 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_29 
++ bl_29 br_29 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_30 
++ bl_30 br_30 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_23_31 
++ bl_31 br_31 vdd vss wl_23 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_0 
++ bl_0 br_0 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_1 
++ bl_1 br_1 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_2 
++ bl_2 br_2 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_3 
++ bl_3 br_3 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_4 
++ bl_4 br_4 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_5 
++ bl_5 br_5 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_6 
++ bl_6 br_6 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_7 
++ bl_7 br_7 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_8 
++ bl_8 br_8 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_9 
++ bl_9 br_9 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_10 
++ bl_10 br_10 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_11 
++ bl_11 br_11 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_12 
++ bl_12 br_12 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_13 
++ bl_13 br_13 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_14 
++ bl_14 br_14 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_15 
++ bl_15 br_15 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_16 
++ bl_16 br_16 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_17 
++ bl_17 br_17 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_18 
++ bl_18 br_18 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_19 
++ bl_19 br_19 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_20 
++ bl_20 br_20 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_21 
++ bl_21 br_21 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_22 
++ bl_22 br_22 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_23 
++ bl_23 br_23 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_24 
++ bl_24 br_24 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_25 
++ bl_25 br_25 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_26 
++ bl_26 br_26 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_27 
++ bl_27 br_27 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_28 
++ bl_28 br_28 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_29 
++ bl_29 br_29 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_30 
++ bl_30 br_30 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_24_31 
++ bl_31 br_31 vdd vss wl_24 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_0 
++ bl_0 br_0 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_1 
++ bl_1 br_1 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_2 
++ bl_2 br_2 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_3 
++ bl_3 br_3 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_4 
++ bl_4 br_4 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_5 
++ bl_5 br_5 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_6 
++ bl_6 br_6 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_7 
++ bl_7 br_7 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_8 
++ bl_8 br_8 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_9 
++ bl_9 br_9 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_10 
++ bl_10 br_10 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_11 
++ bl_11 br_11 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_12 
++ bl_12 br_12 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_13 
++ bl_13 br_13 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_14 
++ bl_14 br_14 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_15 
++ bl_15 br_15 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_16 
++ bl_16 br_16 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_17 
++ bl_17 br_17 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_18 
++ bl_18 br_18 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_19 
++ bl_19 br_19 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_20 
++ bl_20 br_20 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_21 
++ bl_21 br_21 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_22 
++ bl_22 br_22 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_23 
++ bl_23 br_23 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_24 
++ bl_24 br_24 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_25 
++ bl_25 br_25 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_26 
++ bl_26 br_26 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_27 
++ bl_27 br_27 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_28 
++ bl_28 br_28 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_29 
++ bl_29 br_29 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_30 
++ bl_30 br_30 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_25_31 
++ bl_31 br_31 vdd vss wl_25 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_0 
++ bl_0 br_0 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_1 
++ bl_1 br_1 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_2 
++ bl_2 br_2 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_3 
++ bl_3 br_3 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_4 
++ bl_4 br_4 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_5 
++ bl_5 br_5 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_6 
++ bl_6 br_6 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_7 
++ bl_7 br_7 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_8 
++ bl_8 br_8 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_9 
++ bl_9 br_9 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_10 
++ bl_10 br_10 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_11 
++ bl_11 br_11 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_12 
++ bl_12 br_12 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_13 
++ bl_13 br_13 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_14 
++ bl_14 br_14 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_15 
++ bl_15 br_15 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_16 
++ bl_16 br_16 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_17 
++ bl_17 br_17 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_18 
++ bl_18 br_18 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_19 
++ bl_19 br_19 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_20 
++ bl_20 br_20 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_21 
++ bl_21 br_21 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_22 
++ bl_22 br_22 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_23 
++ bl_23 br_23 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_24 
++ bl_24 br_24 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_25 
++ bl_25 br_25 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_26 
++ bl_26 br_26 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_27 
++ bl_27 br_27 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_28 
++ bl_28 br_28 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_29 
++ bl_29 br_29 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_30 
++ bl_30 br_30 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_26_31 
++ bl_31 br_31 vdd vss wl_26 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_0 
++ bl_0 br_0 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_1 
++ bl_1 br_1 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_2 
++ bl_2 br_2 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_3 
++ bl_3 br_3 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_4 
++ bl_4 br_4 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_5 
++ bl_5 br_5 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_6 
++ bl_6 br_6 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_7 
++ bl_7 br_7 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_8 
++ bl_8 br_8 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_9 
++ bl_9 br_9 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_10 
++ bl_10 br_10 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_11 
++ bl_11 br_11 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_12 
++ bl_12 br_12 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_13 
++ bl_13 br_13 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_14 
++ bl_14 br_14 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_15 
++ bl_15 br_15 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_16 
++ bl_16 br_16 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_17 
++ bl_17 br_17 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_18 
++ bl_18 br_18 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_19 
++ bl_19 br_19 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_20 
++ bl_20 br_20 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_21 
++ bl_21 br_21 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_22 
++ bl_22 br_22 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_23 
++ bl_23 br_23 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_24 
++ bl_24 br_24 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_25 
++ bl_25 br_25 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_26 
++ bl_26 br_26 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_27 
++ bl_27 br_27 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_28 
++ bl_28 br_28 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_29 
++ bl_29 br_29 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_30 
++ bl_30 br_30 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_27_31 
++ bl_31 br_31 vdd vss wl_27 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_0 
++ bl_0 br_0 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_1 
++ bl_1 br_1 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_2 
++ bl_2 br_2 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_3 
++ bl_3 br_3 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_4 
++ bl_4 br_4 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_5 
++ bl_5 br_5 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_6 
++ bl_6 br_6 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_7 
++ bl_7 br_7 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_8 
++ bl_8 br_8 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_9 
++ bl_9 br_9 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_10 
++ bl_10 br_10 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_11 
++ bl_11 br_11 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_12 
++ bl_12 br_12 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_13 
++ bl_13 br_13 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_14 
++ bl_14 br_14 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_15 
++ bl_15 br_15 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_16 
++ bl_16 br_16 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_17 
++ bl_17 br_17 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_18 
++ bl_18 br_18 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_19 
++ bl_19 br_19 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_20 
++ bl_20 br_20 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_21 
++ bl_21 br_21 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_22 
++ bl_22 br_22 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_23 
++ bl_23 br_23 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_24 
++ bl_24 br_24 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_25 
++ bl_25 br_25 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_26 
++ bl_26 br_26 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_27 
++ bl_27 br_27 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_28 
++ bl_28 br_28 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_29 
++ bl_29 br_29 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_30 
++ bl_30 br_30 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_28_31 
++ bl_31 br_31 vdd vss wl_28 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_0 
++ bl_0 br_0 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_1 
++ bl_1 br_1 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_2 
++ bl_2 br_2 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_3 
++ bl_3 br_3 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_4 
++ bl_4 br_4 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_5 
++ bl_5 br_5 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_6 
++ bl_6 br_6 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_7 
++ bl_7 br_7 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_8 
++ bl_8 br_8 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_9 
++ bl_9 br_9 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_10 
++ bl_10 br_10 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_11 
++ bl_11 br_11 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_12 
++ bl_12 br_12 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_13 
++ bl_13 br_13 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_14 
++ bl_14 br_14 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_15 
++ bl_15 br_15 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_16 
++ bl_16 br_16 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_17 
++ bl_17 br_17 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_18 
++ bl_18 br_18 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_19 
++ bl_19 br_19 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_20 
++ bl_20 br_20 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_21 
++ bl_21 br_21 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_22 
++ bl_22 br_22 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_23 
++ bl_23 br_23 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_24 
++ bl_24 br_24 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_25 
++ bl_25 br_25 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_26 
++ bl_26 br_26 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_27 
++ bl_27 br_27 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_28 
++ bl_28 br_28 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_29 
++ bl_29 br_29 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_30 
++ bl_30 br_30 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_29_31 
++ bl_31 br_31 vdd vss wl_29 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_0 
++ bl_0 br_0 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_1 
++ bl_1 br_1 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_2 
++ bl_2 br_2 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_3 
++ bl_3 br_3 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_4 
++ bl_4 br_4 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_5 
++ bl_5 br_5 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_6 
++ bl_6 br_6 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_7 
++ bl_7 br_7 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_8 
++ bl_8 br_8 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_9 
++ bl_9 br_9 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_10 
++ bl_10 br_10 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_11 
++ bl_11 br_11 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_12 
++ bl_12 br_12 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_13 
++ bl_13 br_13 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_14 
++ bl_14 br_14 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_15 
++ bl_15 br_15 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_16 
++ bl_16 br_16 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_17 
++ bl_17 br_17 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_18 
++ bl_18 br_18 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_19 
++ bl_19 br_19 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_20 
++ bl_20 br_20 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_21 
++ bl_21 br_21 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_22 
++ bl_22 br_22 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_23 
++ bl_23 br_23 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_24 
++ bl_24 br_24 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_25 
++ bl_25 br_25 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_26 
++ bl_26 br_26 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_27 
++ bl_27 br_27 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_28 
++ bl_28 br_28 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_29 
++ bl_29 br_29 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_30 
++ bl_30 br_30 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_30_31 
++ bl_31 br_31 vdd vss wl_30 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_0 
++ bl_0 br_0 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_1 
++ bl_1 br_1 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_2 
++ bl_2 br_2 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_3 
++ bl_3 br_3 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_4 
++ bl_4 br_4 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_5 
++ bl_5 br_5 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_6 
++ bl_6 br_6 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_7 
++ bl_7 br_7 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_8 
++ bl_8 br_8 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_9 
++ bl_9 br_9 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_10 
++ bl_10 br_10 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_11 
++ bl_11 br_11 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_12 
++ bl_12 br_12 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_13 
++ bl_13 br_13 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_14 
++ bl_14 br_14 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_15 
++ bl_15 br_15 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_16 
++ bl_16 br_16 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_17 
++ bl_17 br_17 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_18 
++ bl_18 br_18 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_19 
++ bl_19 br_19 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_20 
++ bl_20 br_20 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_21 
++ bl_21 br_21 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_22 
++ bl_22 br_22 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_23 
++ bl_23 br_23 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_24 
++ bl_24 br_24 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_25 
++ bl_25 br_25 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_26 
++ bl_26 br_26 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_27 
++ bl_27 br_27 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_28 
++ bl_28 br_28 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_29 
++ bl_29 br_29 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_30 
++ bl_30 br_30 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xbitcell_31_31 
++ bl_31 br_31 vdd vss wl_31 vnb vpb 
++ sram_sp_cell 
+* No parameters
+
+xcolend_0_bot 
++ br_0 vdd vss bl_0 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_0_top 
++ br_0 vdd vss bl_0 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_1_bot 
++ br_1 vdd vss bl_1 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_1_top 
++ br_1 vdd vss bl_1 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_2_bot 
++ br_2 vdd vss bl_2 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_2_top 
++ br_2 vdd vss bl_2 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_3_bot 
++ br_3 vdd vss bl_3 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_3_top 
++ br_3 vdd vss bl_3 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_4_bot 
++ br_4 vdd vss bl_4 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_4_top 
++ br_4 vdd vss bl_4 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_5_bot 
++ br_5 vdd vss bl_5 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_5_top 
++ br_5 vdd vss bl_5 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_6_bot 
++ br_6 vdd vss bl_6 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_6_top 
++ br_6 vdd vss bl_6 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_7_bot 
++ br_7 vdd vss bl_7 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_7_top 
++ br_7 vdd vss bl_7 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_8_bot 
++ br_8 vdd vss bl_8 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_8_top 
++ br_8 vdd vss bl_8 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_9_bot 
++ br_9 vdd vss bl_9 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_9_top 
++ br_9 vdd vss bl_9 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_10_bot 
++ br_10 vdd vss bl_10 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_10_top 
++ br_10 vdd vss bl_10 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_11_bot 
++ br_11 vdd vss bl_11 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_11_top 
++ br_11 vdd vss bl_11 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_12_bot 
++ br_12 vdd vss bl_12 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_12_top 
++ br_12 vdd vss bl_12 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_13_bot 
++ br_13 vdd vss bl_13 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_13_top 
++ br_13 vdd vss bl_13 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_14_bot 
++ br_14 vdd vss bl_14 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_14_top 
++ br_14 vdd vss bl_14 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_15_bot 
++ br_15 vdd vss bl_15 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_15_top 
++ br_15 vdd vss bl_15 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_16_bot 
++ br_16 vdd vss bl_16 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_16_top 
++ br_16 vdd vss bl_16 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_17_bot 
++ br_17 vdd vss bl_17 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_17_top 
++ br_17 vdd vss bl_17 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_18_bot 
++ br_18 vdd vss bl_18 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_18_top 
++ br_18 vdd vss bl_18 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_19_bot 
++ br_19 vdd vss bl_19 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_19_top 
++ br_19 vdd vss bl_19 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_20_bot 
++ br_20 vdd vss bl_20 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_20_top 
++ br_20 vdd vss bl_20 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_21_bot 
++ br_21 vdd vss bl_21 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_21_top 
++ br_21 vdd vss bl_21 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_22_bot 
++ br_22 vdd vss bl_22 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_22_top 
++ br_22 vdd vss bl_22 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_23_bot 
++ br_23 vdd vss bl_23 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_23_top 
++ br_23 vdd vss bl_23 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_24_bot 
++ br_24 vdd vss bl_24 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_24_top 
++ br_24 vdd vss bl_24 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_25_bot 
++ br_25 vdd vss bl_25 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_25_top 
++ br_25 vdd vss bl_25 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_26_bot 
++ br_26 vdd vss bl_26 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_26_top 
++ br_26 vdd vss bl_26 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_27_bot 
++ br_27 vdd vss bl_27 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_27_top 
++ br_27 vdd vss bl_27 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_28_bot 
++ br_28 vdd vss bl_28 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_28_top 
++ br_28 vdd vss bl_28 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_29_bot 
++ br_29 vdd vss bl_29 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_29_top 
++ br_29 vdd vss bl_29 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_30_bot 
++ br_30 vdd vss bl_30 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_30_top 
++ br_30 vdd vss bl_30 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_31_bot 
++ br_31 vdd vss bl_31 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+xcolend_31_top 
++ br_31 vdd vss bl_31 vnb vpb 
++ sky130_fd_bd_sram__sram_sp_colend 
+* No parameters
+
+.ENDS
+
+.SUBCKT precharge 
++ vdd bl br en_b 
+
+xbl_pull_up 
++ bl en_b vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.0' l='0.15' 
+
+xbr_pull_up 
++ br en_b vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.0' l='0.15' 
+
+xequalizer 
++ bl en_b br vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.0' l='0.15' 
+
+.ENDS
+
+.SUBCKT precharge_array 
++ vdd en_b bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 
+
+xprecharge_0 
++ vdd bl_0 br_0 en_b 
++ precharge 
+* No parameters
+
+xprecharge_1 
++ vdd bl_1 br_1 en_b 
++ precharge 
+* No parameters
+
+xprecharge_2 
++ vdd bl_2 br_2 en_b 
++ precharge 
+* No parameters
+
+xprecharge_3 
++ vdd bl_3 br_3 en_b 
++ precharge 
+* No parameters
+
+xprecharge_4 
++ vdd bl_4 br_4 en_b 
++ precharge 
+* No parameters
+
+xprecharge_5 
++ vdd bl_5 br_5 en_b 
++ precharge 
+* No parameters
+
+xprecharge_6 
++ vdd bl_6 br_6 en_b 
++ precharge 
+* No parameters
+
+xprecharge_7 
++ vdd bl_7 br_7 en_b 
++ precharge 
+* No parameters
+
+xprecharge_8 
++ vdd bl_8 br_8 en_b 
++ precharge 
+* No parameters
+
+xprecharge_9 
++ vdd bl_9 br_9 en_b 
++ precharge 
+* No parameters
+
+xprecharge_10 
++ vdd bl_10 br_10 en_b 
++ precharge 
+* No parameters
+
+xprecharge_11 
++ vdd bl_11 br_11 en_b 
++ precharge 
+* No parameters
+
+xprecharge_12 
++ vdd bl_12 br_12 en_b 
++ precharge 
+* No parameters
+
+xprecharge_13 
++ vdd bl_13 br_13 en_b 
++ precharge 
+* No parameters
+
+xprecharge_14 
++ vdd bl_14 br_14 en_b 
++ precharge 
+* No parameters
+
+xprecharge_15 
++ vdd bl_15 br_15 en_b 
++ precharge 
+* No parameters
+
+xprecharge_16 
++ vdd bl_16 br_16 en_b 
++ precharge 
+* No parameters
+
+xprecharge_17 
++ vdd bl_17 br_17 en_b 
++ precharge 
+* No parameters
+
+xprecharge_18 
++ vdd bl_18 br_18 en_b 
++ precharge 
+* No parameters
+
+xprecharge_19 
++ vdd bl_19 br_19 en_b 
++ precharge 
+* No parameters
+
+xprecharge_20 
++ vdd bl_20 br_20 en_b 
++ precharge 
+* No parameters
+
+xprecharge_21 
++ vdd bl_21 br_21 en_b 
++ precharge 
+* No parameters
+
+xprecharge_22 
++ vdd bl_22 br_22 en_b 
++ precharge 
+* No parameters
+
+xprecharge_23 
++ vdd bl_23 br_23 en_b 
++ precharge 
+* No parameters
+
+xprecharge_24 
++ vdd bl_24 br_24 en_b 
++ precharge 
+* No parameters
+
+xprecharge_25 
++ vdd bl_25 br_25 en_b 
++ precharge 
+* No parameters
+
+xprecharge_26 
++ vdd bl_26 br_26 en_b 
++ precharge 
+* No parameters
+
+xprecharge_27 
++ vdd bl_27 br_27 en_b 
++ precharge 
+* No parameters
+
+xprecharge_28 
++ vdd bl_28 br_28 en_b 
++ precharge 
+* No parameters
+
+xprecharge_29 
++ vdd bl_29 br_29 en_b 
++ precharge 
+* No parameters
+
+xprecharge_30 
++ vdd bl_30 br_30 en_b 
++ precharge 
+* No parameters
+
+xprecharge_31 
++ vdd bl_31 br_31 en_b 
++ precharge 
+* No parameters
+
+.ENDS
+
+.SUBCKT column_read_mux 
++ sel_b bl br bl_out br_out vdd 
+
+xMBL 
++ bl_out sel_b bl vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.2' l='0.15' 
+
+xMBR 
++ br_out sel_b br vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.2' l='0.15' 
+
+.ENDS
+
+.SUBCKT read_mux_array 
++ sel_b_1 sel_b_0 bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 bl_out_15 bl_out_14 bl_out_13 bl_out_12 bl_out_11 bl_out_10 bl_out_9 bl_out_8 bl_out_7 bl_out_6 bl_out_5 bl_out_4 bl_out_3 bl_out_2 bl_out_1 bl_out_0 br_out_15 br_out_14 br_out_13 br_out_12 br_out_11 br_out_10 br_out_9 br_out_8 br_out_7 br_out_6 br_out_5 br_out_4 br_out_3 br_out_2 br_out_1 br_out_0 vdd 
+
+xmux_0 
++ sel_b_0 bl_0 br_0 bl_out_0 br_out_0 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_1 
++ sel_b_1 bl_1 br_1 bl_out_0 br_out_0 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_2 
++ sel_b_0 bl_2 br_2 bl_out_1 br_out_1 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_3 
++ sel_b_1 bl_3 br_3 bl_out_1 br_out_1 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_4 
++ sel_b_0 bl_4 br_4 bl_out_2 br_out_2 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_5 
++ sel_b_1 bl_5 br_5 bl_out_2 br_out_2 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_6 
++ sel_b_0 bl_6 br_6 bl_out_3 br_out_3 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_7 
++ sel_b_1 bl_7 br_7 bl_out_3 br_out_3 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_8 
++ sel_b_0 bl_8 br_8 bl_out_4 br_out_4 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_9 
++ sel_b_1 bl_9 br_9 bl_out_4 br_out_4 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_10 
++ sel_b_0 bl_10 br_10 bl_out_5 br_out_5 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_11 
++ sel_b_1 bl_11 br_11 bl_out_5 br_out_5 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_12 
++ sel_b_0 bl_12 br_12 bl_out_6 br_out_6 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_13 
++ sel_b_1 bl_13 br_13 bl_out_6 br_out_6 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_14 
++ sel_b_0 bl_14 br_14 bl_out_7 br_out_7 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_15 
++ sel_b_1 bl_15 br_15 bl_out_7 br_out_7 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_16 
++ sel_b_0 bl_16 br_16 bl_out_8 br_out_8 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_17 
++ sel_b_1 bl_17 br_17 bl_out_8 br_out_8 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_18 
++ sel_b_0 bl_18 br_18 bl_out_9 br_out_9 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_19 
++ sel_b_1 bl_19 br_19 bl_out_9 br_out_9 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_20 
++ sel_b_0 bl_20 br_20 bl_out_10 br_out_10 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_21 
++ sel_b_1 bl_21 br_21 bl_out_10 br_out_10 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_22 
++ sel_b_0 bl_22 br_22 bl_out_11 br_out_11 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_23 
++ sel_b_1 bl_23 br_23 bl_out_11 br_out_11 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_24 
++ sel_b_0 bl_24 br_24 bl_out_12 br_out_12 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_25 
++ sel_b_1 bl_25 br_25 bl_out_12 br_out_12 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_26 
++ sel_b_0 bl_26 br_26 bl_out_13 br_out_13 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_27 
++ sel_b_1 bl_27 br_27 bl_out_13 br_out_13 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_28 
++ sel_b_0 bl_28 br_28 bl_out_14 br_out_14 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_29 
++ sel_b_1 bl_29 br_29 bl_out_14 br_out_14 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_30 
++ sel_b_0 bl_30 br_30 bl_out_15 br_out_15 vdd 
++ column_read_mux 
+* No parameters
+
+xmux_31 
++ sel_b_1 bl_31 br_31 bl_out_15 br_out_15 vdd 
++ column_read_mux 
+* No parameters
+
+.ENDS
+
+.SUBCKT column_write_mux 
++ we data data_b bl br vss 
+
+xMMUXBR 
++ br data x vss 
++ sky130_fd_pr__nfet_01v8 
++ w='2.0' l='0.15' 
+
+xMMUXBL 
++ bl data_b x vss 
++ sky130_fd_pr__nfet_01v8 
++ w='2.0' l='0.15' 
+
+xMPD 
++ x we vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='2.0' l='0.15' 
+
+.ENDS
+
+.SUBCKT write_mux_array 
++ we_1 we_0 data_15 data_14 data_13 data_12 data_11 data_10 data_9 data_8 data_7 data_6 data_5 data_4 data_3 data_2 data_1 data_0 data_b_15 data_b_14 data_b_13 data_b_12 data_b_11 data_b_10 data_b_9 data_b_8 data_b_7 data_b_6 data_b_5 data_b_4 data_b_3 data_b_2 data_b_1 data_b_0 bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 vss 
+
+xmux_0 
++ we_0 data_0 data_b_0 bl_0 br_0 vss 
++ column_write_mux 
+* No parameters
+
+xmux_1 
++ we_1 data_0 data_b_0 bl_1 br_1 vss 
++ column_write_mux 
+* No parameters
+
+xmux_2 
++ we_0 data_1 data_b_1 bl_2 br_2 vss 
++ column_write_mux 
+* No parameters
+
+xmux_3 
++ we_1 data_1 data_b_1 bl_3 br_3 vss 
++ column_write_mux 
+* No parameters
+
+xmux_4 
++ we_0 data_2 data_b_2 bl_4 br_4 vss 
++ column_write_mux 
+* No parameters
+
+xmux_5 
++ we_1 data_2 data_b_2 bl_5 br_5 vss 
++ column_write_mux 
+* No parameters
+
+xmux_6 
++ we_0 data_3 data_b_3 bl_6 br_6 vss 
++ column_write_mux 
+* No parameters
+
+xmux_7 
++ we_1 data_3 data_b_3 bl_7 br_7 vss 
++ column_write_mux 
+* No parameters
+
+xmux_8 
++ we_0 data_4 data_b_4 bl_8 br_8 vss 
++ column_write_mux 
+* No parameters
+
+xmux_9 
++ we_1 data_4 data_b_4 bl_9 br_9 vss 
++ column_write_mux 
+* No parameters
+
+xmux_10 
++ we_0 data_5 data_b_5 bl_10 br_10 vss 
++ column_write_mux 
+* No parameters
+
+xmux_11 
++ we_1 data_5 data_b_5 bl_11 br_11 vss 
++ column_write_mux 
+* No parameters
+
+xmux_12 
++ we_0 data_6 data_b_6 bl_12 br_12 vss 
++ column_write_mux 
+* No parameters
+
+xmux_13 
++ we_1 data_6 data_b_6 bl_13 br_13 vss 
++ column_write_mux 
+* No parameters
+
+xmux_14 
++ we_0 data_7 data_b_7 bl_14 br_14 vss 
++ column_write_mux 
+* No parameters
+
+xmux_15 
++ we_1 data_7 data_b_7 bl_15 br_15 vss 
++ column_write_mux 
+* No parameters
+
+xmux_16 
++ we_0 data_8 data_b_8 bl_16 br_16 vss 
++ column_write_mux 
+* No parameters
+
+xmux_17 
++ we_1 data_8 data_b_8 bl_17 br_17 vss 
++ column_write_mux 
+* No parameters
+
+xmux_18 
++ we_0 data_9 data_b_9 bl_18 br_18 vss 
++ column_write_mux 
+* No parameters
+
+xmux_19 
++ we_1 data_9 data_b_9 bl_19 br_19 vss 
++ column_write_mux 
+* No parameters
+
+xmux_20 
++ we_0 data_10 data_b_10 bl_20 br_20 vss 
++ column_write_mux 
+* No parameters
+
+xmux_21 
++ we_1 data_10 data_b_10 bl_21 br_21 vss 
++ column_write_mux 
+* No parameters
+
+xmux_22 
++ we_0 data_11 data_b_11 bl_22 br_22 vss 
++ column_write_mux 
+* No parameters
+
+xmux_23 
++ we_1 data_11 data_b_11 bl_23 br_23 vss 
++ column_write_mux 
+* No parameters
+
+xmux_24 
++ we_0 data_12 data_b_12 bl_24 br_24 vss 
++ column_write_mux 
+* No parameters
+
+xmux_25 
++ we_1 data_12 data_b_12 bl_25 br_25 vss 
++ column_write_mux 
+* No parameters
+
+xmux_26 
++ we_0 data_13 data_b_13 bl_26 br_26 vss 
++ column_write_mux 
+* No parameters
+
+xmux_27 
++ we_1 data_13 data_b_13 bl_27 br_27 vss 
++ column_write_mux 
+* No parameters
+
+xmux_28 
++ we_0 data_14 data_b_14 bl_28 br_28 vss 
++ column_write_mux 
+* No parameters
+
+xmux_29 
++ we_1 data_14 data_b_14 bl_29 br_29 vss 
++ column_write_mux 
+* No parameters
+
+xmux_30 
++ we_0 data_15 data_b_15 bl_30 br_30 vss 
++ column_write_mux 
+* No parameters
+
+xmux_31 
++ we_1 data_15 data_b_15 bl_31 br_31 vss 
++ column_write_mux 
+* No parameters
+
+.ENDS
+
+.SUBCKT data_dff_array 
++ vdd vss clk d_15 d_14 d_13 d_12 d_11 d_10 d_9 d_8 d_7 d_6 d_5 d_4 d_3 d_2 d_1 d_0 q_15 q_14 q_13 q_12 q_11 q_10 q_9 q_8 q_7 q_6 q_5 q_4 q_3 q_2 q_1 q_0 q_b_15 q_b_14 q_b_13 q_b_12 q_b_11 q_b_10 q_b_9 q_b_8 q_b_7 q_b_6 q_b_5 q_b_4 q_b_3 q_b_2 q_b_1 q_b_0 
+
+xdff_0 
++ vdd vss clk d_0 q_0 q_b_0 
++ openram_dff 
+* No parameters
+
+xdff_1 
++ vdd vss clk d_1 q_1 q_b_1 
++ openram_dff 
+* No parameters
+
+xdff_2 
++ vdd vss clk d_2 q_2 q_b_2 
++ openram_dff 
+* No parameters
+
+xdff_3 
++ vdd vss clk d_3 q_3 q_b_3 
++ openram_dff 
+* No parameters
+
+xdff_4 
++ vdd vss clk d_4 q_4 q_b_4 
++ openram_dff 
+* No parameters
+
+xdff_5 
++ vdd vss clk d_5 q_5 q_b_5 
++ openram_dff 
+* No parameters
+
+xdff_6 
++ vdd vss clk d_6 q_6 q_b_6 
++ openram_dff 
+* No parameters
+
+xdff_7 
++ vdd vss clk d_7 q_7 q_b_7 
++ openram_dff 
+* No parameters
+
+xdff_8 
++ vdd vss clk d_8 q_8 q_b_8 
++ openram_dff 
+* No parameters
+
+xdff_9 
++ vdd vss clk d_9 q_9 q_b_9 
++ openram_dff 
+* No parameters
+
+xdff_10 
++ vdd vss clk d_10 q_10 q_b_10 
++ openram_dff 
+* No parameters
+
+xdff_11 
++ vdd vss clk d_11 q_11 q_b_11 
++ openram_dff 
+* No parameters
+
+xdff_12 
++ vdd vss clk d_12 q_12 q_b_12 
++ openram_dff 
+* No parameters
+
+xdff_13 
++ vdd vss clk d_13 q_13 q_b_13 
++ openram_dff 
+* No parameters
+
+xdff_14 
++ vdd vss clk d_14 q_14 q_b_14 
++ openram_dff 
+* No parameters
+
+xdff_15 
++ vdd vss clk d_15 q_15 q_b_15 
++ openram_dff 
+* No parameters
+
+.ENDS
+
+.SUBCKT addr_dff_array 
++ vdd vss clk d_5 d_4 d_3 d_2 d_1 d_0 q_5 q_4 q_3 q_2 q_1 q_0 q_b_5 q_b_4 q_b_3 q_b_2 q_b_1 q_b_0 
+
+xdff_0 
++ vdd vss clk d_0 q_0 q_b_0 
++ openram_dff 
+* No parameters
+
+xdff_1 
++ vdd vss clk d_1 q_1 q_b_1 
++ openram_dff 
+* No parameters
+
+xdff_2 
++ vdd vss clk d_2 q_2 q_b_2 
++ openram_dff 
+* No parameters
+
+xdff_3 
++ vdd vss clk d_3 q_3 q_b_3 
++ openram_dff 
+* No parameters
+
+xdff_4 
++ vdd vss clk d_4 q_4 q_b_4 
++ openram_dff 
+* No parameters
+
+xdff_5 
++ vdd vss clk d_5 q_5 q_b_5 
++ openram_dff 
+* No parameters
+
+.ENDS
+
+.SUBCKT col_data_inv 
++ din din_b vdd vss 
+
+xMP0 
++ din_b din vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='2.6' l='0.15' 
+
+xMN0 
++ din_b din vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='1.4' l='0.15' 
+
+.ENDS
+
+.SUBCKT col_inv_array 
++ din_15 din_14 din_13 din_12 din_11 din_10 din_9 din_8 din_7 din_6 din_5 din_4 din_3 din_2 din_1 din_0 din_b_15 din_b_14 din_b_13 din_b_12 din_b_11 din_b_10 din_b_9 din_b_8 din_b_7 din_b_6 din_b_5 din_b_4 din_b_3 din_b_2 din_b_1 din_b_0 vdd vss 
+
+xinv_0 
++ din_0 din_b_0 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_1 
++ din_1 din_b_1 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_2 
++ din_2 din_b_2 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_3 
++ din_3 din_b_3 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_4 
++ din_4 din_b_4 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_5 
++ din_5 din_b_5 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_6 
++ din_6 din_b_6 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_7 
++ din_7 din_b_7 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_8 
++ din_8 din_b_8 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_9 
++ din_9 din_b_9 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_10 
++ din_10 din_b_10 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_11 
++ din_11 din_b_11 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_12 
++ din_12 din_b_12 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_13 
++ din_13 din_b_13 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_14 
++ din_14 din_b_14 vdd vss 
++ col_data_inv 
+* No parameters
+
+xinv_15 
++ din_15 din_b_15 vdd vss 
++ col_data_inv 
+* No parameters
+
+.ENDS
+
+.SUBCKT sense_amp_array 
++ vdd vss clk bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 data_15 data_14 data_13 data_12 data_11 data_10 data_9 data_8 data_7 data_6 data_5 data_4 data_3 data_2 data_1 data_0 data_b_15 data_b_14 data_b_13 data_b_12 data_b_11 data_b_10 data_b_9 data_b_8 data_b_7 data_b_6 data_b_5 data_b_4 data_b_3 data_b_2 data_b_1 data_b_0 
+
+xsense_amp_0 
++ clk br_0 bl_0 data_b_0 data_0 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_1 
++ clk br_1 bl_1 data_b_1 data_1 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_2 
++ clk br_2 bl_2 data_b_2 data_2 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_3 
++ clk br_3 bl_3 data_b_3 data_3 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_4 
++ clk br_4 bl_4 data_b_4 data_4 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_5 
++ clk br_5 bl_5 data_b_5 data_5 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_6 
++ clk br_6 bl_6 data_b_6 data_6 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_7 
++ clk br_7 bl_7 data_b_7 data_7 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_8 
++ clk br_8 bl_8 data_b_8 data_8 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_9 
++ clk br_9 bl_9 data_b_9 data_9 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_10 
++ clk br_10 bl_10 data_b_10 data_10 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_11 
++ clk br_11 bl_11 data_b_11 data_11 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_12 
++ clk br_12 bl_12 data_b_12 data_12 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_13 
++ clk br_13 bl_13 data_b_13 data_13 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_14 
++ clk br_14 bl_14 data_b_14 data_14 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+xsense_amp_15 
++ clk br_15 bl_15 data_b_15 data_15 vdd vss 
++ sramgen_sp_sense_amp 
+* No parameters
+
+.ENDS
+
+.SUBCKT dout_buf 
++ din1 din2 dout1 dout2 vdd vss 
+
+xMP11 
++ x1 din1 vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.6' l='0.15' 
+
+xMN11 
++ x1 din1 vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='1.0' l='0.15' 
+
+xMP21 
++ dout1 x1 vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='3.2' l='0.15' 
+
+xMN21 
++ dout1 x1 vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='2.0' l='0.15' 
+
+xMP12 
++ x2 din2 vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.6' l='0.15' 
+
+xMN12 
++ x2 din2 vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='1.0' l='0.15' 
+
+xMP22 
++ dout2 x2 vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='3.2' l='0.15' 
+
+xMN22 
++ dout2 x2 vss vss 
++ sky130_fd_pr__nfet_01v8 
++ w='2.0' l='0.15' 
+
+.ENDS
+
+.SUBCKT dout_buf_array 
++ din1_15 din1_14 din1_13 din1_12 din1_11 din1_10 din1_9 din1_8 din1_7 din1_6 din1_5 din1_4 din1_3 din1_2 din1_1 din1_0 din2_15 din2_14 din2_13 din2_12 din2_11 din2_10 din2_9 din2_8 din2_7 din2_6 din2_5 din2_4 din2_3 din2_2 din2_1 din2_0 dout1_15 dout1_14 dout1_13 dout1_12 dout1_11 dout1_10 dout1_9 dout1_8 dout1_7 dout1_6 dout1_5 dout1_4 dout1_3 dout1_2 dout1_1 dout1_0 dout2_15 dout2_14 dout2_13 dout2_12 dout2_11 dout2_10 dout2_9 dout2_8 dout2_7 dout2_6 dout2_5 dout2_4 dout2_3 dout2_2 dout2_1 dout2_0 vdd vss 
+
+xbuf_0 
++ din1_0 din2_0 dout1_0 dout2_0 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_1 
++ din1_1 din2_1 dout1_1 dout2_1 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_2 
++ din1_2 din2_2 dout1_2 dout2_2 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_3 
++ din1_3 din2_3 dout1_3 dout2_3 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_4 
++ din1_4 din2_4 dout1_4 dout2_4 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_5 
++ din1_5 din2_5 dout1_5 dout2_5 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_6 
++ din1_6 din2_6 dout1_6 dout2_6 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_7 
++ din1_7 din2_7 dout1_7 dout2_7 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_8 
++ din1_8 din2_8 dout1_8 dout2_8 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_9 
++ din1_9 din2_9 dout1_9 dout2_9 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_10 
++ din1_10 din2_10 dout1_10 dout2_10 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_11 
++ din1_11 din2_11 dout1_11 dout2_11 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_12 
++ din1_12 din2_12 dout1_12 dout2_12 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_13 
++ din1_13 din2_13 dout1_13 dout2_13 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_14 
++ din1_14 din2_14 dout1_14 dout2_14 vdd vss 
++ dout_buf 
+* No parameters
+
+xbuf_15 
++ din1_15 din2_15 dout1_15 dout2_15 vdd vss 
++ dout_buf 
+* No parameters
+
+.ENDS
+
+.SUBCKT we_control_and2_nand 
++ gnd vdd a b y 
+
+xn1 
++ x a gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='1.2' l='0.15' 
+
+xn2 
++ y b x gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='1.2' l='0.15' 
+
+xp1 
++ y a vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.8' l='0.15' 
+
+xp2 
++ y b vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.8' l='0.15' 
+
+.ENDS
+
+.SUBCKT we_control_and2_inv 
++ gnd vdd din din_b 
+
+xn 
++ din_b din gnd gnd 
++ sky130_fd_pr__nfet_01v8 
++ w='1.2' l='0.15' 
+
+xp 
++ din_b din vdd vdd 
++ sky130_fd_pr__pfet_01v8 
++ w='1.8' l='0.15' 
+
+.ENDS
+
+.SUBCKT we_control_and2 
++ a b y vdd vss 
+
+xnand 
++ vss vdd a b tmp 
++ we_control_and2_nand 
+* No parameters
+
+xinv 
++ vss vdd tmp y 
++ we_control_and2_inv 
+* No parameters
+
+.ENDS
+
+.SUBCKT we_control 
++ wr_en sel_1 sel_0 write_driver_en_1 write_driver_en_0 vdd vss 
+
+xand2_0 
++ sel_0 wr_en write_driver_en_0 vdd vss 
++ we_control_and2 
+* No parameters
+
+xand2_1 
++ sel_1 wr_en write_driver_en_1 vdd vss 
++ we_control_and2 
+* No parameters
+
+.ENDS
+
+.SUBCKT sramgen_sram_32x32m2 
++ vdd vss clk din_15 din_14 din_13 din_12 din_11 din_10 din_9 din_8 din_7 din_6 din_5 din_4 din_3 din_2 din_1 din_0 dout_15 dout_14 dout_13 dout_12 dout_11 dout_10 dout_9 dout_8 dout_7 dout_6 dout_5 dout_4 dout_3 dout_2 dout_1 dout_0 we addr_5 addr_4 addr_3 addr_2 addr_1 addr_0 
+
+xdin_dffs 
++ vdd vss clk din_15 din_14 din_13 din_12 din_11 din_10 din_9 din_8 din_7 din_6 din_5 din_4 din_3 din_2 din_1 din_0 bank_din_15 bank_din_14 bank_din_13 bank_din_12 bank_din_11 bank_din_10 bank_din_9 bank_din_8 bank_din_7 bank_din_6 bank_din_5 bank_din_4 bank_din_3 bank_din_2 bank_din_1 bank_din_0 dff_din_b_15 dff_din_b_14 dff_din_b_13 dff_din_b_12 dff_din_b_11 dff_din_b_10 dff_din_b_9 dff_din_b_8 dff_din_b_7 dff_din_b_6 dff_din_b_5 dff_din_b_4 dff_din_b_3 dff_din_b_2 dff_din_b_1 dff_din_b_0 
++ data_dff_array 
+* No parameters
+
+xaddr_dffs 
++ vdd vss clk addr_5 addr_4 addr_3 addr_2 addr_1 addr_0 bank_addr_5 bank_addr_4 bank_addr_3 bank_addr_2 bank_addr_1 bank_addr_0 bank_addr_b_5 bank_addr_b_4 bank_addr_b_3 bank_addr_b_2 bank_addr_b_1 bank_addr_b_0 
++ addr_dff_array 
+* No parameters
+
+xwe_dff 
++ vdd vss clk we bank_we bank_we_b 
++ openram_dff 
+* No parameters
+
+xdecoder 
++ vdd vss bank_addr_5 bank_addr_4 bank_addr_3 bank_addr_2 bank_addr_1 bank_addr_b_5 bank_addr_b_4 bank_addr_b_3 bank_addr_b_2 bank_addr_b_1 wl_data_31 wl_data_30 wl_data_29 wl_data_28 wl_data_27 wl_data_26 wl_data_25 wl_data_24 wl_data_23 wl_data_22 wl_data_21 wl_data_20 wl_data_19 wl_data_18 wl_data_17 wl_data_16 wl_data_15 wl_data_14 wl_data_13 wl_data_12 wl_data_11 wl_data_10 wl_data_9 wl_data_8 wl_data_7 wl_data_6 wl_data_5 wl_data_4 wl_data_3 wl_data_2 wl_data_1 wl_data_0 wl_data_b_31 wl_data_b_30 wl_data_b_29 wl_data_b_28 wl_data_b_27 wl_data_b_26 wl_data_b_25 wl_data_b_24 wl_data_b_23 wl_data_b_22 wl_data_b_21 wl_data_b_20 wl_data_b_19 wl_data_b_18 wl_data_b_17 wl_data_b_16 wl_data_b_15 wl_data_b_14 wl_data_b_13 wl_data_b_12 wl_data_b_11 wl_data_b_10 wl_data_b_9 wl_data_b_8 wl_data_b_7 wl_data_b_6 wl_data_b_5 wl_data_b_4 wl_data_b_3 wl_data_b_2 wl_data_b_1 wl_data_b_0 
++ hierarchical_decoder 
+* No parameters
+
+xwl_driver_array 
++ vdd vss wl_data_31 wl_data_30 wl_data_29 wl_data_28 wl_data_27 wl_data_26 wl_data_25 wl_data_24 wl_data_23 wl_data_22 wl_data_21 wl_data_20 wl_data_19 wl_data_18 wl_data_17 wl_data_16 wl_data_15 wl_data_14 wl_data_13 wl_data_12 wl_data_11 wl_data_10 wl_data_9 wl_data_8 wl_data_7 wl_data_6 wl_data_5 wl_data_4 wl_data_3 wl_data_2 wl_data_1 wl_data_0 wl_en wl_31 wl_30 wl_29 wl_28 wl_27 wl_26 wl_25 wl_24 wl_23 wl_22 wl_21 wl_20 wl_19 wl_18 wl_17 wl_16 wl_15 wl_14 wl_13 wl_12 wl_11 wl_10 wl_9 wl_8 wl_7 wl_6 wl_5 wl_4 wl_3 wl_2 wl_1 wl_0 
++ wordline_driver_array 
+* No parameters
+
+xbitcells 
++ vdd vss bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 wl_31 wl_30 wl_29 wl_28 wl_27 wl_26 wl_25 wl_24 wl_23 wl_22 wl_21 wl_20 wl_19 wl_18 wl_17 wl_16 wl_15 wl_14 wl_13 wl_12 wl_11 wl_10 wl_9 wl_8 wl_7 wl_6 wl_5 wl_4 wl_3 wl_2 wl_1 wl_0 vss vdd 
++ bitcell_array 
+* No parameters
+
+xprecharge_array 
++ vdd pc_b bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 
++ precharge_array 
+* No parameters
+
+xwrite_mux_array 
++ write_driver_en_1 write_driver_en_0 bank_din_15 bank_din_14 bank_din_13 bank_din_12 bank_din_11 bank_din_10 bank_din_9 bank_din_8 bank_din_7 bank_din_6 bank_din_5 bank_din_4 bank_din_3 bank_din_2 bank_din_1 bank_din_0 bank_din_b_15 bank_din_b_14 bank_din_b_13 bank_din_b_12 bank_din_b_11 bank_din_b_10 bank_din_b_9 bank_din_b_8 bank_din_b_7 bank_din_b_6 bank_din_b_5 bank_din_b_4 bank_din_b_3 bank_din_b_2 bank_din_b_1 bank_din_b_0 bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 vss 
++ write_mux_array 
+* No parameters
+
+xread_mux_array 
++ bank_addr_b_0 bank_addr_0  bl_31 bl_30 bl_29 bl_28 bl_27 bl_26 bl_25 bl_24 bl_23 bl_22 bl_21 bl_20 bl_19 bl_18 bl_17 bl_16 bl_15 bl_14 bl_13 bl_12 bl_11 bl_10 bl_9 bl_8 bl_7 bl_6 bl_5 bl_4 bl_3 bl_2 bl_1 bl_0 br_31 br_30 br_29 br_28 br_27 br_26 br_25 br_24 br_23 br_22 br_21 br_20 br_19 br_18 br_17 br_16 br_15 br_14 br_13 br_12 br_11 br_10 br_9 br_8 br_7 br_6 br_5 br_4 br_3 br_2 br_1 br_0 bl_read_15 bl_read_14 bl_read_13 bl_read_12 bl_read_11 bl_read_10 bl_read_9 bl_read_8 bl_read_7 bl_read_6 bl_read_5 bl_read_4 bl_read_3 bl_read_2 bl_read_1 bl_read_0 br_read_15 br_read_14 br_read_13 br_read_12 br_read_11 br_read_10 br_read_9 br_read_8 br_read_7 br_read_6 br_read_5 br_read_4 br_read_3 br_read_2 br_read_1 br_read_0 vdd 
++ read_mux_array 
+* No parameters
+
+xcol_inv_array 
++ bank_din_15 bank_din_14 bank_din_13 bank_din_12 bank_din_11 bank_din_10 bank_din_9 bank_din_8 bank_din_7 bank_din_6 bank_din_5 bank_din_4 bank_din_3 bank_din_2 bank_din_1 bank_din_0 bank_din_b_15 bank_din_b_14 bank_din_b_13 bank_din_b_12 bank_din_b_11 bank_din_b_10 bank_din_b_9 bank_din_b_8 bank_din_b_7 bank_din_b_6 bank_din_b_5 bank_din_b_4 bank_din_b_3 bank_din_b_2 bank_din_b_1 bank_din_b_0 vdd vss 
++ col_inv_array 
+* No parameters
+
+xsense_amp_array 
++ vdd vss sense_amp_en bl_read_15 bl_read_14 bl_read_13 bl_read_12 bl_read_11 bl_read_10 bl_read_9 bl_read_8 bl_read_7 bl_read_6 bl_read_5 bl_read_4 bl_read_3 bl_read_2 bl_read_1 bl_read_0 br_read_15 br_read_14 br_read_13 br_read_12 br_read_11 br_read_10 br_read_9 br_read_8 br_read_7 br_read_6 br_read_5 br_read_4 br_read_3 br_read_2 br_read_1 br_read_0 sa_outp_15 sa_outp_14 sa_outp_13 sa_outp_12 sa_outp_11 sa_outp_10 sa_outp_9 sa_outp_8 sa_outp_7 sa_outp_6 sa_outp_5 sa_outp_4 sa_outp_3 sa_outp_2 sa_outp_1 sa_outp_0 sa_outn_15 sa_outn_14 sa_outn_13 sa_outn_12 sa_outn_11 sa_outn_10 sa_outn_9 sa_outn_8 sa_outn_7 sa_outn_6 sa_outn_5 sa_outn_4 sa_outn_3 sa_outn_2 sa_outn_1 sa_outn_0 
++ sense_amp_array 
+* No parameters
+
+xdout_buf_array 
++ sa_outp_15 sa_outp_14 sa_outp_13 sa_outp_12 sa_outp_11 sa_outp_10 sa_outp_9 sa_outp_8 sa_outp_7 sa_outp_6 sa_outp_5 sa_outp_4 sa_outp_3 sa_outp_2 sa_outp_1 sa_outp_0 sa_outn_15 sa_outn_14 sa_outn_13 sa_outn_12 sa_outn_11 sa_outn_10 sa_outn_9 sa_outn_8 sa_outn_7 sa_outn_6 sa_outn_5 sa_outn_4 sa_outn_3 sa_outn_2 sa_outn_1 sa_outn_0 dout_15 dout_14 dout_13 dout_12 dout_11 dout_10 dout_9 dout_8 dout_7 dout_6 dout_5 dout_4 dout_3 dout_2 dout_1 dout_0 dout_b_15 dout_b_14 dout_b_13 dout_b_12 dout_b_11 dout_b_10 dout_b_9 dout_b_8 dout_b_7 dout_b_6 dout_b_5 dout_b_4 dout_b_3 dout_b_2 dout_b_1 dout_b_0 vdd vss 
++ dout_buf_array 
+* No parameters
+
+xsramgen_control_logic 
++ clk bank_we pc_b wl_en wr_en sense_amp_en vdd vss 
++ sramgen_control 
+* No parameters
+
+xwe_control 
++ wr_en bank_addr_0 bank_addr_b_0  write_driver_en_1 write_driver_en_0 vdd vss 
++ we_control 
+* No parameters
+
+.ENDS
+

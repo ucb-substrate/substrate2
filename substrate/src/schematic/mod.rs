@@ -1074,18 +1074,21 @@ impl<T: HasNestedView + Send + Sync> NestedData for T {}
 /// An object that can be nested in the data of a cell.
 ///
 /// Stores a path of instances up to the current cell using an [`InstancePath`].
-pub trait HasNestedView {
+pub trait HasNestedView<T = InstancePath> {
     /// A view of the nested object.
     ///
     /// Nesting a nested view should return the same type.
-    type NestedView: HasNestedView<NestedView = NestedView<Self>> + Send + Sync;
+    type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>>
+        + HasNestedView<NestedView = NestedView<Self, T>>
+        + Send
+        + Sync;
 
     /// Creates a nested view of the object given a parent node.
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView;
+    fn nested_view(&self, parent: &T) -> Self::NestedView;
 }
 
 /// The associated nested view of an object.
-pub type NestedView<T> = <T as HasNestedView>::NestedView;
+pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
 
 impl<T> HasNestedView for &T
 where
