@@ -2,6 +2,7 @@
 
 use super::{
     FlatLen, Flatten, HasBundleKind, HasNameTree, NameBuf, NameFragment, NameTree, Signal,
+    Unflatten,
 };
 use crate::error::Result;
 use crate::layout::element::NamedPorts;
@@ -67,7 +68,12 @@ impl<L> Bbox for PortGeometry<L> {
 ///
 /// An instance of a [`BundleKind`].
 pub trait LayoutBundle<S: Schema>:
-    super::HasBundleKind + Flatten<PortGeometry<S::Layer>> + TransformRef + Send + Sync
+    super::HasBundleKind
+    + Flatten<PortGeometry<S::Layer>>
+    + Unflatten<Self::BundleKind, PortGeometry<S::Layer>>
+    + TransformRef
+    + Send
+    + Sync
 {
 }
 
@@ -77,6 +83,7 @@ where
     T: super::HasBundleKind
         + FlatLen
         + Flatten<PortGeometry<S::Layer>>
+        + Unflatten<Self::BundleKind, PortGeometry<S::Layer>>
         + TransformRef
         + Send
         + Sync,
