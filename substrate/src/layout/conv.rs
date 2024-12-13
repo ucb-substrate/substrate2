@@ -26,13 +26,13 @@ pub(crate) struct LayirLibExportContext<L> {
     conv: LayirLibConversion,
 }
 
-/// An SCIR library with associated conversion metadata.
+/// A LayIR library with associated conversion metadata.
 pub struct RawLib<L> {
-    /// The SCIR library.
+    /// The LayIR library.
     pub layir: layir::Library<L>,
     /// Associated conversion metadata.
     ///
-    /// Can be used to retrieve SCIR objects from their corresponding Substrate IDs.
+    /// Can be used to retrieve LayIR objects from their corresponding Substrate IDs.
     pub conv: LayirLibConversion,
 }
 
@@ -58,12 +58,12 @@ impl<L> LayirLibExportContext<L> {
 pub struct LayirExportError;
 
 impl<L: Clone> RawCell<L> {
-    /// Export this cell and all subcells as a SCIR library.
+    /// Export this cell and all subcells as a LayIR library.
     ///
-    /// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
+    /// Returns the LayIR library and metadata for converting between LayIR and Substrate formats.
     ///
-    /// Consider using [`export_multi_top_scir_lib`] if you need to export multiple cells
-    /// to the same SCIR library.
+    /// Consider using [`export_multi_top_layir_lib`] if you need to export multiple cells
+    /// to the same LayIR library.
     pub(crate) fn to_layir_lib(&self) -> Result<RawLib<L>, LayirExportError> {
         let mut lib_ctx = LayirLibExportContext::new();
 
@@ -73,7 +73,7 @@ impl<L: Clone> RawCell<L> {
         })
     }
 
-    /// Exports this [`RawCell`] to a SCIR cell if it has not already been exported. Should only be called
+    /// Exports this [`RawCell`] to a LayIR cell if it has not already been exported. Should only be called
     /// on top cells or un-flattened cells.
     fn to_layir_cell(
         &self,
@@ -121,11 +121,11 @@ impl<L: Clone> RawCell<L> {
     }
 }
 
-/// Export a collection of cells and all their subcells as a SCIR library.
+/// Export a collection of cells and all their subcells as a LayIR library.
 ///
-/// Returns the SCIR library and metadata for converting between SCIR and Substrate formats.
-/// The resulting SCIR library will **not** have a top cell set.
-/// If you want a SCIR library with a known top cell, consider using [`RawCell::to_scir_lib`] instead.
+/// Returns the LayIR library and metadata for converting between LayIR and Substrate formats.
+/// The resulting LayIR library will **not** have a top cell set.
+/// If you want a LayIR library with a known top cell, consider using [`RawCell::to_layir_lib`] instead.
 pub(crate) fn export_multi_top_layir_lib<L: Clone>(
     cells: &[&RawCell<L>],
 ) -> Result<RawLib<L>, LayirExportError> {
