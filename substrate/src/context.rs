@@ -486,6 +486,40 @@ impl Context {
         let lib = export_multi_top_layir_lib(&cells)?;
         Ok(lib)
     }
+
+    /// Imports a LayIR library into the context.
+    pub fn import_layir<T: Layout>(
+        &self,
+        lib: layir::Library<<T::Schema as crate::layout::schema::Schema>::Layer>,
+        top: layir::CellId,
+    ) -> Result<
+        Arc<crate::layout::element::RawCell<<T::Schema as crate::layout::schema::Schema>::Layer>>,
+    > {
+        use crate::layout::element::{RawCell, RawInstance};
+        let mut inner = self.inner.write().unwrap();
+        let mut cells: HashMap<
+            layir::CellId,
+            Arc<RawCell<<T::Schema as crate::layout::schema::Schema>::Layer>>,
+        > = HashMap::new();
+        for id in lib.topological_order() {
+            let cell = lib.cell(id);
+            let sid = inner.layout.get_id();
+            let mut raw = RawCell::new(sid, cell.name());
+            for elt in cell.elements() {
+                raw.add_element(elt.clone());
+            }
+            for (_, inst) in cell.instances() {
+                let rinst = RawInstance::new(
+                    cells.get(&inst.child()).unwrap().clone(),
+                    inst.transformation(),
+                );
+                raw.add_element(rinst);
+            }
+            let cell = Arc::new(raw);
+            cells.insert(id, cell);
+        }
+        Ok(cells.get(&top).unwrap().clone())
+    }
 }
 
 fn retrieve_installation<I: Any + Send + Sync>(
