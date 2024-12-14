@@ -46,6 +46,15 @@ impl Flatten<Terminal> for () {
     }
 }
 
+impl<D, T> Unflatten<D, T> for () {
+    fn unflatten<I>(_data: &D, _source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = T>,
+    {
+        Some(())
+    }
+}
+
 impl HasNameTree for () {
     fn names(&self) -> Option<Vec<NameTree>> {
         None
@@ -63,15 +72,6 @@ impl<B> HasBundleOf<B> for () {
 }
 
 impl SchematicBundleKind for () {
-    fn instantiate_nodes<'n>(&self, ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]) {
-        ((), ids)
-    }
-    fn instantiate_terminals<'n>(
-        &self,
-        ids: &'n [Terminal],
-    ) -> (TerminalBundle<Self>, &'n [Terminal]) {
-        ((), ids)
-    }
     fn terminal_view(
         _cell: CellId,
         _cell_io: &NodeBundle<Self>,
@@ -106,23 +106,6 @@ impl<B: HasBundleKind<BundleKind = Signal>> HasBundleOf<B> for Signal {
 }
 
 impl SchematicBundleKind for Signal {
-    fn instantiate_nodes<'n>(&self, ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]) {
-        if let [id, rest @ ..] = ids {
-            (*id, rest)
-        } else {
-            unreachable!();
-        }
-    }
-    fn instantiate_terminals<'n>(
-        &self,
-        ids: &'n [Terminal],
-    ) -> (TerminalBundle<Self>, &'n [Terminal]) {
-        if let [id, rest @ ..] = ids {
-            (*id, rest)
-        } else {
-            unreachable!();
-        }
-    }
     fn terminal_view(
         cell: CellId,
         cell_io: &NodeBundle<Self>,
@@ -279,41 +262,6 @@ impl<B, T: HasBundleOf<B>> HasBundleOf<B> for Array<T> {
 }
 
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
-    fn instantiate_nodes<'n>(&self, mut ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]) {
-        let elems = (0..self.len)
-            .scan(&mut ids, |ids, _| {
-                let (elem, new_ids) = self.kind.instantiate_nodes(ids);
-                **ids = new_ids;
-                Some(elem)
-            })
-            .collect();
-        (
-            ArrayBundle {
-                elems,
-                kind: self.kind.clone(),
-            },
-            ids,
-        )
-    }
-    fn instantiate_terminals<'n>(
-        &self,
-        mut ids: &'n [Terminal],
-    ) -> (TerminalBundle<Self>, &'n [Terminal]) {
-        let elems = (0..self.len)
-            .scan(&mut ids, |ids, _| {
-                let (elem, new_ids) = self.kind.instantiate_terminals(ids);
-                **ids = new_ids;
-                Some(elem)
-            })
-            .collect();
-        (
-            ArrayBundle {
-                elems,
-                kind: self.kind.clone(),
-            },
-            ids,
-        )
-    }
     fn terminal_view(
         cell: CellId,
         cell_io: &NodeBundle<Self>,
@@ -367,6 +315,24 @@ impl<S, T: HasBundleKind + Flatten<S>> Flatten<S> for ArrayBundle<T> {
         E: Extend<S>,
     {
         self.elems.iter().for_each(|e| e.flatten(output));
+    }
+}
+
+impl<S, T: HasBundleKind + Unflatten<<T as HasBundleKind>::BundleKind, S>>
+    Unflatten<Array<<T as HasBundleKind>::BundleKind>, S> for ArrayBundle<T>
+{
+    fn unflatten<I>(data: &Array<<T as HasBundleKind>::BundleKind>, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = S>,
+    {
+        let mut elems = Vec::new();
+        for _ in 0..data.len {
+            elems.push(T::unflatten(&data.kind, source)?);
+        }
+        Some(ArrayBundle {
+            elems,
+            kind: data.kind.clone(),
+        })
     }
 }
 
