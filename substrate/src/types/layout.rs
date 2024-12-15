@@ -21,6 +21,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use tracing::Level;
 
+pub struct PortGeometryBundle<S>(PhantomData<S>);
+
 /// A layout port with a generic set of associated geometry.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]

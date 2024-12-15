@@ -6,8 +6,8 @@ use std::{
     ops::{Deref, Index},
 };
 
+pub use ::codegen::Io;
 use arcstr::ArcStr;
-pub use codegen::Io;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -18,6 +18,7 @@ use crate::{
 
 pub use crate::scir::Direction;
 
+pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
@@ -26,6 +27,40 @@ pub mod schematic;
 pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 
 // BEGIN TRAITS
+
+pub trait HasView<V> {
+    type View;
+}
+
+pub type View<D, V> = <D as HasView<V>>::View;
+
+pub trait HasBundleView<V>:
+    HasBundleKind<BundleKind: HasView<V, View = <Self as HasBundleView<V>>::View>>
+{
+    type View: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
+}
+
+impl<V, T> HasBundleView<V> for T
+where
+    T: HasBundleKind<
+        BundleKind: HasView<V, View: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
+    >,
+{
+    type View = <<T as HasBundleKind>::BundleKind as HasView<V>>::View;
+}
+
+pub trait FlatLenView<V>:
+    HasBundleKind<BundleKind: HasView<V, View = <Self as FlatLenView<V>>::View>>
+{
+    type View: FlatLen;
+}
+
+impl<V, T> FlatLenView<V> for T
+where
+    T: HasBundleKind<BundleKind: HasView<V, View: FlatLen>>,
+{
+    type View = <<T as HasBundleKind>::BundleKind as HasView<V>>::View;
+}
 
 /// The length of the flattened list.
 pub trait FlatLen {
@@ -106,13 +141,6 @@ pub trait BundleKind:
 impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
     for T
 {
-}
-
-/// A bundle kind that has a bundle with [`Signal`]s replaced with bundles of type `B`.
-///
-/// Intended primarily for codegen.
-pub trait HasBundleOf<B>: BundleKind {
-    type Bundle: HasBundleKind<BundleKind = Self>;
 }
 
 /// Indicates that an IO specifies signal directions for all of its fields.
@@ -232,17 +260,17 @@ pub struct ArrayBundle<T: HasBundleKind> {
 #[derive(Debug, Default, Clone, Io)]
 pub struct MosIo {
     /// The drain.
-    pub d: InOut<Signal>,
+    pub d: Input<Signal>,
     /// The gate.
     pub g: Input<Signal>,
     /// The source.
-    pub s: InOut<Signal>,
+    pub s: Input<Signal>,
     /// The body.
-    pub b: InOut<Signal>,
+    pub b: Input<Signal>,
 }
 
 /// The interface to which simulation testbenches should conform.
-#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+#[derive(Io, Debug, Default, Clone, PartialEq, Eq)]
 pub struct TestbenchIo {
     /// The global ground net.
     pub vss: InOut<Signal>,

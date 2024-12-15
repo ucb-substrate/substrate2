@@ -2,48 +2,119 @@
 
 use crate::block::Block;
 use crate::diagnostics::SourceInfo;
-use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
+use crate::schematic::{CellId, InstanceId, InstancePath};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use std::marker::PhantomData;
 use std::ops::Deref;
 
-use super::{BundleKind, HasBundleKind, HasBundleOf, Io, Signal, Unflatten};
+use super::{BundleKind, HasBundleKind, HasView, Io, Signal, Unflatten, View};
+
+/// Marker struct for nested views.
+pub struct Nested<T = InstancePath>(PhantomData<T>);
+
+/// An object that can be nested within a parent transform.
+/// A view of the nested object.
+///
+/// Nesting a nested view should return the same type.
+pub trait HasNestedView<T = InstancePath>:
+    HasView<Nested<T>, View = <Self as HasNestedView<T>>::NestedView>
+{
+    type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>>
+        + HasNestedView<T, NestedView = NestedView<Self, T>>
+        + Send
+        + Sync;
+    /// Creates a nested view of the object given a parent node.
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T>;
+}
+
+impl<T, D: HasNestedView<T>> HasView<Nested<T>> for D {
+    type View = NestedView<Self, T>;
+}
+
+/// The associated nested view of an object.
+pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
+
+impl<D, T> HasNestedView<T> for &D
+where
+    D: HasNestedView<T>,
+{
+    type NestedView = NestedView<D, T>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T> {
+        (*self).nested_view(parent)
+    }
+}
+
+impl HasNestedView for () {
+    type NestedView = ();
+    fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
+}
+
+// TODO: Potentially use lazy evaluation instead of cloning.
+impl<T: HasNestedView> HasNestedView for Vec<T> {
+    type NestedView = Vec<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        self.iter().map(|elem| elem.nested_view(parent)).collect()
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for Option<T> {
+    type NestedView = Option<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        self.as_ref().map(|inner| inner.nested_view(parent))
+    }
+}
+
+pub struct NodeBundle;
+pub struct TerminalBundle;
+pub struct NestedNodeBundle;
+pub struct NestedTerminalBundle;
 
 /// A schematic bundle kind.
-pub trait SchematicBundleKind:
-    BundleKind
-    + HasBundleOf<
-        Node,
-        Bundle: HasNestedView<NestedView = <Self as HasBundleOf<NestedNode>>::Bundle>
-                    + Unflatten<Self, Node>
-                    + Flatten<Node>,
-    > + HasBundleOf<
-        Terminal,
-        Bundle: HasNestedView<NestedView = <Self as HasBundleOf<NestedTerminal>>::Bundle>
-                    + Unflatten<Self, Terminal>
-                    + Flatten<Terminal>
-                    + Flatten<Node>,
-    > + HasBundleOf<NestedNode>
-    + HasBundleOf<NestedTerminal>
-{
+pub trait SchematicBundleKind: BundleKind {
+    type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + HasBundleKind<BundleKind = Self>
+        + Unflatten<Self, Node>
+        + Flatten<Node>;
+    type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + HasBundleKind<BundleKind = Self>
+        + Unflatten<Self, Terminal>
+        + Flatten<Terminal>
+        + Flatten<Node>;
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
-        cell_io: &NodeBundle<Self>,
+        cell_io: &NodeBundleView<Self>,
         instance: InstanceId,
-        instance_io: &NodeBundle<Self>,
-    ) -> TerminalBundle<Self>;
+        instance_io: &NodeBundleView<Self>,
+    ) -> TerminalBundleView<Self>;
+}
+
+impl<T: SchematicBundleKind> HasView<NodeBundle> for T {
+    type View = <T as SchematicBundleKind>::NodeBundle;
+}
+
+impl<T: SchematicBundleKind> HasView<TerminalBundle> for T {
+    type View = <T as SchematicBundleKind>::TerminalBundle;
+}
+
+impl<T: SchematicBundleKind> HasView<NestedNodeBundle> for T {
+    type View = NestedView<<T as SchematicBundleKind>::NodeBundle>;
+}
+
+impl<T: SchematicBundleKind> HasView<NestedTerminalBundle> for T {
+    type View = NestedView<<T as SchematicBundleKind>::TerminalBundle>;
 }
 
 /// A schematic bundle kind that can be viewed as another bundle kind `T`.
 pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
     /// Views a node bundle as a node bundle of a different kind.
-    fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<T>;
+    fn view_nodes_as(nodes: &NodeBundleView<Self>) -> NodeBundleView<T>;
 
     /// Views a terminal bundle as a terminal bundle of a different kind.
-    fn view_terminals_as(terminals: &TerminalBundle<Self>) -> TerminalBundle<T> {
+    fn view_terminals_as(terminals: &TerminalBundleView<Self>) -> TerminalBundleView<T> {
         // TODO: Do some sanity checking/error handling.
         let kind = terminals.kind();
         let flat_terminals = Flatten::<Terminal>::flatten_vec(terminals);
@@ -52,23 +123,24 @@ pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
             .map(|terminal| (terminal.instance_node, terminal))
             .collect::<HashMap<_, _>>();
         let mut flat_nodes = flat_terminals.iter().map(|terminal| terminal.instance_node);
-        let nodes = NodeBundle::<Self>::unflatten(&kind, &mut flat_nodes).unwrap();
+        let nodes = NodeBundleView::<Self>::unflatten(&kind, &mut flat_nodes).unwrap();
         let nodes_view = Self::view_nodes_as(&nodes);
         let nodes_view_kind = nodes_view.kind();
         let flat_nodes_view = Flatten::<Node>::flatten_vec(&nodes_view);
         let mut flat_terminals_view = flat_nodes_view.iter().map(|node| *terminal_map[node]);
-        TerminalBundle::<T>::unflatten(&nodes_view_kind, &mut flat_terminals_view).unwrap()
+        TerminalBundleView::<T>::unflatten(&nodes_view_kind, &mut flat_terminals_view).unwrap()
     }
 }
 
 /// The type of a bundle associated with an IO.
-pub type IoBundle<T> = NodeBundle<<T as Block>::Io>;
+pub type IoNodeBundleView<T> = NodeBundleView<<T as Block>::Io>;
 /// The type of a terminal bundle associated with an IO.
-pub type IoTerminalBundle<T> = TerminalBundle<<T as Block>::Io>;
+pub type IoTerminalBundleView<T> = TerminalBundleView<<T as Block>::Io>;
 /// The type of a node bundle associated with [`SchematicBundleKind`] `T`.
-pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as HasBundleOf<Node>>::Bundle;
+pub type NodeBundleView<T> = <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::NodeBundle;
 /// The type of a terminal bundle associated with [`SchematicBundleKind`] `T`.
-pub type TerminalBundle<T> = <<T as HasBundleKind>::BundleKind as HasBundleOf<Terminal>>::Bundle;
+pub type TerminalBundleView<T> =
+    <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::TerminalBundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -132,8 +204,7 @@ impl HasBundleKind for Node {
 
 impl HasNestedView for Node {
     type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedNode {
             node: *self,
             instances: parent.clone(),
@@ -194,7 +265,7 @@ impl HasBundleKind for NestedNode {
 
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedNode {
             node: self.node,
             instances: self.instances.prepend(parent),
@@ -295,7 +366,7 @@ impl HasBundleKind for Terminal {
 
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedTerminal(NestedNode {
             instances: parent.append_segment(self.instance_id, self.cell_id),
             node: self.cell_node,
@@ -353,8 +424,7 @@ impl HasBundleKind for NestedTerminal {
 
 impl HasNestedView for NestedTerminal {
     type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedTerminal(<NestedNode as HasNestedView>::nested_view(&self.0, parent))
     }
 }
@@ -585,9 +655,9 @@ impl NodeContext {
         io: &IO,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, NodeBundle<IO>) {
+    ) -> (Vec<Node>, NodeBundleView<IO>) {
         let nodes = self.nodes_directed(&io.flatten_vec(), priority, source_info);
-        let data = NodeBundle::<IO>::unflatten(&io.kind(), &mut nodes.iter().copied()).unwrap();
+        let data = NodeBundleView::<IO>::unflatten(&io.kind(), &mut nodes.iter().copied()).unwrap();
         (nodes, data)
     }
 
@@ -596,10 +666,10 @@ impl NodeContext {
         kind: &K,
         priority: NodePriority,
         source_info: SourceInfo,
-    ) -> (Vec<Node>, NodeBundle<K>) {
+    ) -> (Vec<Node>, NodeBundleView<K>) {
         let kind = kind.kind();
         let nodes = self.nodes_undirected(kind.flat_names(None).len(), priority, source_info);
-        let data = NodeBundle::<K>::unflatten(&kind, &mut nodes.iter().copied()).unwrap();
+        let data = NodeBundleView::<K>::unflatten(&kind, &mut nodes.iter().copied()).unwrap();
         (nodes, data)
     }
 
