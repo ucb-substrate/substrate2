@@ -1,11 +1,7 @@
 //! Traits and types for layout IOs.
 
-use super::{
-    FlatLen, Flatten, HasBundleKind, HasNameTree, NameBuf, NameFragment, NameTree, Signal,
-    Unflatten,
-};
+use super::{FlatLen, Flatten, Unflatten};
 use crate::error::Result;
-use crate::layout::element::NamedPorts;
 use crate::layout::error::LayoutError;
 use crate::layout::schema::Schema;
 use arcstr::ArcStr;
@@ -15,12 +11,12 @@ use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
 use geometry::transform::{TransformRef, TranslateRef};
 use geometry::union::BoundingUnion;
-use layir::LayerBbox;
 use layir::Shape;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use tracing::Level;
 
+/// A port geometry bundle view.
 pub struct PortGeometryBundle<S>(PhantomData<S>);
 
 /// A layout port with a generic set of associated geometry.
@@ -47,6 +43,7 @@ impl<L> PortGeometry<L> {
 
     /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes
     /// and moving their old values to the collection of unnamed shapes.
+    #[allow(unused_code)]
     pub(crate) fn merge(&mut self, other: impl Into<PortGeometry<L>>) {
         let mut other = other.into();
         std::mem::swap(&mut self.primary, &mut other.primary);
@@ -101,6 +98,7 @@ pub struct PortGeometryBuilder<L> {
 }
 
 impl<L> PortGeometryBuilder<L> {
+    /// Builds a port geometry.
     pub fn build(self) -> Result<PortGeometry<L>> {
         Ok(PortGeometry {
             primary: self.primary.ok_or_else(|| {

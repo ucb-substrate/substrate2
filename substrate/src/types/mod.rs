@@ -12,13 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     block::Block,
-    error::Result,
     schematic::{CellId, InstanceId, InstancePath},
 };
 
 pub use crate::scir::Direction;
 
-pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
@@ -28,39 +26,16 @@ pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 
 // BEGIN TRAITS
 
+/// A type with an associated `V` view.
+///
+/// `V` is generally a zero-size marker struct.
 pub trait HasView<V> {
+    /// The associated view.
     type View;
 }
 
+/// The `V` view of `D`.
 pub type View<D, V> = <D as HasView<V>>::View;
-
-pub trait HasBundleView<V>:
-    HasBundleKind<BundleKind: HasView<V, View = <Self as HasBundleView<V>>::View>>
-{
-    type View: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
-}
-
-impl<V, T> HasBundleView<V> for T
-where
-    T: HasBundleKind<
-        BundleKind: HasView<V, View: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
-    >,
-{
-    type View = <<T as HasBundleKind>::BundleKind as HasView<V>>::View;
-}
-
-pub trait FlatLenView<V>:
-    HasBundleKind<BundleKind: HasView<V, View = <Self as FlatLenView<V>>::View>>
-{
-    type View: FlatLen;
-}
-
-impl<V, T> FlatLenView<V> for T
-where
-    T: HasBundleKind<BundleKind: HasView<V, View: FlatLen>>,
-{
-    type View = <<T as HasBundleKind>::BundleKind as HasView<V>>::View;
-}
 
 /// The length of the flattened list.
 pub trait FlatLen {
