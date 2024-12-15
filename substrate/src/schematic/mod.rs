@@ -792,6 +792,10 @@ impl<B: Schematic> Clone for Instance<B> {
     }
 }
 
+impl<B: Schematic> HasView<Nested> for Instance<B> {
+    type View = NestedInstance<B>;
+}
+
 impl<B: Schematic> HasNestedView for Instance<B> {
     type NestedView = NestedInstance<B>;
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
@@ -869,6 +873,10 @@ impl<B: Schematic> Clone for NestedInstance<B> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
+}
+
+impl<B: Schematic> HasView<Nested> for NestedInstance<B> {
+    type View = NestedInstance<B>;
 }
 
 impl<B: Schematic> HasNestedView for NestedInstance<B> {
@@ -1583,7 +1591,7 @@ mod tests {
             type Primitive = Primitive;
         }
 
-        #[derive(Io, Clone, Default, Debug)]
+        #[derive(Io, Clone, Default, Debug, PartialEq, Eq)]
         pub struct ResistorIo {
             pub p: InOut<Signal>,
             pub n: InOut<Signal>,
@@ -1610,7 +1618,7 @@ mod tests {
             }
         }
 
-        #[derive(Io, Clone, Debug)]
+        #[derive(Io, Clone, Debug, PartialEq, Eq)]
         pub struct DecoupledIo {
             pub ready: Input<Signal>,
             pub valid: Output<Signal>,
@@ -1627,7 +1635,7 @@ mod tests {
             }
         }
 
-        #[derive(Io, Clone, Debug)]
+        #[derive(Io, Clone, Debug, PartialEq, Eq)]
         pub struct MultiDecoupledIo {
             pub d1: DecoupledIo,
             pub d2: Flipped<DecoupledIo>,
@@ -1753,7 +1761,7 @@ mod tests {
             }
         }
 
-        #[derive(Io, Clone, Default, Debug)]
+        #[derive(Io, Clone, Default, Debug, PartialEq, Eq)]
         pub struct VdividerIo {
             pub vdd: InOut<Signal>,
             pub vss: InOut<Signal>,

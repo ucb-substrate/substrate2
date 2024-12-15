@@ -1,7 +1,10 @@
 //! Interfaces for interacting with simulation data.
 use crate::{
     simulation::{Analysis, SimulationContext, Simulator},
-    types::schematic::HasNestedView,
+    types::{
+        schematic::{HasNestedView, Nested},
+        HasView,
+    },
 };
 
 /// Saves the raw output of a simulation.
@@ -11,12 +14,20 @@ pub struct SaveOutput;
 #[derive(Debug, Clone, Copy)]
 pub struct SaveTime;
 
+impl HasView<Nested> for SaveOutput {
+    type View = SaveOutput;
+}
+
 impl HasNestedView for SaveOutput {
     type NestedView = SaveOutput;
 
     fn nested_view(&self, _parent: &substrate::schematic::InstancePath) -> Self::NestedView {
         *self
     }
+}
+
+impl HasView<Nested> for SaveTime {
+    type View = SaveTime;
 }
 
 impl HasNestedView for SaveTime {

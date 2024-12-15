@@ -178,6 +178,10 @@ macro_rules! impl_direction {
             }
         }
 
+        impl<V, T: HasView<V>> HasView<V> for $dir<T> {
+            type View = <T as HasView<V>>::View;
+        }
+
         impl<T: HasNameTree> HasNameTree for $dir<T> {
             fn names(&self) -> Option<Vec<NameTree>> {
                 self.0.names()
@@ -338,6 +342,14 @@ impl<S, T: HasBundleKind + Unflatten<<T as HasBundleKind>::BundleKind, S>>
             kind: data.kind.clone(),
         })
     }
+}
+
+impl<
+        T: HasBundleKind
+            + HasView<Nested, View: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
+    > HasView<Nested> for ArrayBundle<T>
+{
+    type View = ArrayBundle<<T as HasView<Nested>>::View>;
 }
 
 impl<

@@ -30,12 +30,15 @@ pub trait HasNestedView<T = InstancePath>:
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T>;
 }
 
-impl<T, D: HasNestedView<T>> HasView<Nested<T>> for D {
-    type View = NestedView<Self, T>;
-}
-
 /// The associated nested view of an object.
 pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
+
+impl<D, T> HasView<Nested<T>> for &D
+where
+    D: HasNestedView<T>,
+{
+    type View = NestedView<D, T>;
+}
 
 impl<D, T> HasNestedView<T> for &D
 where
@@ -47,9 +50,17 @@ where
     }
 }
 
+impl HasView<Nested> for () {
+    type View = ();
+}
+
 impl HasNestedView for () {
     type NestedView = ();
     fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
+}
+
+impl<T: HasView<Nested>> HasView<Nested> for Vec<T> {
+    type View = Vec<<T as HasView<Nested>>::View>;
 }
 
 // TODO: Potentially use lazy evaluation instead of cloning.
@@ -58,6 +69,10 @@ impl<T: HasNestedView> HasNestedView for Vec<T> {
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         self.iter().map(|elem| elem.nested_view(parent)).collect()
     }
+}
+
+impl<T: HasView<Nested>> HasView<Nested> for Option<T> {
+    type View = Option<<T as HasView<Nested>>::View>;
 }
 
 impl<T: HasNestedView> HasNestedView for Option<T> {
@@ -202,6 +217,10 @@ impl HasBundleKind for Node {
     }
 }
 
+impl HasView<Nested> for Node {
+    type View = NestedNode;
+}
+
 impl HasNestedView for Node {
     type NestedView = NestedNode;
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
@@ -261,6 +280,10 @@ impl HasBundleKind for NestedNode {
     fn kind(&self) -> Self::BundleKind {
         Signal
     }
+}
+
+impl HasView<Nested> for NestedNode {
+    type View = NestedNode;
 }
 
 impl HasNestedView for NestedNode {
@@ -364,6 +387,10 @@ impl HasBundleKind for Terminal {
     }
 }
 
+impl HasView<Nested> for Terminal {
+    type View = NestedTerminal;
+}
+
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
@@ -420,6 +447,10 @@ impl HasBundleKind for NestedTerminal {
     fn kind(&self) -> Self::BundleKind {
         Signal
     }
+}
+
+impl HasView<Nested> for NestedTerminal {
+    type View = NestedTerminal;
 }
 
 impl HasNestedView for NestedTerminal {
