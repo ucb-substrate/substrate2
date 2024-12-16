@@ -31,7 +31,8 @@
     "substrate": {},
     "tests": {},
     "tools/ngspice": {},
-    "tools/pegasus": {}
+    "tools/pegasus": {},
+    "tools/quantus": {},
     "tools/spectre": {}
   }
 }
