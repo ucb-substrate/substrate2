@@ -43,7 +43,7 @@ impl<L> PortGeometry<L> {
 
     /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes
     /// and moving their old values to the collection of unnamed shapes.
-    #[allow(unused_code)]
+    #[allow(dead_code)]
     pub(crate) fn merge(&mut self, other: impl Into<PortGeometry<L>>) {
         let mut other = other.into();
         std::mem::swap(&mut self.primary, &mut other.primary);

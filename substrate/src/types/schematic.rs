@@ -7,22 +7,25 @@ use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use std::marker::PhantomData;
 use std::ops::Deref;
 
 use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
 
 /// A schematic bundle kind.
 pub trait SchematicBundleKind: BundleKind {
+    /// The associated node bundle.
     type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
         + HasBundleKind<BundleKind = Self>
         + Unflatten<Self, Node>
         + Flatten<Node>;
+
+    /// The associated terminal bundle.
     type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
         + HasBundleKind<BundleKind = Self>
         + Unflatten<Self, Terminal>
         + Flatten<Terminal>
         + Flatten<Node>;
+
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,

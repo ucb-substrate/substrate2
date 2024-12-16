@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use config::Config;
-use ena::snapshot_vec::VecLike;
 use examples::get_snippets;
 use indexmap::IndexMap;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
@@ -31,7 +30,7 @@ use crate::schematic::{
     RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use crate::types::layout::{PortGeometry, PortGeometryBuilder};
+use crate::types::layout::PortGeometryBuilder;
 use crate::types::schematic::{IoNodeBundle, NodeContext, NodePriority, Port};
 use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBuf};
 
