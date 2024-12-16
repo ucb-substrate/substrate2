@@ -2,9 +2,7 @@
 
 use layout::{LayoutBundle, PortGeometryBundle};
 use schematic::{
-    HasNestedView, Nested, NestedNode, NestedNodeBundle, NestedTerminal, NestedTerminalBundle,
-    NestedView, Node, NodeBundle, NodeBundleView, SchematicBundleKind, Terminal, TerminalBundle,
-    TerminalBundleView,
+    HasNestedView, NestedView, Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle,
 };
 
 use geometry::point::Point;
@@ -76,10 +74,10 @@ impl SchematicBundleKind for () {
 
     fn terminal_view(
         _cell: CellId,
-        _cell_io: &NodeBundleView<Self>,
+        _cell_io: &NodeBundle<Self>,
         _instance: InstanceId,
-        _instance_io: &NodeBundleView<Self>,
-    ) -> TerminalBundleView<Self> {
+        _instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
     }
 }
 
@@ -103,20 +101,16 @@ impl HasBundleKind for Signal {
     }
 }
 
-impl<S> HasView<PortGeometryBundle<S>> for Signal {
-    type View = PortGeometry<S>;
-}
-
 impl SchematicBundleKind for Signal {
     type NodeBundle = Node;
     type TerminalBundle = Terminal;
 
     fn terminal_view(
         cell: CellId,
-        cell_io: &NodeBundleView<Self>,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &NodeBundleView<Self>,
-    ) -> TerminalBundleView<Self> {
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
         Terminal {
             cell_id: cell,
             cell_node: *cell_io,
@@ -176,10 +170,6 @@ macro_rules! impl_direction {
             fn kind(&self) -> Self::BundleKind {
                 self.0.kind()
             }
-        }
-
-        impl<V, T: HasView<V>> HasView<V> for $dir<T> {
-            type View = <T as HasView<V>>::View;
         }
 
         impl<T: HasNameTree> HasNameTree for $dir<T> {
@@ -267,15 +257,15 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
 }
 
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
-    type NodeBundle = ArrayBundle<NodeBundleView<T>>;
-    type TerminalBundle = ArrayBundle<TerminalBundleView<T>>;
+    type NodeBundle = ArrayBundle<NodeBundle<T>>;
+    type TerminalBundle = ArrayBundle<TerminalBundle<T>>;
 
     fn terminal_view(
         cell: CellId,
-        cell_io: &NodeBundleView<Self>,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &NodeBundleView<Self>,
-    ) -> TerminalBundleView<Self> {
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
         ArrayBundle {
             elems: cell_io
                 .elems
@@ -346,16 +336,7 @@ impl<S, T: HasBundleKind + Unflatten<<T as HasBundleKind>::BundleKind, S>>
 
 impl<
         T: HasBundleKind
-            + HasView<Nested, View: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
-    > HasView<Nested> for ArrayBundle<T>
-{
-    type View = ArrayBundle<<T as HasView<Nested>>::View>;
-}
-
-impl<
-        T: HasBundleKind
-            + HasView<Nested, View: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>
-            + HasNestedView,
+            + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
     > HasNestedView for ArrayBundle<T>
 {
     type NestedView = ArrayBundle<NestedView<T>>;

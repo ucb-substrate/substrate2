@@ -17,6 +17,8 @@ use crate::{
 
 pub use crate::scir::Direction;
 
+#[doc(hidden)]
+pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
@@ -25,17 +27,6 @@ pub mod schematic;
 pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 
 // BEGIN TRAITS
-
-/// A type with an associated `V` view.
-///
-/// `V` is generally a zero-size marker struct.
-pub trait HasView<V> {
-    /// The associated view.
-    type View;
-}
-
-/// The `V` view of `D`.
-pub type View<D, V> = <D as HasView<V>>::View;
 
 /// The length of the flattened list.
 pub trait FlatLen {
