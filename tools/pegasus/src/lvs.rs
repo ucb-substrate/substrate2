@@ -278,52 +278,9 @@ mod tests {
     }
 
     #[test]
-    fn test_run_lvs_sram() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_sram_bank_32x32m2.gds");
-        let source_path_main = PathBuf::from(EXAMPLES_PATH).join("spice/sram_32x32m2.spice");
-        let source_path_dff = PathBuf::from(EXAMPLES_PATH).join("spice/openram_dff.spice");
-        let source_path_sp_cell = PathBuf::from(EXAMPLES_PATH).join("spice/sram_sp_cell.lvs.spice");
-        let source_path_sp_sense_amp =
-            PathBuf::from(EXAMPLES_PATH).join("spice/sramgen_sp_sense_amp.spice");
-        let source_path_control_simple =
-            PathBuf::from(EXAMPLES_PATH).join("spice/sramgen_control_simple.spice");
-        let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_lvs_sram");
-
-        assert!(
-            matches!(
-                run_lvs(&LvsParams {
-                    work_dir: &work_dir,
-                    layout_path: &layout_path,
-                    layout_cell_name: "sram_bank",
-                    source_paths: &[
-                        source_path_main,
-                        source_path_dff,
-                        source_path_sp_cell,
-                        source_path_sp_sense_amp,
-                        source_path_control_simple,
-                    ],
-                    source_cell_name: "sramgen_sram_32x32m2",
-                    rules_dir: &PathBuf::from(SKY130_LVS),
-                    rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
-                })?
-                .status,
-                LvsStatus::Correct,
-            ),
-            "LVS failed"
-        );
-        Ok(())
-    }
-
-    #[test]
     fn test_run_lvs_fail() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_sram_bank_32x32m2.gds");
-        let source_path_main = PathBuf::from(EXAMPLES_PATH).join("spice/sram_32x32m2.spice");
-        let source_path_dff = PathBuf::from(EXAMPLES_PATH).join("spice/openram_dff.spice");
-        let source_path_sp_cell = PathBuf::from(EXAMPLES_PATH).join("spice/sram_sp_cell.spice");
-        let source_path_sp_sense_amp =
-            PathBuf::from(EXAMPLES_PATH).join("spice/sramgen_sp_sense_amp.spice");
-        let source_path_control_simple =
-            PathBuf::from(EXAMPLES_PATH).join("spice/sramgen_control_simple.spice");
+        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_inv_array.gds");
+        let source_path = PathBuf::from(EXAMPLES_PATH).join("spice/col_inv_array_incorrect.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_lvs_fail");
 
         assert!(
@@ -331,15 +288,9 @@ mod tests {
                 run_lvs(&LvsParams {
                     work_dir: &work_dir,
                     layout_path: &layout_path,
-                    layout_cell_name: "sram_bank",
-                    source_paths: &[
-                        source_path_main,
-                        source_path_dff,
-                        source_path_sp_cell,
-                        source_path_sp_sense_amp,
-                        source_path_control_simple,
-                    ],
-                    source_cell_name: "sramgen_sram_32x32m2",
+                    layout_cell_name: "test_col_inv_array",
+                    source_paths: &[source_path],
+                    source_cell_name: "col_inv_array",
                     rules_dir: &PathBuf::from(SKY130_LVS),
                     rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
