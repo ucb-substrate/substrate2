@@ -2,32 +2,30 @@
 
 use crate::block::Block;
 use crate::diagnostics::SourceInfo;
-use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
+use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath, NestedView};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 
-use super::{BundleKind, HasBundleKind, HasBundleOf, Io, Signal, Unflatten};
+use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
 
 /// A schematic bundle kind.
-pub trait SchematicBundleKind:
-    BundleKind
-    + HasBundleOf<
-        Node,
-        Bundle: HasNestedView<NestedView = <Self as HasBundleOf<NestedNode>>::Bundle>
-                    + Unflatten<Self, Node>
-                    + Flatten<Node>,
-    > + HasBundleOf<
-        Terminal,
-        Bundle: HasNestedView<NestedView = <Self as HasBundleOf<NestedTerminal>>::Bundle>
-                    + Unflatten<Self, Terminal>
-                    + Flatten<Terminal>
-                    + Flatten<Node>,
-    > + HasBundleOf<NestedNode>
-    + HasBundleOf<NestedTerminal>
-{
+pub trait SchematicBundleKind: BundleKind {
+    /// The associated node bundle.
+    type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + HasBundleKind<BundleKind = Self>
+        + Unflatten<Self, Node>
+        + Flatten<Node>;
+
+    /// The associated terminal bundle.
+    type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + HasBundleKind<BundleKind = Self>
+        + Unflatten<Self, Terminal>
+        + Flatten<Terminal>
+        + Flatten<Node>;
+
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
@@ -62,13 +60,14 @@ pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
 }
 
 /// The type of a bundle associated with an IO.
-pub type IoBundle<T> = NodeBundle<<T as Block>::Io>;
+pub type IoNodeBundle<T> = NodeBundle<<T as Block>::Io>;
 /// The type of a terminal bundle associated with an IO.
 pub type IoTerminalBundle<T> = TerminalBundle<<T as Block>::Io>;
 /// The type of a node bundle associated with [`SchematicBundleKind`] `T`.
-pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as HasBundleOf<Node>>::Bundle;
+pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::NodeBundle;
 /// The type of a terminal bundle associated with [`SchematicBundleKind`] `T`.
-pub type TerminalBundle<T> = <<T as HasBundleKind>::BundleKind as HasBundleOf<Terminal>>::Bundle;
+pub type TerminalBundle<T> =
+    <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::TerminalBundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -132,8 +131,7 @@ impl HasBundleKind for Node {
 
 impl HasNestedView for Node {
     type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedNode {
             node: *self,
             instances: parent.clone(),
@@ -194,7 +192,7 @@ impl HasBundleKind for NestedNode {
 
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedNode {
             node: self.node,
             instances: self.instances.prepend(parent),
@@ -295,7 +293,7 @@ impl HasBundleKind for Terminal {
 
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedTerminal(NestedNode {
             instances: parent.append_segment(self.instance_id, self.cell_id),
             node: self.cell_node,
@@ -353,8 +351,7 @@ impl HasBundleKind for NestedTerminal {
 
 impl HasNestedView for NestedTerminal {
     type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedTerminal(<NestedNode as HasNestedView>::nested_view(&self.0, parent))
     }
 }

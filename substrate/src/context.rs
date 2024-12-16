@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use config::Config;
-use ena::snapshot_vec::VecLike;
 use examples::get_snippets;
 use indexmap::IndexMap;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
@@ -31,8 +30,8 @@ use crate::schematic::{
     RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use crate::types::layout::{PortGeometry, PortGeometryBuilder};
-use crate::types::schematic::{IoBundle, NodeContext, NodePriority, Port};
+use crate::types::layout::PortGeometryBuilder;
+use crate::types::schematic::{IoNodeBundle, NodeContext, NodePriority, Port};
 use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBuf};
 
 /// The global context.
@@ -546,7 +545,7 @@ pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (CellBuilder<T::Schema>, IoBundle<T>) {
+) -> (CellBuilder<T::Schema>, IoNodeBundle<T>) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)

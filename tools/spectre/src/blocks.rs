@@ -83,7 +83,7 @@ impl Schematic for Vsource {
 
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         use arcstr::literal;
@@ -210,7 +210,7 @@ impl Schematic for Isource {
 
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         use arcstr::literal;
@@ -282,7 +282,7 @@ impl Schematic for Iprobe {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -315,7 +315,7 @@ impl Nport {
 }
 
 /// The interface of an [`Nport`].
-#[derive(Io, Clone, Debug)]
+#[derive(Clone, Debug, Io)]
 pub struct NportIo {
     /// The ports.
     ///
@@ -343,7 +343,7 @@ impl Schematic for Nport {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -404,7 +404,7 @@ impl Schematic for Resistor {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -459,7 +459,7 @@ impl Schematic for Capacitor {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
@@ -526,7 +526,7 @@ impl Schematic for RawInstance {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self, substrate::types::schematic::Node>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::RawInstance {

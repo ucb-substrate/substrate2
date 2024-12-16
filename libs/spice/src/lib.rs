@@ -354,7 +354,7 @@ impl Schematic for Resistor {
 
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoBundle<Self>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {

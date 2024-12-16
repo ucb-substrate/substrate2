@@ -1149,7 +1149,7 @@ mod tests {
         schematic::{CellBuilder, NestedData, PrimitiveBinding, Schematic},
         simulation::{data::Save, Analysis, SimController, Simulator},
         types::{
-            schematic::{IoBundle, NestedNode, Node},
+            schematic::{IoNodeBundle, NestedNode, Node},
             InOut, Io, Signal, TestbenchIo,
         },
     };
@@ -1180,7 +1180,7 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                io: &IoBundle<Self, Node>,
+                io: &IoNodeBundle<Self>,
                 cell: &mut CellBuilder<Spectre>,
             ) -> substrate::error::Result<Self::NestedData> {
                 let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
@@ -1216,7 +1216,7 @@ mod tests {
             type NestedData = LibIncludeTbData;
             fn schematic(
                 &self,
-                io: &IoBundle<Self, Node>,
+                io: &IoNodeBundle<Self>,
                 cell: &mut CellBuilder<Spectre>,
             ) -> substrate::error::Result<Self::NestedData> {
                 let vdd = cell.signal("vdd", Signal);

@@ -1,18 +1,14 @@
 //! Built-in implementations of IO traits.
 
-use layout::LayoutBundle;
 use schematic::{Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
 
-use crate::layout::schema::Schema;
-use crate::types::layout::{PortGeometry, PortGeometryBuilder};
+use crate::schematic::{HasNestedView, NestedView};
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
-
-use crate::schematic::HasNestedView;
 
 use super::*;
 
@@ -67,11 +63,10 @@ impl HasBundleKind for () {
     fn kind(&self) -> Self::BundleKind {}
 }
 
-impl<B> HasBundleOf<B> for () {
-    type Bundle = ();
-}
-
 impl SchematicBundleKind for () {
+    type NodeBundle = ();
+    type TerminalBundle = ();
+
     fn terminal_view(
         _cell: CellId,
         _cell_io: &NodeBundle<Self>,
@@ -101,11 +96,10 @@ impl HasBundleKind for Signal {
     }
 }
 
-impl<B: HasBundleKind<BundleKind = Signal>> HasBundleOf<B> for Signal {
-    type Bundle = B;
-}
-
 impl SchematicBundleKind for Signal {
+    type NodeBundle = Node;
+    type TerminalBundle = Terminal;
+
     fn terminal_view(
         cell: CellId,
         cell_io: &NodeBundle<Self>,
@@ -257,11 +251,10 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
     }
 }
 
-impl<B, T: HasBundleOf<B>> HasBundleOf<B> for Array<T> {
-    type Bundle = ArrayBundle<T::Bundle>;
-}
-
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
+    type NodeBundle = ArrayBundle<NodeBundle<T>>;
+    type TerminalBundle = ArrayBundle<TerminalBundle<T>>;
+
     fn terminal_view(
         cell: CellId,
         cell_io: &NodeBundle<Self>,
@@ -341,9 +334,8 @@ impl<
             + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
     > HasNestedView for ArrayBundle<T>
 {
-    type NestedView = ArrayBundle<<T as HasNestedView>::NestedView>;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    type NestedView = ArrayBundle<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         ArrayBundle {
             elems: self
                 .elems

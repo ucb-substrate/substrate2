@@ -6,18 +6,19 @@ use std::{
     ops::{Deref, Index},
 };
 
+pub use ::codegen::Io;
 use arcstr::ArcStr;
-pub use codegen::Io;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::Block,
-    error::Result,
     schematic::{CellId, InstanceId, InstancePath},
 };
 
 pub use crate::scir::Direction;
 
+#[doc(hidden)]
+pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
@@ -106,13 +107,6 @@ pub trait BundleKind:
 impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
     for T
 {
-}
-
-/// A bundle kind that has a bundle with [`Signal`]s replaced with bundles of type `B`.
-///
-/// Intended primarily for codegen.
-pub trait HasBundleOf<B>: BundleKind {
-    type Bundle: HasBundleKind<BundleKind = Self>;
 }
 
 /// Indicates that an IO specifies signal directions for all of its fields.
@@ -242,7 +236,7 @@ pub struct MosIo {
 }
 
 /// The interface to which simulation testbenches should conform.
-#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Io)]
 pub struct TestbenchIo {
     /// The global ground net.
     pub vss: InOut<Signal>,

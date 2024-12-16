@@ -27,7 +27,7 @@ use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
-    IoBundle, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
+    IoNodeBundle, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundleKind,
 };
 use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, IoKind, NameBuf};
@@ -45,7 +45,7 @@ pub trait Schematic: Block<Io: Io + HasBundleKind<BundleKind: SchematicBundleKin
     /// Generates the block's schematic.
     fn schematic(
         &self,
-        io: &IoBundle<Self>,
+        io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData>;
 }
@@ -56,10 +56,47 @@ impl<T: Schematic> Schematic for Arc<T> {
 
     fn schematic(
         &self,
-        io: &IoBundle<Self>,
+        io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
         T::schematic(self.as_ref(), io, cell)
+    }
+}
+
+/// Data that can be stored in [`Schematic::NestedData`].
+pub trait NestedData: HasNestedView + Send + Sync {}
+impl<T: HasNestedView + Send + Sync> NestedData for T {}
+
+/// An object that can be nested within a parent transform.
+pub trait HasNestedView<T = InstancePath> {
+    /// A view of the nested object.
+    ///
+    /// Nesting a nested view should return the same type.
+    type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>> + Send + Sync;
+    /// Creates a nested view of the object given a parent node.
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T>;
+}
+
+/// The associated nested view of an object.
+pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
+
+impl HasNestedView for () {
+    type NestedView = ();
+    fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
+}
+
+// TODO: Potentially use lazy evaluation instead of cloning.
+impl<T: HasNestedView> HasNestedView for Vec<T> {
+    type NestedView = Vec<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        self.iter().map(|elem| elem.nested_view(parent)).collect()
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for Option<T> {
+    type NestedView = Option<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        self.as_ref().map(|inner| inner.nested_view(parent))
     }
 }
 
@@ -90,7 +127,7 @@ impl<B: Schematic, S: FromSchema<B::Schema>> Schematic for ConvertSchema<B, S> {
     type NestedData = NestedView<B::NestedData>;
     fn schematic(
         &self,
-        io: &IoBundle<Self>,
+        io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
         let mut s = cell.sub_builder::<B::Schema>();
@@ -583,7 +620,7 @@ pub struct Cell<T: Schematic> {
     /// Data returned by the cell's schematic generator.
     nodes: Arc<T::NestedData>,
     /// The cell's input/output interface.
-    io: Arc<IoBundle<T>>,
+    io: Arc<IoNodeBundle<T>>,
     /// The path corresponding to this cell.
     path: InstancePath,
 
@@ -619,7 +656,7 @@ impl<T: Schematic> Clone for Cell<T> {
 impl<T: Schematic> Cell<T> {
     pub(crate) fn new(
         id: CellId,
-        io: Arc<IoBundle<T>>,
+        io: Arc<IoNodeBundle<T>>,
         block: Arc<T>,
         raw: Arc<RawCell<T::Schema>>,
         data: Arc<T::NestedData>,
@@ -645,7 +682,7 @@ impl<T: Schematic> Cell<T> {
     }
 
     /// Returns this cell's IO.
-    pub fn io(&self) -> NestedView<IoBundle<T>> {
+    pub fn io(&self) -> NestedView<IoNodeBundle<T>> {
         self.io.nested_view(&self.path)
     }
 }
@@ -654,7 +691,7 @@ impl<T: Schematic> Cell<T> {
 pub struct CellHandle<B: Schematic> {
     pub(crate) id: CellId,
     pub(crate) block: Arc<B>,
-    pub(crate) io_data: Arc<IoBundle<B>>,
+    pub(crate) io_data: Arc<IoNodeBundle<B>>,
     pub(crate) cell: CacheHandle<Result<Arc<Cell<B>>>>,
 }
 
@@ -760,7 +797,7 @@ pub struct Instance<B: Schematic> {
     /// Path to this instance relative to the current cell.
     path: InstancePath,
     /// The cell's input/output interface.
-    io: Arc<IoBundle<B>>,
+    io: Arc<IoNodeBundle<B>>,
     cell: CellHandle<B>,
     /// Stored terminal view for IO purposes.
     terminal_view: OnceCell<Arc<IoTerminalBundle<B>>>,
@@ -794,7 +831,7 @@ impl<B: Schematic> Clone for Instance<B> {
 
 impl<B: Schematic> HasNestedView for Instance<B> {
     type NestedView = NestedInstance<B>;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         let mut inst = (*self).clone();
         inst.path = self.path.prepend(parent);
         inst.parent = self.parent.prepend(parent);
@@ -873,7 +910,7 @@ impl<B: Schematic> Clone for NestedInstance<B> {
 
 impl<B: Schematic> HasNestedView for NestedInstance<B> {
     type NestedView = NestedInstance<B>;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         let mut inst = (*self).clone();
         inst.0.path = self.0.path.prepend(parent);
         inst.0.parent = self.0.parent.prepend(parent);
@@ -946,7 +983,7 @@ impl SchematicContext {
 /// Cell metadata that can be generated quickly.
 pub(crate) struct CellMetadata<B: Schematic> {
     pub(crate) id: CellId,
-    pub(crate) io_data: Arc<IoBundle<B>>,
+    pub(crate) io_data: Arc<IoNodeBundle<B>>,
 }
 
 impl<B: Schematic> Clone for CellMetadata<B> {
@@ -1064,60 +1101,6 @@ impl InstancePath {
     #[allow(dead_code)]
     pub(crate) fn is_empty(&self) -> bool {
         self.bot.is_none()
-    }
-}
-
-/// Data that can be stored in [`Schematic::NestedData`].
-pub trait NestedData: HasNestedView + Send + Sync {}
-impl<T: HasNestedView + Send + Sync> NestedData for T {}
-
-/// An object that can be nested in the data of a cell.
-///
-/// Stores a path of instances up to the current cell using an [`InstancePath`].
-pub trait HasNestedView {
-    /// A view of the nested object.
-    ///
-    /// Nesting a nested view should return the same type.
-    type NestedView: HasNestedView<NestedView = NestedView<Self>> + Send + Sync;
-
-    /// Creates a nested view of the object given a parent node.
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView;
-}
-
-/// The associated nested view of an object.
-pub type NestedView<T> = <T as HasNestedView>::NestedView;
-
-impl<T> HasNestedView for &T
-where
-    T: HasNestedView,
-{
-    type NestedView = T::NestedView;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        (*self).nested_view(parent)
-    }
-}
-
-impl HasNestedView for () {
-    type NestedView = ();
-
-    fn nested_view(&self, _parent: &InstancePath) -> Self::NestedView {}
-}
-
-// TODO: Potentially use lazy evaluation instead of cloning.
-impl<T: HasNestedView> HasNestedView for Vec<T> {
-    type NestedView = Vec<NestedView<T>>;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        self.iter().map(|elem| elem.nested_view(parent)).collect()
-    }
-}
-
-impl<T: HasNestedView> HasNestedView for Option<T> {
-    type NestedView = Option<NestedView<T>>;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
-        self.as_ref().map(|inner| inner.nested_view(parent))
     }
 }
 
@@ -1615,7 +1598,8 @@ mod tests {
         context::Context,
         schematic::{CellBuilder, PrimitiveBinding, Schematic},
         types::{
-            schematic::{DataView, IoBundle, Node, NodeBundle},
+            codegen::{FromSelf, HasViewImpl},
+            schematic::{DataView, IoNodeBundle, Node, NodeBundle},
             Array, Flipped, HasBundleKind, InOut, Input, Io, Output, Signal,
         },
     };
@@ -1649,7 +1633,7 @@ mod tests {
 
             fn schematic(
                 &self,
-                io: &IoBundle<Resistor>,
+                io: &IoNodeBundle<Resistor>,
                 cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let mut prim = PrimitiveBinding::new(Primitive::Resistor);
@@ -1727,7 +1711,7 @@ mod tests {
 
             fn schematic(
                 &self,
-                _io: &IoBundle<Self>,
+                _io: &IoNodeBundle<Self>,
                 _cell: &mut CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 Ok(())
@@ -1743,7 +1727,7 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                _io: &IoBundle<Self>,
+                _io: &IoNodeBundle<Self>,
                 cell: &mut CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let b1 = cell.instantiate(MultiDecoupledBlock);
@@ -1794,7 +1778,7 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                _io: &IoBundle<Self>,
+                _io: &IoNodeBundle<Self>,
                 cell: &mut CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let _b1 = cell.instantiate(self.0.clone());
@@ -1810,6 +1794,18 @@ mod tests {
             pub dout: Output<Signal>,
         }
 
+        pub struct CustomView;
+
+        impl HasViewImpl<CustomView> for Signal {
+            type View = i64;
+        }
+
+        const VDIVIDER_CUSTOM_VIEW: VdividerIoBundle<CustomView> = VdividerIoBundle {
+            vdd: 1,
+            vss: 2,
+            dout: 3,
+        };
+
         #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "VdividerIo")]
         pub struct Vdivider;
@@ -1819,7 +1815,7 @@ mod tests {
             type NestedData = ();
             fn schematic(
                 &self,
-                io: &IoBundle<Self>,
+                io: &IoNodeBundle<Self>,
                 cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
             ) -> crate::error::Result<Self::NestedData> {
                 let r1 = cell.instantiate(Resistor);
