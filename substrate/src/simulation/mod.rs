@@ -13,8 +13,7 @@ use crate::block::Block;
 use crate::context::{Context, Installation};
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, Schematic};
-use crate::types::schematic::{HasNestedView, NestedView};
+use crate::schematic::{Cell, HasNestedView, NestedView, Schematic};
 use crate::types::TestbenchIo;
 use codegen::simulator_tuples;
 

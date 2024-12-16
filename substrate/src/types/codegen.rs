@@ -3,13 +3,13 @@
 use std::marker::PhantomData;
 
 use crate::{
-    schematic::InstancePath,
+    schematic::{HasNestedView, InstancePath, NestedView},
     simulation::{data::Save, Analysis, Simulator},
 };
 
 use super::{
     layout::{PortGeometry, PortGeometryBundle},
-    schematic::{HasNestedView, NestedView, SchematicBundleKind},
+    schematic::SchematicBundleKind,
     Array, Flipped, InOut, Input, Output, Signal,
 };
 

@@ -1,8 +1,8 @@
 //! Interfaces for interacting with simulation data.
 
 use crate::{
+    schematic::HasNestedView,
     simulation::{Analysis, SimulationContext, Simulator},
-    types::schematic::HasNestedView,
 };
 
 /// Saves the raw output of a simulation.

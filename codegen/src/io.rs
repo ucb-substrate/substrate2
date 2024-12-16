@@ -129,16 +129,16 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             #assign #temp,
         });
         construct_nested_view_node_fields.push(quote! {
-                #assign <#substrate::types::schematic::NodeBundle<#field_ty> as #substrate::types::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <#substrate::types::schematic::NodeBundle<#field_ty> as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_nested_view_terminal_fields.push(quote! {
-                #assign <#substrate::types::schematic::TerminalBundle<#field_ty> as #substrate::types::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <#substrate::types::schematic::TerminalBundle<#field_ty> as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_nested_view_nested_node_fields.push(quote! {
-                #assign <<<#field_ty as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::codegen::HasView<#substrate::types::codegen::NestedNodeBundle>>::View as #substrate::types::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <<<#field_ty as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::codegen::HasView<#substrate::types::codegen::NestedNodeBundle>>::View as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_nested_view_nested_terminal_fields.push(quote! {
-                #assign <<<#field_ty as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::codegen::HasView<#substrate::types::codegen::NestedTerminalBundle>>::View as #substrate::types::schematic::HasNestedView>::nested_view(&#refer, parent),
+                #assign <<<#field_ty as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::codegen::HasView<#substrate::types::codegen::NestedTerminalBundle>>::View as #substrate::schematic::HasNestedView>::nested_view(&#refer, parent),
         });
         construct_terminal_view_fields.push(quote! {
                 #assign <<#field_ty as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::SchematicBundleKind>::terminal_view(cell, &#cell_io_refer, instance, &#instance_io_refer),
@@ -207,34 +207,34 @@ pub(crate) fn schematic_io(input: &IoInputReceiver) -> TokenStream {
             }
         }
 
-        impl #st_any_imp #substrate::types::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NodeBundle> #hnv_where {
+        impl #st_any_imp #substrate::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NodeBundle> #hnv_where {
             type NestedView = #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedNodeBundle>;
 
-            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::types::schematic::NestedView<Self> {
+            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::schematic::NestedView<Self> {
                 #bundle_ident #construct_nested_view_node_body
             }
         }
 
-        impl #st_any_imp #substrate::types::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::TerminalBundle> #hnv_where {
+        impl #st_any_imp #substrate::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::TerminalBundle> #hnv_where {
             type NestedView = #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedTerminalBundle>;
 
-            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::types::schematic::NestedView<Self> {
+            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::schematic::NestedView<Self> {
                 #bundle_ident #construct_nested_view_terminal_body
             }
         }
 
-        impl #st_any_imp #substrate::types::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedNodeBundle> #hnv_where {
+        impl #st_any_imp #substrate::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedNodeBundle> #hnv_where {
             type NestedView = #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedNodeBundle>;
 
-            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::types::schematic::NestedView<Self> {
+            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::schematic::NestedView<Self> {
                 #bundle_ident #construct_nested_view_nested_node_body
             }
         }
 
-        impl #st_any_imp #substrate::types::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedTerminalBundle> #hnv_where {
+        impl #st_any_imp #substrate::schematic::HasNestedView for #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedTerminalBundle> #hnv_where {
             type NestedView = #bundle_ident <#(#generic_idents,)*#substrate::types::codegen::NestedTerminalBundle>;
 
-            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::types::schematic::NestedView<Self> {
+            fn nested_view(&self, parent: &#substrate::schematic::InstancePath) -> #substrate::schematic::NestedView<Self> {
                 #bundle_ident #construct_nested_view_nested_terminal_body
             }
         }

@@ -2,7 +2,7 @@
 
 use crate::block::Block;
 use crate::diagnostics::SourceInfo;
-use crate::schematic::{CellId, InstanceId, InstancePath};
+use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath, NestedView};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
@@ -11,42 +11,6 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
-
-/// An object that can be nested within a parent transform.
-pub trait HasNestedView<T = InstancePath> {
-    /// A view of the nested object.
-    ///
-    /// Nesting a nested view should return the same type.
-    type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>>
-        + HasNestedView<T, NestedView = NestedView<Self, T>>
-        + Send
-        + Sync;
-    /// Creates a nested view of the object given a parent node.
-    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T>;
-}
-
-/// The associated nested view of an object.
-pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
-
-impl HasNestedView for () {
-    type NestedView = ();
-    fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
-}
-
-// TODO: Potentially use lazy evaluation instead of cloning.
-impl<T: HasNestedView> HasNestedView for Vec<T> {
-    type NestedView = Vec<NestedView<T>>;
-    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
-        self.iter().map(|elem| elem.nested_view(parent)).collect()
-    }
-}
-
-impl<T: HasNestedView> HasNestedView for Option<T> {
-    type NestedView = Option<NestedView<T>>;
-    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
-        self.as_ref().map(|inner| inner.nested_view(parent))
-    }
-}
 
 /// A schematic bundle kind.
 pub trait SchematicBundleKind: BundleKind {

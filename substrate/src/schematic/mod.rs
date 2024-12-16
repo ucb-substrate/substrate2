@@ -27,8 +27,8 @@ use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::types::schematic::{
-    HasNestedView, IoNodeBundle, IoTerminalBundle, NestedView, Node, NodeBundle, NodeContext,
-    NodePriority, NodeUf, Port, SchematicBundleKind,
+    IoNodeBundle, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
+    SchematicBundleKind,
 };
 use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, IoKind, NameBuf};
 
@@ -60,6 +60,46 @@ impl<T: Schematic> Schematic for Arc<T> {
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
         T::schematic(self.as_ref(), io, cell)
+    }
+}
+
+/// Data that can be stored in [`Schematic::NestedData`].
+pub trait NestedData: HasNestedView + Send + Sync {}
+impl<T: HasNestedView + Send + Sync> NestedData for T {}
+
+/// An object that can be nested within a parent transform.
+pub trait HasNestedView<T = InstancePath> {
+    /// A view of the nested object.
+    ///
+    /// Nesting a nested view should return the same type.
+    type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>>
+        + HasNestedView<T, NestedView = NestedView<Self, T>>
+        + Send
+        + Sync;
+    /// Creates a nested view of the object given a parent node.
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T>;
+}
+
+/// The associated nested view of an object.
+pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
+
+impl HasNestedView for () {
+    type NestedView = ();
+    fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
+}
+
+// TODO: Potentially use lazy evaluation instead of cloning.
+impl<T: HasNestedView> HasNestedView for Vec<T> {
+    type NestedView = Vec<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        self.iter().map(|elem| elem.nested_view(parent)).collect()
+    }
+}
+
+impl<T: HasNestedView> HasNestedView for Option<T> {
+    type NestedView = Option<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        self.as_ref().map(|inner| inner.nested_view(parent))
     }
 }
 
@@ -1066,10 +1106,6 @@ impl InstancePath {
         self.bot.is_none()
     }
 }
-
-/// Data that can be stored in [`Schematic::NestedData`].
-pub trait NestedData: HasNestedView + Send + Sync {}
-impl<T: HasNestedView + Send + Sync> NestedData for T {}
 
 /// A raw (weakly-typed) instance of a cell.
 #[allow(dead_code)]

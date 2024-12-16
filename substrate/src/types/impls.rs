@@ -1,15 +1,14 @@
 //! Built-in implementations of IO traits.
 
 use layout::{LayoutBundle, PortGeometryBundle};
-use schematic::{
-    HasNestedView, NestedView, Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle,
-};
+use schematic::{Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
 use type_dispatch::impl_dispatch;
 
 use crate::layout::schema::Schema;
+use crate::schematic::{HasNestedView, NestedView};
 use crate::types::layout::{PortGeometry, PortGeometryBuilder};
 use std::fmt::Display;
 use std::ops::IndexMut;
