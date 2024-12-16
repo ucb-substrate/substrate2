@@ -1583,13 +1583,13 @@ mod tests {
             type Primitive = Primitive;
         }
 
-        #[derive(Io, Clone, Default, Debug, PartialEq, Eq)]
+        #[derive(Io, Clone, Default, Debug)]
         pub struct ResistorIo {
             pub p: InOut<Signal>,
             pub n: InOut<Signal>,
         }
 
-        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[derive(Block, Debug, Copy, Clone, Hash)]
         #[substrate(io = "ResistorIo")]
         pub struct Resistor;
 
@@ -1610,7 +1610,7 @@ mod tests {
             }
         }
 
-        #[derive(Io, Clone, Debug, PartialEq, Eq)]
+        #[derive(Io, Clone, Debug)]
         pub struct DecoupledIo {
             pub ready: Input<Signal>,
             pub valid: Output<Signal>,
@@ -1627,7 +1627,7 @@ mod tests {
             }
         }
 
-        #[derive(Io, Clone, Debug, PartialEq, Eq)]
+        #[derive(Io, Clone, Debug)]
         pub struct MultiDecoupledIo {
             pub d1: DecoupledIo,
             pub d2: Flipped<DecoupledIo>,
