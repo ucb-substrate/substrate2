@@ -1796,7 +1796,7 @@ mod tests {
 
         pub struct CustomView;
 
-        impl HasViewImpl<CustomView, FromSelf> for Signal {
+        impl HasViewImpl<CustomView> for Signal {
             type View = i64;
         }
 

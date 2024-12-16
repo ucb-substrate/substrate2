@@ -51,7 +51,7 @@ impl ViewSource for Signal {
     type Source = Self;
 }
 
-impl<S> HasViewImpl<PortGeometryBundle<S>, FromSelf> for Signal {
+impl<S> HasViewImpl<PortGeometryBundle<S>> for Signal {
     type View = PortGeometry<S>;
 }
 
