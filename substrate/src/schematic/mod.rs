@@ -1589,7 +1589,7 @@ mod tests {
             pub n: InOut<Signal>,
         }
 
-        #[derive(Block, Debug, Copy, Clone, Hash)]
+        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "ResistorIo")]
         pub struct Resistor;
 
