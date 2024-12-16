@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     layout::{PortGeometry, PortGeometryBundle},
-    schematic::SchematicBundleKind,
+    schematic::{NestedNode, NestedTerminal, Node, SchematicBundleKind, Terminal},
     Array, Flipped, InOut, Input, Output, Signal,
 };
 
@@ -25,45 +25,66 @@ pub trait HasView<V> {
 pub type View<D, V> = <D as HasView<V>>::View;
 
 pub struct FromSelf;
-pub struct FromSource<T>(PhantomData<T>);
-
-pub trait Source {}
-
-impl Source for FromSelf {}
-impl<T> Source for FromSource<T> {}
+pub struct FromOther;
 
 pub trait ViewSource {
-    type Source: Source;
+    type Kind;
+    type Source;
 }
 
 pub trait HasViewImpl<V, S = FromSelf> {
     type View;
 }
 
-impl<S: HasView<V>, V, T: ViewSource<Source = FromSource<S>>> HasViewImpl<V, FromSource<S>> for T {
+impl<S: HasView<V>, V, T: ViewSource<Kind = FromOther, Source = S>> HasViewImpl<V, FromOther>
+    for T
+{
     type View = S::View;
 }
 
-impl<V, S, T: ViewSource<Source = S> + HasViewImpl<V, S>> HasView<V> for T {
+impl<V, K, T: ViewSource<Kind = K> + HasViewImpl<V, K>> HasView<V> for T {
     type View = T::View;
 }
 
 impl ViewSource for Signal {
-    type Source = FromSelf;
+    type Kind = FromSelf;
+    type Source = Self;
 }
 
 impl<S> HasViewImpl<PortGeometryBundle<S>, FromSelf> for Signal {
     type View = PortGeometry<S>;
 }
 
-impl<T> ViewSource for Array<T> {
-    type Source = FromSelf;
+impl ViewSource for Node {
+    type Kind = FromSelf;
+    type Source = Self;
+}
+
+impl ViewSource for Terminal {
+    type Kind = FromSelf;
+    type Source = Self;
+}
+
+impl ViewSource for NestedNode {
+    type Kind = FromSelf;
+    type Source = Self;
+}
+
+impl ViewSource for NestedTerminal {
+    type Kind = FromSelf;
+    type Source = Self;
+}
+
+impl<T: ViewSource> ViewSource for Array<T> {
+    type Kind = T::Kind;
+    type Source = Array<T::Source>;
 }
 
 macro_rules! impl_direction {
     ($dir:ident) => {
-        impl<T> ViewSource for $dir<T> {
-            type Source = FromSource<T>;
+        impl<T: ViewSource> ViewSource for $dir<T> {
+            type Kind = FromOther;
+            type Source = T::Source;
         }
     };
 }
@@ -101,9 +122,17 @@ impl<T: SchematicBundleKind> HasViewImpl<NestedTerminalBundle> for T {
     type View = NestedView<<T as SchematicBundleKind>::TerminalBundle>;
 }
 
-pub struct SaveKey<S, A>(PhantomData<(S, A)>);
-pub struct Saved<S, A>(PhantomData<(S, A)>);
+pub struct NestedSaveKey<S, A>(PhantomData<(S, A)>);
+pub struct NestedSaved<S, A>(PhantomData<(S, A)>);
 
-impl<S: Simulator, A: Analysis, T: Save<S, A>> HasViewImpl<SaveKey<S, A>> for T {
-    type View = crate::simulation::data::SaveKey<T, S, A>;
+impl<S: Simulator, A: Analysis, T: HasNestedView<NestedView: Save<S, A>>>
+    HasViewImpl<NestedSaveKey<S, A>> for T
+{
+    type View = crate::simulation::data::SaveKey<NestedView<T>, S, A>;
+}
+
+impl<S: Simulator, A: Analysis, T: HasNestedView<NestedView: Save<S, A>>>
+    HasViewImpl<NestedSaved<S, A>> for T
+{
+    type View = crate::simulation::data::Saved<NestedView<T>, S, A>;
 }

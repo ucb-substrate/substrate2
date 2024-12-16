@@ -737,11 +737,13 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
 
         // TODO: Fix where clause
         impl #hnt_imp #substrate::types::codegen::ViewSource for #ident #hnt_ty {
-            type Source = #substrate::types::codegen::FromSource<#bundle_type_ident>;
+            type Kind = #substrate::types::codegen::FromOther;
+            type Source = #bundle_type_ident;
         }
 
         impl #hnt_imp #substrate::types::codegen::ViewSource for #bundle_type_ident #hnt_ty {
-            type Source = #substrate::types::codegen::FromSelf;
+            type Kind = #substrate::types::codegen::FromSelf;
+            type Source = Self;
         }
 
         impl #bundle_imp #substrate::types::HasBundleKind for #bundle_ident #bundle_ty #has_bundle_kind_where_clause {
