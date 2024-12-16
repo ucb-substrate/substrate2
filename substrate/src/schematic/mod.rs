@@ -1753,7 +1753,7 @@ mod tests {
             }
         }
 
-        #[derive(Io, Clone, Default, Debug, PartialEq, Eq)]
+        #[derive(Io, Clone, Default, Debug)]
         pub struct VdividerIo {
             pub vdd: InOut<Signal>,
             pub vss: InOut<Signal>,
