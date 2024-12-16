@@ -1601,6 +1601,7 @@ mod tests {
         context::Context,
         schematic::{CellBuilder, PrimitiveBinding, Schematic},
         types::{
+            codegen::{FromSelf, HasViewImpl},
             schematic::{DataView, IoNodeBundle, Node, NodeBundle},
             Array, Flipped, HasBundleKind, InOut, Input, Io, Output, Signal,
         },
@@ -1795,6 +1796,18 @@ mod tests {
             pub vss: InOut<Signal>,
             pub dout: Output<Signal>,
         }
+
+        pub struct CustomView;
+
+        impl HasViewImpl<CustomView, FromSelf> for Signal {
+            type View = i64;
+        }
+
+        const VDIVIDER_CUSTOM_VIEW: VdividerIoBundle<CustomView> = VdividerIoBundle {
+            vdd: 1,
+            vss: 2,
+            dout: 3,
+        };
 
         #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
         #[substrate(io = "VdividerIo")]

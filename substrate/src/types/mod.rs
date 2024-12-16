@@ -223,7 +223,7 @@ pub struct ArrayBundle<T: HasBundleKind> {
 // BEGIN COMMON IO TYPES
 
 /// The interface to a standard 4-terminal MOSFET.
-#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Io)]
 pub struct MosIo {
     /// The drain.
     pub d: InOut<Signal>,
@@ -236,14 +236,14 @@ pub struct MosIo {
 }
 
 /// The interface to which simulation testbenches should conform.
-#[derive(Io, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Io)]
 pub struct TestbenchIo {
     /// The global ground net.
     pub vss: InOut<Signal>,
 }
 
 /// The interface for 2-terminal blocks.
-#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Io)]
 pub struct TwoTerminalIo {
     /// The positive terminal.
     pub p: InOut<Signal>,
@@ -252,7 +252,7 @@ pub struct TwoTerminalIo {
 }
 
 /// The interface for VDD and VSS rails.
-#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Io)]
 pub struct PowerIo {
     /// The VDD rail.
     pub vdd: InOut<Signal>,
@@ -262,7 +262,7 @@ pub struct PowerIo {
 
 /// A pair of differential signals.
 // TODO: Create proc macro for defining un-directioned (non-IO) bundle types directly.
-#[derive(Debug, Default, Copy, Clone, Io, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, Io)]
 pub struct DiffPair {
     /// The positive signal.
     pub p: InOut<Signal>,
