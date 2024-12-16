@@ -12,7 +12,6 @@ pub mod error;
 pub mod execute;
 pub mod layout;
 pub mod lut;
-pub mod pdk;
 pub mod schematic;
 pub mod simulation;
 pub mod types;

@@ -9,7 +9,14 @@ use std::{
 
 use crate::id::Id;
 use arcstr::ArcStr;
-use geometry::prelude::Transformation;
+use geometry::{
+    bbox::Bbox,
+    point::Point,
+    prelude::{Transform, Transformation},
+    rect::Rect,
+    transform::{TransformMut, TransformRef, Translate, TranslateMut, TranslateRef},
+    union::BoundingUnion,
+};
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use uniquify::Names;
@@ -114,7 +121,7 @@ impl<L> LibraryBuilder<L> {
         let id = self.cell_id.alloc();
         cell.name = self.names.assign_name(id, &cell.name);
         self.name_map.insert(cell.name.clone(), id);
-        self.cells.insert(id, cell);
+        assert!(self.cells.insert(id, cell).is_none());
         id
     }
 
@@ -355,8 +362,11 @@ impl<L> From<Text<L>> for Element<L> {
 
 impl<L> Shape<L> {
     #[inline]
-    pub fn new(layer: L, shape: geometry::shape::Shape) -> Self {
-        Self { layer, shape }
+    pub fn new(layer: L, shape: impl Into<geometry::shape::Shape>) -> Self {
+        Self {
+            layer,
+            shape: shape.into(),
+        }
     }
 
     #[inline]
@@ -443,5 +453,105 @@ impl Instance {
     #[inline]
     pub fn transformation(&self) -> Transformation {
         self.trans
+    }
+}
+
+impl<L> Bbox for Shape<L> {
+    fn bbox(&self) -> Option<Rect> {
+        self.shape.bbox()
+    }
+}
+
+impl<L: PartialEq> LayerBbox<L> for Shape<L> {
+    fn layer_bbox(&self, layer: &L) -> Option<Rect> {
+        if self.layer.eq(layer) {
+            self.bbox()
+        } else {
+            None
+        }
+    }
+}
+
+impl<L, T: Bbox> BoundingUnion<T> for Shape<L> {
+    type Output = Rect;
+
+    fn bounding_union(&self, other: &T) -> Self::Output {
+        self.bbox().unwrap().bounding_union(&other.bbox())
+    }
+}
+
+impl<L: Clone> TransformRef for Shape<L> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        Shape {
+            layer: self.layer.clone(),
+            shape: self.shape.transform_ref(trans),
+        }
+    }
+}
+
+impl<L: Clone> TranslateRef for Shape<L> {
+    fn translate_ref(&self, p: Point) -> Self {
+        Shape {
+            layer: self.layer.clone(),
+            shape: self.shape.translate_ref(p),
+        }
+    }
+}
+
+impl<L> TranslateMut for Shape<L> {
+    fn translate_mut(&mut self, p: Point) {
+        self.shape.translate_mut(p)
+    }
+}
+
+impl<L> TransformMut for Shape<L> {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.shape.transform_mut(trans)
+    }
+}
+
+/// A trait representing functions available for multi-layered objects with bounding boxes.
+pub trait LayerBbox<L>: Bbox {
+    /// Compute the bounding box considering only objects occupying the given layer.
+    fn layer_bbox(&self, layer: &L) -> Option<Rect>;
+}
+
+impl<L, T: LayerBbox<L>> LayerBbox<L> for Vec<T> {
+    fn layer_bbox(&self, layer: &L) -> Option<Rect> {
+        let mut bbox = None;
+        for item in self {
+            bbox = bbox.bounding_union(&item.layer_bbox(layer));
+        }
+        bbox
+    }
+}
+
+impl<L, T: LayerBbox<L>> LayerBbox<L> for &T {
+    fn layer_bbox(&self, layer: &L) -> Option<Rect> {
+        (*self).layer_bbox(layer)
+    }
+}
+
+impl<L: Clone> TranslateRef for Text<L> {
+    fn translate_ref(&self, p: Point) -> Self {
+        self.clone().translate(p)
+    }
+}
+
+impl<L: Clone> TransformRef for Text<L> {
+    fn transform_ref(&self, trans: Transformation) -> Self {
+        self.clone().transform(trans)
+    }
+}
+
+impl<L> TranslateMut for Text<L> {
+    fn translate_mut(&mut self, p: Point) {
+        self.transform_mut(Transformation::from_offset(p))
+    }
+}
+
+impl<L> TransformMut for Text<L> {
+    fn transform_mut(&mut self, trans: Transformation) {
+        self.trans = Transformation::cascade(trans, self.trans);
     }
 }

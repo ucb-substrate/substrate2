@@ -4,8 +4,10 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use data::Save;
+use data::{Save, Saved};
 use impl_trait_for_tuples::impl_for_tuples;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::context::{Context, Installation};
@@ -18,6 +20,31 @@ use codegen::simulator_tuples;
 pub mod data;
 pub mod options;
 pub mod waveform;
+
+/// A process-voltage-temperature corner.
+///
+/// Contains a process corner, a voltage, and a temperature (in Celsius).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Pvt<C> {
+    /// The process corner.
+    pub corner: C,
+    /// The voltage.
+    pub voltage: Decimal,
+    /// The temperature, in degrees celsius.
+    pub temp: Decimal,
+}
+
+impl<C> Pvt<C> {
+    /// Create a new PVT corner.
+    #[inline]
+    pub fn new(corner: C, voltage: Decimal, temp: Decimal) -> Self {
+        Self {
+            corner,
+            voltage,
+            temp,
+        }
+    }
+}
 
 /// A single simulator analysis.
 pub trait Analysis {
@@ -106,7 +133,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
         &self,
         mut options: S::Options,
         input: A,
-    ) -> Result<<NestedView<<T as Schematic>::NestedData> as Save<S, A>>::Save, S::Error>
+    ) -> Result<Saved<NestedView<<T as Schematic>::NestedData>, S, A>, S::Error>
     where
         T: Schematic<NestedData: HasNestedView<NestedView: Save<S, A>>>,
     {

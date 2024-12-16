@@ -3,7 +3,7 @@ use darling::{ast, FromDeriveInput, FromField, FromVariant};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::token::Where;
-use syn::{parse_quote, WhereClause};
+use syn::{parse_quote, GenericParam, WhereClause};
 
 use crate::substrate_ident;
 use type_dispatch::derive::{add_trait_bounds, struct_body};
@@ -153,6 +153,24 @@ impl ToTokens for DataInputReceiver {
         );
         let (hnv_imp, hnv_ty, hnv_wher) = hnv_generics.split_for_impl();
 
+        let view_ident = format_ident!("{}View", ident);
+
+        let generic_idents = generics
+            .params
+            .iter()
+            .map(|generic| match generic {
+                GenericParam::Lifetime(lt) => lt.lifetime.ident.clone(),
+                GenericParam::Type(ty) => ty.ident.clone(),
+                GenericParam::Const(c) => c.ident.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        let view_generic_ty: syn::Ident = parse_quote!(__substrate_V);
+        let view_generic: syn::GenericParam = parse_quote!(#view_generic_ty);
+        let mut view_generics = generics.clone();
+        view_generics.params.push(view_generic);
+        let (view_imp, view_ty, view_wher) = view_generics.split_for_impl();
+
         let mut save_generics = generics.clone();
         save_generics
             .params
@@ -161,12 +179,14 @@ impl ToTokens for DataInputReceiver {
             .params
             .push(parse_quote!(__substrate_A: #substrate::simulation::Analysis));
 
-        let has_nested_view_ident = format_ident!("{}Nested", ident);
-        let save_key_ident = format_ident!("{}SaveKey", ident);
-        let save_ident = format_ident!("{}Save", ident);
-
         let expanded = match data {
             ast::Data::Struct(ref fields) => {
+                let mut view_where_clause = view_wher.cloned().unwrap_or(WhereClause {
+                    where_token: Where {
+                        span: Span::call_site(),
+                    },
+                    predicates: Default::default(),
+                });
                 let mut save_generics = save_generics.clone();
                 let mut save_where_clause =
                     save_generics.where_clause.clone().unwrap_or(WhereClause {
@@ -177,10 +197,20 @@ impl ToTokens for DataInputReceiver {
                     });
                 for f in fields.iter() {
                     let ty = &f.ty;
+                    view_where_clause.predicates.push(
+                        parse_quote!(#ty: #substrate::types::codegen::HasView<#view_generic_ty>),
+                    );
                     save_where_clause.predicates.push(parse_quote!(<#ty as #substrate::schematic::HasNestedView>::NestedView: #substrate::simulation::data::Save<__substrate_S, __substrate_A>));
                 }
                 save_generics.where_clause = Some(save_where_clause.clone());
                 let (save_imp, save_ty, save_wher) = save_generics.split_for_impl();
+
+                let view_fields = fields.clone().map(|mut f| {
+                    let ty = f.ty.clone();
+                    f.ty = parse_quote!(<#ty as
+                        #substrate::types::codegen::HasView<#view_generic_ty>>::View);
+                    f
+                });
 
                 let nested_fields = fields.clone().map(|mut f| {
                     let ty = f.ty.clone();
@@ -188,27 +218,7 @@ impl ToTokens for DataInputReceiver {
                     f
                 });
 
-                let save_key_fields = nested_fields.clone().map(|mut f| {
-                    let ty = f.ty.clone();
-                    f.ty = parse_quote!(<#ty as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::SaveKey);
-                    f
-                });
-
-                let save_fields = nested_fields.clone().map(|mut f| {
-                    let ty = f.ty.clone();
-                    f.ty = parse_quote!(<#ty as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::Save);
-                    f
-                });
-
-                let nested_view_decls = nested_fields
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| field_decl(i, f));
-                let save_key_decls = save_key_fields
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| field_decl(i, f));
-                let save_decls = save_fields
+                let view_decls = view_fields
                     .iter()
                     .enumerate()
                     .map(|(i, f)| field_decl(i, f));
@@ -221,15 +231,11 @@ impl ToTokens for DataInputReceiver {
                     )
                 });
                 let retval = match fields.style {
-                    Style::Unit => quote!(#has_nested_view_ident),
-                    Style::Tuple => quote!(#has_nested_view_ident( #(#assignments)* )),
-                    Style::Struct => quote!(#has_nested_view_ident { #(#assignments)* }),
+                    Style::Unit => quote!(#view_ident),
+                    Style::Tuple => quote!(#view_ident( #(#assignments)* )),
+                    Style::Struct => quote!(#view_ident { #(#assignments)* }),
                 };
-                let nested_view_body =
-                    struct_body(fields.style, true, quote! {#( #nested_view_decls )*});
-
-                let save_key_body = struct_body(fields.style, true, quote! {#( #save_key_decls )*});
-                let save_body = struct_body(fields.style, true, quote! {#( #save_decls )*});
+                let view_body = struct_body(fields.style, true, quote! {#( #view_decls )*});
 
                 let nested_assignments = nested_fields.iter().enumerate().map(|(i, f)| {
                     field_assign(
@@ -240,9 +246,9 @@ impl ToTokens for DataInputReceiver {
                     )
                 });
                 let nested_retval = match nested_fields.style {
-                    Style::Unit => quote!(#has_nested_view_ident),
-                    Style::Tuple => quote!(#has_nested_view_ident( #(#nested_assignments)* )),
-                    Style::Struct => quote!(#has_nested_view_ident { #(#nested_assignments)* }),
+                    Style::Unit => quote!(#view_ident),
+                    Style::Tuple => quote!(#view_ident( #(#nested_assignments)* )),
+                    Style::Struct => quote!(#view_ident { #(#nested_assignments)* }),
                 };
 
                 let save_key_assignments = nested_fields.iter().enumerate().map(|(i, f)| {
@@ -254,9 +260,9 @@ impl ToTokens for DataInputReceiver {
                     )
                 });
                 let save_key_retval = match nested_fields.style {
-                    Style::Unit => quote!(#save_key_ident),
-                    Style::Tuple => quote!(#save_key_ident( #(#save_key_assignments)* )),
-                    Style::Struct => quote!(#save_key_ident { #(#save_key_assignments)* }),
+                    Style::Unit => quote!(#view_ident),
+                    Style::Tuple => quote!(#view_ident( #(#save_key_assignments)* )),
+                    Style::Struct => quote!(#view_ident { #(#save_key_assignments)* }),
                 };
                 let save_assignments = nested_fields.iter().enumerate().map(|(i, f)| {
                     field_assign(
@@ -267,21 +273,17 @@ impl ToTokens for DataInputReceiver {
                     )
                 });
                 let save_retval = match nested_fields.style {
-                    Style::Unit => quote!(#save_ident),
-                    Style::Tuple => quote!(#save_ident( #(#save_assignments)* )),
-                    Style::Struct => quote!(#save_ident { #(#save_assignments)* }),
+                    Style::Unit => quote!(#view_ident),
+                    Style::Tuple => quote!(#view_ident( #(#save_assignments)* )),
+                    Style::Struct => quote!(#view_ident { #(#save_assignments)* }),
                 };
 
                 quote! {
                     #(#attrs)*
-                    #vis struct #has_nested_view_ident #generics #nested_view_body
-                    #(#attrs)*
-                    #vis struct #save_key_ident #save_generics #save_where_clause #save_key_body
-                    #(#attrs)*
-                    #vis struct #save_ident #save_generics #save_where_clause #save_body
+                    #vis struct #view_ident #view_generics #view_where_clause #view_body
 
                     impl #hnv_imp #substrate::schematic::HasNestedView for #ident #hnv_ty #hnv_wher {
-                        type NestedView = #has_nested_view_ident #hnv_ty;
+                        type NestedView = #view_ident<#(#generic_idents,)*#substrate::types::codegen::Nested>;
 
                         fn nested_view(
                             &self,
@@ -290,8 +292,8 @@ impl ToTokens for DataInputReceiver {
                             #retval
                         }
                     }
-                    impl #hnv_imp #substrate::schematic::HasNestedView for #has_nested_view_ident #hnv_ty #hnv_wher {
-                        type NestedView = #has_nested_view_ident #hnv_ty;
+                    impl #hnv_imp #substrate::schematic::HasNestedView for #view_ident<#(#generic_idents,)*#substrate::types::codegen::Nested> #hnv_wher {
+                        type NestedView = #view_ident<#(#generic_idents,)*#substrate::types::codegen::Nested>;
 
                         fn nested_view(
                             &self,
@@ -300,9 +302,9 @@ impl ToTokens for DataInputReceiver {
                             #nested_retval
                         }
                     }
-                    impl #save_imp #substrate::simulation::data::Save<__substrate_S, __substrate_A> for #has_nested_view_ident #hnv_ty #save_wher {
-                        type SaveKey = #save_key_ident #save_ty;
-                        type Save = #save_ident #save_ty;
+                    impl #save_imp #substrate::simulation::data::Save<__substrate_S, __substrate_A> for #view_ident<#(#generic_idents,)*#substrate::types::codegen::Nested> #save_wher {
+                        type SaveKey = #view_ident<#(#generic_idents,)*#substrate::types::codegen::NestedSaveKey<__substrate_S, __substrate_A>>;
+                        type Saved = #view_ident<#(#generic_idents,)*#substrate::types::codegen::NestedSaved<__substrate_S, __substrate_A>>;
 
                         fn save(
                             &self,
@@ -315,112 +317,14 @@ impl ToTokens for DataInputReceiver {
                         fn from_saved(
                             output: &<__substrate_A as #substrate::simulation::Analysis>::Output,
                             key: &<Self as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::SaveKey,
-                        ) -> <Self as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::Save {
+                        ) -> <Self as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::Saved {
                             #save_retval
                         }
                     }
                 }
             }
             ast::Data::Enum(ref variants) => {
-                let save_generics = save_generics.clone();
-                let mut save_where_clause =
-                    save_generics.where_clause.clone().unwrap_or(WhereClause {
-                        where_token: Where {
-                            span: Span::call_site(),
-                        },
-                        predicates: Default::default(),
-                    });
-                for v in variants.iter() {
-                    for f in v.fields.iter() {
-                        let ty = &f.ty;
-                        save_where_clause.predicates.push(parse_quote!(<#ty as #substrate::schematic::HasNestedView>::NestedView: #substrate::simulation::data::Save<__substrate_S, __substrate_A>));
-                    }
-                }
-
-                let mut nested_variants = (*variants).clone();
-                nested_variants.iter_mut().for_each(|v| {
-                    v.fields = v.fields.clone().map(|mut f| {
-                        let ty = f.ty.clone();
-                        f.ty =
-                            parse_quote!(<#ty as #substrate::schematic::HasNestedView>::NestedView);
-                        f
-                    });
-                });
-                let mut save_key_variants = nested_variants.clone();
-                save_key_variants.iter_mut().for_each(|v| {
-                    v.fields = v.fields.clone().map(|mut f| {
-                        let ty = f.ty.clone();
-                        f.ty =
-                            parse_quote!(<#ty as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::SaveKey);
-                        f
-                    });
-                });
-                let mut save_variants = nested_variants.clone();
-                save_variants.iter_mut().for_each(|v| {
-                    v.fields = v.fields.clone().map(|mut f| {
-                        let ty = f.ty.clone();
-                        f.ty =
-                            parse_quote!(<#ty as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::Save);
-                        f
-                    });
-                });
-
-                let nested_view_decls = variants.iter().map(variant_decl);
-                let save_key_decls = variants.iter().map(variant_decl);
-                let save_decls = variants.iter().map(variant_decl);
-                let arms = variants.iter().map(|v| {
-                    variant_match_arm(
-                        has_nested_view_ident.clone(),
-                        v,
-                        |ty, val| quote! { <#ty as #substrate::schematic::HasNestedView>::nested_view(#val, __substrate_derive_parent) },
-                    )
-                });
-                let nested_arms = nested_variants.iter().map(|v| {
-                    variant_match_arm(
-                        has_nested_view_ident.clone(),
-                        v,
-                        |ty, val| quote! { <#ty as #substrate::schematic::HasNestedView>::nested_view(#val, __substrate_derive_parent) },
-                    )
-                });
-                quote! {
-                    #(#attrs)*
-                    #vis enum #has_nested_view_ident #generics {
-                        #( #nested_view_decls )*
-                    }
-                    #(#attrs)*
-                    #vis enum #save_key_ident #save_generics #save_where_clause {
-                        #( #save_key_decls )*
-                    }
-                    #(#attrs)*
-                    #vis enum #save_key_ident #save_generics #save_where_clause {
-                        #( #save_decls )*
-                    }
-
-                    impl #hnv_imp #substrate::schematic::HasNestedView for #ident #hnv_ty #hnv_wher {
-                        type NestedView = #has_nested_view_ident #hnv_ty;
-
-                        fn nested_view(
-                            &self,
-                            __substrate_derive_parent: &#substrate::schematic::InstancePath,
-                        ) -> Self::NestedView {
-                            match self {
-                                #(#arms)*
-                            }
-                        }
-                    }
-                    impl #hnv_imp #substrate::schematic::HasNestedView for #has_nested_view_ident #hnv_ty #hnv_wher {
-                        type NestedView = #has_nested_view_ident #hnv_ty;
-
-                        fn nested_view(
-                            &self,
-                            __substrate_derive_parent: &#substrate::schematic::InstancePath,
-                        ) -> Self::NestedView {
-                            match self {
-                                #(#nested_arms)*
-                            }
-                        }
-                    }
-                }
+                unimplemented!()
             }
         };
 

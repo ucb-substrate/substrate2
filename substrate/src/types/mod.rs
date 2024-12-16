@@ -6,20 +6,25 @@ use std::{
     ops::{Deref, Index},
 };
 
+pub use ::codegen::Io;
 use arcstr::ArcStr;
-pub use codegen::Io;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::Result,
+    block::Block,
     schematic::{CellId, InstanceId, InstancePath},
 };
 
 pub use crate::scir::Direction;
 
+#[doc(hidden)]
+pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
+
+/// The [`BundleKind`] of a block's IO.
+pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 
 // BEGIN TRAITS
 
@@ -54,6 +59,19 @@ pub trait Flatten<T>: FlatLen {
         assert_eq!(vec.len(), len, "Flatten::flatten_vec produced a Vec with an incorrect length: expected {} from FlatLen::len, got {}", len, vec.len());
         vec
     }
+}
+
+/// Unflatten a structure from an iterator.
+pub trait Unflatten<D, T>: FlatLen + Sized {
+    /// Unflatten a structure from an iterator.
+    ///
+    /// A correct implementation must only return [`None`]
+    /// if the iterator has insufficient elements.
+    /// Returning None for any other reason is a logic error.
+    /// Unsafe code should not rely on implementations of this method being correct.
+    fn unflatten<I>(data: &D, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = T>;
 }
 
 impl<S, T: Flatten<S>> Flatten<S> for &T {
@@ -218,7 +236,7 @@ pub struct MosIo {
 }
 
 /// The interface to which simulation testbenches should conform.
-#[derive(Debug, Default, Clone, Io, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Io)]
 pub struct TestbenchIo {
     /// The global ground net.
     pub vss: InOut<Signal>,

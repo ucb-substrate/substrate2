@@ -1,18 +1,14 @@
 //! Built-in implementations of IO traits.
 
-use schematic::{Node, SchematicBundleKind, Terminal};
+use schematic::{Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
 
-use crate::types::layout::{
-    BundleBuilder, CustomHardwareType, HierarchicalBuildFrom, PortGeometry, PortGeometryBuilder,
-};
+use crate::schematic::{HasNestedView, NestedView};
 use std::fmt::Display;
 use std::ops::IndexMut;
 use std::{ops::DerefMut, slice::SliceIndex};
-
-use crate::schematic::HasNestedView;
 
 use super::*;
 
@@ -46,6 +42,15 @@ impl Flatten<Terminal> for () {
     }
 }
 
+impl<D, T> Unflatten<D, T> for () {
+    fn unflatten<I>(_data: &D, _source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = T>,
+    {
+        Some(())
+    }
+}
+
 impl HasNameTree for () {
     fn names(&self) -> Option<Vec<NameTree>> {
         None
@@ -61,55 +66,13 @@ impl HasBundleKind for () {
 impl SchematicBundleKind for () {
     type NodeBundle = ();
     type TerminalBundle = ();
-    fn instantiate_nodes<'n>(
-        &self,
-        ids: &'n [Node],
-    ) -> (<Self as SchematicBundleKind>::NodeBundle, &'n [Node]) {
-        ((), ids)
-    }
-    fn instantiate_terminals<'n>(
-        &self,
-        ids: &'n [Terminal],
-    ) -> (
-        <Self as SchematicBundleKind>::TerminalBundle,
-        &'n [Terminal],
-    ) {
-        ((), ids)
-    }
+
     fn terminal_view(
         _cell: CellId,
-        _cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        _cell_io: &NodeBundle<Self>,
         _instance: InstanceId,
-        _instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle {
-    }
-}
-
-impl layout::HasHardwareType for () {
-    type HardwareType = ();
-
-    fn builder(
-        &self,
-    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-    }
-}
-
-impl layout::HardwareType for () {
-    type Bundle = ();
-    type Builder = ();
-}
-
-impl BundleBuilder<()> for () {
-    fn build(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl Flatten<PortGeometry> for () {
-    fn flatten<E>(&self, _output: &mut E)
-    where
-        E: Extend<PortGeometry>,
-    {
+        _instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
     }
 }
 
@@ -136,35 +99,13 @@ impl HasBundleKind for Signal {
 impl SchematicBundleKind for Signal {
     type NodeBundle = Node;
     type TerminalBundle = Terminal;
-    fn instantiate_nodes<'n>(
-        &self,
-        ids: &'n [Node],
-    ) -> (<Self as SchematicBundleKind>::NodeBundle, &'n [Node]) {
-        if let [id, rest @ ..] = ids {
-            (*id, rest)
-        } else {
-            unreachable!();
-        }
-    }
-    fn instantiate_terminals<'n>(
-        &self,
-        ids: &'n [Terminal],
-    ) -> (
-        <Self as SchematicBundleKind>::TerminalBundle,
-        &'n [Terminal],
-    ) {
-        if let [id, rest @ ..] = ids {
-            (*id, rest)
-        } else {
-            unreachable!();
-        }
-    }
+
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle {
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
         Terminal {
             cell_id: cell,
             cell_node: *cell_io,
@@ -172,21 +113,6 @@ impl SchematicBundleKind for Signal {
             instance_node: *instance_io,
         }
     }
-}
-
-impl layout::HasHardwareType for Signal {
-    type HardwareType = Signal;
-
-    fn builder(
-        &self,
-    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-        PortGeometryBuilder::default()
-    }
-}
-
-impl layout::HardwareType for Signal {
-    type Bundle = PortGeometry;
-    type Builder = PortGeometryBuilder;
 }
 
 macro_rules! impl_direction {
@@ -244,35 +170,6 @@ macro_rules! impl_direction {
         impl<T: HasNameTree> HasNameTree for $dir<T> {
             fn names(&self) -> Option<Vec<NameTree>> {
                 self.0.names()
-            }
-        }
-
-        impl<T> layout::HasHardwareType for $dir<T>
-        where
-            T: layout::HasHardwareType,
-        {
-            type HardwareType = <T as layout::HasHardwareType>::HardwareType;
-
-            fn builder(&self) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-                self.0.builder()
-            }
-        }
-
-
-        impl<T> layout::HardwareType for $dir<T>
-        where
-            T: layout::HardwareType,
-        {
-            type Bundle = T::Bundle;
-            type Builder = T::Builder;
-        }
-
-        impl<T, U: CustomHardwareType<T>> CustomHardwareType<$dir<T>> for U
-        where
-            T: layout::HardwareType,
-        {
-            fn from_layout_type(other: &$dir<T>) -> Self {
-                <U as CustomHardwareType<T>>::from_layout_type(&other.0)
             }
         }
     };
@@ -355,55 +252,15 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
 }
 
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
-    type NodeBundle = ArrayBundle<T::NodeBundle>;
-    type TerminalBundle = ArrayBundle<T::TerminalBundle>;
-    fn instantiate_nodes<'n>(
-        &self,
-        mut ids: &'n [Node],
-    ) -> (<Self as SchematicBundleKind>::NodeBundle, &'n [Node]) {
-        let elems = (0..self.len)
-            .scan(&mut ids, |ids, _| {
-                let (elem, new_ids) = self.kind.instantiate_nodes(ids);
-                **ids = new_ids;
-                Some(elem)
-            })
-            .collect();
-        (
-            ArrayBundle {
-                elems,
-                kind: self.kind.clone(),
-            },
-            ids,
-        )
-    }
-    fn instantiate_terminals<'n>(
-        &self,
-        mut ids: &'n [Terminal],
-    ) -> (
-        <Self as SchematicBundleKind>::TerminalBundle,
-        &'n [Terminal],
-    ) {
-        let elems = (0..self.len)
-            .scan(&mut ids, |ids, _| {
-                let (elem, new_ids) = self.kind.instantiate_terminals(ids);
-                **ids = new_ids;
-                Some(elem)
-            })
-            .collect();
-        (
-            ArrayBundle {
-                elems,
-                kind: self.kind.clone(),
-            },
-            ids,
-        )
-    }
+    type NodeBundle = ArrayBundle<NodeBundle<T>>;
+    type TerminalBundle = ArrayBundle<TerminalBundle<T>>;
+
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle {
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self> {
         ArrayBundle {
             elems: cell_io
                 .elems
@@ -431,33 +288,6 @@ impl<T: HasBundleKind> HasBundleKind for Array<T> {
     }
 }
 
-impl<T: layout::HasHardwareType> layout::HasHardwareType for Array<T> {
-    type HardwareType = Array<T::HardwareType>;
-
-    fn builder(
-        &self,
-    ) -> <<Self as layout::HasHardwareType>::HardwareType as layout::HardwareType>::Builder {
-        ArrayBundle {
-            elems: (0..self.len).map(|_| self.kind.builder()).collect(),
-            kind: self.kind.builder().kind(),
-        }
-    }
-}
-
-impl<T: layout::HardwareType> layout::HardwareType for Array<T> {
-    type Bundle = ArrayBundle<T::Bundle>;
-    type Builder = ArrayBundle<T::Builder>;
-}
-
-impl<T: layout::HardwareType, U: CustomHardwareType<T>> CustomHardwareType<Array<T>> for Array<U> {
-    fn from_layout_type(other: &Array<T>) -> Self {
-        Self {
-            kind: <U as CustomHardwareType<T>>::from_layout_type(&other.kind),
-            len: other.len,
-        }
-    }
-}
-
 impl<T: HasBundleKind> HasBundleKind for ArrayBundle<T> {
     type BundleKind = Array<<T as HasBundleKind>::BundleKind>;
 
@@ -481,14 +311,31 @@ impl<S, T: HasBundleKind + Flatten<S>> Flatten<S> for ArrayBundle<T> {
     }
 }
 
+impl<S, T: HasBundleKind + Unflatten<<T as HasBundleKind>::BundleKind, S>>
+    Unflatten<Array<<T as HasBundleKind>::BundleKind>, S> for ArrayBundle<T>
+{
+    fn unflatten<I>(data: &Array<<T as HasBundleKind>::BundleKind>, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = S>,
+    {
+        let mut elems = Vec::new();
+        for _ in 0..data.len {
+            elems.push(T::unflatten(&data.kind, source)?);
+        }
+        Some(ArrayBundle {
+            elems,
+            kind: data.kind.clone(),
+        })
+    }
+}
+
 impl<
         T: HasBundleKind
             + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
     > HasNestedView for ArrayBundle<T>
 {
-    type NestedView = ArrayBundle<<T as HasNestedView>::NestedView>;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    type NestedView = ArrayBundle<NestedView<T>>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         ArrayBundle {
             elems: self
                 .elems
@@ -496,19 +343,6 @@ impl<
                 .map(|elem| elem.nested_view(parent))
                 .collect(),
             kind: self.kind.clone(),
-        }
-    }
-}
-
-impl<T, S> HierarchicalBuildFrom<S> for ArrayBundle<T>
-where
-    T: HasBundleKind + HierarchicalBuildFrom<S>,
-{
-    fn build_from(&mut self, path: &mut NameBuf, source: &S) {
-        for (i, elem) in self.elems.iter_mut().enumerate() {
-            path.push(i);
-            HierarchicalBuildFrom::<S>::build_from(elem, path, source);
-            path.pop();
         }
     }
 }
@@ -536,19 +370,6 @@ impl<T: HasBundleKind + TransformRef> TransformRef for ArrayBundle<T> {
                 .collect(),
             kind: self.kind.clone(),
         }
-    }
-}
-
-impl<T: layout::IsBundle, B: BundleBuilder<T>> BundleBuilder<ArrayBundle<T>> for ArrayBundle<B> {
-    fn build(self) -> Result<ArrayBundle<T>> {
-        let mut elems = Vec::new();
-        for e in self.elems {
-            elems.push(e.build()?);
-        }
-        Ok(ArrayBundle {
-            elems,
-            kind: self.kind.clone(),
-        })
     }
 }
 

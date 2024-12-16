@@ -2,72 +2,37 @@
 
 use crate::block::Block;
 use crate::diagnostics::SourceInfo;
-use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath};
+use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath, NestedView};
 use crate::types::{FlatLen, Flatten, HasNameTree};
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 
-use super::{BundleKind, HasBundleKind, Io, Signal};
+use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
 
 /// A schematic bundle kind.
 pub trait SchematicBundleKind: BundleKind {
-    /// A bundle of nodes of this kind.
-    type NodeBundle: HasBundleKind<BundleKind = Self>
-        + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+    /// The associated node bundle.
+    type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + HasBundleKind<BundleKind = Self>
+        + Unflatten<Self, Node>
         + Flatten<Node>;
 
-    /// A bundle of terminals of this kind.
-    type TerminalBundle: HasBundleKind<BundleKind = Self>
-        + HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+    /// The associated terminal bundle.
+    type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
+        + HasBundleKind<BundleKind = Self>
+        + Unflatten<Self, Terminal>
         + Flatten<Terminal>
         + Flatten<Node>;
-
-    /// Instantiates a node bundle with populated nodes.
-    ///
-    /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate_nodes<'n>(&self, ids: &'n [Node]) -> (NodeBundle<Self>, &'n [Node]);
-
-    /// Instantiates a terminal bundle with populated nodes.
-    ///
-    /// Must consume exactly [`FlatLen::len`] elements of the node list.
-    fn instantiate_terminals<'n>(
-        &self,
-        ids: &'n [Terminal],
-    ) -> (TerminalBundle<Self>, &'n [Terminal]);
-
-    /// Instantiate a top-level node bundle from a node list
-    ///
-    /// This method wraps [`instantiate_nodes`](Self::instantiate_nodes) with sanity checks
-    /// to ensure that the instantiation process consumed all the nodes
-    /// provided.
-    fn instantiate_nodes_top(&self, ids: &[Node]) -> NodeBundle<Self> {
-        let (data, ids_rest) = self.instantiate_nodes(ids);
-        assert!(ids_rest.is_empty());
-        debug_assert_eq!(ids, data.flatten_vec());
-        data
-    }
-
-    /// Instantiate a top-level node bundle from a node list
-    ///
-    /// This method wraps [`instantiate_terminals`](Self::instantiate_terminals) with sanity checks
-    /// to ensure that the instantiation process consumed all the nodes
-    /// provided.
-    fn instantiate_terminals_top(&self, ids: &[Terminal]) -> TerminalBundle<Self> {
-        let (data, ids_rest) = self.instantiate_terminals(ids);
-        assert!(ids_rest.is_empty());
-        debug_assert_eq!(ids, data.flatten_vec());
-        data
-    }
 
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
-        cell_io: &<Self as SchematicBundleKind>::NodeBundle,
+        cell_io: &NodeBundle<Self>,
         instance: InstanceId,
-        instance_io: &<Self as SchematicBundleKind>::NodeBundle,
-    ) -> <Self as SchematicBundleKind>::TerminalBundle;
+        instance_io: &NodeBundle<Self>,
+    ) -> TerminalBundle<Self>;
 }
 
 /// A schematic bundle kind that can be viewed as another bundle kind `T`.
@@ -77,32 +42,25 @@ pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
 
     /// Views a terminal bundle as a terminal bundle of a different kind.
     fn view_terminals_as(terminals: &TerminalBundle<Self>) -> TerminalBundle<T> {
+        // TODO: Do some sanity checking/error handling.
         let kind = terminals.kind();
         let flat_terminals = Flatten::<Terminal>::flatten_vec(terminals);
         let terminal_map = flat_terminals
             .iter()
             .map(|terminal| (terminal.instance_node, terminal))
             .collect::<HashMap<_, _>>();
-        let flat_nodes = flat_terminals
-            .iter()
-            .map(|terminal| terminal.instance_node)
-            .collect::<Vec<_>>();
-        let nodes = Self::instantiate_nodes_top(&kind, &flat_nodes);
+        let mut flat_nodes = flat_terminals.iter().map(|terminal| terminal.instance_node);
+        let nodes = NodeBundle::<Self>::unflatten(&kind, &mut flat_nodes).unwrap();
         let nodes_view = Self::view_nodes_as(&nodes);
         let nodes_view_kind = nodes_view.kind();
         let flat_nodes_view = Flatten::<Node>::flatten_vec(&nodes_view);
-        let flat_terminals_view = flat_nodes_view
-            .iter()
-            .map(|node| *terminal_map[node])
-            .collect::<Vec<_>>();
-        T::instantiate_terminals_top(&nodes_view_kind, &flat_terminals_view)
+        let mut flat_terminals_view = flat_nodes_view.iter().map(|node| *terminal_map[node]);
+        TerminalBundle::<T>::unflatten(&nodes_view_kind, &mut flat_terminals_view).unwrap()
     }
 }
 
-/// The [`BundleKind`] of a block's IO.
-pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
 /// The type of a bundle associated with an IO.
-pub type IoBundle<T> = NodeBundle<<T as Block>::Io>;
+pub type IoNodeBundle<T> = NodeBundle<<T as Block>::Io>;
 /// The type of a terminal bundle associated with an IO.
 pub type IoTerminalBundle<T> = TerminalBundle<<T as Block>::Io>;
 /// The type of a node bundle associated with [`SchematicBundleKind`] `T`.
@@ -154,6 +112,15 @@ impl Flatten<Node> for Node {
     }
 }
 
+impl Unflatten<Signal, Node> for Node {
+    fn unflatten<I>(_data: &Signal, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = Node>,
+    {
+        source.next()
+    }
+}
+
 impl HasBundleKind for Node {
     type BundleKind = Signal;
 
@@ -164,8 +131,7 @@ impl HasBundleKind for Node {
 
 impl HasNestedView for Node {
     type NestedView = NestedNode;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedNode {
             node: *self,
             instances: parent.clone(),
@@ -226,7 +192,7 @@ impl HasBundleKind for NestedNode {
 
 impl HasNestedView for NestedNode {
     type NestedView = NestedNode;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedNode {
             node: self.node,
             instances: self.instances.prepend(parent),
@@ -308,6 +274,15 @@ impl Flatten<Terminal> for Terminal {
     }
 }
 
+impl Unflatten<Signal, Terminal> for Terminal {
+    fn unflatten<I>(_data: &Signal, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = Terminal>,
+    {
+        source.next()
+    }
+}
+
 impl HasBundleKind for Terminal {
     type BundleKind = Signal;
 
@@ -318,7 +293,7 @@ impl HasBundleKind for Terminal {
 
 impl HasNestedView for Terminal {
     type NestedView = NestedTerminal;
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedTerminal(NestedNode {
             instances: parent.append_segment(self.instance_id, self.cell_id),
             node: self.cell_node,
@@ -376,8 +351,7 @@ impl HasBundleKind for NestedTerminal {
 
 impl HasNestedView for NestedTerminal {
     type NestedView = NestedTerminal;
-
-    fn nested_view(&self, parent: &InstancePath) -> Self::NestedView {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedTerminal(<NestedNode as HasNestedView>::nested_view(&self.0, parent))
     }
 }
@@ -610,7 +584,7 @@ impl NodeContext {
         source_info: SourceInfo,
     ) -> (Vec<Node>, NodeBundle<IO>) {
         let nodes = self.nodes_directed(&io.flatten_vec(), priority, source_info);
-        let data = io.kind().instantiate_nodes_top(&nodes);
+        let data = NodeBundle::<IO>::unflatten(&io.kind(), &mut nodes.iter().copied()).unwrap();
         (nodes, data)
     }
 
@@ -622,7 +596,7 @@ impl NodeContext {
     ) -> (Vec<Node>, NodeBundle<K>) {
         let kind = kind.kind();
         let nodes = self.nodes_undirected(kind.flat_names(None).len(), priority, source_info);
-        let data = kind.instantiate_nodes_top(&nodes);
+        let data = NodeBundle::<K>::unflatten(&kind, &mut nodes.iter().copied()).unwrap();
         (nodes, data)
     }
 

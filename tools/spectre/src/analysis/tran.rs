@@ -52,7 +52,7 @@ pub struct Output {
 
 impl Save<Spectre, Tran> for SaveOutput {
     type SaveKey = ();
-    type Save = Output;
+    type Saved = Output;
 
     fn save(
         &self,
@@ -64,14 +64,14 @@ impl Save<Spectre, Tran> for SaveOutput {
     fn from_saved(
         output: &<Tran as Analysis>::Output,
         _key: &<Self as Save<Spectre, Tran>>::SaveKey,
-    ) -> <Self as Save<Spectre, Tran>>::Save {
+    ) -> <Self as Save<Spectre, Tran>>::Saved {
         output.clone()
     }
 }
 
 impl Save<Spectre, Tran> for SaveTime {
     type SaveKey = ();
-    type Save = Arc<Vec<f64>>;
+    type Saved = Arc<Vec<f64>>;
 
     fn save(
         &self,
@@ -83,7 +83,7 @@ impl Save<Spectre, Tran> for SaveTime {
     fn from_saved(
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
-    ) -> <Self as Save<Spectre, Tran>>::Save {
+    ) -> <Self as Save<Spectre, Tran>>::Saved {
         output.time.clone()
     }
 }
@@ -94,7 +94,7 @@ pub struct VoltageSaveKey(pub(crate) u64);
 
 impl Save<Spectre, Tran> for NestedNode {
     type SaveKey = VoltageSaveKey;
-    type Save = Arc<Vec<f64>>;
+    type Saved = Arc<Vec<f64>>;
 
     fn save(
         &self,
@@ -114,7 +114,7 @@ impl Save<Spectre, Tran> for NestedNode {
     fn from_saved(
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
-    ) -> <Self as Save<Spectre, Tran>>::Save {
+    ) -> <Self as Save<Spectre, Tran>>::Saved {
         output
             .raw_values
             .get(output.saved_values.get(&key.0).unwrap())
@@ -125,7 +125,7 @@ impl Save<Spectre, Tran> for NestedNode {
 
 impl Save<Spectre, Tran> for DspfNode {
     type SaveKey = VoltageSaveKey;
-    type Save = Arc<Vec<f64>>;
+    type Saved = Arc<Vec<f64>>;
 
     fn save(
         &self,
@@ -142,7 +142,7 @@ impl Save<Spectre, Tran> for DspfNode {
     fn from_saved(
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
-    ) -> <Self as Save<Spectre, Tran>>::Save {
+    ) -> <Self as Save<Spectre, Tran>>::Saved {
         output
             .raw_values
             .get(output.saved_values.get(&key.0).unwrap())
@@ -162,7 +162,7 @@ pub struct NestedTerminalOutput {
 
 impl Save<Spectre, Tran> for NestedTerminal {
     type SaveKey = (VoltageSaveKey, CurrentSaveKey);
-    type Save = NestedTerminalOutput;
+    type Saved = NestedTerminalOutput;
 
     fn save(
         &self,
@@ -196,7 +196,7 @@ impl Save<Spectre, Tran> for NestedTerminal {
     fn from_saved(
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
-    ) -> <Self as Save<Spectre, Tran>>::Save {
+    ) -> <Self as Save<Spectre, Tran>>::Saved {
         let v = output
             .raw_values
             .get(output.saved_values.get(&key.0 .0).unwrap())
