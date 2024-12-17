@@ -74,7 +74,7 @@ pub trait HasNestedView<T = InstancePath> {
     /// Nesting a nested view should return the same type.
     type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>> + Send + Sync;
     /// Creates a nested view of the object given a parent node.
-    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, T>;
+    fn nested_view(&self, parent: &T) -> NestedView<Self, T>;
 }
 
 /// The associated nested view of an object.

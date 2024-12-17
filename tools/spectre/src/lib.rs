@@ -1007,6 +1007,25 @@ impl HasSpiceLikeNetlist for Spectre {
             writeln!(out, "dspf_include {:?}", spf_path)?;
         }
 
+        // find all unique SPICE netlists and include them
+        let includes = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::Spice(spice::Primitive::RawInstanceWithInclude {
+                    netlist, ..
+                }) = p.1
+                {
+                    Some(netlist.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
+        for include in includes.iter().sorted() {
+            writeln!(out, "include {:?}", include)?;
+        }
+
         Ok(())
     }
 

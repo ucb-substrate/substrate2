@@ -11,7 +11,7 @@ use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, NetlistLibConversion, ParamValue, SliceOnePath};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use substrate::block::Block;
 use substrate::schematic::{CellBuilder, Schematic};
 use substrate::serde::{Deserialize, Serialize};
@@ -222,6 +222,17 @@ pub enum Primitive {
     BlackboxInstance {
         /// The contents of the cell.
         contents: BlackboxContents,
+    },
+    /// A raw instance with an associated cell in a SPICE netlist.
+    ///
+    /// Parameters are not supported.
+    RawInstanceWithInclude {
+        /// The name of the associated cell.
+        cell: ArcStr,
+        /// The path to the included netlist.
+        netlist: PathBuf,
+        /// The ordered ports of the instance.
+        ports: Vec<ArcStr>,
     },
 }
 
