@@ -171,8 +171,7 @@ impl HasNestedView<PexContext> for NestedNode {
                 &path,
                 "X",
                 "/",
-            )
-            .to_uppercase(),
+            ),
         )
     }
 }
@@ -355,7 +354,8 @@ mod tests {
 
     use crate::pex::{run_pex, write_pex_run_file, PexParams};
     use crate::tests::{
-        EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_TECHNOLOGY_DIR, TEST_BUILD_PATH,
+        EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_TECHNOLOGY_DIR,
+        SKY130_TT_MODEL_PATH, TEST_BUILD_PATH,
     };
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -446,8 +446,8 @@ mod tests {
                 let mut scir = Spice::scir_cell_from_str(
                     r#"
                 .subckt col_data_inv din din_b vdd vss
-                M0 dout din vss vss nfet_01v8 w=2.6u l=0.15u
-                M1 dout din vdd vdd pfet_01v8 w=4u l=0.15u
+                M0 din_b din vss vss nfet_01v8 w=1.4u l=0.15u
+                M1 din_b din vdd vdd pfet_01v8 w=2.6u l=0.15u
                 .ends
             "#,
                     "col_data_inv",
@@ -564,9 +564,11 @@ mod tests {
         }
 
         fn run(sim: SimController<Spectre, PexTb>) -> f64 {
+            let mut opts = Options::default();
+            opts.include(PathBuf::from(SKY130_TT_MODEL_PATH));
             let out = sim
                 .simulate(
-                    Options::default(),
+                    opts,
                     Tran {
                         stop: dec!(2e-9),
                         errpreset: Some(ErrPreset::Conservative),
@@ -578,14 +580,12 @@ mod tests {
             *out.din_b_31.first().unwrap()
         }
 
-        let test_name = "spectre_can_include_sections";
-        let sim_dir = PathBuf::from(TEST_BUILD_PATH)
-            .join(test_name)
-            .join("test_sim_pex/sim");
+        let test_name = "test_sim_pex";
+        let sim_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("sim");
         let ctx = Context::builder().install(Spectre::default()).build();
 
         let output = run(ctx.get_sim_controller(PexTb, &sim_dir).unwrap());
 
-        assert_relative_eq!(output, 1.8);
+        assert_relative_eq!(output, 1.8, max_relative = 1e-2);
     }
 }
