@@ -83,16 +83,15 @@ impl Spice {
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
     ) -> String {
-        Self::node_path_with_prefix_and_separator(lib, conv, path, "", ".")
+        Self::node_path_with_separator(lib, conv, path, ".")
     }
 
     /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
     /// node voltage, using the given instance prefix hierarchy separator.
-    pub fn node_path_with_prefix_and_separator(
+    pub fn node_path_with_separator(
         lib: &Library<Spice>,
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
-        prefix: &str,
         sep: &str,
     ) -> String {
         let path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
@@ -103,17 +102,7 @@ impl Spice {
             }
         });
         let n = path.len();
-        path.iter()
-            .enumerate()
-            .map(|(i, elt)| {
-                if i + 1 == n {
-                    // Don't add a prefix to the last element.
-                    elt.clone()
-                } else {
-                    arcstr::format!("{}{}", prefix, elt)
-                }
-            })
-            .join(sep)
+        path.iter().join(sep)
     }
 }
 

@@ -165,13 +165,7 @@ impl HasNestedView<PexContext> for NestedNode {
         let path = parent.lib.scir.simplify_path(path);
         RawNestedNode::new(
             parent.path.clone(),
-            Spice::node_path_with_prefix_and_separator(
-                &parent.lib.scir,
-                &parent.conv,
-                &path,
-                "X",
-                "/",
-            ),
+            Spice::node_path_with_separator(&parent.lib.scir, &parent.conv, &path, "/"),
         )
     }
 }
@@ -280,9 +274,9 @@ where
                 run_lvs(&LvsParams {
                     work_dir: &lvs_dir,
                     layout_path: &self.gds_path,
-                    layout_cell_name: "test_col_inv_array",
+                    layout_cell_name: &self.layout_cell_name,
                     source_paths: &[source_path],
-                    source_cell_name: "col_inv_array",
+                    source_cell_name: &self.schematic.name(),
                     rules_dir: &self.lvs_rules_dir,
                     rules_path: &self.lvs_rules_path,
                 })
@@ -296,7 +290,7 @@ where
         run_pex(&PexParams {
             work_dir: &pex_dir,
             lvs_work_dir: &lvs_dir,
-            lvs_run_name: "test_col_inv_array",
+            lvs_run_name: &self.layout_cell_name,
             technology_dir: &self.technology_dir,
             pex_netlist_path: &pex_netlist_path,
         })
