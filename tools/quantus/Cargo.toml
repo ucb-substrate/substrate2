@@ -10,5 +10,5 @@ serde = { version = "1", features = ["derive"] }
 anyhow = "1"
 regex = "1"
 
-[dev-dependencies]
+substrate = { version = "0.9.1", path = "../../substrate" }
 pegasus = { version = "0.0.0", path = "../pegasus" }

@@ -1,6 +1,6 @@
 extract -selection "all" -type "rc_decoupled"
 input_db -type pegasus \
-  -directory_name {{ lvs_workdir }} \
+  -directory_name {{ lvs_work_dir }} \
   -run_name "{{ lvs_run_name }}"
 output_setup \
   -file_name "{{ pex_netlist_path }}" \

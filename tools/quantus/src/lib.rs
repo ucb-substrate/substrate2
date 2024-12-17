@@ -29,7 +29,7 @@ pub struct RuleCheck {
 #[cfg(test)]
 mod tests {
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    pub const EXAMPLES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../pegasus/examples");
+    pub const EXAMPLES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../pegasus/examples");
     pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
     pub const SKY130_DRC_RULES_PATH: &str = concat!(
         env!("SKY130_CDS_PDK_ROOT"),
