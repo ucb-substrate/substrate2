@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_run_pex_col_inv() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_inv_array.gds");
+        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buf_array.gds");
         let source_path = PathBuf::from(EXAMPLES_PATH).join("spice/col_inv_array.spice");
         let test_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_pex_col_inv");
         let lvs_dir = test_dir.join("lvs");
