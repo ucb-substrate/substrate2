@@ -1823,6 +1823,17 @@ name = "pathtree"
 version = "0.2.0"
 
 [[package]]
+name = "pegasus"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "regex",
+ "serde",
+ "tera",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2115,6 +2126,24 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "quantus"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "approx",
+ "lazy_static",
+ "pegasus",
+ "regex",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "spectre",
+ "spice",
+ "substrate",
+ "tera",
 ]
 
 [[package]]

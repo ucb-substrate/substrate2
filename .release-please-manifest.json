@@ -26,5 +26,7 @@
   "substrate": "0.8.1",
   "tests": "0.0.0",
   "tools/ngspice": "0.3.1",
+  "tools/pegasus": "0.0.0",
+  "tools/quantus": "0.0.0",
   "tools/spectre": "0.9.1"
 }

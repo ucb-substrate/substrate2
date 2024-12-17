@@ -1,6 +1,5 @@
 //! Spectre transient analysis options and data structures.
 
-use crate::dspf::DspfNode;
 use crate::{ErrPreset, InstanceTail, SimSignal, Spectre};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
@@ -13,7 +12,9 @@ use substrate::schematic::HasNestedView;
 use substrate::simulation::data::{Save, SaveOutput, SaveTime};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
-use substrate::types::schematic::{NestedNode, NestedTerminal, Node, NodePath, TerminalPath};
+use substrate::types::schematic::{
+    NestedNode, NestedTerminal, Node, NodePath, RawNestedNode, TerminalPath,
+};
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -123,7 +124,7 @@ impl Save<Spectre, Tran> for NestedNode {
     }
 }
 
-impl Save<Spectre, Tran> for DspfNode {
+impl Save<Spectre, Tran> for RawNestedNode {
     type SaveKey = VoltageSaveKey;
     type Saved = Arc<Vec<f64>>;
 
@@ -133,8 +134,8 @@ impl Save<Spectre, Tran> for DspfNode {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> <Self as Save<Spectre, Tran>>::SaveKey {
         let itail = InstanceTail {
-            instance: ctx.lib.convert_instance_path(&self.dspf_instance).unwrap(),
-            tail: self.path.clone().into(),
+            instance: ctx.lib.convert_instance_path(&self.instances()).unwrap(),
+            tail: self.tail().clone().into(),
         };
         opts.save_tran_voltage(itail)
     }

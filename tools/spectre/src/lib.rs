@@ -45,12 +45,11 @@ use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption, Temperature};
 use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
-use substrate::types::schematic::NodePath;
+use substrate::types::schematic::{NodePath, RawNestedNode};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod analysis;
 pub mod blocks;
-pub mod dspf;
 pub mod error;
 pub(crate) mod templates;
 
@@ -1005,6 +1004,25 @@ impl HasSpiceLikeNetlist for Spectre {
         // sort paths before including them to ensure stable output
         for spf_path in spfs.iter().sorted() {
             writeln!(out, "dspf_include {:?}", spf_path)?;
+        }
+
+        // find all unique SPICE netlists and include them
+        let includes = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::Spice(spice::Primitive::RawInstanceWithInclude {
+                    netlist, ..
+                }) = p.1
+                {
+                    Some(netlist.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
+        for include in includes.iter().sorted() {
+            writeln!(out, "include {:?}", include)?;
         }
 
         Ok(())

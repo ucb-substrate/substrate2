@@ -30,6 +30,8 @@ members = [
     "substrate",
     "tests",
     "tools/ngspice",
+    "tools/pegasus",
+    "tools/quantus",
     "tools/spectre",
 ]
 

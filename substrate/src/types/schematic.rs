@@ -4,6 +4,7 @@ use crate::block::Block;
 use crate::diagnostics::SourceInfo;
 use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath, NestedView};
 use crate::types::{FlatLen, Flatten, HasNameTree};
+use arcstr::ArcStr;
 use scir::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -146,6 +147,41 @@ impl HasNestedView for Node {
 pub struct NestedNode {
     pub(crate) instances: InstancePath,
     pub(crate) node: Node,
+}
+
+/// A raw nested node within a cell that is opaque to substrate.
+///
+/// May reference Substrate nodes or nodes within SCIR primitives.
+#[derive(Clone, Debug)]
+pub struct RawNestedNode {
+    pub(crate) instances: InstancePath,
+    pub(crate) tail: ArcStr,
+}
+
+impl RawNestedNode {
+    pub fn new(instances: InstancePath, tail: impl Into<ArcStr>) -> Self {
+        Self {
+            instances,
+            tail: tail.into(),
+        }
+    }
+    pub fn instances(&self) -> &InstancePath {
+        &self.instances
+    }
+
+    pub fn tail(&self) -> &ArcStr {
+        &self.tail
+    }
+}
+
+impl HasNestedView for RawNestedNode {
+    type NestedView = RawNestedNode;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
+        RawNestedNode {
+            tail: self.tail.clone(),
+            instances: self.instances.prepend(parent),
+        }
+    }
 }
 
 /// A path from a top level cell to a nested node.
