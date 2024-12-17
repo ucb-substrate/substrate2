@@ -4,9 +4,9 @@ use std::any::Any;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use arcstr::ArcStr;
 pub use codegen::Block;
 
+use crate::arcstr::ArcStr;
 use crate::types::Io;
 
 /// A block that can be instantiated by Substrate.

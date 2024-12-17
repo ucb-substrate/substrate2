@@ -1,6 +1,9 @@
 //! Interfaces for interacting with simulation data.
-use crate::schematic::HasNestedView;
-use crate::simulation::{Analysis, SimulationContext, Simulator};
+
+use crate::{
+    schematic::HasNestedView,
+    simulation::{Analysis, SimulationContext, Simulator},
+};
 
 /// Saves the raw output of a simulation.
 #[derive(Debug, Clone, Copy)]
@@ -28,6 +31,9 @@ impl HasNestedView for SaveTime {
 /// Gets the [`Save::SaveKey`] corresponding to type `T`.
 pub type SaveKey<T, S, A> = <T as Save<S, A>>::SaveKey;
 
+/// Gets the [`Save::Saved`] corresponding to type `T`.
+pub type Saved<T, S, A> = <T as Save<S, A>>::Saved;
+
 /// A schematic object that can be saved in an analysis within a given simulator.
 pub trait Save<S: Simulator, A: Analysis> {
     /// The key type used to address the saved output within the analysis.
@@ -35,7 +41,7 @@ pub trait Save<S: Simulator, A: Analysis> {
     /// This key is assigned in [`Save::save`].
     type SaveKey;
     /// The saved data associated with things object.
-    type Save;
+    type Saved;
 
     /// Marks the given output for saving, returning a key that can be used to recover
     /// the output once the simulation is complete.
@@ -49,5 +55,5 @@ pub trait Save<S: Simulator, A: Analysis> {
     fn from_saved(
         output: &<A as Analysis>::Output,
         key: &<Self as Save<S, A>>::SaveKey,
-    ) -> <Self as Save<S, A>>::Save;
+    ) -> <Self as Save<S, A>>::Saved;
 }

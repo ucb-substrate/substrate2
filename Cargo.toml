@@ -31,6 +31,8 @@ members = [
     "tests",
     "tools/magic",
     "tools/ngspice",
+    "tools/pegasus",
+    "tools/quantus",
     "tools/spectre",
 ]
 

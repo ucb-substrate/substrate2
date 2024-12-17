@@ -12,7 +12,6 @@ use geometry::{
         Transform, TransformMut, TransformRef, Transformation, Translate, TranslateMut,
         TranslateRef,
     },
-    union::BoundingUnion,
 };
 use indexmap::{map::Entry, IndexMap};
 use layir::{LayerBbox, Shape, Text};
