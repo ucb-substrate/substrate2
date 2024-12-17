@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn test_sim_pex() {
         #[derive(Clone, Debug, Default, Io)]
-        struct ColDataInvIo {
+        struct ColInvIo {
             din: Input<Signal>,
             din_b: Output<Signal>,
             vdd: InOut<Signal>,
@@ -426,17 +426,12 @@ mod tests {
         }
 
         #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Block)]
-        #[substrate(io = "ColDataInvIo")]
-        struct ColDataInv;
+        #[substrate(io = "ColInvIo")]
+        struct ColInv;
 
-        #[derive(NestedData)]
-        struct ColDataInvData {
-            din_b: Node,
-        }
-
-        impl Schematic for ColDataInv {
+        impl Schematic for ColInv {
             type Schema = Spice;
-            type NestedData = ColDataInvData;
+            type NestedData = ();
 
             fn schematic(
                 &self,
@@ -459,32 +454,84 @@ mod tests {
                 scir.connect("vdd", io.vdd);
 
                 cell.set_scir(scir);
-                Ok(ColDataInvData { din_b: io.din_b })
+                Ok(())
+            }
+        }
+
+        #[derive(Clone, Debug, Default, Io)]
+        struct ColBufIo {
+            din: Input<Signal>,
+            dout: Output<Signal>,
+            vdd: InOut<Signal>,
+            vss: InOut<Signal>,
+        }
+
+        #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Block)]
+        #[substrate(io = "ColBufIo")]
+        struct ColBuf;
+
+        #[derive(NestedData)]
+        struct ColBufData {
+            x: Node,
+        }
+
+        impl Schematic for ColBuf {
+            type Schema = Spice;
+            type NestedData = ColBufData;
+
+            fn schematic(
+                &self,
+                io: &substrate::types::schematic::IoNodeBundle<Self>,
+                cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
+            ) -> substrate::error::Result<Self::NestedData> {
+                let x = cell.signal("x", Signal);
+
+                let inv1 = cell.instantiate_connected(
+                    ColInv,
+                    NodeBundle::<ColInvIo> {
+                        din: io.din,
+                        din_b: x,
+                        vdd: io.vdd,
+                        vss: io.vss,
+                    },
+                );
+
+                let inv2 = cell.instantiate_connected(
+                    ColInv,
+                    NodeBundle::<ColInvIo> {
+                        din: x,
+                        din_b: io.dout,
+                        vdd: io.vdd,
+                        vss: io.vss,
+                    },
+                );
+
+                Ok(ColBufData { x })
             }
         }
 
         #[derive(Clone, Debug, Io)]
-        struct ColInvArrayIo {
+        struct ColBufArrayIo {
             din: Input<Array<Signal>>,
-            din_b: Output<Array<Signal>>,
+            dout: Output<Array<Signal>>,
             vdd: InOut<Signal>,
             vss: InOut<Signal>,
         }
 
         #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
-        struct ColInvArray;
+        struct ColBufArray;
 
-        impl Block for ColInvArray {
-            type Io = ColInvArrayIo;
+        impl Block for ColBufArray {
+            type Io = ColBufArrayIo;
 
             fn name(&self) -> arcstr::ArcStr {
-                arcstr::literal!("col_inv_array")
+                arcstr::literal!("col_buf_array")
             }
 
             fn io(&self) -> Self::Io {
-                ColInvArrayIo {
+                ColBufArrayIo {
                     din: Input(Array::new(32, Signal)),
-                    din_b: Output(Array::new(32, Signal)),
+                    dout: Output(Array::new(32, Signal)),
                     vdd: InOut(Signal),
                     vss: InOut(Signal),
                 }
@@ -492,26 +539,26 @@ mod tests {
         }
 
         #[derive(NestedData)]
-        struct ColInvArrayData {
-            din_b_31: NestedNode,
+        struct ColBufArrayData {
+            x_31: NestedNode,
         }
 
-        impl Schematic for ColInvArray {
+        impl Schematic for ColBufArray {
             type Schema = Spice;
-            type NestedData = ColInvArrayData;
+            type NestedData = ColBufArrayData;
 
             fn schematic(
                 &self,
                 io: &substrate::types::schematic::IoNodeBundle<Self>,
                 cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
             ) -> substrate::error::Result<Self::NestedData> {
-                let invs = (0..32)
+                let bufs = (0..32)
                     .map(|i| {
                         cell.instantiate_connected(
-                            ColDataInv,
-                            NodeBundle::<ColDataInvIo> {
+                            ColBuf,
+                            NodeBundle::<ColBufIo> {
                                 din: io.din[i],
-                                din_b: io.din_b[i],
+                                dout: io.dout[i],
                                 vdd: io.vdd,
                                 vss: io.vss,
                             },
@@ -519,8 +566,8 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                Ok(ColInvArrayData {
-                    din_b_31: invs[31].din_b.clone(),
+                Ok(ColBufArrayData {
+                    x_31: bufs[31].x.clone(),
                 })
             }
         }
@@ -531,21 +578,22 @@ mod tests {
 
         impl Schematic for PexTb {
             type Schema = Spectre;
-            type NestedData = NestedPexData<ColInvArray>;
+            type NestedData = NestedPexData<ColBufArray>;
             fn schematic(
                 &self,
                 io: &substrate::types::schematic::IoNodeBundle<Self>,
                 cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
             ) -> substrate::error::Result<Self::NestedData> {
-                let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_inv_array.gds");
+                let layout_path =
+                    PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
                 let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_sim_pex/pex");
                 let vdd = cell.signal("vdd", Signal);
                 let mut spice_builder = cell.sub_builder::<Spice>();
                 let dut = spice_builder.instantiate(Pex {
-                    schematic: Arc::new(ColInvArray),
+                    schematic: Arc::new(ColBufArray),
                     gds_path: layout_path,
-                    layout_cell_name: "test_col_inv_array".into(),
-                    work_dir: work_dir,
+                    layout_cell_name: "test_col_buffer_array".into(),
+                    work_dir,
                     lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
                     lvs_rules_dir: PathBuf::from(SKY130_LVS),
                     technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
@@ -577,7 +625,7 @@ mod tests {
                 )
                 .expect("failed to run simulation");
 
-            *out.din_b_31.first().unwrap()
+            *out.x_31.first().unwrap()
         }
 
         let test_name = "test_sim_pex";
