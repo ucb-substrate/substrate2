@@ -122,17 +122,17 @@ impl<T: SchematicBundleKind> HasViewImpl<NestedTerminalBundle> for T {
     type View = NestedView<<T as SchematicBundleKind>::TerminalBundle>;
 }
 
-pub struct NestedSaveKey<S, A>(PhantomData<(S, A)>);
-pub struct NestedSaved<S, A>(PhantomData<(S, A)>);
+pub struct NestedSaveKey<T, S, A>(PhantomData<(T, S, A)>);
+pub struct NestedSaved<T, S, A>(PhantomData<(T, S, A)>);
 
-impl<S: Simulator, A: Analysis, T: HasNestedView<NestedView: Save<S, A>>>
-    HasViewImpl<NestedSaveKey<S, A>> for T
+impl<V, S: Simulator, A: Analysis, T: HasNestedView<V, NestedView: Save<S, A>>>
+    HasViewImpl<NestedSaveKey<V, S, A>> for T
 {
-    type View = crate::simulation::data::SaveKey<NestedView<T>, S, A>;
+    type View = crate::simulation::data::SaveKey<NestedView<T, V>, S, A>;
 }
 
-impl<S: Simulator, A: Analysis, T: HasNestedView<NestedView: Save<S, A>>>
-    HasViewImpl<NestedSaved<S, A>> for T
+impl<V, S: Simulator, A: Analysis, T: HasNestedView<V, NestedView: Save<S, A>>>
+    HasViewImpl<NestedSaved<V, S, A>> for T
 {
-    type View = crate::simulation::data::Saved<NestedView<T>, S, A>;
+    type View = crate::simulation::data::Saved<NestedView<T, V>, S, A>;
 }

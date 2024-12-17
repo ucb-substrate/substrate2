@@ -2133,10 +2133,14 @@ name = "quantus"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "approx",
  "lazy_static",
  "pegasus",
  "regex",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
+ "spectre",
  "spice",
  "substrate",
  "tera",

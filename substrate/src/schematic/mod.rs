@@ -33,7 +33,7 @@ use crate::types::schematic::{
 use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, IoKind, NameBuf};
 
 /// A block that has a schematic.
-pub trait Schematic: Block<Io: Io + HasBundleKind<BundleKind: SchematicBundleKind>> {
+pub trait Schematic: Block<Io: HasBundleKind<BundleKind: SchematicBundleKind>> {
     /// The schema this schematic is associated with.
     type Schema: Schema;
     /// Extra schematic data to be stored with the block's generated cell.
@@ -72,7 +72,7 @@ pub trait HasNestedView<T = InstancePath> {
     /// A view of the nested object.
     ///
     /// Nesting a nested view should return the same type.
-    type NestedView: HasNestedView<T, NestedView = NestedView<Self, T>> + Send + Sync;
+    type NestedView: Send + Sync;
     /// Creates a nested view of the object given a parent node.
     fn nested_view(&self, parent: &T) -> NestedView<Self, T>;
 }
@@ -122,7 +122,10 @@ impl<B: Block, S: Schema> Block for ConvertSchema<B, S> {
     }
 }
 
-impl<B: Schematic, S: FromSchema<B::Schema>> Schematic for ConvertSchema<B, S> {
+impl<B: Schematic, S: FromSchema<B::Schema>> Schematic for ConvertSchema<B, S>
+where
+    NestedView<B::NestedData>: HasNestedView,
+{
     type Schema = S;
     type NestedData = NestedView<B::NestedData>;
     fn schematic(
@@ -364,23 +367,30 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     }
 
     /// Creates an instance using [`CellBuilder::instantiate`] and immediately connects its ports.
-    pub fn instantiate_connected<B, C>(&mut self, block: B, io: &C)
+    pub fn instantiate_connected<B, C>(&mut self, block: B, io: C) -> Instance<B>
     where
         B: Schematic<Schema = S>,
         C: Flatten<Node> + HasBundleKind<BundleKind = IoKind<B>>,
     {
         let inst = self.instantiate(block);
         self.connect(inst.io(), io);
+        inst
     }
 
     /// Creates an instance using [`CellBuilder::instantiate`] and immediately connects its ports.
-    pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: &C, name: impl Into<ArcStr>)
+    pub fn instantiate_connected_named<B, C>(
+        &mut self,
+        block: B,
+        io: C,
+        name: impl Into<ArcStr>,
+    ) -> Instance<B>
     where
         B: Schematic<Schema = S>,
         C: Flatten<Node> + HasBundleKind<BundleKind = IoKind<B>>,
     {
         let inst = self.instantiate_named(block, name);
         self.connect(inst.io(), io);
+        inst
     }
 
     /// Creates nodes for the newly-instantiated block's IOs and adds the raw instance.
@@ -583,23 +593,30 @@ impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
     }
 
     /// Creates an instance using [`SubCellBuilder::instantiate`] and immediately connects its ports.
-    pub fn instantiate_connected<B, C>(&mut self, block: B, io: C)
+    pub fn instantiate_connected<B, C>(&mut self, block: B, io: C) -> Instance<B>
     where
         B: Schematic<Schema = S2>,
         C: Flatten<Node> + HasBundleKind<BundleKind = IoKind<B>>,
     {
         let inst = self.instantiate(block);
         self.connect(inst.io(), io);
+        inst
     }
 
     /// Creates an instance using [`SubCellBuilder::instantiate`] and immediately connects its ports.
-    pub fn instantiate_connected_named<B, C>(&mut self, block: B, io: C, name: impl Into<ArcStr>)
+    pub fn instantiate_connected_named<B, C>(
+        &mut self,
+        block: B,
+        io: C,
+        name: impl Into<ArcStr>,
+    ) -> Instance<B>
     where
         B: Schematic<Schema = S2>,
         C: Flatten<Node> + HasBundleKind<BundleKind = IoKind<B>>,
     {
         let inst = self.instantiate_named(block, name);
         self.connect(inst.io(), io);
+        inst
     }
 
     /// Creates nodes for the newly-instantiated block's IOs.
@@ -679,6 +696,13 @@ impl<T: Schematic> Cell<T> {
     /// Returns nested data propagated by the cell's schematic generator.
     pub fn data(&self) -> NestedView<T::NestedData> {
         self.nodes.nested_view(&self.path)
+    }
+
+    pub fn custom_data<V>(&self, parent: &V) -> NestedView<T::NestedData, V>
+    where
+        T::NestedData: HasNestedView<V>,
+    {
+        self.nodes.nested_view(parent)
     }
 
     /// Returns this cell's IO.

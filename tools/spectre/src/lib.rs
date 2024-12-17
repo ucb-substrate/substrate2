@@ -45,12 +45,11 @@ use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption, Temperature};
 use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
 use substrate::type_dispatch::impl_dispatch;
-use substrate::types::schematic::NodePath;
+use substrate::types::schematic::{NodePath, RawNestedNode};
 use templates::{write_run_script, RunScriptContext};
 
 pub mod analysis;
 pub mod blocks;
-pub mod dspf;
 pub mod error;
 pub(crate) mod templates;
 

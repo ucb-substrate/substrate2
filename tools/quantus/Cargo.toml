@@ -13,3 +13,9 @@ regex = "1"
 substrate = { version = "0.8.1", path = "../../substrate" }
 spice = { version = "0.7.1", path = "../../libs/spice" }
 pegasus = { version = "0.0.0", path = "../pegasus" }
+
+[dev-dependencies]
+rust_decimal = "1"
+rust_decimal_macros = "1"
+spectre = { version = "0.9.1", path = "../spectre" }
+approx = "0.5"

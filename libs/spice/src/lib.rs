@@ -308,6 +308,7 @@ impl Primitive {
             Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
             Primitive::RawInstance { ports, .. } => ports.clone(),
             Primitive::RawInstanceWithCell { ports, .. } => ports.clone(),
+            Primitive::RawInstanceWithInclude { ports, .. } => ports.clone(),
             Primitive::BlackboxInstance { contents } => contents
                 .elems
                 .iter()
