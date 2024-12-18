@@ -99,14 +99,14 @@ mod tests {
     fn test_run_magic_extract() -> anyhow::Result<()> {
         let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_magic_extract");
-        let netlist_path = work_dir.join("test_col_buffer_array.lvs.spice");
+        let netlist_path = work_dir.join("test_col_inv_array.lvs.spice");
         let _ = std::fs::remove_file(&netlist_path);
         assert!(!netlist_path.exists());
 
         run_extract(&ExtractParams {
             work_dir: &work_dir,
             gds_path: &gds_path,
-            cell_name: "test_col_buffer_array",
+            cell_name: "test_col_inv_array",
             tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
             netlist_path: &netlist_path,
         })?;
