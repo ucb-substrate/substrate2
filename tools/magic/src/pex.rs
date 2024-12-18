@@ -1,9 +1,7 @@
 use crate::utils::execute_run_script;
-use crate::{error::Error, RuleCheck, TEMPLATES};
-use regex::Regex;
+use crate::{error::Error, TEMPLATES};
 use serde::Serialize;
 use std::fs;
-use std::io::{self, BufRead};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tera::Context;
@@ -28,12 +26,11 @@ struct PexRunsetContext<'a> {
     run_script_path: &'a Path,
 }
 
-pub struct PexGeneratedPaths {
-    tcl_path: PathBuf,
+struct PexGeneratedPaths {
     run_script_path: PathBuf,
 }
 
-pub fn write_pex_files(params: &PexParams) -> Result<PexGeneratedPaths, Error> {
+fn write_pex_files(params: &PexParams) -> Result<PexGeneratedPaths, Error> {
     fs::create_dir_all(params.work_dir).map_err(Error::Io)?;
 
     let tcl_path = params.work_dir.join("pex.tcl");
@@ -64,10 +61,7 @@ pub fn write_pex_files(params: &PexParams) -> Result<PexGeneratedPaths, Error> {
     perms.set_mode(0o755);
     fs::set_permissions(&run_script_path, perms).map_err(Error::Io)?;
 
-    Ok(PexGeneratedPaths {
-        tcl_path,
-        run_script_path,
-    })
+    Ok(PexGeneratedPaths { run_script_path })
 }
 
 fn run_pex_inner(
@@ -110,6 +104,9 @@ mod tests {
         })?;
 
         assert!(pex_netlist_path.exists());
+        let meta = std::fs::metadata(pex_netlist_path).unwrap();
+        assert!(meta.is_file());
+        assert!(meta.len() > 0);
 
         Ok(())
     }

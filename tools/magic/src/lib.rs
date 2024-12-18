@@ -21,12 +21,6 @@ lazy_static! {
     };
 }
 
-#[derive(Debug)]
-pub struct RuleCheck {
-    pub name: String,
-    pub num_results: u32,
-}
-
 #[cfg(test)]
 mod tests {
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");

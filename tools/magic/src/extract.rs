@@ -1,9 +1,7 @@
 use crate::utils::execute_run_script;
-use crate::{error::Error, RuleCheck, TEMPLATES};
-use regex::Regex;
+use crate::{error::Error, TEMPLATES};
 use serde::Serialize;
 use std::fs;
-use std::io::{self, BufRead};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tera::Context;
@@ -29,7 +27,6 @@ struct ExtractRunsetContext<'a> {
 }
 
 pub struct ExtractGeneratedPaths {
-    tcl_path: PathBuf,
     run_script_path: PathBuf,
 }
 
@@ -66,10 +63,7 @@ pub fn write_extract_files(params: &ExtractParams) -> Result<ExtractGeneratedPat
     perms.set_mode(0o755);
     fs::set_permissions(&run_script_path, perms).map_err(Error::Io)?;
 
-    Ok(ExtractGeneratedPaths {
-        tcl_path,
-        run_script_path,
-    })
+    Ok(ExtractGeneratedPaths { run_script_path })
 }
 
 fn run_extract_inner(
@@ -112,6 +106,9 @@ mod tests {
         })?;
 
         assert!(netlist_path.exists());
+        let meta = std::fs::metadata(netlist_path).unwrap();
+        assert!(meta.is_file());
+        assert!(meta.len() > 0);
 
         Ok(())
     }

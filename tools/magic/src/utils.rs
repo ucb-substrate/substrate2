@@ -1,11 +1,9 @@
 use std::fs;
 use std::os::unix::prelude::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
-use serde::Serialize;
-
-use crate::{error::Error, TEMPLATES};
+use crate::error::Error;
 
 pub fn execute_run_script(
     path: impl AsRef<Path>,
