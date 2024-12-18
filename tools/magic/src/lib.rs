@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use tera::Tera;
 
 pub mod error;
+pub mod extract;
 pub mod pex;
 pub mod utils;
 
