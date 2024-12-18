@@ -1,5 +1,3 @@
-//! Tests for ensuring that `#[derive(Io)]` works.
-
 use substrate::io::Io;
 use substrate::io::{Input, Output, Signal};
 

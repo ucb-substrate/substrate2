@@ -8,6 +8,9 @@ use std::sync::Arc;
 use arcstr::ArcStr;
 use derive_builder::Builder;
 
+#[cfg(test)]
+mod tests;
+
 /// Job submission options.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExecOpts {

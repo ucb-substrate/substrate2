@@ -26,7 +26,7 @@ splines = { version = "4.3.1", features = ["serde"] }
 derive-where = "1"
 
 config = { version = "0.2.5", registry = "substrate", path = "../config" }
-examples = { version = "0.5.1", registry = "substrate", path = "../docs/examples" }
+snippets = { version = "0.5.1", registry = "substrate", path = "../docs/snippets" }
 cache = { version = "0.5.0", registry = "substrate", path = "../libs/cache" }
 codegen = { version = "0.8.1", registry = "substrate", path = "../codegen" }
 layir = { version = "0.1.0", registry = "substrate", path = "../libs/layir" }
@@ -39,6 +39,7 @@ type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/typ
 uniquify = { version = "0.2.0", registry = "substrate", path = "../libs/uniquify" }
 
 [dev-dependencies]
-toml = "0.8"
 approx = "0.5"
-spice = { version = "<=0.7.1", registry = "substrate", path = "../libs/spice" }
+
+[build-dependencies]
+snippets = { version = "0.5.1", registry = "substrate", path = "../docs/snippets" }

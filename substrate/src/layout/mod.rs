@@ -3,10 +3,10 @@
 //! # Examples
 //!
 //! ## Simple
-#![doc = examples::get_snippets!("core", "inverter_layout")]
+#![doc = include_snippet!("substrate", "inverter_layout")]
 //!
 //! ## With data
-#![doc = examples::get_snippets!("core", "buffer_layout")]
+#![doc = include_snippet!("substrate", "buffer_layout")]
 
 use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc, thread};
@@ -14,7 +14,6 @@ use std::{marker::PhantomData, sync::Arc, thread};
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
 pub use codegen::{Layout, LayoutData};
-use examples::get_snippets;
 use geometry::prelude::Rect;
 use geometry::transform::{TransformRef, TranslateRef};
 use geometry::{
@@ -25,6 +24,7 @@ use geometry::{
 use layir::LayerBbox;
 use once_cell::sync::OnceCell;
 use schema::Schema;
+use snippets::include_snippet;
 
 use crate::context::Context;
 use crate::error::Error;
@@ -38,6 +38,8 @@ pub mod conv;
 pub mod element;
 pub mod error;
 pub mod schema;
+#[cfg(test)]
+mod tests;
 pub mod tiling;
 pub mod tracks;
 
@@ -98,7 +100,7 @@ impl LayoutContext {
 ///
 /// # Examples
 ///
-#[doc = get_snippets!("core", "generate")]
+#[doc = include_snippet!("substrate", "generate")]
 #[allow(dead_code)]
 pub struct Cell<T: Layout> {
     /// Block whose layout this cell represents.
@@ -504,7 +506,7 @@ impl<S: Schema> CellBuilder<S> {
     ///
     /// # Examples
     ///
-    #[doc = get_snippets!("core", "cell_builder_generate")]
+    #[doc = include_snippet!("substrate", "cell_builder_generate")]
     pub fn generate<I: Layout>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
         Instance::new(cell)

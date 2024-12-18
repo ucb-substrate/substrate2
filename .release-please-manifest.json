@@ -2,7 +2,7 @@
   "bins/cdl2spice": "0.0.0",
   "codegen": "0.8.1",
   "config": "0.2.5",
-  "docs/examples": "0.5.1",
+  "docs/snippets": "0.5.1",
   "libs/atoll": "0.1.3",
   "libs/cache": "0.5.0",
   "libs/diagnostics": "0.3.0",

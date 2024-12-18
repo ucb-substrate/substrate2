@@ -1,39 +1,143 @@
+use arcstr::ArcStr;
+use rust_decimal::Decimal;
+use scir::*;
+use spectre::Spectre;
+use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
+use spice::{BlackboxContents, BlackboxElement, ComponentValue, Spice};
 use std::collections::HashMap;
-use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::{path::PathBuf, sync::Arc};
+use substrate::schematic::netlist::ConvertibleNetlister;
+use substrate::schematic::schema::Schema;
 
-use approx::{assert_relative_eq, relative_eq};
-use cache::multi::MultiCache;
-use rust_decimal::prelude::ToPrimitive;
+use approx::assert_relative_eq;
 use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
-use sky130pdk::corner::Sky130Corner;
-use spectre::analysis::tran::Tran;
-use spectre::blocks::Vsource;
-use spectre::{Options, Primitive, Spectre};
-use spice::{BlackboxContents, BlackboxElement, Spice};
-use substrate::block::Block;
-use substrate::cache::Cache;
-use substrate::context::Context;
-use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::io::schematic::HardwareType;
-use substrate::io::{InOut, Signal, TestbenchIo};
-use substrate::io::{Io, TwoTerminalIo};
-use substrate::pdk::corner::Pvt;
-use substrate::schematic::{
-    Cell, CellBuilder, ExportsNestedData, Instance, PrimitiveBinding, Schematic,
+use spice::{BlackboxContents, BlackboxElement};
+use substrate::{
+    block::Block,
+    context::Context,
+    schematic::{CellBuilder, NestedData, PrimitiveBinding, Schematic},
+    simulation::{data::Save, Analysis, SimController, Simulator},
+    types::{
+        schematic::{IoNodeBundle, NestedNode, Node},
+        InOut, Io, Signal, TestbenchIo,
+    },
 };
-use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
-use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use test_log::test;
 
-use crate::paths::test_data;
-use crate::shared::inverter::tb::InverterTb;
-use crate::shared::inverter::Inverter;
-use crate::shared::pdk::sky130_commercial_ctx;
-use crate::shared::vdivider::tb::{VdividerArrayTb, VdividerDuplicateSubcktTb};
-use crate::{paths::get_path, shared::vdivider::tb::VdividerTb};
-use substrate::schematic::primitives::{RawInstance, Resistor};
+use crate::{
+    analysis::tran::Tran,
+    blocks::{Resistor, Vsource},
+    ErrPreset, Options, Primitive, Spectre,
+};
+
+pub const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
+pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
+
+#[test]
+fn spectre_can_include_sections() {
+    #[derive(Default, Clone, Io)]
+    struct LibIncludeResistorIo {
+        p: InOut<Signal>,
+        n: InOut<Signal>,
+    }
+
+    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Block)]
+    #[substrate(io = "LibIncludeResistorIo")]
+    struct LibIncludeResistor;
+
+    impl Schematic for LibIncludeResistor {
+        type Schema = Spectre;
+        type NestedData = ();
+        fn schematic(
+            &self,
+            io: &IoNodeBundle<Self>,
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
+                contents: BlackboxContents {
+                    elems: vec![
+                        BlackboxElement::InstanceName,
+                        " ( ".into(),
+                        BlackboxElement::Port("p".into()),
+                        " ".into(),
+                        BlackboxElement::Port("n".into()),
+                        " ) example_resistor".into(),
+                    ],
+                },
+            });
+            prim.connect("p", io.p);
+            prim.connect("n", io.n);
+            cell.set_primitive(prim);
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Clone, Hash, Eq, PartialEq, Block)]
+    #[substrate(io = "TestbenchIo")]
+    struct LibIncludeTb(String);
+
+    #[derive(Debug, Clone, Copy, NestedData)]
+    struct LibIncludeTbData {
+        n: Node,
+    }
+
+    impl Schematic for LibIncludeTb {
+        type Schema = Spectre;
+        type NestedData = LibIncludeTbData;
+        fn schematic(
+            &self,
+            io: &IoNodeBundle<Self>,
+            cell: &mut CellBuilder<Spectre>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            let vdd = cell.signal("vdd", Signal);
+            let dut = cell.instantiate(LibIncludeResistor);
+            let res = cell.instantiate(Resistor::new(1000));
+
+            cell.connect(dut.io().p, vdd);
+            cell.connect(dut.io().n, res.io().p);
+            cell.connect(io.vss, res.io().n);
+
+            let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
+            cell.connect(vsource.io().p, vdd);
+            cell.connect(vsource.io().n, io.vss);
+
+            Ok(LibIncludeTbData { n: *dut.io().n })
+        }
+    }
+
+    fn run(sim: SimController<Spectre, LibIncludeTb>) -> f64 {
+        let mut opts = Options::default();
+        opts.include_section(
+            PathBuf::from(TEST_DATA_DIR).join("spectre/example_lib.scs"),
+            &sim.tb.block().0,
+        );
+        let vout = sim
+            .simulate(
+                opts,
+                Tran {
+                    stop: dec!(2e-9),
+                    errpreset: Some(ErrPreset::Conservative),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation");
+
+        *vout.n.first().unwrap()
+    }
+
+    let test_name = "spectre_can_include_sections";
+    let sim_dir = PathBuf::from(BUILD_DIR).join(test_name).join("sim/");
+    let ctx = Context::builder().install(Spectre::default()).build();
+
+    let output_tt = run(ctx
+        .get_sim_controller(LibIncludeTb("section_a".to_string()), &sim_dir)
+        .unwrap());
+    let output_ss = run(ctx
+        .get_sim_controller(LibIncludeTb("section_b".to_string()), sim_dir)
+        .unwrap());
+
+    assert_relative_eq!(output_tt, 0.9);
+    assert_relative_eq!(output_ss, 1.2);
+}
 
 #[test]
 fn vdivider_tran() {
@@ -451,4 +555,234 @@ fn spectre_rc_zin_ac() {
         .unwrap();
     assert_relative_eq!(z.re, -17.286407017773225);
     assert_relative_eq!(z.im, 130.3364383055986);
+}
+
+pub(crate) trait HasRes2: Schema {
+    fn resistor(value: usize) -> <Self as Schema>::Primitive;
+    fn pos() -> &'static str;
+    fn neg() -> &'static str;
+}
+
+impl HasRes2 for Spice {
+    fn resistor(value: usize) -> spice::Primitive {
+        spice::Primitive::Res2 {
+            value: ComponentValue::Fixed(Decimal::from(value)),
+            params: Default::default(),
+        }
+    }
+    fn pos() -> &'static str {
+        "1"
+    }
+    fn neg() -> &'static str {
+        "2"
+    }
+}
+
+impl HasRes2 for Spectre {
+    fn resistor(value: usize) -> spectre::Primitive {
+        spectre::Primitive::RawInstance {
+            cell: ArcStr::from("resistor"),
+            ports: vec!["pos".into(), "neg".into()],
+            params: HashMap::from_iter([(ArcStr::from("r"), Decimal::from(value).into())]),
+        }
+    }
+    fn pos() -> &'static str {
+        "pos"
+    }
+    fn neg() -> &'static str {
+        "neg"
+    }
+}
+
+/// Creates a 1:3 resistive voltage divider.
+pub(crate) fn vdivider<S: HasRes2>() -> Library<S> {
+    let mut lib = LibraryBuilder::new();
+    let res = lib.add_primitive(S::resistor(100));
+
+    let mut vdivider = Cell::new("vdivider");
+    let vdd = vdivider.add_node("vdd");
+    let out = vdivider.add_node("out");
+    let int = vdivider.add_node("int");
+    let vss = vdivider.add_node("vss");
+
+    let mut r1 = Instance::new("r1", res);
+    r1.connect(S::pos(), vdd);
+    r1.connect(S::neg(), int);
+    vdivider.add_instance(r1);
+
+    let mut r2 = Instance::new("r2", res);
+    r2.connect(S::pos(), int);
+    r2.connect(S::neg(), out);
+    vdivider.add_instance(r2);
+
+    let mut r3 = Instance::new("r3", res);
+    r3.connect(S::pos(), out);
+    r3.connect(S::neg(), vss);
+    vdivider.add_instance(r3);
+
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
+    lib.add_cell(vdivider);
+
+    lib.build().unwrap()
+}
+
+/// Creates a 1:3 resistive voltage divider using blackboxed resistors.
+pub(crate) fn vdivider_blackbox() -> Library<Spice> {
+    let mut lib = LibraryBuilder::new();
+    let wrapper = lib.add_primitive(spice::Primitive::BlackboxInstance {
+        contents: BlackboxContents {
+            elems: vec![
+                "R".into(),
+                BlackboxElement::InstanceName,
+                " ".into(),
+                BlackboxElement::Port("pos".into()),
+                " ".into(),
+                BlackboxElement::Port("neg".into()),
+                " 3300".into(),
+            ],
+        },
+    });
+
+    let mut vdivider = Cell::new("vdivider");
+    let vdd = vdivider.add_node("vdd");
+    let out = vdivider.add_node("out");
+    let int = vdivider.add_node("int");
+    let vss = vdivider.add_node("vss");
+
+    let mut r1 = Instance::new("r1", wrapper);
+    r1.connect("pos", vdd);
+    r1.connect("neg", int);
+    vdivider.add_instance(r1);
+
+    let mut r2 = Instance::new("r2", wrapper);
+    r2.connect("pos", int);
+    r2.connect("neg", out);
+    vdivider.add_instance(r2);
+
+    let mut r3 = Instance::new("r3", wrapper);
+    r3.connect("pos", out);
+    r3.connect("neg", vss);
+    vdivider.add_instance(r3);
+
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
+    lib.add_cell(vdivider);
+
+    lib.build().unwrap()
+}
+
+#[test]
+fn vdivider_is_valid() {
+    let lib = vdivider::<Spice>();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+}
+
+#[test]
+fn vdivider_blackbox_is_valid() {
+    let lib = vdivider_blackbox();
+    let issues = lib.validate();
+    assert_eq!(issues.num_errors(), 0);
+    assert_eq!(issues.num_warnings(), 0);
+}
+
+#[test]
+fn netlist_spice_vdivider() {
+    let lib = vdivider::<Spice>();
+    let mut buf: Vec<u8> = Vec::new();
+    Spice
+        .write_scir_netlist(&lib, &mut buf, Default::default())
+        .unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("{}", string);
+
+    // TODO: more robust assertions about the output
+    // Once we have a SPICE parser, we can parse the SPICE back to SCIR
+    // and assert that the input SCIR is equivalent to the output SCIR.
+
+    assert_eq!(string.matches("SUBCKT").count(), 1);
+    assert_eq!(string.matches("ENDS").count(), 1);
+    assert_eq!(string.matches("Rr1").count(), 1);
+    assert_eq!(string.matches("Rr2").count(), 1);
+    assert_eq!(string.matches("Rr3").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
+}
+
+#[test]
+fn netlist_spice_vdivider_is_repeatable() {
+    let lib = vdivider::<Spice>();
+    let mut buf: Vec<u8> = Vec::new();
+    Spice
+        .write_scir_netlist(&lib, &mut buf, Default::default())
+        .unwrap();
+    let golden = String::from_utf8(buf).unwrap();
+
+    for i in 0..100 {
+        let lib = vdivider::<Spice>();
+        let mut buf: Vec<u8> = Vec::new();
+        Spice
+            .write_scir_netlist(&lib, &mut buf, Default::default())
+            .unwrap();
+        let attempt = String::from_utf8(buf).unwrap();
+        assert_eq!(
+            attempt, golden,
+            "netlister output changed even though the inputs were the same (iteration {i})"
+        );
+    }
+}
+
+#[test]
+fn netlist_spice_vdivider_blackbox() {
+    let lib = vdivider_blackbox();
+    let mut buf: Vec<u8> = Vec::new();
+    Spice
+        .write_scir_netlist(&lib, &mut buf, Default::default())
+        .unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("{}", string);
+
+    // TODO: more robust assertions about the output
+    // Once we have a SPICE parser, we can parse the SPICE back to SCIR
+    // and assert that the input SCIR is equivalent to the output SCIR.
+
+    assert_eq!(string.matches("SUBCKT").count(), 1);
+    assert_eq!(string.matches("ENDS").count(), 1);
+    assert_eq!(string.matches("Rr1").count(), 1);
+    assert_eq!(string.matches("Rr2").count(), 1);
+    assert_eq!(string.matches("Rr3").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
+    assert_eq!(string.matches("3300").count(), 3);
+}
+
+#[test]
+fn netlist_spectre_vdivider() {
+    let lib = vdivider::<Spectre>();
+    let mut buf: Vec<u8> = Vec::new();
+    let includes = Vec::new();
+    NetlisterInstance::new(
+        &Spectre {},
+        &lib,
+        &mut buf,
+        NetlistOptions::new(NetlistKind::Cells, &includes),
+    )
+    .export()
+    .unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("{}", string);
+
+    // TODO: more robust assertions about the output
+    // Once we have a Spectre netlist parser, we can parse the Spectre back to SCIR
+    // and assert that the input SCIR is equivalent to the output SCIR.
+
+    assert_eq!(string.matches("subckt").count(), 1);
+    assert_eq!(string.matches("ends").count(), 1);
+    assert_eq!(string.matches("r1").count(), 1);
+    assert_eq!(string.matches("r2").count(), 1);
+    assert_eq!(string.matches("r3").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
+    assert_eq!(string.matches("resistor r=100").count(), 3);
 }

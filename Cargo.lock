@@ -558,16 +558,13 @@ dependencies = [
  "arcstr",
  "convert_case 0.6.0",
  "darling 0.20.10",
- "examples",
  "proc-macro-crate 1.3.1",
  "proc-macro-error",
  "proc-macro2",
  "quote",
  "rust_decimal",
  "rust_decimal_macros",
- "sky130pdk",
- "spectre",
- "spice",
+ "snippets",
  "substrate",
  "syn 2.0.90",
  "type_dispatch",
@@ -918,24 +915,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "examples"
-version = "0.5.1"
-dependencies = [
- "arcstr",
- "proc-macro-crate 1.3.1",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "spice",
- "substrate",
- "syn 2.0.90",
- "textwrap",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1086,6 +1065,7 @@ dependencies = [
  "rust_decimal_macros",
  "serde",
  "slotmap",
+ "tests",
  "tracing",
 ]
 
@@ -2559,6 +2539,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
 
 [[package]]
+name = "snippets"
+version = "0.5.1"
+dependencies = [
+ "regex",
+ "textwrap",
+]
+
+[[package]]
 name = "socket2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2649,7 +2637,6 @@ dependencies = [
  "duplicate",
  "ena",
  "enumify",
- "examples",
  "gds",
  "geometry",
  "impl-trait-for-tuples",
@@ -2663,11 +2650,10 @@ dependencies = [
  "scir",
  "serde",
  "slotmap",
- "spice",
+ "snippets",
  "splines",
  "test-log",
  "thiserror",
- "toml",
  "tracing",
  "type_dispatch",
  "uniquify",
@@ -2778,29 +2764,6 @@ dependencies = [
 [[package]]
 name = "tests"
 version = "0.0.0"
-dependencies = [
- "anyhow",
- "approx",
- "arcstr",
- "atoll",
- "cache",
- "geometry",
- "indexmap 2.2.6",
- "lazy_static",
- "ngspice",
- "num",
- "rust_decimal",
- "rust_decimal_macros",
- "scir",
- "serde",
- "sky130pdk",
- "spectre",
- "spice",
- "substrate",
- "test-log",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "textwrap"

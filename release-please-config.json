@@ -8,7 +8,7 @@
     "bins/cdl2spice": {},
     "codegen": {},
     "config": {},
-    "docs/examples": {},
+    "docs/snippets": {},
     "libs/atoll": {},
     "libs/cache": {},
     "libs/diagnostics": {},

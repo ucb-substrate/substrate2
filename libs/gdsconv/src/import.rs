@@ -62,11 +62,20 @@ impl PlaceLabels for Polygon {
     }
 }
 
+pub struct GdsImportOpts {
+    pub units: Option<GdsUnits>,
+}
+
+pub fn import_gds(lib: &GdsLibrary, opts: GdsImportOpts) -> Result<Library<GdsLayer>> {
+    let importer = GdsImporter::new(lib, opts);
+    importer.import()
+}
+
 /// An importer for GDS files.
 pub struct GdsImporter<'a> {
     lib: LibraryBuilder<GdsLayer>,
     gds: &'a gds::GdsLibrary,
-    units: Option<Decimal>,
+    opts: GdsImportOpts,
 }
 
 /// An error encountered while converting a GDS library to LayIR.
@@ -77,11 +86,11 @@ type Result<T> = std::result::Result<T, GdsImportError>;
 
 impl<'a> GdsImporter<'a> {
     /// Creates a new GDS importer.
-    pub fn new(gds: &'a gds::GdsLibrary, units: Option<Decimal>) -> Self {
+    pub fn new(gds: &'a gds::GdsLibrary, opts: GdsImportOpts) -> Self {
         Self {
             lib: LibraryBuilder::new(),
             gds,
-            units,
+            opts,
         }
     }
 
@@ -139,10 +148,8 @@ impl<'a> GdsImporter<'a> {
     fn check_units(&mut self, units: &gds::GdsUnits) -> Result<()> {
         let gdsunit = units.db_unit();
 
-        if let Some(expected_units) = self.units {
-            if (Decimal::try_from(gdsunit).unwrap() - expected_units).abs() / expected_units
-                > dec!(1e-3)
-            {
+        if let Some(expected_units) = &self.opts.units {
+            if (gdsunit - expected_units.db_unit()).abs() / expected_units.db_unit() > 1e-3 {
                 return Err(GdsImportError);
             }
         }

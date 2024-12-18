@@ -15,13 +15,15 @@ use crate::{
     schematic::{CellId, InstanceId, InstancePath},
 };
 
-pub use crate::scir::Direction;
+pub use scir::Direction;
 
 #[doc(hidden)]
 pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
+#[cfg(test)]
+mod tests;
 
 /// The [`BundleKind`] of a block's IO.
 pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;

@@ -7,8 +7,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use config::Config;
-use examples::get_snippets;
 use indexmap::IndexMap;
+use snippets::include_snippet;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
 use tracing::{span, Level};
 
@@ -42,7 +42,7 @@ use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBu
 ///
 /// # Examples
 ///
-#[doc = get_snippets!("core", "generate")]
+#[doc = include_snippet!("substrate", "generate")]
 #[derive(Clone)]
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,

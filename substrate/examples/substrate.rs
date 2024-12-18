@@ -3,14 +3,10 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spice::{Resistor, Spice};
 use substrate::block::Block;
-use substrate::context::{ContextBuilder, Installation, PdkContext};
+use substrate::context::{ContextBuilder, Installation};
 use substrate::geometry::prelude::*;
 use substrate::layout;
-use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Layout, LayoutData};
-use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
-use substrate::pdk::{Pdk, PdkLayers};
 use substrate::schematic::{
     CellBuilder, HasNestedView, InstancePath, NestedData, NestedView, Schematic,
 };
