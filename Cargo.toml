@@ -29,6 +29,7 @@ members = [
     "pdks/sky130pdk",
     "substrate",
     "tests",
+    "tools/magic",
     "tools/ngspice",
     "tools/pegasus",
     "tools/quantus",
