@@ -95,16 +95,16 @@ mod tests {
 
     #[test]
     fn test_run_magic_pex() -> anyhow::Result<()> {
-        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_sky130_and3.gds");
+        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_magic_pex");
-        let pex_netlist_path = work_dir.join("sky130_and3.pex.spice");
+        let pex_netlist_path = work_dir.join("test_col_buffer_array.pex.spice");
         let _ = std::fs::remove_file(&pex_netlist_path);
         assert!(!pex_netlist_path.exists());
 
         run_pex(&PexParams {
             work_dir: &work_dir,
             gds_path: &gds_path,
-            cell_name: "sky130_and3",
+            cell_name: "test_col_buffer_array",
             tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
             pex_netlist_path: &pex_netlist_path,
         })?;
