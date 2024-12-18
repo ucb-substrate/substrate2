@@ -8,7 +8,6 @@ use std::sync::{Arc, RwLock};
 
 use config::Config;
 use indexmap::IndexMap;
-use snippets::include_snippet;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
 use tracing::{span, Level};
 
@@ -39,10 +38,6 @@ use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBu
 /// Stores configuration such as the PDK and tool plugins to use during generation.
 ///
 /// Cheaply clonable.
-///
-/// # Examples
-///
-#[doc = include_snippet!("substrate", "generate")]
 #[derive(Clone)]
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,

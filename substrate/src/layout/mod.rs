@@ -1,12 +1,4 @@
 //! Substrate's layout generator framework.
-//!
-//! # Examples
-//!
-//! ## Simple
-#![doc = include_snippet!("substrate", "inverter_layout")]
-//!
-//! ## With data
-#![doc = include_snippet!("substrate", "buffer_layout")]
 
 use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc, thread};
@@ -24,7 +16,6 @@ use geometry::{
 use layir::LayerBbox;
 use once_cell::sync::OnceCell;
 use schema::Schema;
-use snippets::include_snippet;
 
 use crate::context::Context;
 use crate::error::Error;
@@ -97,10 +88,6 @@ impl LayoutContext {
 ///
 /// Stores its underlying block, extra data created during generation, as well as a raw cell
 /// containing its primitive elements.
-///
-/// # Examples
-///
-#[doc = include_snippet!("substrate", "generate")]
 #[allow(dead_code)]
 pub struct Cell<T: Layout> {
     /// Block whose layout this cell represents.
@@ -503,10 +490,6 @@ impl<S: Schema> CellBuilder<S> {
     ///
     /// Returns immediately, allowing generation to complete in the background. Attempting to
     /// access the generated instance's cell will block until generation is complete.
-    ///
-    /// # Examples
-    ///
-    #[doc = include_snippet!("substrate", "cell_builder_generate")]
     pub fn generate<I: Layout>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
         Instance::new(cell)

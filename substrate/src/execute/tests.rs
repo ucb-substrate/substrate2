@@ -3,7 +3,7 @@ use std::process::Command;
 
 use substrate::execute::{ExecOpts, Executor, LsfExecutor};
 
-use crate::paths::get_path;
+use tests::get_path;
 
 #[test]
 #[ignore = "flaky"]

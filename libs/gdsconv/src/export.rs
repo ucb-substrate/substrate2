@@ -9,7 +9,7 @@ use geometry::{
     prelude::{Orientation, Polygon},
     rect::Rect,
 };
-use layir::{Cell, Element, Instance, Library, LibraryBuilder, Shape, Text};
+use layir::{Cell, Element, Instance, Library, Shape, Text};
 
 use crate::GdsLayer;
 
@@ -29,7 +29,7 @@ struct GdsExporter<'a> {
     lib: &'a Library<GdsLayer>,
 }
 
-impl<'a> GdsExporter<'a> {
+impl GdsExporter<'_> {
     fn export(mut self) -> GdsLibrary {
         let mut gds = if let Some(units) = self.opts.units.clone() {
             GdsLibrary::with_units(self.opts.name.clone(), units)

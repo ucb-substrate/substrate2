@@ -41,12 +41,11 @@ pub fn build_snippets(source: impl AsRef<Path>, prefix: impl AsRef<str>) {
         }
     }
 
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join(prefix);
+    std::fs::create_dir_all(&out_dir).expect("failed to create parent directories for {out_dir:?}");
 
     for snippet in &snippets {
-        let out_file = out_dir.join(prefix).join(snippet);
-        std::fs::create_dir_all(out_file.parent().unwrap())
-            .expect("failed to create parent directories for {out_file:?}");
+        let out_file = out_dir.join(snippet);
 
         std::fs::write(&out_file, build_snippet(&contents, snippet))
             .expect(&format!("failed to write build snippet at {out_file:?}"));

@@ -19,8 +19,6 @@ use codegen::simulator_tuples;
 
 pub mod data;
 pub mod options;
-#[cfg(test)]
-mod tests;
 pub mod waveform;
 
 /// A process-voltage-temperature corner.

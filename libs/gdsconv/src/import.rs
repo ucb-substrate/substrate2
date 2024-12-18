@@ -13,10 +13,7 @@ use geometry::{
     span::Span,
     transform::Rotation,
 };
-use layir::{Cell, CellId, Element, Instance, Library, LibraryBuilder, Shape, Text};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
+use layir::{Cell, CellId, Instance, Library, LibraryBuilder, Shape, Text};
 use slotmap::new_key_type;
 use tracing::{span, Level};
 
@@ -25,41 +22,6 @@ use crate::GdsLayer;
 new_key_type! {
     /// A key used for identifying elements when importing a GDSII file.
     pub struct ElementKey;
-}
-
-/// A trait that describes where to place a label for a given shape.
-trait PlaceLabels {
-    /// Computes a [`Point`] that lies within `self`.
-    ///
-    /// Allows for placing labels on an arbitrary shape.
-    fn label_loc(&self) -> Point;
-}
-
-impl<L> PlaceLabels for Shape<L> {
-    fn label_loc(&self) -> Point {
-        self.shape().label_loc()
-    }
-}
-
-impl PlaceLabels for geometry::shape::Shape {
-    fn label_loc(&self) -> Point {
-        match self {
-            geometry::shape::Shape::Rect(ref r) => r.label_loc(),
-            geometry::shape::Shape::Polygon(ref p) => p.label_loc(),
-        }
-    }
-}
-
-impl PlaceLabels for Rect {
-    fn label_loc(&self) -> Point {
-        self.center()
-    }
-}
-
-impl PlaceLabels for Polygon {
-    fn label_loc(&self) -> Point {
-        self.center()
-    }
 }
 
 pub struct GdsImportOpts {

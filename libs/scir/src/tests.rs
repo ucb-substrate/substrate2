@@ -319,13 +319,12 @@ fn name_path_conversion() {
 
 #[test]
 fn merge_scir_libraries() {
-    let mut lib1 = (*vdivider::<Spice>()).clone();
-    let lib2 = vdivider::<Spice>();
-    let mapping = lib1.merge(lib2.clone().into_builder());
+    let mut lib1 = LibraryBuilder::<StringSchema>::new();
+    lib1.add_cell(Cell::new("vdivider"));
+    let mapping = lib1.merge(lib1.clone());
 
-    let preserved_id = lib1.cell_id_named("vdivider");
-    let old_id = lib2.cell_id_named("vdivider");
-    let new_id = mapping.new_cell_id(old_id);
+    let vdivider_id = lib1.cell_id_named("vdivider");
+    let new_id = mapping.new_cell_id(vdivider_id);
 
     let issues = lib1.validate();
     assert_eq!(issues.num_warnings(), 0);
@@ -337,5 +336,5 @@ fn merge_scir_libraries() {
 
     assert_ne!(new_name, "vdivider");
     assert!(new_name.starts_with("vdivider"));
-    assert_eq!(lib1.cell(preserved_id).name(), "vdivider");
+    assert_eq!(lib1.cell(vdivider_id).name(), "vdivider");
 }
