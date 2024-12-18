@@ -90,32 +90,26 @@ pub fn run_pex(params: &PexParams) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use crate::pex::*;
-    use crate::tests::{EXAMPLES_PATH, SKY130_DRC, SKY130_DRC_RULES_PATH, TEST_BUILD_PATH};
-    use crate::RuleCheck;
-    use std::collections::HashMap;
+    use crate::tests::{EXAMPLES_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
     use std::path::PathBuf;
 
     #[test]
     fn test_run_magic_pex() -> anyhow::Result<()> {
-        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_peripherals.gds");
+        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_sky130_and3.gds");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_magic_pex");
         let pex_netlist_path = work_dir.join("col_peripherals.pex.spice");
+        let _ = std::fs::remove_file(&pex_netlist_path);
+        assert!(!pex_netlist_path.exists());
 
-        let data = run_pex(&PexParams {
+        run_pex(&PexParams {
             work_dir: &work_dir,
             gds_path: &gds_path,
             cell_name: "col_peripherals",
-
+            tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
             pex_netlist_path: &pex_netlist_path,
         })?;
 
-        assert_eq!(
-            data.rule_checks
-                .into_iter()
-                .filter(test_check_filter)
-                .count(),
-            0
-        );
+        assert!(pex_netlist_path.exists());
 
         Ok(())
     }
