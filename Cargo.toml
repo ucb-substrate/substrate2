@@ -34,7 +34,7 @@ members = [
     "tools/ngspice",
     "tools/pegasus",
     "tools/quantus",
-    "tools/spectre",
+    "tools/spectre", "tools/magic-netgen", "examples2/colbuf",
 ]
 
 exclude = ["examples"]

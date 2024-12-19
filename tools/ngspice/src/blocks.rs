@@ -4,10 +4,8 @@ use crate::{Ngspice, Primitive};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::io::schematic::HardwareType;
-use substrate::io::TwoTerminalIo;
-use substrate::schematic::primitives::DcVsource;
-use substrate::schematic::{CellBuilder, ExportsNestedData, PrimitiveBinding, Schematic};
+use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
+use substrate::types::TwoTerminalIo;
 
 /// Data associated with a pulse [`Vsource`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -52,32 +50,18 @@ impl Vsource {
     }
 }
 
-impl ExportsNestedData for Vsource {
+impl Schematic for Vsource {
+    type Schema = Ngspice;
     type NestedData = ();
-}
-
-impl Schematic<Ngspice> for Vsource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Ngspice>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Vsource(*self));
         prim.connect("P", io.p);
         prim.connect("N", io.n);
         cell.set_primitive(prim);
-        Ok(())
-    }
-}
-
-impl Schematic<Ngspice> for DcVsource {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Ngspice>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        cell.flatten();
-        cell.instantiate_connected(Vsource::dc(self.value()), io);
         Ok(())
     }
 }
@@ -104,15 +88,14 @@ impl Isource {
     }
 }
 
-impl ExportsNestedData for Isource {
+impl Schematic for Isource {
+    type Schema = Ngspice;
     type NestedData = ();
-}
 
-impl Schematic<Ngspice> for Isource {
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Ngspice>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = PrimitiveBinding::new(Primitive::Isource(*self));
         prim.connect("P", io.p);

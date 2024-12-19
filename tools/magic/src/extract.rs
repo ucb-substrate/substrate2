@@ -30,7 +30,7 @@ pub struct ExtractGeneratedPaths {
     run_script_path: PathBuf,
 }
 
-pub fn write_extract_files(params: &ExtractParams) -> Result<ExtractGeneratedPaths, Error> {
+fn write_extract_files(params: &ExtractParams) -> Result<ExtractGeneratedPaths, Error> {
     fs::create_dir_all(params.work_dir).map_err(Error::Io)?;
 
     let tcl_path = params.work_dir.join("lvs_extract.tcl");
