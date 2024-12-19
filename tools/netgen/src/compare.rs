@@ -50,7 +50,7 @@ pub struct CompareOutput<'a> {
     pub node1_mappings: HashMap<&'a str, String>,
 }
 
-pub fn write_compare_files(params: &CompareParams) -> Result<CompareGeneratedPaths, Error> {
+fn write_compare_files(params: &CompareParams) -> Result<CompareGeneratedPaths, Error> {
     fs::create_dir_all(params.work_dir).map_err(Error::Io)?;
 
     let compare_results_path = params.work_dir.join("compare_results.rpt");
@@ -106,7 +106,7 @@ fn run_compare_inner(
     execute_run_script(run_script_path.as_ref(), &work_dir, "compare")
 }
 
-pub fn run_compare<'a>(params: &'a CompareParams) -> Result<CompareOutput<'a>, Error> {
+pub fn compare<'a>(params: &'a CompareParams) -> Result<CompareOutput<'a>, Error> {
     let CompareGeneratedPaths {
         run_script_path,
         compare_results_path,
@@ -147,29 +147,54 @@ pub fn run_compare<'a>(params: &'a CompareParams) -> Result<CompareOutput<'a>, E
 #[cfg(test)]
 mod tests {
     use crate::compare::*;
-    use crate::tests::{EXAMPLES_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
+    use crate::tests::{EXAMPLES_PATH, SKY130_SETUP_FILE, TEST_BUILD_PATH};
     use std::path::PathBuf;
 
     #[test]
-    fn test_run_magic_compare() -> anyhow::Result<()> {
-        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
-        let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_magic_compare");
-        let netlist_path = work_dir.join("test_col_inv_array.compare.spice");
-        let _ = std::fs::remove_file(&netlist_path);
-        assert!(!netlist_path.exists());
+    fn test_compare_with_node_matching() -> anyhow::Result<()> {
+        let netlist1_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.spice");
+        let netlist2_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.layout.spice");
+        let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_compare_with_node_matching");
+        let setup_file_path = PathBuf::from(SKY130_SETUP_FILE);
+        let nodes = ["din_1", "din_b_2", "vdd", "vss"];
 
-        run_compare(&CompareParams {
+        let params = CompareParams {
+            netlist1_path: &netlist1_path,
+            cell1: "col_inv_array",
+            netlist2_path: &netlist2_path,
+            cell2: "col_inv_array",
             work_dir: &work_dir,
-            gds_path: &gds_path,
-            cell_name: "test_col_inv_array",
-            tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
-            netlist_path: &netlist_path,
-        })?;
+            node1_mappings: &nodes,
+            setup_file_path: &setup_file_path,
+        };
+        let output = compare(&params)?;
+        assert!(output.matches);
+        for node in nodes {
+            assert_eq!(output.node1_mappings[node], node);
+        }
 
-        assert!(netlist_path.exists());
-        let meta = std::fs::metadata(netlist_path).unwrap();
-        assert!(meta.is_file());
-        assert!(meta.len() > 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_compare_mismatched() -> anyhow::Result<()> {
+        let netlist1_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.spice");
+        let netlist2_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.bad.spice");
+        let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_compare_mismatched");
+        let setup_file_path = PathBuf::from(SKY130_SETUP_FILE);
+        let nodes = [];
+
+        let params = CompareParams {
+            netlist1_path: &netlist1_path,
+            cell1: "col_inv_array",
+            netlist2_path: &netlist2_path,
+            cell2: "col_inv_array",
+            work_dir: &work_dir,
+            node1_mappings: &nodes,
+            setup_file_path: &setup_file_path,
+        };
+        let output = compare(&params)?;
+        assert!(!output.matches);
 
         Ok(())
     }
