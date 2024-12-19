@@ -1,11 +1,10 @@
-//! Magic plugin for Substrate.
+//! Netgen plugin for Substrate.
 
 use lazy_static::lazy_static;
 use tera::Tera;
 
+pub mod compare;
 pub mod error;
-pub mod extract;
-pub mod pex;
 pub mod utils;
 
 pub const TEMPLATES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/templates");
@@ -25,5 +24,6 @@ lazy_static! {
 mod tests {
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
     pub const EXAMPLES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
-    pub const SKY130_TECH_FILE: &str = concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
+    pub const SKY130_SETUP_FILE: &str =
+        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
 }

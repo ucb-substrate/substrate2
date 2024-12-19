@@ -32,7 +32,7 @@ pub fn execute_run_script(
         .map_err(Error::Io)?;
 
     if !status.success() {
-        return Err(Error::Magic(status));
+        return Err(Error::Netgen(status));
     }
 
     Ok(())

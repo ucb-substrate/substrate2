@@ -30,6 +30,8 @@
     "pdks/sky130pdk": {},
     "substrate": {},
     "tests": {},
+    "tools/magic": {},
+    "tools/netgen": {},
     "tools/ngspice": {},
     "tools/pegasus": {},
     "tools/quantus": {},
