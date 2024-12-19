@@ -31,11 +31,6 @@ impl ToTokens for BlockInputReceiver {
         } = *self;
 
         let mut generics = generics.clone();
-        add_trait_bounds(&mut generics, quote!(#substrate::serde::Serialize));
-        add_trait_bounds(
-            &mut generics,
-            quote!(#substrate::serde::de::DeserializeOwned),
-        );
         add_trait_bounds(&mut generics, quote!(::std::hash::Hash));
         add_trait_bounds(&mut generics, quote!(::std::cmp::Eq));
         add_trait_bounds(&mut generics, quote!(::std::marker::Send));
@@ -49,9 +44,6 @@ impl ToTokens for BlockInputReceiver {
             impl #imp #substrate::block::Block for #ident #ty #wher {
                 type Io = #io;
 
-                fn id() -> #substrate::arcstr::ArcStr {
-                    #substrate::arcstr::literal!(::std::concat!(::std::module_path!(), "::", ::std::stringify!(#ident)))
-                }
                 fn name(&self) -> #substrate::arcstr::ArcStr {
                     #substrate::arcstr::literal!(#name)
                 }

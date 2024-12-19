@@ -1,0 +1,10 @@
+extract -selection "all" -type "rc_decoupled"
+input_db -type pegasus \
+  -directory_name {{ lvs_work_dir }} \
+  -run_name "{{ lvs_run_name }}"
+output_setup \
+  -file_name "{{ pex_netlist_path }}" \
+  -net_name_space "SCHEMATIC" \
+  -temporary_directory_name "pex_tmp"
+process_technology \
+  -technology_directory "{{ technology_dir }}"

@@ -1,0 +1,4 @@
+* GENERATED FILE
+{% for path in source_paths %}
+.include {{path}}
+{% endfor %}

@@ -38,7 +38,7 @@ tonic-build = "0.10"
 [dev-dependencies]
 crossbeam-channel = "0.5"
 anyhow = "1"
-test-log = { version = "0.2", default_features = false, features = ["trace"] }
+test-log = { version = "0.2", default-features = false, features = ["trace"] }
 
 [[bin]]
 name="server"

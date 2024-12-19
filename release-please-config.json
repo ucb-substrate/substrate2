@@ -15,10 +15,12 @@
     "libs/enumify": {},
     "libs/enumify_macros": {},
     "libs/gds": {},
+    "libs/gdsconv": {},
     "libs/geometry": {},
     "libs/pathtree": {},
     "libs/scir": {},
     "libs/spice": {},
+    "libs/layir": {},
     "libs/lefdef": {},
     "libs/nutlex": {},
     "libs/type_dispatch": {},
@@ -28,7 +30,11 @@
     "pdks/sky130pdk": {},
     "substrate": {},
     "tests": {},
+    "tools/magic": {},
+    "tools/netgen": {},
     "tools/ngspice": {},
+    "tools/pegasus": {},
+    "tools/quantus": {},
     "tools/spectre": {}
   }
 }

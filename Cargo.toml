@@ -10,9 +10,11 @@ members = [
     "libs/atoll",
     "libs/cache",
     "libs/diagnostics",
+    "libs/layir",
     "libs/enumify",
     "libs/enumify_macros",
     "libs/gds",
+    "libs/gdsconv",
     "libs/geometry",
     "libs/geometry_macros",
     "libs/lefdef",
@@ -27,7 +29,11 @@ members = [
     "pdks/sky130pdk",
     "substrate",
     "tests",
+    "tools/magic",
+    "tools/netgen",
     "tools/ngspice",
+    "tools/pegasus",
+    "tools/quantus",
     "tools/spectre",
 ]
 

@@ -151,12 +151,11 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let schematic = schematic_io(&input);
-    let layout = layout_io(&input);
-    let io_core_impl = io_core_impl(&input);
+    // let layout = layout_io(&input);
+    let io_core_impl = io_core_impl(&input, true);
     quote!(
         #io_core_impl
         #schematic
-        #layout
     )
     .into()
 }
@@ -175,7 +174,7 @@ pub fn derive_layout_type(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let input = handle_error!(IoInputReceiver::from_derive_input(&parsed));
     let layout = layout_io(&input);
-    let io_core_impl = io_core_impl(&input);
+    let io_core_impl = io_core_impl(&input, false);
     quote!(
         #io_core_impl
         #layout
@@ -219,10 +218,9 @@ pub fn derive_nested_data(input: TokenStream) -> TokenStream {
 ///
 /// You must specify the block's IO by adding a `#[substrate(io = "IoType")]` attribute:
 /// ```
-/// use serde::{Serialize, Deserialize};
 /// use substrate::block::Block;
 ///
-/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+/// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 /// #[substrate(io = "substrate::io::TestbenchIo")]
 /// pub struct MyBlock {
 ///   // ...
@@ -293,28 +291,6 @@ pub fn simulator_tuples(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Layout, attributes(substrate))]
 pub fn derive_has_layout_impl(input: TokenStream) -> TokenStream {
     let receiver = block::layout::HasLayoutInputReceiver::from_derive_input(&parse_macro_input!(
-        input as DeriveInput
-    ));
-    let receiver = handle_error!(receiver);
-    quote!(
-        #receiver
-    )
-    .into()
-}
-
-/// Generates an implementation of `FromSaved<Sim, Analysis>` for a type.
-///
-/// All fields of the type must implement `FromSaved`.
-/// Unit structs are not supported. Enums that do not embed a field in at least
-/// one variant are also not supported.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "sim_from_saved")]
-#[proc_macro_error]
-#[proc_macro_derive(FromSaved, attributes(substrate))]
-pub fn derive_from_saved(input: TokenStream) -> TokenStream {
-    let receiver = sim::save::FromSavedInputReceiver::from_derive_input(&parse_macro_input!(
         input as DeriveInput
     ));
     let receiver = handle_error!(receiver);

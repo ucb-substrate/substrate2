@@ -2,7 +2,7 @@
 
 use arcstr::ArcStr;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use std::io::{Result, Write};
 use std::path::PathBuf;
@@ -317,6 +317,22 @@ impl HasSpiceLikeNetlist for Spice {
                 writeln!(out)?;
             }
         }
+
+        let includes = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::RawInstanceWithInclude { netlist, .. } = p.1 {
+                    Some(netlist.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
+        for include in includes.iter().sorted() {
+            writeln!(out, ".INCLUDE {:?}", include)?;
+        }
+
         Ok(())
     }
 
@@ -466,17 +482,15 @@ impl HasSpiceLikeNetlist for Spice {
                 }
                 name
             }
-            Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            }
-            | Primitive::RawInstanceWithCell {
-                cell,
-                ports,
-                params,
-                ..
-            } => {
+            Primitive::RawInstance { cell, ports, .. }
+            | Primitive::RawInstanceWithCell { cell, ports, .. }
+            | Primitive::RawInstanceWithInclude { cell, ports, .. } => {
+                let default_params = HashMap::new();
+                let params = match &primitive {
+                    Primitive::RawInstance { params, .. }
+                    | Primitive::RawInstanceWithCell { params, .. } => params,
+                    _ => &default_params,
+                };
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {
