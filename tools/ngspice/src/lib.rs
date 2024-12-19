@@ -37,6 +37,8 @@ use unicase::UniCase;
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
+#[cfg(test)]
+mod tests;
 pub mod tran;
 
 /// ngspice primitives.

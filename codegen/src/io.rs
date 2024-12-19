@@ -492,6 +492,15 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
     } = *input;
 
     let (generics_imp, generics_ty, generics_wher) = generics.split_for_impl();
+    let generic_idents = generics
+        .params
+        .iter()
+        .map(|generic| match generic {
+            GenericParam::Lifetime(lt) => lt.lifetime.ident.clone(),
+            GenericParam::Type(ty) => ty.ident.clone(),
+            GenericParam::Const(c) => c.ident.clone(),
+        })
+        .collect::<Vec<_>>();
 
     let bundle_ident = format_ident!("{}Bundle", ident);
     let bundle_type_ident = format_ident!("{}BundleKind", ident);
@@ -562,10 +571,18 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
         },
         predicates: Default::default(),
     });
+    let mut custom_bundle_where_clause = bundle_wher.cloned().unwrap_or(WhereClause {
+        where_token: Where {
+            span: Span::call_site(),
+        },
+        predicates: Default::default(),
+    });
     for f in fields.iter() {
         let ty = &f.ty;
         bundle_where_clause.predicates.push(parse_quote!(
             #ty: #substrate::types::codegen::HasView<#bundle_primitive_ty>));
+        custom_bundle_where_clause.predicates.push(parse_quote!(
+            #ty: #substrate::types::codegen::HasView<#substrate::types::codegen::Custom<#bundle_primitive_ty>>));
     }
     let mut has_bundle_kind_where_clause = bundle_where_clause.clone();
     let mut bundle_flat_len_where_clause = bundle_where_clause.clone();
@@ -744,6 +761,10 @@ pub(crate) fn io_core_impl(input: &IoInputReceiver, flatten_dir: bool) -> TokenS
         impl #hnt_imp #substrate::types::codegen::ViewSource for #bundle_type_ident #hnt_ty {
             type Kind = #substrate::types::codegen::FromSelf;
             type Source = Self;
+        }
+
+        impl #bundle_imp #substrate::types::codegen::HasCustomView<#bundle_primitive_ty> for #bundle_type_ident #hnt_ty #custom_bundle_where_clause {
+            type View = #bundle_ident<#(#generic_idents),*#substrate::types::codegen::Custom<#bundle_primitive_ty>>;
         }
 
         impl #bundle_imp #substrate::types::HasBundleKind for #bundle_ident #bundle_ty #has_bundle_kind_where_clause {

@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    schematic::{HasNestedView, InstancePath, NestedView},
+    schematic::{HasNestedView, Instance, InstancePath, NestedInstance, NestedView, Schematic},
     simulation::{data::Save, Analysis, Simulator},
 };
 
@@ -34,6 +34,16 @@ pub trait ViewSource {
 
 pub trait HasViewImpl<V, S = FromSelf> {
     type View;
+}
+
+pub struct Custom<T>(PhantomData<T>);
+
+pub trait HasCustomView<V>: ViewSource<Kind = FromSelf> {
+    type View;
+}
+
+impl<V, T: HasCustomView<V>> HasViewImpl<Custom<V>> for T {
+    type View = T::View;
 }
 
 impl<S: HasView<V>, V, T: ViewSource<Kind = FromOther, Source = S>> HasViewImpl<V, FromOther>
@@ -78,6 +88,21 @@ impl ViewSource for NestedTerminal {
 impl<T: ViewSource> ViewSource for Array<T> {
     type Kind = T::Kind;
     type Source = Array<T::Source>;
+}
+
+impl<T: Schematic> ViewSource for Instance<T> {
+    type Kind = FromSelf;
+    type Source = Self;
+}
+
+impl<T: Schematic> ViewSource for NestedInstance<T> {
+    type Kind = FromSelf;
+    type Source = Self;
+}
+
+impl<T: ViewSource> ViewSource for Vec<T> {
+    type Kind = T::Kind;
+    type Source = Vec<T::Source>;
 }
 
 macro_rules! impl_direction {
