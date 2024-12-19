@@ -1602,6 +1602,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "defc4c55412d89136f966bbb339008b474350e5e6e78d2714439c386b3137a03"
 
 [[package]]
+name = "netgen"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "regex",
+ "serde",
+ "tera",
+]
+
+[[package]]
 name = "ngspice"
 version = "0.3.1"
 dependencies = [

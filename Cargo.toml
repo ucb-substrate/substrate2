@@ -33,7 +33,7 @@ members = [
     "tools/ngspice",
     "tools/pegasus",
     "tools/quantus",
-    "tools/spectre",
+    "tools/spectre", "tools/netgen",
 ]
 
 exclude = ["examples"]
