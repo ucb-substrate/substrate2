@@ -8,14 +8,14 @@ lvs \
 # record node correspondences
 set nxffile [open "{{nxf_path}}" w]
 foreach pair [print -list nodes legal] {
-    puts "[lindex $pair 0] [lindex $pair 1]"
+    puts $nxffile "[lindex $pair 0] [lindex $pair 1]"
 }
 flush $nxffile
 close $nxffile
 
 set ixffile [open "{{ixf_path}}" w]
 foreach pair [print -list elements legal] {
-    puts "[lindex $pair 0] [lindex $pair 1]"
+    puts $ixffile "[lindex $pair 0] [lindex $pair 1]"
 }
 flush $ixffile
 close $ixffile
