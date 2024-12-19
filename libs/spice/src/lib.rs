@@ -13,8 +13,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use substrate::block::Block;
+use substrate::schematic::pex::StringPathSchema;
 use substrate::schematic::{CellBuilder, Schematic};
-use substrate::serde::{Deserialize, Serialize};
 use substrate::types::TwoTerminalIo;
 use unicase::UniCase;
 
@@ -101,8 +101,13 @@ impl Spice {
                 name.clone()
             }
         });
-        let n = path.len();
         path.iter().join(sep)
+    }
+}
+
+impl StringPathSchema for Spice {
+    fn node_path(lib: &Library<Self>, conv: &NetlistLibConversion, path: &SliceOnePath) -> String {
+        Self::node_path_with_separator(lib, conv, path, "/")
     }
 }
 

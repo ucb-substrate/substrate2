@@ -2,6 +2,7 @@
 
 pub mod conv;
 pub mod netlist;
+pub mod pex;
 pub mod schema;
 
 use cache::mem::TypeCache;

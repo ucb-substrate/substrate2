@@ -574,6 +574,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "colbuf"
+version = "0.0.0"
+dependencies = [
+ "approx",
+ "magic-netgen",
+ "ngspice",
+ "quantus",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "spectre",
+ "spice",
+ "substrate",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1542,6 +1557,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "magic-netgen"
+version = "0.0.0"
+dependencies = [
+ "magic",
+ "netgen",
+ "spice",
+ "substrate",
+]
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1606,6 +1631,7 @@ name = "netgen"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "arcstr",
  "lazy_static",
  "regex",
  "serde",
