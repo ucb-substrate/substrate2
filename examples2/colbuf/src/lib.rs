@@ -358,7 +358,7 @@ mod tests {
             .get_sim_controller(
                 OpenPexTb {
                     dut: magic_netgen::Pex {
-                        schematic: Arc::new(ColBufArray(Sky130Schema::Cadence)),
+                        schematic: Arc::new(ColBufArray(Sky130Schema::Open)),
                         gds_path: layout_path,
                         layout_cell_name: "test_col_buffer_array".into(),
                         work_dir,
