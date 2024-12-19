@@ -135,12 +135,20 @@ pub fn compare(params: &CompareParams) -> Result<CompareOutput, Error> {
     for line in reader.lines() {
         let line = line?;
         let mut iter = line.split_whitespace();
-        let n1 = iter.next().unwrap().trim();
-        let n2 = iter.next().unwrap().trim();
-        node_map.insert(n1.into(), n2.into());
+        let n1 = process_netgen_node_name(iter.next().unwrap().trim());
+        let n2 = process_netgen_node_name(iter.next().unwrap().trim());
+        node_map.insert(n1, n2);
     }
 
     Ok(CompareOutput { matches, node_map })
+}
+
+fn process_netgen_node_name(node: &str) -> ArcStr {
+    if node.contains(":") {
+        node.split(":").nth(1).unwrap().into()
+    } else {
+        node.into()
+    }
 }
 
 #[cfg(test)]
