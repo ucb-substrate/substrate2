@@ -182,7 +182,7 @@ mod tests {
         let netlist2_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.bad.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_compare_mismatched");
         let setup_file_path = PathBuf::from(SKY130_SETUP_FILE);
-        let nodes = [];
+        let nodes = ["din_24", "din_21", "din_b_21", "vdd", "vss"];
 
         let params = CompareParams {
             netlist1_path: &netlist1_path,

@@ -2,7 +2,7 @@ lvs \
     "{{netlist1_path}} {{cell1}}" \
     "{{netlist2_path}} {{cell2}}" \
     {{setup_file_path}} \
-    {{lvs_results_path}} \
+    {{compare_results_path}} \
     -json
 
 # record node correspondences
