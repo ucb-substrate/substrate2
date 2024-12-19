@@ -223,12 +223,12 @@ impl Schematic for CdsPexTb {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Block)]
 #[substrate(io = "TestbenchIo")]
 pub struct OpenPexTb {
-    pub dut: quantus::pex::Pex<ColBufArray>,
+    pub dut: magic_netgen::Pex<ColBufArray>,
 }
 
 impl Schematic for OpenPexTb {
     type Schema = Ngspice;
-    type NestedData = substrate::schematic::pex::NestedPexData<ColBufArray>;
+    type NestedData = magic_netgen::NestedPexData<ColBufArray>;
     fn schematic(
         &self,
         io: &substrate::types::schematic::IoNodeBundle<Self>,
@@ -264,19 +264,27 @@ mod tests {
     // TODO move these to sky130 crate
     pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
     pub const SKY130_LVS_RULES_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);
+        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl");
     pub const SKY130_TECHNOLOGY_DIR: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
-    pub const SKY130_TT_MODEL_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice",);
+        concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
+    pub const SKY130_CDS_TT_MODEL_PATH: &str =
+        concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
     pub const PEGASUS_EXAMPLES_PATH: &str =
         concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/pegasus/examples");
+    pub const SKY130_MAGIC_TECH_FILE: &str =
+        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
+    pub const SKY130_NETGEN_SETUP_FILE: &str =
+        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
+    pub const SKY130_NGSPICE_MODEL_PATH: &str = concat!(
+        env!("SKY130_OPEN_PDK_ROOT"),
+        "/libraries/sky130_fd_pr/latest/models/sky130.lib.spice"
+    );
 
     #[test]
-    fn test_sim_pex() {
+    fn test_sim_cadence_pex() {
         fn run(sim: SimController<Spectre, CdsPexTb>) -> f64 {
             let mut opts = Options::default();
-            opts.include(PathBuf::from(SKY130_TT_MODEL_PATH));
+            opts.include(PathBuf::from(SKY130_CDS_TT_MODEL_PATH));
             let out = sim
                 .simulate(
                     opts,
@@ -291,13 +299,13 @@ mod tests {
             *out.x_31.first().unwrap()
         }
 
-        let test_name = "test_sim_pex";
+        let test_name = "test_sim_cadence_pex";
         let sim_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("sim");
         let ctx = Context::builder().install(Spectre::default()).build();
 
         let layout_path =
             PathBuf::from(PEGASUS_EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
-        let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_sim_pex/pex");
+        let work_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("pex");
 
         let output = run(ctx
             .get_sim_controller(
@@ -310,6 +318,52 @@ mod tests {
                         lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
                         lvs_rules_dir: PathBuf::from(SKY130_LVS),
                         technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                    },
+                },
+                &sim_dir,
+            )
+            .unwrap());
+
+        assert_relative_eq!(output, 1.8, max_relative = 1e-2);
+    }
+
+    #[test]
+    fn test_sim_open_pex() {
+        fn run(sim: SimController<Ngspice, OpenPexTb>) -> f64 {
+            let mut opts = ngspice::Options::default();
+            opts.include_section(PathBuf::from(SKY130_NGSPICE_MODEL_PATH), "tt");
+            let out = sim
+                .simulate(
+                    opts,
+                    ngspice::tran::Tran {
+                        stop: dec!(2e-9),
+                        step: dec!(2e-11),
+                        ..Default::default()
+                    },
+                )
+                .expect("failed to run simulation");
+
+            *out.x_31.first().unwrap()
+        }
+
+        let test_name = "test_sim_open_pex";
+        let sim_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("sim");
+        let ctx = Context::builder().install(Ngspice::default()).build();
+
+        let layout_path =
+            PathBuf::from(PEGASUS_EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let work_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("pex");
+
+        let output = run(ctx
+            .get_sim_controller(
+                OpenPexTb {
+                    dut: magic_netgen::Pex {
+                        schematic: Arc::new(ColBufArray(Sky130Schema::Cadence)),
+                        gds_path: layout_path,
+                        layout_cell_name: "test_col_buffer_array".into(),
+                        work_dir,
+                        magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
+                        netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
                     },
                 },
                 &sim_dir,

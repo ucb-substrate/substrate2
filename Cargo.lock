@@ -578,6 +578,7 @@ name = "colbuf"
 version = "0.0.0"
 dependencies = [
  "approx",
+ "magic-netgen",
  "ngspice",
  "quantus",
  "rust_decimal",
