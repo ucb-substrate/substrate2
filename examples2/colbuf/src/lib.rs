@@ -41,8 +41,8 @@ impl Schematic for ColInv {
             Sky130Schema::Open => {
                 r#"
                 .subckt col_data_inv din din_b vdd vss
-                X0 din_b din vss vss sky130_fd_pr__nfet_01v8 w=1.4u l=0.15u
-                X1 din_b din vdd vdd sky130_fd_pr__pfet_01v8 w=2.6u l=0.15u
+                X0 din_b din vss vss sky130_fd_pr__nfet_01v8 w=1.4 l=0.15
+                X1 din_b din vdd vdd sky130_fd_pr__pfet_01v8 w=2.6 l=0.15
                 .ends
             "#
             }
