@@ -147,7 +147,8 @@ pub fn field_decl(field: &Field) -> TokenStream {
         }
         None => {
             quote! {
-                #ty,
+                #(#attrs)*
+                #vis #ty,
             }
         }
     }
@@ -393,6 +394,18 @@ pub fn struct_body(style: Style, decl: bool, contents: TokenStream) -> TokenStre
             Style::Tuple => quote!( ( #contents ) ),
             Style::Struct => quote!( { #contents } ),
         }
+    }
+}
+
+pub fn struct_decl_with_where_clause(
+    style: Style,
+    contents: TokenStream,
+    where_clause: TokenStream,
+) -> TokenStream {
+    match style {
+        Style::Unit => quote!(#where_clause;),
+        Style::Tuple => quote!( ( #contents ) #where_clause; ),
+        Style::Struct => quote!( #where_clause { #contents } ),
     }
 }
 
@@ -660,29 +673,14 @@ impl DeriveInputHelper {
 
         let data_decl_token = self.get_data_decl_token();
 
-        let body = match &self.input.data {
+        let body_where_clause = match &self.input.data {
             Data::Struct(s) => {
                 let decls = s.fields.iter().map(field_decl).collect::<Vec<_>>();
-                let body = struct_body(Style::from(&s.fields), true, quote! { #( #decls )* });
-                if let Fields::Unnamed(_) = s.fields {
-                    println!(
-                        "{:?} {:?}",
-                        body.to_string(),
-                        decls
-                            .iter()
-                            .map(|decl| decl.to_string())
-                            .collect::<Vec<_>>()
-                    );
-                    println!(
-                        "{:?}",
-                        quote! {
-                            #(#attrs)*
-                            #vis #data_decl_token #ident #generics #where_clause #body
-                        }
-                        .to_string()
-                    );
-                }
-                body
+                struct_decl_with_where_clause(
+                    Style::from(&s.fields),
+                    quote! { #( #decls )* },
+                    where_clause.to_token_stream(),
+                )
             }
             Data::Enum(e) => {
                 let decls = e.variants.iter().map(variant_decl);
@@ -699,7 +697,7 @@ impl DeriveInputHelper {
 
         quote! {
             #(#attrs)*
-            #vis #data_decl_token #ident #generics #where_clause #body
+            #vis #data_decl_token #ident #generics #body_where_clause
         }
     }
 

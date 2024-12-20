@@ -5,7 +5,7 @@ mod block;
 mod io;
 
 use darling::FromDeriveInput;
-use io::{bundle_kind, schematic_io, IoInputReceiver};
+use io::bundle_kind;
 use macrotools::{handle_darling_error, handle_syn_error, DeriveInputHelper, MapField};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -27,13 +27,10 @@ use syn::{parse_quote, Ident};
 #[proc_macro_derive(Io, attributes(substrate))]
 pub fn derive_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let input = handle_darling_error!(IoInputReceiver::from_derive_input(&parsed));
     let bundle_impl = handle_syn_error!(bundle_kind(&parsed, true));
-    let schematic = schematic_io(&input);
     // let layout = layout_io(&input);
     quote!(
         #bundle_impl
-        #schematic
     )
     .into()
 }
@@ -46,7 +43,6 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(LayoutBundle)]
 pub fn derive_layout_bundle(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let input = handle_darling_error!(IoInputReceiver::from_derive_input(&parsed));
     // let layout = layout_io(&input);
     quote!(
         // #io_core_impl
