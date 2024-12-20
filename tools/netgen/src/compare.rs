@@ -1,5 +1,6 @@
 use crate::utils::execute_run_script;
 use crate::{error::Error, TEMPLATES};
+use arcstr::ArcStr;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -18,7 +19,6 @@ pub struct CompareParams<'a> {
     pub cell2: &'a str,
     pub work_dir: &'a Path,
     pub setup_file_path: &'a Path,
-    pub node1_mappings: &'a [&'a str],
 }
 
 #[derive(Serialize)]
@@ -29,10 +29,10 @@ struct CompareRunsetContext<'a> {
     cell2: &'a str,
     work_dir: &'a Path,
     setup_file_path: &'a Path,
-    node1_mappings: &'a [&'a str],
     compare_results_path: &'a Path,
     run_script_path: &'a Path,
     nxf_path: &'a Path,
+    ixf_path: &'a Path,
     tcl_path: &'a Path,
     no_matching_node: &'a str,
 }
@@ -41,13 +41,14 @@ struct CompareGeneratedPaths {
     run_script_path: PathBuf,
     compare_results_path: PathBuf,
     nxf_path: PathBuf,
+    ixf_path: PathBuf,
 }
 
-pub struct CompareOutput<'a> {
+pub struct CompareOutput {
     /// Indicates whether or not the two input netlists matched.
     pub matches: bool,
     /// Mapping from netlist 1 node name to netlist 2 node name.
-    pub node1_mappings: HashMap<&'a str, String>,
+    pub node_map: HashMap<ArcStr, ArcStr>,
 }
 
 fn write_compare_files(params: &CompareParams) -> Result<CompareGeneratedPaths, Error> {
@@ -56,6 +57,7 @@ fn write_compare_files(params: &CompareParams) -> Result<CompareGeneratedPaths, 
     let compare_results_path = params.work_dir.join("compare_results.rpt");
     let run_script_path = params.work_dir.join("run_netgen.sh");
     let nxf_path = params.work_dir.join("mappings.nxf");
+    let ixf_path = params.work_dir.join("mappings.ixf");
     let tcl_path = params.work_dir.join("compare.tcl");
 
     let context = CompareRunsetContext {
@@ -65,10 +67,10 @@ fn write_compare_files(params: &CompareParams) -> Result<CompareGeneratedPaths, 
         cell2: params.cell2,
         work_dir: params.work_dir,
         setup_file_path: params.setup_file_path,
-        node1_mappings: params.node1_mappings,
         compare_results_path: &compare_results_path,
         run_script_path: &run_script_path,
         nxf_path: &nxf_path,
+        ixf_path: &ixf_path,
         tcl_path: &tcl_path,
         no_matching_node: NO_MATCHING_NODE,
     };
@@ -94,6 +96,7 @@ fn write_compare_files(params: &CompareParams) -> Result<CompareGeneratedPaths, 
         run_script_path,
         compare_results_path,
         nxf_path,
+        ixf_path,
     })
 }
 
@@ -106,16 +109,17 @@ fn run_compare_inner(
     execute_run_script(run_script_path.as_ref(), &work_dir, "compare")
 }
 
-pub fn compare<'a>(params: &'a CompareParams) -> Result<CompareOutput<'a>, Error> {
+pub fn compare(params: &CompareParams) -> Result<CompareOutput, Error> {
     let CompareGeneratedPaths {
         run_script_path,
         compare_results_path,
         nxf_path,
+        ..
     } = write_compare_files(params)?;
     run_compare_inner(params.work_dir, run_script_path)?;
 
-    let nxf = File::open(compare_results_path)?;
-    let reader = BufReader::new(nxf);
+    let f = File::open(compare_results_path)?;
+    let reader = BufReader::new(f);
     let mut matches = false;
     for line in reader.lines() {
         let line = line?;
@@ -127,21 +131,24 @@ pub fn compare<'a>(params: &'a CompareParams) -> Result<CompareOutput<'a>, Error
 
     let nxf = File::open(nxf_path)?;
     let reader = BufReader::new(nxf);
-    let mut node1_mappings = HashMap::new();
-    for (i, line) in reader.lines().enumerate() {
+    let mut node_map = HashMap::new();
+    for line in reader.lines() {
         let line = line?;
-        let node = line.trim();
-        if node == NO_MATCHING_NODE {
-            continue;
-        } else {
-            node1_mappings.insert(params.node1_mappings[i], node.to_string());
-        }
+        let mut iter = line.split_whitespace();
+        let n1 = process_netgen_node_name(iter.next().unwrap().trim());
+        let n2 = process_netgen_node_name(iter.next().unwrap().trim());
+        node_map.insert(n1, n2);
     }
 
-    Ok(CompareOutput {
-        matches,
-        node1_mappings,
-    })
+    Ok(CompareOutput { matches, node_map })
+}
+
+fn process_netgen_node_name(node: &str) -> ArcStr {
+    if node.contains(":") {
+        node.split(":").nth(1).unwrap().into()
+    } else {
+        node.into()
+    }
 }
 
 #[cfg(test)]
@@ -166,13 +173,12 @@ mod tests {
             netlist2_path: &netlist2_path,
             cell2: "col_inv_array",
             work_dir: &work_dir,
-            node1_mappings: &nodes,
             setup_file_path: &setup_file_path,
         };
         let output = compare(&params)?;
         assert!(output.matches);
         for node in nodes {
-            assert_eq!(output.node1_mappings[node], node);
+            assert_eq!(output.node_map[node], node);
         }
 
         Ok(())
@@ -184,7 +190,6 @@ mod tests {
         let netlist2_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.bad.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_compare_mismatched");
         let setup_file_path = PathBuf::from(SKY130_SETUP_FILE);
-        let nodes = ["din_24", "din_21", "din_b_21", "vdd", "vss"];
 
         let params = CompareParams {
             netlist1_path: &netlist1_path,
@@ -192,7 +197,6 @@ mod tests {
             netlist2_path: &netlist2_path,
             cell2: "col_inv_array",
             work_dir: &work_dir,
-            node1_mappings: &nodes,
             setup_file_path: &setup_file_path,
         };
         let output = compare(&params)?;

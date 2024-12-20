@@ -9,3 +9,4 @@ lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"
 regex = "1"
+arcstr = "1"

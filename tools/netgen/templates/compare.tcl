@@ -7,15 +7,16 @@ lvs \
 
 # record node correspondences
 set nxffile [open "{{nxf_path}}" w]
-{% for node in node1_mappings %}
-if {[catch {set node [matching node "{{node}}"]} errmsg]} {
-puts stderr "error trying to find matching node for {{node}}: $errmsg"
-puts $nxffile "{{no_matching_node}}"
-} else {
-puts $nxffile $node
+foreach pair [print -list nodes legal] {
+    puts $nxffile "[lindex $pair 0] [lindex $pair 1]"
 }
-{% endfor %}
-
 flush $nxffile
 close $nxffile
+
+set ixffile [open "{{ixf_path}}" w]
+foreach pair [print -list elements legal] {
+    puts $ixffile "[lindex $pair 0] [lindex $pair 1]"
+}
+flush $ixffile
+close $ixffile
 

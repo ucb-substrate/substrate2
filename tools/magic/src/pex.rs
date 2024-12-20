@@ -84,12 +84,12 @@ pub fn run_pex(params: &PexParams) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use crate::pex::*;
-    use crate::tests::{EXAMPLES_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
+    use crate::tests::{COLBUF_LAYOUT_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
     use std::path::PathBuf;
 
     #[test]
     fn test_run_magic_pex() -> anyhow::Result<()> {
-        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let gds_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_magic_pex");
         let pex_netlist_path = work_dir.join("test_col_buffer_array.pex.spice");
         let _ = std::fs::remove_file(&pex_netlist_path);
