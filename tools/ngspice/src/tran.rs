@@ -125,11 +125,12 @@ impl Save<Ngspice, Tran> for RawNestedNode {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Ngspice, Tran>>::SaveKey,
     ) -> <Self as Save<Ngspice, Tran>>::Saved {
-        output
-            .raw_values
-            .get(output.saved_values.get(&key.0).unwrap())
-            .unwrap()
-            .clone()
+        let name = output.saved_values.get(&key.0).unwrap();
+        println!("save name = {name}");
+        for (k, v) in output.raw_values.iter() {
+            println!("key = {k}");
+        }
+        output.raw_values.get(name).unwrap().clone()
     }
 }
 

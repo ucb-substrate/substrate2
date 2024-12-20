@@ -196,8 +196,16 @@ impl SavedData {
         conv: &NetlistLibConversion,
     ) -> std::io::Result<()> {
         match self {
-            Self::Save(save) => write!(out, ".save {}", save.to_save_string(lib, conv)),
-            Self::Probe(probe) => write!(out, ".probe {}", probe.to_probe_string(lib, conv)),
+            Self::Save(save) => write!(
+                out,
+                ".save {}",
+                save.to_save_string(lib, conv).to_lowercase()
+            ),
+            Self::Probe(probe) => write!(
+                out,
+                ".probe {}",
+                probe.to_probe_string(lib, conv).to_lowercase()
+            ),
         }
     }
 
@@ -207,8 +215,8 @@ impl SavedData {
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
-            Self::Save(save) => save.to_data_string(lib, conv),
-            Self::Probe(probe) => probe.to_data_string(lib, conv),
+            Self::Save(save) => save.to_data_string(lib, conv).to_lowercase().into(),
+            Self::Probe(probe) => probe.to_data_string(lib, conv).to_lowercase().into(),
         }
     }
 }

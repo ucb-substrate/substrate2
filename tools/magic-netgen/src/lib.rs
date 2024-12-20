@@ -78,11 +78,18 @@ where
             .join(format!("{}.lvs.spice", self.schematic.name()));
         let rawlib = cell.ctx().export_scir(self.schematic.clone()).unwrap();
 
-        let conv = Spice.write_scir_netlist_to_file(
+        let mut conv = Spice.write_scir_netlist_to_file(
             &rawlib.scir,
             &source_path,
             NetlistOptions::default(),
         )?;
+        for (_, cell) in conv.cells.iter_mut() {
+            for (_, inst_name) in cell.instances.iter_mut() {
+                let mut iter = inst_name.chars();
+                iter.next();
+                *inst_name = iter.as_str().into();
+            }
+        }
 
         let extract_dir = self.work_dir.join("extract");
         let compare_dir = self.work_dir.join("compare");
