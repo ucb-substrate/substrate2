@@ -20,3 +20,6 @@ scir = { version = "0.7.0", registry = "substrate", path = "../../libs/scir" }
 substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
 nutlex = { version = "0.2.0", registry = "substrate", path = "../../libs/nutlex" }
 spice = { version = "0.7.1", registry = "substrate", path = "../../libs/spice" }
+
+[dev-dependencies]
+approx = "0.5"

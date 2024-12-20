@@ -2,12 +2,12 @@
 #![warn(missing_docs)]
 
 use darling::FromDeriveInput;
+use macrotools::{derive_trait, DeriveTrait};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Ident};
-use type_dispatch::derive::{derive_trait, DeriveInputReceiver, DeriveTrait};
 
 macro_rules! handle_error {
     ($expression:expr) => {
@@ -24,7 +24,6 @@ macro_rules! handle_error {
 #[proc_macro_derive(TranslateMut)]
 pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
     let geometry = geometry_ident();
     let config = DeriveTrait {
         trait_: quote!(#geometry::transform::TranslateMut),
@@ -33,7 +32,7 @@ pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
         extra_arg_tys: vec![quote!(#geometry::point::Point)],
     };
 
-    let expanded = derive_trait(&config, receiver);
+    let expanded = derive_trait(&config, &parsed);
     proc_macro::TokenStream::from(expanded)
 }
 
@@ -41,7 +40,6 @@ pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TransformMut)]
 pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
-    let receiver = handle_error!(DeriveInputReceiver::from_derive_input(&parsed));
     let geometry = geometry_ident();
     let config = DeriveTrait {
         trait_: quote!(#geometry::transform::TransformMut),
@@ -50,7 +48,7 @@ pub fn derive_transform_mut(input: TokenStream) -> TokenStream {
         extra_arg_tys: vec![quote!(#geometry::transform::Transformation)],
     };
 
-    let expanded = derive_trait(&config, receiver);
+    let expanded = derive_trait(&config, &parsed);
     proc_macro::TokenStream::from(expanded)
 }
 

@@ -657,7 +657,7 @@ impl<PDK: Pdk> Draw<PDK> for &DebugAbstract {
                             let text = Text::new(
                                 layer_id,
                                 format!("({x},{y})"),
-                                Transformation::translate(pt.x as f64, pt.y as f64),
+                                Transformation::translate(pt.x, pt.y),
                             );
                             recv.draw(text)?;
                         }

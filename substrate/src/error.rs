@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use gds::GdsError;
 
+use crate::layout::conv::LayirExportError;
 use crate::layout::error::{GdsImportError, LayoutError};
 use crate::schematic::conv::ConvError;
 
@@ -23,6 +24,9 @@ pub enum Error {
     /// An internal Substrate error that indicates a bug in the source code.
     #[error("internal Substrate error")]
     Internal,
+    /// An error indicating that one or more fatal errors occured while building a cell.
+    #[error("fatal errors occured while building cell")]
+    CellBuildFatal,
     /// An error thrown by caching functions.
     #[error(transparent)]
     CacheError(#[from] Arc<cache::error::Error>),
@@ -50,6 +54,9 @@ pub enum Error {
     /// An error indicating that the schema does not support an instantiated primitive.
     #[error("schema does not support primitive")]
     UnsupportedPrimitive,
+    /// Indicates an error exporting a layout cell to LayIR.
+    #[error("error exporting to LayIR")]
+    LayirExport(#[from] LayirExportError),
 }
 
 impl From<std::io::Error> for Error {

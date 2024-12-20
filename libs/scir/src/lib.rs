@@ -37,15 +37,15 @@ use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 use uniquify::Names;
 
-pub mod merge;
-pub mod schema;
-mod slice;
-
 use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use crate::validation::ValidatorIssue;
 pub use slice::{Concat, IndexOwned, NamedSlice, NamedSliceOne, Slice, SliceOne, SliceRange};
 
 pub mod drivers;
+pub mod merge;
+pub mod netlist;
+pub mod schema;
+mod slice;
 pub mod validation;
 
 #[cfg(test)]
@@ -577,9 +577,9 @@ impl<S: Schema + ?Sized> Library<S> {
     ///
     /// A [`LibraryBuilder`] is created to indicate that validation must be done again
     /// to ensure errors were not introduced during the conversion.
-    pub fn convert_schema<C: Schema + ?Sized>(self) -> Result<LibraryBuilder<C>, C::Error>
+    pub fn convert_schema<C>(self) -> Result<LibraryBuilder<C>, C::Error>
     where
-        C: FromSchema<S>,
+        C: FromSchema<S> + ?Sized,
     {
         self.0.convert_schema()
     }
@@ -1444,9 +1444,9 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
     /// Converts a [`LibraryBuilder<S>`] into a [`LibraryBuilder<C>`].
     ///
     /// Instances associated with non-existent primitives will remain unchanged.
-    pub fn convert_schema<C: Schema + ?Sized>(self) -> Result<LibraryBuilder<C>, C::Error>
+    pub fn convert_schema<C>(self) -> Result<LibraryBuilder<C>, C::Error>
     where
-        C: FromSchema<S>,
+        C: FromSchema<S> + ?Sized,
     {
         self.convert_inner(C::convert_primitive, C::convert_instance)
     }

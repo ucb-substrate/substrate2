@@ -14,7 +14,7 @@ proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
 
-type_dispatch = { version = "0.3.0", registry = "substrate", path = "../type_dispatch" }
+macrotools = { version = "0.0.0", registry = "substrate", path = "../macrotools" }
 
 [lib]
 proc-macro = true
