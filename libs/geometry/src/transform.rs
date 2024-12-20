@@ -806,11 +806,6 @@ mod tests {
             Second { pt: Point },
         }
 
-        #[derive(Clone, Copy, TranslateMut)]
-        pub union Test {
-            f1: u64,
-        }
-
         let group = TwoPointGroup {
             p1: Point::new(100, 200),
             p2: Point::new(-400, 300),

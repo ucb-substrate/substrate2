@@ -1,19 +1,18 @@
-use std::path::{Path, PathBuf};
+//! Substrate integration tests.
+#![cfg(test)]
 
-pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data");
-
-#[inline]
-pub fn get_path(test_name: impl AsRef<Path>, file_name: impl AsRef<Path>) -> PathBuf {
-    let mut buf = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    buf.push("build");
-    buf.push(test_name);
-    buf.push(file_name);
-    buf
-}
-
-#[inline]
-pub fn test_data(file_name: impl AsRef<Path>) -> PathBuf {
-    let mut buf = PathBuf::from(TEST_DATA_DIR);
-    buf.push(file_name);
-    buf
-}
+mod atoll;
+#[cfg(feature = "lsf")]
+pub mod bsub;
+pub mod cache;
+pub mod derive;
+pub mod gds;
+pub mod hard_macro;
+pub mod layout;
+pub mod netlist;
+pub mod paths;
+pub mod pdk;
+pub mod schematic;
+pub mod scir;
+pub mod shared;
+pub mod sim;

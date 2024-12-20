@@ -4,13 +4,25 @@ use gds::{GdsLibrary, GdsUnits};
 use geometry::{prelude::Transformation, rect::Rect, shape::Shape as GShape};
 use layir::{Cell, Element, Instance, Library, LibraryBuilder, Shape, Text};
 use rust_decimal_macros::dec;
-use tests::{get_path, test_data};
 
 use crate::{
     export::{export_gds, GdsExportOpts},
     import::{import_gds, GdsImportOpts},
     GdsLayer,
 };
+
+const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
+const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
+
+#[inline]
+fn get_path(test_name: &str, file_name: &str) -> PathBuf {
+    PathBuf::from(BUILD_DIR).join(test_name).join(file_name)
+}
+
+#[inline]
+fn test_data(file_name: &str) -> PathBuf {
+    PathBuf::from(TEST_DATA_DIR).join(file_name)
+}
 
 fn gdslib() -> Library<GdsLayer> {
     let mut lib = LibraryBuilder::new();

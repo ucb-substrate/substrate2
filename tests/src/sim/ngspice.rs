@@ -1,38 +1,20 @@
-use std::path::PathBuf;
-
 use approx::relative_eq;
 use ngspice::blocks::Vsource;
 use ngspice::tran::Tran;
 use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spice::Resistor;
 use substrate::block::Block;
-use substrate::context::Context;
 use substrate::io::schematic::HardwareType;
 use substrate::io::{Signal, TestbenchIo};
+use substrate::schematic::primitives::Resistor;
 use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
 use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
+use test_log::test;
 
-use crate::Ngspice;
-
-const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
-
-#[inline]
-fn get_path(test_name: &str, file_name: &str) -> PathBuf {
-    PathBuf::from(BUILD_DIR).join(test_name).join(file_name)
-}
-
-#[inline]
-fn test_data(file_name: &str) -> PathBuf {
-    PathBuf::from(TEST_DATA_DIR).join(file_name)
-}
-
-fn ngspice_ctx() -> Context {
-    Context::builder().install(Ngspice::default()).build()
-}
+use crate::paths::get_path;
+use crate::shared::pdk::sky130_open_ctx;
 
 #[test]
 fn ngspice_can_save_voltages_and_currents() {
@@ -47,9 +29,11 @@ fn ngspice_can_save_voltages_and_currents() {
         r3: Instance<Resistor>,
     }
 
-    impl Schematic for ResistorTb {
-        type Schema = Ngspice;
+    impl ExportsNestedData for ResistorTb {
         type NestedData = ResistorTbData;
+    }
+
+    impl Schematic<Ngspice> for ResistorTb {
         fn schematic(
             &self,
             io: &<<Self as Block>::Io as HardwareType>::Bundle,

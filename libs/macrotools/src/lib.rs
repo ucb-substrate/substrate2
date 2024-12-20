@@ -47,7 +47,7 @@ pub fn add_trait_bounds(generics: &mut Generics, trait_: TokenStream) {
 
 /// Generates a [`struct@syn::Ident`] for a destructuring an element of a tuple.
 pub fn tuple_ident(idx: usize) -> syn::Ident {
-    format_ident!("__type_dispatch_derive_field{idx}")
+    format_ident!("__macrotools_derive_field{idx}")
 }
 
 pub fn pretty_ident(idx: usize, ident: &Option<Ident>) -> Ident {
@@ -166,6 +166,32 @@ pub fn field_referent(prefix: Option<&TokenStream>, idx: usize, field: &Field) -
     }
 }
 
+pub fn double_enum_field_referent(
+    prefixes: Option<(&TokenStream, &TokenStream)>,
+    idx: usize,
+    field: &Field,
+) -> (TokenStream, TokenStream) {
+    if let Some((prefix0, prefix1)) = prefixes {
+        if let Some(ident) = &field.ident {
+            (quote!(#prefix0.#ident), quote!(#prefix1.#ident))
+        } else {
+            (quote!(#prefix0.#idx), quote!(#prefix1.#idx))
+        }
+    } else {
+        let ident0 = field
+            .ident
+            .as_ref()
+            .map(|ident| format_ident!("{}_0", ident))
+            .unwrap_or_else(|| tuple_ident(2 * idx));
+        let ident1 = field
+            .ident
+            .as_ref()
+            .map(|ident| format_ident!("{}_1", ident))
+            .unwrap_or_else(|| tuple_ident(2 * idx + 1));
+        (ident0.to_token_stream(), ident1.to_token_stream())
+    }
+}
+
 pub fn field_assign(
     prefix: Option<&TokenStream>,
     idx: usize,
@@ -218,12 +244,12 @@ pub fn variant_map_arm(input_type: &Type, variant: &Variant, body: &TokenStream)
         .enumerate()
         .map(|(i, f)| f.ident.clone().unwrap_or_else(|| tuple_ident(i)));
     match fields {
-        Fields::Unit => quote!(#input_type::#ident => #body,),
+        Fields::Unit => quote!(#input_type::#ident => { #body },),
         Fields::Unnamed(_) => {
-            quote!(#input_type::#ident( #(#destructure),* ) => #body,)
+            quote!(#input_type::#ident( #(#destructure),* ) => { #body },)
         }
         Fields::Named(_) => {
-            quote!(#input_type::#ident { #(#destructure),* } => #body,)
+            quote!(#input_type::#ident { #(#destructure),* } => { #body },)
         }
     }
 }
@@ -263,12 +289,12 @@ pub fn double_variant_map_arm(
             })
     });
     match fields {
-        Fields::Unit => quote!((#input_type::#ident, #input_type::#ident) => #body,),
+        Fields::Unit => quote!((#input_type::#ident, #input_type::#ident) => { #body },),
         Fields::Unnamed(_) => {
-            quote!((#input_type::#ident( #(#destructure0),* ), #input_type::#ident( #(#destructure1),* )) => #body,)
+            quote!((#input_type::#ident( #(#destructure0),* ), #input_type::#ident( #(#destructure1),* )) => { #body },)
         }
         Fields::Named(_) => {
-            quote!((#input_type::#ident{ #(#destructure0),* }, #input_type::#ident{ #(#destructure1),* }) => #body,)
+            quote!((#input_type::#ident{ #(#destructure0),* }, #input_type::#ident{ #(#destructure1),* }) => { #body },)
         }
     }
 }
@@ -316,38 +342,13 @@ pub fn double_variant_assign_arm(
         ref fields,
         ..
     } = variant;
-    let destructure0 = fields.iter().enumerate().map(|(i, f)| {
-        f.ident
-            .as_ref()
-            .map(|ident| {
-                let new_ident = format_ident!("{}_0", ident);
-                quote! { #ident: #new_ident}
-            })
-            .unwrap_or_else(|| {
-                let ident = tuple_ident(2 * i);
-                quote! { #ident }
-            })
-    });
-    let destructure1 = fields.iter().enumerate().map(|(i, f)| {
-        f.ident
-            .as_ref()
-            .map(|ident| {
-                let new_ident = format_ident!("{}_1", ident);
-                quote! { #ident: #new_ident}
-            })
-            .unwrap_or_else(|| {
-                let ident = tuple_ident(2 * i + 1);
-                quote! { #ident }
-            })
-    });
     let assign = fields.iter().enumerate().map(|(i, f)| {
         let Field {
             ref ident, ref ty, ..
         } = f;
 
         let pretty = pretty_ident(i, ident);
-        let refer0 = field_referent(None, 2 * i, f);
-        let refer1 = field_referent(None, 2 * i + 1, f);
+        let (refer0, refer1) = double_enum_field_referent(None, i, f);
 
         let value = val(
             &MapField {
@@ -369,15 +370,19 @@ pub fn double_variant_assign_arm(
             None => quote! { #value, },
         }
     });
-    match fields {
-        Fields::Unit => quote!((#input_type::#ident, #input_type::#ident) => #output_type::#ident,),
-        Fields::Unnamed(_) => {
-            quote!((#input_type::#ident( #(#destructure0),* ), #input_type::#ident( #(#destructure1),* )) => #output_type::#ident( #(#assign)* ),)
-        }
-        Fields::Named(_) => {
-            quote!((#input_type::#ident{ #(#destructure0),* }, #input_type::#ident{ #(#destructure1),* }) => #output_type::#ident{ #(#assign)* },)
-        }
-    }
+    double_variant_map_arm(
+        input_type,
+        variant,
+        &match fields {
+            Fields::Unit => quote!(#output_type::#ident),
+            Fields::Unnamed(_) => {
+                quote!(#output_type::#ident( #(#assign)* ))
+            }
+            Fields::Named(_) => {
+                quote!(#output_type::#ident{ #(#assign)* })
+            }
+        },
+    )
 }
 
 /// Formats the contents of a struct body in the appropriate style.
@@ -685,6 +690,7 @@ impl DeriveInputHelper {
             Data::Enum(e) => {
                 let decls = e.variants.iter().map(variant_decl);
                 quote! {
+                    #where_clause
                     {
                         #( #decls )*
                     }
@@ -945,17 +951,18 @@ impl DeriveInputHelper {
                         .iter()
                         .enumerate()
                         .map(|(i, f)| {
+                            let (refer0, refer1) = double_enum_field_referent(None, i, f);
                             let field = (
                                 MapField {
                                     ty: f.ty.clone(),
                                     pretty_ident: pretty_ident(i, &f.ident),
-                                    refer: field_referent(None, i + 1, f),
+                                    refer: refer0,
                                     prev_tys: self.prev_types[field_idx].clone(),
                                 },
                                 MapField {
                                     ty: f.ty.clone(),
                                     pretty_ident: pretty_ident(i, &f.ident),
-                                    refer: field_referent(None, 2 * i + 1, f),
+                                    refer: refer1,
                                     prev_tys: self.prev_types[field_idx].clone(),
                                 },
                             );

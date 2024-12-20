@@ -198,13 +198,13 @@ fn impl_has_name_tree(helper: &DeriveInputHelper) -> TokenStream {
                 (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#ty as #substrate::types::HasNameTree>::names(&#refer))
             }
         );
-        quote! { #(#mapped_fields),* }
+        quote! { vec![ #(#mapped_fields),* ] }
     });
     helper.impl_trait(&ImplTrait {
         trait_name: quote! { #substrate::types::HasNameTree },
         trait_body: quote! {
             fn names(&self) -> ::std::option::Option<::std::vec::Vec<#substrate::types::NameTree>> {
-                let v: ::std::vec::Vec<#substrate::types::NameTree> = [ #name_fields ]
+                let v: ::std::vec::Vec<#substrate::types::NameTree> =  #name_fields 
                      .into_iter()
                      .filter_map(|(frag, children)| children.map(|c| #substrate::types::NameTree::new(frag, c)))
                      .collect();
@@ -243,31 +243,34 @@ fn impl_flatten_generic(helper: &DeriveInputHelper) -> TokenStream {
     })
 }
 
-fn impl_unflatten(helper: &DeriveInputHelper, bundle_kind: &syn::Type) -> TokenStream {
+fn impl_unflatten(kind_helper: &DeriveInputHelper, view_helper: &DeriveInputHelper, bundle_kind: &syn::Type) -> TokenStream {
     let substrate = substrate_ident();
     let unflatten_generic = parse_quote!{ __substrate_S };
-    let mut helper = helper.clone();
-    helper.push_where_predicate_per_field(
+    let mut kind_helper = kind_helper.clone();
+    let mut view_helper = view_helper.clone();
+    view_helper.push_where_predicate_per_field(
         |ty, prev_tys| {
             let prev_ty = &prev_tys[0];
             parse_quote! { #prev_ty: #substrate::types::HasBundleKind }
         },
     );
-    helper.push_where_predicate_per_field(
+    view_helper.push_where_predicate_per_field(
         |ty, prev_tys| {
             let prev_ty = &prev_tys[0];
             parse_quote! { #ty: #substrate::types::Unflatten<<#prev_ty as #substrate::types::HasBundleKind>::BundleKind, #unflatten_generic> }
         },
     );
     let unflatten_referent = quote!{ __substrate_data };
-    helper.set_referent(unflatten_referent.clone());
-    let unflatten_body = helper.map_data(
-        &helper.get_type(),
+    kind_helper.set_referent(unflatten_referent.clone());
+    let unflatten_body = kind_helper.map_data(
+        &view_helper.get_type(),
             |MapField { ty, refer, prev_tys, .. }| {
-                    let prev_ty = &prev_tys[0];
-                    quote! { <#ty as #substrate::types::Unflatten<<#prev_ty as #substrate::types::HasBundleKind>::BundleKind, #unflatten_generic>>::unflatten(&#refer, __substrate_source)? }
+                    let root_ty = if let Some(prev_ty) = prev_tys.first() {
+                        prev_ty
+                    } else { ty };
+                    quote! { <<#root_ty as #substrate::types::codegen::HasView<__substrate_V>>::View as #substrate::types::Unflatten<#ty, #unflatten_generic>>::unflatten(&#refer, __substrate_source)? }
             });
-    helper.impl_trait(&ImplTrait {
+    view_helper.impl_trait(&ImplTrait {
         trait_name: quote! { #substrate::types::Unflatten<#bundle_kind, #unflatten_generic> },
         trait_body: quote! {
             fn unflatten<__substrate_I>(#unflatten_referent: &#bundle_kind, __substrate_source: &mut __substrate_I) -> Option<Self>
@@ -292,11 +295,12 @@ fn impl_schematic_bundle_kind(kind_helper: &DeriveInputHelper, node_bundle_helpe
     let node_bundle_full_ty = node_bundle_helper.get_full_type();
     let terminal_bundle_full_ty = terminal_bundle_helper.get_full_type();
 
-    let terminal_view_body = schematic_bundle_kind_helper.double_map_data(
+    let terminal_view_body = node_bundle_helper.double_map_data(
         &terminal_bundle_helper.get_type(),
         (&quote!{ cell_io }, &quote!{ instance_io }),
-            |MapField { ty, refer: refer0, .. }, MapField { refer: refer1, .. }| {
-                quote!{<#ty as #substrate::types::schematic::SchematicBundleKind>::terminal_view(cell, #refer0, instance, #refer1)}
+            |MapField { refer: refer0, prev_tys, .. }, MapField { refer: refer1, .. }| {
+                let prev_ty = &prev_tys[0];
+                quote!{<<#prev_ty as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::SchematicBundleKind>::terminal_view(cell, #refer0, instance, #refer1)}
             }, quote!{ panic!("cell and instance IOs are not the same kind") });
 
     schematic_bundle_kind_helper.impl_trait(&ImplTrait {
@@ -449,7 +453,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     all_decls_impls.push(impl_has_bundle_kind(&has_bundle_kind_helper, &kind_helper));
     all_decls_impls.push(impl_flatlen(&view_helper));
     all_decls_impls.push(impl_flatten_generic(&view_helper));
-    all_decls_impls.push(impl_unflatten(&view_helper, &kind_type));
+    all_decls_impls.push(impl_unflatten(&kind_helper, &view_helper, &kind_type));
 
     // Implement schematic traits
     all_decls_impls.push(schematic_bundle_kind(&helper, &kind_helper, &view_helper));

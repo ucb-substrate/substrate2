@@ -44,9 +44,9 @@ use substrate::schematic::schema::Schema;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption, Temperature};
 use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
 use substrate::types::schematic::{NodePath, RawNestedNode};
 use templates::{write_run_script, RunScriptContext};
+use type_dispatch::impl_dispatch;
 
 pub mod analysis;
 pub mod blocks;

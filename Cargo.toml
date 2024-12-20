@@ -29,12 +29,12 @@ members = [
     "libs/verilog",
     # "pdks/sky130pdk",
     "substrate",
-    "tests",
+    # "tests",
     "tools/ngspice",
     "tools/pegasus",
     "tools/quantus",
     "tools/spectre"
 ]
 
-exclude = ["pdks/sky130pdk", "libs/atoll", "examples"]
+exclude = ["tests", "pdks/sky130pdk", "libs/atoll", "examples"]
 

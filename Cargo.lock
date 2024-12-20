@@ -1036,7 +1036,6 @@ dependencies = [
  "rust_decimal_macros",
  "serde",
  "slotmap",
- "tests",
  "tracing",
 ]
 
@@ -1127,7 +1126,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -1152,6 +1151,12 @@ dependencies = [
  "ahash 0.8.11",
  "allocator-api2",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 
 [[package]]
 name = "hashlink"
@@ -1333,12 +1338,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.2.6"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
+checksum = "62f822373a4fe84d4bb149bf54e584a7f4abec90e072ed49cda0edea5b95471f"
 dependencies = [
  "equivalent",
- "hashbrown 0.14.5",
+ "hashbrown 0.15.2",
  "serde",
 ]
 
@@ -1398,7 +1403,7 @@ dependencies = [
  "diagnostics",
  "enumify",
  "geometry",
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -1539,7 +1544,7 @@ version = "0.3.1"
 dependencies = [
  "arcstr",
  "cache",
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "lazy_static",
  "nutlex",
  "rust_decimal",
@@ -1814,7 +1819,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
 ]
 
 [[package]]
@@ -2292,7 +2297,7 @@ dependencies = [
  "arcstr",
  "diagnostics",
  "enumify",
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -2362,7 +2367,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "itoa",
  "ryu",
  "serde",
@@ -2553,7 +2558,7 @@ dependencies = [
  "gds",
  "geometry",
  "impl-trait-for-tuples",
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "layir",
  "lazy_static",
  "num",
@@ -2567,7 +2572,6 @@ dependencies = [
  "snippets",
  "splines",
  "test-log",
- "tests",
  "thiserror",
  "tracing",
  "type_dispatch",
@@ -2675,10 +2679,6 @@ dependencies = [
  "quote",
  "syn 2.0.90",
 ]
-
-[[package]]
-name = "tests"
-version = "0.0.0"
 
 [[package]]
 name = "textwrap"
@@ -2836,7 +2836,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -2847,7 +2847,7 @@ version = "0.20.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70f427fce4d84c72b5b732388bf4a9f4531b53f74e2887e3ecb2481f68f66d81"
 dependencies = [
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -2858,7 +2858,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8534fd7f78b5405e860340ad6575217ce99f38d4d5c8f2442cb5ecb50090e1"
 dependencies = [
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -2869,7 +2869,7 @@ version = "0.22.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1490595c74d930da779e944f5ba2ecdf538af67df1a9848cbd156af43c1b7cf0"
 dependencies = [
- "indexmap 2.2.6",
+ "indexmap 2.7.0",
  "serde",
  "serde_spanned",
  "toml_datetime",
