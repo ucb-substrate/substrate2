@@ -210,6 +210,9 @@ impl Schematic for CdsPexTb {
 
         cell.connect(dut.io().vdd, vdd);
         cell.connect(dut.io().vss, io.vss);
+        for i in 0..31 {
+            cell.connect(dut.io().din[i], vdd);
+        }
         cell.connect(dut.io().din[31], io.vss);
 
         let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
@@ -241,6 +244,9 @@ impl Schematic for OpenPexTb {
 
         cell.connect(dut.io().vdd, vdd);
         cell.connect(dut.io().vss, io.vss);
+        for i in 0..31 {
+            cell.connect(dut.io().din[i], vdd);
+        }
         cell.connect(dut.io().din[31], io.vss);
 
         let vsource = cell.instantiate(ngspice::blocks::Vsource::dc(dec!(1.8)));
