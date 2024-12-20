@@ -196,6 +196,35 @@ where
             .cell()
             .clone();
 
+        // Read the PEX netlist to determine order of ports in the PEX netlist
+        // (which may be different than the order of ports in the schematic netlist).
+        let spice =
+            spice::parser::Parser::parse_file(spice::parser::Dialect::Spice, &pex_netlist_path)
+                .expect("failed to parse pex netlist");
+        let subckt = spice
+            .ast
+            .elems
+            .iter()
+            .filter_map(|e| {
+                if let spice::parser::Elem::Subckt(s) = e {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
+            .find(|s| s.name.as_str() == self.layout_cell_name.as_str())
+            .expect("did not find layout cell in pex netlist");
+
+        let primitive = spice::Primitive::RawInstanceWithInclude {
+            cell: self.schematic.name(),
+            netlist: pex_netlist_path,
+            ports: subckt
+                .ports
+                .iter()
+                .map(|p| ArcStr::from(p.as_str()))
+                .collect(),
+        };
+
         let ports = self
             .io()
             .kind()
@@ -203,12 +232,6 @@ where
             .into_iter()
             .map(|n| arcstr::format!("{}", n))
             .collect::<Vec<ArcStr>>();
-
-        let primitive = spice::Primitive::RawInstanceWithInclude {
-            cell: self.schematic.name(),
-            netlist: pex_netlist_path,
-            ports: ports.clone(),
-        };
         let mut binding = PrimitiveBinding::new(primitive);
         for (n, name) in io.flatten_vec().iter().zip(ports.iter()) {
             binding.connect(name, n);
