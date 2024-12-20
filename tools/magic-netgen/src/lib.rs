@@ -1,18 +1,18 @@
 use magic::extract::{run_extract, ExtractParams};
 use magic::pex::{run_pex, PexParams};
 use netgen::compare::CompareParams;
+use scir::netlist::ConvertibleNetlister;
+use scir::NetlistLibConversion;
+use scir::{NamedSliceOne, SliceOnePath};
 use spice::netlist::NetlistOptions;
 use spice::Spice;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use substrate::schematic::conv::{ConvertedNodePath, RawLib};
-use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::{
     Cell, HasNestedView, InstancePath, NestedView, PrimitiveBinding, Schematic,
 };
-use substrate::scir::NetlistLibConversion;
-use substrate::scir::{NamedSliceOne, SliceOnePath};
 use substrate::simulation::data::{Save, SaveKey, Saved};
 use substrate::simulation::{Analysis, Simulator};
 use substrate::types::schematic::{NestedNode, RawNestedNode};

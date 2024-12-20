@@ -631,7 +631,7 @@ impl NodeContext {
         source_info: SourceInfo,
     ) -> (Vec<Node>, NodeBundle<K>) {
         let kind = kind.kind();
-        let nodes = self.nodes_undirected(kind.flat_names(None).len(), priority, source_info);
+        let nodes = self.nodes_undirected(kind.len(), priority, source_info);
         let data = NodeBundle::<K>::unflatten(&kind, &mut nodes.iter().copied()).unwrap();
         (nodes, data)
     }

@@ -1,6 +1,6 @@
 //! ngspice transient analysis options and data structures.
 
-use crate::{InstanceTail, Ngspice, SaveStmt};
+use crate::{InstanceTail, Ngspice, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
@@ -10,7 +10,7 @@ use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::simulation::data::{Save, SaveTime};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::types::schematic::{NestedNode, RawNestedNode};
+use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -131,6 +131,79 @@ impl Save<Ngspice, Tran> for RawNestedNode {
             println!("key = {k}");
         }
         output.raw_values.get(name).unwrap().clone()
+    }
+}
+
+pub struct NestedTerminalOutput {
+    pub v: Arc<Vec<f64>>,
+    pub i: Arc<Vec<f64>>,
+}
+
+impl Save<Ngspice, Tran> for NestedTerminal {
+    type SaveKey = (VoltageSaveKey, CurrentSaveKey);
+    type Saved = NestedTerminalOutput;
+
+    fn save(
+        &self,
+        ctx: &SimulationContext<Ngspice>,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
+        (
+            <NestedNode as Save<Ngspice, Tran>>::save(&*self, ctx, opts),
+            CurrentSaveKey(
+                ctx.lib
+                    .convert_terminal_path(&self.path())
+                    .unwrap()
+                    .into_iter()
+                    .flat_map(|path| {
+                        opts.probe_tran_current(ProbeStmt::ScirCurrent(match path {
+                            ConvertedNodePath::Cell(path) => path.clone(),
+                            ConvertedNodePath::Primitive {
+                                instances, port, ..
+                            } => SliceOnePath::new(
+                                instances.clone(),
+                                NamedSliceOne::new(port.clone()),
+                            ),
+                        }))
+                        .0
+                    })
+                    .collect(),
+            ),
+        )
+    }
+
+    fn from_saved(
+        output: &<Tran as Analysis>::Output,
+        key: &<Self as Save<Ngspice, Tran>>::SaveKey,
+    ) -> <Self as Save<Ngspice, Tran>>::Saved {
+        let v = output
+            .raw_values
+            .get(output.saved_values.get(&key.0 .0).unwrap())
+            .unwrap()
+            .clone();
+        let currents: Vec<Arc<Vec<f64>>> = key
+            .1
+             .0
+            .iter()
+            .map(|key| {
+                output
+                    .raw_values
+                    .get(output.saved_values.get(key).unwrap())
+                    .unwrap()
+                    .clone()
+            })
+            .collect();
+
+        let mut total_current = vec![0.; output.time.len()];
+        for tran_current in currents {
+            for (i, current) in tran_current.iter().enumerate() {
+                total_current[i] += *current;
+            }
+        }
+        NestedTerminalOutput {
+            v,
+            i: Arc::new(total_current),
+        }
     }
 }
 

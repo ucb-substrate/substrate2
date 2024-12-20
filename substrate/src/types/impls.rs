@@ -298,7 +298,7 @@ impl<T: HasBundleKind> HasBundleKind for ArrayBundle<T> {
 
 impl<T: HasBundleKind + FlatLen> FlatLen for ArrayBundle<T> {
     fn len(&self) -> usize {
-        self.elems.len() * self.kind.flat_names(None).len()
+        self.elems.len() * self.kind.len()
     }
 }
 

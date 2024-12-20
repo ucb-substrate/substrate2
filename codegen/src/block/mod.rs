@@ -1,12 +1,11 @@
 use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
+use macrotools::add_trait_bounds;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use type_dispatch::derive::add_trait_bounds;
 
 use crate::substrate_ident;
 
-pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, FromDeriveInput)]
@@ -15,9 +14,6 @@ pub struct BlockInputReceiver {
     ident: syn::Ident,
     generics: syn::Generics,
     io: syn::Type,
-    #[darling(multiple)]
-    #[allow(unused)]
-    layout: Vec<darling::util::Ignored>,
 }
 
 impl ToTokens for BlockInputReceiver {

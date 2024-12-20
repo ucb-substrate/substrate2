@@ -11,6 +11,7 @@ anyhow = "1"
 regex = "1"
 
 substrate = { version = "0.8.1", path = "../../substrate" }
+scir = { version = "0.7.0", path = "../../libs/scir" }
 spice = { version = "0.7.1", path = "../../libs/spice" }
 pegasus = { version = "0.0.0", path = "../pegasus" }
 

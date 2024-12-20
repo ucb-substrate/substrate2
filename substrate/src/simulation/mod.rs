@@ -15,7 +15,6 @@ use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
 use crate::schematic::{Cell, HasNestedView, NestedView, Schematic};
 use crate::types::TestbenchIo;
-use codegen::simulator_tuples;
 
 pub mod data;
 pub mod options;
@@ -168,4 +167,15 @@ impl Analysis for Tuple {
     for_tuples!( type Output = ( #( Tuple::Output ),* ); );
 }
 
-simulator_tuples!(64);
+#[impl_for_tuples(64)]
+impl<S: Simulator> SupportedBy<S> for Tuple {
+    fn into_input(self, inputs: &mut Vec<<S as Simulator>::Input>) {
+        for_tuples!( #( <Tuple as SupportedBy<S>>::into_input(self.Tuple, inputs); )* )
+    }
+
+    fn from_output(
+        outputs: &mut impl Iterator<Item = <S as Simulator>::Output>,
+    ) -> <Self as Analysis>::Output {
+        (for_tuples!( #( <Tuple as SupportedBy<S>>::from_output(outputs) ),* ))
+    }
+}

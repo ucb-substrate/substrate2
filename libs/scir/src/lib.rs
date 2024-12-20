@@ -37,15 +37,15 @@ use serde::{Deserialize, Serialize};
 use tracing::{span, Level};
 use uniquify::Names;
 
-pub mod merge;
-pub mod schema;
-mod slice;
-
 use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use crate::validation::ValidatorIssue;
 pub use slice::{Concat, IndexOwned, NamedSlice, NamedSliceOne, Slice, SliceOne, SliceRange};
 
 pub mod drivers;
+pub mod merge;
+pub mod netlist;
+pub mod schema;
+mod slice;
 pub mod validation;
 
 #[cfg(test)]

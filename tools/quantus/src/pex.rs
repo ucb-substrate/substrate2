@@ -1,13 +1,13 @@
 use crate::utils::execute_run_script;
 use crate::{error::Error, TEMPLATES};
 use pegasus::lvs::{run_lvs, LvsParams, LvsStatus};
+use scir::netlist::ConvertibleNetlister;
 use serde::Serialize;
 use spice::netlist::NetlistOptions;
 use spice::Spice;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::pex::PexData;
 use substrate::schematic::{HasNestedView, PrimitiveBinding, Schematic};
 use substrate::types::{Flatten, HasBundleKind, HasNameTree};

@@ -32,6 +32,8 @@ use templates::{write_run_script, RunScriptContext};
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
+#[cfg(test)]
+mod tests;
 pub mod tran;
 
 /// ngspice primitives.

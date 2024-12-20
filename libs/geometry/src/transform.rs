@@ -791,4 +791,37 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn transform_macros_work() {
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut, TransformMut)]
+        pub struct TwoPointGroup {
+            p1: Point,
+            p2: Point,
+        }
+
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, TranslateMut, TransformMut)]
+        pub enum PointEnum {
+            First(Point),
+            Second { pt: Point },
+        }
+
+        let group = TwoPointGroup {
+            p1: Point::new(100, 200),
+            p2: Point::new(-400, 300),
+        };
+
+        let group = group.translate(Point::new(100, 50));
+        assert_eq!(
+            group,
+            TwoPointGroup {
+                p1: Point::new(200, 250),
+                p2: Point::new(-300, 350),
+            }
+        );
+
+        let mut group = PointEnum::First(Point::new(100, 200));
+        group = group.transform(NamedOrientation::ReflectVert.into());
+        assert_eq!(group, PointEnum::First(Point::new(100, -200)),);
+    }
 }

@@ -27,6 +27,8 @@ pub mod corner;
 pub mod layers;
 pub mod mos;
 pub mod stdcells;
+#[cfg(test)]
+mod tests;
 
 /// A primitive of the Sky 130 PDK.
 #[derive(Debug, Clone)]

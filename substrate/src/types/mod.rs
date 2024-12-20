@@ -15,13 +15,15 @@ use crate::{
     schematic::{CellId, InstanceId, InstancePath},
 };
 
-pub use crate::scir::Direction;
+pub use scir::Direction;
 
 #[doc(hidden)]
 pub mod codegen;
 mod impls;
 pub mod layout;
 pub mod schematic;
+#[cfg(test)]
+mod tests;
 
 /// The [`BundleKind`] of a block's IO.
 pub type IoKind<T> = <<T as Block>::Io as HasBundleKind>::BundleKind;
@@ -101,11 +103,12 @@ pub trait HasNameTree {
 
 /// A bundle kind.
 pub trait BundleKind:
-    HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
+    FlatLen + HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
 }
-impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
-    for T
+impl<
+        T: FlatLen + HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync,
+    > BundleKind for T
 {
 }
 

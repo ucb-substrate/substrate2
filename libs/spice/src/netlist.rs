@@ -2,6 +2,7 @@
 
 use arcstr::ArcStr;
 use itertools::Itertools;
+use scir::netlist::ConvertibleNetlister;
 use std::collections::{HashMap, HashSet};
 
 use std::io::{Result, Write};
@@ -12,8 +13,6 @@ use scir::schema::Schema;
 use scir::{
     Cell, ChildId, Library, NetlistCellConversion, NetlistLibConversion, SignalInfo, Slice,
 };
-
-use substrate::schematic::netlist::ConvertibleNetlister;
 
 /// A netlist include statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]

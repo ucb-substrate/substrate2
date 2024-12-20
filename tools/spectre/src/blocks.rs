@@ -366,8 +366,7 @@ impl Schematic for Nport {
 }
 
 /// An ideal 2-terminal resistor.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(crate = "substrate::serde")]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Resistor {
     /// The resistor value.
     value: Decimal,

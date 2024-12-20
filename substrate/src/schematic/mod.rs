@@ -1,9 +1,10 @@
 //! Substrate's schematic generator framework.
 
 pub mod conv;
-pub mod netlist;
 pub mod pex;
 pub mod schema;
+#[cfg(test)]
+mod tests;
 
 use cache::mem::TypeCache;
 use cache::CacheHandle;
@@ -27,6 +28,7 @@ use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
+use crate::types::codegen::ViewSource;
 use crate::types::schematic::{
     IoNodeBundle, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundleKind,
@@ -104,6 +106,12 @@ impl<T: HasNestedView> HasNestedView for Option<T> {
 /// Block that implements [`Schematic`] in schema `S` for block `B`.
 #[derive_where::derive_where(Debug, Hash, PartialEq, Eq; B)]
 pub struct ConvertSchema<B, S>(Arc<B>, PhantomData<S>);
+
+impl<B, S> ConvertSchema<B, S> {
+    pub fn new(block: B) -> Self {
+        Self(Arc::new(block), PhantomData)
+    }
+}
 
 impl<B, S> Clone for ConvertSchema<B, S> {
     fn clone(&self) -> Self {
@@ -1613,261 +1621,5 @@ impl InstanceId {
     pub(crate) fn increment(&mut self) {
         let next = self.0.checked_add(1).expect("integer overflow");
         *self = InstanceId(next)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        block::Block,
-        context::Context,
-        schematic::{CellBuilder, PrimitiveBinding, Schematic},
-        types::{
-            codegen::{FromSelf, HasViewImpl},
-            schematic::{DataView, IoNodeBundle, Node, NodeBundle},
-            Array, Flipped, HasBundleKind, InOut, Input, Io, Output, Signal,
-        },
-    };
-
-    #[crate::test]
-    fn test_schematic_api() {
-        pub struct Schema;
-
-        #[derive(Clone)]
-        pub enum Primitive {
-            Resistor,
-        }
-
-        impl scir::schema::Schema for Schema {
-            type Primitive = Primitive;
-        }
-
-        #[derive(Io, Clone, Default, Debug)]
-        pub struct ResistorIo {
-            pub p: InOut<Signal>,
-            pub n: InOut<Signal>,
-        }
-
-        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-        #[substrate(io = "ResistorIo")]
-        pub struct Resistor;
-
-        impl Schematic for Resistor {
-            type Schema = Schema;
-            type NestedData = ();
-
-            fn schematic(
-                &self,
-                io: &IoNodeBundle<Resistor>,
-                cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
-            ) -> crate::error::Result<Self::NestedData> {
-                let mut prim = PrimitiveBinding::new(Primitive::Resistor);
-                prim.connect("p", io.p);
-                prim.connect("n", io.n);
-                cell.set_primitive(prim);
-                Ok(())
-            }
-        }
-
-        #[derive(Io, Clone, Debug)]
-        pub struct DecoupledIo {
-            pub ready: Input<Signal>,
-            pub valid: Output<Signal>,
-            pub data: Output<Array<Signal>>,
-        }
-
-        impl DecoupledIo {
-            fn new(width: usize) -> Self {
-                Self {
-                    ready: Default::default(),
-                    valid: Default::default(),
-                    data: Output(Array::new(width, Default::default())),
-                }
-            }
-        }
-
-        #[derive(Io, Clone, Debug)]
-        pub struct MultiDecoupledIo {
-            pub d1: DecoupledIo,
-            pub d2: Flipped<DecoupledIo>,
-            pub d3: Input<DecoupledIo>,
-            pub d4: Output<DecoupledIo>,
-            pub d5: InOut<DecoupledIo>,
-            pub ready: Input<Signal>,
-            pub valid: Output<Signal>,
-            pub data: Output<Array<Signal>>,
-        }
-
-        #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-        pub struct MultiDecoupledBlock;
-
-        impl Block for MultiDecoupledBlock {
-            type Io = MultiDecoupledIo;
-            fn name(&self) -> arcstr::ArcStr {
-                arcstr::literal!("multi_decoupled_block")
-            }
-            fn io(&self) -> Self::Io {
-                MultiDecoupledIo {
-                    d1: DecoupledIo::new(5),
-                    d2: Flipped(DecoupledIo::new(4)),
-                    d3: Input(DecoupledIo::new(5)),
-                    d4: Output(DecoupledIo::new(4)),
-                    d5: InOut(DecoupledIo::new(5)),
-                    ready: Default::default(),
-                    valid: Default::default(),
-                    data: Output(Array::new(4, Default::default())),
-                }
-            }
-        }
-
-        impl DataView<DecoupledIoBundleKind> for MultiDecoupledIoBundleKind {
-            fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<DecoupledIo> {
-                NodeBundle::<DecoupledIo> {
-                    ready: nodes.ready,
-                    valid: nodes.valid,
-                    data: nodes.data.clone(),
-                }
-            }
-        }
-
-        impl Schematic for MultiDecoupledBlock {
-            type Schema = Schema;
-            type NestedData = ();
-
-            fn schematic(
-                &self,
-                _io: &IoNodeBundle<Self>,
-                _cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-            ) -> crate::error::Result<Self::NestedData> {
-                Ok(())
-            }
-        }
-
-        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-        #[substrate(io = "()")]
-        pub struct SuperBlock;
-
-        impl Schematic for SuperBlock {
-            type Schema = Schema;
-            type NestedData = ();
-            fn schematic(
-                &self,
-                _io: &IoNodeBundle<Self>,
-                cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-            ) -> crate::error::Result<Self::NestedData> {
-                let b1 = cell.instantiate(MultiDecoupledBlock);
-                let b2 = cell.instantiate(MultiDecoupledBlock);
-                let wire = cell.signal(
-                    "abc",
-                    MultiDecoupledIo {
-                        d1: DecoupledIo::new(4),
-                        d2: Flipped(DecoupledIo::new(5)),
-                        d3: Input(DecoupledIo::new(4)),
-                        d4: Output(DecoupledIo::new(5)),
-                        d5: InOut(DecoupledIo::new(4)),
-                        ready: Default::default(),
-                        valid: Default::default(),
-                        data: Output(Array::new(5, Default::default())),
-                    },
-                );
-
-                assert!(b1.io().kind() == b2.io().kind());
-                assert!(b1.io().d1.kind() == b2.io().d1.kind());
-                assert!(b1.io().d1.kind() != b2.io().d2.kind());
-                assert!(b1.io().d1.kind() == b2.io().d3.kind());
-                assert!(b1.io().d1.kind() != b2.io().d4.kind());
-                assert!(b1.io().d1.kind() == b2.io().d5.kind());
-                assert!(b1.io().d2.kind() == b2.io().d4.kind());
-                assert!(b1.io().d2.kind() == b2.io().view_as::<DecoupledIoBundleKind>().kind());
-
-                cell.connect(&b1.io().d1, &b2.io().d1);
-                cell.connect(&b1.io().d1, &b2.io().d1);
-                cell.connect(&b1.io().d1, &b2.io().d1);
-                cell.connect(&b1.io().d1, &b2.io().d3);
-                cell.connect(&b1.io().d1, &b2.io().d5);
-                cell.connect(&b1.io().d2, b2.io().view_as::<DecoupledIoBundleKind>());
-                cell.connect(wire.d2, &b1.io().d1);
-
-                Ok(())
-            }
-        }
-
-        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-        #[substrate(io = "()")]
-        pub struct NestedBlock<T>(T);
-
-        impl<S: crate::schematic::schema::Schema, T: Schematic<Schema = S> + Clone> Schematic
-            for NestedBlock<T>
-        {
-            type Schema = S;
-            type NestedData = ();
-            fn schematic(
-                &self,
-                _io: &IoNodeBundle<Self>,
-                cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-            ) -> crate::error::Result<Self::NestedData> {
-                let _b1 = cell.instantiate(self.0.clone());
-
-                Ok(())
-            }
-        }
-
-        #[derive(Io, Clone, Default, Debug)]
-        pub struct VdividerIo {
-            pub vdd: InOut<Signal>,
-            pub vss: InOut<Signal>,
-            pub dout: Output<Signal>,
-        }
-
-        pub struct CustomView;
-
-        impl HasViewImpl<CustomView> for Signal {
-            type View = i64;
-        }
-
-        const VDIVIDER_CUSTOM_VIEW: VdividerIoBundle<CustomView> = VdividerIoBundle {
-            vdd: 1,
-            vss: 2,
-            dout: 3,
-        };
-
-        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-        #[substrate(io = "VdividerIo")]
-        pub struct Vdivider;
-
-        impl Schematic for Vdivider {
-            type Schema = Schema;
-            type NestedData = ();
-            fn schematic(
-                &self,
-                io: &IoNodeBundle<Self>,
-                cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
-            ) -> crate::error::Result<Self::NestedData> {
-                let r1 = cell.instantiate(Resistor);
-                let r2 = cell.instantiate(Resistor);
-                r1.try_data()?;
-                r2.try_data()?;
-
-                assert!(r1.io().kind() == r2.io().kind());
-
-                cell.connect(&&io.vdd, &r1.io().p);
-                cell.connect(&io.dout, &&&&&r1.io().n);
-                cell.connect(
-                    NodeBundle::<ResistorIo> {
-                        p: io.dout,
-                        n: io.vss,
-                    },
-                    r2.io(),
-                );
-
-                Ok(())
-            }
-        }
-
-        let ctx = Context::new();
-        ctx.export_scir(Vdivider)
-            .expect("failed to generate raw lib");
-        ctx.export_scir(NestedBlock(NestedBlock(SuperBlock)))
-            .expect("failed to generate raw lib");
     }
 }

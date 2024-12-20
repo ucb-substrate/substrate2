@@ -8,6 +8,9 @@ use std::{
 use cache::{mem::TypeCache, multi::MultiCache, CacheHandle, Cacheable, CacheableWithState};
 use serde::{de::DeserializeOwned, Serialize};
 
+#[cfg(test)]
+mod tests;
+
 /// A cache with APIs for in-memory and persistent caching.
 #[derive(Default, Debug, Clone)]
 pub struct Cache {

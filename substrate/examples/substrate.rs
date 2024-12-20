@@ -3,62 +3,16 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spice::{Resistor, Spice};
 use substrate::block::Block;
-use substrate::context::{ContextBuilder, Installation, PdkContext};
-use substrate::geometry::prelude::*;
-use substrate::layout;
-use substrate::layout::{element::Shape, Cell, ExportsLayoutData, Layout, LayoutData};
-use substrate::pdk::layers::{DerivedLayerFamily, DerivedLayers, LayerFamily, Layers};
-use substrate::pdk::{Pdk, PdkLayers};
+use substrate::context::{ContextBuilder, Installation};
 use substrate::schematic::{
     CellBuilder, HasNestedView, InstancePath, NestedData, NestedView, Schematic,
 };
-use substrate::types::layout::{
-    Builder, CustomHardwareType, IoShape, Port, PortGeometry, ShapePort,
-};
-use substrate::types::schematic::{IoBundle, Node};
+use substrate::types::schematic::Node;
 use substrate::types::{Array, Flipped, InOut, Input, Io, Output, Signal};
-
-// begin-code-snippet pdk
-pub struct ExamplePdk;
-
-impl Installation for ExamplePdk {
-    fn post_install(&self, ctx: &mut ContextBuilder) {
-        ctx.install_pdk_layers::<Self>();
-    }
-}
-
-impl Pdk for ExamplePdk {
-    type Layers = ExamplePdkLayers;
-    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
-}
-// end-code-snippet pdk
 
 #[derive(Clone)]
 pub enum ExamplePrimitive {}
-
-// begin-code-snippet layers
-#[derive(Layers)]
-pub struct ExamplePdkLayers {
-    #[layer(gds = "66/20")]
-    pub poly: Poly,
-    #[layer_family]
-    pub met1: Met1,
-    #[layer(name = "met2", gds = "69/20")]
-    pub met2: Met2,
-}
-
-#[derive(LayerFamily, Clone, Copy)]
-pub struct Met1 {
-    #[layer(gds = "68/20", primary)]
-    pub met1_drawing: Met1Drawing,
-    #[layer(gds = "68/16", pin)]
-    pub met1_pin: Met1Pin,
-    #[layer(gds = "68/5", label)]
-    pub met1_label: Met1Label,
-}
-// end-code-snippet layers
 
 // begin-code-snippet derive_corner
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -68,121 +22,6 @@ pub enum ExamplePdkCorner {
     Ff,
 }
 // end-code-snippet derive_corner
-
-pub struct ExamplePdkA;
-
-impl Installation for ExamplePdkA {
-    fn post_install(&self, ctx: &mut ContextBuilder) {
-        ctx.install_pdk_layers::<Self>();
-    }
-}
-
-impl Pdk for ExamplePdkA {
-    type Layers = ExamplePdkALayers;
-    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
-}
-
-pub struct ExamplePdkB;
-
-impl Installation for ExamplePdkB {
-    fn post_install(&self, ctx: &mut ContextBuilder) {
-        ctx.install_pdk_layers::<Self>();
-    }
-}
-
-impl Pdk for ExamplePdkB {
-    type Layers = ExamplePdkBLayers;
-    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ExampleCorner;
-
-#[derive(Layers)]
-pub struct ExamplePdkALayers {
-    #[layer(gds = "66/20")]
-    pub polya: PolyA,
-    #[layer_family]
-    pub met1a: Met1A,
-    #[layer(name = "met2", gds = "69/20")]
-    pub met2a: Met2A,
-}
-
-#[derive(LayerFamily, Clone, Copy)]
-pub struct Met1A {
-    #[layer(gds = "68/20", primary)]
-    pub drawing: Met1ADrawing,
-    #[layer(gds = "68/16", pin)]
-    pub pin: Met1APin,
-    #[layer(gds = "68/5", label)]
-    pub label: Met1ALabel,
-}
-
-#[derive(Layers)]
-pub struct ExamplePdkBLayers {
-    #[layer(gds = "66/20")]
-    pub polyb: PolyB,
-    #[layer_family]
-    pub met1b: Met1B,
-    #[layer(name = "met2", gds = "69/20")]
-    pub met2b: Met2B,
-}
-
-#[derive(LayerFamily, Clone, Copy)]
-pub struct Met1B {
-    #[layer(gds = "68/20", primary)]
-    pub drawing: Met1BDrawing,
-    #[layer(gds = "68/16", pin)]
-    pub pin: Met1BPin,
-    #[layer(gds = "68/5", label)]
-    pub label: Met1BLabel,
-}
-
-#[allow(dead_code)]
-// begin-code-snippet derived_layers
-#[derive(DerivedLayers)]
-pub struct DerivedLayers {
-    #[layer_family]
-    m1: M1,
-    m2: M2,
-}
-
-#[derive(DerivedLayerFamily, Clone, Copy)]
-pub struct M1 {
-    #[layer(primary)]
-    pub drawing: M1Drawing,
-    #[layer(pin)]
-    pub pin: M1Pin,
-    #[layer(label)]
-    pub label: M1Label,
-}
-
-impl From<&PdkLayers<ExamplePdkA>> for DerivedLayers {
-    fn from(value: &PdkLayers<ExamplePdkA>) -> Self {
-        Self {
-            m1: M1 {
-                drawing: M1Drawing::new(value.met1a.drawing),
-                pin: M1Pin::new(value.met1a.pin),
-                label: M1Label::new(value.met1a.label),
-            },
-            m2: M2::new(value.met2a),
-        }
-    }
-}
-
-impl From<&PdkLayers<ExamplePdkB>> for DerivedLayers {
-    fn from(value: &PdkLayers<ExamplePdkB>) -> Self {
-        Self {
-            m1: M1 {
-                drawing: M1Drawing::new(value.met1b.drawing),
-                pin: M1Pin::new(value.met1b.pin),
-                label: M1Label::new(value.met1b.label),
-            },
-            m2: M2::new(value.met2b),
-        }
-    }
-}
-// end-code-snippet derived_layers
 
 // begin-code-snippet inverter
 #[derive(Io, Clone, Default, Debug)]
@@ -219,108 +58,6 @@ impl Block for Inverter {
 }
 // end-code-snippet inverter
 
-// begin-code-snippet inverter_layout
-impl ExportsLayoutData for Inverter {
-    type LayoutData = ();
-}
-
-impl Layout<ExamplePdk> for Inverter {
-    fn layout(
-        &self,
-        io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut layout::CellBuilder<ExamplePdk>,
-    ) -> substrate::error::Result<Self::LayoutData> {
-        io.vss.push(IoShape::with_layers(
-            cell.ctx.layers.met1,
-            Rect::from_sides(25, 0, 75, 25),
-        ));
-        io.vdd.push(IoShape::with_layers(
-            cell.ctx.layers.met1,
-            Rect::from_sides(25, 175, 75, 200),
-        ));
-        io.din.push(IoShape::with_layers(
-            cell.ctx.layers.met1,
-            Rect::from_sides(0, 50, 25, 150),
-        ));
-        io.dout.push(IoShape::with_layers(
-            cell.ctx.layers.met1,
-            Rect::from_sides(75, 50, 100, 150),
-        ));
-        cell.draw(Shape::new(
-            cell.ctx.layers.met1,
-            Rect::from_sides(0, 0, 100, 200),
-        ))?;
-        Ok(())
-    }
-}
-// end-code-snippet inverter_layout
-
-// begin-code-snippet inverter_multiprocess
-impl Layout<ExamplePdkA> for Inverter {
-    // begin-ellipses inverter_multiprocess
-    fn layout(
-        &self,
-        io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut layout::CellBuilder<ExamplePdkA>,
-    ) -> substrate::error::Result<Self::LayoutData> {
-        io.vss.push(IoShape::with_layers(
-            cell.ctx.layers.met1a,
-            Rect::from_sides(25, 0, 75, 25),
-        ));
-        io.vdd.push(IoShape::with_layers(
-            cell.ctx.layers.met1a,
-            Rect::from_sides(25, 175, 75, 200),
-        ));
-        io.din.push(IoShape::with_layers(
-            cell.ctx.layers.met1a,
-            Rect::from_sides(0, 50, 25, 150),
-        ));
-        io.dout.push(IoShape::with_layers(
-            cell.ctx.layers.met1a,
-            Rect::from_sides(75, 50, 100, 150),
-        ));
-        cell.draw(Shape::new(
-            cell.ctx.layers.met1a,
-            Rect::from_sides(0, 0, 100, 200),
-        ))?;
-        Ok(())
-    }
-    // end-ellipses inverter_multiprocess
-}
-
-impl Layout<ExamplePdkB> for Inverter {
-    // begin-ellipses inverter_multiprocess
-    fn layout(
-        &self,
-        io: &mut Builder<<Self as Block>::Io>,
-        cell: &mut layout::CellBuilder<ExamplePdkB>,
-    ) -> substrate::error::Result<Self::LayoutData> {
-        io.vss.push(IoShape::with_layers(
-            cell.ctx.layers.met1b,
-            Rect::from_sides(50, 0, 150, 25),
-        ));
-        io.vdd.push(IoShape::with_layers(
-            cell.ctx.layers.met1b,
-            Rect::from_sides(50, 75, 150, 100),
-        ));
-        io.din.push(IoShape::with_layers(
-            cell.ctx.layers.met1b,
-            Rect::from_sides(0, 25, 25, 75),
-        ));
-        io.dout.push(IoShape::with_layers(
-            cell.ctx.layers.met1b,
-            Rect::from_sides(175, 25, 200, 75),
-        ));
-        cell.draw(Shape::new(
-            cell.ctx.layers.met1b,
-            Rect::from_sides(0, 0, 200, 100),
-        ))?;
-        Ok(())
-    }
-    // end-ellipses inverter_multiprocess
-}
-// end-code-snippet inverter_multiprocess
-
 // begin-code-snippet buffer_io_simple
 #[derive(Io, Clone, Copy, Default)]
 pub struct BufferIo {
@@ -330,79 +67,6 @@ pub struct BufferIo {
     dout: Output<Signal>,
 }
 // end-code-snippet buffer_io_simple
-
-#[allow(dead_code)]
-mod __buffer_io_autogenerated {
-    use super::*;
-
-    // begin-code-snippet buffer_io_autogenerated
-    // Autogenerated by `#[derive(Io)]`.
-    pub struct BufferIoSchematic {
-        vdd: Node,
-        vss: Node,
-        din: Node,
-        dout: Node,
-    }
-
-    pub struct BufferIoLayout {
-        vdd: PortGeometry,
-        vss: PortGeometry,
-        din: PortGeometry,
-        dout: PortGeometry,
-    }
-    // end-code-snippet buffer_io_autogenerated
-}
-
-mod __buffer_io_signal_override {
-    use super::*;
-
-    // begin-code-snippet buffer_io
-    #[derive(Io, Clone, Default)]
-    pub struct BufferIo {
-        vdd: InOut<Signal>,
-        vss: InOut<Signal>,
-        #[substrate(layout_type = "ShapePort")]
-        din: Input<Signal>,
-        #[substrate(layout_type = "ShapePort")]
-        dout: Output<Signal>,
-    }
-    // end-code-snippet buffer_io
-}
-
-mod __buffer_io_custom_layout {
-    use super::*;
-    use substrate::types::{layout, Io};
-
-    // begin-code-snippet buffer_io_custom_layout
-    #[derive(Io, Clone, Default)]
-    #[substrate(layout_type = "BufferIoLayout")]
-    pub struct BufferIo {
-        vdd: InOut<Signal>,
-        vss: InOut<Signal>,
-        din: Input<Signal>,
-        dout: Output<Signal>,
-    }
-
-    #[derive(layout::HardwareType, Clone)]
-    pub struct BufferIoLayout {
-        vdd: Port,
-        vss: Port,
-        din: ShapePort,
-        dout: ShapePort,
-    }
-
-    impl CustomHardwareType<BufferIo> for BufferIoLayout {
-        fn from_layout_type(_other: &BufferIo) -> Self {
-            Self {
-                vdd: Port,
-                vss: Port,
-                din: ShapePort,
-                dout: ShapePort,
-            }
-        }
-    }
-    // end-code-snippet buffer_io_custom_layout
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Buffer {
@@ -425,168 +89,6 @@ impl Block for Buffer {
     fn io(&self) -> Self::Io {
         Default::default()
     }
-}
-
-#[derive(LayoutData)]
-pub struct BufferData {
-    pub inv1: layout::Instance<Inverter>,
-    pub inv2: layout::Instance<Inverter>,
-}
-
-impl ExportsLayoutData for Buffer {
-    type LayoutData = BufferData;
-}
-
-mod single_process_buffer {
-    use crate::{BufferData, BufferIo, ExamplePdk, Inverter};
-    use serde::{Deserialize, Serialize};
-    use substrate::block::Block;
-    use substrate::geometry::align::{AlignBbox, AlignMode};
-    use substrate::layout::{CellBuilder, ExportsLayoutData, Layout};
-    use substrate::types::layout::Builder;
-
-    #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Block)]
-    #[substrate(io = "BufferIo")]
-    pub struct Buffer {
-        strength: usize,
-    }
-
-    // begin-code-snippet buffer_layout
-    impl ExportsLayoutData for Buffer {
-        type LayoutData = BufferData;
-    }
-
-    // begin-code-snippet cell_builder_generate
-    impl Layout<ExamplePdk> for Buffer {
-        fn layout(
-            // begin-ellipses cell_builder_generate
-            &self,
-            io: &mut Builder<<Self as Block>::Io>,
-            cell: &mut CellBuilder<ExamplePdk>,
-            // end-ellipses cell_builder_generate
-        ) -> substrate::error::Result<Self::LayoutData> {
-            let inv1 = cell.generate(Inverter::new(self.strength));
-            let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
-
-            cell.draw(inv1.clone())?;
-            cell.draw(inv2.clone())?;
-
-            io.vdd.merge(inv1.io().vdd);
-            io.vdd.merge(inv2.io().vdd);
-            io.vss.merge(inv1.io().vss);
-            io.vss.merge(inv2.io().vss);
-            io.din.merge(inv1.io().din);
-            io.dout.merge(inv2.io().dout);
-
-            Ok(BufferData { inv1, inv2 })
-        }
-    }
-    // end-code-snippet cell_builder_generate
-    // end-code-snippet buffer_layout
-}
-
-// begin-code-snippet buffer_multiprocess
-impl<PDK: Pdk> Layout<PDK> for Buffer
-where
-    Inverter: Layout<PDK>,
-{
-    fn layout(
-        &self,
-        io: &mut Builder<<Self as substrate::block::Block>::Io>,
-        cell: &mut layout::CellBuilder<PDK>,
-    ) -> substrate::error::Result<Self::LayoutData> {
-        let inv1 = cell.generate(Inverter::new(self.strength));
-        let inv2 = inv1.clone().align_bbox(AlignMode::ToTheRight, &inv1, 10);
-
-        cell.draw(inv1.clone())?;
-        cell.draw(inv2.clone())?;
-
-        io.vdd.merge(inv1.io().vdd);
-        io.vdd.merge(inv2.io().vdd);
-        io.vss.merge(inv1.io().vss);
-        io.vss.merge(inv2.io().vss);
-        io.din.merge(inv1.io().din);
-        io.dout.merge(inv2.io().dout);
-
-        Ok(BufferData { inv1, inv2 })
-    }
-}
-// end-code-snippet buffer_multiprocess
-
-// begin-code-snippet buffer_hard_macro
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
-#[substrate(io = "BufferIo")]
-pub struct BufferInlineHardMacro;
-
-impl Schematic for BufferInlineHardMacro {
-    type Schema = Spice;
-    type NestedData = ();
-    fn schematic(
-        &self,
-        io: &IoBundle<Self>,
-        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        let mut scir = Spice::scir_cell_from_str(
-            r#"
-                * CMOS buffer
-
-                .subckt buffer din dout vdd vss
-                X0 din dinb vdd vss inverter
-                X1 dinb dout vdd vss inverter
-                .ends
-
-                .subckt inverter din dout vdd vss
-                X0 dout din vss vss sky130_fd_pr__nfet_01v8 w=2 l=0.15
-                X1 dout din vdd vdd sky130_fd_pr__pfet_01v8 w=4 l=0.15
-                .ends
-            "#,
-            "buffer",
-        );
-
-        scir.connect("din", io.din);
-        scir.connect("dout", io.dout);
-        scir.connect("vss", io.vss);
-        scir.connect("vdd", io.vdd);
-
-        cell.set_scir(scir);
-        Ok(())
-    }
-}
-// end-code-snippet buffer_hard_macro
-
-// begin-code-snippet buffern_data
-#[derive(Default, LayoutData)]
-pub struct BufferNData {
-    pub buffers: Vec<layout::Instance<Buffer>>,
-}
-// end-code-snippet buffern_data
-
-fn generate_layout() {
-    // begin-code-snippet generate
-    let ctx = PdkContext::new(ExamplePdk);
-    let handle = ctx.generate_layout(Buffer::new(5));
-    let cell: &Cell<Buffer> = handle.cell();
-
-    assert_eq!(cell.block(), &Buffer::new(5));
-    assert_eq!(cell.data().inv1.block(), &Inverter::new(5));
-    assert_eq!(cell.data().inv2.block(), &Inverter::new(5));
-
-    assert_eq!(
-        cell.data().inv1.bbox(),
-        Some(Rect::from_sides(0, 0, 100, 200))
-    );
-
-    assert_eq!(
-        cell.data().inv2.bbox(),
-        Some(Rect::from_sides(110, 0, 210, 200))
-    );
-
-    assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 210, 200)));
-    // end-code-snippet generate
-}
-
-fn main() {
-    generate_layout();
 }
 
 fn io() {
@@ -734,18 +236,21 @@ impl PartialEq<Self> for Vdivider {
 
 pub mod nested_data {
     use super::*;
+    use ::scir::schema::StringSchema;
     use substrate::schematic::Instance;
+    use substrate::types::codegen::{FromSelf, ViewSource};
+    use substrate::types::schematic::IoNodeBundle;
 
     #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "()")]
     pub struct Inverter;
 
     impl Schematic for Inverter {
-        type Schema = Spice;
+        type Schema = StringSchema;
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             Ok(())
@@ -769,6 +274,11 @@ pub mod nested_data {
     #[derive(Clone, Copy)]
     pub struct MyMetadata {
         my_calculated_value: i64,
+    }
+
+    impl ViewSource for MyMetadata {
+        type Kind = FromSelf;
+        type Source = Self;
     }
 
     impl HasNestedView for MyMetadata {
@@ -826,8 +336,40 @@ pub mod nested_data {
     // end-code-snippet custom-nested-view-2
 }
 
+#[derive(Io, Clone, Default, Debug)]
+pub struct ResistorIo {
+    pub p: InOut<Signal>,
+    pub n: InOut<Signal>,
+}
+
+#[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[substrate(io = "ResistorIo")]
+pub struct Resistor(Decimal);
+
+impl Resistor {
+    pub fn new(val: impl Into<Decimal>) -> Self {
+        Self(val.into())
+    }
+}
+
 mod try_data {
+    use ::scir::schema::StringSchema;
+    use substrate::types::schematic::IoNodeBundle;
+
     use super::*;
+
+    impl Schematic for Resistor {
+        type Schema = StringSchema;
+        type NestedData = ();
+
+        fn schematic(
+            &self,
+            io: &IoNodeBundle<Resistor>,
+            cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            Ok(())
+        }
+    }
 
     #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "super::VdividerIo")]
@@ -840,12 +382,12 @@ mod try_data {
 
     // begin-code-snippet vdivider-try-data-error-handling
     impl Schematic for Vdivider {
-        type Schema = Spice;
+        type Schema = StringSchema;
         type NestedData = ();
 
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let r1 = cell.instantiate(Resistor::new(self.r1));
@@ -865,6 +407,9 @@ mod try_data {
 }
 
 mod instantiate_blocking {
+    use ::scir::schema::StringSchema;
+    use substrate::types::schematic::IoNodeBundle;
+
     use super::*;
 
     #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -878,11 +423,11 @@ mod instantiate_blocking {
 
     // begin-code-snippet vdivider-instantiate-blocking-error-handling
     impl Schematic for Vdivider {
-        type Schema = Spice;
+        type Schema = StringSchema;
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let r1 = cell.instantiate_blocking(Resistor::new(self.r1))?;
@@ -900,6 +445,8 @@ mod instantiate_blocking {
 }
 
 mod instantiate_blocking_bad {
+    use ::scir::schema::StringSchema;
+
     use super::*;
 
     #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -913,11 +460,11 @@ mod instantiate_blocking_bad {
 
     // begin-code-snippet vdivider-instantiate-blocking-bad
     impl Schematic for Vdivider {
-        type Schema = Spice;
+        type Schema = StringSchema;
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &substrate::types::schematic::IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             if let Ok(r1) = cell.instantiate_blocking(Resistor::new(self.r1)) {
@@ -937,6 +484,9 @@ mod instantiate_blocking_bad {
 }
 
 mod generate {
+    use ::scir::schema::StringSchema;
+    use substrate::types::schematic::IoNodeBundle;
+
     use super::*;
 
     #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -950,11 +500,11 @@ mod generate {
 
     // begin-code-snippet vdivider-generate-add-error-handling
     impl Schematic for Vdivider {
-        type Schema = Spice;
+        type Schema = StringSchema;
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let r1_cell = cell.generate(Resistor::new(self.r1));
@@ -979,12 +529,12 @@ mod generate {
 }
 
 mod scir {
+    use scir::schema::{Schema, StringSchema};
+    use scir::{Cell, Direction, Instance, LibraryBuilder};
     use serde::{Deserialize, Serialize};
     use substrate::block::Block;
     use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic, ScirBinding};
-    use substrate::scir::schema::{Schema, StringSchema};
-    use substrate::scir::{Cell, Direction, Instance, LibraryBuilder};
-    use substrate::types::schematic::IoBundle;
+    use substrate::types::schematic::IoNodeBundle;
     use substrate::types::TwoTerminalIo;
 
     // begin-code-snippet scir-schema
@@ -1011,7 +561,7 @@ mod scir {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let mut prim = PrimitiveBinding::new(MyPrimitive::Resistor(self.0));
@@ -1035,7 +585,7 @@ mod scir {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoBundle<Self>,
+            io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             // Creates a SCIR library containing the desired cell.
@@ -1138,3 +688,5 @@ mod scir {
         // end-code-snippet scir-library-instances
     }
 }
+
+fn main() {}

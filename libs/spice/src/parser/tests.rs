@@ -2,8 +2,8 @@ use super::*;
 
 use crate::netlist::NetlistOptions;
 use crate::Primitive;
+use scir::netlist::ConvertibleNetlister;
 use std::path::PathBuf;
-use substrate::schematic::netlist::ConvertibleNetlister;
 
 pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
 

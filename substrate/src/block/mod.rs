@@ -9,11 +9,14 @@ pub use codegen::Block;
 use crate::arcstr::ArcStr;
 use crate::types::Io;
 
+#[cfg(test)]
+mod tests;
+
 /// A block that can be instantiated by Substrate.
 ///
 /// # Examples
 ///
-#[doc = examples::get_snippets!("core", "inverter")]
+#[doc = snippets::include_snippet!("substrate", "inverter")]
 pub trait Block: Hash + Eq + Send + Sync + Any {
     /// The ports of this block.
     type Io: Io;

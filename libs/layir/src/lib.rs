@@ -36,6 +36,7 @@ pub struct LibraryBuilder<L> {
     names: Names<CellId>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Library<L>(LibraryBuilder<L>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]

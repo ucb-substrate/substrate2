@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use config::Config;
-use examples::get_snippets;
 use indexmap::IndexMap;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
 use tracing::{span, Level};
@@ -39,10 +38,6 @@ use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBu
 /// Stores configuration such as the PDK and tool plugins to use during generation.
 ///
 /// Cheaply clonable.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "generate")]
 #[derive(Clone)]
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,
@@ -438,9 +433,7 @@ impl Context {
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
                 let (io, data) = block.layout(&mut cell_builder)?;
-                if block_io.kind() != io.kind()
-                    || block_io.kind().flat_names(None).len() != io.len()
-                {
+                if block_io.kind() != io.kind() || block_io.kind().len() != io.len() {
                     tracing::event!(
                         Level::ERROR,
                         "layout IO and block IO have different bundle kinds or flattened lengths"

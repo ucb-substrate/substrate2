@@ -10,8 +10,8 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 
+use macrotools::{field_tokens_with_referent, tuple_ident, FieldTokens};
 use syn::{DeriveInput, Generics};
-use type_dispatch::derive::{field_tokens_with_referent, tuple_ident, FieldTokens};
 
 macro_rules! handle_error {
     ($expression:expr) => {

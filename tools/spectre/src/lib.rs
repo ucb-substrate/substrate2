@@ -27,6 +27,7 @@ use psfparser::analysis::ac::AcData;
 use psfparser::analysis::transient::TransientData;
 use regex::Regex;
 use rust_decimal::Decimal;
+use scir::netlist::ConvertibleNetlister;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{
     Library, NamedSliceOne, NetlistLibConversion, ParamValue, SignalInfo, Slice, SliceOnePath,
@@ -39,19 +40,20 @@ use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::schema::Schema;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption, Temperature};
 use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
 use substrate::types::schematic::{NodePath, RawNestedNode};
 use templates::{write_run_script, RunScriptContext};
+use type_dispatch::impl_dispatch;
 
 pub mod analysis;
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
+#[cfg(test)]
+mod tests;
 
 /// Spectre primitives.
 #[derive(Debug, Clone)]
@@ -1151,140 +1153,5 @@ impl HasSpiceLikeNetlist for Spectre {
             write!(out, "{}", &name)?;
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{path::PathBuf, sync::Arc};
-
-    use approx::assert_relative_eq;
-    use rust_decimal_macros::dec;
-    use spice::{BlackboxContents, BlackboxElement};
-    use substrate::{
-        block::Block,
-        context::Context,
-        schematic::{CellBuilder, NestedData, PrimitiveBinding, Schematic},
-        simulation::{data::Save, Analysis, SimController, Simulator},
-        types::{
-            schematic::{IoNodeBundle, NestedNode, Node},
-            InOut, Io, Signal, TestbenchIo,
-        },
-    };
-
-    use crate::{
-        analysis::tran::Tran,
-        blocks::{Resistor, Vsource},
-        ErrPreset, Options, Primitive, Spectre,
-    };
-
-    pub const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
-
-    #[test]
-    fn spectre_can_include_sections() {
-        #[derive(Default, Clone, Io)]
-        struct LibIncludeResistorIo {
-            p: InOut<Signal>,
-            n: InOut<Signal>,
-        }
-
-        #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Block)]
-        #[substrate(io = "LibIncludeResistorIo")]
-        struct LibIncludeResistor;
-
-        impl Schematic for LibIncludeResistor {
-            type Schema = Spectre;
-            type NestedData = ();
-            fn schematic(
-                &self,
-                io: &IoNodeBundle<Self>,
-                cell: &mut CellBuilder<Spectre>,
-            ) -> substrate::error::Result<Self::NestedData> {
-                let mut prim = PrimitiveBinding::new(Primitive::BlackboxInstance {
-                    contents: BlackboxContents {
-                        elems: vec![
-                            BlackboxElement::InstanceName,
-                            " ( ".into(),
-                            BlackboxElement::Port("p".into()),
-                            " ".into(),
-                            BlackboxElement::Port("n".into()),
-                            " ) example_resistor".into(),
-                        ],
-                    },
-                });
-                prim.connect("p", io.p);
-                prim.connect("n", io.n);
-                cell.set_primitive(prim);
-                Ok(())
-            }
-        }
-
-        #[derive(Debug, Clone, Hash, Eq, PartialEq, Block)]
-        #[substrate(io = "TestbenchIo")]
-        struct LibIncludeTb(String);
-
-        #[derive(Debug, Clone, Copy, NestedData)]
-        struct LibIncludeTbData {
-            n: Node,
-        }
-
-        impl Schematic for LibIncludeTb {
-            type Schema = Spectre;
-            type NestedData = LibIncludeTbData;
-            fn schematic(
-                &self,
-                io: &IoNodeBundle<Self>,
-                cell: &mut CellBuilder<Spectre>,
-            ) -> substrate::error::Result<Self::NestedData> {
-                let vdd = cell.signal("vdd", Signal);
-                let dut = cell.instantiate(LibIncludeResistor);
-                let res = cell.instantiate(Resistor::new(1000));
-
-                cell.connect(dut.io().p, vdd);
-                cell.connect(dut.io().n, res.io().p);
-                cell.connect(io.vss, res.io().n);
-
-                let vsource = cell.instantiate(Vsource::dc(dec!(1.8)));
-                cell.connect(vsource.io().p, vdd);
-                cell.connect(vsource.io().n, io.vss);
-
-                Ok(LibIncludeTbData { n: *dut.io().n })
-            }
-        }
-
-        fn run(sim: SimController<Spectre, LibIncludeTb>) -> f64 {
-            let mut opts = Options::default();
-            opts.include_section(
-                PathBuf::from(TEST_DATA_DIR).join("spectre/example_lib.scs"),
-                &sim.tb.block().0,
-            );
-            let vout = sim
-                .simulate(
-                    opts,
-                    Tran {
-                        stop: dec!(2e-9),
-                        errpreset: Some(ErrPreset::Conservative),
-                        ..Default::default()
-                    },
-                )
-                .expect("failed to run simulation");
-
-            *vout.n.first().unwrap()
-        }
-
-        let test_name = "spectre_can_include_sections";
-        let sim_dir = PathBuf::from(BUILD_DIR).join(test_name).join("sim/");
-        let ctx = Context::builder().install(Spectre::default()).build();
-
-        let output_tt = run(ctx
-            .get_sim_controller(LibIncludeTb("section_a".to_string()), &sim_dir)
-            .unwrap());
-        let output_ss = run(ctx
-            .get_sim_controller(LibIncludeTb("section_b".to_string()), sim_dir)
-            .unwrap());
-
-        assert_relative_eq!(output_tt, 0.9);
-        assert_relative_eq!(output_ss, 1.2);
     }
 }

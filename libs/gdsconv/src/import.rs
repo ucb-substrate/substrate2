@@ -13,10 +13,7 @@ use geometry::{
     span::Span,
     transform::Rotation,
 };
-use layir::{Cell, CellId, Element, Instance, Library, LibraryBuilder, Shape, Text};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
+use layir::{Cell, CellId, Instance, Library, LibraryBuilder, Shape, Text};
 use slotmap::new_key_type;
 use tracing::{span, Level};
 
@@ -27,46 +24,20 @@ new_key_type! {
     pub struct ElementKey;
 }
 
-/// A trait that describes where to place a label for a given shape.
-trait PlaceLabels {
-    /// Computes a [`Point`] that lies within `self`.
-    ///
-    /// Allows for placing labels on an arbitrary shape.
-    fn label_loc(&self) -> Point;
+pub struct GdsImportOpts {
+    pub units: Option<GdsUnits>,
 }
 
-impl<L> PlaceLabels for Shape<L> {
-    fn label_loc(&self) -> Point {
-        self.shape().label_loc()
-    }
-}
-
-impl PlaceLabels for geometry::shape::Shape {
-    fn label_loc(&self) -> Point {
-        match self {
-            geometry::shape::Shape::Rect(ref r) => r.label_loc(),
-            geometry::shape::Shape::Polygon(ref p) => p.label_loc(),
-        }
-    }
-}
-
-impl PlaceLabels for Rect {
-    fn label_loc(&self) -> Point {
-        self.center()
-    }
-}
-
-impl PlaceLabels for Polygon {
-    fn label_loc(&self) -> Point {
-        self.center()
-    }
+pub fn import_gds(lib: &GdsLibrary, opts: GdsImportOpts) -> Result<Library<GdsLayer>> {
+    let importer = GdsImporter::new(lib, opts);
+    importer.import()
 }
 
 /// An importer for GDS files.
 pub struct GdsImporter<'a> {
     lib: LibraryBuilder<GdsLayer>,
     gds: &'a gds::GdsLibrary,
-    units: Option<Decimal>,
+    opts: GdsImportOpts,
 }
 
 /// An error encountered while converting a GDS library to LayIR.
@@ -77,11 +48,11 @@ type Result<T> = std::result::Result<T, GdsImportError>;
 
 impl<'a> GdsImporter<'a> {
     /// Creates a new GDS importer.
-    pub fn new(gds: &'a gds::GdsLibrary, units: Option<Decimal>) -> Self {
+    pub fn new(gds: &'a gds::GdsLibrary, opts: GdsImportOpts) -> Self {
         Self {
             lib: LibraryBuilder::new(),
             gds,
-            units,
+            opts,
         }
     }
 
@@ -139,10 +110,8 @@ impl<'a> GdsImporter<'a> {
     fn check_units(&mut self, units: &gds::GdsUnits) -> Result<()> {
         let gdsunit = units.db_unit();
 
-        if let Some(expected_units) = self.units {
-            if (Decimal::try_from(gdsunit).unwrap() - expected_units).abs() / expected_units
-                > dec!(1e-3)
-            {
+        if let Some(expected_units) = &self.opts.units {
+            if (gdsunit - expected_units.db_unit()).abs() / expected_units.db_unit() > 1e-3 {
                 return Err(GdsImportError);
             }
         }

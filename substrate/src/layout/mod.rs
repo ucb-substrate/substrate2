@@ -1,20 +1,10 @@
 //! Substrate's layout generator framework.
-//!
-//! # Examples
-//!
-//! ## Simple
-#![doc = examples::get_snippets!("core", "inverter_layout")]
-//!
-//! ## With data
-#![doc = examples::get_snippets!("core", "buffer_layout")]
 
 use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
-pub use codegen::{Layout, LayoutData};
-use examples::get_snippets;
 use geometry::prelude::Rect;
 use geometry::transform::{TransformRef, TranslateRef};
 use geometry::{
@@ -38,6 +28,8 @@ pub mod conv;
 pub mod element;
 pub mod error;
 pub mod schema;
+#[cfg(test)]
+mod tests;
 pub mod tiling;
 pub mod tracks;
 
@@ -95,10 +87,6 @@ impl LayoutContext {
 ///
 /// Stores its underlying block, extra data created during generation, as well as a raw cell
 /// containing its primitive elements.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "generate")]
 #[allow(dead_code)]
 pub struct Cell<T: Layout> {
     /// Block whose layout this cell represents.
@@ -501,10 +489,6 @@ impl<S: Schema> CellBuilder<S> {
     ///
     /// Returns immediately, allowing generation to complete in the background. Attempting to
     /// access the generated instance's cell will block until generation is complete.
-    ///
-    /// # Examples
-    ///
-    #[doc = get_snippets!("core", "cell_builder_generate")]
     pub fn generate<I: Layout>(&mut self, block: I) -> Instance<I> {
         let cell = self.ctx.generate_layout(block);
         Instance::new(cell)

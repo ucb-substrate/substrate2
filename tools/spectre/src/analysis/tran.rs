@@ -11,7 +11,6 @@ use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::HasNestedView;
 use substrate::simulation::data::{Save, SaveOutput, SaveTime};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
 use substrate::types::schematic::{
     NestedNode, NestedTerminal, Node, NodePath, RawNestedNode, TerminalPath,
 };
@@ -157,8 +156,8 @@ impl Save<Spectre, Tran> for RawNestedNode {
 pub struct CurrentSaveKey(pub(crate) Vec<u64>);
 
 pub struct NestedTerminalOutput {
-    v: Arc<Vec<f64>>,
-    i: Arc<Vec<f64>>,
+    pub v: Arc<Vec<f64>>,
+    pub i: Arc<Vec<f64>>,
 }
 
 impl Save<Spectre, Tran> for NestedTerminal {
