@@ -134,23 +134,33 @@ where
 
         // Read the PEX netlist to determine order of ports in the PEX netlist
         // (which may be different than the order of ports in the schematic netlist).
-        let scir =
+        let spice =
             spice::parser::Parser::parse_file(spice::parser::Dialect::Spice, &pex_netlist_path)
-                .expect("failed to parse pex netlist")
-                .to_scir()
-                .expect("failed to convert to SCIR");
-        let pexcell = scir.cell_named(&self.layout_cell_name);
-        let ports = pexcell
-            .ports()
-            .map(|p| pexcell.signal(p.signal()).name.clone())
-            .collect();
+                .expect("failed to parse pex netlist");
+        let subckt = spice
+            .ast
+            .elems
+            .iter()
+            .filter_map(|e| {
+                if let spice::parser::Elem::Subckt(s) = e {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
+            .find(|s| s.name.as_str() == self.layout_cell_name.as_str())
+            .expect("did not find layout cell in pex netlist");
 
         let primitive = spice::Primitive::RawInstanceWithInclude {
             // Magic PEX uses the layout cell name as the name of the extracted subcircuit,
             // not the name of the schematic cell.
             cell: self.layout_cell_name.clone(),
             netlist: pex_netlist_path,
-            ports,
+            ports: subckt
+                .ports
+                .iter()
+                .map(|p| ArcStr::from(p.as_str()))
+                .collect(),
         };
 
         let ports = self
