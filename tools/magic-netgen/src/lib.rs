@@ -134,7 +134,9 @@ where
             .collect::<Vec<ArcStr>>();
 
         let primitive = spice::Primitive::RawInstanceWithInclude {
-            cell: self.schematic.name(),
+            // Magic PEX uses the layout cell name as the name of the extracted subcircuit,
+            // not the name of the schematic cell.
+            cell: self.layout_cell_name.clone(),
             netlist: pex_netlist_path,
             ports: ports.clone(),
         };
