@@ -208,7 +208,6 @@ impl HasNestedView<PexContext> for NestedNode {
         let path = parent.lib.scir.simplify_path(path);
         let schematic_path =
             Spice::node_path_with_separator(&parent.lib.scir, &parent.conv, &path, "/");
-        println!("schpath = {}", schematic_path);
         let layout_path = parent.node_map[schematic_path.as_str()].clone();
         RawNestedNode::new(parent.path.clone(), layout_path)
     }

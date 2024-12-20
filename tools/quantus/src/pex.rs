@@ -247,7 +247,8 @@ mod tests {
 
     use crate::pex::{run_pex, write_pex_run_file, PexParams};
     use crate::tests::{
-        EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_TECHNOLOGY_DIR, TEST_BUILD_PATH,
+        COLBUF_LAYOUT_PATH, EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
+        SKY130_TECHNOLOGY_DIR, TEST_BUILD_PATH,
     };
     use std::path::{Path, PathBuf};
 
@@ -270,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_run_pex_col_inv() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let layout_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let source_path = PathBuf::from(EXAMPLES_PATH).join("spice/col_inv_array.spice");
         let test_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_pex_col_inv");
         let lvs_dir = test_dir.join("lvs");

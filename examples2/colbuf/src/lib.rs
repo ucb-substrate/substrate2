@@ -275,10 +275,8 @@ mod tests {
         concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
     pub const SKY130_CDS_TT_MODEL_PATH: &str =
         concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
-    pub const PEGASUS_EXAMPLES_PATH: &str =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/pegasus/examples");
-    pub const MAGIC_EXAMPLES_PATH: &str =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/magic/examples");
+    pub const COLBUF_LAYOUT_PATH: &str =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/test_col_buffer_array.gds");
     pub const SKY130_MAGIC_TECH_FILE: &str =
         concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
     pub const SKY130_NETGEN_SETUP_FILE: &str =
@@ -311,8 +309,7 @@ mod tests {
         let sim_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("sim");
         let ctx = Context::builder().install(Spectre::default()).build();
 
-        let layout_path =
-            PathBuf::from(PEGASUS_EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let layout_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("pex");
 
         let output = run(ctx
@@ -358,7 +355,7 @@ mod tests {
         let sim_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("sim");
         let ctx = Context::builder().install(Ngspice::default()).build();
 
-        let layout_path = PathBuf::from(MAGIC_EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let layout_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join(test_name).join("pex");
 
         let output = run(ctx

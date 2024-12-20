@@ -1190,7 +1190,6 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
                             )
                         })
                         .unwrap_or(inst.name().clone());
-                    println!("pushing name = {name}");
                     named_path.push(name);
                 }
                 InstancePathElement::Name(name) => {

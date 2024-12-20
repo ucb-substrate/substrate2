@@ -86,12 +86,12 @@ pub fn run_extract(params: &ExtractParams) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use crate::extract::*;
-    use crate::tests::{EXAMPLES_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
+    use crate::tests::{COLBUF_LAYOUT_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
     use std::path::PathBuf;
 
     #[test]
     fn test_run_magic_extract() -> anyhow::Result<()> {
-        let gds_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let gds_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_magic_extract");
         let netlist_path = work_dir.join("test_col_inv_array.lvs.spice");
         let _ = std::fs::remove_file(&netlist_path);

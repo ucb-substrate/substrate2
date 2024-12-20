@@ -14,8 +14,6 @@ pub mod layout;
 pub mod lut;
 pub mod schematic;
 pub mod simulation;
-#[cfg(test)]
-pub mod tests;
 pub mod types;
 
 mod diagnostics;

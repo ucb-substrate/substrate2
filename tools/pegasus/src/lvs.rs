@@ -210,12 +210,14 @@ mod tests {
     use crate::lvs::{
         parse_pegasus_lvs_results, run_lvs, write_lvs_run_file, LvsParams, LvsStatus,
     };
-    use crate::tests::{EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, TEST_BUILD_PATH};
+    use crate::tests::{
+        COLBUF_LAYOUT_PATH, EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, TEST_BUILD_PATH,
+    };
     use std::path::PathBuf;
 
     #[test]
     fn test_write_lvs_run_file() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let layout_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let source_path = PathBuf::from(EXAMPLES_PATH).join("spice/col_inv_array.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_write_lvs_run_file");
 
@@ -254,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_run_lvs_col_inv() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let layout_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let source_path = PathBuf::from(EXAMPLES_PATH).join("spice/col_inv_array.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_lvs_col_inv");
 
@@ -279,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_run_lvs_fail() -> anyhow::Result<()> {
-        let layout_path = PathBuf::from(EXAMPLES_PATH).join("gds/test_col_buffer_array.gds");
+        let layout_path = PathBuf::from(COLBUF_LAYOUT_PATH);
         let source_path = PathBuf::from(EXAMPLES_PATH).join("spice/col_inv_array_incorrect.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_run_lvs_fail");
 
