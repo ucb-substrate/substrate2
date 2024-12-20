@@ -30,10 +30,14 @@ members = [
     # "pdks/sky130pdk",
     "substrate",
     # "tests",
+    "tools/magic",
+    "tools/netgen",
     "tools/ngspice",
     "tools/pegasus",
     "tools/quantus",
-    "tools/spectre"
+    "tools/spectre", 
+    "tools/magic-netgen",
+    "examples2/colbuf",
 ]
 
 exclude = ["tests", "pdks/sky130pdk", "libs/atoll", "examples"]

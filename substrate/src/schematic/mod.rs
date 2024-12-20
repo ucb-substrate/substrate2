@@ -1,6 +1,7 @@
 //! Substrate's schematic generator framework.
 
 pub mod conv;
+pub mod pex;
 pub mod schema;
 #[cfg(test)]
 mod tests;
@@ -105,6 +106,12 @@ impl<T: HasNestedView> HasNestedView for Option<T> {
 /// Block that implements [`Schematic`] in schema `S` for block `B`.
 #[derive_where::derive_where(Debug, Hash, PartialEq, Eq; B)]
 pub struct ConvertSchema<B, S>(Arc<B>, PhantomData<S>);
+
+impl<B, S> ConvertSchema<B, S> {
+    pub fn new(block: B) -> Self {
+        Self(Arc::new(block), PhantomData)
+    }
+}
 
 impl<B, S> Clone for ConvertSchema<B, S> {
     fn clone(&self) -> Self {

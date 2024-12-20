@@ -12,7 +12,6 @@ use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::simulation::data::Save;
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
 use substrate::types::schematic::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 
 /// Sweep kinds.

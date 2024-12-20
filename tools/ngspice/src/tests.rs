@@ -1,21 +1,18 @@
 use std::path::PathBuf;
 
+use crate::blocks::Vsource;
+use crate::tran::Tran;
+use crate::{Ngspice, Options};
 use approx::relative_eq;
-use ngspice::blocks::Vsource;
-use ngspice::tran::Tran;
-use ngspice::{Ngspice, Options};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use spice::Resistor;
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::io::schematic::HardwareType;
-use substrate::io::{Signal, TestbenchIo};
-use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Instance, NestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
+use substrate::schematic::{Cell, CellBuilder, ConvertSchema, Instance, NestedData, Schematic};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-
-use crate::Ngspice;
+use substrate::types::schematic::{NestedTerminal, Terminal};
+use substrate::types::{Signal, TestbenchIo};
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
@@ -42,9 +39,9 @@ fn ngspice_can_save_voltages_and_currents() {
 
     #[derive(NestedData)]
     struct ResistorTbData {
-        r1: Instance<Resistor>,
-        r2: Instance<Resistor>,
-        r3: Instance<Resistor>,
+        r1: Terminal,
+        r2: Terminal,
+        r3: Terminal,
     }
 
     impl Schematic for ResistorTb {
@@ -52,13 +49,13 @@ fn ngspice_can_save_voltages_and_currents() {
         type NestedData = ResistorTbData;
         fn schematic(
             &self,
-            io: &<<Self as Block>::Io as HardwareType>::Bundle,
-            cell: &mut CellBuilder<Ngspice>,
+            io: &substrate::types::schematic::IoNodeBundle<Self>,
+            cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             let vdd = cell.signal("vdd", Signal);
-            let r1 = cell.instantiate(Resistor::new(dec!(100)));
-            let r2 = cell.instantiate(Resistor::new(dec!(100)));
-            let r3 = cell.instantiate(Resistor::new(dec!(100)));
+            let r1 = cell.instantiate(ConvertSchema::<_, Ngspice>::new(Resistor::new(dec!(100))));
+            let r2 = cell.instantiate(ConvertSchema::<_, Ngspice>::new(Resistor::new(dec!(100))));
+            let r3 = cell.instantiate(ConvertSchema::<_, Ngspice>::new(Resistor::new(dec!(100))));
 
             cell.connect(r1.io().p, vdd);
             cell.connect(r1.io().n, r2.io().p);
@@ -70,68 +67,37 @@ fn ngspice_can_save_voltages_and_currents() {
             cell.connect(vsource.io().p, vdd);
             cell.connect(vsource.io().n, io.vss);
 
-            Ok(ResistorTbData { r1, r2, r3 })
-        }
-    }
-
-    #[derive(FromSaved, Serialize, Deserialize)]
-    struct ResistorTbOutput {
-        r1: tran::Current,
-        r2: tran::Current,
-        r3: tran::Current,
-        vout: tran::Voltage,
-        r3_terminal: tran::Current,
-    }
-
-    impl SaveTb<Ngspice, Tran, ResistorTbOutput> for ResistorTb {
-        fn save_tb(
-            ctx: &SimulationContext<Ngspice>,
-            to_save: &Cell<Self>,
-            opts: &mut <Ngspice as Simulator>::Options,
-        ) -> <ResistorTbOutput as FromSaved<Ngspice, Tran>>::SavedKey {
-            ResistorTbOutputSavedKey {
-                r1: tran::Current::save(ctx, &to_save.r1, opts),
-                r2: tran::Current::save(ctx, &to_save.r2, opts),
-                r3: tran::Current::save(ctx, &to_save.r3, opts),
-                vout: tran::Voltage::save(ctx, to_save.data().r1.io().n, opts),
-                r3_terminal: tran::Current::save(ctx, to_save.data().r3.io().p, opts),
-            }
-        }
-    }
-
-    impl Testbench<Ngspice> for ResistorTb {
-        type Output = ResistorTbOutput;
-
-        fn run(&self, sim: SimController<Ngspice, Self>) -> Self::Output {
-            sim.simulate(
-                Options::default(),
-                Tran {
-                    step: dec!(2e-10),
-                    stop: dec!(2e-9),
-                    ..Default::default()
-                },
-            )
-            .expect("failed to run simulation")
+            Ok(ResistorTbData {
+                r1: r1.io().p,
+                r2: r2.io().p,
+                r3: r3.io().p,
+            })
         }
     }
 
     let test_name = "ngspice_can_save_voltages_and_currents";
     let sim_dir = get_path(test_name, "sim/");
-    let ctx = sky130_open_ctx();
-    let ResistorTbOutput {
-        r1,
-        r2,
-        r3,
-        vout,
-        r3_terminal,
-    } = ctx.simulate(ResistorTb, sim_dir).unwrap();
+    let ctx = ngspice_ctx();
+    let sim = ctx
+        .get_sim_controller(ResistorTb, sim_dir)
+        .expect("failed to get sim controller");
+
+    let output = sim
+        .simulate(
+            Options::default(),
+            Tran {
+                step: dec!(2e-10),
+                stop: dec!(2e-9),
+                ..Default::default()
+            },
+        )
+        .expect("failed to run simulation");
 
     for (actual, expected) in [
-        (&*r1, 1.8 / 150.),
-        (&*r2, 1.8 / 300.),
-        (&*r3, 1.8 / 300.),
-        (&*vout, 1.8 / 3.),
-        (&*r3_terminal, 1.8 / 300.),
+        (&*output.r1.i, 1.8 / 150.),
+        (&*output.r2.i, 1.8 / 300.),
+        (&*output.r3.i, 1.8 / 300.),
+        (&*output.r2.v, 1.8 / 3.),
     ] {
         actual.iter().copied().for_each(|val| {
             assert!(

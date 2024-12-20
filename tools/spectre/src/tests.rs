@@ -3,18 +3,17 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::{path::PathBuf, sync::Arc};
 
-use approx::assert_relative_eq;
+use approx::{assert_relative_eq, relative_eq};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use scir::netlist::ConvertibleNetlister;
 use scir::*;
 use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
-use spice::{BlackboxContents, BlackboxElement};
 use spice::{BlackboxContents, BlackboxElement, ComponentValue, Spice};
 use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::schematic::schema::Schema;
-use substrate::types::schematic::NestedTerminal;
+use substrate::types::schematic::{NestedTerminal, Terminal};
 use substrate::{
     block::Block,
     context::Context,
@@ -22,7 +21,7 @@ use substrate::{
     simulation::{data::Save, Analysis, SimController, Simulator},
     types::{
         schematic::{IoNodeBundle, NestedNode, Node},
-        InOut, Io, Signal, TestbenchIo,
+        InOut, Io, Signal, TestbenchIo, TwoTerminalIo,
     },
 };
 
@@ -30,7 +29,7 @@ use crate::blocks::RawInstance;
 use crate::{
     analysis::tran::Tran,
     blocks::{Resistor, Vsource},
-    ErrPreset, Options, Primitive, Spectre, Spectre,
+    ErrPreset, Options, Primitive, Spectre,
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
@@ -192,7 +191,7 @@ fn spectre_can_include_sections() {
 
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
-    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Block)]
     #[substrate(io = "TwoTerminalIo")]
     pub struct ScirResistor;
 
@@ -222,7 +221,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
         }
     }
 
-    #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq, Block)]
     #[substrate(io = "TwoTerminalIo")]
     pub struct VirtualResistor;
 
@@ -240,7 +239,7 @@ fn spectre_can_save_paths_with_flattened_instances() {
             let raw_res = cell.instantiate(RawInstance::with_params(
                 arcstr::literal!("resistor"),
                 vec![arcstr::literal!("pos"), arcstr::literal!("neg")],
-                HashMap::from_iter([(arcstr::literal!("r"), dec!(300).into())]),
+                Vec::from_iter([(arcstr::literal!("r"), dec!(300).into())]),
             ));
             cell.connect(raw_res.io()[0], io.p);
             cell.connect(raw_res.io()[1], io.n);
@@ -249,13 +248,13 @@ fn spectre_can_save_paths_with_flattened_instances() {
         }
     }
 
-    #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+    #[derive(Debug, Clone, Hash, Eq, PartialEq, Block)]
     #[substrate(io = "TestbenchIo")]
     struct VirtualResistorTb;
 
     impl Schematic for VirtualResistorTb {
         type Schema = Spectre;
-        type NestedData = NestedTerminal;
+        type NestedData = Terminal;
         fn schematic(
             &self,
             io: &IoNodeBundle<Self>,
@@ -278,7 +277,9 @@ fn spectre_can_save_paths_with_flattened_instances() {
     let test_name = "spectre_can_save_paths_with_flattened_instances";
     let sim_dir = get_path(test_name, "sim/");
     let ctx = spectre_ctx();
-    let sim = ctx.get_sim_controller::<Spectre, _>(VirtualResistorTb, sim_dir);
+    let sim = ctx
+        .get_sim_controller::<Spectre, _>(VirtualResistorTb, sim_dir)
+        .expect("failed to get sim controller");
     let output = sim
         .simulate(
             Options::default(),
