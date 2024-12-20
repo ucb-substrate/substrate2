@@ -212,8 +212,8 @@ where
                     None
                 }
             })
-            .find(|s| s.name.as_str() == self.layout_cell_name.as_str())
-            .expect("did not find layout cell in pex netlist");
+            .find(|s| s.name.as_str() == self.schematic.name().as_str())
+            .expect("did not find cell in pex netlist");
 
         let primitive = spice::Primitive::RawInstanceWithInclude {
             cell: self.schematic.name(),
