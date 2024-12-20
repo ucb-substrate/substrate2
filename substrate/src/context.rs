@@ -433,9 +433,7 @@ impl Context {
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
                 let (io, data) = block.layout(&mut cell_builder)?;
-                if block_io.kind() != io.kind()
-                    || block_io.kind().flat_names(None).len() != io.len()
-                {
+                if block_io.kind() != io.kind() || block_io.kind().len() != io.len() {
                     tracing::event!(
                         Level::ERROR,
                         "layout IO and block IO have different bundle kinds or flattened lengths"

@@ -5,7 +5,7 @@ use crate::error::Result;
 use crate::layout::error::LayoutError;
 use crate::layout::schema::Schema;
 use arcstr::ArcStr;
-pub use codegen::LayoutType as HardwareType;
+pub use codegen::LayoutBundle;
 use geometry::point::Point;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;

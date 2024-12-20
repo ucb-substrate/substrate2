@@ -27,6 +27,7 @@ use psfparser::analysis::ac::AcData;
 use psfparser::analysis::transient::TransientData;
 use regex::Regex;
 use rust_decimal::Decimal;
+use scir::netlist::ConvertibleNetlister;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{
     Library, NamedSliceOne, NetlistLibConversion, ParamValue, SignalInfo, Slice, SliceOnePath,
@@ -39,7 +40,6 @@ use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::netlist::ConvertibleNetlister;
 use substrate::schematic::schema::Schema;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption, Temperature};

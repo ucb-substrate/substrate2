@@ -3,6 +3,9 @@
 
 extern crate self as substrate;
 
+use std::sync::Arc;
+
+use arcstr::ArcStr;
 pub use test_log::test;
 
 pub mod block;

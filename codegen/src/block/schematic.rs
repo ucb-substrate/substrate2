@@ -6,7 +6,7 @@ use syn::token::Where;
 use syn::{parse_quote, GenericParam, WhereClause};
 
 use crate::substrate_ident;
-use type_dispatch::derive::{add_trait_bounds, struct_body};
+use macrotools::{add_trait_bounds, struct_body};
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(any), forward_attrs(allow, doc, cfg))]

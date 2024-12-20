@@ -13,7 +13,7 @@ proc-macro-error = "1"
 convert_case = "0.6"
 
 snippets = { version = "0.5.1", registry = "substrate", path = "../docs/snippets" }
-type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/type_dispatch" }
+macrotools = { version = "0.0.0", registry = "substrate", path = "../libs/macrotools" }
 
 [dev-dependencies]
 arcstr = "1"

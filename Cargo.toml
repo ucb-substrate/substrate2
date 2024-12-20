@@ -7,7 +7,7 @@ members = [
     "codegen",
     "config",
     "docs/snippets",
-    "libs/atoll",
+    # "libs/atoll",
     "libs/cache",
     "libs/diagnostics",
     "libs/layir",
@@ -21,19 +21,20 @@ members = [
     "libs/pathtree",
     "libs/scir",
     "libs/spice",
+    "libs/macrotools",
     "libs/nutlex",
     "libs/type_dispatch",
     "libs/type_dispatch_macros",
     "libs/uniquify",
     "libs/verilog",
-    "pdks/sky130pdk",
+    # "pdks/sky130pdk",
     "substrate",
     "tests",
     "tools/ngspice",
     "tools/pegasus",
     "tools/quantus",
-    "tools/spectre",
+    "tools/spectre"
 ]
 
-exclude = ["examples"]
+exclude = ["pdks/sky130pdk", "libs/atoll", "examples"]
 

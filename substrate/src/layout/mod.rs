@@ -5,7 +5,6 @@ use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
 use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
-pub use codegen::{Layout, LayoutData};
 use geometry::prelude::Rect;
 use geometry::transform::{TransformRef, TranslateRef};
 use geometry::{

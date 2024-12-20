@@ -14,7 +14,6 @@ use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use substrate::block::Block;
 use substrate::schematic::{CellBuilder, Schematic};
-use substrate::serde::{Deserialize, Serialize};
 use substrate::types::TwoTerminalIo;
 use unicase::UniCase;
 

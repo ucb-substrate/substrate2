@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
-use crate::types::codegen::{Custom, HasCustomView, HasViewImpl, View};
+use crate::types::codegen::{HasViewImpl, View};
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
-use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo, PowerIoBundle};
+use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
 use crate::{
     block::Block,
     schematic::{conv::RawLib, NestedData, PrimitiveBinding, Schematic},
@@ -79,17 +79,6 @@ pub struct VdividerIo {
     pub pwr: PowerIo,
     pub out: Output<Signal>,
 }
-
-pub struct MyView;
-
-impl HasCustomView<MyView> for Signal {
-    type View = i64;
-}
-
-const VDIVIDER_CUSTOM_VIEW: VdividerIoBundle<Custom<MyView>> = VdividerIoBundle {
-    pwr: PowerIoBundle { vdd: 1, vss: 2 },
-    out: 3,
-};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Vdivider {
@@ -251,7 +240,7 @@ impl Block for MultiDecoupledBlock {
     }
 }
 
-impl DataView<DecoupledIoBundleKind> for MultiDecoupledIoBundleKind {
+impl DataView<DecoupledIoKind> for MultiDecoupledIoKind {
     fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<DecoupledIo> {
         NodeBundle::<DecoupledIo> {
             ready: nodes.ready,
@@ -309,14 +298,14 @@ impl Schematic for SuperBlock {
         assert!(b1.io().d1.kind() != b2.io().d4.kind());
         assert!(b1.io().d1.kind() == b2.io().d5.kind());
         assert!(b1.io().d2.kind() == b2.io().d4.kind());
-        assert!(b1.io().d2.kind() == b2.io().view_as::<DecoupledIoBundleKind>().kind());
+        assert!(b1.io().d2.kind() == b2.io().view_as::<DecoupledIoKind>().kind());
 
         cell.connect(&b1.io().d1, &b2.io().d1);
         cell.connect(&b1.io().d1, &b2.io().d1);
         cell.connect(&b1.io().d1, &b2.io().d1);
         cell.connect(&b1.io().d1, &b2.io().d3);
         cell.connect(&b1.io().d1, &b2.io().d5);
-        cell.connect(&b1.io().d2, b2.io().view_as::<DecoupledIoBundleKind>());
+        cell.connect(&b1.io().d2, b2.io().view_as::<DecoupledIoKind>());
         cell.connect(wire.d2, &b1.io().d1);
 
         Ok(())
@@ -778,7 +767,7 @@ fn nested_io_naming() {
         out: Output(Signal),
     };
 
-    let actual = NameTree::new("io", io.names().unwrap());
+    let actual = NameTree::new("io", io.kind().names().unwrap());
     let expected = NameTree::new(
         "io",
         vec![

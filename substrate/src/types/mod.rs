@@ -103,11 +103,12 @@ pub trait HasNameTree {
 
 /// A bundle kind.
 pub trait BundleKind:
-    HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
+    FlatLen + HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
 }
-impl<T: HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync> BundleKind
-    for T
+impl<
+        T: FlatLen + HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync,
+    > BundleKind for T
 {
 }
 
