@@ -27,7 +27,6 @@ use substrate::context::Installation;
 use substrate::execute::Executor;
 use substrate::schematic::schema::Schema;
 use substrate::simulation::{SimulationContext, Simulator};
-use substrate::types;
 use templates::{write_run_script, RunScriptContext};
 
 pub mod blocks;
@@ -382,6 +381,13 @@ impl Ngspice {
         let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        includes.extend(ctx.lib.scir.primitives().filter_map(|(_, p)| {
+            if let Primitive::Spice(spice::Primitive::RawInstanceWithInclude { netlist, .. }) = p {
+                Some(netlist.clone().into())
+            } else {
+                None
+            }
+        }));
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
