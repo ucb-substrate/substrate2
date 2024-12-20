@@ -375,8 +375,7 @@ impl HasSpiceLikeNetlist for Spice {
         connections: Vec<ArcStr>,
         child: &ArcStr,
     ) -> std::io::Result<ArcStr> {
-        let name = arcstr::format!("X{}", name);
-        write!(out, "{}", name)?;
+        write!(out, "X{}", name)?;
 
         for connection in connections {
             write!(out, " {}", connection)?;
@@ -384,7 +383,7 @@ impl HasSpiceLikeNetlist for Spice {
 
         write!(out, " {}", child)?;
 
-        Ok(name)
+        Ok(name.clone())
     }
 
     fn write_primitive_inst<W: Write>(
