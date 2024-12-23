@@ -1033,10 +1033,23 @@ pub struct DeriveTrait {
     pub trait_: TokenStream,
     /// The trait's associated method.
     pub method: TokenStream,
+    /// The trait's receiver style.
+    pub receiver: Receiver,
     /// Identifiers for extra arguments to the trait's associated methods.
     pub extra_arg_idents: Vec<TokenStream>,
     /// Types for extra arguments to the trait's associated methods.
     pub extra_arg_tys: Vec<TokenStream>,
+}
+
+/// The style of a method's receiver.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub enum Receiver {
+    /// A reference, i.e. `&self`.
+    Ref,
+    /// A mutable reference, i.e. `&mut self`.
+    MutRef,
+    /// An owned receiver, i.e. `self`.
+    Owned,
 }
 
 /// Derives a trait using the given configuration and input.
@@ -1044,6 +1057,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
     let DeriveTrait {
         ref trait_,
         ref method,
+        ref receiver,
         ref extra_arg_idents,
         ref extra_arg_tys,
     } = *config;
@@ -1052,13 +1066,19 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
     add_trait_bounds(&mut generics, quote!(#trait_));
     let (imp, ty, wher) = generics.split_for_impl();
 
+    let (receiver, declare_receiver) = match receiver {
+        Receiver::Ref => (quote! { & }, quote! { ref }),
+        Receiver::MutRef => (quote! { &mut }, quote! { ref mut }),
+        Receiver::Owned => (quote! {}, quote! {}),
+    };
+
     let match_clause: TokenStream = match &input.data {
         Data::Struct(ref s) => match &s.fields {
             Fields::Unnamed(fields) => {
                 let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let idx = Index::from(i);
                     quote_spanned! { f.span() =>
-                        #trait_::#method(&mut self.#idx, #(#extra_arg_idents),*);
+                        #trait_::#method(#receiver self.#idx, #(#extra_arg_idents),*);
                     }
                 });
                 quote! { #(#recurse)* }
@@ -1067,7 +1087,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                 let recurse = fields.named.iter().map(|f| {
                     let name = f.ident.as_ref().unwrap();
                     quote_spanned! { f.span() =>
-                        #trait_::#method(&mut self.#name, #(#extra_arg_idents),*);
+                        #trait_::#method(#receiver self.#name, #(#extra_arg_idents),*);
                     }
                 });
                 quote! { #(#recurse)* }
@@ -1087,7 +1107,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                         let declare = fields.named.iter().map(|f| {
                             let name = f.ident.as_ref().unwrap();
                             quote_spanned! { f.span() =>
-                                ref mut #name,
+                                #declare_receiver #name,
                             }
                         });
                         quote! {
@@ -1104,7 +1124,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                         let declare = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ident = format_ident!("field{i}");
                             quote_spanned! { f.span() =>
-                                ref mut #ident,
+                                #declare_receiver #ident,
                             }
                         });
                         quote! {
@@ -1147,7 +1167,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
 
     quote! {
         impl #imp #trait_ for #ident #ty #wher {
-            fn #method(&mut self, #(#extra_args_sig),*) {
+            fn #method(#receiver self, #(#extra_args_sig),*) {
                 #match_clause
             }
         }
