@@ -4,7 +4,7 @@ sidebar_position: 2
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import VdividerMod from '@substrate/examples/spice_vdivider/src/lib.rs?snippet';
-import Core from '@substrate/docs/examples/examples/core.rs?snippet';
+import Core from '@substrate/substrate/examples/substrate.rs?snippet';
 
 # Blocks
 

@@ -1,0 +1,2 @@
+[deploy]
+versions = ["main", "dev"]

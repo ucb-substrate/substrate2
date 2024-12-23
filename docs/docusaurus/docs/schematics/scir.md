@@ -3,7 +3,7 @@ sidebar_position: 4
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-import Core from '@substrate/docs/examples/examples/core.rs?snippet';
+import Core from '@substrate/substrate/examples/substrate.rs?snippet';
 
 # Schematic cell intermediate representation (SCIR)
 

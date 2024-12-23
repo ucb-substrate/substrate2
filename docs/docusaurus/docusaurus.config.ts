@@ -38,6 +38,12 @@ const config: Config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
+          versions: {
+            current: {
+              label: 'main',
+              path: 'main',
+            },
+          },
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
@@ -78,6 +84,11 @@ const config: Config = {
             href: 'https://api.substratelabs.io/substrate/',
             label: 'API',
             position: 'left',
+          },
+          {
+            type: 'docsVersionDropdown',
+            position: 'right',
+            dropdownActiveClassDisabled: true,
           },
           {
             href: 'https://github.com/substrate-labs/substrate2',

@@ -4,7 +4,7 @@ sidebar_position: 2
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import VdividerMod from '@substrate/examples/spice_vdivider/src/lib.rs?snippet';
-import Core from '@substrate/docs/examples/examples/core.rs?snippet';
+import Core from '@substrate/substrate/examples/substrate.rs?snippet';
 
 # Schematic generators
 
@@ -39,7 +39,7 @@ For example, say you want to propagate up some integer value that was calculated
 
 If you don't want to deal with the extra layer of indirection while accessing the struct, you can also do something like this:
 
-<CodeSnippet language="rust" snippet="custom-nested-view-2">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="custom-nested-view">{Core}</CodeSnippet>
 
 However, we don't recommend you do this unless you know what you're doing since it is more prone to error and a bit difficult to understand.
 
