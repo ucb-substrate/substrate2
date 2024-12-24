@@ -66,6 +66,7 @@ impl<L: Clone> RawCell<L> {
     /// to the same LayIR library.
     pub(crate) fn to_layir_lib(&self) -> Result<RawLib<L>, LayirExportError> {
         let mut lib_ctx = LayirLibExportContext::new();
+        self.to_layir_cell(&mut lib_ctx)?;
 
         Ok(RawLib {
             layir: lib_ctx.lib.build().map_err(|_| LayirExportError)?,

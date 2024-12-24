@@ -13,11 +13,7 @@ use geometry::transform::{TransformRef, TranslateRef};
 use geometry::union::BoundingUnion;
 use layir::Shape;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use tracing::Level;
-
-/// A port geometry bundle view.
-pub struct PortGeometryBundle<S>(PhantomData<S>);
 
 /// A layout port with a generic set of associated geometry.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -34,6 +30,15 @@ pub struct PortGeometry<L> {
 }
 
 impl<L> PortGeometry<L> {
+    /// Create a new [`PortGeometry`] with the given primary shape.
+    pub fn new(primary: impl Into<Shape<L>>) -> Self {
+        Self {
+            primary: primary.into(),
+            unnamed_shapes: Default::default(),
+            named_shapes: Default::default(),
+        }
+    }
+
     /// Returns an iterator over all shapes in a [`PortGeometry`].
     pub fn shapes(&self) -> impl Iterator<Item = &Shape<L>> {
         std::iter::once(&self.primary)
@@ -60,6 +65,22 @@ impl<L> PortGeometry<L> {
 impl<L> Bbox for PortGeometry<L> {
     fn bbox(&self) -> Option<Rect> {
         self.shapes().fold(None, |a, b| a.bounding_union(&b.bbox()))
+    }
+}
+
+impl<L> Unflatten<super::Signal, PortGeometry<L>> for PortGeometry<L> {
+    fn unflatten<I>(_data: &super::Signal, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = PortGeometry<L>>,
+    {
+        source.next()
+    }
+}
+
+impl<L: Send + Sync> super::HasBundleKind for PortGeometry<L> {
+    type BundleKind = super::Signal;
+    fn kind(&self) -> Self::BundleKind {
+        super::Signal
     }
 }
 

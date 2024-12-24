@@ -8,9 +8,9 @@ use crate::{
 };
 
 use super::{
-    layout::{PortGeometry, PortGeometryBundle},
+    layout::{LayoutBundle, PortGeometry},
     schematic::{NestedNode, NestedTerminal, Node, SchematicBundleKind, Terminal},
-    Array, Flatten, Flipped, HasBundleKind, InOut, Input, Output, Signal, Unflatten,
+    Array, ArrayBundle, Flatten, Flipped, HasBundleKind, InOut, Input, Output, Signal, Unflatten,
 };
 
 /// A type with an associated `V` view.
@@ -61,8 +61,8 @@ impl ViewSource for Signal {
     type Source = Self;
 }
 
-impl<S> HasViewImpl<PortGeometryBundle<S>> for Signal {
-    type View = PortGeometry<S>;
+impl<L> HasViewImpl<PortGeometryBundle<L>> for Signal {
+    type View = PortGeometry<L>;
 }
 
 impl ViewSource for Node {
@@ -217,4 +217,24 @@ impl<V, S: Simulator, A: Analysis, T: ViewSource + HasNestedView<V, NestedView: 
     HasViewImpl<NestedSaved<V, S, A>> for T
 {
     type View = crate::simulation::data::Saved<NestedView<T, V>, S, A>;
+}
+
+pub trait HasDefaultLayoutBundle: super::BundleKind {
+    type Bundle<S: crate::layout::schema::Schema>: LayoutBundle<S>;
+}
+/// A port geometry bundle view.
+pub struct PortGeometryBundle<S>(PhantomData<S>);
+
+impl<S: crate::layout::schema::Schema, T: ViewSource + HasDefaultLayoutBundle>
+    HasViewImpl<PortGeometryBundle<S>> for Array<T>
+{
+    type View = ArrayBundle<T::Bundle<S>>;
+}
+
+impl<T: HasDefaultLayoutBundle> HasDefaultLayoutBundle for Array<T> {
+    type Bundle<S: crate::layout::schema::Schema> = ArrayBundle<T::Bundle<S>>;
+}
+
+impl HasDefaultLayoutBundle for Signal {
+    type Bundle<S: crate::layout::schema::Schema> = PortGeometry<S::Layer>;
 }

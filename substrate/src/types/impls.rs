@@ -572,6 +572,17 @@ impl<T: HasBundleKind> ArrayBundle<T> {
     pub fn num_elems(&self) -> usize {
         self.elems.len()
     }
+
+    /// Creates a new array bundle with the given elements.
+    ///
+    /// All elements must have the same bundle kind, which must be equal to `kind`.
+    /// Panics if this condition is not satisfied.
+    pub fn new(kind: T::BundleKind, elems: Vec<T>) -> Self {
+        for elem in elems.iter() {
+            assert_eq!(kind, elem.kind());
+        }
+        Self { kind, elems }
+    }
 }
 
 #[cfg(test)]
