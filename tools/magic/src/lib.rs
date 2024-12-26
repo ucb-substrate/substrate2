@@ -24,7 +24,6 @@ lazy_static! {
 #[cfg(test)]
 mod tests {
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    pub const EXAMPLES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
     pub const COLBUF_LAYOUT_PATH: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "../../examples2/colbuf/test_col_buffer_array.gds"

@@ -384,7 +384,7 @@ impl<'a> GdsImporter<'a> {
             for iy in 0..i64::from(aref.rows) {
                 let y = p0.y + iy * ystep;
                 insts.push(Instance::with_transformation(
-                    cell.clone(),
+                    cell,
                     arcstr::format!("{}_{}_{}", aref.name, ix, iy),
                     Transformation::from_offset_and_orientation(Point::new(x, y), orientation),
                 ));

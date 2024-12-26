@@ -163,7 +163,7 @@ struct FieldVisitor {
     expected: &'static str,
 }
 
-impl<'de> de::Visitor<'de> for FieldVisitor {
+impl de::Visitor<'_> for FieldVisitor {
     type Value = ();
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

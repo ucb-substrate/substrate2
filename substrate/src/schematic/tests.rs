@@ -854,8 +854,8 @@ impl Schematic for Block1 {
 
     fn schematic(
         &self,
-        io: &IoNodeBundle<Self>,
-        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+        _io: &IoNodeBundle<Self>,
+        _cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> crate::error::Result<Self::NestedData> {
         Err(substrate::error::Error::Anyhow(
             anyhow!("failed to generate block 1").into(),
@@ -873,7 +873,7 @@ impl Schematic for Block2 {
 
     fn schematic(
         &self,
-        io: &IoNodeBundle<Self>,
+        _io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> crate::error::Result<Self::NestedData> {
         let handle = cell.generate(Block1);

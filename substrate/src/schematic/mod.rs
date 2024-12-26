@@ -28,12 +28,11 @@ use crate::diagnostics::SourceInfo;
 use crate::error::{Error, Result};
 use crate::schematic::conv::ConvError;
 use crate::schematic::schema::{FromSchema, Schema};
-use crate::types::codegen::ViewSource;
 use crate::types::schematic::{
     IoNodeBundle, IoTerminalBundle, Node, NodeBundle, NodeContext, NodePriority, NodeUf, Port,
     SchematicBundleKind,
 };
-use crate::types::{Flatten, HasBundleKind, HasNameTree, Io, IoKind, NameBuf};
+use crate::types::{Flatten, HasBundleKind, HasNameTree, IoKind, NameBuf};
 
 /// A block that has a schematic.
 pub trait Schematic: Block<Io: HasBundleKind<BundleKind: SchematicBundleKind>> {

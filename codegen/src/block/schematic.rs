@@ -36,52 +36,8 @@ pub struct DataField {
     attrs: Vec<syn::Attribute>,
 }
 
-fn variant_decl(variant: &DataVariant) -> TokenStream {
-    let DataVariant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
-    let decls = fields.iter().enumerate().map(|(i, f)| field_decl(i, f));
-    match fields.style {
-        Style::Unit => quote!(#ident,),
-        Style::Tuple => quote!(#ident( #(#decls)* ),),
-        Style::Struct => quote!(#ident { #(#decls)* },),
-    }
-}
-
 fn tuple_ident(idx: usize) -> syn::Ident {
     format_ident!("__substrate_derive_field{idx}")
-}
-
-fn variant_match_arm(
-    enum_ident: syn::Ident,
-    variant: &DataVariant,
-    val: impl Fn(&syn::Type, &TokenStream) -> TokenStream,
-) -> TokenStream {
-    let DataVariant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
-    let destructure = fields
-        .iter()
-        .enumerate()
-        .map(|(i, f)| f.ident.clone().unwrap_or_else(|| tuple_ident(i)))
-        .map(|i| quote!(ref #i));
-    let assign = fields
-        .iter()
-        .enumerate()
-        .map(|(i, f)| field_assign(None, i, f, &val));
-    match fields.style {
-        Style::Unit => quote!(Self::#ident => #enum_ident::#ident,),
-        Style::Tuple => {
-            quote!(Self::#ident( #(#destructure),* ) => #enum_ident::#ident( #(#assign)* ),)
-        }
-        Style::Struct => {
-            quote!(Self::#ident { #(#destructure),* } => #enum_ident::#ident { #(#assign)* },)
-        }
-    }
 }
 
 fn field_decl(_idx: usize, field: &DataField) -> TokenStream {
@@ -146,7 +102,7 @@ impl ToTokens for DataInputReceiver {
             ref attrs,
         } = *self;
 
-        let (generics_imp, generics_ty, generics_wher) = generics.split_for_impl();
+        let (_, generics_ty, _) = generics.split_for_impl();
 
         let hnv_generic_ty: syn::Ident = parse_quote!(__substrate_T);
         let hnv_generic: syn::GenericParam = parse_quote!(#hnv_generic_ty);
@@ -157,7 +113,7 @@ impl ToTokens for DataInputReceiver {
         );
         hnv_generics.params.push(hnv_generic.clone());
 
-        let (hnv_imp, hnv_ty, hnv_wher) = hnv_generics.split_for_impl();
+        let (hnv_imp, _, _) = hnv_generics.split_for_impl();
 
         let view_ident = format_ident!("{}View", ident);
 
@@ -175,7 +131,7 @@ impl ToTokens for DataInputReceiver {
         let view_generic: syn::GenericParam = parse_quote!(#view_generic_ty);
         let mut view_generics = generics.clone();
         view_generics.params.push(view_generic);
-        let (view_imp, view_ty, view_wher) = view_generics.split_for_impl();
+        let (_, _, view_wher) = view_generics.split_for_impl();
 
         let mut save_generics = generics.clone();
         save_generics.params.push(hnv_generic);
@@ -222,7 +178,7 @@ impl ToTokens for DataInputReceiver {
                     save_where_clause.predicates.push(parse_quote!(<#ty as #substrate::schematic::HasNestedView<#hnv_generic_ty>>::NestedView: #substrate::simulation::data::Save<__substrate_S, __substrate_A>));
                 }
                 save_generics.where_clause = Some(save_where_clause.clone());
-                let (save_imp, save_ty, save_wher) = save_generics.split_for_impl();
+                let (save_imp, _, save_wher) = save_generics.split_for_impl();
 
                 let view_fields = fields.clone().map(|mut f| {
                     let ty = f.ty.clone();
@@ -318,7 +274,7 @@ impl ToTokens for DataInputReceiver {
                     }
                 }
             }
-            ast::Data::Enum(ref variants) => {
+            ast::Data::Enum(_) => {
                 unimplemented!()
             }
         };

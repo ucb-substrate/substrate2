@@ -1,10 +1,6 @@
 use substrate::types::Io;
 use substrate::types::{Input, Output, Signal};
 
-use super::codegen::{HasView, NodeBundle, TerminalBundle};
-use super::HasBundleKind;
-
-// TODO: uncomment
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
 pub struct GenericIo<T> {

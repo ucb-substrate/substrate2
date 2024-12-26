@@ -1,11 +1,7 @@
-use darling::{ast, FromDeriveInput, FromField};
-use macrotools::{
-    add_trait_bounds, field_tokens, field_tokens_with_referent, struct_body, DeriveInputHelper,
-    FieldTokens, ImplTrait, MapField,
-};
-use proc_macro2::{Span, TokenStream};
+use macrotools::{DeriveInputHelper, ImplTrait, MapField};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_quote, token::Where, DeriveInput, GenericParam, Ident, WhereClause};
+use syn::{parse_quote, DeriveInput};
 
 use crate::substrate_ident;
 
@@ -34,7 +30,6 @@ fn impl_debug(helper: &DeriveInputHelper) -> TokenStream {
     let debug_body = helper.map(|fields| {
         let mapped_fields = fields.iter().map(
             |MapField {
-                 ty,
                  refer,
                  pretty_ident,
                  ..
@@ -273,7 +268,7 @@ fn impl_unflatten(
     let unflatten_generic = parse_quote! { __substrate_S };
     let mut kind_helper = kind_helper.clone();
     let mut view_helper = view_helper.clone();
-    view_helper.push_where_predicate_per_field(|ty, prev_tys| {
+    view_helper.push_where_predicate_per_field(|_ty, prev_tys| {
         let prev_ty = &prev_tys[0];
         parse_quote! { #prev_ty: #substrate::types::HasBundleKind }
     });
@@ -314,7 +309,7 @@ fn impl_schematic_bundle_kind(
 ) -> TokenStream {
     let substrate = substrate_ident();
     let mut schematic_bundle_kind_helper = kind_helper.clone();
-    schematic_bundle_kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
+    schematic_bundle_kind_helper.push_where_predicate_per_field(|_ty, prev_tys| {
         let prev_ty = &prev_tys[0];
         parse_quote! { #prev_ty: #substrate::types::codegen::HasSchematicBundleKindViews }
     });
@@ -491,7 +486,6 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     };
 
     // Implement traits for `BundleKind`.
-    let kind_ident = kind_helper.get_ident();
     let kind_type = kind_helper.get_full_type();
     all_decls_impls.push(impl_clone(&kind_helper));
     all_decls_impls.push(impl_debug(&kind_helper));
@@ -524,7 +518,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
             #ty: #substrate::types::HasBundleKind<BundleKind = <#prev_ty as #substrate::types::HasBundleKind>::BundleKind>
         }
     });
-    has_bundle_kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
+    has_bundle_kind_helper.push_where_predicate_per_field(|_ty, prev_tys| {
         let prev_ty = &prev_tys[0];
         parse_quote! {
             #prev_ty: #substrate::types::HasBundleKind
@@ -538,7 +532,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     // Implement schematic traits
     all_decls_impls.push(schematic_bundle_kind(&helper, &kind_helper, &view_helper));
     // Implement layout traits
-    all_decls_impls.push(layout_bundle_kind(&helper, &kind_helper, &view_helper));
+    all_decls_impls.push(layout_bundle_kind(&view_helper));
     Ok(quote! {
         #( #all_decls_impls )*
     })
@@ -631,14 +625,8 @@ pub(crate) fn schematic_bundle_kind(
     }
 }
 
-pub(crate) fn layout_bundle_kind(
-    original_helper: &DeriveInputHelper,
-    kind_helper: &DeriveInputHelper,
-    view_helper: &DeriveInputHelper,
-) -> TokenStream {
-    let substrate = substrate_ident();
+pub(crate) fn layout_bundle_kind(view_helper: &DeriveInputHelper) -> TokenStream {
     let mut all_decls_impls = Vec::new();
-    let view_generic_ty = quote! { __substrate_V };
 
     all_decls_impls.push(impl_translate_ref(view_helper));
     all_decls_impls.push(impl_transform_ref(view_helper));
@@ -647,6 +635,3 @@ pub(crate) fn layout_bundle_kind(
         #( #all_decls_impls )*
     }
 }
-//
-// // TODO: Signature might need to be modified to use macrotools.
-// pub(crate) fn layout_bundle(input: &DeriveInput) -> TokenStream {}

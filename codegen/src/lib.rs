@@ -6,14 +6,14 @@ mod io;
 
 use darling::FromDeriveInput;
 use io::bundle_kind;
-use macrotools::{handle_darling_error, handle_syn_error, DeriveInputHelper, MapField};
+use macrotools::{handle_darling_error, handle_syn_error};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
-use quote::{format_ident, quote};
+use quote::quote;
 use snippets::include_snippet;
+use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
-use syn::{parse_quote, Ident};
 
 /// Derives `Io` for a struct.
 ///
@@ -31,21 +31,6 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
     // let layout = layout_io(&input);
     quote!(
         #bundle_impl
-    )
-    .into()
-}
-
-// TODO: derive_bundle_kind
-
-/// Derives `LayoutBundle` for a struct.
-///
-/// Only derives some of the necessary supertraits, the remaining must be implemented manually.
-#[proc_macro_derive(LayoutBundle)]
-pub fn derive_layout_bundle(input: TokenStream) -> TokenStream {
-    let parsed = parse_macro_input!(input as DeriveInput);
-    // let layout = layout_io(&input);
-    quote!(
-        // #io_core_impl
     )
     .into()
 }
