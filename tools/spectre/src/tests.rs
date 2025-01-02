@@ -23,7 +23,7 @@ use crate::{
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
+const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
 
 #[inline]
 fn get_path(test_name: &str, file_name: &str) -> PathBuf {
