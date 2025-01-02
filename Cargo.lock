@@ -2468,15 +2468,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
-name = "sitebuilder"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "serde",
- "toml",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2637,6 +2628,13 @@ dependencies = [
  "tracing",
  "type_dispatch",
  "uniquify",
+]
+
+[[package]]
+name = "substrate_api_examples"
+version = "0.1.0"
+dependencies = [
+ "substrate",
 ]
 
 [[package]]

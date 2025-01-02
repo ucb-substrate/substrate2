@@ -84,7 +84,10 @@ h6 {
 }
 
 .breadcrumbs {
-    margin: 20px 0 40px 0 !important;
+    margin: 20px 0 0px 0 !important;
+}
+.badge {
+    margin: 10px 0 20px 0 !important;
 }
 .breadcrumbs__item--active {
     margin: 0 0.2rem;

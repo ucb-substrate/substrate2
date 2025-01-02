@@ -2,9 +2,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import * as fs from 'fs';
-import toml from '@iarna/toml';
-
-const siteConfig = toml.parse(fs.readFileSync('../site-config.toml', 'utf-8'));
+const siteConfig = require('./site-config.json');
 
 const config: Config = {
   title: 'Substrate Labs',
@@ -15,7 +13,7 @@ const config: Config = {
   url: 'https://docs.substratelabs.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: siteConfig.docusaurus.base_url,
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -46,19 +44,18 @@ const config: Config = {
           sidebarPath: require.resolve('./sidebars.js'),
           versions: {
             current: {
-              label: 'main',
-              banner: siteConfig.docusaurus.banner,
+              label: siteConfig.current_version,
+              path: siteConfig.current_version,
             },
           },
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl: siteConfig.docusaurus.edit_url,
+          editUrl: siteConfig.edit_url,
         },
         blog: {
-          showReadingTime: true,
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl: siteConfig.docusaurus.edit_url
+          editUrl: siteConfig.edit_url
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -79,8 +76,8 @@ const config: Config = {
         },
         items: [
           {
-            type: 'docsVersion',
-            to: "/docs",
+            type: 'docSidebar',
+            sidebarId: 'tutorialSidebar',
             position: 'left',
             label: 'Documentation',
           },
@@ -89,28 +86,11 @@ const config: Config = {
             label: 'API',
             position: 'left',
           },
-          {href: '/blog', autoAddBaseUrl: false, label: 'Blog', position: 'left'},
-          { type: 'docsVersionDropdown', position: 'right' },
-          // {
-          //   type: 'dropdown',
-          //   label: siteConfig.docusaurus.current_version,
-          //   position: 'right',
-          //   items: [
-          //     {
-          //       label: 'release',
-          //       href: '/docs',
-          //       autoAddBaseUrl: false,
-          //     },
-          //     // ... more items
-          //   ].concat(
-          //     siteConfig.site.versions.map((version) => {
-          //     return {
-          //       label: version,
-          //       href: `/${version}/docs`,
-          //       autoAddBaseUrl: false,
-          //     }}))
-          //   ,
-          // },
+          {to: 'blog', label: 'Blog', position: 'left'},
+          {
+            type: 'docsVersionDropdown',
+            position: 'right',
+          },
           {
             href: 'https://github.com/substrate-labs/substrate2',
             label: 'GitHub',

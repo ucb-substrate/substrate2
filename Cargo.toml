@@ -7,8 +7,8 @@ members = [
     "codegen",
     "config",
     "docs/snippets",
-    # "examples/sky130_inverter",
-    # "examples/spice_vdivider",
+    # "examples/latest/sky130_inverter",
+    # "examples/latest/spice_vdivider",
     # "libs/atoll",
     "libs/cache",
     "libs/diagnostics",
@@ -39,8 +39,9 @@ members = [
     "tools/quantus",
     "tools/spectre", 
     "tools/magic-netgen",
-    "examples2/colbuf", "docs/sitebuilder",
+    "examples2/colbuf",
+    "examples/latest/substrate_api_examples",
 ]
 
-exclude = ["examples/sky130_inverter", "examples/spice_vdivider", "tests", "pdks/sky130pdk", "libs/atoll", "examples"]
+exclude = ["tests", "pdks/sky130pdk", "libs/atoll", "examples/release"]
 

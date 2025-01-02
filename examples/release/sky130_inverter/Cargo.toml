@@ -1,0 +1,25 @@
+[package]
+name = "sky130_inverter"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# begin-code-snippet dependencies
+[dependencies]
+substrate = { version = "0.8.1", registry = "substrate" }
+ngspice = { version = "0.3.1", registry = "substrate" }
+sky130pdk = { version = "0.8.1", registry = "substrate" }
+
+serde = { version = "1", features = ["derive"] }
+rust_decimal = "1.30"
+rust_decimal_macros = "1.30"
+# end-code-snippet dependencies
+
+spectre = { version = "0.9.1", registry = "substrate", optional = true }
+
+# This feature flag allows us to control which tests are run.
+# We don't want to run tests that use Spectre when we are developing locally.
+# If you are copying this example, you can remove this section
+# and remove the `#[cfg(feature = "spectre")]` in `src/tb.rs`.
+[features]
+spectre = ["dep:spectre"]

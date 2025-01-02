@@ -22,7 +22,7 @@ function UnreleasedVersionLabel({siteTitle, versionMetadata}) {
         versionLabel: <b>{versionMetadata.label}</b>,
       }}>
       {
-        'This is unreleased documentation for Substrate\'s {versionLabel} branch.'
+        'This is unreleased documentation for the latest commit to {versionLabel}.'
       }
     </Translate>
   );
@@ -64,14 +64,14 @@ function LatestVersionSuggestionLabel({versionLabel, to, onClick}) {
               <Translate
                 id="theme.docs.versions.latestVersionLinkLabel"
                 description="The label used for the latest version suggestion link label">
-                latest version
+                here
               </Translate>
             </Link>
           </b>
         ),
       }}>
       {
-        'For released documentation, see the {latestVersionLink} ({versionLabel}).'
+        ' The most recent release can be found {latestVersionLink}.'
       }
     </Translate>
   );
@@ -100,8 +100,6 @@ function DocVersionBannerEnabled({className, versionMetadata}) {
       role="alert">
       <div>
         <BannerLabel siteTitle={siteTitle} versionMetadata={versionMetadata} />
-      </div>
-      <div className="margin-top--md">
         <LatestVersionSuggestionLabel
           versionLabel={latestVersionSuggestion.label}
           to={latestVersionSuggestedDoc.path}
