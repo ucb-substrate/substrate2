@@ -55,7 +55,7 @@ pub fn derive_nested_data(input: TokenStream) -> TokenStream {
 /// use substrate::block::Block;
 ///
 /// #[derive(Block, Copy, Clone, Eq, PartialEq, Hash, Debug)]
-/// #[substrate(io = "substrate::io::TestbenchIo")]
+/// #[substrate(io = "substrate::types::TestbenchIo")]
 /// pub struct MyBlock {
 ///   // ...
 /// }
