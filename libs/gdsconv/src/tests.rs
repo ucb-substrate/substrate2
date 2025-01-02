@@ -11,7 +11,7 @@ use crate::{
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
+const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
 
 #[inline]
 fn get_path(test_name: &str, file_name: &str) -> PathBuf {
@@ -91,7 +91,8 @@ fn test_export_layir_to_gds() {
 
 #[test]
 fn test_gds_import() {
-    let bytes = std::fs::read(test_data("gds/test_sky130_simple.gds")).expect("failed to read GDS");
+    let path = test_data("gds/test_sky130_simple.gds");
+    let bytes = std::fs::read(path).expect("failed to read GDS");
     let rawlib = GdsLibrary::from_bytes(bytes).expect("failed to parse GDS");
     let lib =
         import_gds(&rawlib, GdsImportOpts { units: None }).expect("failed to import to LayIR");
