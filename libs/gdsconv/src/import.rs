@@ -1,10 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
-use gds::{
-    GdsLibrary,
-    GdsUnits,
-};
+use gds::{GdsLibrary, GdsUnits};
 use geometry::{
     point::Point,
     prelude::{Orientation, Polygon, Transformation},

@@ -4,8 +4,7 @@ use crate::{Input, Spectre};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use substrate::simulation::data::Save;
-use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
+use substrate::simulation::{Analysis, Simulator, SupportedBy};
 
 /// Level of statistical variation to apply in a Monte Carlo analysis.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]

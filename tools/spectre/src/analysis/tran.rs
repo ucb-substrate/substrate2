@@ -170,7 +170,7 @@ impl Save<Spectre, Tran> for NestedTerminal {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> <Self as Save<Spectre, Tran>>::SaveKey {
         (
-            <NestedNode as Save<Spectre, Tran>>::save(&*self, ctx, opts),
+            <NestedNode as Save<Spectre, Tran>>::save(self, ctx, opts),
             CurrentSaveKey(
                 ctx.lib
                     .convert_terminal_path(&self.path())

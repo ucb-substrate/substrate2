@@ -299,7 +299,7 @@ mod tests {
             work_dir: &pex_dir,
             lvs_work_dir: &lvs_dir,
             lvs_run_name: "test_col_inv_array",
-            technology_dir: &Path::new(SKY130_TECHNOLOGY_DIR),
+            technology_dir: Path::new(SKY130_TECHNOLOGY_DIR),
             pex_netlist_path: &pex_path,
         })?;
         Ok(())
