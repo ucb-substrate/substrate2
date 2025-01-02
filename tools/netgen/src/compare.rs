@@ -41,6 +41,7 @@ struct CompareGeneratedPaths {
     run_script_path: PathBuf,
     compare_results_path: PathBuf,
     nxf_path: PathBuf,
+    #[allow(dead_code)]
     ixf_path: PathBuf,
 }
 

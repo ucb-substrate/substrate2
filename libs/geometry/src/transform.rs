@@ -823,5 +823,16 @@ mod tests {
         let mut group = PointEnum::First(Point::new(100, 200));
         group = group.transform(NamedOrientation::ReflectVert.into());
         assert_eq!(group, PointEnum::First(Point::new(100, -200)),);
+
+        let mut group = PointEnum::Second {
+            pt: Point::new(100, 200),
+        };
+        group = group.transform(NamedOrientation::ReflectVert.into());
+        assert_eq!(
+            group,
+            PointEnum::Second {
+                pt: Point::new(100, -200)
+            }
+        );
     }
 }

@@ -126,16 +126,15 @@ impl Save<Ngspice, Tran> for RawNestedNode {
         key: &<Self as Save<Ngspice, Tran>>::SaveKey,
     ) -> <Self as Save<Ngspice, Tran>>::Saved {
         let name = output.saved_values.get(&key.0).unwrap();
-        println!("save name = {name}");
-        for (k, v) in output.raw_values.iter() {
-            println!("key = {k}");
-        }
         output.raw_values.get(name).unwrap().clone()
     }
 }
 
+/// The output of saving a terminal.
 pub struct NestedTerminalOutput {
+    /// The voltage at the terminal.
     pub v: Arc<Vec<f64>>,
+    /// The current flowing through the terminal.
     pub i: Arc<Vec<f64>>,
 }
 
@@ -149,7 +148,7 @@ impl Save<Ngspice, Tran> for NestedTerminal {
         opts: &mut <Ngspice as Simulator>::Options,
     ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
         (
-            <NestedNode as Save<Ngspice, Tran>>::save(&*self, ctx, opts),
+            <NestedNode as Save<Ngspice, Tran>>::save(self, ctx, opts),
             CurrentSaveKey(
                 ctx.lib
                     .convert_terminal_path(&self.path())

@@ -1,10 +1,8 @@
 #![allow(dead_code)]
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
-use substrate::context::{ContextBuilder, Installation};
 use substrate::schematic::{
     CellBuilder, HasNestedView, InstancePath, NestedData, NestedView, Schematic,
 };
@@ -250,8 +248,8 @@ pub mod nested_data {
         type NestedData = ();
         fn schematic(
             &self,
-            io: &IoNodeBundle<Self>,
-            cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+            _io: &IoNodeBundle<Self>,
+            _cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             Ok(())
         }
@@ -364,8 +362,8 @@ mod try_data {
 
         fn schematic(
             &self,
-            io: &IoNodeBundle<Resistor>,
-            cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
+            _io: &IoNodeBundle<Resistor>,
+            _cell: &mut super::CellBuilder<<Self as Schematic>::Schema>,
         ) -> substrate::error::Result<Self::NestedData> {
             Ok(())
         }

@@ -5,7 +5,6 @@ use crate::error::Result;
 use crate::layout::error::LayoutError;
 use crate::layout::schema::Schema;
 use arcstr::ArcStr;
-pub use codegen::LayoutBundle;
 use geometry::point::Point;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
@@ -86,7 +85,7 @@ impl<L: Send + Sync> super::HasBundleKind for PortGeometry<L> {
 
 /// A type that can be a bundle of layout ports.
 ///
-/// An instance of a [`BundleKind`].
+/// Must have an associated bundle kind via [`HasBundleKind`](super::HasBundleKind).
 pub trait LayoutBundle<S: Schema>:
     super::HasBundleKind
     + Flatten<PortGeometry<S::Layer>>

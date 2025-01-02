@@ -1,24 +1,12 @@
 //! Macros for the `geometry` crate.
 #![warn(missing_docs)]
 
-use darling::FromDeriveInput;
 use macrotools::{derive_trait, DeriveTrait, Receiver};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Ident};
-
-macro_rules! handle_error {
-    ($expression:expr) => {
-        match $expression {
-            Ok(value) => value,
-            Err(err) => {
-                return err.write_errors().into();
-            }
-        }
-    };
-}
 
 /// Derives `geometry::transform::TranslateMut`.
 #[proc_macro_derive(TranslateMut)]

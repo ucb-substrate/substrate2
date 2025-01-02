@@ -1,3 +1,5 @@
+//! Conversions between layout formats.
+
 use std::collections::HashMap;
 
 use layir::Cell;

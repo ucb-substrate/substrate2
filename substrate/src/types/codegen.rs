@@ -10,7 +10,7 @@ use crate::{
 use super::{
     layout::{LayoutBundle, PortGeometry},
     schematic::{NestedNode, NestedTerminal, Node, SchematicBundleKind, Terminal},
-    Array, ArrayBundle, Flatten, Flipped, HasBundleKind, InOut, Input, Output, Signal, Unflatten,
+    Array, ArrayBundle, Flipped, HasBundleKind, InOut, Input, Output, Signal,
 };
 
 /// A type with an associated `V` view.
@@ -145,42 +145,6 @@ impl<T: ViewSource + SchematicBundleKind> HasViewImpl<NestedNodeBundle> for T {
 
 impl<T: ViewSource + SchematicBundleKind> HasViewImpl<NestedTerminalBundle> for T {
     type View = NestedView<<T as SchematicBundleKind>::TerminalBundle>;
-}
-
-trait NodeBundleBounds:
-    HasNestedView<NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>>
-    + HasBundleKind
-    + Unflatten<<Self as HasBundleKind>::BundleKind, Node>
-    + Flatten<Node>
-{
-}
-impl<
-        T: HasNestedView<
-                NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>,
-            > + HasBundleKind
-            + Unflatten<<Self as HasBundleKind>::BundleKind, Node>
-            + Flatten<Node>,
-    > NodeBundleBounds for T
-{
-}
-
-trait TerminalBundleBounds:
-    HasNestedView<NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>>
-    + HasBundleKind
-    + Unflatten<<Self as HasBundleKind>::BundleKind, Terminal>
-    + Flatten<Terminal>
-    + Flatten<Node>
-{
-}
-impl<
-        T: HasNestedView<
-                NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>,
-            > + HasBundleKind
-            + Unflatten<<Self as HasBundleKind>::BundleKind, Terminal>
-            + Flatten<Terminal>
-            + Flatten<Node>,
-    > TerminalBundleBounds for T
-{
 }
 
 pub trait HasSchematicBundleKindViews:

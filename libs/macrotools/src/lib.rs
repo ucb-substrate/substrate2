@@ -1,15 +1,14 @@
 //! Utilities for writing proc macros quickly.
 
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
 
 use darling::ast::Style;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
 use syn::{
-    parse_quote, Attribute, Data, DeriveInput, Expr, Field, Fields, GenericParam, Generics, Ident,
-    Index, Token, Type, Variant, Visibility, WherePredicate,
+    parse_quote, Attribute, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Index,
+    Token, Type, Variant, Visibility, WherePredicate,
 };
 
 #[macro_export]
@@ -225,7 +224,7 @@ pub fn variant_decl(variant: &Variant) -> TokenStream {
         ref fields,
         ..
     } = variant;
-    let decls = fields.iter().map(|f| field_decl(f));
+    let decls = fields.iter().map(field_decl);
     match fields {
         Fields::Unit => quote!(#ident,),
         Fields::Unnamed(_) => quote!(#ident( #(#decls)* ),),
@@ -427,7 +426,6 @@ pub struct DeriveInputHelper {
     referent: TokenStream,
     prev_types: Vec<Vec<syn::Type>>,
     generic_type_bindings: HashMap<Ident, Type>,
-    assignments: Vec<TokenStream>,
 }
 
 /// Configuration for implementing a trait.
@@ -466,7 +464,6 @@ impl DeriveInputHelper {
                 referent: quote! { self },
                 prev_types: vec![vec![]; num_fields],
                 generic_type_bindings: HashMap::default(),
-                assignments: vec![],
             },
             Data::Union(_) => {
                 return Err(syn::Error::new(
@@ -741,7 +738,7 @@ impl DeriveInputHelper {
                     let num_fields = v.fields.len();
                     let arm = variant_assign_arm(
                         &parse_quote!(#ident),
-                        &other_type,
+                        other_type,
                         v,
                         &self.prev_types[field_idx..field_idx + num_fields],
                         &map_fn,
@@ -817,7 +814,7 @@ impl DeriveInputHelper {
                     let num_fields = v.fields.len();
                     let arm = double_variant_assign_arm(
                         &parse_quote!(#ident),
-                        &other_type,
+                        other_type,
                         v,
                         &self.prev_types[field_idx..field_idx + num_fields],
                         &map_fn,

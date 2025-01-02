@@ -3,7 +3,7 @@
 use crate::block::Block;
 use crate::diagnostics::SourceInfo;
 use crate::schematic::{CellId, HasNestedView, InstanceId, InstancePath, NestedView};
-use crate::types::{FlatLen, Flatten, HasNameTree};
+use crate::types::{FlatLen, Flatten};
 use arcstr::ArcStr;
 use scir::Direction;
 use serde::{Deserialize, Serialize};
@@ -159,16 +159,22 @@ pub struct RawNestedNode {
 }
 
 impl RawNestedNode {
+    /// Creates a new [`RawNestedNode`].
     pub fn new(instances: InstancePath, tail: impl Into<ArcStr>) -> Self {
         Self {
             instances,
             tail: tail.into(),
         }
     }
+
+    /// The instances along the path to this nested node.
+    ///
+    /// Does not include instances from the raw tail.
     pub fn instances(&self) -> &InstancePath {
         &self.instances
     }
 
+    /// Returns the raw tail.
     pub fn tail(&self) -> &ArcStr {
         &self.tail
     }

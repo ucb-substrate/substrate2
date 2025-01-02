@@ -1,26 +1,16 @@
-use std::collections::HashMap;
-use std::process::Command;
-use std::sync::Mutex;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use approx::{assert_relative_eq, relative_eq};
-use arcstr::ArcStr;
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use scir::netlist::ConvertibleNetlister;
-use scir::*;
-use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
-use spice::{BlackboxContents, BlackboxElement, ComponentValue, Spice};
-use substrate::execute::{ExecOpts, Executor, LocalExecutor};
-use substrate::schematic::schema::Schema;
-use substrate::types::schematic::{NestedTerminal, Terminal};
+use spice::{BlackboxContents, BlackboxElement, Spice};
+use substrate::types::schematic::Terminal;
 use substrate::{
     block::Block,
     context::Context,
     schematic::{CellBuilder, NestedData, PrimitiveBinding, Schematic},
-    simulation::{data::Save, Analysis, SimController, Simulator},
+    simulation::SimController,
     types::{
-        schematic::{IoNodeBundle, NestedNode, Node},
+        schematic::{IoNodeBundle, Node},
         InOut, Io, Signal, TestbenchIo, TwoTerminalIo,
     },
 };
@@ -33,16 +23,11 @@ use crate::{
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
+const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
 
 #[inline]
 fn get_path(test_name: &str, file_name: &str) -> PathBuf {
     PathBuf::from(BUILD_DIR).join(test_name).join(file_name)
-}
-
-#[inline]
-fn test_data(file_name: &str) -> PathBuf {
-    PathBuf::from(TEST_DATA_DIR).join(file_name)
 }
 
 fn spectre_ctx() -> Context {

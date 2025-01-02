@@ -174,7 +174,7 @@ impl<'a, S: Schema, W> NetlisterInstance<'a, S, W> {
     }
 }
 
-impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
+impl<S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'_, S, W> {
     /// Exports a SCIR library to the output stream as a SPICE-like netlist.
     pub fn export(mut self) -> Result<NetlistLibConversion> {
         let lib = self.export_library()?;
