@@ -1,7 +1,7 @@
 {
   "bootstrap-sha": "2e4fa3591b6fd9e0786e9ee70172a08a8ee61bf0",
   "plugins": [
-    "substrate-workspace"
+    "cargo-workspace"
   ],
   "release-type": "rust",
   "bump-minor-pre-major": true,
