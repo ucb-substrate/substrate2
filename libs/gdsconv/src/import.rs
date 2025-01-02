@@ -2,11 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
 use gds::{
-    GdsBoundary, GdsElement, GdsLibrary, GdsPoint, GdsStrans, GdsStruct, GdsStructRef, GdsTextElem,
+    GdsLibrary,
     GdsUnits,
 };
 use geometry::{
-    corner::Corner,
     point::Point,
     prelude::{Orientation, Polygon, Transformation},
     rect::Rect,

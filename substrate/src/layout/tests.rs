@@ -1,16 +1,19 @@
-use substrate::layout::{Instance, LayoutData};
+#![allow(dead_code)]
+use substrate::geometry::transform::{TransformMut, TranslateMut};
+use substrate::layout::Instance;
 
-// TODO: uncomment
-// #[derive(Default, LayoutData)]
-// pub struct LayoutInstances<T: ExportsLayoutData> {
-//     pub instances: Vec<Instance<T>>,
-// }
-//
-// #[derive(LayoutData)]
-// pub enum EnumInstances<T: ExportsLayoutData> {
-//     One { one: Instance<T> },
-//     Two(Instance<T>, Instance<T>),
-// }
-//
-// #[derive(LayoutData)]
-// pub struct TwoInstances<T: ExportsLayoutData>(pub Instance<T>, pub Instance<T>);
+use super::Layout;
+
+#[derive(Default, TranslateMut, TransformMut)]
+pub struct LayoutInstances<T: Layout> {
+    pub instances: Vec<Instance<T>>,
+}
+
+#[derive(TransformMut, TranslateMut)]
+pub enum EnumInstances<T: Layout> {
+    One { one: Instance<T> },
+    Two(Instance<T>, Instance<T>),
+}
+
+#[derive(TransformMut, TranslateMut)]
+pub struct TwoInstances<T: Layout>(pub Instance<T>, pub Instance<T>);

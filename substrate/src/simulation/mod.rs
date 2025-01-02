@@ -117,6 +117,9 @@ pub struct SimController<S: Simulator, T: Schematic> {
     pub(crate) ctx: SimulationContext<S>,
 }
 
+/// Data saved by block `T` in simulator `S` for analysis `A`.
+pub type SavedData<T, S, A> = Saved<NestedView<<T as Schematic>::NestedData>, S, A>;
+
 impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// Run the given analysis, returning the default output.
     pub fn simulate_default<A: SupportedBy<S>>(
@@ -132,7 +135,7 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
         &self,
         mut options: S::Options,
         input: A,
-    ) -> Result<Saved<NestedView<<T as Schematic>::NestedData>, S, A>, S::Error>
+    ) -> Result<SavedData<T, S, A>, S::Error>
     where
         T: Schematic<NestedData: HasNestedView<NestedView: Save<S, A>>>,
     {
@@ -173,6 +176,7 @@ impl<S: Simulator> SupportedBy<S> for Tuple {
         for_tuples!( #( <Tuple as SupportedBy<S>>::into_input(self.Tuple, inputs); )* )
     }
 
+    #[allow(clippy::unused_unit)]
     fn from_output(
         outputs: &mut impl Iterator<Item = <S as Simulator>::Output>,
     ) -> <Self as Analysis>::Output {

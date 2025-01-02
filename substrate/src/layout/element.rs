@@ -13,7 +13,7 @@ use geometry::{
         TranslateRef,
     },
 };
-use indexmap::{map::Entry, IndexMap};
+use indexmap::IndexMap;
 use layir::{LayerBbox, Shape, Text};
 use serde::{Deserialize, Serialize};
 
@@ -82,26 +82,6 @@ impl<L> RawCell<L> {
     #[allow(dead_code)]
     pub(crate) fn add_elements(&mut self, elems: impl IntoIterator<Item = impl Into<Element<L>>>) {
         self.elements.extend(elems.into_iter().map(|x| x.into()));
-    }
-
-    /// Merges a port into this cell.
-    ///
-    /// Primarily for use in GDS import.
-    pub(crate) fn merge_port(
-        &mut self,
-        name: impl Into<NameBuf>,
-        port: impl Into<PortGeometry<L>>,
-    ) {
-        let name = name.into();
-        match self.ports.entry(name.clone()) {
-            Entry::Occupied(mut o) => {
-                o.get_mut().merge(port.into());
-            }
-            Entry::Vacant(v) => {
-                v.insert(port.into());
-            }
-        }
-        self.port_names.insert(name.to_string(), name);
     }
 
     /// The ID of this cell.

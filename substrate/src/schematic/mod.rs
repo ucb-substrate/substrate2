@@ -107,6 +107,7 @@ impl<T: HasNestedView> HasNestedView for Option<T> {
 pub struct ConvertSchema<B, S>(Arc<B>, PhantomData<S>);
 
 impl<B, S> ConvertSchema<B, S> {
+    /// Creates a new [`ConvertSchema`].
     pub fn new(block: B) -> Self {
         Self(Arc::new(block), PhantomData)
     }
@@ -475,7 +476,7 @@ pub struct SubCellBuilder<'a, S1: Schema + ?Sized, S2: Schema + ?Sized>(
     PhantomData<S2>,
 );
 
-impl<'a, S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'a, S1, S2> {
+impl<S1: FromSchema<S2>, S2: Schema + ?Sized> SubCellBuilder<'_, S1, S2> {
     /// Create a new signal with the given name and hardware type.
     #[track_caller]
     pub fn signal<K: HasBundleKind<BundleKind: SchematicBundleKind>>(
@@ -706,6 +707,7 @@ impl<T: Schematic> Cell<T> {
         self.nodes.nested_view(&self.path)
     }
 
+    /// Returns the cell's exposed data, nested using the given parent.
     pub fn custom_data<V>(&self, parent: &V) -> NestedView<T::NestedData, V>
     where
         T::NestedData: HasNestedView<V>,

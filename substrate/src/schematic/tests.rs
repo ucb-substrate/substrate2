@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::HashSet;
 
 use anyhow::anyhow;
@@ -10,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
-use crate::types::codegen::{HasViewImpl, View};
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
 use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
 use crate::{

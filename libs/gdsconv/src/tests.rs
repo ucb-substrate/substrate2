@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use gds::{GdsLibrary, GdsUnits};
 use geometry::{prelude::Transformation, rect::Rect, shape::Shape as GShape};
 use layir::{Cell, Element, Instance, Library, LibraryBuilder, Shape, Text};
-use rust_decimal_macros::dec;
 
 use crate::{
     export::{export_gds, GdsExportOpts},
@@ -103,14 +102,6 @@ fn test_gds_import() {
     let a_elems = a.elements().collect::<Vec<_>>();
     let b_insts = b.instances().collect::<Vec<_>>();
     let b_elems = b.elements().collect::<Vec<_>>();
-    let b_texts = b
-        .elements()
-        .filter_map(|e| match e {
-            Element::Text(t) => Some(t),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let mut b_ports = b.ports();
 
     assert_eq!(a_elems.len(), 1, "expected 1 element in cell A");
     let a_elem_0 = a_elems[0];

@@ -8,12 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::HasNestedView;
 use substrate::simulation::data::{Save, SaveOutput, SaveTime};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::types::schematic::{
-    NestedNode, NestedTerminal, Node, NodePath, RawNestedNode, TerminalPath,
-};
+use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -75,14 +72,14 @@ impl Save<Spectre, Tran> for SaveTime {
 
     fn save(
         &self,
-        ctx: &SimulationContext<Spectre>,
-        opts: &mut <Spectre as Simulator>::Options,
+        _ctx: &SimulationContext<Spectre>,
+        _opts: &mut <Spectre as Simulator>::Options,
     ) -> <Self as Save<Spectre, Tran>>::SaveKey {
     }
 
     fn from_saved(
         output: &<Tran as Analysis>::Output,
-        key: &<Self as Save<Spectre, Tran>>::SaveKey,
+        _key: &<Self as Save<Spectre, Tran>>::SaveKey,
     ) -> <Self as Save<Spectre, Tran>>::Saved {
         output.time.clone()
     }
@@ -133,8 +130,8 @@ impl Save<Spectre, Tran> for RawNestedNode {
         opts: &mut <Spectre as Simulator>::Options,
     ) -> <Self as Save<Spectre, Tran>>::SaveKey {
         let itail = InstanceTail {
-            instance: ctx.lib.convert_instance_path(&self.instances()).unwrap(),
-            tail: self.tail().clone().into(),
+            instance: ctx.lib.convert_instance_path(self.instances()).unwrap(),
+            tail: self.tail().clone(),
         };
         opts.save_tran_voltage(itail)
     }
@@ -155,8 +152,11 @@ impl Save<Spectre, Tran> for RawNestedNode {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrentSaveKey(pub(crate) Vec<u64>);
 
+/// Data saved from a nested terminal in a transient simulation.
 pub struct NestedTerminalOutput {
+    /// The voltage at the terminal.
     pub v: Arc<Vec<f64>>,
+    /// The current flowing through the terminal.
     pub i: Arc<Vec<f64>>,
 }
 
