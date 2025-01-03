@@ -39,7 +39,7 @@ members = [
     "tools/quantus",
     "tools/spectre", 
     "tools/magic-netgen",
-    "examples2/colbuf",
+    "examples/latest/colbuf",
     "examples/latest/substrate_api_examples",
 ]
 
