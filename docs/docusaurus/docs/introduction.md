@@ -4,3 +4,5 @@ slug: /
 ---
 
 # Introduction
+
+Welcome to Substrate!
