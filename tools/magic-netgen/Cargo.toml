@@ -1,11 +1,11 @@
 [package]
 name = "magic-netgen"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-substrate = { version = "0.8.1", path = "../../substrate" }
-scir = { version = "0.7.0", path = "../../libs/scir" }
-spice = { version = "0.7.1", path = "../../libs/spice" }
-magic = { version = "0.0.0", registry = "substrate", path = "../magic" }
-netgen = { version = "0.0.0", registry = "substrate", path = "../netgen" }
+substrate = { version = "0.8.2", path = "../../substrate" }
+scir = { version = "0.7.1", path = "../../libs/scir" }
+spice = { version = "0.7.2", path = "../../libs/spice" }
+magic = { version = "0.1.0", registry = "substrate", path = "../magic" }
+netgen = { version = "0.1.0", registry = "substrate", path = "../netgen" }

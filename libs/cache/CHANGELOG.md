@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/cache-v0.5.0...cache-v0.5.1) (2025-01-03)
+
+
+### Features
+
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **magic:** support magic for pex and lvs extraction ([#465](https://github.com/ucb-substrate/substrate2/issues/465)) ([c759341](https://github.com/ucb-substrate/substrate2/commit/c759341f065cf1e8aca8c4552a214391a7149cbf))
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.4.0...cache-v0.5.0) (2023-11-25)
 
 

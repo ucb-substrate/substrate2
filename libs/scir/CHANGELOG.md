@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.7.1](https://github.com/ucb-substrate/substrate2/compare/scir-v0.7.0...scir-v0.7.1) (2025-01-03)
+
+
+### Features
+
+* **cdl2spice:** add CDL to SPICE conversion command line tool ([#420](https://github.com/ucb-substrate/substrate2/issues/420)) ([1edb23a](https://github.com/ucb-substrate/substrate2/commit/1edb23a7bbd45d96bbb1c11418eb0d0843b7138b))
+* **cdl:** add CDL parser ([#419](https://github.com/ucb-substrate/substrate2/issues/419)) ([23f0dab](https://github.com/ucb-substrate/substrate2/commit/23f0dab7b7a94cbe8960371b89d15211bddf51da))
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **scir:** expose port directions, update docs ([#426](https://github.com/ucb-substrate/substrate2/issues/426)) ([fd883b7](https://github.com/ucb-substrate/substrate2/commit/fd883b7ca803f7b45d4736a7b4b460e602b84704))
+* **scir:** SCIR lib imports merge only the instantiated cell ([#437](https://github.com/ucb-substrate/substrate2/issues/437)) ([7a0b285](https://github.com/ucb-substrate/substrate2/commit/7a0b285446b224569d430a2764e3a4e6d30ee031))
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+
+
+### Bug Fixes
+
+* **schematic:** correctly deduplicate SCIR cell names during export ([#435](https://github.com/ucb-substrate/substrate2/issues/435)) ([48af6fc](https://github.com/ucb-substrate/substrate2/commit/48af6fcd360fe9f2e8246ed0198945bfbae72724))
+* **scir:** add additional functionality for SCIR and SPICE libraries ([#337](https://github.com/ucb-substrate/substrate2/issues/337)) ([e49f075](https://github.com/ucb-substrate/substrate2/commit/e49f07529273c38cc8ec9ae1a5020ae48fb2a202))
+* **scir:** avoid panic when converting inst paths ([#400](https://github.com/ucb-substrate/substrate2/issues/400)) ([34a86da](https://github.com/ucb-substrate/substrate2/commit/34a86da36679628f44dce366d9168420179d9379))
+* **sim:** add `Sky130CommercialSchema` and simplify trait bounds ([#351](https://github.com/ucb-substrate/substrate2/issues/351)) ([c95e5c0](https://github.com/ucb-substrate/substrate2/commit/c95e5c08e5fc3bf6e34e00731ab4e38e9e586c01))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * uniquify bumped from 0.2.0 to 0.2.1
+    * enumify bumped from 0.1.0 to 0.1.1
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/scir-v0.6.0...scir-v0.7.0) (2023-11-04)
 
 

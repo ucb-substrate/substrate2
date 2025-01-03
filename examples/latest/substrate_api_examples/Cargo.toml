@@ -1,7 +1,7 @@
 [package]
 name = "substrate_api_examples"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
-substrate = { version = "0.8.1", registry = "substrate", path = "../../../substrate" }
+substrate = { version = "0.8.2", registry = "substrate", path = "../../../substrate" }

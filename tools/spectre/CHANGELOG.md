@@ -8,6 +8,59 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.9.2](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.9.1...spectre-v0.9.2) (2025-01-03)
+
+
+### Features
+
+* **cadence:** add support for Pegasus and Quantus ([#462](https://github.com/ucb-substrate/substrate2/issues/462)) ([953e4cb](https://github.com/ucb-substrate/substrate2/commit/953e4cb761c510668f65f4825f1be3914db45e3c))
+* **cdl:** add CDL parser ([#419](https://github.com/ucb-substrate/substrate2/issues/419)) ([23f0dab](https://github.com/ucb-substrate/substrate2/commit/23f0dab7b7a94cbe8960371b89d15211bddf51da))
+* **conv:** better error messages in schema conversions ([#440](https://github.com/ucb-substrate/substrate2/issues/440)) ([bad9503](https://github.com/ucb-substrate/substrate2/commit/bad9503b8a3b98d8e0bc19779ed45e7628164f41))
+* **docs:** update docs for new simulation APIs ([#326](https://github.com/ucb-substrate/substrate2/issues/326)) ([ef133df](https://github.com/ucb-substrate/substrate2/commit/ef133dfac5f352121fe0e561b76541d5af62970e))
+* **dspf:** propagate nested nodes from DSPF instances ([#407](https://github.com/ucb-substrate/substrate2/issues/407)) ([8455bd2](https://github.com/ucb-substrate/substrate2/commit/8455bd2a523bb872dc1ce3fc0e89a185108dca3c))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **netlists:** consistent Spectre/Spice netlist API ([#349](https://github.com/ucb-substrate/substrate2/issues/349)) ([2f9fabf](https://github.com/ucb-substrate/substrate2/commit/2f9fabf336fa1048d759e78834979ef892fc0bcf))
+* **psf:** use PSF binary format for Spectre plugin ([#345](https://github.com/ucb-substrate/substrate2/issues/345)) ([a4ec152](https://github.com/ucb-substrate/substrate2/commit/a4ec152d5e1299bc38f2664fe900dd7d34ba8b5c))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+* **schematic:** associated type schema and bundle primitives ([#455](https://github.com/ucb-substrate/substrate2/issues/455)) ([f5fde78](https://github.com/ucb-substrate/substrate2/commit/f5fde78824ce9ed0be494ef68d71620181bf6b48))
+* **sim:** allow setting temp in Spectre sims ([#401](https://github.com/ucb-substrate/substrate2/issues/401)) ([0557fce](https://github.com/ucb-substrate/substrate2/commit/0557fceb1f0da4799914b0ea4a1e0919aed97bc7))
+* **simulation:** automatically generate saved data ([#457](https://github.com/ucb-substrate/substrate2/issues/457)) ([2c936d0](https://github.com/ucb-substrate/substrate2/commit/2c936d00e927b99b624f29e6450826e90f68f9bf))
+* **spectre:** add `global 0` to spectre netlists ([#387](https://github.com/ucb-substrate/substrate2/issues/387)) ([19257b4](https://github.com/ucb-substrate/substrate2/commit/19257b45cbdf02acb22c1408cff0d9a578d437c3))
+* **spectre:** add isource (current source) ([#369](https://github.com/ucb-substrate/substrate2/issues/369)) ([f318644](https://github.com/ucb-substrate/substrate2/commit/f318644d5ae554985a22d8abf274b6a8ff9c7ec9))
+* **spectre:** allow overriding spectre flags ([#443](https://github.com/ucb-substrate/substrate2/issues/443)) ([5eebbe7](https://github.com/ucb-substrate/substrate2/commit/5eebbe7d3cd0e07a8431621c564af1d626fd8e7f))
+* **spectre:** allow setting global save option ([#405](https://github.com/ucb-substrate/substrate2/issues/405)) ([7836a34](https://github.com/ucb-substrate/substrate2/commit/7836a34b1677332603ec6c437e0e8468f00f6c8d))
+* **spectre:** support AC simulation ([#390](https://github.com/ucb-substrate/substrate2/issues/390)) ([dc3584a](https://github.com/ucb-substrate/substrate2/commit/dc3584a50ff8ebed525566a86d82033cf87d7b29))
+* **spectre:** support n-port primitives ([#410](https://github.com/ucb-substrate/substrate2/issues/410)) ([693ab82](https://github.com/ucb-substrate/substrate2/commit/693ab8287876b3cd0517d34674c3ff069da2eff8))
+* **spectre:** support SPF format primitives ([#386](https://github.com/ucb-substrate/substrate2/issues/386)) ([06adc0f](https://github.com/ucb-substrate/substrate2/commit/06adc0fb155161e2f05a735fe21d2c2361cd4930))
+* **spectre:** support transient noise fmax/fmin ([#411](https://github.com/ucb-substrate/substrate2/issues/411)) ([df09ef0](https://github.com/ucb-substrate/substrate2/commit/df09ef00dfc361d2d542266a82a156a4948dbb66))
+* **spectre:** use APS and multithreading flags ([#395](https://github.com/ucb-substrate/substrate2/issues/395)) ([facbca6](https://github.com/ucb-substrate/substrate2/commit/facbca6087d058bb6a421d09e0ec149eba6e3456))
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+* **views:** view API for improved codegen ([#463](https://github.com/ucb-substrate/substrate2/issues/463)) ([b75328c](https://github.com/ucb-substrate/substrate2/commit/b75328c9a4840ed9200a9035e28e27ac9265770f))
+* **waveform:** support generic waveform datatypes ([#379](https://github.com/ucb-substrate/substrate2/issues/379)) ([93e59fd](https://github.com/ucb-substrate/substrate2/commit/93e59fd8c005e2f7f2aeece9a637dff337e4ce68))
+
+
+### Bug Fixes
+
+* **deps:** bump rust to version 1.75.0 ([#362](https://github.com/ucb-substrate/substrate2/issues/362)) ([e1e82c9](https://github.com/ucb-substrate/substrate2/commit/e1e82c94cdf6ba4426f3f73f29dca40674a7f064))
+* **dspf:** add derives to dspf types ([#409](https://github.com/ucb-substrate/substrate2/issues/409)) ([81f00cd](https://github.com/ucb-substrate/substrate2/commit/81f00cde52a12fc1b96c007d556da55eafc4d0be))
+* **scir:** add additional functionality for SCIR and SPICE libraries ([#337](https://github.com/ucb-substrate/substrate2/issues/337)) ([e49f075](https://github.com/ucb-substrate/substrate2/commit/e49f07529273c38cc8ec9ae1a5020ae48fb2a202))
+* **simulation:** add missing SPICE functionality and update Sky 130 PDK ([#336](https://github.com/ucb-substrate/substrate2/issues/336)) ([f802be5](https://github.com/ucb-substrate/substrate2/commit/f802be5bf0361c38b415d976dbb0f2c984a2e304))
+* **spectre:** escape ports in subckt declarations ([#441](https://github.com/ucb-substrate/substrate2/issues/441)) ([3eae4ad](https://github.com/ucb-substrate/substrate2/commit/3eae4adac5b03a326724d16bee722df6c4ec7cf2))
+* **spectre:** make monte carlo return vec of analysis outputs ([#388](https://github.com/ucb-substrate/substrate2/issues/388)) ([01c382d](https://github.com/ucb-substrate/substrate2/commit/01c382d908939327bd9c1344be9d928524cba021))
+* **spectre:** use default number of threads ([#414](https://github.com/ucb-substrate/substrate2/issues/414)) ([748c9e4](https://github.com/ucb-substrate/substrate2/commit/748c9e42c4a922a6f858d44291fafdceb1c1e11d))
+* **waveform:** fix spectre PWL waveform netlisting ([#380](https://github.com/ucb-substrate/substrate2/issues/380)) ([a47d55c](https://github.com/ucb-substrate/substrate2/commit/a47d55cca56d2359a3f0522a2c9ed8205bbb49e3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.5.0 to 0.5.1
+    * scir bumped from 0.7.0 to 0.7.1
+    * substrate bumped from 0.8.1 to 0.8.2
+    * spice bumped from 0.7.1 to 0.7.2
+    * type_dispatch bumped from 0.3.0 to 0.3.1
+
 ## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.9.0...spectre-v0.9.1) (2023-11-26)
 
 

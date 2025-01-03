@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/ucb-substrate/substrate2/compare/gds-v0.3.0...gds-v0.3.1) (2025-01-03)
+
+
+### Bug Fixes
+
+* **layout:** fix issues in GDS export and ATOLL API ([#341](https://github.com/ucb-substrate/substrate2/issues/341)) ([08930b1](https://github.com/ucb-substrate/substrate2/commit/08930b1b25d018c20758986e206dc8882df782af))
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/gds-v0.2.0...gds-v0.3.0) (2023-08-04)
 
 
