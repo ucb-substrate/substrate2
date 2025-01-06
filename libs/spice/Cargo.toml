@@ -1,6 +1,6 @@
 [package]
 name = "spice"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 
 [dependencies]
@@ -14,9 +14,9 @@ rust_decimal_macros = "1"
 unicase = "2"
 ena = "0.14"
 
-scir = { version = "0.7.0", registry = "substrate", path = "../scir" }
-substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
-enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
+scir = { version = "0.7.1", registry = "substrate", path = "../scir" }
+substrate = { version = "0.8.2", registry = "substrate", path = "../../substrate" }
+enumify = { version = "0.1.1", path = "../enumify", registry = "substrate" }
 regex = "1.10.2"
 lazy_static = "1.4.0"
 num-traits = "0.2.17"

@@ -1,6 +1,6 @@
 [package]
 name = "enumify_macros"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Macros for the enumify crate"
 license = "BSD-3-Clause"
@@ -14,7 +14,7 @@ proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
 
-macrotools = { version = "0.0.0", registry = "substrate", path = "../macrotools" }
+macrotools = { version = "0.1.0", registry = "substrate", path = "../macrotools" }
 
 [lib]
 proc-macro = true

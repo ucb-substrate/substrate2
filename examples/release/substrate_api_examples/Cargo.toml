@@ -5,4 +5,4 @@ edition = "2021"
 publish = false
 
 [dependencies]
-substrate = { version = "0.8.2", registry = "substrate", path = "../../../substrate" }
+substrate = { version = "0.8.2", registry = "substrate" }

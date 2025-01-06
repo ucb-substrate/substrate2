@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.1](https://github.com/ucb-substrate/substrate2/compare/enumify_macros-v0.1.0...enumify_macros-v0.1.1) (2025-01-06)
+
+
+### Features
+
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * macrotools bumped from 0.0.0 to 0.1.0
+
 ## 0.1.0 (2023-11-02)
 
 

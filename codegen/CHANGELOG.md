@@ -24,6 +24,41 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.8.2](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.8.1...codegen-v0.8.2) (2025-01-06)
+
+
+### Features
+
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **cadence:** add support for Pegasus and Quantus ([#462](https://github.com/ucb-substrate/substrate2/issues/462)) ([953e4cb](https://github.com/ucb-substrate/substrate2/commit/953e4cb761c510668f65f4825f1be3914db45e3c))
+* **layout:** simplified layout API, LayIR integration ([#459](https://github.com/ucb-substrate/substrate2/issues/459)) ([183d347](https://github.com/ucb-substrate/substrate2/commit/183d347c19e6fe98cf870be4716e7249f23bd423))
+* **montecarlo:** add Monte Carlo simulation support to Spectre plugin ([#347](https://github.com/ucb-substrate/substrate2/issues/347)) ([cc9dfe4](https://github.com/ucb-substrate/substrate2/commit/cc9dfe42db5be1a8aaeaf3fb81992a0ad7251ef8))
+* **refactor:** significantly refactor IO APIs ([#348](https://github.com/ucb-substrate/substrate2/issues/348)) ([c85d043](https://github.com/ucb-substrate/substrate2/commit/c85d04334a0ba1740f9990b91fb55ab1f2ef77c5))
+* **schematic:** associated type schema and bundle primitives ([#455](https://github.com/ucb-substrate/substrate2/issues/455)) ([f5fde78](https://github.com/ucb-substrate/substrate2/commit/f5fde78824ce9ed0be494ef68d71620181bf6b48))
+* **schematic:** rename bundle traits ([#458](https://github.com/ucb-substrate/substrate2/issues/458)) ([ed98443](https://github.com/ucb-substrate/substrate2/commit/ed9844318cbd7176a781fff0076d8b3385d408b5))
+* **simulation:** automatically generate saved data ([#457](https://github.com/ucb-substrate/substrate2/issues/457)) ([2c936d0](https://github.com/ucb-substrate/substrate2/commit/2c936d00e927b99b624f29e6450826e90f68f9bf))
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+* **transform:** default to Manhattan transformations ([#452](https://github.com/ucb-substrate/substrate2/issues/452)) ([3d8a410](https://github.com/ucb-substrate/substrate2/commit/3d8a4109febb11616d550c8cd6373e8f605b2e28))
+* **views:** view API for improved codegen ([#463](https://github.com/ucb-substrate/substrate2/issues/463)) ([b75328c](https://github.com/ucb-substrate/substrate2/commit/b75328c9a4840ed9200a9035e28e27ac9265770f))
+
+
+### Bug Fixes
+
+* **codegen:** update codegen to use fewer structs ([#461](https://github.com/ucb-substrate/substrate2/issues/461)) ([c371be5](https://github.com/ucb-substrate/substrate2/commit/c371be59adebb9482095284034d41a6905c431d4))
+* **gds:** use u16 instead of u8 for GDS layerspecs ([#339](https://github.com/ucb-substrate/substrate2/issues/339)) ([4d1fce2](https://github.com/ucb-substrate/substrate2/commit/4d1fce25f9493c6975d43dba96ccaa4c0cf4a686))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * snippets bumped from 0.5.1 to 0.5.2
+    * macrotools bumped from 0.0.0 to 0.1.0
+  * dev-dependencies
+    * substrate bumped from <=0.8.1 to <=0.8.2
+  * build-dependencies
+    * snippets bumped from 0.5.1 to 0.5.2
+
 ## [0.8.0](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.7.1...codegen-v0.8.0) (2023-11-25)
 
 

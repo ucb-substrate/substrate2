@@ -1,6 +1,6 @@
 [package]
 name = "scir"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 
 [dependencies]
@@ -13,8 +13,8 @@ indexmap = { version = "2", features = ["serde"] }
 thiserror = "1"
 
 diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
-uniquify = { version = "0.2.0", path = "../uniquify", registry = "substrate" }
-enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
+uniquify = { version = "0.2.1", path = "../uniquify", registry = "substrate" }
+enumify = { version = "0.1.1", path = "../enumify", registry = "substrate" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

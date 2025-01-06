@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.2.0...uniquify-v0.2.1) (2025-01-06)
+
+
+### Features
+
+* **layir:** initial LayIR implementation ([#456](https://github.com/ucb-substrate/substrate2/issues/456)) ([4f76d41](https://github.com/ucb-substrate/substrate2/commit/4f76d41c86fd0c57e525f40c976b5eeb0bbd4c68))
+
 ## [0.2.0](https://github.com/substrate-labs/substrate2/compare/uniquify-v0.1.0...uniquify-v0.2.0) (2023-07-23)
 
 

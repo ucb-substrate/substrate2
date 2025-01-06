@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.5.0...geometry-v0.5.1) (2025-01-06)
+
+
+### Features
+
+* **atoll:** implement first cut ATOLL implementation ([#357](https://github.com/ucb-substrate/substrate2/issues/357)) ([372b927](https://github.com/ucb-substrate/substrate2/commit/372b9275c9d9c5cd58603f5a462a5e4b66b64cf7))
+* **bbox:** add bbox_rect method ([#373](https://github.com/ucb-substrate/substrate2/issues/373)) ([55b2632](https://github.com/ucb-substrate/substrate2/commit/55b2632a3c1e1ad260b61c6545143a2b16ef1150))
+* **def:** utilities for exporting def orientations ([#434](https://github.com/ucb-substrate/substrate2/issues/434)) ([43a2b29](https://github.com/ucb-substrate/substrate2/commit/43a2b2906231cd46f08e2c4aface260d34abac62))
+* **dirs:** add `Dirs` struct ([#371](https://github.com/ucb-substrate/substrate2/issues/371)) ([6d6b834](https://github.com/ucb-substrate/substrate2/commit/6d6b8347eea60ed1fccaed16623d146c3bd0727e))
+* **geometry:** support for rectangular rings ([#408](https://github.com/ucb-substrate/substrate2/issues/408)) ([6fc0f36](https://github.com/ucb-substrate/substrate2/commit/6fc0f361f2215968f698281bfaf37d03d3ec131e))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **layir:** initial LayIR implementation ([#456](https://github.com/ucb-substrate/substrate2/issues/456)) ([4f76d41](https://github.com/ucb-substrate/substrate2/commit/4f76d41c86fd0c57e525f40c976b5eeb0bbd4c68))
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+* **transform:** default to Manhattan transformations ([#452](https://github.com/ucb-substrate/substrate2/issues/452)) ([3d8a410](https://github.com/ucb-substrate/substrate2/commit/3d8a4109febb11616d550c8cd6373e8f605b2e28))
+* **transform:** make transformations use integers instead of floats ([#451](https://github.com/ucb-substrate/substrate2/issues/451)) ([aa9764e](https://github.com/ucb-substrate/substrate2/commit/aa9764e8b63b0a344d5e12ad3c678849c5c8ebea))
+
+
+### Bug Fixes
+
+* **deps:** bump rust to version 1.75.0 ([#362](https://github.com/ucb-substrate/substrate2/issues/362)) ([e1e82c9](https://github.com/ucb-substrate/substrate2/commit/e1e82c94cdf6ba4426f3f73f29dca40674a7f064))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * geometry_macros bumped from 0.0.1 to 0.0.2
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.4.0...geometry-v0.5.0) (2023-11-02)
 
 
