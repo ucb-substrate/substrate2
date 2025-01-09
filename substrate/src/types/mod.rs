@@ -254,6 +254,39 @@ pub struct TwoTerminalIo {
     pub n: InOut<Signal>,
 }
 
+mod tmp {
+
+    use crate::types::codegen::{HasView, SaveKeyView};
+
+    use crate::simulation::{data::Save, Analysis, Simulator};
+
+    use super::*;
+    impl<V, S, A> Save<S, A> for TwoTerminalIoView<V>
+    where
+        S: Simulator,
+        A: Analysis,
+        InOut<Signal>: HasView<V>,
+        <InOut<Signal> as HasView<V>>::View: Save<S, A>,
+    {
+        type SaveKey = ();
+        type Saved = ();
+        fn save(
+            &self,
+            _ctx: &crate::simulation::SimulationContext<S>,
+            _opts: &mut <S as Simulator>::Options,
+        ) -> <Self as Save<S, A>>::SaveKey {
+            todo!()
+        }
+
+        fn from_saved(
+            _output: &<A as Analysis>::Output,
+            _key: &<Self as Save<S, A>>::SaveKey,
+        ) -> <Self as Save<S, A>>::Saved {
+            todo!()
+        }
+    }
+}
+
 /// The interface for VDD and VSS rails.
 #[derive(Debug, Default, Clone, Io)]
 pub struct PowerIo {

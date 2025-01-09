@@ -229,51 +229,6 @@ impl Save<Spectre, Tran> for NestedTerminal {
     }
 }
 
-pub struct NestedInstanceOutput<T>
-where
-    T: Schematic,
-    NestedView<T::NestedData>: Save<Spectre, Tran>,
-    NestedView<IoTerminalBundle<T>>: Save<Spectre, Tran>,
-{
-    data: <NestedView<T::NestedData> as Save<Spectre, Tran>>::Saved,
-    io: <NestedView<IoTerminalBundle<T>> as Save<Spectre, Tran>>::Saved,
-}
-
-impl<T> Save<Spectre, Tran> for NestedInstance<T>
-where
-    T: Schematic,
-    NestedView<T::NestedData>: Save<Spectre, Tran>,
-    NestedView<IoTerminalBundle<T>>: Save<Spectre, Tran>,
-{
-    type SaveKey = (
-        <NestedView<T::NestedData> as Save<Spectre, Tran>>::SaveKey,
-        <NestedView<IoTerminalBundle<T>> as Save<Spectre, Tran>>::SaveKey,
-    );
-    type Saved = NestedInstanceOutput<T>;
-
-    fn save(
-        &self,
-        ctx: &SimulationContext<Spectre>,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as Save<Spectre, Tran>>::SaveKey {
-        let data = self.data().save(ctx, opts);
-        let io = self.io().save(ctx, opts);
-        (data, io)
-    }
-
-    fn from_saved(
-        output: &<Tran as Analysis>::Output,
-        key: &<Self as Save<Spectre, Tran>>::SaveKey,
-    ) -> <Self as Save<Spectre, Tran>>::Saved {
-        NestedInstanceOutput {
-            data: <NestedView<T::NestedData> as Save<Spectre, Tran>>::from_saved(output, &key.0),
-            io: <NestedView<IoTerminalBundle<T>> as Save<Spectre, Tran>>::from_saved(
-                output, &key.1,
-            ),
-        }
-    }
-}
-
 impl Analysis for Tran {
     type Output = Output;
 }

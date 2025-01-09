@@ -302,6 +302,45 @@ fn impl_unflatten(
     })
 }
 
+// fn impl_save(
+//     kind_helper: &DeriveInputHelper,
+//     view_helper: &DeriveInputHelper,
+//     bundle_kind: &syn::Type,
+// ) -> TokenStream {
+//     let substrate = substrate_ident();
+//     let simulator_ty = parse_quote! { __substrate_SIMULATOR };
+//     let analysis_ty = parse_quote! { __substrate_ANALYSIS };
+//     let mut view_helper = view_helper.clone();
+//     view_helper.push_where_predicate_per_field(|ty, _| {
+//         parse_quote! { #ty: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+//     });
+//     let view_ident = view_helper.get_ident();
+//     view_helper.impl_trait(&ImplTrait {
+//         trait_name: quote! { #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> },
+//         trait_body: quote! {
+//             type SaveKey = #view_ident<#substrate::types::codegen::NestedSaveKey<#hnv_generic_ty, __substrate_S, __substrate_A>>;
+//             type Saved = #view_ident<#substrate::types::codegen::NestedSaved<#hnv_generic_ty, __substrate_S, __substrate_A>>;
+//
+//             fn save(
+//                 &self,
+//                 ctx: &#substrate::simulation::SimulationContext<__substrate_S>,
+//                 opts: &mut <__substrate_S as #substrate::simulation::Simulator>::Options,
+//             ) -> <Self as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::SaveKey {
+//                 todo!()
+//             }
+//
+//             fn from_saved(
+//                 output: &<__substrate_A as #substrate::simulation::Analysis>::Output,
+//                 key: &<Self as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::SaveKey,
+//             ) -> <Self as #substrate::simulation::data::Save<__substrate_S, __substrate_A>>::Saved {
+//                 todo!()
+//             }
+//         },
+//         extra_generics: vec![simulator_ty, analysis_ty],
+//         extra_where_predicates: vec![],
+//     })
+// }
+
 fn impl_schematic_bundle_kind(
     kind_helper: &DeriveInputHelper,
     node_bundle_helper: &DeriveInputHelper,

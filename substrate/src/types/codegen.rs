@@ -36,13 +36,18 @@ pub trait HasViewImpl<V, S = FromSelf>: ViewSource {
     type View;
 }
 
-impl<S: HasView<V>, V, T: ViewSource<Kind = FromOther, Source = S>> HasViewImpl<V, FromOther>
-    for T
-{
-    type View = S::View;
-}
+// impl<S, V, T> HasViewImpl<V, FromOther> for T
+// where
+//     S: HasView<V>,
+//     T: ViewSource<Kind = FromOther, Source = S>,
+// {
+//     type View = S::View;
+// }
 
-impl<V, K, T: ViewSource<Kind = K> + HasViewImpl<V, K>> HasView<V> for T {
+impl<V, K, T> HasView<V> for T
+where
+    T: ViewSource<Kind = K> + HasViewImpl<V, K>,
+{
     type View = T::View;
 }
 
@@ -108,7 +113,7 @@ impl<T: ViewSource> ViewSource for Vec<T> {
 macro_rules! impl_direction {
     ($dir:ident) => {
         impl<T: ViewSource> ViewSource for $dir<T> {
-            type Kind = FromOther;
+            type Kind = FromSelf;
             type Source = T::Source;
         }
     };
@@ -182,6 +187,19 @@ impl<V, S: Simulator, A: Analysis, T: ViewSource + HasNestedView<V, NestedView: 
 {
     type View = crate::simulation::data::Saved<NestedView<T, V>, S, A>;
 }
+
+pub struct SaveKeyView<V, S, A>(PhantomData<(V, S, A)>);
+pub struct SavedView<V, S, A>(PhantomData<(V, S, A)>);
+
+// impl<V, S, A, T> HasViewImpl<SaveKeyView<V, S, A>> for T
+// where
+//     S: Simulator,
+//     A: Analysis,
+//     T: HasView<V>,
+//     <T as HasView<V>>::View: Save<S, A>,
+// {
+//     type View = crate::simulation::data::SaveKey<<T as HasView<V>>::View, S, A>;
+// }
 
 pub trait HasDefaultLayoutBundle: super::BundleKind {
     type Bundle<S: crate::layout::schema::Schema>: LayoutBundle<S>;
