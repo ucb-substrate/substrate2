@@ -188,7 +188,7 @@ impl InverterDesign {
 /// Create a new Substrate context for the SKY130 open PDK.
 ///
 /// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
-/// environment variable and installs Spectre with default configuration.
+/// environment variable and installs ngspice with default configuration.
 ///
 /// # Panics
 ///
