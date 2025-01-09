@@ -3,7 +3,11 @@ sidebar_position: 2
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-export const {examples_path} = require('../docs-config.json');
+import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
+import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
+import {isRelease} from '@site/src/utils/versions.js';
+import docsConfig from '../docs-config.json';
+export const examples_path = docsConfig.examples_path;
 export const InverterMod = require(`@substrate/${examples_path}/sky130_inverter/src/lib.rs?snippet`);
 export const InverterTb = require(`@substrate/${examples_path}/sky130_inverter/src/tb.rs?snippet`);
 export const CargoToml = require(`@substrate/${examples_path}/sky130_inverter/Cargo.toml?snippet`);
@@ -20,14 +24,14 @@ the code you're writing is actually doing.
 ### Rust
 
 Ensure that you have a recent version of Rust installed.
-Add the Substrate registry to your Cargo config:
+{ isRelease(docsConfig) ? <div>
+Add the Substrate registry to your Cargo config: 
 
-```toml title="~/.cargo/config.toml"
-[registries]
-substrate = { index = "https://github.com/substrate-labs/crates-index" }
-```
+<SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
+</div> : <div/> }
+
 
 Next, create a new Rust project:
 ```bash
@@ -36,7 +40,7 @@ cargo new --lib sky130_inverter && cd sky130_inverter
 
 In your project's `Cargo.toml`, add the following dependencies:
 
-<CodeSnippet language="toml" title="Cargo.toml" snippet="dependencies">{CargoToml}</CodeSnippet>
+<DependenciesSnippet docsConfig={docsConfig} language="toml" title="Cargo.toml" snippet="dependencies">{CargoToml}</DependenciesSnippet>
 
 Let's now add some imports that we'll use later on.
 Replace the content of `src/lib.rs` with the following:

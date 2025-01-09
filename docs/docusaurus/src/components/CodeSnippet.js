@@ -1,5 +1,4 @@
 import CodeBlock from "@theme/CodeBlock";
-import React from 'react';
 
 function trimLeadingWS(str) {
   /*

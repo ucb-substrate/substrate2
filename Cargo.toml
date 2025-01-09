@@ -9,6 +9,8 @@ members = [
     "docs/snippets",
     # "examples/latest/sky130_inverter",
     # "examples/latest/spice_vdivider",
+    "examples/latest/colbuf",
+    "examples/latest/substrate_api_examples",
     # "libs/atoll",
     "libs/cache",
     "libs/diagnostics",
@@ -39,8 +41,6 @@ members = [
     "tools/quantus",
     "tools/spectre", 
     "tools/magic-netgen",
-    "examples/latest/colbuf",
-    "examples/latest/substrate_api_examples",
 ]
 
 exclude = ["tests", "pdks/sky130pdk", "libs/atoll", "examples/release"]

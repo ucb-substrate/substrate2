@@ -3,7 +3,11 @@ sidebar_position: 1
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-export const {examples_path} = require('../docs-config.json');
+import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
+import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
+import {isRelease} from '@site/src/utils/versions.js';
+import docsConfig from '../docs-config.json';
+export const examples_path = docsConfig.examples_path;
 export const VdividerMod = require(`@substrate/${examples_path}/spice_vdivider/src/lib.rs?snippet`);
 export const CargoToml = require(`@substrate/${examples_path}/spice_vdivider/Cargo.toml?snippet`);
 
@@ -17,14 +21,13 @@ In this tutorial, we'll breeze through the basics to give you a sense of what Su
 
 Substrate is fully integrated with the Rust ecosystem, so all you need to get started is a [recent installation of Rust](https://www.rust-lang.org/tools/install)! Ensure that you have version 1.70.0 or beyond.
 
+{ isRelease(docsConfig) ? <div>
 First, add the Substrate registry to your Cargo config:
 
-```toml title="~/.cargo/config.toml"
-[registries]
-substrate = { index = "https://github.com/substrate-labs/crates-index" }
-```
+<SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
+</div> : <div/> }
 
 Next, create a new Rust project:
 ```bash
@@ -34,7 +37,7 @@ cargo new --lib my_generator && cd my_generator
 In your project's `Cargo.toml`, add the following dependencies:
 
 
-<CodeSnippet language="toml" title="Cargo.toml" snippet="dependencies">{CargoToml}</CodeSnippet>
+<DependenciesSnippet docsConfig={docsConfig} language="toml" title="Cargo.toml" snippet="dependencies">{CargoToml}</DependenciesSnippet>
 
 Let's now add some imports that we'll use later on.
 Replace the content of `src/lib.rs` with the following:

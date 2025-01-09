@@ -44,8 +44,8 @@ const config: Config = {
           sidebarPath: require.resolve('./sidebars.js'),
           versions: {
             current: {
-              label: siteConfig.current_version,
-              path: siteConfig.current_version,
+              label: siteConfig.branch,
+              path: siteConfig.branch,
             },
           },
           // Please change this to your repo.
