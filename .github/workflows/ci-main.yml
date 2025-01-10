@@ -1,8 +1,9 @@
-name: CI
+name: ci-main
 
 on:
   push:
-  workflow_dispatch:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -27,7 +28,7 @@ jobs:
           path: release-please
           # Can change back to `dev` once this is merged into Substrate `main` and 
           # the release-please `substrate-workspace` branch is merged into `dev`.
-          ref: dev
+          ref: substrate-workspace
       - uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -94,13 +95,17 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
       - run: just build
         working-directory: docs/api
-      - run: flyctl deploy --remote-only --detach
+      - run: |
+          rm -rf /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }} && \
+          cp -r target/doc /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }}
         working-directory: docs/api
+      - run: flyctl deploy --remote-only --detach
+        working-directory: /tools/C/rohankumar/substrate_docs_public/api
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
   deploy-docs:
     name: Deploy documentation
-    runs-on: ubuntu-22.04
+    runs-on: bwrc
     environment: main
     needs: [ check-workspace ]
     steps:
@@ -110,13 +115,20 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
-          cache-dependency-path: docs/site/yarn.lock
+          cache-dependency-path: docs/docusaurus/yarn.lock
       - run: yarn install
-        working-directory: docs/site
+        working-directory: docs/docusaurus
       - run: yarn build 
-        working-directory: docs/site
+        working-directory: docs/docusaurus
+      - run: |
+          find . -not -path './branch/*' -not -name "fly.toml" -not -name "Dockerfile" -delete
+        working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
+      - run:
+          rm -rf /${{ github.ref_name }} && \
+          cp -r build/* /tools/C/rohankumar/substrate_docs_public/docusaurus
+        working-directory: docs/docusaurs
       - run: flyctl deploy --remote-only --detach
-        working-directory: docs/site
+        working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
 
