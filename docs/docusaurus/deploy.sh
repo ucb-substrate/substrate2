@@ -26,10 +26,10 @@ yarn build
 if [ $REF_NAME = "main" ]; then
     find $PUBLIC_DOCS_DIR/docusaurus/static -not -path "$PUBLIC_DOCS_DIR/docusaurus/static/branch/*" -not -name "fly.toml" -not -name "Dockerfile" -delete
     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static
-    cp -r build/* $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+    cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static
 else
     rm -rf $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
-    cp -r build/* $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+    cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
 fi
 $(cd $PUBLIC_DOCS_DIR/docusaurus && flyctl deploy --remote-only --detach)
