@@ -20,7 +20,7 @@ echo << EOF
     "branch": "$REF_NAME"
     "edit_url": "https://github.com/substrate-labs/substrate2/tree/$REF_NAME/docs/docusaurus"
 }
-EOF
+EOF > ./site-config.json
 yarn install
 yarn build
 if [ $REF_NAME = "main" ]; then
