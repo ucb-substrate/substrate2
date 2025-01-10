@@ -2631,13 +2631,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "substrate_api_examples"
-version = "0.0.0"
-dependencies = [
- "substrate",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
