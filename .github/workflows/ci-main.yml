@@ -125,7 +125,7 @@ jobs:
         working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
       - run:
           rm -rf /${{ github.ref_name }} && \
-          cp -r target/doc/* /tools/C/rohankumar/substrate_docs_public/docusaurus
+          cp -r build/* /tools/C/rohankumar/substrate_docs_public/docusaurus
         working-directory: docs/docusaurs
       - run: flyctl deploy --remote-only --detach
         working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
