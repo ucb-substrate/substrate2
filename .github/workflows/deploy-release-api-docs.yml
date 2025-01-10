@@ -1,4 +1,4 @@
-name: CI
+name: deploy-release-api-docs
 
 on:
   release:
