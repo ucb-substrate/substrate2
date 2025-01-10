@@ -1,4 +1,4 @@
-name: deploy-docs
+name: deploy-api-docs
 
 on:
   workflow_call:
@@ -12,20 +12,14 @@ env:
     PUBLIC_DOCS_DIR: /Users/rohan/Downloads/substrate_docs_public
 
 jobs:
-  deploy-docs:
-    name: Deploy documentation
+  deploy-api-docs:
+    name: Deploy API documentation
     runs-on: bwrc
     environment: docs
     steps:
       - uses: actions/checkout@v3
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: docs/docusaurus/yarn.lock
+      - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
       - run: ./deploy.sh ${{ env.PUBLIC_DOCS_DIR }} ${{ inputs.name || github.ref_name }}
-        working-directory: docs/docusaurus
+        working-directory: docs/api
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
-
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}

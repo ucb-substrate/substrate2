@@ -86,49 +86,7 @@ jobs:
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
   deploy-api-docs:
-    name: Deploy API documentation
-    runs-on: bwrc
-    environment: main
-    needs: [ check-workspace ]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
-      - run: just build
-        working-directory: docs/api
-      - run: |
-          rm -rf /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }} && \
-          cp -r target/doc /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }}
-        working-directory: docs/api
-      - run: flyctl deploy --remote-only --detach
-        working-directory: /tools/C/rohankumar/substrate_docs_public/api
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+    uses: ./.github/workflows/deploy-api-docs.yml
   deploy-docs:
-    name: Deploy documentation
-    runs-on: bwrc
-    environment: main
-    needs: [ check-workspace ]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: docs/docusaurus/yarn.lock
-      - run: yarn install
-        working-directory: docs/docusaurus
-      - run: yarn build 
-        working-directory: docs/docusaurus
-      - run: |
-          find . -not -path './branch/*' -not -name "fly.toml" -not -name "Dockerfile" -delete
-        working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
-      - run:
-          rm -rf /${{ github.ref_name }} && \
-          cp -r build/* /tools/C/rohankumar/substrate_docs_public/docusaurus
-        working-directory: docs/docusaurs
-      - run: flyctl deploy --remote-only --detach
-        working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
+    uses: ./.github/workflows/deploy-docs.yml
 
