@@ -12,8 +12,8 @@ if [ $# -eq 0 ]
     exit 1
 fi
 
-PUBLIC_DOCS_DIR=$0
-REF_NAME=$1
+PUBLIC_DOCS_DIR=$1
+REF_NAME=$2
 
 echo << EOF
 {
@@ -23,7 +23,7 @@ echo << EOF
 EOF
 yarn install
 yarn build
-if [ $REF_NAME -eq "main" ]; then
+if [ $REF_NAME = "main" ]; then
     find $PUBLIC_DOCS_DIR/docusaurus/static -not -path "$PUBLIC_DOCS_DIR/docusaurus/static/branch/*" -not -name "fly.toml" -not -name "Dockerfile" -delete
     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static
     cp -r build/* $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
