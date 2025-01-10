@@ -3,9 +3,8 @@ sidebar_position: 1
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-export const {examples_path} = require('../docs-config.json');
-export const VdividerMod = require(`@substrate/${examples_path}/spice_vdivider/src/lib.rs?snippet`);
-export const Core = require(`@substrate/${examples_path}/substrate_api_examples/src/lib.rs?snippet`);
+export const vdividerMod = require(`{{EXAMPLES}}/spice_vdivider/src/lib.rs?snippet`);
+export const core = require(`{{EXAMPLES}}/substrate_api_examples/src/lib.rs?snippet`);
 
 # IOs
 
@@ -15,7 +14,7 @@ In this section, we'll explore how to define and use the interfaces between gene
 
 The first step in creating a Substrate schematic generator is to define an interface that other generators can use to instantiate your generator. An interface, called an IO in Substrate, defines a set of ports and their directions.
 
-<CodeSnippet language="rust" snippet="vdivider-io">{VdividerMod}</CodeSnippet>
+<CodeSnippet language="rust" snippet="vdivider-io">{vdividerMod}</CodeSnippet>
 
 An IO must implement the [`Io`](https://api.substratelabs.io/substrate/io/trait.Io.html) trait. Implementing this trait is most easily done by using `#[derive(Io)]`.
 
@@ -25,11 +24,11 @@ The IO struct itself does not store any connectivity data, but rather is a templ
 
 `VdividerIo::default()`, for example, would describe an IO template where the `vout` port should be a single-bit output signal. We can also describe an IO containing two 5-bit buses as follows:
 
-<CodeSnippet language="rust" snippet="array-io">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="array-io">{core}</CodeSnippet>
 
 This allows you to parametrize the contents of your interface at runtime in whatever way you like. For example, we can do some calculations in the constructor for `ArrayIo`:
 
-<CodeSnippet language="rust" snippet="array-io-constructor">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="array-io-constructor">{core}</CodeSnippet>
 
 ### Port directions
 
@@ -48,11 +47,11 @@ readability of your generators.
 Wrapping a composite type with a direction will overwrite the direction of all constituent signals. 
 In the example below, all of the ports of `SramObserverIo` are inputs.
 
-<CodeSnippet language="rust" snippet="sram-io">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="sram-io">{core}</CodeSnippet>
 
 Similarly, if we wanted to create an `SramDriverIo` that drives the input signals of an SRAM and reads the output, we can use the [`Flipped`](https://api.substratelabs.io/substrate/io/struct.Flipped.html) wrapper type, which flips the direction of each constituent port.
 
-<CodeSnippet language="rust" snippet="sram-driver-io">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="sram-driver-io">{core}</CodeSnippet>
 
 
 ## Bundles
@@ -87,15 +86,15 @@ While you are free to implement `Connect` on whichever types you like, this requ
 
 Suppose we have the following two IOs:
 
-<CodeSnippet language="rust" snippet="mos-io">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="mos-io">{core}</CodeSnippet>
 
 We should not directly implement `Connect` on their associated bundles since the flattened bundles have different lengths, resulting in one wire being left floating after the connection is made. Instead, we can write the following to make it easy to convert a source `ThreePortMosIoSchematic` bundle to a `FourPortMosIoSchematic` bundle that can be connected to the destination `FourPortMosIoSchematic` bundle:
 
-<CodeSnippet language="rust" snippet="mos-io-from">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="mos-io-from">{core}</CodeSnippet>
 
 However, sometimes, we might want to tie the body port to a separate node:
 
-<CodeSnippet language="rust" snippet="mos-io-body">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="mos-io-body">{core}</CodeSnippet>
 
 With these functions, we could conceptually write things like this:
 

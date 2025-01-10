@@ -3,9 +3,8 @@ sidebar_position: 2
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-export const {examples_path} = require('../docs-config.json');
-export const VdividerMod = require(`@substrate/${examples_path}/spice_vdivider/src/lib.rs?snippet`);
-export const Core = require(`@substrate/${examples_path}/substrate_api_examples/src/lib.rs?snippet`);
+export const vdividerMod = require(`{{EXAMPLES}}/spice_vdivider/src/lib.rs?snippet`);
+export const core = require(`{{EXAMPLES}}/substrate_api_examples/src/lib.rs?snippet`);
 
 # Schematic generators
 
@@ -20,7 +19,7 @@ two inverters for easy access.
 
 We do this by implementing the [`ExportsNestedData`](https://api.substratelabs.io/substrate/schematic/trait.ExportsNestedData.html) trait.
 
-<CodeSnippet language="rust" snippet="buffer-nested-data">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="buffer-nested-data">{core}</CodeSnippet>
 
 ### Nested views
 
@@ -36,11 +35,11 @@ up from instance to instance. You can do this by implementing the
 
 For example, say you want to propagate up some integer value that was calculated while generating your schematic alongside some nested instances. Then you might define your own nested view and manually implement `HasNestedView` as follows:
 
-<CodeSnippet language="rust" snippet="custom-nested-view">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="custom-nested-view">{core}</CodeSnippet>
 
 If you don't want to deal with the extra layer of indirection while accessing the struct, you can also do something like this:
 
-<CodeSnippet language="rust" snippet="custom-nested-view">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="custom-nested-view">{core}</CodeSnippet>
 
 However, we don't recommend you do this unless you know what you're doing since it is more prone to error and a bit difficult to understand.
 
@@ -54,7 +53,7 @@ Be careful when implementing `HasNestedView` yourself, since propagating a node 
 
 Once a block has an associated IO and nested data, you can define its schematic using the [`Schematic`](https://api.substratelabs.io/substrate/schematic/trait.Schematic.html) trait:
 
-<CodeSnippet language="rust" snippet="vdivider-schematic">{VdividerMod}</CodeSnippet>
+<CodeSnippet language="rust" snippet="vdivider-schematic">{vdividerMod}</CodeSnippet>
 
 Let's look at what each part of the implementation is doing.
 - In the first line, we implement `Schematic<Spice>` for `Vdivider`. `Spice` is a schema, or essentially a specific format in which a block can be defined. Essentially, we are saying that `Vdivider` has a schematic in the `Spice` schema, which allows us to netlist the voltage divider to SPICE and run simulations with it in SPICE simulators. For more details on schemas, see the [SCIR chapter](./scir.md).
@@ -84,7 +83,7 @@ while generating the nested resistor cells.
 
 The above code with additional logic for propagating errors is included below:
 
-<CodeSnippet language="rust" snippet="vdivider-try-data-error-handling">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="vdivider-try-data-error-handling">{core}</CodeSnippet>
 
 This looks a bit more complex than typical Rust error handling because, by default, calls to `cell.instantiate(...)` generate the instantiated
 cell in the background. This allows you to effortlessly generate cells in parallel, but it does 
@@ -99,7 +98,7 @@ We then block on the second resistor and do the same thing. Now that the any pot
 
 If we don't need parallelism and want to be able to handle errors immediately, we can write the following:
 
-<CodeSnippet language="rust" snippet="vdivider-instantiate-blocking-error-handling">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="vdivider-instantiate-blocking-error-handling">{core}</CodeSnippet>
 
 The calls to `cell.instantiate_blocking(...)` wait until the underlying cell has finished generating before returning, allowing us to propagate errors immediately.
 
@@ -109,7 +108,7 @@ The errors returned by `cell.instantiate_blocking(...)` and `cell.instantiate(..
 it to the schematic. Even though we are checking whether the generator succeeded, we cannot
 retroactively take the failed cell out of the schematic. That is, we cannot do something like this:
 
-<CodeSnippet language="rust" snippet="vdivider-instantiate-blocking-bad">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="vdivider-instantiate-blocking-bad">{core}</CodeSnippet>
 
 Even though it looks like we succesfully recovered from an error, the error was
 already been pushed into the schematic via `cell.instantiate_blocking(...)`. 
@@ -122,7 +121,7 @@ If you want to recover from errors, you should use the generate/add workflow out
 The correct way to recover from errors is to first generate the underlying cell, check if
 it is generated successfully, and only then add it to the schematic:
 
-<CodeSnippet language="rust" snippet="vdivider-generate-add-error-handling">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="vdivider-generate-add-error-handling">{core}</CodeSnippet>
 
 In this case, we start generating the two resistors in parallel using `cell.generate(...)` followed by `cell.instantiate_blocking(...)`.
 We then block on the first resistor and if generation succeeded, we add the resistor to the schematic and connect it up. Otherwise, we just connect the output port to VDD directly.

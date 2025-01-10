@@ -13,7 +13,7 @@ const config: Config = {
   url: 'https://docs.substratelabs.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  baseUrl: siteConfig.branch == 'main' ? '/' : `/${siteConfig.branch}/`,
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -63,6 +63,30 @@ const config: Config = {
       }),
     ],
   ],
+
+  markdown: {
+    format: "mdx",
+    preprocessor: ({ filePath, fileContent }) => {
+      console.log("Injecting global markdown references into " + filePath);
+      let version;
+      let match = /versioned_docs\/version-([a-zA-Z0-9_-]*)\//.exec(filePath);
+      if (match) {
+          version = match[1];
+      } else {
+          version = "latest";
+      }
+      let vars = new Map([
+          ["VERSION", version],
+          ["EXAMPLES", `@substrate/examples/${version}`],
+          ["API", `https://api.substratelabs.io/${version}`],
+      ]);
+
+      for (const [key, value] of vars) {
+          fileContent = fileContent.replaceAll(`{{${key}}}`, value);
+      }
+      return fileContent;
+    },
+  },
 
   themeConfig: {
       // Replace with your project's social card

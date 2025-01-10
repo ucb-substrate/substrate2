@@ -2,11 +2,6 @@
 sidebar_position: 5
 ---
 
-import CodeSnippet from '@site/src/components/CodeSnippet';
-export const {examples_path} = require('../docs-config.json');
-export const VdividerMod = require(`@substrate/${examples_path}/spice_vdivider/src/lib.rs?snippet`);
-export const Core = require(`@substrate/${examples_path}/substrate_api_examples/src/lib.rs?snippet`);
-
 # Simulation
 
 ## Simulators

@@ -5,12 +5,10 @@ sidebar_position: 2
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
 import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
-import {isRelease} from '@site/src/utils/versions.js';
-import docsConfig from '../docs-config.json';
-export const examples_path = docsConfig.examples_path;
-export const InverterMod = require(`@substrate/${examples_path}/sky130_inverter/src/lib.rs?snippet`);
-export const InverterTb = require(`@substrate/${examples_path}/sky130_inverter/src/tb.rs?snippet`);
-export const CargoToml = require(`@substrate/${examples_path}/sky130_inverter/Cargo.toml?snippet`);
+import {isRelease} from '@site/src/utils/versions';
+export const inverterMod = require(`{{EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`);
+export const inverterTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb.rs?snippet`);
+export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippet`);
 
 # Designing an inverter
 
@@ -24,7 +22,7 @@ the code you're writing is actually doing.
 ### Rust
 
 Ensure that you have a recent version of Rust installed.
-{ isRelease(docsConfig) ? <div>
+{ isRelease("{{VERSION}}") ? <div>
 Add the Substrate registry to your Cargo config: 
 
 <SubstrateRegistryConfig/>
@@ -40,12 +38,12 @@ cargo new --lib sky130_inverter && cd sky130_inverter
 
 In your project's `Cargo.toml`, add the following dependencies:
 
-<DependenciesSnippet docsConfig={docsConfig} language="toml" title="Cargo.toml" snippet="dependencies">{CargoToml}</DependenciesSnippet>
+<DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="dependencies">{cargoToml}</DependenciesSnippet>
 
 Let's now add some imports that we'll use later on.
 Replace the content of `src/lib.rs` with the following:
 
-<CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{InverterMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{inverterMod}</CodeSnippet>
 
 ### Simulators
 
@@ -77,7 +75,7 @@ The inverter should have four ports:
 
 This is how that description translates to Substrate:
 
-<CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-io">{InverterMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-io">{inverterMod}</CodeSnippet>
 
 Each `Signal` is a single wire.
 The `Input`, `Output`, and `InOut` wrappers provide directions for the `Signal`s they enclose.
@@ -104,7 +102,7 @@ In the SKY130 process, the database unit is a nanometer, so supplying an NMOS wi
 of 1,200 will produce a transistor with a width of 1.2 microns.
 
 We'll now define the struct representing our inverter:
-<CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-struct">{InverterMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-struct">{inverterMod}</CodeSnippet>
 
 There are a handful of `#[derive]` attributes that give our struct properties that Substrate requires.
 For example, blocks must implement `Eq` so that Substrate can tell if two blocks are equivalent. It is important
@@ -120,7 +118,7 @@ Describing a Schematic in Substrate requires implementing two traits:
 * `Schematic` specifies the actual schematic in a particular **schema**. A schema is essentially just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
-<CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-schematic">{InverterMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-schematic">{inverterMod}</CodeSnippet>
 
 The calls to `cell.instantiate(...)` create two sub-blocks: an NMOS and a PMOS.
 Note how we pass transistor dimensions to the SKY130-specific `Nfet01v8` and `Pfet01v8` blocks.
@@ -141,7 +139,7 @@ pub mod tb;
 ```
 
 Add the following imports to `src/tb.rs`:
-<CodeSnippet language="rust" title="src/tb.rs" snippet="imports">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="imports">{inverterTb}</CodeSnippet>
 
 All Substrate testbenches are blocks that have schematics.
 The schematic specifies the simulation structure (i.e. input sources,
@@ -158,7 +156,7 @@ We'll make our testbench take two parameters:
 
 Here's how that looks in Rust code:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="struct-and-impl">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="struct-and-impl">{inverterTb}</CodeSnippet>
 
 The `Pvt<Sky130Corner>` in our testbench is essentially a 3-tuple of a process corner,
 voltage, and temperature. The process corner here is an instance of `Sky130Corner`,
@@ -174,7 +172,7 @@ the output node of our inverter, so we'll set `Data` in `HasSchematicData` to be
 
 Here's our testbench setup:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="schematic">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="schematic">{inverterTb}</CodeSnippet>
 
 We create two Spectre-specific `Vsource`s (one for VDD, the other as an input stimulus).
 We also instantiate our inverter and connect everything up.
@@ -192,7 +190,7 @@ and set up analyses (AC, DC, transient, etc.).
 
 This is how our testbench looks:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{inverterTb}</CodeSnippet>
 
 We define `Vout` as a receiver for data saved during simulation. We then tell Substrate what data we want to save from
 our testbench by implementing the `SaveTb` trait.
@@ -206,7 +204,7 @@ We'll assume that we have a fixed NMOS width and channel length and a set
 of possible PMOS widths to sweep over.
 
 Here's our implementation:
-<CodeSnippet language="rust" title="src/tb.rs" snippet="design">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="design">{inverterTb}</CodeSnippet>
 
 We sweep over possible PMOS widths. For each width,
 we create a new testbench instance and tell Substrate to simulate it.
@@ -225,11 +223,11 @@ relevant to Substrate. This includes
 the tools you've set up, the current PDK, all blocks that have been generated,
 cached computations, and more.
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-open-ctx">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-open-ctx">{inverterTb}</CodeSnippet>
 
 We can then write a Rust unit test to run our design script:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="tests">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="tests">{inverterTb}</CodeSnippet>
 
 To run the test, run
 
@@ -247,7 +245,7 @@ returning the data in the appropriate format.
 
 To add Spectre support, we can simply add the following code:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-support">{InverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-support">{inverterTb}</CodeSnippet>
 
 Before running the new Spectre test, ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
 the SKY130 commercial PDK.

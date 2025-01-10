@@ -3,8 +3,7 @@ sidebar_position: 4
 ---
 
 import CodeSnippet from '@site/src/components/CodeSnippet';
-export const {examples_path} = require('../docs-config.json');
-export const Core = require(`@substrate/${examples_path}/substrate_api_examples/src/lib.rs?snippet`);
+export const core = require(`{{EXAMPLES}}/substrate_api_examples/src/lib.rs?snippet`);
 
 # Schematic cell intermediate representation (SCIR)
 
@@ -136,40 +135,40 @@ The `FromSchema` trait is particularly important since it allows for schematics 
 
 Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`](https://api.substratelabs.io/scir/struct.LibraryBuilder.html). To create a library with the [`StringSchema`](https://api.substratelabs.io/scir/schema/struct.StringSchema.html) schema, whose primitives are arbitrary `ArcStr`s, we write the following:
 
-<CodeSnippet language="rust" snippet="scir-library-builder">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-library-builder">{core}</CodeSnippet>
 
 SCIR libraries are collections of SCIR cells and primitives. We can create a new cell and add it to our library:
 
-<CodeSnippet language="rust" snippet="scir-library-cell">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-library-cell">{core}</CodeSnippet>
 
 We can also add primitives to the library as follows (since we are using `StringSchema`, the value of the primitive must be an `ArcStr`):
 
-<CodeSnippet language="rust" snippet="scir-library-primitive">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-library-primitive">{core}</CodeSnippet>
 
 SCIR cells may contain signals that connect instances and/or serve as ports that interface with parent cells.
 
-<CodeSnippet language="rust" snippet="scir-library-signals">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-library-signals">{core}</CodeSnippet>
 
 SCIR cells may also contain instances of SCIR primitives and other cells. We can connect ports of each instance to signals in the parent cell. While connections to instances of SCIR cells must connect to ports declared in the underlying cell, connections to primitives are not checked by SCIR as primitives are opaque to SCIR.
 
 We can first instantiate the resistor primitives we defined earlier and add our voltage divider cell to our SCIR library.
 
-<CodeSnippet language="rust" snippet="scir-library-primitive-instances">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-library-primitive-instances">{core}</CodeSnippet>
 
 We can then create a cell that instantiates two of our newly-defined voltage divider cell.
 
-<CodeSnippet language="rust" snippet="scir-library-instances">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-library-instances">{core}</CodeSnippet>
 
 ### Bindings
 
 SCIR primitives and cells can be instantiated in Substrate generators using *bindings*. Suppose we have the following schema that supports instantiating resistor and capacitor primitives:
 
-<CodeSnippet language="rust" snippet="scir-schema">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-schema">{core}</CodeSnippet>
 
 We can create a Substrate block whose schematic corresponds to a `MyPrimitive::Resistor` using a [`PrimitiveBinding`](https://api.substratelabs.io/substrate/schematic/struct.PrimitiveBinding.html). It can then be instantiated in other Substrate generators just like any other block.
 
-<CodeSnippet language="rust" snippet="scir-primitive-binding">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-primitive-binding">{core}</CodeSnippet>
 
 Similarly, we can bind to a SCIR cell using a [`ScirBinding`](https://api.substratelabs.io/substrate/schematic/struct.ScirBinding.html):
 
-<CodeSnippet language="rust" snippet="scir-scir-binding">{Core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="scir-scir-binding">{core}</CodeSnippet>
