@@ -22,7 +22,7 @@ jobs:
       - run: just build
         working-directory: docs/api
       - run: |
-          rm -rf ${{ env.PUBLIC_DOCS_DIR }}/api/${{ inputs.name || github.ref_name }} && |
+          rm -rf ${{ env.PUBLIC_DOCS_DIR }}/api/${{ inputs.name || github.ref_name }} && \
           cp -r target/doc ${{ env.PUBLIC_DOCS_DIR }}/api/${{ inputs.name || github.ref_name }}
         working-directory: docs/api
       - run: flyctl deploy --remote-only --detach
@@ -46,7 +46,7 @@ jobs:
       - run: yarn build 
         working-directory: docs/docusaurus
       - run: |
-          rm -rf ${{ env.PUBLIC_DOCS_DIR }}/docusaurus/branch/${{ inputs.name || github.ref_name }} && |
+          rm -rf ${{ env.PUBLIC_DOCS_DIR }}/docusaurus/branch/${{ inputs.name || github.ref_name }} && \
           cp -r target/doc ${{ env.PUBLIC_DOCS_DIR }}/docusaurus/branch/${{ inputs.name || github.ref_name }}
         working-directory: docs/docusaurus
       - run: flyctl deploy --remote-only --detach

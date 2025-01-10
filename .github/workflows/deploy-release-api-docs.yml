@@ -15,7 +15,7 @@ jobs:
       - run: just build
         working-directory: docs/api
       - run: |
-          rm -rf /tools/C/rohankumar/substrate_docs_public/api/release && |
+          rm -rf /tools/C/rohankumar/substrate_docs_public/api/release && \
           cp -r target/doc /tools/C/rohankumar/substrate_docs_public/api/release
         working-directory: docs/api
       - run: flyctl deploy --remote-only --detach

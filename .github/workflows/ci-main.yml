@@ -96,7 +96,7 @@ jobs:
       - run: just build
         working-directory: docs/api
       - run: |
-          rm -rf /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }} && |
+          rm -rf /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }} && \
           cp -r target/doc /tools/C/rohankumar/substrate_docs_public/api/${{ github.ref_name }}
         working-directory: docs/api
       - run: flyctl deploy --remote-only --detach
@@ -124,7 +124,7 @@ jobs:
           find . -not -path './branch/*' -not -name "fly.toml" -not -name "Dockerfile" -delete
         working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
       - run:
-          rm -rf /${{ github.ref_name }} && |
+          rm -rf /${{ github.ref_name }} && \
           cp -r target/doc/* /tools/C/rohankumar/substrate_docs_public/docusaurus
         working-directory: docs/docusaurs
       - run: flyctl deploy --remote-only --detach
