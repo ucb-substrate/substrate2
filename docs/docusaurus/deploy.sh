@@ -32,4 +32,5 @@ else
     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
     cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
 fi
-$(cd $PUBLIC_DOCS_DIR/docusaurus && flyctl deploy --remote-only --detach)
+(cd $PUBLIC_DOCS_DIR/docusaurus
+flyctl deploy --remote-only --detach
