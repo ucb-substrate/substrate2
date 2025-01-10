@@ -11,8 +11,11 @@ if [ $# -le 1 ]; then
     exit 1
 fi
 
+PUBLIC_DOCS_DIR=$0
+REF_NAME=$1
+
 just build
-rm -rf $0/api/static/$REF_NAME
-mkdir -p $0/api/static/$REF_NAME
-cp -r target/doc/* $0/api/static/$REF_NAME
-$(cd $0/api && flyctl deploy --remote-only --detach)
+rm -rf $PUBLIC_DOCS_DIR/api/static/$REF_NAME
+mkdir -p $PUBLIC_DOCS_DIR/api/static/$REF_NAME
+cp -r target/doc/* $PUBLIC_DOCS_DIR/api/static/$REF_NAME
+$(cd $PUBLIC_DOCS_DIR/api && flyctl deploy --remote-only --detach)

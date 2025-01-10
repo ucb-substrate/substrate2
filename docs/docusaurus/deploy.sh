@@ -12,6 +12,9 @@ if [ $# -eq 0 ]
     exit 1
 fi
 
+PUBLIC_DOCS_DIR=$0
+REF_NAME=$1
+
 echo << EOF
 {
     "branch": "$REF_NAME"
@@ -20,13 +23,13 @@ echo << EOF
 EOF
 yarn install
 yarn build
-if [ $1 -eq "main" ]; then
-    find $0/docusaurus/static -not -path "$0/docusaurus/static/branch/*" -not -name "fly.toml" -not -name "Dockerfile" -delete
-    mkdir -p $0/docusaurus/static
-    cp -r build/* $0/docusaurus/static/branch/$REF_NAME
+if [ $REF_NAME -eq "main" ]; then
+    find $PUBLIC_DOCS_DIR/docusaurus/static -not -path "$PUBLIC_DOCS_DIR/docusaurus/static/branch/*" -not -name "fly.toml" -not -name "Dockerfile" -delete
+    mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static
+    cp -r build/* $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
 else
-    rm -rf $0/docusaurus/static/branch/$REF_NAME
-    mkdir -p $0/docusaurus/static/branch/$REF_NAME
-    cp -r build/* $0/docusaurus/static/branch/$REF_NAME
+    rm -rf $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+    mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+    cp -r build/* $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
 fi
-$(cd $0/docusaurus && flyctl deploy --remote-only --detach)
+$(cd $PUBLIC_DOCS_DIR/docusaurus && flyctl deploy --remote-only --detach)
