@@ -8,49 +8,47 @@ on:
 
 env:
     CARGO_TERM_COLOR: always
+    DOCS_NAME: ${{ inputs.name || github.ref.name }}
+    PUBLIC_DOCS_DIR: /Users/rohan/Downloads/substrate_docs_public
 
 jobs:
   deploy-api-docs:
     name: Deploy API documentation
     runs-on: bwrc
-    environment: main
+    environment: docs
     steps:
-      # - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
-      # - run: just build
-      #   working-directory: docs/api
-      #   # TODO: Make sure to remove the secret exposure!
-      - run: |
-          echo ${{ secrets.FLY_API_TOKEN_API }} >> secrets.txt
-          # rm -rf /tools/C/rohankumar/substrate_docs_public/api/${{ inputs.name || github.ref_name }} && |
-          # cp -r target/doc /tools/C/rohankumar/substrate_docs_public/api/${{ inputs.name || github.ref_name }}
+      - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
+      - run: just build
         working-directory: docs/api
-        # - run: flyctl deploy --remote-only --detach
-        #   working-directory: /tools/C/rohankumar/substrate_docs_public/api
-        #   env:
-        #     FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+      - run: |
+          rm -rf ${{ env.PUBLIC_DOCS_DIR }}/api/${{ inputs.name || github.ref_name }} && |
+          cp -r target/doc ${{ env.PUBLIC_DOCS_DIR }}/api/${{ inputs.name || github.ref_name }}
+        working-directory: docs/api
+      - run: flyctl deploy --remote-only --detach
+        working-directory: ${{ env.PUBLIC_DOCS_DIR }}/api
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
   deploy-docs:
     name: Deploy documentation
     runs-on: bwrc
-    environment: main
+    environment: docs
     steps:
-      # - uses: superfly/flyctl-actions/setup-flyctl@master
-      # - uses: actions/setup-node@v3
-      #   with:
-      #     node-version: 18
-      #     cache: 'yarn'
-      #     cache-dependency-path: docs/docusaurus/yarn.lock
-      # - run: yarn install
-      #   working-directory: docs/docusaurus
-      # - run: yarn build 
-      #   working-directory: docs/docusaurus
-        # TODO: Make sure to remove the secret exposure!
-      - run: |
-          echo ${{ secrets.FLY_API_TOKEN_DOCS }} >> other_secrets.txt
-          # rm -rf /tools/C/rohankumar/substrate_docs_public/docusaurus/branch/${{ inputs.name || github.ref_name }} && |
-          # cp -r target/doc /tools/C/rohankumar/substrate_docs_public/docusaurus/branch/${{ inputs.name || github.ref_name }}
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: docs/docusaurus/yarn.lock
+      - run: yarn install
         working-directory: docs/docusaurus
-        # - run: flyctl deploy --remote-only --detach
-        #   working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
-        #   env:
-        #     FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
+      - run: yarn build 
+        working-directory: docs/docusaurus
+      - run: |
+          rm -rf ${{ env.PUBLIC_DOCS_DIR }}/docusaurus/branch/${{ inputs.name || github.ref_name }} && |
+          cp -r target/doc ${{ env.PUBLIC_DOCS_DIR }}/docusaurus/branch/${{ inputs.name || github.ref_name }}
+        working-directory: docs/docusaurus
+      - run: flyctl deploy --remote-only --detach
+        working-directory: ${{ env.PUBLIC_DOCS_DIR }}/docusaurus
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
 

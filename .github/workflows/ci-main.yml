@@ -121,7 +121,7 @@ jobs:
       - run: yarn build 
         working-directory: docs/docusaurus
       - run: |
-          find . -not -path './branch/*' -delete
+          find . -not -path './branch/*' -not -name "fly.toml" -not -name "Dockerfile" -delete
         working-directory: /tools/C/rohankumar/substrate_docs_public/docusaurus
       - run:
           rm -rf /${{ github.ref_name }} && |
