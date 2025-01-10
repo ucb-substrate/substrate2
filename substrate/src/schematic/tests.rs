@@ -13,7 +13,7 @@ use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
-use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
+use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo, PowerIoKind};
 use crate::{
     block::Block,
     schematic::{conv::RawLib, NestedData, PrimitiveBinding, Schematic},

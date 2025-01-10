@@ -234,7 +234,7 @@ fn impl_has_name_tree(helper: &DeriveInputHelper) -> TokenStream {
 
 fn impl_flatten_generic(helper: &DeriveInputHelper) -> TokenStream {
     let substrate = substrate_ident();
-    let flatten_generic = parse_quote! { __substrate_F };
+    let flatten_generic = parse_quote! { SubstrateF };
     let mut helper = helper.clone();
     helper.push_where_predicate_per_field(
         |ty, _| parse_quote! { #ty: #substrate::types::Flatten<#flatten_generic> },
@@ -265,7 +265,7 @@ fn impl_unflatten(
     bundle_kind: &syn::Type,
 ) -> TokenStream {
     let substrate = substrate_ident();
-    let unflatten_generic = parse_quote! { __substrate_S };
+    let unflatten_generic = parse_quote! { SubstrateS };
     let mut kind_helper = kind_helper.clone();
     let mut view_helper = view_helper.clone();
     view_helper.push_where_predicate_per_field(|_ty, prev_tys| {
@@ -286,14 +286,14 @@ fn impl_unflatten(
                     let root_ty = if let Some(prev_ty) = prev_tys.first() {
                         prev_ty
                     } else { ty };
-                    quote! { <<#root_ty as #substrate::types::codegen::HasView<__substrate_V>>::View as #substrate::types::Unflatten<#ty, #unflatten_generic>>::unflatten(&#refer, __substrate_source)? }
+                    quote! { <<#root_ty as #substrate::types::codegen::HasView<SubstrateV>>::View as #substrate::types::Unflatten<#ty, #unflatten_generic>>::unflatten(&#refer, __substrate_source)? }
             });
     view_helper.impl_trait(&ImplTrait {
         trait_name: quote! { #substrate::types::Unflatten<#bundle_kind, #unflatten_generic> },
         trait_body: quote! {
-            fn unflatten<__substrate_I>(#unflatten_referent: &#bundle_kind, __substrate_source: &mut __substrate_I) -> Option<Self>
+            fn unflatten<SubstrateI>(#unflatten_referent: &#bundle_kind, __substrate_source: &mut SubstrateI) -> Option<Self>
             where
-                __substrate_I: Iterator<Item = #unflatten_generic> {
+                SubstrateI: Iterator<Item = #unflatten_generic> {
                 ::std::option::Option::Some(#unflatten_body)
             }
         },
@@ -353,9 +353,6 @@ fn impl_schematic_bundle_kind(
         parse_quote! { #prev_ty: #substrate::types::codegen::HasSchematicBundleKindViews }
     });
 
-    let node_bundle_full_ty = node_bundle_helper.get_full_type();
-    let terminal_bundle_full_ty = terminal_bundle_helper.get_full_type();
-
     let terminal_view_body = node_bundle_helper.double_map_data(
         &terminal_bundle_helper.get_type(),
         (&quote!{ cell_io }, &quote!{ instance_io }),
@@ -367,8 +364,6 @@ fn impl_schematic_bundle_kind(
     schematic_bundle_kind_helper.impl_trait(&ImplTrait {
         trait_name: quote! { #substrate::types::schematic::SchematicBundleKind },
         trait_body: quote! {
-            type NodeBundle = #node_bundle_full_ty;
-            type TerminalBundle = #terminal_bundle_full_ty;
             fn terminal_view(
                 cell: #substrate::schematic::CellId,
                 cell_io: &#substrate::types::schematic::NodeBundle<Self>,
@@ -377,6 +372,68 @@ fn impl_schematic_bundle_kind(
             ) -> #substrate::types::schematic::TerminalBundle<Self> {
                 #terminal_view_body
             }
+        },
+        extra_generics: vec![],
+        extra_where_predicates: vec![],
+    })
+}
+
+fn impl_has_node_bundle(
+    kind_helper: &DeriveInputHelper,
+    node_bundle_helper: &DeriveInputHelper,
+    terminal_bundle_helper: &DeriveInputHelper,
+) -> TokenStream {
+    let substrate = substrate_ident();
+    let mut kind_helper = kind_helper.clone();
+    kind_helper.push_where_predicate_per_field(|ty, _prev_tys| {
+        parse_quote! { #ty: #substrate::types::schematic::HasNodeBundle }
+    });
+    kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
+        let prev_ty = if prev_tys.is_empty() {
+            ty
+        } else {
+            &prev_tys[0]
+        };
+        parse_quote! { #prev_ty: #substrate::types::codegen::HasSchematicBundleKindViews }
+    });
+
+    let node_bundle_full_ty = node_bundle_helper.get_full_type();
+
+    kind_helper.impl_trait(&ImplTrait {
+        trait_name: quote! { #substrate::types::schematic::HasNodeBundle },
+        trait_body: quote! {
+            type NodeBundle = #node_bundle_full_ty;
+        },
+        extra_generics: vec![],
+        extra_where_predicates: vec![],
+    })
+}
+
+fn impl_has_terminal_bundle(
+    kind_helper: &DeriveInputHelper,
+    node_bundle_helper: &DeriveInputHelper,
+    terminal_bundle_helper: &DeriveInputHelper,
+) -> TokenStream {
+    let substrate = substrate_ident();
+    let mut kind_helper = kind_helper.clone();
+    kind_helper.push_where_predicate_per_field(|ty, _prev_tys| {
+        parse_quote! { #ty: #substrate::types::schematic::HasTerminalBundle }
+    });
+    kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
+        let prev_ty = if prev_tys.is_empty() {
+            ty
+        } else {
+            &prev_tys[0]
+        };
+        parse_quote! { #prev_ty: #substrate::types::codegen::HasSchematicBundleKindViews }
+    });
+
+    let terminal_bundle_full_ty = terminal_bundle_helper.get_full_type();
+
+    kind_helper.impl_trait(&ImplTrait {
+        trait_name: quote! { #substrate::types::schematic::HasTerminalBundle },
+        trait_body: quote! {
+            type TerminalBundle = #terminal_bundle_full_ty;
         },
         extra_generics: vec![],
         extra_where_predicates: vec![],
@@ -432,8 +489,8 @@ fn impl_view_as(view_helper: &DeriveInputHelper, nodes: bool) -> TokenStream {
     quote! {
         impl #imp #full_ty #wher {
             /// Views this node bundle as a node bundle of a different kind.
-            #vis fn view_as<__substrate_T: #substrate::types::HasBundleKind<BundleKind: #substrate::types::schematic::SchematicBundleKind>>(&self) -> #substrate::types::schematic::#bundle_view_ident<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind> where <Self as #substrate::types::HasBundleKind>::BundleKind: #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>{
-                <<Self as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::DataView<<__substrate_T as #substrate::types::HasBundleKind>::BundleKind>>::#view_as_fn(self)
+            #vis fn view_as<SubstrateT: #substrate::types::HasBundleKind<BundleKind: #substrate::types::schematic::SchematicBundleKind>>(&self) -> #substrate::types::schematic::#bundle_view_ident<<SubstrateT as #substrate::types::HasBundleKind>::BundleKind> where <Self as #substrate::types::HasBundleKind>::BundleKind: #substrate::types::schematic::DataView<<SubstrateT as #substrate::types::HasBundleKind>::BundleKind>{
+                <<Self as #substrate::types::HasBundleKind>::BundleKind as #substrate::types::schematic::DataView<<SubstrateT as #substrate::types::HasBundleKind>::BundleKind>>::#view_as_fn(self)
             }
         }
     }
@@ -517,7 +574,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         all_decls_impls.push(impl_flatlen(&helper));
         all_decls_impls.push(impl_flatten_direction(&helper));
         all_decls_impls.push(impl_has_bundle_kind(&helper, &kind_helper));
-        all_decls_impls.push(impl_view_source(&helper, Some(&kind_type)));
+        // all_decls_impls.push(impl_view_source(&helper, Some(&kind_type)));
 
         kind_helper
     } else {
@@ -532,7 +589,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     all_decls_impls.push(impl_eq(&kind_helper));
     all_decls_impls.push(impl_flatlen(&kind_helper));
     all_decls_impls.push(impl_has_bundle_kind(&kind_helper, &kind_helper));
-    all_decls_impls.push(impl_view_source(&kind_helper, None));
+    // all_decls_impls.push(impl_view_source(&kind_helper, None));
     all_decls_impls.push(impl_has_name_tree(&kind_helper));
 
     // Create `View` struct
@@ -540,7 +597,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     // - Potentially be able to add separate where clauses to new generic
     let mut view_helper = helper.clone();
     view_helper.set_ident(view_ident);
-    let view_generic_ty = quote! { __substrate_V };
+    let view_generic_ty = quote! { SubstrateV };
     view_helper.push_generic_param(parse_quote! { #view_generic_ty });
     view_helper.push_where_predicate_per_field(
         |ty, _| parse_quote! { #ty: #substrate::types::codegen::HasView<#view_generic_ty> },
@@ -549,7 +606,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#view_generic_ty>>::View },
     );
     all_decls_impls.push(view_helper.decl_data());
-    all_decls_impls.push(impl_view_source(&view_helper, None));
+    // all_decls_impls.push(impl_view_source(&view_helper, None));
     let mut has_bundle_kind_helper = view_helper.clone();
     has_bundle_kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
         let prev_ty = &prev_tys[0];
@@ -584,8 +641,9 @@ pub(crate) fn schematic_bundle_kind(
 ) -> TokenStream {
     let substrate = substrate_ident();
     let mut all_decls_impls = Vec::new();
-    let view_generic_ty = quote! { __substrate_V };
+    let view_generic_ty = quote! { SubstrateV };
 
+    let mut helper = original_helper.clone();
     let mut node_bundle_helper = original_helper.clone();
     node_bundle_helper.set_ident(view_helper.get_ident().clone());
     node_bundle_helper.push_generic_param(parse_quote! { #view_generic_ty });
@@ -635,6 +693,26 @@ pub(crate) fn schematic_bundle_kind(
         |ty, _| parse_quote! { #ty: #substrate::schematic::HasNestedView<NestedView = #ty>},
     );
 
+    all_decls_impls.push(impl_has_node_bundle(
+        &helper,
+        &node_bundle_helper,
+        &terminal_bundle_helper,
+    ));
+    all_decls_impls.push(impl_has_terminal_bundle(
+        &helper,
+        &node_bundle_helper,
+        &terminal_bundle_helper,
+    ));
+    all_decls_impls.push(impl_has_node_bundle(
+        kind_helper,
+        &node_bundle_helper,
+        &terminal_bundle_helper,
+    ));
+    all_decls_impls.push(impl_has_terminal_bundle(
+        kind_helper,
+        &node_bundle_helper,
+        &terminal_bundle_helper,
+    ));
     all_decls_impls.push(impl_schematic_bundle_kind(
         kind_helper,
         &node_bundle_helper,
