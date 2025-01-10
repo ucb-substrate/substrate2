@@ -1,11 +1,16 @@
+const siteConfig = require('../../site-config.json');
+
 export function getExamplesPath(version) {
-    return `examples/${version}`;
+    if (!isRelease(version)) {
+        version = "latest";
+    }
+    return `@substrate/examples/${version}`;
 }
 
-export function getApiDocsLink(version, path) {
-    return `https://api.substratelabs.io/${version}/${path}`;
+export function getApiDocsUrl(version) {
+    return `https://api.substratelabs.io/${version}`;
 }
 
 export function isRelease(version) {
-    return version != "latest";
+    return version != siteConfig.branch;
 }

@@ -12,6 +12,7 @@ import {
   useDocsPreferredVersion,
   useDocsVersion,
 } from '@docusaurus/theme-common/internal';
+import siteConfig from '@site/site-config.json';
 function UnreleasedVersionLabel({siteTitle, versionMetadata}) {
   return (
     <Translate
@@ -60,13 +61,23 @@ function LatestVersionSuggestionLabel({versionLabel, to, onClick}) {
         versionLabel,
         latestVersionLink: (
           <b>
-            <Link to={to} onClick={onClick}>
-              <Translate
-                id="theme.docs.versions.latestVersionLinkLabel"
-                description="The label used for the latest version suggestion link label">
-                here
-              </Translate>
-            </Link>
+            {siteConfig.branch == 'main' ?
+                <Link to={to} onClick={onClick}>
+                <Translate
+                    id="theme.docs.versions.latestVersionLinkLabel"
+                    description="The label used for the latest version suggestion link label">
+                    here
+                </Translate>
+                </Link>
+                    :
+                <a href='/docs'>
+                    <Translate
+                        id="theme.docs.versions.latestVersionLinkLabel"
+                        description="The label used for the latest version suggestion link label">
+                        here
+                    </Translate>
+                </a>
+            }
           </b>
         ),
       }}>
