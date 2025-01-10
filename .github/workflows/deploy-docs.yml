@@ -1,7 +1,6 @@
 name: deploy-docs
 
 on:
-  push:
   workflow_call:
   workflow_dispatch:
     inputs:
@@ -14,7 +13,6 @@ jobs:
   deploy-api-docs:
     name: Deploy API documentation
     runs-on: bwrc
-    needs: [ check-workspace ]
     steps:
       - uses: actions/checkout@v3
       - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
@@ -33,7 +31,6 @@ jobs:
   deploy-docs:
     name: Deploy documentation
     runs-on: bwrc
-    needs: [ check-workspace ]
     steps:
       - uses: actions/checkout@v3
       - uses: superfly/flyctl-actions/setup-flyctl@master
