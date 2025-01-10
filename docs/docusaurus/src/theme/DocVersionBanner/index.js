@@ -11,7 +11,7 @@ import {ThemeClassNames} from '@docusaurus/theme-common';
 import {
   useDocsPreferredVersion,
   useDocsVersion,
-} from '@docusaurus/theme-common/internal';
+} from '@docusaurus/plugin-content-docs/client';
 import siteConfig from '@site/site-config.json';
 function UnreleasedVersionLabel({siteTitle, versionMetadata}) {
   return (
