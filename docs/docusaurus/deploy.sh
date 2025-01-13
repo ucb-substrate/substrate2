@@ -15,12 +15,11 @@ fi
 PUBLIC_DOCS_DIR=$1
 REF_NAME=$2
 
-echo << EOF
+cat << EOF > ./site-config.json
 {
     "branch": "$REF_NAME"
-    "edit_url": "https://github.com/substrate-labs/substrate2/tree/$REF_NAME/docs/docusaurus"
 }
-EOF > ./site-config.json
+EOF
 yarn install
 yarn build
 if [ $REF_NAME = "main" ]; then
