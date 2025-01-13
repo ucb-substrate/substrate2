@@ -8,4 +8,4 @@ jobs:
   deploy-api-docs:
     uses: ./.github/workflows/deploy-api-docs.yml
     with:
-      name: "release"
+      name: release
