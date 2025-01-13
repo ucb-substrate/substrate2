@@ -1,7 +1,6 @@
 name: deploy-api-docs
 
 on:
-  push:
   workflow_call:
   workflow_dispatch:
     inputs:
