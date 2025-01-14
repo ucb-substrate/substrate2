@@ -7,8 +7,9 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
 use syn::{
-    parse_quote, Attribute, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Index,
-    Token, Type, Variant, Visibility, WherePredicate,
+    parse_quote, Attribute, Data, DeriveInput, Field, Fields, GenericArgument, GenericParam,
+    Generics, Ident, Index, PathArguments, Token, Type, TypeParamBound, Variant, Visibility,
+    WherePredicate,
 };
 
 #[macro_export]
@@ -516,7 +517,28 @@ impl DeriveInputHelper {
     }
 
     pub fn add_generic_type_binding(&mut self, ident: Ident, ty: Type) {
-        self.generic_type_bindings.insert(ident, ty);
+        self.generic_type_bindings.insert(ident.clone(), ty.clone());
+        match self.input.data {
+            Data::Struct(ref mut s) => {
+                for f in s.fields.iter_mut() {
+                    apply_generic_type_binding_ty(&mut f.ty, ident.clone(), ty.clone());
+                }
+            }
+            Data::Enum(ref mut e) => {
+                for variant in e.variants.iter_mut() {
+                    for f in variant.fields.iter_mut() {
+                        apply_generic_type_binding_ty(&mut f.ty, ident.clone(), ty.clone());
+                    }
+                }
+            }
+            Data::Union(_) => panic!("unions are unsupported"),
+        }
+
+        if let Some(wher) = self.input.generics.where_clause.as_mut() {
+            for pred in wher.predicates.iter_mut() {
+                apply_generic_type_binding(pred, ident.clone(), ty.clone());
+            }
+        }
     }
 
     pub fn custom_split_for_impl(&self) -> (TokenStream, TokenStream, TokenStream) {
@@ -1166,6 +1188,74 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
         impl #imp #trait_ for #ident #ty #wher {
             fn #method(#receiver self, #(#extra_args_sig),*) {
                 #match_clause
+            }
+        }
+    }
+}
+
+fn apply_generic_type_binding(pred: &mut WherePredicate, ident: Ident, ty: Type) {
+    if let WherePredicate::Type(pred) = pred {
+        let t = &mut pred.bounded_ty;
+        if let Type::Path(p) = t {
+            for seg in p.path.segments.iter_mut() {
+                if let PathArguments::AngleBracketed(ref mut args) = seg.arguments {
+                    for arg in args.args.iter_mut() {
+                        if let GenericArgument::Type(t) = arg {
+                            if let Type::Path(p) = t {
+                                if p.path.segments.len() == 1 {
+                                    if let Some(last) = p.path.segments.last_mut() {
+                                        if last.ident == ident {
+                                            *t = ty.clone();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for bound in pred.bounds.iter_mut() {
+            if let TypeParamBound::Trait(ref mut tb) = bound {
+                if let Some(last) = tb.path.segments.last_mut() {
+                    if let PathArguments::AngleBracketed(ref mut args) = last.arguments {
+                        for arg in args.args.iter_mut() {
+                            if let GenericArgument::Type(t) = arg {
+                                if let Type::Path(p) = t {
+                                    if p.path.segments.len() == 1 {
+                                        if let Some(last) = p.path.segments.last_mut() {
+                                            if last.ident == ident {
+                                                *t = ty.clone();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn apply_generic_type_binding_ty(typ: &mut Type, ident: Ident, ty: Type) {
+    if let Type::Path(p) = typ {
+        for seg in p.path.segments.iter_mut() {
+            if let PathArguments::AngleBracketed(ref mut args) = seg.arguments {
+                for arg in args.args.iter_mut() {
+                    if let GenericArgument::Type(t) = arg {
+                        if let Type::Path(p) = t {
+                            if p.path.segments.len() == 1 {
+                                if let Some(last) = p.path.segments.last_mut() {
+                                    if last.ident == ident {
+                                        *t = ty.clone();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

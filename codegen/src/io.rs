@@ -343,8 +343,8 @@ fn impl_unflatten(
 
 fn impl_schematic_bundle_kind(
     kind_helper: &DeriveInputHelper,
-    node_bundle_helper: &DeriveInputHelper,
     terminal_bundle_helper: &DeriveInputHelper,
+    node_bundle_helper: &DeriveInputHelper,
 ) -> TokenStream {
     let substrate = substrate_ident();
     let mut schematic_bundle_kind_helper = kind_helper.clone();
@@ -437,6 +437,80 @@ fn impl_has_terminal_bundle(
         },
         extra_generics: vec![],
         extra_where_predicates: vec![],
+    })
+}
+
+fn impl_save_nested_bundle(view_helper: &DeriveInputHelper, nodes: bool) -> TokenStream {
+    let substrate = substrate_ident();
+    let mut view_helper = view_helper.clone();
+    let simulator_ty = parse_quote! { SubstrateS };
+    let analysis_ty = parse_quote! { SubstrateA };
+
+    let (save_key_view, saved_view, bundle_view) = if nodes {
+        (
+            parse_quote! { #substrate::types::codegen::NestedNodeSaveKeyView<#simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::NestedNodeSavedView<#simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::NestedNodeBundle },
+        )
+    } else {
+        (
+            parse_quote! { #substrate::types::codegen::NestedTerminalSaveKeyView<#simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::NestedTerminalSavedView<#simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::NestedTerminalBundle },
+        )
+    };
+    let mut save_key = view_helper.clone();
+    save_key.add_generic_type_binding(parse_quote! { SubstrateV }, save_key_view);
+    let mut saved = view_helper.clone();
+    saved.add_generic_type_binding(parse_quote! { SubstrateV }, saved_view);
+
+    view_helper.push_where_predicate_per_field(|ty, _prev_tys| {
+        parse_quote! { #ty: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+    });
+
+    view_helper.add_generic_type_binding(parse_quote! { SubstrateV }, bundle_view);
+
+    let save_body = view_helper.map_data(
+        &view_helper.get_type(),
+            |MapField { ty, refer, .. }| {
+                    quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::save(&#refer, __substrate_ctx, __substrate_opts) }
+            });
+    let mut from_saved_helper = view_helper.clone();
+    from_saved_helper.set_referent(quote! { __substrate_key });
+    let from_saved_body = from_saved_helper.map_data(
+        &view_helper.get_type(),
+            |MapField { ty, refer, .. }| {
+                    quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::from_saved(__substrate_output, #refer) }
+            });
+
+    let save_key_full_ty = save_key.get_full_type();
+    let saved_full_ty = saved.get_full_type();
+
+    view_helper.impl_trait(&ImplTrait {
+        trait_name: quote! { #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> },
+        trait_body: quote! {
+            type SaveKey = #save_key_full_ty;
+            type Saved = #saved_full_ty;
+            fn save(
+                &self,
+                __substrate_ctx: &#substrate::simulation::SimulationContext<#simulator_ty>,
+                __substrate_opts: &mut <#simulator_ty as #substrate::simulation::Simulator>::Options,
+            ) -> <Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::SaveKey {
+                #save_body
+            }
+
+            fn from_saved(
+                __substrate_output: &<#analysis_ty as #substrate::simulation::Analysis>::Output,
+                __substrate_key: &<Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::SaveKey,
+            ) -> <Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::Saved {
+                #from_saved_body
+            }
+        },
+        extra_where_predicates: vec![
+            parse_quote! { #simulator_ty: #substrate::simulation::Simulator },
+            parse_quote! { #analysis_ty: #substrate::simulation::Analysis },
+        ],
+        extra_generics: vec![simulator_ty, analysis_ty],
     })
 }
 
@@ -736,6 +810,8 @@ pub(crate) fn schematic_bundle_kind(
     ));
     all_decls_impls.push(impl_view_as(&node_bundle_helper, true));
     all_decls_impls.push(impl_view_as(&terminal_bundle_helper, false));
+    all_decls_impls.push(impl_save_nested_bundle(view_helper, true));
+    all_decls_impls.push(impl_save_nested_bundle(view_helper, false));
 
     quote! {
         #( #all_decls_impls )*

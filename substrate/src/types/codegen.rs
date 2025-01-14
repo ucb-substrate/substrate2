@@ -94,18 +94,53 @@ impl<V, S: Simulator, A: Analysis, T: HasNestedView<V, NestedView: Save<S, A>>>
     type View = crate::simulation::data::Saved<NestedView<T, V>, S, A>;
 }
 
-pub struct SaveKeyView<V, S, A>(PhantomData<(V, S, A)>);
-pub struct SavedView<V, S, A>(PhantomData<(V, S, A)>);
+pub struct NestedNodeSaveKeyView<S, A>(PhantomData<(S, A)>);
+pub struct NestedNodeSavedView<S, A>(PhantomData<(S, A)>);
+pub struct NestedTerminalSaveKeyView<S, A>(PhantomData<(S, A)>);
+pub struct NestedTerminalSavedView<S, A>(PhantomData<(S, A)>);
 
-// impl<V, S, A, T> HasViewImpl<SaveKeyView<V, S, A>> for T
-// where
-//     S: Simulator,
-//     A: Analysis,
-//     T: HasView<V>,
-//     <T as HasView<V>>::View: Save<S, A>,
-// {
-//     type View = crate::simulation::data::SaveKey<<T as HasView<V>>::View, S, A>;
-// }
+pub struct SaveKeyView<S, A>(PhantomData<(S, A)>);
+pub struct SavedView<S, A>(PhantomData<(S, A)>);
+
+impl<S, A, T> HasView<NestedNodeSaveKeyView<S, A>> for T
+where
+    S: Simulator,
+    A: Analysis,
+    T: HasView<NestedNodeBundle>,
+    T::View: Save<S, A>,
+{
+    type View = crate::simulation::data::SaveKey<T::View, S, A>;
+}
+
+impl<S, A, T> HasView<NestedNodeSavedView<S, A>> for T
+where
+    S: Simulator,
+    A: Analysis,
+    T: HasView<NestedNodeBundle>,
+    T::View: Save<S, A>,
+{
+    type View = crate::simulation::data::Saved<T::View, S, A>;
+}
+
+impl<S, A, T> HasView<NestedTerminalSaveKeyView<S, A>> for T
+where
+    S: Simulator,
+    A: Analysis,
+    T: HasView<NestedTerminalBundle>,
+    T::View: Save<S, A>,
+{
+    type View = crate::simulation::data::SaveKey<T::View, S, A>;
+}
+
+impl<S, A, T> HasView<NestedTerminalSavedView<S, A>> for T
+where
+    S: Simulator,
+    A: Analysis,
+    T: HasView<NestedTerminalBundle>,
+    T::View: Save<S, A>,
+{
+    type View = crate::simulation::data::Saved<T::View, S, A>;
+}
 
 pub trait HasDefaultLayoutBundle: super::BundleKind {
     type Bundle<S: crate::layout::schema::Schema>: LayoutBundle<S>;
@@ -114,9 +149,9 @@ pub trait HasDefaultLayoutBundle: super::BundleKind {
 pub struct PortGeometryBundle<S>(PhantomData<S>);
 
 impl<S: crate::layout::schema::Schema, T: HasDefaultLayoutBundle> HasView<PortGeometryBundle<S>>
-    for Array<T>
+    for T
 {
-    type View = ArrayBundle<T::Bundle<S>>;
+    type View = T::Bundle<S>;
 }
 
 impl<T: HasDefaultLayoutBundle> HasDefaultLayoutBundle for Array<T> {

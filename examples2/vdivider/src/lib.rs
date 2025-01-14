@@ -6,44 +6,13 @@ use spectre::blocks::{Iprobe, Resistor, Vsource};
 use spectre::Spectre;
 use substrate::block::Block;
 use substrate::schematic::{CellBuilder, Instance, NestedData, Schematic};
+use substrate::types::codegen::{NestedNodeBundle, NestedTerminalBundle};
 use substrate::types::{Array, InOut, Io, Output, PowerIo, Signal, TestbenchIo};
 
 #[derive(Debug, Default, Clone, Io)]
 pub struct VdividerIo {
     pub pwr: PowerIo,
     pub out: Output<Signal>,
-}
-
-mod tmp {
-    use substrate::simulation::{data::Save, Analysis, Simulator};
-    use substrate::types::codegen::HasView;
-
-    use super::*;
-
-    impl<V, S, A> Save<S, A> for VdividerIoView<V>
-    where
-        S: Simulator,
-        A: Analysis,
-        Output<Signal>: HasView<V>,
-        PowerIo: HasView<V>,
-    {
-        type SaveKey = ();
-        type Saved = ();
-        fn save(
-            &self,
-            _ctx: &substrate::simulation::SimulationContext<S>,
-            _opts: &mut <S as Simulator>::Options,
-        ) -> <Self as Save<S, A>>::SaveKey {
-            todo!()
-        }
-
-        fn from_saved(
-            _output: &<A as Analysis>::Output,
-            _key: &<Self as Save<S, A>>::SaveKey,
-        ) -> <Self as Save<S, A>>::Saved {
-            todo!()
-        }
-    }
 }
 
 #[derive(Debug, Default, Clone, Io)]
