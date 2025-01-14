@@ -14,7 +14,6 @@
     "examples/latest/sky130_inverter": {},
     "examples/latest/spice_vdivider": {},
     "examples/latest/substrate_api_examples": {},
-    "libs/atoll": {},
     "libs/cache": {},
     "libs/diagnostics": {},
     "libs/enumify": {},

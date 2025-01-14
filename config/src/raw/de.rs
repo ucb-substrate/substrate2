@@ -40,7 +40,7 @@ macro_rules! deserialize_method {
     };
 }
 
-impl<'de, 'config> de::Deserializer<'de> for Deserializer<'config> {
+impl<'de> de::Deserializer<'de> for Deserializer<'_> {
     type Error = ConfigError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -255,7 +255,7 @@ impl<'config> ConfigMapAccess<'config> {
     }
 }
 
-impl<'de, 'config> de::MapAccess<'de> for ConfigMapAccess<'config> {
+impl<'de> de::MapAccess<'de> for ConfigMapAccess<'_> {
     type Error = ConfigError;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -425,7 +425,7 @@ impl<'config> ValueDeserializer<'config> {
     }
 }
 
-impl<'de, 'config> de::MapAccess<'de> for ValueDeserializer<'config> {
+impl<'de> de::MapAccess<'de> for ValueDeserializer<'_> {
     type Error = ConfigError;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -478,7 +478,7 @@ impl<'de, 'config> de::MapAccess<'de> for ValueDeserializer<'config> {
 // sequence (like `Vec<String>` or `Vec<Value<String>>`). `Value<String>` is
 // handled by deserialize_struct, and the plain `String` is handled by all the
 // other functions here.
-impl<'de, 'config> de::Deserializer<'de> for ValueDeserializer<'config> {
+impl<'de> de::Deserializer<'de> for ValueDeserializer<'_> {
     type Error = ConfigError;
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>

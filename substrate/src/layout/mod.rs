@@ -1,6 +1,7 @@
 //! Substrate's layout generator framework.
 
 use std::fmt::Debug;
+use std::ops::{Deref, DerefMut};
 use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
@@ -42,12 +43,15 @@ use crate::block::Block;
 pub trait LayoutData: TransformRef + Send + Sync {}
 impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
-type CellLayer<T: Layout> = <<T as Layout>::Schema as Schema>::Layer;
+type CellLayer<T> = <<T as Layout>::Schema as Schema>::Layer;
 
 /// A block that can be laid out in a given layout [`Schema`].
 pub trait Layout: Block {
+    /// The schema this layout is associated with.
     type Schema: Schema;
+    /// The bundle representing this block's layout IO.
     type Bundle: LayoutBundle<Self::Schema> + HasBundleKind<BundleKind = IoKind<Self>>;
+    /// Extra data to be shared with other blocks that instantiate this block's layout.
     type Data: LayoutData;
     /// Generates the block's layout.
     fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)>;
@@ -538,13 +542,15 @@ impl<S: Schema> LayerBbox<S::Layer> for CellBuilder<S> {
     }
 }
 
+type RawInstanceHandle<S> = Arc<OnceCell<Option<RawInstance<<S as Schema>::Layer>>>>;
+
 /// A receiver for drawing layout objects.
 ///
 /// Implements the primitive functions that layout objects need to implement [`Draw`].
 pub struct DrawReceiver<S: Schema> {
     phantom: PhantomData<S>,
     containers: Vec<Container<S>>,
-    instances: Vec<Arc<OnceCell<Option<RawInstance<S::Layer>>>>>,
+    instances: Vec<RawInstanceHandle<S>>,
     elements: Vec<Element<S::Layer>>,
     trans: Transformation,
 }
@@ -574,7 +580,7 @@ where
             containers: self.containers.clone(),
             instances: self.instances.clone(),
             elements: self.elements.clone(),
-            trans: self.trans.clone(),
+            trans: self.trans,
         }
     }
 }
@@ -834,6 +840,20 @@ impl<S: Schema> TransformMut for Container<S> {
     }
 }
 
+/// A layout library in a given schema.
 pub struct LayoutLibrary<S: Schema> {
     inner: layir::Library<S::Layer>,
+}
+
+impl<S: Schema> Deref for LayoutLibrary<S> {
+    type Target = layir::Library<S::Layer>;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<S: Schema> DerefMut for LayoutLibrary<S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }

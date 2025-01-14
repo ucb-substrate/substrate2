@@ -60,6 +60,7 @@ pub struct PexData<T: Schematic> {
 }
 
 impl<T: Schematic> PexData<T> {
+    /// Creates a new [`PexData`].
     pub fn new(
         cell: Cell<Arc<T>>,
         lib: Arc<RawLib<T::Schema>>,

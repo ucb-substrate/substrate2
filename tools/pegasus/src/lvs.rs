@@ -152,7 +152,7 @@ pub fn parse_pegasus_lvs_results(
     let lvs_rpt_path = lvs_rpt_path.as_ref();
     let mut ext = lvs_rpt_path.extension().unwrap_or_default().to_owned();
     ext.push(".cls");
-    let lvs_rpt = fs::File::open(&lvs_rpt_path.with_extension(ext)).map_err(Error::Io)?;
+    let lvs_rpt = fs::File::open(lvs_rpt_path.with_extension(ext)).map_err(Error::Io)?;
     let correct = !(io::BufReader::new(lvs_rpt).lines().any(|s| {
         if let Ok(line) = s {
             re.is_match(&line)

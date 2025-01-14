@@ -5,7 +5,6 @@ use crate::error::Result;
 use crate::layout::error::LayoutError;
 use crate::layout::schema::Schema;
 use arcstr::ArcStr;
-pub use codegen::LayoutBundle;
 use geometry::point::Point;
 use geometry::prelude::{Bbox, Transformation};
 use geometry::rect::Rect;
@@ -13,11 +12,7 @@ use geometry::transform::{TransformRef, TranslateRef};
 use geometry::union::BoundingUnion;
 use layir::Shape;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use tracing::Level;
-
-/// A port geometry bundle view.
-pub struct PortGeometryBundle<S>(PhantomData<S>);
 
 /// A layout port with a generic set of associated geometry.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -34,6 +29,15 @@ pub struct PortGeometry<L> {
 }
 
 impl<L> PortGeometry<L> {
+    /// Create a new [`PortGeometry`] with the given primary shape.
+    pub fn new(primary: impl Into<Shape<L>>) -> Self {
+        Self {
+            primary: primary.into(),
+            unnamed_shapes: Default::default(),
+            named_shapes: Default::default(),
+        }
+    }
+
     /// Returns an iterator over all shapes in a [`PortGeometry`].
     pub fn shapes(&self) -> impl Iterator<Item = &Shape<L>> {
         std::iter::once(&self.primary)
@@ -63,9 +67,25 @@ impl<L> Bbox for PortGeometry<L> {
     }
 }
 
+impl<L> Unflatten<super::Signal, PortGeometry<L>> for PortGeometry<L> {
+    fn unflatten<I>(_data: &super::Signal, source: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = PortGeometry<L>>,
+    {
+        source.next()
+    }
+}
+
+impl<L: Send + Sync> super::HasBundleKind for PortGeometry<L> {
+    type BundleKind = super::Signal;
+    fn kind(&self) -> Self::BundleKind {
+        super::Signal
+    }
+}
+
 /// A type that can be a bundle of layout ports.
 ///
-/// An instance of a [`BundleKind`].
+/// Must have an associated bundle kind via [`HasBundleKind`](super::HasBundleKind).
 pub trait LayoutBundle<S: Schema>:
     super::HasBundleKind
     + Flatten<PortGeometry<S::Layer>>

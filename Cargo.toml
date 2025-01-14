@@ -11,7 +11,6 @@ members = [
     # "examples/latest/spice_vdivider",
     "examples/latest/colbuf",
     # "examples/latest/substrate_api_examples",
-    # "libs/atoll",
     "libs/cache",
     "libs/diagnostics",
     "libs/layir",
@@ -33,7 +32,7 @@ members = [
     "libs/verilog",
     # "pdks/sky130pdk",
     "substrate",
-    # "tests",
+    "tests",
     "tools/magic",
     "tools/netgen",
     "tools/ngspice",
@@ -43,5 +42,5 @@ members = [
     "tools/magic-netgen",
 ]
 
-exclude = ["tests", "pdks/sky130pdk", "libs/atoll", "examples/release"]
+exclude = ["pdks/sky130pdk", "examples/release"]
 

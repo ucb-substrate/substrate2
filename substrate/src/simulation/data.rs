@@ -8,9 +8,14 @@ use crate::{
 /// Saves the raw output of a simulation.
 #[derive(Debug, Clone, Copy)]
 pub struct SaveOutput;
+
 /// Saves the transient time waveform.
 #[derive(Debug, Clone, Copy)]
 pub struct SaveTime;
+
+/// Saves the frequency vector of an AC (frequency sweep) simulation.
+#[derive(Debug, Clone, Copy)]
+pub struct SaveFreq;
 
 impl HasNestedView for SaveOutput {
     type NestedView = SaveOutput;

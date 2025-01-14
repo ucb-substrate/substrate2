@@ -1,12 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use arcstr::ArcStr;
-use gds::{
-    GdsBoundary, GdsElement, GdsLibrary, GdsPoint, GdsStrans, GdsStruct, GdsStructRef, GdsTextElem,
-    GdsUnits,
-};
+use gds::{GdsLibrary, GdsUnits};
 use geometry::{
-    corner::Corner,
     point::Point,
     prelude::{Orientation, Polygon, Transformation},
     rect::Rect,
@@ -384,7 +380,7 @@ impl<'a> GdsImporter<'a> {
             for iy in 0..i64::from(aref.rows) {
                 let y = p0.y + iy * ystep;
                 insts.push(Instance::with_transformation(
-                    cell.clone(),
+                    cell,
                     arcstr::format!("{}_{}_{}", aref.name, ix, iy),
                     Transformation::from_offset_and_orientation(Point::new(x, y), orientation),
                 ));

@@ -1,11 +1,10 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::HashSet,
     path::{Path, PathBuf},
 };
 
 use regex::Regex;
 
-const EXAMPLES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
 const RESERVED_COMMENTS: &[&str] = &[
     "begin-code-snippet",
     "end-code-snippet",
@@ -30,7 +29,7 @@ pub fn build_snippets(source: impl AsRef<Path>, prefix: impl AsRef<str>) {
     let prefix = prefix.as_ref();
     let re = Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap();
     assert!(re.is_match(prefix), "prefix must match regex {re:?}");
-    let contents = std::fs::read_to_string(&source)
+    let contents = std::fs::read_to_string(source)
         .unwrap_or_else(|e| panic!("could not read source file: {source:?}: {e}"));
 
     let re = Regex::new(r"^\s*// begin-code-snippet ([a-zA-Z0-9_\-]+).*$").unwrap();
@@ -48,7 +47,7 @@ pub fn build_snippets(source: impl AsRef<Path>, prefix: impl AsRef<str>) {
         let out_file = out_dir.join(snippet);
 
         std::fs::write(&out_file, build_snippet(&contents, snippet))
-            .expect(&format!("failed to write build snippet at {out_file:?}"));
+            .unwrap_or_else(|_| panic!("failed to write build snippet at {out_file:?}"));
     }
 }
 

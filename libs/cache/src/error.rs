@@ -60,7 +60,7 @@ pub enum TryInnerError<'a, E> {
     GeneratorError(&'a E),
 }
 
-impl<'a, E> From<Arc<Error>> for TryInnerError<'a, E> {
+impl<E> From<Arc<Error>> for TryInnerError<'_, E> {
     fn from(value: Arc<Error>) -> Self {
         Self::CacheError(value)
     }

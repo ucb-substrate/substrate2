@@ -9,22 +9,15 @@ use serde::{Deserialize, Serialize};
 use spice::Resistor;
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::schematic::{Cell, CellBuilder, ConvertSchema, Instance, NestedData, Schematic};
-use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use substrate::types::schematic::{NestedTerminal, Terminal};
+use substrate::schematic::{CellBuilder, ConvertSchema, NestedData, Schematic};
+use substrate::types::schematic::Terminal;
 use substrate::types::{Signal, TestbenchIo};
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "../../tests/data");
 
 #[inline]
 fn get_path(test_name: &str, file_name: &str) -> PathBuf {
     PathBuf::from(BUILD_DIR).join(test_name).join(file_name)
-}
-
-#[inline]
-fn test_data(file_name: &str) -> PathBuf {
-    PathBuf::from(TEST_DATA_DIR).join(file_name)
 }
 
 fn ngspice_ctx() -> Context {

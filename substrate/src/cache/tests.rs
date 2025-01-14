@@ -61,7 +61,7 @@ impl Schematic for CacheBlock {
 
     fn schematic(
         &self,
-        io: &crate::types::schematic::IoNodeBundle<Self>,
+        _io: &crate::types::schematic::IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> crate::error::Result<Self::NestedData> {
         let design = *cell

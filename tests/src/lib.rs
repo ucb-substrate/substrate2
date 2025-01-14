@@ -1,7 +1,6 @@
 //! Substrate integration tests.
 #![cfg(test)]
 
-mod atoll;
 #[cfg(feature = "lsf")]
 pub mod bsub;
 pub mod cache;
