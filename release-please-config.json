@@ -1,15 +1,19 @@
 {
   "bootstrap-sha": "2e4fa3591b6fd9e0786e9ee70172a08a8ee61bf0",
   "plugins": [
-    "cargo-workspace"
+    "substrate-workspace"
   ],
   "release-type": "rust",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
   "packages": {
     "bins/cdl2spice": {},
     "codegen": {},
     "config": {},
     "docs/snippets": {},
-    "libs/atoll": {},
+    "examples/latest/sky130_inverter": {},
+    "examples/latest/spice_vdivider": {},
+    "examples/latest/substrate_api_examples": {},
     "libs/cache": {},
     "libs/diagnostics": {},
     "libs/enumify": {},

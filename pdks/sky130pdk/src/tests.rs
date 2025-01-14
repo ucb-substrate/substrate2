@@ -1,120 +1,222 @@
-use crate::paths::get_path;
-use crate::shared::pdk::sky130_open_ctx;
+use crate::corner::Sky130Corner;
+use crate::stdcells::And2;
+use crate::Sky130Pdk;
 use approx::assert_abs_diff_eq;
+use derive_where::derive_where;
+use ngspice::blocks::Vsource;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use sky130pdk::corner::Sky130Corner;
-use sky130pdk::stdcells::And2;
-use sky130pdk::Sky130Pdk;
 use spectre::analysis::montecarlo::Variations;
 use spectre::Spectre;
+use std::any::Any;
+use std::marker::PhantomData;
+use std::path::PathBuf;
 use substrate::block::Block;
-use substrate::io::schematic::{Bundle, HardwareType, Terminal};
-use substrate::io::{PowerIo, TestbenchIo};
-use substrate::schematic::primitives::DcVsource;
-use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, Schematic};
-use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
+use substrate::context::Context;
+use substrate::schematic::schema::{FromSchema, Schema};
+use substrate::schematic::{Cell, CellBuilder, Schematic};
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
-use substrate::type_dispatch::impl_dispatch;
+use substrate::types::schematic::Terminal;
+use substrate::types::{Signal, TestbenchIo, TwoTerminalIo};
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Block)]
-#[substrate(io = "TestbenchIo")]
-pub struct And2Tb {
+const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
+
+#[inline]
+pub(crate) fn get_path(test_name: &str, file_name: &str) -> PathBuf {
+    PathBuf::from(BUILD_DIR).join(test_name).join(file_name)
+}
+
+/// Create a new Substrate context for the SKY130 open-source PDK.
+///
+/// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
+/// environment variable.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
+/// or if the value of that variable is not a valid UTF-8 string.
+pub fn sky130_open_ctx() -> Context {
+    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
+        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .install(Ngspice::default())
+        .install(Sky130Pdk::open(pdk_root))
+        .build()
+}
+
+/// Create a new Substrate context for the SKY130 commercial PDK.
+///
+/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// environment variable and installs Spectre with default configuration.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+/// or if the value of that variable is not a valid UTF-8 string.
+pub fn sky130_commercial_ctx() -> Context {
+    // Open PDK needed for standard cells.
+    let open_pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
+        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
+    let commercial_pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
+        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .install(Spectre::default())
+        .install(Sky130Pdk::new(open_pdk_root, commercial_pdk_root))
+        .build()
+}
+
+#[derive_where(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct And2Tb<S> {
+    schema: PhantomData<fn() -> S>,
     vdd: Decimal,
     a: Decimal,
     b: Decimal,
 }
 
-impl ExportsNestedData for And2Tb {
-    type NestedData = Terminal;
+impl<S: Any> Block for And2Tb<S> {
+    type Io = TestbenchIo;
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("and2_tb")
+    }
+
+    fn io(&self) -> Self::Io {
+        Default::default()
+    }
 }
 
-#[impl_dispatch({Ngspice; Spectre})]
-impl<S> Schematic<S> for And2Tb {
+pub trait SupportsAnd2Tb: FromSchema<Sky130Pdk> {
+    type DcVsource: Block<Io = TwoTerminalIo> + Schematic<Schema = Self>;
+
+    fn dc_vsource(v: Decimal) -> Self::DcVsource;
+}
+
+impl SupportsAnd2Tb for Ngspice {
+    type DcVsource = ngspice::blocks::Vsource;
+    fn dc_vsource(v: Decimal) -> Self::DcVsource {
+        ngspice::blocks::Vsource::dc(v)
+    }
+}
+
+impl SupportsAnd2Tb for Spectre {
+    type DcVsource = spectre::blocks::Vsource;
+    fn dc_vsource(v: Decimal) -> Self::DcVsource {
+        spectre::blocks::Vsource::dc(v)
+    }
+}
+
+impl<S: SupportsAnd2Tb> Schematic for And2Tb<S> {
+    type Schema = S;
+    type NestedData = Terminal;
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<S>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
-        let vddsrc = cell.instantiate(DcVsource::new(self.vdd));
-        let asrc = cell.instantiate(DcVsource::new(self.a));
-        let bsrc = cell.instantiate(DcVsource::new(self.b));
+        let vddsrc = cell.instantiate(S::dc_vsource(self.vdd));
+        let asrc = cell.instantiate(S::dc_vsource(self.a));
+        let bsrc = cell.instantiate(S::dc_vsource(self.b));
         let and2 = cell
             .sub_builder::<Sky130Pdk>()
             .instantiate_blocking(And2::S0)
             .unwrap();
 
-        let pwr = Bundle::<PowerIo> {
-            vdd: *vddsrc.io().p,
-            vss: *vddsrc.io().n,
-        };
-
         cell.connect(io.vss, vddsrc.io().n);
-        cell.connect_multiple(&[vddsrc.io().n, asrc.io().n, bsrc.io().n]);
-        cell.connect(
-            &and2.io().pwr,
-            Bundle::<sky130pdk::stdcells::PowerIo>::with_bodies_tied_to_rails(pwr),
-        );
+        cell.connect_multiple(&[
+            vddsrc.io().n,
+            asrc.io().n,
+            bsrc.io().n,
+            and2.io().pwr.vgnd,
+            and2.io().pwr.vnb,
+        ]);
+        cell.connect_multiple(&[vddsrc.io().p, and2.io().pwr.vpwr, and2.io().pwr.vpb]);
         cell.connect(and2.io().a, asrc.io().p);
         cell.connect(and2.io().b, bsrc.io().p);
 
         Ok(and2.io().x)
     }
 }
+// impl Testbench<Spectre> for And2Tb {
+//     type Output = spectre::analysis::montecarlo::Output<tran::Voltage>;
+//
+//     fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
+//         let mut opts = spectre::Options::default();
+//         sim.set_option(Sky130Corner::Tt, &mut opts);
+//         sim.simulate(
+//             opts,
+//             spectre::analysis::montecarlo::MonteCarlo {
+//                 variations: Variations::All,
+//                 numruns: 4,
+//                 seed: None,
+//                 firstrun: None,
+//                 analysis: spectre::analysis::tran::Tran {
+//                     stop: dec!(2e-9),
+//                     errpreset: Some(spectre::ErrPreset::Conservative),
+//                     ..Default::default()
+//                 },
+//             },
+//         )
+//         .expect("failed to run simulation")
+//     }
+// }
 
-#[impl_dispatch({Spectre, spectre::analysis::tran::Tran; Ngspice, ngspice::tran::Tran})]
-impl<S, A> SaveTb<S, A, tran::Voltage> for And2Tb {
-    fn save_tb(
-        ctx: &SimulationContext<S>,
-        cell: &Cell<Self>,
-        opts: &mut <S as Simulator>::Options,
-    ) -> <tran::Voltage as FromSaved<S, A>>::SavedKey {
-        tran::Voltage::save(ctx, cell.data(), opts)
-    }
-}
+#[test]
+fn sky130_and2_ngspice() {
+    let test_name = "sky130_and2_ngspice";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_open_ctx();
 
-impl
-    SaveTb<
-        Spectre,
-        spectre::analysis::montecarlo::MonteCarlo<spectre::analysis::tran::Tran>,
-        spectre::analysis::montecarlo::Output<tran::Voltage>,
-    > for And2Tb
-{
-    fn save_tb(
-        ctx: &SimulationContext<Spectre>,
-        cell: &Cell<Self>,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> <spectre::analysis::montecarlo::Output<tran::Voltage> as FromSaved<
-        Spectre,
-        spectre::analysis::montecarlo::MonteCarlo<spectre::analysis::tran::Tran>,
-    >>::SavedKey {
-        spectre::analysis::montecarlo::Output::<tran::Voltage>::save(ctx, cell.data(), opts)
-    }
-}
-
-impl Testbench<Ngspice> for And2Tb {
-    type Output = tran::Voltage;
-
-    fn run(&self, sim: SimController<Ngspice, Self>) -> Self::Output {
+    for (a, b, expected) in [(dec!(1.8), dec!(1.8), 1.8f64), (dec!(1.8), dec!(0), 0f64)] {
+        let mut sim = ctx
+            .get_sim_controller(
+                And2Tb {
+                    schema: PhantomData,
+                    vdd: dec!(1.8),
+                    a,
+                    b,
+                },
+                &sim_dir,
+            )
+            .expect("failed to create sim controller");
         let mut opts = ngspice::Options::default();
         sim.set_option(Sky130Corner::Tt, &mut opts);
-        sim.simulate(
-            opts,
-            ngspice::tran::Tran {
-                step: dec!(1e-9),
-                stop: dec!(2e-9),
-                ..Default::default()
-            },
-        )
-        .expect("failed to run simulation")
+        let vout = sim
+            .simulate(
+                opts,
+                ngspice::tran::Tran {
+                    step: dec!(1e-9),
+                    stop: dec!(2e-9),
+                    ..Default::default()
+                },
+            )
+            .expect("failed to run simulation");
+        assert_abs_diff_eq!(*vout.v.last().unwrap(), expected, epsilon = 1e-6);
     }
 }
-impl Testbench<Spectre> for And2Tb {
-    type Output = spectre::analysis::montecarlo::Output<tran::Voltage>;
 
-    fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
+#[cfg(feature = "spectre")]
+#[test]
+fn sky130_and2_monte_carlo_spectre() {
+    let test_name = "sky130_and2_spectre";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = sky130_commercial_ctx();
+
+    for (a, b, expected) in [
+        (dec!(1.8), dec!(1.8), 1.8f64),
+        (dec!(1.8), dec!(0), 0f64),
+        (dec!(0), dec!(1.8), 0f64),
+        (dec!(0), dec!(0), 0f64),
+    ] {
+        let mut sim = ctx.get_sim_controller(
+            And2Tb {
+                vdd: dec!(1.8),
+                a,
+                b,
+            },
+            &sim_dir,
+        );
         let mut opts = spectre::Options::default();
         sim.set_option(Sky130Corner::Tt, &mut opts);
         sim.simulate(
@@ -131,56 +233,7 @@ impl Testbench<Spectre> for And2Tb {
                 },
             },
         )
-        .expect("failed to run simulation")
-    }
-}
-
-#[test]
-fn sky130_and2_ngspice() {
-    let test_name = "sky130_and2_ngspice";
-    let sim_dir = get_path(test_name, "sim/");
-    let ctx = sky130_open_ctx();
-
-    for (a, b, expected) in [(dec!(1.8), dec!(1.8), 1.8f64), (dec!(1.8), dec!(0), 0f64)] {
-        let vout = ctx
-            .simulate::<Ngspice, _>(
-                And2Tb {
-                    vdd: dec!(1.8),
-                    a,
-                    b,
-                },
-                &sim_dir,
-            )
-            .unwrap();
-        assert_abs_diff_eq!(*vout.last().unwrap(), expected, epsilon = 1e-6);
-    }
-}
-
-#[cfg(feature = "spectre")]
-#[test]
-fn sky130_and2_monte_carlo_spectre() {
-    use crate::shared::pdk::sky130_commercial_ctx;
-
-    let test_name = "sky130_and2_spectre";
-    let sim_dir = get_path(test_name, "sim/");
-    let ctx = sky130_commercial_ctx();
-
-    for (a, b, expected) in [
-        (dec!(1.8), dec!(1.8), 1.8f64),
-        (dec!(1.8), dec!(0), 0f64),
-        (dec!(0), dec!(1.8), 0f64),
-        (dec!(0), dec!(0), 0f64),
-    ] {
-        let mc_vout = ctx
-            .simulate::<spectre::Spectre, _>(
-                And2Tb {
-                    vdd: dec!(1.8),
-                    a,
-                    b,
-                },
-                &sim_dir,
-            )
-            .unwrap();
+        .expect("failed to run simulation");
         assert_eq!(
             mc_vout.len(),
             4,

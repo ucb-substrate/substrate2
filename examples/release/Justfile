@@ -1,0 +1,9 @@
+_default: 
+  @just --list
+
+# Test all examples in this directory
+test:
+  cargo test --locked
+
+check:
+  cargo clippy --locked --all-features --all-targets -- -D warnings

@@ -1,0 +1,11 @@
+name: deploy-release-api-docs
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  deploy-api-docs:
+    uses: ./.github/workflows/deploy-api-docs.yml
+    with:
+      name: release
