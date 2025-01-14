@@ -8,7 +8,6 @@ use std::{
 
 pub use ::codegen::Io;
 use arcstr::ArcStr;
-use schematic::HasNodeBundle;
 use serde::{Deserialize, Serialize};
 
 use crate::{

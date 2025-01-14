@@ -3,17 +3,16 @@
 use std::marker::PhantomData;
 
 use crate::{
-    schematic::{HasNestedView, Instance, InstancePath, NestedInstance, NestedView, Schematic},
+    schematic::{HasNestedView, InstancePath, NestedView},
     simulation::{data::Save, Analysis, Simulator},
 };
 
 use super::{
     layout::{LayoutBundle, PortGeometry},
     schematic::{
-        HasNodeBundle, HasTerminalBundle, NestedNode, NestedTerminal, Node, SchematicBundleKind,
-        Terminal,
+        HasNodeBundle, HasTerminalBundle, SchematicBundleKind,
     },
-    Array, ArrayBundle, Flipped, HasBundleKind, InOut, Input, Output, Signal,
+    Array, ArrayBundle, HasBundleKind, Signal,
 };
 
 /// A type with an associated `V` view.

@@ -6,7 +6,6 @@ use spectre::blocks::{Iprobe, Resistor, Vsource};
 use spectre::Spectre;
 use substrate::block::Block;
 use substrate::schematic::{CellBuilder, Instance, NestedData, Schematic};
-use substrate::types::codegen::{NestedNodeBundle, NestedTerminalBundle};
 use substrate::types::{Array, InOut, Io, Output, PowerIo, Signal, TestbenchIo};
 
 #[derive(Debug, Default, Clone, Io)]

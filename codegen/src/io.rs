@@ -717,7 +717,7 @@ pub(crate) fn schematic_bundle_kind(
     let mut all_decls_impls = Vec::new();
     let view_generic_ty = quote! { SubstrateV };
 
-    let mut helper = original_helper.clone();
+    let helper = original_helper.clone();
     let mut node_bundle_helper = original_helper.clone();
     node_bundle_helper.set_ident(view_helper.get_ident().clone());
     node_bundle_helper.push_generic_param(parse_quote! { #view_generic_ty });

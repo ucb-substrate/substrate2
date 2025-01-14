@@ -8,10 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::{NestedInstance, NestedView, Schematic};
 use substrate::simulation::data::{Save, SaveOutput, SaveTime};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::types::schematic::{IoTerminalBundle, NestedNode, NestedTerminal, RawNestedNode};
+use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]

@@ -2,7 +2,6 @@
 use substrate::types::Io;
 use substrate::types::{Input, Output, Signal};
 
-use super::codegen::{HasSaveViews, NestedNodeSaveKeyView};
 
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
