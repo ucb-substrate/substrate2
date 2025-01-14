@@ -464,26 +464,21 @@ fn impl_save_nested_bundle(view_helper: &DeriveInputHelper, nodes: bool) -> Toke
     let mut saved = view_helper.clone();
     saved.add_generic_type_binding(parse_quote! { SubstrateV }, saved_view);
 
-    view_helper.push_where_predicate_per_field(|ty, prev_tys| {
-        let ty = if prev_tys.is_empty() {
-            ty
-        } else {
-            &prev_tys[0]
-        };
-        parse_quote! { #ty: #substrate::types::codegen::HasSaveViews<#simulator_ty, #analysis_ty> }
+    view_helper.push_where_predicate_per_field(|ty, _prev_tys| {
+        parse_quote! { #ty: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
     });
 
     view_helper.add_generic_type_binding(parse_quote! { SubstrateV }, bundle_view);
 
     let save_body = view_helper.map_data(
-        &view_helper.get_type(),
+        &save_key.get_full_turbofish_type(),
             |MapField { ty, refer, .. }| {
                     quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::save(&#refer, __substrate_ctx, __substrate_opts) }
             });
     let mut from_saved_helper = view_helper.clone();
     from_saved_helper.set_referent(quote! { __substrate_key });
     let from_saved_body = from_saved_helper.map_data(
-        &view_helper.get_type(),
+        &saved.get_full_turbofish_type(),
             |MapField { ty, refer, .. }| {
                     quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::from_saved(__substrate_output, #refer) }
             });

@@ -618,6 +618,13 @@ impl DeriveInputHelper {
         parse_quote! { #ident #ty }
     }
 
+    pub fn get_full_turbofish_type(&self) -> syn::Type {
+        let (_, ty, _) = self.custom_split_for_impl();
+        let ident = self.get_ident();
+
+        parse_quote! { #ident::#ty }
+    }
+
     pub fn fields(&self) -> Vec<&Field> {
         match &self.input.data {
             Data::Struct(s) => s.fields.iter().collect(),

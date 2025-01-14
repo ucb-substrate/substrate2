@@ -1,4 +1,0 @@
-Error: Could not find library file /Users/rahul/work/sky130/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice
-ERROR, library file /Users/rahul/work/sky130/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice not found
-
-ERROR: fatal error in ngspice, exit(1)
