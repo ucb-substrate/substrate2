@@ -356,6 +356,9 @@ impl CacheableWithState<CachedSimState> for CachedSim {
 
             let mut raw_outputs = Vec::with_capacity(input.len());
 
+            println!("{:?}", input);
+            println!("{:?}", rawfile.analyses);
+
             for (an, results) in input.iter().zip(rawfile.analyses.into_iter()) {
                 match an {
                     Input::Tran(_) => match results.data {

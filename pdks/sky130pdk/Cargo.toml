@@ -21,3 +21,7 @@ unicase = "2"
 [dev-dependencies]
 approx = "0.5"
 derive-where = "1"
+
+[features]
+default = []
+spectre = []

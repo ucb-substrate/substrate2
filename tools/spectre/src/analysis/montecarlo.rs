@@ -4,7 +4,10 @@ use crate::{Input, Spectre};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
+use substrate::simulation::data::Save;
 use substrate::simulation::{Analysis, Simulator, SupportedBy};
+use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
+use type_dispatch::impl_dispatch;
 
 /// Level of statistical variation to apply in a Monte Carlo analysis.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -78,6 +81,34 @@ impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for MonteCarlo<Vec<Input>> {
             firstrun: value.firstrun,
             analysis,
         }
+    }
+}
+
+#[impl_dispatch({NestedNode; RawNestedNode; NestedTerminal})]
+impl<T, A: Analysis> Save<Spectre, MonteCarlo<A>> for T
+where
+    T: Save<Spectre, A>,
+{
+    type SaveKey = <T as Save<Spectre, A>>::SaveKey;
+    type Saved = Vec<<T as Save<Spectre, A>>::Saved>;
+
+    fn save(
+        &self,
+        ctx: &substrate::simulation::SimulationContext<Spectre>,
+        opts: &mut <Spectre as Simulator>::Options,
+    ) -> <Self as Save<Spectre, MonteCarlo<A>>>::SaveKey {
+        self.save(ctx, opts)
+    }
+
+    fn from_saved(
+        output: &<MonteCarlo<A> as Analysis>::Output,
+        key: &<Self as Save<Spectre, MonteCarlo<A>>>::SaveKey,
+    ) -> <Self as Save<Spectre, MonteCarlo<A>>>::Saved {
+        output
+            .0
+            .iter()
+            .map(|output| T::from_saved(output, key))
+            .collect()
     }
 }
 
