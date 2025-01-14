@@ -1,6 +1,11 @@
 //! Built-in implementations of IO traits.
 
-use schematic::{Node, NodeBundle, SchematicBundleKind, Terminal, TerminalBundle};
+use crate::types::codegen::HasView;
+use crate::types::codegen::PortGeometryBundle;
+use schematic::{
+    HasNodeBundle, HasTerminalBundle, Node, NodeBundle, SchematicBundleKind, Terminal,
+    TerminalBundle,
+};
 
 use geometry::point::Point;
 use geometry::transform::{TransformRef, TranslateRef};
@@ -63,10 +68,15 @@ impl HasBundleKind for () {
     fn kind(&self) -> Self::BundleKind {}
 }
 
-impl SchematicBundleKind for () {
+impl HasNodeBundle for () {
     type NodeBundle = ();
-    type TerminalBundle = ();
+}
 
+impl HasTerminalBundle for () {
+    type TerminalBundle = ();
+}
+
+impl SchematicBundleKind for () {
     fn terminal_view(
         _cell: CellId,
         _cell_io: &NodeBundle<Self>,
@@ -96,10 +106,15 @@ impl HasBundleKind for Signal {
     }
 }
 
-impl SchematicBundleKind for Signal {
+impl HasNodeBundle for Signal {
     type NodeBundle = Node;
-    type TerminalBundle = Terminal;
+}
 
+impl HasTerminalBundle for Signal {
+    type TerminalBundle = Terminal;
+}
+
+impl SchematicBundleKind for Signal {
     fn terminal_view(
         cell: CellId,
         cell_io: &NodeBundle<Self>,
@@ -171,6 +186,18 @@ macro_rules! impl_direction {
             fn names(&self) -> Option<Vec<NameTree>> {
                 self.0.names()
             }
+        }
+
+        impl<T: HasNodeBundle> HasNodeBundle for $dir<T> {
+            type NodeBundle = T::NodeBundle;
+        }
+
+        impl<T: HasTerminalBundle> HasTerminalBundle for $dir<T> {
+            type TerminalBundle = T::TerminalBundle;
+        }
+
+        impl<S: crate::layout::schema::Schema, T: HasView<PortGeometryBundle<S>>> HasView<PortGeometryBundle<S>> for $dir<T> {
+            type View = T::View;
         }
     };
 }
@@ -250,11 +277,15 @@ impl<T: HasNameTree> HasNameTree for Array<T> {
         )
     }
 }
+impl<T: HasNodeBundle> HasNodeBundle for Array<T> {
+    type NodeBundle = ArrayBundle<T::NodeBundle>;
+}
+
+impl<T: HasTerminalBundle> HasTerminalBundle for Array<T> {
+    type TerminalBundle = ArrayBundle<T::TerminalBundle>;
+}
 
 impl<T: SchematicBundleKind> SchematicBundleKind for Array<T> {
-    type NodeBundle = ArrayBundle<NodeBundle<T>>;
-    type TerminalBundle = ArrayBundle<TerminalBundle<T>>;
-
     fn terminal_view(
         cell: CellId,
         cell_io: &NodeBundle<Self>,

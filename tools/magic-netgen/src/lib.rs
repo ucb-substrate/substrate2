@@ -287,6 +287,3 @@ where
         <NestedView<T::NestedData, PexContext> as Save<S, A>>::from_saved(output, key)
     }
 }
-
-#[cfg(test)]
-mod tests {}

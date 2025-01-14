@@ -12,21 +12,25 @@ use std::ops::Deref;
 
 use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
 
-/// A schematic bundle kind.
-pub trait SchematicBundleKind: BundleKind {
+pub trait HasNodeBundle: HasBundleKind + Sized + Send + Sync {
     /// The associated node bundle.
-    type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
-        + HasBundleKind<BundleKind = Self>
-        + Unflatten<Self, Node>
+    type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>>
+        + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>
+        + Unflatten<<Self as HasBundleKind>::BundleKind, Node>
         + Flatten<Node>;
+}
 
+pub trait HasTerminalBundle: HasBundleKind + Sized + Send + Sync {
     /// The associated terminal bundle.
-    type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = Self>>
-        + HasBundleKind<BundleKind = Self>
-        + Unflatten<Self, Terminal>
+    type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>>
+        + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>
+        + Unflatten<<Self as HasBundleKind>::BundleKind, Terminal>
         + Flatten<Terminal>
         + Flatten<Node>;
+}
 
+/// A schematic bundle kind.
+pub trait SchematicBundleKind: BundleKind + HasNodeBundle + HasTerminalBundle {
     /// Creates a terminal view of the object given a parent node, the cell IO, and the instance IO.
     fn terminal_view(
         cell: CellId,
@@ -65,10 +69,10 @@ pub type IoNodeBundle<T> = NodeBundle<<T as Block>::Io>;
 /// The type of a terminal bundle associated with an IO.
 pub type IoTerminalBundle<T> = TerminalBundle<<T as Block>::Io>;
 /// The type of a node bundle associated with [`SchematicBundleKind`] `T`.
-pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::NodeBundle;
+pub type NodeBundle<T> = <<T as HasBundleKind>::BundleKind as HasNodeBundle>::NodeBundle;
 /// The type of a terminal bundle associated with [`SchematicBundleKind`] `T`.
 pub type TerminalBundle<T> =
-    <<T as HasBundleKind>::BundleKind as SchematicBundleKind>::TerminalBundle;
+    <<T as HasBundleKind>::BundleKind as HasTerminalBundle>::TerminalBundle;
 
 /// The priority a node has in determining the name of a merged node.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]

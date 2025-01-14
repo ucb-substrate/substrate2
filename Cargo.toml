@@ -10,6 +10,8 @@ members = [
     # "examples/latest/sky130_inverter",
     # "examples/latest/spice_vdivider",
     "examples/latest/colbuf",
+    "examples/latest/vdivider",
+    "examples/latest/via",
     # "examples/latest/substrate_api_examples",
     "libs/cache",
     "libs/diagnostics",
