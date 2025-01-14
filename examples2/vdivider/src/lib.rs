@@ -206,15 +206,14 @@ mod tests {
             .unwrap();
 
         for (actual, expected) in [
-            // (&*output.current, 1.8 / 40.),
-            (&*output.iprobe, 1.8 / 40.),
-            // (&*output.vdd, 1.8),
-            // (&*output.out, 0.9),
+            (&*output.iprobe.io().p.i, 1.8 / 40.),
+            (&*output.dut.io().pwr.vdd.v, 1.8),
+            (&*output.dut.io().out.v, 0.9),
         ] {
-            // assert!(actual
-            //     .iter()
-            //     .cloned()
-            //     .all(|val| relative_eq!(val, expected)));
+            assert!(actual
+                .iter()
+                .cloned()
+                .all(|val| relative_eq!(val, expected)));
         }
     }
 }
