@@ -464,8 +464,13 @@ fn impl_save_nested_bundle(view_helper: &DeriveInputHelper, nodes: bool) -> Toke
     let mut saved = view_helper.clone();
     saved.add_generic_type_binding(parse_quote! { SubstrateV }, saved_view);
 
-    view_helper.push_where_predicate_per_field(|ty, _prev_tys| {
-        parse_quote! { #ty: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+    view_helper.push_where_predicate_per_field(|ty, prev_tys| {
+        let ty = if prev_tys.is_empty() {
+            ty
+        } else {
+            &prev_tys[0]
+        };
+        parse_quote! { #ty: #substrate::types::codegen::HasSaveViews<#simulator_ty, #analysis_ty> }
     });
 
     view_helper.add_generic_type_binding(parse_quote! { SubstrateV }, bundle_view);

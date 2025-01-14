@@ -1,4 +1,4 @@
-name: CI
+name: ci-main
 
 on:
   push:
@@ -26,7 +26,9 @@ jobs:
         with:
           repository: rohanku/release-please
           path: release-please
-          ref: dev
+          # Can change back to `dev` once this is merged into Substrate `main` and 
+          # the release-please `substrate-workspace` branch is merged into `dev`.
+          ref: substrate-workspace
       - uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -84,38 +86,7 @@ jobs:
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
   deploy-api-docs:
-    name: Deploy API documentation
-    runs-on: bwrc
-    environment: main
-    needs: [ check-workspace ]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
-      - run: just build
-        working-directory: docs/api
-      - run: flyctl deploy --remote-only --detach
-        working-directory: docs/api
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
+    uses: ./.github/workflows/deploy-api-docs.yml
   deploy-docs:
-    name: Deploy documentation
-    runs-on: ubuntu-22.04
-    environment: main
-    needs: [ check-workspace ]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: docs/site/yarn.lock
-      - run: yarn install
-        working-directory: docs/site
-      - run: yarn build 
-        working-directory: docs/site
-      - run: flyctl deploy --remote-only --detach
-        working-directory: docs/site
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
+    uses: ./.github/workflows/deploy-docs.yml
 

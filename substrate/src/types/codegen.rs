@@ -79,6 +79,33 @@ impl<
 {
 }
 
+pub trait HasSaveViews<S: Simulator, A: Analysis>:
+    HasView<
+        NestedNodeSaveKeyView<S, A>,
+        View = <<Self as HasView<NestedNodeBundle>>::View as Save<S, A>>::SaveKey,
+    > + HasView<NestedNodeBundle, View: Save<S, A>>
+    + HasView<
+        NestedTerminalSaveKeyView<S, A>,
+        View = <<Self as HasView<NestedTerminalBundle>>::View as Save<S, A>>::SaveKey,
+    > + HasView<NestedTerminalBundle, View: Save<S, A>>
+{
+}
+
+impl<T, S, A> HasSaveViews<S, A> for T
+where
+    S: Simulator,
+    A: Analysis,
+    T: HasView<
+            NestedNodeBundle,
+            View: Save<S, A, SaveKey = <Self as HasView<NestedNodeSaveKeyView<S, A>>>::View>,
+        > + HasView<NestedNodeSaveKeyView<S, A>>
+        + HasView<
+            NestedTerminalBundle,
+            View: Save<S, A, SaveKey = <Self as HasView<NestedTerminalSaveKeyView<S, A>>>::View>,
+        > + HasView<NestedTerminalSaveKeyView<S, A>>,
+{
+}
+
 pub struct NestedSaveKey<T, S, A>(PhantomData<(T, S, A)>);
 pub struct NestedSaved<T, S, A>(PhantomData<(T, S, A)>);
 

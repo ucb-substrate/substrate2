@@ -1,8 +1,0 @@
-[package]
-name = "via"
-version = "0.0.0"
-edition = "2021"
-
-[dependencies]
-substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
-layir = { version = "0.1.0", registry = "substrate", path = "../../libs/layir" }

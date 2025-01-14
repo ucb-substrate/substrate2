@@ -12,7 +12,6 @@ use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
-use substrate::pdk::Pdk;
 use unicase::UniCase;
 
 use crate::layers::Sky130Layers;
@@ -22,7 +21,6 @@ use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::{ContextBuilder, Installation};
 
-pub mod atoll;
 pub mod corner;
 pub mod layers;
 pub mod mos;
@@ -222,16 +220,16 @@ impl FromSchema<Sky130Pdk> for Spectre {
             } => spectre::Primitive::RawInstance {
                 cell,
                 ports,
-                params,
+                params: params.into_iter().collect(),
             },
             Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
                 cell: kind.commercial_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                params: HashMap::from_iter([
+                params: vec![
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
                     (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
-                ]),
+                ],
             },
         })
     }
@@ -323,16 +321,16 @@ impl FromSchema<Sky130CommercialSchema> for Spectre {
             } => spectre::Primitive::RawInstance {
                 cell,
                 ports,
-                params,
+                params: params.into_iter().collect(),
             },
             Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
                 cell: kind.commercial_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                params: HashMap::from_iter([
+                params: vec![
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
                     (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
-                ]),
+                ],
             },
         })
     }
@@ -383,15 +381,4 @@ impl Sky130Pdk {
     }
 }
 
-impl Installation for Sky130Pdk {
-    fn post_install(&self, ctx: &mut ContextBuilder) {
-        let layers = ctx.install_pdk_layers::<Sky130Pdk>();
-
-        ctx.install(layers.atoll_layer_stack());
-    }
-}
-
-impl Pdk for Sky130Pdk {
-    type Layers = Sky130Layers;
-    const LAYOUT_DB_UNITS: Decimal = dec!(1e-9);
-}
+impl Installation for Sky130Pdk {}

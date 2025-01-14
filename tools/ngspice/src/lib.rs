@@ -372,6 +372,8 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 }
             }
 
+            println!("{:?}", raw_outputs);
+
             Ok(raw_outputs)
         };
         inner().map_err(Arc::new)

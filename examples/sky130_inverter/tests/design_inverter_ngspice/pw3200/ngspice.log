@@ -1,0 +1,34 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * substrate spice library
+
+binary raw file "/Users/rahul/work/substrate2/examples/sky130_inverter/tests/design_inverter_ngspice/pw3200/data.raw"
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+No. of Data Columns : 2  
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+dout                                       1.8
+xinst0_din                                   0
+vdd                                        1.8
+vinst2#branch                                0
+vinst1#branch                     -1.97776e-12
+
+
+No. of Data Rows : 231
+
+Total analysis time (seconds) = 0.001512
+
+Total CPU time (seconds) = 5.176 
+
+Total DRAM available = 32768.000 MB.
+DRAM currently available = 1048.594 MB.
+Maximum ngspice program size =   79.344 MB.
+Current ngspice program size =   77.062 MB.
+

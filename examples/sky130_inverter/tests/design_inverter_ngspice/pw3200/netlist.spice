@@ -1,0 +1,19 @@
+* Substrate SPICE library
+* This is a generated file. Be careful when editing manually: this file may be overwritten.
+
+.LIB "/Users/rahul/work/sky130/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice" tt
+
+.SUBCKT inverter vdd vss din dout
+
+  Xinst0 dout din vss vss sky130_fd_pr__nfet_01v8 l=0.150 nf=1 w=1.200
+  Xinst1 dout din vdd vdd sky130_fd_pr__pfet_01v8 l=0.150 nf=1 w=3.200
+
+.ENDS inverter
+
+Xinst0 vdd 0 xinst0_din dout inverter
+Vinst1 vdd 0 DC 1.8
+Vinst2 xinst0_din 0 PULSE(0 1.8 0.0000000001 0.000000000001 0.000000000001 0.000000001 0 1)
+
+.save v(dout)
+
+.tran 0.00000000001 0.000000002

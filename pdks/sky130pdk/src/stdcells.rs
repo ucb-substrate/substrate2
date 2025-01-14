@@ -7,9 +7,8 @@ use serde::{Deserialize, Serialize};
 use spice::Spice;
 use std::path::PathBuf;
 use substrate::block::Block;
-use substrate::io::schematic::HardwareType;
-use substrate::io::{InOut, Input, Io, Output, Signal};
-use substrate::schematic::{CellBuilder, ExportsNestedData, Schematic};
+use substrate::schematic::{CellBuilder, Schematic};
+use substrate::types::{InOut, Input, Io, Output, Signal};
 
 impl Sky130Pdk {
     pub(crate) fn stdcell_path(&self, lib: &str, name: &str) -> PathBuf {
@@ -31,18 +30,6 @@ pub struct PowerIo {
     pub vnb: InOut<Signal>,
     /// The pwell body contact.
     pub vpb: InOut<Signal>,
-}
-
-impl PowerIoSchematic {
-    /// Creates a `PowerIo` with `vnb` and `vpb` tied to `vdd` and `vss`, respectively.
-    pub fn with_bodies_tied_to_rails(pwr: substrate::io::PowerIoSchematic) -> Self {
-        Self {
-            vgnd: pwr.vss,
-            vnb: pwr.vss,
-            vpb: pwr.vdd,
-            vpwr: pwr.vdd,
-        }
-    }
 }
 
 macro_rules! define_stdcell {
@@ -80,10 +67,6 @@ paste! {
     impl Block for $typ {
         type Io = [<$typ Io>];
 
-        fn id() -> ArcStr {
-            arcstr::literal!(stringify!($name))
-        }
-
         fn name(&self) -> ArcStr {
             arcstr::format!("{}_{}", stringify!($name), self.strength())
         }
@@ -93,16 +76,14 @@ paste! {
         }
     }
 
-    impl ExportsNestedData for $typ {
+    impl Schematic for $typ {
+        type Schema = Sky130Pdk;
         type NestedData = ();
-    }
-
-    impl Schematic<Sky130Pdk> for $typ {
         fn schematic(
-            &self,
-            io: &<<Self as Block>::Io as HardwareType>::Bundle,
-            cell: &mut CellBuilder<Sky130Pdk>,
-        ) -> substrate::error::Result<Self::NestedData> {
+                &self,
+                io: &substrate::types::schematic::IoNodeBundle<Self>,
+                cell: &mut CellBuilder<<Self as substrate::schematic::Schematic>::Schema>,
+            ) -> substrate::error::Result<Self::NestedData> {
             let pdk = cell
                 .ctx()
                 .get_installation::<Sky130Pdk>()

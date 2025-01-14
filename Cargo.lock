@@ -1775,6 +1775,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
 name = "path-absolutize"
 version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2468,6 +2474,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
+name = "sky130pdk"
+version = "0.8.1"
+dependencies = [
+ "arcstr",
+ "indexmap 2.7.0",
+ "ngspice",
+ "paste",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scir",
+ "serde",
+ "spectre",
+ "spice",
+ "substrate",
+ "unicase",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2719,6 +2743,32 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
+]
+
+[[package]]
+name = "tests"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "approx",
+ "arcstr",
+ "cache",
+ "geometry",
+ "indexmap 2.7.0",
+ "lazy_static",
+ "ngspice",
+ "num",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scir",
+ "serde",
+ "sky130pdk",
+ "spectre",
+ "spice",
+ "substrate",
+ "test-log",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
