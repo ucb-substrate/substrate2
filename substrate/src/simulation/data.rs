@@ -64,25 +64,3 @@ pub trait Save<S: Simulator, A: Analysis> {
         key: &<Self as Save<S, A>>::SaveKey,
     ) -> <Self as Save<S, A>>::Saved;
 }
-
-pub struct SaveWrapper<T, S, A>(T, PhantomData<S>, PhantomData<A>);
-
-impl<S: Simulator, A: Analysis, T: Save<S, A>> Save<S, A> for SaveWrapper<T, S, A> {
-    type SaveKey = T::SaveKey;
-    type Saved = T::Saved;
-
-    fn save(
-        &self,
-        ctx: &SimulationContext<S>,
-        opts: &mut <S as Simulator>::Options,
-    ) -> <Self as Save<S, A>>::SaveKey {
-        self.0.save(ctx, opts)
-    }
-
-    fn from_saved(
-        output: &<A as Analysis>::Output,
-        key: &<Self as Save<S, A>>::SaveKey,
-    ) -> <Self as Save<S, A>>::Saved {
-        T::from_saved(output, key)
-    }
-}

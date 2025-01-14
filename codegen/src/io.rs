@@ -538,6 +538,44 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     })
 }
 
+/// Derives `HasNestedView` and `Save` for the input.
+pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let substrate = substrate_ident();
+    let helper = DeriveInputHelper::new(input.clone())?;
+    let view_ident = format_ident!("{}View", &input.ident);
+    let mut all_decls_impls = Vec::new();
+
+    // Create `View` struct
+    // - Needs to add a generic along with a where clause per field that uses that generic
+    // - Potentially be able to add separate where clauses to new generic
+    let mut view_helper = helper.clone();
+    view_helper.set_ident(view_ident);
+    let view_generic_ty = quote! { SubstrateV };
+    view_helper.push_generic_param(parse_quote! { #view_generic_ty });
+    view_helper.push_where_predicate_per_field(
+        |ty, _| parse_quote! { #ty: #substrate::types::codegen::HasView<#view_generic_ty> },
+    );
+    view_helper.map_types(
+        |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#view_generic_ty>>::View },
+    );
+    all_decls_impls.push(view_helper.decl_data());
+    all_decls_impls.push(impl_view_source(&view_helper, None));
+    all_decls_impls.push(impl_flatlen(&view_helper));
+    all_decls_impls.push(impl_flatten_generic(&view_helper));
+
+    let mut hnv_helper = view_helper.clone();
+    hnv_helper.add_generic_type_binding(
+        parse_quote!(#view_generic_ty),
+        parse_quote!(#substrate::types::codegen::Nested),
+    );
+
+    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper));
+    // TODO: implement save
+    Ok(quote! {
+        #( #all_decls_impls )*
+    })
+}
+
 pub(crate) fn schematic_bundle_kind(
     original_helper: &DeriveInputHelper,
     kind_helper: &DeriveInputHelper,
