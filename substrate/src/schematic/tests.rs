@@ -22,77 +22,9 @@ use crate::{
 };
 
 // TODO: uncomment
-#[derive(Default)]
+#[derive(Default, NestedData)]
 pub struct SchematicInstances<T: Schematic> {
     pub instances: Vec<Instance<T>>,
-}
-
-pub struct SchematicInstancesView<T: Schematic, SubstrateV>
-where
-    Vec<Instance<T>>: ::substrate::types::codegen::HasView<SubstrateV>,
-{
-    pub instances: <Vec<Instance<T>> as ::substrate::types::codegen::HasView<SubstrateV>>::View,
-}
-impl<T: Schematic, SubstrateV> ::substrate::types::codegen::ViewSource
-    for SchematicInstancesView<T, SubstrateV>
-where
-    Vec<Instance<T>>: ::substrate::types::codegen::HasView<SubstrateV>,
-    <Vec<Instance<T>> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
-        ::substrate::types::HasBundleKind,
-{
-    type Kind = ::substrate::types::codegen::FromSelf;
-    type Source = Self;
-}
-impl<T: Schematic, SubstrateV> ::substrate::types::FlatLen for SchematicInstancesView<T, SubstrateV>
-where
-    Vec<Instance<T>>: ::substrate::types::codegen::HasView<SubstrateV>,
-    <Vec<Instance<T>> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
-        ::substrate::types::FlatLen,
-{
-    fn len(&self) -> usize {
-        <<Vec<
-                    Instance<T>,
-                > as ::substrate::types::codegen::HasView<
-                    SubstrateV,
-                >>::View as ::substrate::types::FlatLen>::len(&self.instances)
-    }
-}
-impl<T: Schematic, SubstrateV, __substrate_F> ::substrate::types::Flatten<__substrate_F>
-    for SchematicInstancesView<T, SubstrateV>
-where
-    Vec<Instance<T>>: ::substrate::types::codegen::HasView<SubstrateV>,
-    <Vec<Instance<T>> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
-        ::substrate::types::Flatten<__substrate_F>,
-{
-    fn flatten<E>(&self, __substrate_output_sink: &mut E)
-    where
-        E: ::std::iter::Extend<__substrate_F>,
-    {
-        <<Vec<
-                    Instance<T>,
-                > as ::substrate::types::codegen::HasView<
-                    SubstrateV,
-                >>::View as ::substrate::types::Flatten<
-                    __substrate_F,
-                >>::flatten(&self.instances, __substrate_output_sink);
-    }
-}
-impl<T: Schematic> ::substrate::schematic::HasNestedView for SchematicInstances<T>
-where
-    Vec<Instance<T>>: ::substrate::schematic::HasNestedView,
-{
-    type NestedView = SchematicInstancesView<T, substrate::types::codegen::Nested>;
-    fn nested_view(
-        &self,
-        __substrate_parent: &::substrate::schematic::InstancePath,
-    ) -> ::substrate::schematic::NestedView<Self> {
-        SchematicInstancesView {
-            instances: <Vec<Instance<T>> as ::substrate::schematic::HasNestedView>::nested_view(
-                &&self.instances,
-                __substrate_parent,
-            ),
-        }
-    }
 }
 #[derive(NestedData)]
 pub enum EnumInstances<T: Schematic> {
