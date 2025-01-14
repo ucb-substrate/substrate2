@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+// TODO: extract to examples.
 
 use std::collections::HashSet;
 
