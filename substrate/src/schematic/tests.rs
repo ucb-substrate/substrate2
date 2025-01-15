@@ -21,7 +21,6 @@ use crate::{
     types::{HasNameTree, InOut, NameTree, Output, Signal},
 };
 
-// TODO: uncomment
 #[derive(Default, NestedData)]
 pub struct SchematicInstances<T: Schematic> {
     pub instances: Vec<Instance<T>>,
@@ -30,6 +29,13 @@ pub struct SchematicInstances<T: Schematic> {
 pub enum EnumInstances<T: Schematic> {
     One { one: Instance<T> },
     Two(Instance<T>, Instance<T>),
+}
+#[derive(Default, NestedData)]
+pub struct SchematicInstancesWithWhereClause<T>
+where
+    T: Schematic,
+{
+    pub instances: Vec<Instance<T>>,
 }
 
 #[derive(NestedData)]

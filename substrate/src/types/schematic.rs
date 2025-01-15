@@ -12,6 +12,7 @@ use std::ops::Deref;
 
 use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
 
+/// A type that has a bundle of nodes.
 pub trait HasNodeBundle: HasBundleKind + Sized + Send + Sync {
     /// The associated node bundle.
     type NodeBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>>
@@ -20,6 +21,7 @@ pub trait HasNodeBundle: HasBundleKind + Sized + Send + Sync {
         + Flatten<Node>;
 }
 
+/// A type that has a bundle of terminals.
 pub trait HasTerminalBundle: HasBundleKind + Sized + Send + Sync {
     /// The associated terminal bundle.
     type TerminalBundle: HasNestedView<NestedView: HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>>

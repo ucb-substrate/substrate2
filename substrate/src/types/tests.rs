@@ -2,7 +2,6 @@
 use substrate::types::Io;
 use substrate::types::{Input, Output, Signal};
 
-
 /// An Io with a generic type parameter.
 #[derive(Debug, Clone, Io)]
 pub struct GenericIo<T> {

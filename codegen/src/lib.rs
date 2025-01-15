@@ -1,11 +1,15 @@
 //! Procedural macros for the Substrate analog circuit generator framework.
 #![warn(missing_docs)]
 
-mod block;
-mod io;
+pub(crate) mod block;
+pub(crate) mod common;
+pub(crate) mod io;
+pub(crate) mod layout;
+pub(crate) mod schematic;
 
+use crate::io::bundle_kind;
+use crate::schematic::nested_data;
 use darling::FromDeriveInput;
-use io::{bundle_kind, nested_data};
 use macrotools::{handle_darling_error, handle_syn_error};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
