@@ -1051,10 +1051,6 @@ impl DeriveInputHelper {
             }
         }
     }
-
-    pub fn clear_where_clause(&mut self) {
-        self.input.generics.where_clause = None;
-    }
 }
 
 /// Configuration for deriving a trait.
