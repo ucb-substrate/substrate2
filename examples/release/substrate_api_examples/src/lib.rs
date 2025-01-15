@@ -238,7 +238,6 @@ pub mod nested_data {
     use super::*;
     use ::scir::schema::StringSchema;
     use substrate::schematic::Instance;
-    use substrate::types::codegen::{FromSelf, ViewSource};
     use substrate::types::schematic::IoNodeBundle;
 
     #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -274,11 +273,6 @@ pub mod nested_data {
     #[derive(Clone, Copy)]
     pub struct MyMetadata {
         my_calculated_value: i64,
-    }
-
-    impl ViewSource for MyMetadata {
-        type Kind = FromSelf;
-        type Source = Self;
     }
 
     impl HasNestedView for MyMetadata {

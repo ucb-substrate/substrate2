@@ -6,8 +6,6 @@ use quote::{quote, ToTokens};
 
 use crate::substrate_ident;
 
-pub mod schematic;
-
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(substrate), supports(struct_any, enum_any))]
 pub struct BlockInputReceiver {

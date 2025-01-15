@@ -37,6 +37,7 @@ impl Schematic for ColInv {
         io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
+        // TODO: Use intended schematic flow.
         let spice = match self.0 {
             Sky130Schema::Open => {
                 r#"

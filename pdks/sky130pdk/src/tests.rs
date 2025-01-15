@@ -138,29 +138,6 @@ impl<S: SupportsAnd2Tb> Schematic for And2Tb<S> {
         Ok(and2.io().x)
     }
 }
-// impl Testbench<Spectre> for And2Tb {
-//     type Output = spectre::analysis::montecarlo::Output<tran::Voltage>;
-//
-//     fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
-//         let mut opts = spectre::Options::default();
-//         sim.set_option(Sky130Corner::Tt, &mut opts);
-//         sim.simulate(
-//             opts,
-//             spectre::analysis::montecarlo::MonteCarlo {
-//                 variations: Variations::All,
-//                 numruns: 4,
-//                 seed: None,
-//                 firstrun: None,
-//                 analysis: spectre::analysis::tran::Tran {
-//                     stop: dec!(2e-9),
-//                     errpreset: Some(spectre::ErrPreset::Conservative),
-//                     ..Default::default()
-//                 },
-//             },
-//         )
-//         .expect("failed to run simulation")
-//     }
-// }
 
 #[test]
 fn sky130_and2_ngspice() {
@@ -209,38 +186,42 @@ fn sky130_and2_monte_carlo_spectre() {
         (dec!(0), dec!(1.8), 0f64),
         (dec!(0), dec!(0), 0f64),
     ] {
-        let mut sim = ctx.get_sim_controller(
-            And2Tb {
-                vdd: dec!(1.8),
-                a,
-                b,
-            },
-            &sim_dir,
-        );
+        let mut sim = ctx
+            .get_sim_controller(
+                And2Tb {
+                    schema: PhantomData,
+                    vdd: dec!(1.8),
+                    a,
+                    b,
+                },
+                &sim_dir,
+            )
+            .expect("failed to create sim controller");
         let mut opts = spectre::Options::default();
         sim.set_option(Sky130Corner::Tt, &mut opts);
-        sim.simulate(
-            opts,
-            spectre::analysis::montecarlo::MonteCarlo {
-                variations: Variations::All,
-                numruns: 4,
-                seed: None,
-                firstrun: None,
-                analysis: spectre::analysis::tran::Tran {
-                    stop: dec!(2e-9),
-                    errpreset: Some(spectre::ErrPreset::Conservative),
-                    ..Default::default()
+        let mc_vout = sim
+            .simulate(
+                opts,
+                spectre::analysis::montecarlo::MonteCarlo {
+                    variations: Variations::All,
+                    numruns: 4,
+                    seed: None,
+                    firstrun: None,
+                    analysis: spectre::analysis::tran::Tran {
+                        stop: dec!(2e-9),
+                        errpreset: Some(spectre::ErrPreset::Conservative),
+                        ..Default::default()
+                    },
                 },
-            },
-        )
-        .expect("failed to run simulation");
+            )
+            .expect("failed to run simulation");
         assert_eq!(
             mc_vout.len(),
             4,
             "MonteCarlo output did not contain data from the correct number of runs"
         );
         for vout in &*mc_vout {
-            assert_abs_diff_eq!(*vout.last().unwrap(), expected, epsilon = 1e-6);
+            assert_abs_diff_eq!(*vout.v.last().unwrap(), expected, epsilon = 1e-6);
         }
     }
 }

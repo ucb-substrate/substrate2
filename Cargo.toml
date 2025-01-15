@@ -1,7 +1,6 @@
 [workspace]
 
 resolver = "2"
-
 members = [
     "bins/cdl2spice",
     "codegen",
@@ -32,7 +31,7 @@ members = [
     "libs/type_dispatch_macros",
     "libs/uniquify",
     "libs/verilog",
-    # "pdks/sky130pdk",
+    "pdks/sky130pdk",
     "substrate",
     "tests",
     "tools/magic",

@@ -2477,7 +2477,9 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 name = "sky130pdk"
 version = "0.8.1"
 dependencies = [
+ "approx",
  "arcstr",
+ "derive-where",
  "indexmap 2.7.0",
  "ngspice",
  "paste",

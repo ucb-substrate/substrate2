@@ -1,8 +1,16 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use approx::{assert_relative_eq, relative_eq};
+use num::complex::Complex64;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
 use spice::{BlackboxContents, BlackboxElement, Spice};
+use substrate::block::Block;
+use substrate::simulation::options::ic;
+use substrate::simulation::options::ic::InitialCondition;
+use substrate::simulation::{SimulationContext, Simulator, Testbench};
 use substrate::types::schematic::Terminal;
 use substrate::{
     block::Block,
@@ -15,10 +23,10 @@ use substrate::{
     },
 };
 
-use crate::blocks::RawInstance;
+use crate::analysis::ac::{Ac, Sweep};
+use crate::analysis::tran::Tran;
 use crate::{
-    analysis::tran::Tran,
-    blocks::{Resistor, Vsource},
+    blocks::{AcSource, Capacitor, Isource, RawInstance, Resistor, Vsource},
     ErrPreset, Options, Primitive, Spectre,
 };
 
@@ -141,39 +149,6 @@ fn spectre_can_include_sections() {
     assert_relative_eq!(output_ss, 1.2);
 }
 
-// TODO: uncomment
-// #[test]
-// fn spectre_caches_simulations() {
-//     #[derive(Clone, Debug, Default)]
-//     struct CountExecutor {
-//         executor: LocalExecutor,
-//         count: Arc<Mutex<u64>>,
-//     }
-//
-//     impl Executor for CountExecutor {
-//         fn execute(&self, command: Command, opts: ExecOpts) -> Result<(), substrate::error::Error> {
-//             *self.count.lock().unwrap() += 1;
-//             self.executor.execute(command, opts)
-//         }
-//     }
-//
-//     let test_name = "spectre_caches_simulations";
-//     let sim_dir = get_path(test_name, "sim/");
-//     let executor = CountExecutor::default();
-//     let count = executor.count.clone();
-//
-//     let ctx = Context::builder()
-//         .install(Spectre::default())
-//         .cache(Cache::new(MultiCache::builder().build()))
-//         .executor(executor)
-//         .build();
-//
-//     ctx.simulate(VdividerTb, &sim_dir).unwrap();
-//     ctx.simulate(VdividerTb, &sim_dir).unwrap();
-//
-//     assert_eq!(*count.lock().unwrap(), 1);
-// }
-
 #[test]
 fn spectre_can_save_paths_with_flattened_instances() {
     #[derive(Clone, Debug, Hash, Eq, PartialEq, Block)]
@@ -281,4 +256,113 @@ fn spectre_can_save_paths_with_flattened_instances() {
         .iter()
         .cloned()
         .all(|val| relative_eq!(val, 1.8 * (1. / 100. + 1. / 200. + 1. / 300.))));
+}
+
+/// An RC testbench.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Block)]
+#[substrate(io = "TestbenchIo")]
+pub struct RcTb {
+    ic: Decimal,
+}
+
+impl RcTb {
+    /// Create a new RC testbench with the given initial capacitor value.
+    #[inline]
+    pub fn new(ic: Decimal) -> Self {
+        Self { ic }
+    }
+}
+
+impl Schematic for RcTb {
+    type Schema = Spectre;
+    type NestedData = Node;
+    fn schematic(
+        &self,
+        io: &IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let vout = cell.signal("vout", Signal);
+
+        let r = cell.instantiate(Resistor::new(dec!(1000)));
+        cell.connect(r.io().p, vout);
+        cell.connect(r.io().n, io.vss);
+
+        let c = cell.instantiate(Capacitor::new(dec!(1e-9)));
+        cell.connect(c.io().p, vout);
+        cell.connect(c.io().n, io.vss);
+
+        let isource = cell.instantiate(Isource::ac(AcSource {
+            dc: dec!(0),
+            mag: dec!(1),
+            phase: dec!(0),
+        }));
+        cell.connect(isource.io().p, vout);
+        cell.connect(isource.io().n, io.vss);
+
+        Ok(vout)
+    }
+}
+
+impl Testbench<Spectre> for RcTb {
+    type Output = (f64, f64, Complex64);
+    fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {}
+}
+
+fn simulate_rc_tb(ctx: &Context, tb: RcTb, sim_dir: impl Into<PathBuf>) -> (f64, f64, Complex64) {
+    let sim = ctx
+        .get_sim_controller(tb, sim_dir)
+        .expect("failed to create sim controller");
+    let mut opts = Options::default();
+    sim.set_option(
+        InitialCondition {
+            path: sim.tb.data(),
+            value: ic::Voltage(tb.ic),
+        },
+        &mut opts,
+    );
+    let (tran_vout, ac_vout) = sim
+        .simulate(
+            opts,
+            (
+                Tran {
+                    stop: dec!(10e-6),
+                    ..Default::default()
+                },
+                Ac {
+                    start: dec!(1e6),
+                    stop: dec!(2e6),
+                    sweep: Sweep::Linear(10),
+                    errpreset: Some(ErrPreset::Conservative),
+                },
+            ),
+        )
+        .unwrap();
+
+    let first = tran_vout.first().unwrap();
+    let last = tran_vout.last().unwrap();
+    (*first, *last, ac_vout[2])
+}
+
+#[test]
+fn spectre_initial_condition() {
+    let test_name = "spectre_initial_condition";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = spectre_ctx();
+
+    let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(1.4)), &sim_dir);
+    assert_relative_eq!(first, 1.4);
+
+    let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(2.1)), sim_dir);
+    assert_relative_eq!(first, 2.1);
+}
+
+#[test]
+fn spectre_rc_zin_ac() {
+    let test_name = "spectre_rc_zin_ac";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = spectre_ctx();
+
+    let (_, _, z) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
+    assert_relative_eq!(z.re, -17.286407017773225);
+    assert_relative_eq!(z.im, 130.3364383055986);
 }

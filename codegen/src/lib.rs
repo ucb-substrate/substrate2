@@ -1,11 +1,15 @@
 //! Procedural macros for the Substrate analog circuit generator framework.
 #![warn(missing_docs)]
 
-mod block;
-mod io;
+pub(crate) mod block;
+pub(crate) mod common;
+pub(crate) mod io;
+pub(crate) mod layout;
+pub(crate) mod schematic;
 
+use crate::io::bundle_kind;
+use crate::schematic::nested_data;
 use darling::FromDeriveInput;
-use io::bundle_kind;
 use macrotools::{handle_darling_error, handle_syn_error};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -38,12 +42,10 @@ pub fn derive_io(input: TokenStream) -> TokenStream {
 /// Derives `substrate::schematic::NestedData` for a struct.
 #[proc_macro_derive(NestedData, attributes(substrate))]
 pub fn derive_nested_data(input: TokenStream) -> TokenStream {
-    let receiver = block::schematic::DataInputReceiver::from_derive_input(&parse_macro_input!(
-        input as DeriveInput
-    ));
-    let receiver = handle_darling_error!(receiver);
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let output = handle_syn_error!(nested_data(&parsed));
     quote!(
-        #receiver
+        #output
     )
     .into()
 }

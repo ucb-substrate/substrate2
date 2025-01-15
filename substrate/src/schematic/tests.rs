@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+// TODO: extract to examples.
 
 use std::collections::HashSet;
 
@@ -20,21 +21,26 @@ use crate::{
     types::{HasNameTree, InOut, NameTree, Output, Signal},
 };
 
-// TODO: uncomment
-//#[derive(Default, NestedData)]
-//pub struct SchematicInstances<T: Schematic> {
-//    pub instances: Vec<Instance<T>>,
-//}
-//
-//#[derive(NestedData)]
-//pub enum EnumInstances<T: Schematic> {
-//    One { one: Instance<T> },
-//    Two(Instance<T>, Instance<T>),
-//}
-//
-//#[derive(NestedData)]
-//pub struct TwoInstances<T: Schematic>(pub Instance<T>, pub Instance<T>);
-//
+#[derive(Default, NestedData)]
+pub struct SchematicInstances<T: Schematic> {
+    pub instances: Vec<Instance<T>>,
+}
+#[derive(NestedData)]
+pub enum EnumInstances<T: Schematic> {
+    One { one: Instance<T> },
+    Two(Instance<T>, Instance<T>),
+}
+#[derive(Default, NestedData)]
+pub struct SchematicInstancesWithWhereClause<T>
+where
+    T: Schematic,
+{
+    pub instances: Vec<Instance<T>>,
+}
+
+#[derive(NestedData)]
+pub struct TwoInstances<T: Schematic>(pub Instance<T>, pub Instance<T>);
+
 pub struct Schema;
 
 #[derive(Clone, Debug, Copy)]
