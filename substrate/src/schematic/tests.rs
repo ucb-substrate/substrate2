@@ -10,12 +10,9 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{HasNestedView, Instance, NestedInstance};
+use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
-use crate::simulation::data::Save;
-use crate::simulation::{Analysis, Simulator};
-use crate::types::codegen::{HasView, Nested, NestedSaveKey};
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
 use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
 use crate::{

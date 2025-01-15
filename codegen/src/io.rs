@@ -1,4 +1,4 @@
-use macrotools::{DeriveInputHelper, ImplTrait, MapField};
+use macrotools::DeriveInputHelper;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_quote, DeriveInput};
@@ -33,13 +33,11 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         );
         kind_helper
             .map_types(|ty| parse_quote! { <#ty as #substrate::types::HasBundleKind>::BundleKind });
-        let kind_type = kind_helper.get_full_type();
 
         all_decls_impls.push(kind_helper.decl_data());
         all_decls_impls.push(impl_flatlen(&helper));
         all_decls_impls.push(impl_flatten_direction(&helper));
         all_decls_impls.push(impl_has_bundle_kind(&helper, &kind_helper));
-        // all_decls_impls.push(impl_view_source(&helper, Some(&kind_type)));
 
         kind_helper
     } else {
@@ -54,7 +52,6 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     all_decls_impls.push(impl_eq(&kind_helper));
     all_decls_impls.push(impl_flatlen(&kind_helper));
     all_decls_impls.push(impl_has_bundle_kind(&kind_helper, &kind_helper));
-    // all_decls_impls.push(impl_view_source(&kind_helper, None));
     all_decls_impls.push(impl_has_name_tree(&kind_helper));
 
     // Create `View` struct
@@ -71,7 +68,6 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#view_generic_ty>>::View },
     );
     all_decls_impls.push(view_helper.decl_data());
-    // all_decls_impls.push(impl_view_source(&view_helper, None));
     let mut has_bundle_kind_helper = view_helper.clone();
     has_bundle_kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
         let prev_ty = &prev_tys[0];

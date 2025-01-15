@@ -77,7 +77,6 @@ pub(crate) fn impl_schematic_bundle_kind(
 pub(crate) fn impl_has_node_bundle(
     kind_helper: &DeriveInputHelper,
     node_bundle_helper: &DeriveInputHelper,
-    terminal_bundle_helper: &DeriveInputHelper,
 ) -> TokenStream {
     let substrate = substrate_ident();
     let mut kind_helper = kind_helper.clone();
@@ -107,7 +106,6 @@ pub(crate) fn impl_has_node_bundle(
 
 pub(crate) fn impl_has_terminal_bundle(
     kind_helper: &DeriveInputHelper,
-    node_bundle_helper: &DeriveInputHelper,
     terminal_bundle_helper: &DeriveInputHelper,
 ) -> TokenStream {
     let substrate = substrate_ident();
@@ -451,24 +449,11 @@ pub(crate) fn schematic_bundle_kind(
         |ty, _| parse_quote! { #ty: #substrate::schematic::HasNestedView<NestedView = #ty>},
     );
 
-    all_decls_impls.push(impl_has_node_bundle(
-        &helper,
-        &node_bundle_helper,
-        &terminal_bundle_helper,
-    ));
-    all_decls_impls.push(impl_has_terminal_bundle(
-        &helper,
-        &node_bundle_helper,
-        &terminal_bundle_helper,
-    ));
-    all_decls_impls.push(impl_has_node_bundle(
-        kind_helper,
-        &node_bundle_helper,
-        &terminal_bundle_helper,
-    ));
+    all_decls_impls.push(impl_has_node_bundle(&helper, &node_bundle_helper));
+    all_decls_impls.push(impl_has_terminal_bundle(&helper, &terminal_bundle_helper));
+    all_decls_impls.push(impl_has_node_bundle(kind_helper, &node_bundle_helper));
     all_decls_impls.push(impl_has_terminal_bundle(
         kind_helper,
-        &node_bundle_helper,
         &terminal_bundle_helper,
     ));
     all_decls_impls.push(impl_schematic_bundle_kind(
