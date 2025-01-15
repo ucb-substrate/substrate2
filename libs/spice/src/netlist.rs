@@ -539,3 +539,5 @@ impl ConvertibleNetlister<Spice> for Spice {
         NetlisterInstance::new(self, lib, out, opts).export()
     }
 }
+
+impl substrate::schematic::netlist::ConvertibleNetlister<Spice> for Spice {}

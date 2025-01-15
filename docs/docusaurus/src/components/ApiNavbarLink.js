@@ -10,5 +10,5 @@ export default function ApiNavbarLink ({
   ...props
 }) {
   const version = useDocsVersionCandidates(docsPluginId)[0];
-  return <DefaultNavbarItem {...props} label="API" to={getApiDocsUrl(version.label)} />;
+  return <DefaultNavbarItem {...props} label="API" href={getApiDocsUrl(version.label)} />;
 }

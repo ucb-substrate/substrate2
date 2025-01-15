@@ -49,7 +49,7 @@ Replace the content of `src/lib.rs` with the following:
 
 This tutorial will demonstrate how to invoke both [ngspice](https://ngspice.sourceforge.io/index.html) and [Spectre](https://www.cadence.com/en_US/home/tools/custom-ic-analog-rf-design/circuit-simulation/spectre-ams-designer.html) from Substrate to run transient simulations.
 You can choose to use whichever simulator you would like, but make sure to install the appropriate simulator before
-running your Rust code. We recommend an ngspice version of at least 41.
+running your Rust code. We recommend an ngspice version of 37-41, though support for later versions will be added in future releases.
 
 ### SKY130 PDK
 

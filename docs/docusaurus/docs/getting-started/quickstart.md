@@ -76,5 +76,5 @@ cargo test netlist_vdivider
 ## Conclusion
 
 If all goes well, the test above should write the voltage divider netlist to `tests/netlist_vdivider/vdivider.spice`.
-A full, runnable example for this tutorial is available [here](https://github.com/substrate-labs/substrate2/tree/main/examples/spice_vdivder).
+A full, runnable example for this tutorial is available [here]({{GITHUB_URL}}/examples/spice_vdivder).
 

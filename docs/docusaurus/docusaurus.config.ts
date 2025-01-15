@@ -2,7 +2,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import * as fs from 'fs';
-import {getExamplesPath, getApiDocsUrl} from './src/utils/versions';
+import {getExamplesPath, getApiDocsUrl, getGitHubUrl} from './src/utils/versions';
 const siteConfig = require('./site-config.json');
 const isMain = siteConfig.branch == 'main';
 const editUrl = `https://github.com/substrate-labs/substrate2/tree/${siteConfig.branch}/docs/docusaurus`;
@@ -36,7 +36,19 @@ const config: Config = {
 
   onBrokenLinks: 'ignore',
 
-  plugins: ['./src/plugins/substrate-source-assets'],
+  plugins: [
+      './src/plugins/substrate-source-assets',
+      [
+          '@docusaurus/plugin-content-docs',
+      {
+        id: 'dev',
+        sidebarPath: require.resolve('./sidebars.js'),
+        path: 'dev',
+        routeBasePath: 'dev',
+        // ... other options
+      },
+    ],
+  ],
 
   presets: [
     [
@@ -87,6 +99,7 @@ const config: Config = {
           ["VERSION", version],
           ["EXAMPLES", getExamplesPath(version)],
           ["API", getApiDocsUrl(version)],
+          ["GITHUB_URL", getGitHubUrl(siteConfig.branch)],
       ]);
 
       for (const [key, value] of vars) {
@@ -114,36 +127,30 @@ const config: Config = {
             label: 'Documentation',
           },
           {
-            type: 'custom-apiLink',
-            position: 'left',
-          },
-          {to: 'blog', label: 'Blog', position: 'left'},
-          {
-            type: 'docsVersionDropdown',
-            position: 'right',
-          },
-          {
-            href: 'https://github.com/substrate-labs/substrate2',
-            label: 'GitHub',
-            position: 'right',
-          },
-        ] : [
-          {
             type: 'docSidebar',
             sidebarId: 'tutorialSidebar',
+            docsPluginId: 'dev',
             position: 'left',
-            label: 'Documentation',
+            label: 'Developers',
           },
+          ...(isMain? [
+            {to: 'blog', label: 'Blog', position: 'left'},
+            {
+                type: 'docsVersionDropdown',
+                position: 'right',
+            }
+          ] ? [
+            {
+                type: 'docsVersion',
+                position: 'right',
+            }
+          ])
           {
             type: 'custom-apiLink',
-            position: 'left',
-          },
-          {
-            type: 'docsVersion',
             position: 'right',
           },
           {
-            href: `https://github.com/substrate-labs/substrate2/tree/${siteConfig.branch}`,
+            href: getGitHubUrl(siteConfig.branch),
             label: 'GitHub',
             position: 'right',
           },
