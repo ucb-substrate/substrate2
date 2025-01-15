@@ -517,7 +517,6 @@ fn impl_save_nested_bundle(view_helper: &DeriveInputHelper, nodes: bool) -> Toke
 fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenStream {
     let substrate = substrate_ident();
     let mut view_helper = view_helper.clone();
-    view_helper.clear_where_clause();
     let simulator_ty = parse_quote! { SubstrateS };
     let analysis_ty = parse_quote! { SubstrateA };
 
@@ -806,14 +805,19 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
     view_helper.set_ident(view_ident);
     let view_generic_ty = quote! { SubstrateV };
     view_helper.push_generic_param(parse_quote! { #view_generic_ty });
+    let mut save_helper = view_helper.clone();
+    // These where clauses should only be pushed to the view helper, not the save helper.
+    // [`impl_save_nested_native`] will add sufficient where clauses, and adding the where
+    // clauses below seems to confuse the trait solver.
     view_helper.push_where_predicate_per_field(
         |ty, _| parse_quote! { #ty: #substrate::types::codegen::HasView<#view_generic_ty> },
     );
-    view_helper.map_types(
-        |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#view_generic_ty>>::View },
-    );
+    for helper in [&mut view_helper, &mut save_helper] {
+        helper.map_types(
+            |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#view_generic_ty>>::View },
+        );
+    }
     all_decls_impls.push(view_helper.decl_data());
-    // all_decls_impls.push(impl_view_source(&view_helper, None));
     all_decls_impls.push(impl_flatlen(&view_helper));
     all_decls_impls.push(impl_flatten_generic(&view_helper));
 
@@ -824,8 +828,7 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
     );
 
     all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper));
-    all_decls_impls.push(impl_save_nested_native(&view_helper));
-    // TODO: implement save
+    all_decls_impls.push(impl_save_nested_native(&save_helper));
     Ok(quote! {
         #( #all_decls_impls )*
     })
