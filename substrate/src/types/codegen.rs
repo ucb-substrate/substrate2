@@ -9,9 +9,7 @@ use crate::{
 
 use super::{
     layout::{LayoutBundle, PortGeometry},
-    schematic::{
-        HasNodeBundle, HasTerminalBundle, SchematicBundleKind,
-    },
+    schematic::{HasNodeBundle, HasTerminalBundle, SchematicBundleKind},
     Array, ArrayBundle, HasBundleKind, Signal,
 };
 

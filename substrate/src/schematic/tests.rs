@@ -10,9 +10,12 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{Instance, NestedInstance};
+use super::{HasNestedView, Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
+use crate::simulation::data::Save;
+use crate::simulation::{Analysis, Simulator};
+use crate::types::codegen::{HasView, Nested, NestedSaveKey};
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
 use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
 use crate::{
@@ -114,10 +117,167 @@ impl Block for Vdivider {
     }
 }
 
-#[derive(NestedData)]
+// #[derive(NestedData)]
 pub struct VdividerData {
     r1: Instance<Resistor>,
     r2: Instance<Resistor>,
+}
+pub struct VdividerDataView<SubstrateV>
+where
+    Instance<Resistor>: ::substrate::types::codegen::HasView<SubstrateV>,
+    Instance<Resistor>: ::substrate::types::codegen::HasView<SubstrateV>,
+{
+    r1: <Instance<Resistor> as ::substrate::types::codegen::HasView<SubstrateV>>::View,
+    r2: <Instance<Resistor> as ::substrate::types::codegen::HasView<SubstrateV>>::View,
+}
+impl<SubstrateV> ::substrate::types::FlatLen for VdividerDataView<SubstrateV>
+where
+    Instance<Resistor>: ::substrate::types::codegen::HasView<SubstrateV>,
+    Instance<Resistor>: ::substrate::types::codegen::HasView<SubstrateV>,
+    <Instance<Resistor> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
+        ::substrate::types::FlatLen,
+    <Instance<Resistor> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
+        ::substrate::types::FlatLen,
+{
+    fn len(&self) -> usize {
+        <<Instance<
+                    Resistor,
+                > as ::substrate::types::codegen::HasView<
+                    SubstrateV,
+                >>::View as ::substrate::types::FlatLen>::len(&self.r1)
+                    + <<Instance<
+                        Resistor,
+                    > as ::substrate::types::codegen::HasView<
+                        SubstrateV,
+                    >>::View as ::substrate::types::FlatLen>::len(&self.r2)
+    }
+}
+impl<SubstrateV, SubstrateF> ::substrate::types::Flatten<SubstrateF>
+    for VdividerDataView<SubstrateV>
+where
+    Instance<Resistor>: ::substrate::types::codegen::HasView<SubstrateV>,
+    Instance<Resistor>: ::substrate::types::codegen::HasView<SubstrateV>,
+    <Instance<Resistor> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
+        ::substrate::types::Flatten<SubstrateF>,
+    <Instance<Resistor> as ::substrate::types::codegen::HasView<SubstrateV>>::View:
+        ::substrate::types::Flatten<SubstrateF>,
+{
+    fn flatten<E>(&self, __substrate_output_sink: &mut E)
+    where
+        E: ::std::iter::Extend<SubstrateF>,
+    {
+        <<Instance<
+                    Resistor,
+                > as ::substrate::types::codegen::HasView<
+                    SubstrateV,
+                >>::View as ::substrate::types::Flatten<
+                    SubstrateF,
+                >>::flatten(&self.r1, __substrate_output_sink);
+        <<Instance<
+                    Resistor,
+                > as ::substrate::types::codegen::HasView<
+                    SubstrateV,
+                >>::View as ::substrate::types::Flatten<
+                    SubstrateF,
+                >>::flatten(&self.r2, __substrate_output_sink);
+    }
+}
+impl ::substrate::schematic::HasNestedView for VdividerData
+where
+    Instance<Resistor>: ::substrate::schematic::HasNestedView,
+    Instance<Resistor>: ::substrate::schematic::HasNestedView,
+{
+    type NestedView = VdividerDataView<::substrate::types::codegen::Nested>;
+    fn nested_view(
+        &self,
+        __substrate_parent: &::substrate::schematic::InstancePath,
+    ) -> ::substrate::schematic::NestedView<Self> {
+        VdividerDataView {
+            r1: <Instance<Resistor> as ::substrate::schematic::HasNestedView>::nested_view(
+                &&self.r1,
+                __substrate_parent,
+            ),
+            r2: <Instance<Resistor> as ::substrate::schematic::HasNestedView>::nested_view(
+                &&self.r2,
+                __substrate_parent,
+            ),
+        }
+    }
+}
+
+pub trait HasNestedSaveViews<T, S: Simulator, A: Analysis>:
+    HasView<Nested<T>> + HasNestedView<T> + HasView<NestedSaveKey<T, S, A>>
+{
+}
+
+impl<__substrate_T, SubstrateS, SubstrateA>
+    ::substrate::simulation::data::Save<SubstrateS, SubstrateA>
+    for VdividerDataView<::substrate::types::codegen::Nested<__substrate_T>>
+where
+    Instance<Resistor>: ::substrate::schematic::HasNestedView<__substrate_T>,
+    Instance<Resistor>: ::substrate::schematic::HasNestedView<__substrate_T>,
+    <Instance<Resistor> as ::substrate::schematic::HasNestedView<__substrate_T>>::NestedView:
+        ::substrate::simulation::data::Save<SubstrateS, SubstrateA>,
+    <Instance<Resistor> as ::substrate::schematic::HasNestedView<__substrate_T>>::NestedView:
+        ::substrate::simulation::data::Save<SubstrateS, SubstrateA>,
+    <Instance<Resistor> as ::substrate::types::codegen::HasView<Nested<__substrate_T>>>::View:
+        ::substrate::simulation::data::Save<SubstrateS, SubstrateA>,
+    SubstrateS: ::substrate::simulation::Simulator,
+    SubstrateA: ::substrate::simulation::Analysis,
+{
+    type SaveKey = VdividerDataView<
+        ::substrate::types::codegen::NestedSaveKey<__substrate_T, SubstrateS, SubstrateA>,
+    >;
+    type Saved = VdividerDataView<
+        ::substrate::types::codegen::NestedSaved<__substrate_T, SubstrateS, SubstrateA>,
+    >;
+    fn save(
+        &self,
+        __substrate_ctx: &::substrate::simulation::SimulationContext<SubstrateS>,
+        __substrate_opts: &mut <SubstrateS as ::substrate::simulation::Simulator>::Options,
+    ) -> <Self as ::substrate::simulation::data::Save<SubstrateS, SubstrateA>>::SaveKey {
+        VdividerDataView::<
+            ::substrate::types::codegen::NestedSaveKey<__substrate_T, SubstrateS, SubstrateA>,
+        > {
+            r1: <<Instance<Resistor> as HasNestedView<__substrate_T>
+            >::NestedView as ::substrate::simulation::data::Save<SubstrateS, SubstrateA>>::save(
+                &self.r1,
+                __substrate_ctx,
+                __substrate_opts,
+            ),
+            r2: <<Instance<Resistor> as ::substrate::types::codegen::HasView<
+                ::substrate::types::codegen::Nested<__substrate_T>,
+            >>::View as ::substrate::simulation::data::Save<SubstrateS, SubstrateA>>::save(
+                &&self.r2,
+                __substrate_ctx,
+                __substrate_opts,
+            ),
+        }
+    }
+    fn from_saved(
+        __substrate_output: &<SubstrateA as ::substrate::simulation::Analysis>::Output,
+        __substrate_key: &<Self as ::substrate::simulation::data::Save<
+                    SubstrateS,
+                    SubstrateA,
+                >>::SaveKey,
+    ) -> <Self as ::substrate::simulation::data::Save<SubstrateS, SubstrateA>>::Saved {
+        VdividerDataView::<
+            ::substrate::types::codegen::NestedSaved<__substrate_T, SubstrateS, SubstrateA>,
+        > {
+            r1: <<Instance<Resistor> as ::substrate::types::codegen::HasView<
+                ::substrate::types::codegen::Nested<__substrate_T>,
+            >>::View as ::substrate::simulation::data::Save<SubstrateS, SubstrateA>>::from_saved(
+                __substrate_output,
+                &__substrate_key.r1,
+            ),
+            r2: <<Instance<Resistor> as ::substrate::types::codegen::HasView<
+                ::substrate::types::codegen::Nested<__substrate_T>,
+            >>::View as ::substrate::simulation::data::Save<SubstrateS, SubstrateA>>::from_saved(
+                __substrate_output,
+                &__substrate_key.r2,
+            ),
+        }
+    }
 }
 
 impl Schematic for Vdivider {

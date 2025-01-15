@@ -514,6 +514,90 @@ fn impl_save_nested_bundle(view_helper: &DeriveInputHelper, nodes: bool) -> Toke
     })
 }
 
+fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenStream {
+    let substrate = substrate_ident();
+    let mut view_helper = view_helper.clone();
+    view_helper.clear_where_clause();
+    let simulator_ty = parse_quote! { SubstrateS };
+    let analysis_ty = parse_quote! { SubstrateA };
+
+    let hnv_generic_ty: syn::Ident = parse_quote!(SubstrateT);
+    let hnv_generic: syn::GenericParam = parse_quote!(#hnv_generic_ty);
+
+    let save_key_view = parse_quote! { #substrate::types::codegen::NestedSaveKey<#hnv_generic_ty, #simulator_ty, #analysis_ty> };
+    let saved_view = parse_quote! { #substrate::types::codegen::NestedSaved<#hnv_generic_ty, #simulator_ty, #analysis_ty> };
+
+    let mut save_key = view_helper.clone();
+    save_key.add_generic_type_binding(parse_quote! { SubstrateV }, save_key_view);
+    let mut saved = view_helper.clone();
+    saved.add_generic_type_binding(parse_quote! { SubstrateV }, saved_view);
+
+    view_helper.push_where_predicate_per_field(|ty, prev_tys| {
+        let ty = if prev_tys.is_empty() {
+            ty
+        } else {
+            &prev_tys[0]
+        };
+        parse_quote! { #ty: #substrate::schematic::HasNestedView<#hnv_generic_ty> }
+    });
+    view_helper.push_where_predicate_per_field(|ty, prev_tys| {
+        let ty = if prev_tys.is_empty() {
+            ty
+        } else {
+            &prev_tys[0]
+        };
+        parse_quote! {<#ty as #substrate::schematic::HasNestedView<#hnv_generic_ty>>::NestedView: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+    });
+
+    view_helper.add_generic_type_binding(
+        parse_quote! { SubstrateV },
+        parse_quote! { #substrate::types::codegen::Nested<#hnv_generic_ty> },
+    );
+
+    let save_body = view_helper.map_data(
+        &save_key.get_full_turbofish_type(),
+            |MapField { ty, refer, .. }| {
+                    quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::save(&#refer, __substrate_ctx, __substrate_opts) }
+            });
+    let mut from_saved_helper = view_helper.clone();
+    from_saved_helper.set_referent(quote! { __substrate_key });
+    let from_saved_body = from_saved_helper.map_data(
+        &saved.get_full_turbofish_type(),
+            |MapField { ty, refer, .. }| {
+                    quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::from_saved(__substrate_output, #refer) }
+            });
+
+    let save_key_full_ty = save_key.get_full_type();
+    let saved_full_ty = saved.get_full_type();
+
+    view_helper.impl_trait(&ImplTrait {
+        trait_name: quote! { #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> },
+        trait_body: quote! {
+            type SaveKey = #save_key_full_ty;
+            type Saved = #saved_full_ty;
+            fn save(
+                &self,
+                __substrate_ctx: &#substrate::simulation::SimulationContext<#simulator_ty>,
+                __substrate_opts: &mut <#simulator_ty as #substrate::simulation::Simulator>::Options,
+            ) -> <Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::SaveKey {
+                #save_body
+            }
+
+            fn from_saved(
+                __substrate_output: &<#analysis_ty as #substrate::simulation::Analysis>::Output,
+                __substrate_key: &<Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::SaveKey,
+            ) -> <Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::Saved {
+                #from_saved_body
+            }
+        },
+        extra_where_predicates: vec![
+            parse_quote! { #simulator_ty: #substrate::simulation::Simulator },
+            parse_quote! { #analysis_ty: #substrate::simulation::Analysis },
+        ],
+        extra_generics: vec![hnv_generic, simulator_ty, analysis_ty],
+    })
+}
+
 fn impl_has_nested_view(
     view_helper: &DeriveInputHelper,
     nested_view_helper: &DeriveInputHelper,
@@ -740,6 +824,7 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
     );
 
     all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper));
+    all_decls_impls.push(impl_save_nested_native(&view_helper));
     // TODO: implement save
     Ok(quote! {
         #( #all_decls_impls )*
