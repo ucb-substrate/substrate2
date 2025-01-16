@@ -117,23 +117,6 @@ pub struct PortGeometryBuilder<L> {
     named_shapes: HashMap<ArcStr, Shape<L>>,
 }
 
-impl<L> PortGeometryBuilder<L> {
-    /// Builds a port geometry.
-    pub fn build(self) -> Result<PortGeometry<L>> {
-        Ok(PortGeometry {
-            primary: self.primary.ok_or_else(|| {
-                tracing::event!(
-                    Level::ERROR,
-                    "primary shape in port geometry was not specified"
-                );
-                LayoutError::IoDefinition
-            })?,
-            unnamed_shapes: self.unnamed_shapes,
-            named_shapes: self.named_shapes,
-        })
-    }
-}
-
 impl<L> Default for PortGeometryBuilder<L> {
     fn default() -> Self {
         Self {
@@ -161,6 +144,27 @@ impl<L: Clone> PortGeometryBuilder<L> {
 }
 
 impl<L> PortGeometryBuilder<L> {
+    /// Create a new, empty [`PortGeometryBuilder`].
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Builds a port geometry.
+    pub fn build(self) -> Result<PortGeometry<L>> {
+        Ok(PortGeometry {
+            primary: self.primary.ok_or_else(|| {
+                tracing::event!(
+                    Level::ERROR,
+                    "primary shape in port geometry was not specified"
+                );
+                LayoutError::IoDefinition
+            })?,
+            unnamed_shapes: self.unnamed_shapes,
+            named_shapes: self.named_shapes,
+        })
+    }
+
     /// Merges [`PortGeometry`] `other` into `self`, overwriting the primary and corresponding named shapes
     /// and moving their old values to the collection of unnamed shapes.
     pub fn merge(&mut self, other: impl Into<PortGeometry<L>>) {

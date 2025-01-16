@@ -347,6 +347,28 @@ impl<L> Port<L> {
     pub fn add_element(&mut self, element: impl Into<Element<L>>) {
         self.elements.push(element.into())
     }
+
+    pub fn map_layer<L2, F>(&self, f: F) -> Port<L2>
+    where
+        F: Fn(&L) -> L2,
+    {
+        Port {
+            direction: self.direction,
+            elements: self.elements().map(|e| e.map_layer(&f)).collect(),
+        }
+    }
+}
+
+impl<L> Element<L> {
+    pub fn map_layer<L2, F>(&self, f: F) -> Element<L2>
+    where
+        F: FnOnce(&L) -> L2,
+    {
+        match self {
+            Element::Shape(x) => Element::Shape(x.map_layer(f)),
+            Element::Text(x) => Element::Text(x.map_layer(f)),
+        }
+    }
 }
 
 impl<L> From<Shape<L>> for Element<L> {
@@ -378,6 +400,13 @@ impl<L> Shape<L> {
     #[inline]
     pub fn shape(&self) -> &geometry::shape::Shape {
         &self.shape
+    }
+
+    pub fn map_layer<L2>(&self, f: impl FnOnce(&L) -> L2) -> Shape<L2> {
+        Shape {
+            layer: f(&self.layer),
+            shape: self.shape().clone(),
+        }
     }
 }
 
@@ -417,6 +446,14 @@ impl<L> Text<L> {
     #[inline]
     pub fn transformation(&self) -> Transformation {
         self.trans
+    }
+
+    pub fn map_layer<L2>(&self, f: impl FnOnce(&L) -> L2) -> Text<L2> {
+        Text {
+            layer: f(&self.layer),
+            trans: self.trans,
+            text: self.text.clone(),
+        }
     }
 }
 
