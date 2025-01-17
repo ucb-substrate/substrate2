@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 
-use super::{BundleKind, HasBundleKind, Io, Signal, Unflatten};
+use super::{Array, ArrayBundle, BundleKind, HasBundleKind, Io, Signal, Unflatten};
 
 /// A type that has a bundle of nodes.
 pub trait HasNodeBundle: HasBundleKind + Sized + Send + Sync {
@@ -63,6 +63,15 @@ pub trait DataView<T: SchematicBundleKind>: SchematicBundleKind {
         let flat_nodes_view = Flatten::<Node>::flatten_vec(&nodes_view);
         let mut flat_terminals_view = flat_nodes_view.iter().map(|node| *terminal_map[node]);
         TerminalBundle::<T>::unflatten(&nodes_view_kind, &mut flat_terminals_view).unwrap()
+    }
+}
+
+impl<T: SchematicBundleKind> DataView<Array<Signal>> for T {
+    fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<Array<Signal>> {
+        ArrayBundle::new(
+            Signal,
+            <NodeBundle<Self> as Flatten<Node>>::flatten_vec(nodes),
+        )
     }
 }
 

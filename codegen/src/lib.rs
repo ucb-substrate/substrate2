@@ -24,7 +24,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// # Examples
 ///
 /// By default, deriving `Io` for a struct creates two new structs, one corresponding to the IO's `BundleKind`
-/// and the other to relevant views of the IO (called a `Bundle`). Relevant schematic and layout
+/// and the other to relevant views of the IO. Relevant schematic and layout
 /// traits are automatically implemented using these two additional structs.
 ///
 #[doc = include_snippet!("substrate", "buffer_io_simple")]
@@ -32,7 +32,20 @@ use syn::{parse_macro_input, DeriveInput};
 pub fn derive_io(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let bundle_impl = handle_syn_error!(bundle_kind(&parsed, true));
-    // let layout = layout_io(&input);
+    quote!(
+        #bundle_impl
+    )
+    .into()
+}
+
+/// Derives `BundleKind` for a struct.
+///
+/// Creates a struct representing relevant views of the bundle kind (called a `Bundle`).
+/// Relevant schematic and layout traits are automatically implemented using this additional struct.
+#[proc_macro_derive(BundleKind, attributes(substrate))]
+pub fn derive_bundle_kind(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    let bundle_impl = handle_syn_error!(bundle_kind(&parsed, false));
     quote!(
         #bundle_impl
     )

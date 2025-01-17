@@ -80,7 +80,7 @@ has its own set of primitive MOSFETs and resistors that can be fabricated in the
 When you write a schema, you can also specify which schemas it can be converted to. This allows you to elegantly 
 encode portability in the type system. Since the SKY130 PDK supports simulations in ngspice and Spectre, we 
 can declare that the SKY130 schema can be converted to both the ngspice and Spectre schemas. 
-The specifics of this procedure will be detailed later on in this section.
+The specifics of this procedure will be detailed later on this page.
 
 ### Relationship to Substrate
 
@@ -97,7 +97,7 @@ library to the necessary plugin for processing.
 
 ### Schemas
 
-Every SCIR library requires an underlying schema that implements the [`Schema`](https://api.substratelabs.io/scir/schema/trait.Schema.html) trait.
+Every SCIR library requires an underlying schema that implements the [`Schema`] trait.
 
 ```rust
 pub trait Schema {
@@ -105,9 +105,12 @@ pub trait Schema {
 }
 ```
 
-A SCIR schema has an associated primitive type that describes available primitives for representing objects that cannot be represented directly in SCIR. As an example, the most basic schema, [`NoSchema`](https://api.substratelabs.io/scir/schema/struct.NoSchema.html), has a primitive type of [`NoPrimitive`](https://api.substratelabs.io/scir/schema/struct.NoPrimitive.html) that cannot be instantiated — as such, any SCIR library with this schema will have no primitives.
+A SCIR schema has an associated primitive type that describes available primitives for 
+representing objects that cannot be represented directly in SCIR. As an example, 
+the most basic schema, [`NoSchema`], has a primitive type of 
+[`NoPrimitive`] that cannot be instantiated — as such, any SCIR library with this schema will have no primitives.
 
-The relationship between schemas is encoded via the [`FromSchema`](https://api.substratelabs.io/scir/schema/trait.FromSchema.html) trait, which describes how one schema is converted to another.
+The relationship between schemas is encoded via the [`FromSchema`] trait, which describes how one schema is converted to another.
 
 ```rs
 pub trait FromSchema<S: Schema>: Schema {
@@ -129,11 +132,13 @@ signature of `fn convert_primitive(...)`. The instance conversion function, `fn 
 allows you to modify the connections of a SCIR instance that is associated with a primitive to correctly
 connect to the ports of the primitive in the new schema.
 
-The `FromSchema` trait is particularly important since it allows for schematics to be made simulator and netlist portable, and potentially even process portable, as we will see later.
+The `FromSchema` trait is particularly important since it allows for schematics to be made simulator and netlist portable.
 
 ### Libraries
 
-Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`](https://api.substratelabs.io/scir/struct.LibraryBuilder.html). To create a library with the [`StringSchema`](https://api.substratelabs.io/scir/schema/struct.StringSchema.html) schema, whose primitives are arbitrary `ArcStr`s, we write the following:
+Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`]. 
+To create a library with the [`StringSchema`] schema, whose primitives are arbitrary `ArcStr`s, 
+we write the following:
 
 <CodeSnippet language="rust" snippet="scir-library-builder">{core}</CodeSnippet>
 
@@ -165,10 +170,19 @@ SCIR primitives and cells can be instantiated in Substrate generators using *bin
 
 <CodeSnippet language="rust" snippet="scir-schema">{core}</CodeSnippet>
 
-We can create a Substrate block whose schematic corresponds to a `MyPrimitive::Resistor` using a [`PrimitiveBinding`](https://api.substratelabs.io/substrate/schematic/struct.PrimitiveBinding.html). It can then be instantiated in other Substrate generators just like any other block.
+We can create a Substrate block whose schematic corresponds to a `MyPrimitive::Resistor` using a [`PrimitiveBinding`]. It can then be instantiated in other Substrate generators just like any other block.
 
 <CodeSnippet language="rust" snippet="scir-primitive-binding">{core}</CodeSnippet>
 
-Similarly, we can bind to a SCIR cell using a [`ScirBinding`](https://api.substratelabs.io/substrate/schematic/struct.ScirBinding.html):
+Similarly, we can bind to a SCIR cell using a [`ScirBinding`]:
 
 <CodeSnippet language="rust" snippet="scir-scir-binding">{core}</CodeSnippet>
+
+[`Schema`]: {{API}}/scir/schema/trait.Schema.html
+[`FromSchema`]: {{API}}/scir/schema/trait.FromSchema.html
+[`LibraryBuilder`]: {{API}}/scir/struct.LibraryBuilder.html
+[`StringSchema`]: {{API}}/scir/schema/struct.StringSchema.html
+[`NoSchema`]: {{API}}/scir/schema/struct.NoSchema.html
+[`NoPrimitive`]: {{API}}/scir/schema/struct.NoPrimitive.html
+[`PrimitiveBinding`]: {{API}}/substrate/schematic/struct.PrimitiveBinding.html
+[`ScirBinding`]: {{API}}/substrate/schematic/struct.ScirBinding.html

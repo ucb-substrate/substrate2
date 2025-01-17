@@ -17,21 +17,19 @@ schematic. For example, in a digital buffer circuit, we may want to expose the t
 so that they can be probed during simulation. We can also expose the internal node that connects the 
 two inverters for easy access.
 
-We do this by implementing the [`ExportsNestedData`](https://api.substratelabs.io/substrate/schematic/trait.ExportsNestedData.html) trait.
-
 <CodeSnippet language="rust" snippet="buffer-nested-data">{core}</CodeSnippet>
 
 ### Nested views
 
 Essentially, the only requirement for a struct to be used as nested data is that is has a **nested view**.
-A nested view describes how the data changes as it is nested in new cells. For example, a [`Node`](https://api.substratelabs.io/substrate/io/struct.Node.html) 
-in one cell becomes a [`NestedNode`](https://api.substratelabs.io/substrate/io/struct.NestedNode.html) 
+A nested view describes how the data changes as it is nested in new cells. For example, a [`Node`]
+in one cell becomes a [`NestedNode`] 
 when that cell is instantiated within another cell, storing the path to itself from the top cell.
 
 Generally, you should not need to directly create your own nested views as `#[derive(NestedData)]` will do 
 this for you. However, it sometimes may be useful to include your own data that you want to be propagated 
 up from instance to instance. You can do this by implementing the 
-[`HasNestedView`](https://api.substratelabs.io/substrate/schematic/trait.HasNestedView.html) trait.
+[`HasNestedView`] trait.
 
 For example, say you want to propagate up some integer value that was calculated while generating your schematic alongside some nested instances. Then you might define your own nested view and manually implement `HasNestedView` as follows:
 
@@ -39,7 +37,7 @@ For example, say you want to propagate up some integer value that was calculated
 
 If you don't want to deal with the extra layer of indirection while accessing the struct, you can also do something like this:
 
-<CodeSnippet language="rust" snippet="custom-nested-view">{core}</CodeSnippet>
+<CodeSnippet language="rust" snippet="custom-nested-view-2">{core}</CodeSnippet>
 
 However, we don't recommend you do this unless you know what you're doing since it is more prone to error and a bit difficult to understand.
 
@@ -51,26 +49,34 @@ Be careful when implementing `HasNestedView` yourself, since propagating a node 
 
 ## Defining a schematic
 
-Once a block has an associated IO and nested data, you can define its schematic using the [`Schematic`](https://api.substratelabs.io/substrate/schematic/trait.Schematic.html) trait:
+Once a block has an associated IO and nested data, you can define its schematic using the [`Schematic`] trait:
 
 <CodeSnippet language="rust" snippet="vdivider-schematic">{vdividerMod}</CodeSnippet>
 
 Let's look at what each part of the implementation is doing.
-- In the first line, we implement `Schematic<Spice>` for `Vdivider`. `Spice` is a schema, or essentially a specific format in which a block can be defined. Essentially, we are saying that `Vdivider` has a schematic in the `Spice` schema, which allows us to netlist the voltage divider to SPICE and run simulations with it in SPICE simulators. For more details on schemas, see the [SCIR chapter](./scir.md).
+- `type Schema = Spice` declares that `Vdivider` defines its schematic
+    in a specific format called `Spice`.
+    This allows us to netlist the voltage divider to SPICE and run simulations with it 
+    in SPICE simulators. For more details on schemas, see the [SCIR chapter](./scir.md).
+- `type NestedData = ()` declares that `Vdivider` has no associated nested data.
 - `fn schematic(...)`, which defines our schematic, takes in three arguments:
     - `&self` - the block itself, which should contain parameters to the generator.
     - `io` - the bundle corresponding to the cell's IO.
-    - `cell` - a Substrate [`CellBuilder`](https://api.substratelabs.io/substrate/schematic/struct.CellBuilder.html) that provides several helper methods for instantiating sub-blocks, connecting bundles, and running simulations, among other things.
+    - `cell` - a Substrate [`CellBuilder`] that provides several helper methods for instantiating sub-blocks, connecting bundles, and running simulations, among other things.
 - The two calls to `cell.instantiate(...)` create two resistor instances, one with resistance `self.r1` and the other with resistance `self.r2`, and add them to the schematic.
 - The four calls to `cell.connect(...)` connect the terminals of the resistor to the outward-facing IO wires of the cell.
-- The final line of the implementation, `Ok(())`, indicates that there was no error and returns `()`. We return `()` because we declared the nested data type to be `()` in the `ExportsNestedData` implementation.
+- The final line of the implementation, `Ok(())`, indicates that there was no error and returns `()`. We return `()` because we declared the nested data type to be `()`.
 
 :::info Instances and cells
 
 You may have noticed that `cell.instantiate(...)` returns an 
-[`Instance`](https://api.substratelabs.io/substrate/schematic/struct.Instance.html). We define **instances** as specific instantiations of an underlying **cell**, or a template for the contents of the instance. The `fn schematic(...)` that we are implementing is generating a cell, and our calls to `cell.instantiate(...)` are running other cell generators then instantiating them as an instance that we can connect to other instances.
+[`Instance`]. We define **instances** as specific instantiations of an underlying **cell**, 
+or a template for the contents of the instance. The `fn schematic(...)` that we are implementing is generating a cell, and our calls to `cell.instantiate(...)` are running other cell generators then instantiating them as an instance that we can connect to other instances.
 
-This distinction is important since one we generate the underlying cell, we can create as many instances as we want without needing to regenerate the underlying cell. The instances will simply point to the cell that has already been generated, and we can access contents of the underlying cell using functions like [`Instance::try_data`](https://api.substratelabs.io/substrate/schematic/struct.Instance.html#method.try_data) and [`Instance::block`](https://api.substratelabs.io/substrate/schematic/struct.Instance.html#method.block).
+This distinction is important since one we generate the underlying cell, 
+we can create as many instances as we want without needing to regenerate the underlying cell. 
+The instances will simply point to the cell that has already been generated, and we can access 
+contents of the underlying cell using functions like [`Instance::try_data`] and [`Instance::block`].
 
 :::
 
@@ -125,3 +131,12 @@ it is generated successfully, and only then add it to the schematic:
 
 In this case, we start generating the two resistors in parallel using `cell.generate(...)` followed by `cell.instantiate_blocking(...)`.
 We then block on the first resistor and if generation succeeded, we add the resistor to the schematic and connect it up. Otherwise, we just connect the output port to VDD directly.
+
+[`Node`]: https://api.substratelabs.io/substrate/io/struct.Node.html
+[`NestedNode`]: https://api.substratelabs.io/substrate/io/struct.NestedNode.html
+[`HasNestedView`]: https://api.substratelabs.io/substrate/schematic/trait.HasNestedView.html
+[`Schematic`]: https://api.substratelabs.io/substrate/schematic/trait.Schematic.html
+[`Instance`]: https://api.substratelabs.io/substrate/schematic/struct.Instance.html
+[`CellBuilder`]: https://api.substratelabs.io/substrate/schematic/struct.CellBuilder.html
+[`Instance::try_data`]: https://api.substratelabs.io/substrate/schematic/struct.Instance.html#method.try_data
+[`Instance::block`]: https://api.substratelabs.io/substrate/schematic/struct.Instance.html#method.block

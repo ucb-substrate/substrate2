@@ -11,6 +11,10 @@ export function getApiDocsUrl(version) {
     return `https://api.substratelabs.io/${version}`;
 }
 
+export function getGitHubUrl(branch) {
+    return `https://github.com/ucb-substrate/substrate2/tree/${branch}`;
+}
+
 export function isRelease(version) {
     return version != siteConfig.branch;
 }

@@ -6,10 +6,9 @@ publish = false
 
 # begin-code-snippet dependencies
 [dependencies]
-substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
-spice = { version = "0.7.1", registry = "substrate", path = "../../libs/spice" }
+substrate = { version = "0.8.1", registry = "substrate", path = "../../../substrate" }
+spice = { version = "0.7.1", registry = "substrate", path = "../../../libs/spice" }
 
-serde = { version = "1", features = ["derive"] }
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 # end-code-snippet dependencies

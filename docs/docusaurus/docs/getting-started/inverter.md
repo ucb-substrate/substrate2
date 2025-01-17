@@ -181,20 +181,6 @@ Creating them isn't strictly necessary (we could connect `inv.io().vdd` directly
 for example), but they can sometimes improve readability of your code and of generated schematics.
 Finally, we return the node that we want to probe.
 
-The final thing we must do is describe the data produced by our testbench.
-Here, we want to measure 20-80% rise and fall times.
-
-To make our testbench actually a testbench, we must implement the `Testbench` trait.
-The `run` method of this trait allows us to configure simulator options (eg. error tolerances)
-and set up analyses (AC, DC, transient, etc.).
-
-This is how our testbench looks:
-
-<CodeSnippet language="rust" title="src/tb.rs" snippet="testbench">{inverterTb}</CodeSnippet>
-
-We define `Vout` as a receiver for data saved during simulation. We then tell Substrate what data we want to save from
-our testbench by implementing the `SaveTb` trait.
-
 ## Design
 
 Let's use the code we've written to write a script that
@@ -204,17 +190,13 @@ We'll assume that we have a fixed NMOS width and channel length and a set
 of possible PMOS widths to sweep over.
 
 Here's our implementation:
-<CodeSnippet language="rust" title="src/tb.rs" snippet="design">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="ngspice-design">{inverterTb}</CodeSnippet>
 
 We sweep over possible PMOS widths. For each width,
 we create a new testbench instance and tell Substrate to simulate it.
 We use the `WaveformRef` API to look for 20-80% transitions, and capture their duration.
 Finally, we keep track of (and eventually return) the inverter instance that minimizes
 the absolute difference between the rise and fall times.
-
-You may also notice that the `run` function is generic over the simulator `S`, requiring only that
-the `InverterTb` implements `Testbench` and yields `Vout` as an output. This allows to support additional
-simulators simply by implementing `Testbench` for each simulator we would like to support.
 
 ## Running the script
 
@@ -227,7 +209,7 @@ cached computations, and more.
 
 We can then write a Rust unit test to run our design script:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="tests">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="ngspice-tests">{inverterTb}</CodeSnippet>
 
 To run the test, run
 
@@ -239,13 +221,33 @@ If all goes well, the test above should print
 the inverter dimensions with the minimum rise/fall time difference.
 
 ## Adding Spectre support
-Because we designed in multi-simulator support from the beginning, adding Spectre support is simply a matter
-of defining a Spectre-specific testbench schematic, running the appropriate Spectre simulation, and 
-returning the data in the appropriate format.
+Adding Spectre support is simply a matter
+of defining a Spectre-specific testbench schematic and running the appropriate Spectre simulation
+in the inverter design script.
 
-To add Spectre support, we can simply add the following code:
+We first add the Spectre dependency to our `Cargo.toml`:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-support">{inverterTb}</CodeSnippet>
+<DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="spectre-dependencies">{cargoToml}</DependenciesSnippet>
+
+We can now create the Spectre-specific testbench:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-schematic">{inverterTb}</CodeSnippet>
+
+We then modify the original design loop to take in a desired backend and run the appropriate simulation:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="final-design" diffSnippet="ngspice-design">{inverterTb}</CodeSnippet>
+
+We now have to create a context with Spectre and the commercial PDK installed:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-commercial-ctx">{inverterTb}</CodeSnippet>
+
+We can then create a cargo test to run our design script:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-tests">{inverterTb}</CodeSnippet>
+
+Finally, we will need to modify the ngspice test to specify the desired backend:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="final-tests" diffSnippet="ngspice-tests">{inverterTb}</CodeSnippet>
 
 Before running the new Spectre test, ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
 the SKY130 commercial PDK.
@@ -259,6 +261,6 @@ cargo test design_inverter_spectre --features spectre -- --show-output
 
 ## Conclusion
 
-You should now be well equipped to start writing your own schematic generators in Substrate.
-A full, runnable example for this tutorial is available [here](https://github.com/substrate-labs/substrate2/tree/main/examples/sky130_inverter).
+You should now be well-equipped to start writing your own schematic generators in Substrate.
+A full, runnable example for this tutorial is available [here]({{GITHUB_URL}}/examples/sky130_inverter).
 

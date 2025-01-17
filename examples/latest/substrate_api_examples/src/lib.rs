@@ -1,25 +1,24 @@
 #![allow(dead_code)]
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use scir::schema::StringSchema;
 use substrate::block::Block;
 use substrate::schematic::{
     CellBuilder, HasNestedView, InstancePath, NestedData, NestedView, Schematic,
 };
-use substrate::types::schematic::Node;
-use substrate::types::{Array, Flipped, InOut, Input, Io, Output, Signal};
+use substrate::types::schematic::{DataView, IoNodeBundle, Node, NodeBundle};
+use substrate::types::{Array, BundleKind, Flipped, InOut, Input, Io, Output, Signal};
 
 #[derive(Clone)]
 pub enum ExamplePrimitive {}
 
-// begin-code-snippet derive_corner
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum ExamplePdkCorner {
-    Tt,
-    Ss,
-    Ff,
+// begin-code-snippet diff-pair
+#[derive(BundleKind, Clone, Default, Debug, PartialEq, Eq)]
+pub struct DiffPair {
+    pub p: Signal,
+    pub n: Signal,
 }
-// end-code-snippet derive_corner
+// end-code-snippet diff-pair
 
 // begin-code-snippet inverter
 #[derive(Io, Clone, Default, Debug)]
@@ -30,7 +29,7 @@ pub struct InverterIo {
     pub dout: Output<Signal>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Inverter {
     strength: usize,
 }
@@ -66,7 +65,7 @@ pub struct BufferIo {
 }
 // end-code-snippet buffer_io_simple
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Buffer {
     strength: usize,
 }
@@ -80,7 +79,7 @@ impl Buffer {
 impl Block for Buffer {
     type Io = BufferIo;
 
-    fn name(&self) -> arcstr::ArcStr {
+    fn name(&self) -> ArcStr {
         arcstr::format!("buffer_{}", self.strength)
     }
 
@@ -131,32 +130,134 @@ fn io() {
     }
     // end-code-snippet mos-io
 
-    // TODO: replace with data view API
-    // begin-code-snippet mos-io-from
-    // impl<T: BundlePrimitive> From<ThreePortMosIoBundle<T>> for FourPortMosIoBundle<T> {
-    //     fn from(value: ThreePortMosIoBundle<T>) -> Self {
-    //         Self {
-    //             d: value.d,
-    //             g: value.g,
-    //             s: value.s.clone(),
-    //             b: value.s,
-    //         }
-    //     }
-    // }
-    // end-code-snippet mos-io-from
+    // begin-code-snippet mos-io-data-view
+    impl DataView<FourPortMosIoKind> for ThreePortMosIoKind {
+        fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<FourPortMosIoKind> {
+            NodeBundle::<FourPortMosIoKind> {
+                d: nodes.d,
+                g: nodes.g,
+                s: nodes.s,
+                b: nodes.s,
+            }
+        }
+    }
+    // end-code-snippet mos-io-data-view
 
-    // begin-code-snippet mos-io-body
-    //impl<T: BundlePrimitive> ThreePortMosIoBundle<T> {
-    //    fn with_body(&self, b: T) -> FourPortMosIoBundle<T> {
-    //        FourPortMosIoBundle {
-    //            d: self.d.clone(),
-    //            g: self.g.clone(),
-    //            s: self.s.clone(),
-    //            b,
-    //        }
-    //    }
-    //}
-    // end-code-snippet mos-io-body
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "()")]
+    pub struct ExampleBlockA;
+
+    impl Schematic for ExampleBlockA {
+        type Schema = StringSchema;
+        type NestedData = ();
+        fn schematic(
+            &self,
+            _io: &IoNodeBundle<Self>,
+            cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            // begin-code-snippet connect-data-views
+            let three_port_signal = cell.signal("three_port_signal", ThreePortMosIo::default());
+            let four_port_signal = cell.signal("four_port_signal", FourPortMosIo::default());
+            cell.connect(
+                three_port_signal.view_as::<FourPortMosIo>(),
+                four_port_signal,
+            );
+            // end-code-snippet connect-data-views
+            Ok(())
+        }
+    }
+
+    // begin-code-snippet mos-io-data-view-advanced
+    #[derive(BundleKind, Clone, Default, Debug, PartialEq, Eq)]
+    pub struct WithBody<T> {
+        inner: T,
+        b: Signal,
+    }
+
+    impl DataView<FourPortMosIoKind> for WithBody<ThreePortMosIoKind> {
+        fn view_nodes_as(nodes: &NodeBundle<Self>) -> NodeBundle<FourPortMosIoKind> {
+            NodeBundle::<FourPortMosIoKind> {
+                d: nodes.inner.d,
+                g: nodes.inner.g,
+                s: nodes.inner.s,
+                b: nodes.b,
+            }
+        }
+    }
+    // end-code-snippet mos-io-data-view-advanced
+
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[substrate(io = "()")]
+    pub struct ExampleBlockB;
+
+    impl Schematic for ExampleBlockB {
+        type Schema = StringSchema;
+        type NestedData = ();
+        fn schematic(
+            &self,
+            _io: &IoNodeBundle<Self>,
+            cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+        ) -> substrate::error::Result<Self::NestedData> {
+            // begin-code-snippet connect-data-views-advanced
+            let three_port_signal = cell.signal("three_port_signal", ThreePortMosIo::default());
+            let body = cell.signal("body", Signal);
+            let four_port_signal = cell.signal("four_port_signal", FourPortMosIo::default());
+            cell.connect(
+                NodeBundle::<WithBody<ThreePortMosIoKind>> {
+                    inner: three_port_signal,
+                    b: body,
+                }
+                .view_as::<FourPortMosIo>(),
+                four_port_signal,
+            );
+            // end-code-snippet connect-data-views-advanced
+            Ok(())
+        }
+    }
+
+    mod arbitrary_connect {
+        use super::*;
+        // begin-code-snippet arbitrary-connect-ios
+        #[derive(Io, Clone, Default, Debug)]
+        pub struct ThreePortMosIo {
+            pub d: InOut<Signal>,
+            pub g: Input<Signal>,
+            pub s: InOut<Signal>,
+        }
+
+        #[derive(Io, Clone, Default, Debug)]
+        pub struct OtherThreePortMosIo {
+            pub drain: InOut<Signal>,
+            pub gate: Input<Signal>,
+            pub source: InOut<Signal>,
+        }
+        // end-code-snippet arbitrary-connect-ios
+
+        #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+        #[substrate(io = "()")]
+        pub struct ExampleBlockC;
+
+        impl Schematic for ExampleBlockC {
+            type Schema = StringSchema;
+            type NestedData = ();
+            fn schematic(
+                &self,
+                _io: &IoNodeBundle<Self>,
+                cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+            ) -> substrate::error::Result<Self::NestedData> {
+                // begin-code-snippet arbitrary-connect
+                let three_port_signal = cell.signal("three_port_signal", ThreePortMosIo::default());
+                let other_three_port_signal =
+                    cell.signal("other_three_port_signal", OtherThreePortMosIo::default());
+                cell.connect(
+                    three_port_signal.view_as::<Array<Signal>>(),
+                    other_three_port_signal.view_as::<Array<Signal>>(),
+                );
+                // end-code-snippet arbitrary-connect
+                Ok(())
+            }
+        }
+    }
 
     // begin-code-snippet sram-io
     #[derive(Io, Clone, Debug)]
@@ -176,7 +277,7 @@ fn io() {
     // end-code-snippet sram-driver-io
 
     // begin-code-snippet sram-block
-    #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+    #[derive(Debug, Clone, Hash, PartialEq, Eq)]
     pub struct Sram {
         num_words: usize,
         data_width: usize,
@@ -215,7 +316,7 @@ pub struct VdividerIo {
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, Eq)]
+#[derive(Block, Debug, Copy, Clone, Hash, Eq)]
 #[substrate(io = "()")]
 pub struct Vdivider {
     /// The top resistance.
@@ -238,7 +339,7 @@ pub mod nested_data {
     use substrate::schematic::Instance;
     use substrate::types::schematic::IoNodeBundle;
 
-    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "()")]
     pub struct Inverter;
 
@@ -254,7 +355,7 @@ pub mod nested_data {
         }
     }
 
-    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "()")]
     pub struct Buffer;
 
@@ -363,7 +464,7 @@ mod try_data {
         }
     }
 
-    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "super::VdividerIo")]
     pub struct Vdivider {
         /// The top resistance.
@@ -404,7 +505,7 @@ mod instantiate_blocking {
 
     use super::*;
 
-    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "super::VdividerIo")]
     pub struct Vdivider {
         /// The top resistance.
@@ -441,7 +542,7 @@ mod instantiate_blocking_bad {
 
     use super::*;
 
-    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "super::VdividerIo")]
     pub struct Vdivider {
         /// The top resistance.
@@ -481,7 +582,7 @@ mod generate {
 
     use super::*;
 
-    #[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+    #[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
     #[substrate(io = "super::VdividerIo")]
     pub struct Vdivider {
         /// The top resistance.
@@ -520,10 +621,9 @@ mod generate {
     // end-code-snippet vdivider-generate-add-error-handling
 }
 
-mod scir {
+mod scir_examples {
     use scir::schema::{Schema, StringSchema};
     use scir::{Cell, Direction, Instance, LibraryBuilder};
-    use serde::{Deserialize, Serialize};
     use substrate::block::Block;
     use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic, ScirBinding};
     use substrate::types::schematic::IoNodeBundle;
@@ -544,7 +644,7 @@ mod scir {
     // end-code-snippet scir-schema
 
     // begin-code-snippet scir-primitive-binding
-    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
     #[substrate(io = "TwoTerminalIo")]
     pub struct Resistor(i64);
 
@@ -568,7 +668,7 @@ mod scir {
     // end-code-snippet scir-primitive-binding
 
     // begin-code-snippet scir-scir-binding
-    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Block)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
     #[substrate(io = "TwoTerminalIo")]
     pub struct ParallelResistors(i64, i64);
 

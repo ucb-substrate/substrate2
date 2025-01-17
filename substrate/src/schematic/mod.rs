@@ -1,6 +1,7 @@
 //! Substrate's schematic generator framework.
 
 pub mod conv;
+pub mod netlist;
 pub mod pex;
 pub mod schema;
 #[cfg(test)]

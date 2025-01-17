@@ -264,7 +264,10 @@ mod tests {
 
     use approx::assert_relative_eq;
     use spectre::{analysis::tran::Tran, ErrPreset, Options};
-    use substrate::{context::Context, simulation::SimController};
+    use substrate::{
+        context::Context,
+        simulation::{waveform::TimeWaveform, SimController},
+    };
 
     use super::*;
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
@@ -303,7 +306,7 @@ mod tests {
                 )
                 .expect("failed to run simulation");
 
-            *out.x_31.first().unwrap()
+            out.x_31.as_ref().first_x().unwrap()
         }
 
         let test_name = "test_sim_cadence_pex";
@@ -349,7 +352,7 @@ mod tests {
                 )
                 .expect("failed to run simulation");
 
-            *out.x_31.first().unwrap()
+            out.x_31.as_ref().first_x().unwrap()
         }
 
         let test_name = "test_sim_open_pex";

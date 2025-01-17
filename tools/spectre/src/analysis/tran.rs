@@ -6,9 +6,11 @@ use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::simulation::data::{Save, SaveOutput, SaveTime};
+use substrate::simulation::waveform::{TimePoint, TimeWaveform, WaveformRef};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
 
@@ -45,6 +47,29 @@ pub struct Output {
     pub raw_values: HashMap<ArcStr, Arc<Vec<f64>>>,
     /// A map from a save ID to a raw value identifier.
     pub(crate) saved_values: HashMap<u64, ArcStr>,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct OutputWaveform {
+    pub t: Arc<Vec<f64>>,
+    pub x: Arc<Vec<f64>>,
+}
+
+impl OutputWaveform {
+    pub fn as_ref(&self) -> WaveformRef<'_, f64> {
+        WaveformRef::new(&self.t, &self.x)
+    }
+}
+
+impl TimeWaveform for OutputWaveform {
+    type Data = f64;
+    fn get(&self, idx: usize) -> Option<TimePoint<f64>> {
+        self.as_ref().get(idx)
+    }
+
+    fn len(&self) -> usize {
+        self.t.len()
+    }
 }
 
 impl Save<Spectre, Tran> for SaveOutput {
@@ -91,7 +116,7 @@ pub struct VoltageSaveKey(pub(crate) u64);
 
 impl Save<Spectre, Tran> for NestedNode {
     type SaveKey = VoltageSaveKey;
-    type Saved = Arc<Vec<f64>>;
+    type Saved = OutputWaveform;
 
     fn save(
         &self,
@@ -112,17 +137,20 @@ impl Save<Spectre, Tran> for NestedNode {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
     ) -> <Self as Save<Spectre, Tran>>::Saved {
-        output
-            .raw_values
-            .get(output.saved_values.get(&key.0).unwrap())
-            .unwrap()
-            .clone()
+        OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        }
     }
 }
 
 impl Save<Spectre, Tran> for RawNestedNode {
     type SaveKey = VoltageSaveKey;
-    type Saved = Arc<Vec<f64>>;
+    type Saved = OutputWaveform;
 
     fn save(
         &self,
@@ -140,11 +168,14 @@ impl Save<Spectre, Tran> for RawNestedNode {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
     ) -> <Self as Save<Spectre, Tran>>::Saved {
-        output
-            .raw_values
-            .get(output.saved_values.get(&key.0).unwrap())
-            .unwrap()
-            .clone()
+        OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        }
     }
 }
 
@@ -155,9 +186,9 @@ pub struct CurrentSaveKey(pub(crate) Vec<u64>);
 /// Data saved from a nested terminal in a transient simulation.
 pub struct NestedTerminalOutput {
     /// The voltage at the terminal.
-    pub v: Arc<Vec<f64>>,
+    pub v: OutputWaveform,
     /// The current flowing through the terminal.
-    pub i: Arc<Vec<f64>>,
+    pub i: OutputWaveform,
 }
 
 impl Save<Spectre, Tran> for NestedTerminal {
@@ -197,11 +228,14 @@ impl Save<Spectre, Tran> for NestedTerminal {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
     ) -> <Self as Save<Spectre, Tran>>::Saved {
-        let v = output
-            .raw_values
-            .get(output.saved_values.get(&key.0 .0).unwrap())
-            .unwrap()
-            .clone();
+        let v = OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0 .0).unwrap())
+                .unwrap()
+                .clone(),
+        };
         let currents: Vec<Arc<Vec<f64>>> = key
             .1
              .0
@@ -223,7 +257,10 @@ impl Save<Spectre, Tran> for NestedTerminal {
         }
         NestedTerminalOutput {
             v,
-            i: Arc::new(total_current),
+            i: OutputWaveform {
+                t: output.time.clone(),
+                x: Arc::new(total_current),
+            },
         }
     }
 }

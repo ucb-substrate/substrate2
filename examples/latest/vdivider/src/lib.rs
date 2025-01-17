@@ -170,7 +170,7 @@ mod tests {
     use approx::relative_eq;
     use rust_decimal_macros::dec;
     use spectre::{analysis::tran::Tran, ErrPreset};
-    use substrate::context::Context;
+    use substrate::{context::Context, simulation::waveform::TimeWaveform};
 
     use super::*;
     use std::path::PathBuf;
@@ -205,14 +205,14 @@ mod tests {
             .unwrap();
 
         for (actual, expected) in [
-            (&*output.iprobe.io().p.i, 1.8 / 40.),
-            (&*output.dut.io().pwr.vdd.v, 1.8),
-            (&*output.dut.io().out.v, 0.9),
+            (&output.iprobe.io().p.i, 1.8 / 40.),
+            (&output.dut.io().pwr.vdd.v, 1.8),
+            (&output.dut.io().out.v, 0.9),
         ] {
-            assert!(actual
-                .iter()
-                .cloned()
-                .all(|val| relative_eq!(val, expected)));
+            assert!(actual.as_ref().values().all(|pt| {
+                let val = pt.x();
+                relative_eq!(val, expected)
+            }));
         }
     }
 }
