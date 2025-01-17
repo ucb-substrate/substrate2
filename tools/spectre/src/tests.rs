@@ -301,6 +301,7 @@ impl Schematic for RcTb {
     }
 }
 
+// TODO: uncomment
 // impl Testbench<Spectre> for RcTb {
 //     type Output = (f64, f64, Complex64);
 //     fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {}
