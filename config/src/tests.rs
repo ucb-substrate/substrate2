@@ -8,7 +8,7 @@ use cache::persistent::client::ClientKind;
 
 use crate::{raw::RawConfig, CacheProviderConfig, Config};
 
-const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/data");
+const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../data");
 
 #[test]
 fn test_raw_config() -> Result<()> {

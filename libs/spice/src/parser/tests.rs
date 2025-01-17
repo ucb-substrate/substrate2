@@ -5,7 +5,7 @@ use crate::Primitive;
 use scir::netlist::ConvertibleNetlister;
 use std::path::PathBuf;
 
-pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
+pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data");
 
 pub const SPICE_MOS: &str = r#"
 .subckt my_mos d g s b

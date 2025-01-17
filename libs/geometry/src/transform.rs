@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-pub use geometry_macros::{TransformMut, TransformRef, TranslateMut};
+pub use geometry_macros::{TransformMut, TransformRef, TranslateMut, TranslateRef};
 use impl_trait_for_tuples::impl_for_tuples;
 use serde::{Deserialize, Serialize};
 

@@ -1,9 +1,12 @@
 use gds::GdsUnits;
 use gdsconv::{export::GdsExportOpts, GdsLayer};
 use geometry::{
+    align::{AlignBbox, AlignMode},
+    bbox::Bbox,
     rect::Rect,
     side::Sides,
     transform::{TransformMut, TransformRef, TranslateMut, TranslateRef},
+    union::BoundingUnion,
 };
 use layir::{Cell, LibraryBuilder, Shape};
 
@@ -24,10 +27,12 @@ use super::{
     CellBundle, Instance, Layout,
 };
 
-const GDS_EXPORT_OPTS: GdsExportOpts = GdsExportOpts {
-    name: arcstr::literal!("TOP"),
-    units: Some(GdsUnits::new(1., 1e-9)),
-};
+fn gds_export_opts() -> GdsExportOpts {
+    GdsExportOpts {
+        name: arcstr::literal!("TOP"),
+        units: Some(GdsUnits::new(1., 1e-9)),
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ExampleLayer {
@@ -85,13 +90,6 @@ pub fn to_gds(lib: &layir::Library<ExampleLayer>) -> layir::Library<GdsLayer> {
 impl Schema for ExampleSchema {
     type Layer = ExampleLayer;
 }
-
-use geometry::{
-    prelude::{AlignBbox, AlignMode, Bbox},
-    rect::Rect,
-    side::Sides,
-    union::BoundingUnion,
-};
 
 impl Layout for Inverter {
     type Schema = ExampleSchema;
@@ -153,21 +151,24 @@ impl Layout for Buffer {
 
         cell.draw(Shape::new(
             ExampleLayer::C,
-            inv1.io().dout.bounding_union(&inv2.io().din),
+            inv1.io()
+                .dout
+                .primary
+                .bounding_union(&inv2.io().din.primary),
         ))?;
 
         Ok((
             CellBundle::<Self> {
                 din: inv1.io().din,
                 dout: inv1.io().dout,
-                vdd: Shape::new(
+                vdd: PortGeometry::new(Shape::new(
                     ExampleLayer::B,
-                    inv1.io().vdd.bounding_union(&inv2.io().vdd),
-                ),
-                vss: Shape::new(
+                    inv1.io().vdd.primary.bounding_union(&inv2.io().vdd.primary),
+                )),
+                vss: PortGeometry::new(Shape::new(
                     ExampleLayer::B,
-                    inv1.io().vss.bounding_union(&inv2.io().vss),
-                ),
+                    inv1.io().vss.primary.bounding_union(&inv2.io().vss.primary),
+                )),
             },
             BufferData { inv1, inv2 },
         ))
@@ -189,7 +190,6 @@ impl Layout for BufferN {
     ) -> crate::error::Result<(Self::Bundle, Self::Data)> {
         let buffer = cell.generate(Buffer::new(self.strength));
 
-        let mut data = BufferNData::default();
         let mut tiler = ArrayTiler::new(TileAlignMode::PosAdjacent, TileAlignMode::Center);
         let buffers = tiler
             .push_num(
@@ -206,19 +206,18 @@ impl Layout for BufferN {
         for i in 0..self.n {
             if i > 0 {
                 cell.draw(Shape::new(
-                    buffers[i].io().dout.layer().drawing(),
+                    *buffers[i].io().dout.primary.layer(),
                     buffers[i]
                         .io()
                         .din
+                        .primary
                         .bounding_union(&buffers[i - 1].io().dout),
                 ))?;
             }
 
-            vdd.push(buffers[i].io().vdd.clone());
-            vss.push(buffers[i].io().vss.clone());
+            vdd.merge(buffers[i].io().vdd);
+            vss.merge(buffers[i].io().vss);
         }
-
-        data.buffers = buffers;
 
         cell.draw(tiler)?;
 
@@ -226,10 +225,10 @@ impl Layout for BufferN {
             CellBundle::<Self> {
                 din: buffers[0].io().din,
                 dout: buffers[self.n - 1].io().dout,
-                vdd,
-                vss,
+                vdd: vdd.build().unwrap(),
+                vss: vss.build().unwrap(),
             },
-            data,
+            BufferNData { buffers },
         ))
     }
 }
@@ -248,14 +247,14 @@ impl Layout for BufferNxM {
         let mut vdd = PortGeometryBuilder::new();
         let mut vss = PortGeometryBuilder::new();
         let mut din = vec![PortGeometryBuilder::new(); self.io().din.len()];
-        let mut dout = vec![PortGeometryBuilder::new(), self.io().dout.len()];
+        let mut dout = vec![PortGeometryBuilder::new(); self.io().dout.len()];
 
         for i in 0..self.m {
             let key = tiler.push(Tile::from_bbox(buffern.clone()).with_padding(Sides::uniform(10)));
             vdd.merge(tiler[key].io().vdd);
             vss.merge(tiler[key].io().vss);
-            din[i].set(tiler[key].io().din);
-            dout[i].set(tiler[key].io().dout);
+            din[i].merge(tiler[key].io().din);
+            dout[i].merge(tiler[key].io().dout);
         }
 
         cell.draw(tiler)?;
@@ -267,10 +266,16 @@ impl Layout for BufferNxM {
 
         Ok((
             CellBundle::<Self> {
-                din: ArrayBundle::new(din, Signal),
-                dout: ArrayBundle::new(dout, Signal),
-                vdd,
-                vss,
+                din: ArrayBundle::new(
+                    Signal,
+                    din.into_iter().map(|b| b.build().unwrap()).collect(),
+                ),
+                dout: ArrayBundle::new(
+                    Signal,
+                    dout.into_iter().map(|b| b.build().unwrap()).collect(),
+                ),
+                vdd: vdd.build().unwrap(),
+                vss: vss.build().unwrap(),
             },
             (),
         ))
@@ -361,7 +366,7 @@ fn layout_generation_and_data_propagation_work() {
     ctx.write_layout(
         block,
         to_gds,
-        GDS_EXPORT_OPTS,
+        gds_export_opts(),
         get_path(test_name, "layout_pdk_a.gds"),
     )
     .expect("failed to write layout");
@@ -377,7 +382,7 @@ fn nested_transform_views_work() {
     ctx.write_layout(
         block,
         to_gds,
-        GDS_EXPORT_OPTS,
+        gds_export_opts(),
         get_path(test_name, "layout.gds"),
     )
     .expect("failed to write layout");
@@ -402,7 +407,7 @@ fn cell_builder_supports_bbox() {
         .write_layout(
             block,
             to_gds,
-            GDS_EXPORT_OPTS,
+            gds_export_opts(),
             get_path(test_name, "layout.gds"),
         )
         .expect("failed to write layout");
@@ -427,12 +432,12 @@ fn export_multi_top_layout() {
     let block3 = ctx.generate_layout(block3);
     ctx.write_layout_all(
         [
-            block1.cell().raw(),
-            block2.cell().raw(),
-            block3.cell().raw(),
+            block1.cell().raw().as_ref(),
+            block2.cell().raw().as_ref(),
+            block3.cell().raw().as_ref(),
         ],
         to_gds,
-        GDS_EXPORT_OPTS,
+        gds_export_opts(),
         get_path(test_name, "layout.gds"),
     )
     .expect("failed to write layout");
@@ -446,7 +451,7 @@ fn grid_tiler_works_with_various_spans() {
     ctx.write_layout(
         GridTilerExample,
         to_gds,
-        GDS_EXPORT_OPTS,
+        gds_export_opts(),
         get_path(test_name, "layout.gds"),
     )
     .expect("failed to write layout");
