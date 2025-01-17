@@ -23,5 +23,4 @@ approx = "0.5"
 derive-where = "1"
 
 [features]
-default = []
 spectre = []

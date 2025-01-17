@@ -17,6 +17,7 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::schematic::schema::{FromSchema, Schema};
 use substrate::schematic::{Cell, CellBuilder, Schematic};
+use substrate::simulation::waveform::TimeWaveform;
 use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use substrate::types::schematic::Terminal;
 use substrate::types::{Signal, TestbenchIo, TwoTerminalIo};
@@ -169,7 +170,7 @@ fn sky130_and2_ngspice() {
                 },
             )
             .expect("failed to run simulation");
-        assert_abs_diff_eq!(*vout.v.last().unwrap(), expected, epsilon = 1e-6);
+        assert_abs_diff_eq!(vout.v.as_ref().last_x().unwrap(), expected, epsilon = 1e-6);
     }
 }
 

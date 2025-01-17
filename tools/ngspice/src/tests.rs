@@ -10,6 +10,7 @@ use spice::Resistor;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::schematic::{CellBuilder, ConvertSchema, NestedData, Schematic};
+use substrate::simulation::waveform::TimeWaveform;
 use substrate::types::schematic::Terminal;
 use substrate::types::{Signal, TestbenchIo};
 
@@ -87,12 +88,13 @@ fn ngspice_can_save_voltages_and_currents() {
         .expect("failed to run simulation");
 
     for (actual, expected) in [
-        (&*output.r1.i, 1.8 / 150.),
-        (&*output.r2.i, 1.8 / 300.),
-        (&*output.r3.i, 1.8 / 300.),
-        (&*output.r2.v, 1.8 / 3.),
+        (output.r1.i.as_ref(), 1.8 / 150.),
+        (output.r2.i.as_ref(), 1.8 / 300.),
+        (output.r3.i.as_ref(), 1.8 / 300.),
+        (output.r2.v.as_ref(), 1.8 / 3.),
     ] {
-        actual.iter().copied().for_each(|val| {
+        actual.values().for_each(|pt| {
+            let val = pt.x();
             assert!(
                 relative_eq!(val, expected),
                 "found {val}, expected {expected}"

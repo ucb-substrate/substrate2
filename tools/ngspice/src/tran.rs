@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::simulation::data::{Save, SaveTime};
+use substrate::simulation::data::{Save, SaveOutput, SaveTime};
+use substrate::simulation::waveform::{TimePoint, TimeWaveform, WaveformRef};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
 use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
 
@@ -36,7 +37,30 @@ pub struct Output {
     pub(crate) saved_values: HashMap<u64, ArcStr>,
 }
 
-impl Save<Ngspice, Tran> for Output {
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct OutputWaveform {
+    pub t: Arc<Vec<f64>>,
+    pub x: Arc<Vec<f64>>,
+}
+
+impl OutputWaveform {
+    pub fn as_ref(&self) -> WaveformRef<'_, f64> {
+        WaveformRef::new(self.t.as_ref(), self.x.as_ref())
+    }
+}
+
+impl TimeWaveform for OutputWaveform {
+    type Data = f64;
+    fn get(&self, idx: usize) -> Option<TimePoint<f64>> {
+        self.as_ref().get(idx)
+    }
+
+    fn len(&self) -> usize {
+        self.t.len()
+    }
+}
+
+impl Save<Ngspice, Tran> for SaveOutput {
     type SaveKey = ();
     type Saved = Output;
     fn save(
@@ -77,7 +101,7 @@ pub struct VoltageSaveKey(pub(crate) u64);
 
 impl Save<Ngspice, Tran> for NestedNode {
     type SaveKey = VoltageSaveKey;
-    type Saved = Arc<Vec<f64>>;
+    type Saved = OutputWaveform;
     fn save(
         &self,
         ctx: &SimulationContext<Ngspice>,
@@ -97,17 +121,20 @@ impl Save<Ngspice, Tran> for NestedNode {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Ngspice, Tran>>::SaveKey,
     ) -> <Self as Save<Ngspice, Tran>>::Saved {
-        output
-            .raw_values
-            .get(output.saved_values.get(&key.0).unwrap())
-            .unwrap()
-            .clone()
+        OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        }
     }
 }
 
 impl Save<Ngspice, Tran> for RawNestedNode {
     type SaveKey = VoltageSaveKey;
-    type Saved = Arc<Vec<f64>>;
+    type Saved = OutputWaveform;
 
     fn save(
         &self,
@@ -126,16 +153,19 @@ impl Save<Ngspice, Tran> for RawNestedNode {
         key: &<Self as Save<Ngspice, Tran>>::SaveKey,
     ) -> <Self as Save<Ngspice, Tran>>::Saved {
         let name = output.saved_values.get(&key.0).unwrap();
-        output.raw_values.get(name).unwrap().clone()
+        OutputWaveform {
+            t: output.time.clone(),
+            x: output.raw_values.get(name).unwrap().clone(),
+        }
     }
 }
 
 /// The output of saving a terminal.
 pub struct NestedTerminalOutput {
     /// The voltage at the terminal.
-    pub v: Arc<Vec<f64>>,
+    pub v: OutputWaveform,
     /// The current flowing through the terminal.
-    pub i: Arc<Vec<f64>>,
+    pub i: OutputWaveform,
 }
 
 impl Save<Ngspice, Tran> for NestedTerminal {
@@ -175,11 +205,14 @@ impl Save<Ngspice, Tran> for NestedTerminal {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Ngspice, Tran>>::SaveKey,
     ) -> <Self as Save<Ngspice, Tran>>::Saved {
-        let v = output
-            .raw_values
-            .get(output.saved_values.get(&key.0 .0).unwrap())
-            .unwrap()
-            .clone();
+        let v = OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0 .0).unwrap())
+                .unwrap()
+                .clone(),
+        };
         let currents: Vec<Arc<Vec<f64>>> = key
             .1
              .0
@@ -201,7 +234,10 @@ impl Save<Ngspice, Tran> for NestedTerminal {
         }
         NestedTerminalOutput {
             v,
-            i: Arc::new(total_current),
+            i: OutputWaveform {
+                t: output.time.clone(),
+                x: Arc::new(total_current),
+            },
         }
     }
 }

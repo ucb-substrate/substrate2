@@ -33,6 +33,7 @@ use crate::types::layout::PortGeometryBuilder;
 use crate::types::schematic::{IoNodeBundle, NodeContext, NodePriority, Port};
 use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBuf};
 
+// begin-code-snippet context
 /// The global context.
 ///
 /// Stores configuration such as the PDK and tool plugins to use during generation.
@@ -47,6 +48,7 @@ pub struct Context {
     /// A cache for storing the results of expensive computations.
     pub cache: Cache,
 }
+// end-code-snippet context
 
 impl Default for Context {
     fn default() -> Self {

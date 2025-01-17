@@ -2480,7 +2480,6 @@ dependencies = [
  "ngspice",
  "rust_decimal",
  "rust_decimal_macros",
- "serde",
  "sky130pdk",
  "spectre",
  "substrate",
@@ -2683,6 +2682,10 @@ dependencies = [
 name = "substrate_api_examples"
 version = "0.0.0"
 dependencies = [
+ "arcstr",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scir",
  "substrate",
 ]
 

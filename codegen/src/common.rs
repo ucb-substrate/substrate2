@@ -146,18 +146,27 @@ pub(crate) fn impl_flatten_direction(helper: &DeriveInputHelper) -> TokenStream 
     })
 }
 
-pub(crate) fn impl_has_name_tree(helper: &DeriveInputHelper) -> TokenStream {
+pub(crate) fn impl_has_name_tree(helper: &DeriveInputHelper, io: bool) -> TokenStream {
     let substrate = substrate_ident();
     let mut helper = helper.clone();
-    helper.push_where_predicate_per_field(
-        |ty, _| parse_quote! { #ty: #substrate::types::HasBundleKind },
-    );
+    helper.push_where_predicate_per_field(|ty, _| {
+        if io {
+            parse_quote! { #ty: #substrate::types::HasBundleKind }
+        } else {
+            parse_quote! { #ty: #substrate::types::HasNameTree }
+        }
+    });
     let name_fields = helper.map(|fields| {
-        let mapped_fields = fields.iter().map(|MapField{ ty, pretty_ident, refer, .. }|
+        let mapped_fields = fields.iter().map(|MapField{ ty, pretty_ident, refer, .. }| {
+            let ty = if io {
+                quote! { <#ty as #substrate::types::HasBundleKind>::BundleKind }
+            } else {
+                quote! { #ty }
+            };
             quote! {
                 (#substrate::arcstr::literal!(::std::stringify!(#pretty_ident)), <#ty as #substrate::types::HasNameTree>::names(&#refer))
             }
-        );
+        });
         quote! { vec![ #(#mapped_fields),* ] }
     });
     helper.impl_trait(&ImplTrait {
@@ -207,6 +216,7 @@ pub(crate) fn impl_unflatten(
     kind_helper: &DeriveInputHelper,
     view_helper: &DeriveInputHelper,
     bundle_kind: &syn::Type,
+    io: bool,
 ) -> TokenStream {
     let substrate = substrate_ident();
     let unflatten_generic = parse_quote! { SubstrateS };
@@ -214,7 +224,11 @@ pub(crate) fn impl_unflatten(
     let mut view_helper = view_helper.clone();
     view_helper.push_where_predicate_per_field(|_ty, prev_tys| {
         let prev_ty = &prev_tys[0];
-        parse_quote! { #prev_ty: #substrate::types::HasBundleKind }
+        if io {
+            parse_quote! { #prev_ty: #substrate::types::HasBundleKind }
+        } else {
+            parse_quote! { #prev_ty: #substrate::types::BundleKind }
+        }
     });
     view_helper.push_where_predicate_per_field(
         |ty, prev_tys| {
@@ -227,9 +241,7 @@ pub(crate) fn impl_unflatten(
     let unflatten_body = kind_helper.map_data(
         &view_helper.get_type(),
             |MapField { ty, refer, prev_tys, .. }| {
-                    let root_ty = if let Some(prev_ty) = prev_tys.first() {
-                        prev_ty
-                    } else { ty };
+                    let root_ty = prev_tys.first().unwrap_or(ty);
                     quote! { <<#root_ty as #substrate::types::codegen::HasView<SubstrateV>>::View as #substrate::types::Unflatten<#ty, #unflatten_generic>>::unflatten(&#refer, __substrate_source)? }
             });
     view_helper.impl_trait(&ImplTrait {

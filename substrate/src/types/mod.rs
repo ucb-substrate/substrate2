@@ -6,7 +6,7 @@ use std::{
     ops::{Deref, Index},
 };
 
-pub use ::codegen::Io;
+pub use ::codegen::{BundleKind, Io};
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 

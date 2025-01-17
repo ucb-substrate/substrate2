@@ -1,4 +1,5 @@
 import CodeBlock from "@theme/CodeBlock";
+const Diff = require("diff");
 
 function trimLeadingWS(str) {
   /*
@@ -18,22 +19,50 @@ function trimLeadingWS(str) {
   }
 };
 
-
-function CodeSnippet({children, snippet, language, title, showLineNumbers}) {
+function getSnippet(content, snippet) {
   var inSnippet = false;
   var selected = "";
-  for (const line of children.split('\n')) {
+  for (const line of content.split('\n')) {
     const trimmed = line.trim();
     if (trimmed === `// begin-code-snippet ${snippet}` || trimmed === `# begin-code-snippet ${snippet}`) {
       inSnippet = true;
     } else if (trimmed === `// end-code-snippet ${snippet}` || trimmed === `# end-code-snippet ${snippet}`) {
-      return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers}>{trimLeadingWS(selected)}</CodeBlock></div>);
+      return trimLeadingWS(selected);
     } else if (inSnippet) {
       selected += `${line}\n`;
     }
   }
 
   throw new Error(`Code snippet '${snippet}' not found`);
+}
+
+function generateDiff(source, target) {
+    var diff = Diff.diffLines(source, target, {ignoreWhitespace: true});
+    var final = "";
+    diff.forEach((part) => {
+        // green for additions, red for deletions
+        var prefix = "";
+        if (part.added) {
+            prefix = "// diff-add\n";
+        } else if (part.removed) {
+            prefix = "// diff-remove\n";
+        }
+
+        for (const line of part.value.split("\n").slice(0, -1)) {
+            final += `${prefix}${line}\n`;
+        }
+    });
+    return final;
+}
+
+
+function CodeSnippet({children, snippet, language, title, showLineNumbers, diffSnippet}) {
+    let target = getSnippet(children, snippet);
+  if (diffSnippet) {
+      let source = getSnippet(children, diffSnippet);
+      target = generateDiff(source, target);
+  }
+  return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers}>{target}</CodeBlock></div>);
 }
 
 export default CodeSnippet;

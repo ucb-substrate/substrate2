@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import {getExamplesPath, getApiDocsUrl, getGitHubUrl} from './src/utils/versions';
 const siteConfig = require('./site-config.json');
 const isMain = siteConfig.branch == 'main';
-const editUrl = `https://github.com/substrate-labs/substrate2/tree/${siteConfig.branch}/docs/docusaurus`;
+const editUrl = `${getGitHubUrl(siteConfig.branch)}/docs/docusaurus`;
 
 const config: Config = {
   title: 'Substrate Labs',
@@ -95,15 +95,19 @@ const config: Config = {
       } else {
           version = siteConfig.branch;
       }
-      let vars = new Map([
+
+      // begin-code-snippet global-vars
+      let vars = [
           ["VERSION", version],
           ["EXAMPLES", getExamplesPath(version)],
           ["API", getApiDocsUrl(version)],
           ["GITHUB_URL", getGitHubUrl(siteConfig.branch)],
-      ]);
+      ];
+      // end-code-snippet global-vars
 
       for (const [key, value] of vars) {
           fileContent = fileContent.replaceAll(`{{${key}}}`, value);
+          fileContent = fileContent.replace(new RegExp(`{{(>*)>${key}}}`, "g"), `{{$1${key}}}`);
       }
       return fileContent;
     },
@@ -119,12 +123,12 @@ const config: Config = {
           src: 'img/substrate_logo.png',
           srcDark: 'img/substrate_logo_dark.png',
         },
-        items: isMain ? [
+        items: [
           {
             type: 'docSidebar',
             sidebarId: 'tutorialSidebar',
             position: 'left',
-            label: 'Documentation',
+            label: 'Docs',
           },
           {
             type: 'docSidebar',
@@ -139,12 +143,12 @@ const config: Config = {
                 type: 'docsVersionDropdown',
                 position: 'right',
             }
-          ] ? [
+          ] : [
             {
                 type: 'docsVersion',
                 position: 'right',
             }
-          ])
+          ]),
           {
             type: 'custom-apiLink',
             position: 'right',
@@ -164,6 +168,16 @@ const config: Config = {
     prism: {
       theme: prismThemes.oneLight,
       darkTheme: prismThemes.palenight, // nightowl
+      magicComments: [
+        {
+            className: 'code-block-diff-add-line',
+            line: 'diff-add'
+        },
+        {
+            className: 'code-block-diff-remove-line',
+            line: 'diff-remove'
+        }
+      ],
       additionalLanguages: ['rust', 'toml'],
     },
   } satisfies Preset.ThemeConfig,

@@ -24,7 +24,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     let mut all_decls_impls = Vec::new();
 
     // Create `BundleKind` struct and implement traits for IO struct if `io` is `true`.
-    let kind_helper = if io {
+    let mut kind_helper = if io {
         let kind_ident = format_ident!("{}Kind", &input.ident);
         let mut kind_helper = helper.clone();
         kind_helper.set_ident(kind_ident.clone());
@@ -38,6 +38,10 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         all_decls_impls.push(impl_flatlen(&helper));
         all_decls_impls.push(impl_flatten_direction(&helper));
         all_decls_impls.push(impl_has_bundle_kind(&helper, &kind_helper));
+        all_decls_impls.push(impl_clone(&kind_helper));
+        all_decls_impls.push(impl_debug(&kind_helper));
+        all_decls_impls.push(impl_partial_eq(&kind_helper));
+        all_decls_impls.push(impl_eq(&kind_helper));
 
         kind_helper
     } else {
@@ -46,13 +50,16 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
 
     // Implement traits for `BundleKind`.
     let kind_type = kind_helper.get_full_type();
-    all_decls_impls.push(impl_clone(&kind_helper));
-    all_decls_impls.push(impl_debug(&kind_helper));
-    all_decls_impls.push(impl_partial_eq(&kind_helper));
-    all_decls_impls.push(impl_eq(&kind_helper));
     all_decls_impls.push(impl_flatlen(&kind_helper));
+    all_decls_impls.push(impl_has_name_tree(&kind_helper, io));
+    if !io {
+        kind_helper.push_where_predicate_per_field(|ty, _| {
+            parse_quote! {
+                #ty: #substrate::types::BundleKind
+            }
+        });
+    }
     all_decls_impls.push(impl_has_bundle_kind(&kind_helper, &kind_helper));
-    all_decls_impls.push(impl_has_name_tree(&kind_helper));
 
     // Create `View` struct
     // - Needs to add a generic along with a where clause per field that uses that generic
@@ -77,17 +84,28 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
     });
     has_bundle_kind_helper.push_where_predicate_per_field(|_ty, prev_tys| {
         let prev_ty = &prev_tys[0];
-        parse_quote! {
-            #prev_ty: #substrate::types::HasBundleKind
+        if io {
+            parse_quote! {
+                 #prev_ty: #substrate::types::HasBundleKind
+            }
+        } else {
+            parse_quote! {
+                 #prev_ty: #substrate::types::BundleKind
+            }
         }
     });
     all_decls_impls.push(impl_has_bundle_kind(&has_bundle_kind_helper, &kind_helper));
     all_decls_impls.push(impl_flatlen(&view_helper));
     all_decls_impls.push(impl_flatten_generic(&view_helper));
-    all_decls_impls.push(impl_unflatten(&kind_helper, &view_helper, &kind_type));
+    all_decls_impls.push(impl_unflatten(&kind_helper, &view_helper, &kind_type, io));
 
     // Implement schematic traits
-    all_decls_impls.push(schematic_bundle_kind(&helper, &kind_helper, &view_helper));
+    all_decls_impls.push(schematic_bundle_kind(
+        &helper,
+        &kind_helper,
+        &view_helper,
+        io,
+    ));
     // Implement layout traits
     all_decls_impls.push(layout_bundle_kind(&view_helper));
     Ok(quote! {
