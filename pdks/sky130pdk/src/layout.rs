@@ -2,8 +2,9 @@
 
 use arcstr::ArcStr;
 use gdsconv::GdsLayer;
+use geometry::prelude::Transformation;
 use geometry::{bbox::Bbox, dir::Dir, rect::Rect, span::Span};
-use layir::{Cell, Instance, LibraryBuilder, Shape};
+use layir::{Cell, Element, Instance, LibraryBuilder, Shape, Text};
 use serde::{Deserialize, Serialize};
 use substrate::types::codegen::PortGeometryBundle;
 use substrate::{
@@ -40,11 +41,24 @@ pub fn to_gds(lib: &layir::Library<Sky130Layer>) -> layir::Library<GdsLayer> {
                 inst.transformation(),
             ));
         }
-        for (name, port) in cell.ports() {
-            ocell.add_port(
-                name,
-                port.map_layer(|layer| Sky130Layer::gds_pin_layer(layer).unwrap()),
-            );
+        for (name, oport) in cell.ports() {
+            let mut port = oport.map_layer(|layer| Sky130Layer::gds_pin_layer(layer).unwrap());
+            oport
+                .elements()
+                .filter_map(|e| match e {
+                    Element::Text(_) => None,
+                    Element::Shape(s) => Some(s),
+                })
+                .for_each(|s| {
+                    let center = s.bbox_rect().center();
+                    // places labels on the pin layer
+                    port.add_element(Element::Text(Text::with_transformation(
+                        Sky130Layer::gds_pin_layer(s.layer()).unwrap(),
+                        name.clone(),
+                        Transformation::translate(center.x, center.y),
+                    )));
+                });
+            ocell.add_port(name, port);
         }
         olib.add_cell(ocell);
     }
