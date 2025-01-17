@@ -243,7 +243,7 @@ define_mosfets!(
 
 /// Determines the connection direction of a transistor gate.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub(crate) enum GateDir {
+pub enum GateDir {
     /// Connects the gate towards the right.
     #[default]
     Right,
@@ -541,6 +541,16 @@ impl PmosTile {
         Self {
             tile: MosTile::new(w, len, nf),
         }
+    }
+
+    /// Sets the connection direction of the left-most gate in the tile.
+    ///
+    /// Connection directions alternate for each adjacent gate.
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    pub fn with_gate_dir(mut self, gate_dir: GateDir) -> Self {
+        self.tile.gate_dir = gate_dir;
+        self
     }
 }
 

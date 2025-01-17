@@ -409,6 +409,11 @@ impl<T: Layout> Instance<T> {
     pub fn transformation(&self) -> &Transformation {
         &self.trans
     }
+
+    /// A mutable reference to a transformation of this instance.
+    pub fn transformation_mut(&mut self) -> &mut Transformation {
+        &mut self.trans
+    }
 }
 
 impl<T: Layout> Bbox for Instance<T> {

@@ -9,7 +9,11 @@ publish = false
 substrate = { version = "0.8.1", registry = "substrate", path = "../../../substrate" }
 ngspice = { version = "0.3.1", registry = "substrate", path = "../../../tools/ngspice" }
 sky130pdk = { version = "0.8.1", registry = "substrate", path = "../../../pdks/sky130pdk" }
+layir = { version = "0.1.0", registry = "substrate", path = "../../../libs/layir" }
+gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gdsconv" }
+gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
 
+arcstr = "1"
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 # end-code-snippet dependencies
