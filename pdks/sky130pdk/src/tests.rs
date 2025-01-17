@@ -1,6 +1,6 @@
 use crate::corner::Sky130Corner;
 use crate::layout::to_gds;
-use crate::mos::{MosParams, Nfet01v8};
+use crate::mos::{GateDir, MosLength, MosParams, MosTile, Nfet01v8};
 use crate::stdcells::And2;
 use crate::Sky130Pdk;
 use approx::assert_abs_diff_eq;
@@ -237,11 +237,12 @@ fn nfet_01v8_layout() {
     let layout_path = get_path(test_name, "layout.gds");
 
     let layir = ctx
-        .export_layir(Nfet01v8::new(MosParams {
-            w: 2_400,
-            l: 150,
-            nf: 1,
-        }))
+        .export_layir(MosTile {
+            w: 1_600,
+            len: MosLength::L150,
+            nf: 4,
+            gate_dir: GateDir::Right,
+        })
         .unwrap();
     let layir = to_gds(&layir.layir);
     let gds = gdsconv::export::export_gds(

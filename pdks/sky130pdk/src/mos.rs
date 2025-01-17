@@ -5,16 +5,19 @@ use std::fmt::Display;
 use crate::layers::Sky130Layer;
 use crate::Sky130Pdk;
 use arcstr::ArcStr;
+use geometry_macros::{TransformMut, TransformRef, TranslateMut, TranslateRef};
 use layir::Shape;
 use serde::{Deserialize, Serialize};
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
+use substrate::geometry::sign::Sign;
 use substrate::geometry::span::Span;
 use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::layout::Layout;
 use substrate::schematic::CellBuilder;
+use substrate::types::codegen::PortGeometryBundle;
 use substrate::types::layout::{PortGeometry, PortGeometryBuilder};
 use substrate::types::{
     Array, ArrayBundle, FlatLen, HasBundleKind, InOut, Input, Io, MosIo, MosIoView, Signal,
@@ -240,7 +243,7 @@ define_mosfets!(
 
 /// Determines the connection direction of a transistor gate.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum GateDir {
+pub(crate) enum GateDir {
     /// Connects the gate towards the right.
     #[default]
     Right,
@@ -250,11 +253,22 @@ enum GateDir {
 
 /// The IO of an NMOS or PMOS tile.
 #[derive(Debug, Clone, Io)]
-pub struct BareMosTileIo {
+pub(crate) struct BareMosTileIo {
     /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
     pub sd: InOut<Array<Signal>>,
     /// `NF` gate contacts on li1, where `NF` is the number of fingers.
     pub g: Input<Array<Signal>>,
+}
+
+/// The IO of an NMOS or PMOS tile.
+#[derive(Debug, Clone, Io)]
+pub struct MosTileIo {
+    /// `NF + 1` source/drain contacts on li1, where `NF` is the number of fingers.
+    pub sd: InOut<Array<Signal>>,
+    /// `NF` gate contacts on li1, where `NF` is the number of fingers.
+    pub g: Input<Array<Signal>>,
+    /// The body connection on nwell (PMOS) or pwell (NMOS).
+    pub b: InOut<Signal>,
 }
 
 /// The set of supported gate lengths.
@@ -279,11 +293,11 @@ impl MosLength {
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-struct MosTile {
-    w: i64,
-    len: MosLength,
-    nf: i64,
-    gate_dir: GateDir,
+pub(crate) struct MosTile {
+    pub(crate) w: i64,
+    pub(crate) len: MosLength,
+    pub(crate) nf: i64,
+    pub(crate) gate_dir: GateDir,
 }
 
 impl Block for MosTile {
@@ -305,6 +319,11 @@ impl Block for MosTile {
             )),
         }
     }
+}
+
+#[derive(TransformRef, TranslateRef, TransformMut, TranslateMut)]
+pub struct MosTileData {
+    diff: Rect,
 }
 
 impl Layout for MosTile {
@@ -423,5 +442,70 @@ impl Layout for MosTile {
             },
             (),
         ))
+    }
+}
+
+/// A tile containing a set of NMOS transistors.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NmosTile {
+    tile: MosTile,
+}
+
+impl NmosTile {
+    /// Create a new NMOS tile with the given physical transistor dimensions.
+    pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
+        Self {
+            tile: MosTile::new(w, len, nf),
+        }
+    }
+
+    /// Sets the connection direction of the left-most gate in the tile.
+    ///
+    /// Connection directions alternate for each adjacent gate.
+    /// A gate will always be connected with the gate adjacent to it
+    /// in its connection direction.
+    pub fn with_gate_dir(mut self, gate_dir: GateDir) -> Self {
+        self.tile.gate_dir = gate_dir;
+        self
+    }
+}
+
+impl Block for NmosTile {
+    type Io = MosTileIo;
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("n{}", self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        let io = self.tile.io();
+        MosTileIo {
+            sd: io.sd,
+            g: io.g,
+            b: InOut(Signal),
+        }
+    }
+}
+
+impl Layout for NmosTile {
+    type Schema = Sky130Pdk;
+    type Bundle = MosTileIoView<PortGeometryBundle<Sky130Pdk>>;
+    type Data = ();
+
+    fn layout(
+        &self,
+        cell: &mut substrate::layout::CellBuilder<Self::Schema>,
+    ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+        // let x = cell.instantiate(self.tile.clone());
+        // cell.draw(x)?;
+        // let nsdm = data.diff.expand_all(130);
+        // let nsdm = nsdm.with_hspan(data.lcm_bbox.hspan().union(nsdm.hspan()));
+        // cell.draw(Shape::new(cell.ctx.layers.nsdm, nsdm))?;
+
+        // cell.draw(Shape::new(cell.ctx.layers.pwell, data.lcm_bbox))?;
+        // io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, data.lcm_bbox));
+
+        // Ok(())
+        todo!()
     }
 }

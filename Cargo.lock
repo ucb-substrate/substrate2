@@ -2482,6 +2482,8 @@ dependencies = [
  "derive-where",
  "gds",
  "gdsconv",
+ "geometry",
+ "geometry_macros",
  "indexmap 2.7.0",
  "layir",
  "ngspice",
