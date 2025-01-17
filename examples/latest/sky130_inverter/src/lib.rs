@@ -6,6 +6,7 @@ use substrate::schematic::{CellBuilder, Schematic};
 use substrate::types::{InOut, Input, Io, Output, Signal};
 // end-code-snippet imports
 
+pub mod layout;
 pub mod tb;
 
 // begin-code-snippet inverter-io

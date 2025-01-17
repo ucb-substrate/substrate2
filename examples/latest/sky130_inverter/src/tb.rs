@@ -201,7 +201,7 @@ impl Schematic for SpectreInverterTb {
 
         let vin = cell.instantiate(spectre::blocks::Vsource::pulse(spectre::blocks::Pulse {
             val0: 0.into(),
-            val1: self.pvt.voltage,
+            val1: self.0.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
             width: Some(dec!(1e-9)),
             fall: Some(dec!(1e-12)),

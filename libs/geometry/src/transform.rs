@@ -281,6 +281,7 @@ impl Transformation {
             b: Point::zero(),
         }
     }
+
     /// Returns a reflection about the x-axis.
     pub fn reflect_vert() -> Self {
         Self {
