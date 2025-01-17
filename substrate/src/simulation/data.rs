@@ -2,10 +2,12 @@
 
 use std::ops::Deref;
 
+use codegen::impl_save_tuples;
+
 use crate::{
     schematic::{HasNestedView, NestedInstance, NestedView, Schematic},
     simulation::{Analysis, SimulationContext, Simulator},
-    types::schematic::IoTerminalBundle,
+    types::schematic::{IoTerminalBundle, NestedNode},
 };
 
 /// Saves the raw output of a simulation.
@@ -65,6 +67,8 @@ pub trait Save<S: Simulator, A: Analysis> {
         key: &<Self as Save<S, A>>::SaveKey,
     ) -> <Self as Save<S, A>>::Saved;
 }
+
+impl_save_tuples! {64, NestedNode}
 
 /// The result of saving a nested instance in a simulation.
 ///

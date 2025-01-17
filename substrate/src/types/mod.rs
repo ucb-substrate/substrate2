@@ -212,6 +212,14 @@ impl<T> Array<T> {
     pub fn new(len: usize, kind: T) -> Self {
         Self { len, kind }
     }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn kind(&self) -> &T {
+        &self.kind
+    }
 }
 
 /// An instantiated array containing a fixed number of elements of `T`.

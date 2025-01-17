@@ -209,7 +209,7 @@ mod tests {
             (&output.dut.io().pwr.vdd.v, 1.8),
             (&output.dut.io().out.v, 0.9),
         ] {
-            assert!(actual.as_ref().values().all(|pt| {
+            assert!(actual.values().all(|pt| {
                 let val = pt.x();
                 relative_eq!(val, expected)
             }));

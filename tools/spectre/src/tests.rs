@@ -1,12 +1,21 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 use approx::{assert_relative_eq, relative_eq};
+use arcstr::ArcStr;
+use cache::multi::MultiCache;
 use num::complex::Complex64;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use scir::{Cell, Direction, Instance, Library, LibraryBuilder};
 use serde::{Deserialize, Serialize};
+use spice::netlist::{NetlistKind, NetlistOptions, NetlisterInstance};
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::block::Block;
+use substrate::cache::Cache;
+use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::simulation::options::ic;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::waveform::TimeWaveform;
@@ -302,66 +311,160 @@ impl Schematic for RcTb {
 }
 
 // TODO: uncomment
-// impl Testbench<Spectre> for RcTb {
-//     type Output = (f64, f64, Complex64);
-//     fn run(&self, sim: substrate::simulation::SimController<Spectre, Self>) -> Self::Output {}
-// }
-//
-// fn simulate_rc_tb(ctx: &Context, tb: RcTb, sim_dir: impl Into<PathBuf>) -> (f64, f64, Complex64) {
-//     let sim = ctx
-//         .get_sim_controller(tb, sim_dir)
-//         .expect("failed to create sim controller");
-//     let mut opts = Options::default();
-//     sim.set_option(
-//         InitialCondition {
-//             path: sim.tb.data(),
-//             value: ic::Voltage(tb.ic),
-//         },
-//         &mut opts,
-//     );
-//     let (tran_vout, ac_vout) = sim
-//         .simulate(
-//             opts,
-//             (
-//                 Tran {
-//                     stop: dec!(10e-6),
-//                     ..Default::default()
-//                 },
-//                 Ac {
-//                     start: dec!(1e6),
-//                     stop: dec!(2e6),
-//                     sweep: Sweep::Linear(10),
-//                     errpreset: Some(ErrPreset::Conservative),
-//                 },
-//             ),
-//         )
-//         .unwrap();
-//
-//     let first = tran_vout.first().unwrap();
-//     let last = tran_vout.last().unwrap();
-//     (*first, *last, ac_vout[2])
-// }
-//
-// #[test]
-// fn spectre_initial_condition() {
-//     let test_name = "spectre_initial_condition";
-//     let sim_dir = get_path(test_name, "sim/");
-//     let ctx = spectre_ctx();
-//
-//     let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(1.4)), &sim_dir);
-//     assert_relative_eq!(first, 1.4);
-//
-//     let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(2.1)), sim_dir);
-//     assert_relative_eq!(first, 2.1);
-// }
-//
-// #[test]
-// fn spectre_rc_zin_ac() {
-//     let test_name = "spectre_rc_zin_ac";
-//     let sim_dir = get_path(test_name, "sim/");
-//     let ctx = spectre_ctx();
-//
-//     let (_, _, z) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
-//     assert_relative_eq!(z.re, -17.286407017773225);
-//     assert_relative_eq!(z.im, 130.3364383055986);
-// }
+fn simulate_rc_tb(ctx: &Context, tb: RcTb, sim_dir: impl Into<PathBuf>) -> (f64, f64, Complex64) {
+    let sim = ctx
+        .get_sim_controller(tb, sim_dir)
+        .expect("failed to create sim controller");
+    let mut opts = Options::default();
+    sim.set_option(
+        InitialCondition {
+            path: sim.tb.data(),
+            value: ic::Voltage(tb.ic),
+        },
+        &mut opts,
+    );
+    let (tran_vout, ac_vout) = sim
+        .simulate(
+            opts,
+            (
+                Tran {
+                    stop: dec!(10e-6),
+                    ..Default::default()
+                },
+                Ac {
+                    start: dec!(1e6),
+                    stop: dec!(2e6),
+                    sweep: Sweep::Linear(10),
+                    errpreset: Some(ErrPreset::Conservative),
+                },
+            ),
+        )
+        .unwrap();
+
+    let first = tran_vout.first_x().unwrap();
+    let last = tran_vout.last_x().unwrap();
+    (first, last, ac_vout[2])
+}
+
+#[test]
+fn spectre_initial_condition() {
+    let test_name = "spectre_initial_condition";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = spectre_ctx();
+
+    let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(1.4)), &sim_dir);
+    assert_relative_eq!(first, 1.4);
+
+    let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(2.1)), sim_dir);
+    assert_relative_eq!(first, 2.1);
+}
+
+#[test]
+fn spectre_rc_zin_ac() {
+    let test_name = "spectre_rc_zin_ac";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = spectre_ctx();
+
+    let (_, _, z) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
+    assert_relative_eq!(z.re, -17.286407017773225);
+    assert_relative_eq!(z.im, 130.3364383055986);
+}
+
+#[test]
+fn spectre_caches_simulations() {
+    #[derive(Clone, Debug, Default)]
+    struct CountExecutor {
+        executor: LocalExecutor,
+        count: Arc<Mutex<u64>>,
+    }
+
+    impl Executor for CountExecutor {
+        fn execute(&self, command: Command, opts: ExecOpts) -> Result<(), substrate::error::Error> {
+            *self.count.lock().unwrap() += 1;
+            self.executor.execute(command, opts)
+        }
+    }
+
+    let test_name = "spectre_caches_simulations";
+    let sim_dir = get_path(test_name, "sim/");
+    let executor = CountExecutor::default();
+    let count = executor.count.clone();
+
+    let ctx = Context::builder()
+        .install(Spectre::default())
+        .cache(Cache::new(MultiCache::builder().build()))
+        .executor(executor)
+        .build();
+
+    simulate_rc_tb(&ctx, RcTb::new(dec!(0)), &sim_dir);
+    simulate_rc_tb(&ctx, RcTb::new(dec!(0)), &sim_dir);
+
+    assert_eq!(*count.lock().unwrap(), 1);
+}
+
+/// Creates a 1:3 resistive voltage divider.
+pub(crate) fn vdivider() -> Library<Spectre> {
+    let mut lib = LibraryBuilder::new();
+    let res = lib.add_primitive(crate::Primitive::RawInstance {
+        cell: ArcStr::from("resistor"),
+        ports: vec!["pos".into(), "neg".into()],
+        params: vec![(ArcStr::from("r"), dec!(100).into())],
+    });
+
+    let mut vdivider = Cell::new("vdivider");
+    let vdd = vdivider.add_node("vdd");
+    let out = vdivider.add_node("out");
+    let int = vdivider.add_node("int");
+    let vss = vdivider.add_node("vss");
+
+    let mut r1 = Instance::new("r1", res);
+    r1.connect("pos", vdd);
+    r1.connect("neg", int);
+    vdivider.add_instance(r1);
+
+    let mut r2 = Instance::new("r2", res);
+    r2.connect("pos", int);
+    r2.connect("neg", out);
+    vdivider.add_instance(r2);
+
+    let mut r3 = Instance::new("r3", res);
+    r3.connect("pos", out);
+    r3.connect("neg", vss);
+    vdivider.add_instance(r3);
+
+    vdivider.expose_port(vdd, Direction::InOut);
+    vdivider.expose_port(vss, Direction::InOut);
+    vdivider.expose_port(out, Direction::Output);
+    lib.add_cell(vdivider);
+
+    lib.build().unwrap()
+}
+
+#[test]
+fn netlist_spectre_vdivider() {
+    let lib = vdivider();
+    let mut buf: Vec<u8> = Vec::new();
+    let includes = Vec::new();
+    NetlisterInstance::new(
+        &Spectre {},
+        &lib,
+        &mut buf,
+        NetlistOptions::new(NetlistKind::Cells, &includes),
+    )
+    .export()
+    .unwrap();
+    let string = String::from_utf8(buf).unwrap();
+    println!("{}", string);
+
+    // TODO: more robust assertions about the output
+    // Once we have a Spectre netlist parser, we can parse the Spectre back to SCIR
+    // and assert that the input SCIR is equivalent to the output SCIR.
+
+    assert_eq!(string.matches("subckt").count(), 1);
+    assert_eq!(string.matches("ends").count(), 1);
+    assert_eq!(string.matches("r1").count(), 1);
+    assert_eq!(string.matches("r2").count(), 1);
+    assert_eq!(string.matches("r3").count(), 1);
+    assert_eq!(string.matches("vdivider").count(), 2);
+    assert_eq!(string.matches("resistor r=100").count(), 3);
+}

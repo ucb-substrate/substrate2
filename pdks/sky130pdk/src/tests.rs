@@ -174,7 +174,7 @@ fn sky130_and2_ngspice() {
                 },
             )
             .expect("failed to run simulation");
-        assert_abs_diff_eq!(vout.v.as_ref().last_x().unwrap(), expected, epsilon = 1e-6);
+        assert_abs_diff_eq!(vout.v.last_x().unwrap(), expected, epsilon = 1e-6);
     }
 }
 

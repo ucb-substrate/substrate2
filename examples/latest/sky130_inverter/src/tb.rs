@@ -110,7 +110,7 @@ mod ngspice_only_design {
                     .expect("failed to create sim controller");
                 let mut opts = ngspice::Options::default();
                 sim.set_option(pvt.corner, &mut opts);
-                let output = sim
+                let vout = sim
                     .simulate(
                         opts,
                         ngspice::tran::Tran {
@@ -121,7 +121,6 @@ mod ngspice_only_design {
                     )
                     .expect("failed to run simulation");
 
-                let vout = output.as_ref();
                 let mut trans = vout.transitions(
                     0.2 * pvt.voltage.to_f64().unwrap(),
                     0.8 * pvt.voltage.to_f64().unwrap(),
@@ -201,7 +200,7 @@ impl Schematic for SpectreInverterTb {
 
         let vin = cell.instantiate(spectre::blocks::Vsource::pulse(spectre::blocks::Pulse {
             val0: 0.into(),
-            val1: self.pvt.voltage,
+            val1: self.0.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
             width: Some(dec!(1e-9)),
             fall: Some(dec!(1e-12)),

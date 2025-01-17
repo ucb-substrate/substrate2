@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
+use crate::tests::{Buffer, BufferN, BufferNxM, Inverter, InverterMos};
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
 use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
 use crate::{
@@ -339,13 +340,6 @@ impl<S: crate::schematic::schema::Schema, T: Schematic<Schema = S> + Clone> Sche
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "MosIo")]
-pub enum InverterMos {
-    Nmos,
-    Pmos,
-}
-
 impl Schematic for InverterMos {
     type Schema = Schema;
     type NestedData = ();
@@ -365,130 +359,6 @@ impl Schematic for InverterMos {
         prim.connect("b", io.b);
         cell.set_primitive(prim);
         Ok(())
-    }
-}
-
-#[derive(Io, Clone, Default)]
-pub struct BufferIo {
-    pub vdd: InOut<Signal>,
-    pub vss: InOut<Signal>,
-    pub din: Input<Signal>,
-    pub dout: Output<Signal>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct Inverter {
-    strength: usize,
-}
-
-impl Inverter {
-    pub fn new(strength: usize) -> Self {
-        Self { strength }
-    }
-}
-
-impl Block for Inverter {
-    type Io = BufferIo;
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!("inverter_{}", self.strength)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct Buffer {
-    strength: usize,
-}
-
-impl Buffer {
-    pub fn new(strength: usize) -> Self {
-        Self { strength }
-    }
-}
-
-impl Block for Buffer {
-    type Io = BufferIo;
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!("buffer_{}", self.strength)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
-#[derive(Io, Clone, Default)]
-pub struct BufferNIo {
-    pub vdd: InOut<Signal>,
-    pub vss: InOut<Signal>,
-    pub din: Input<Signal>,
-    pub dout: Output<Signal>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct BufferN {
-    strength: usize,
-    n: usize,
-}
-
-impl BufferN {
-    pub fn new(strength: usize, n: usize) -> Self {
-        Self { strength, n }
-    }
-}
-
-impl Block for BufferN {
-    type Io = BufferNIo;
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!("buffer_{}_{}", self.strength, self.n)
-    }
-
-    fn io(&self) -> Self::Io {
-        Default::default()
-    }
-}
-
-#[derive(Io, Clone)]
-pub struct BufferNxMIo {
-    pub vdd: InOut<Signal>,
-    pub vss: InOut<Signal>,
-    pub din: Input<Array<Signal>>,
-    pub dout: Output<Array<Signal>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct BufferNxM {
-    strength: usize,
-    n: usize,
-    m: usize,
-}
-
-impl BufferNxM {
-    pub fn new(strength: usize, n: usize, m: usize) -> Self {
-        Self { strength, n, m }
-    }
-}
-
-impl Block for BufferNxM {
-    type Io = BufferNxMIo;
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!("buffer_{}_{}x{}", self.strength, self.n, self.m)
-    }
-
-    fn io(&self) -> Self::Io {
-        Self::Io {
-            din: Input(Array::new(self.m, Default::default())),
-            dout: Output(Array::new(self.m, Default::default())),
-            vdd: Default::default(),
-            vss: Default::default(),
-        }
     }
 }
 

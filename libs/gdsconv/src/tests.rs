@@ -90,6 +90,29 @@ fn test_export_layir_to_gds() {
 }
 
 #[test]
+fn export_multi_top_layir_to_gds() {
+    let test_name = "export_multi_top_layir_to_gds";
+
+    let block1 = BufferNxM::new(5, 10, 6);
+    let block2 = BufferNxM::new(5, 10, 6);
+    let block3 = BufferNxM::new(8, 12, 4);
+
+    let ctx = Context::new();
+    let block1 = ctx.generate_layout(block1);
+    let block2 = ctx.generate_layout(block2);
+    let block3 = ctx.generate_layout(block3);
+    ctx.write_layout_all(
+        [
+            block1.cell().raw().clone(),
+            block2.cell().raw().clone(),
+            block3.cell().raw().clone(),
+        ],
+        get_path(test_name, "layout.gds"),
+    )
+    .expect("failed to write layout");
+}
+
+#[test]
 fn test_gds_import() {
     let path = test_data("gds/test_sky130_simple.gds");
     let bytes = std::fs::read(path).expect("failed to read GDS");

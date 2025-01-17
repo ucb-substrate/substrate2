@@ -33,7 +33,6 @@ members = [
     "libs/verilog",
     "pdks/sky130pdk",
     "substrate",
-    "tests",
     "tools/magic",
     "tools/netgen",
     "tools/ngspice",
