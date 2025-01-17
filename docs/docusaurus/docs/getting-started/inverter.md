@@ -225,7 +225,11 @@ Adding Spectre support is simply a matter
 of defining a Spectre-specific testbench schematic and running the appropriate Spectre simulation
 in the inverter design script.
 
-We first create the Spectre-specific testbench:
+We first add the Spectre dependency to our `Cargo.toml`:
+
+<DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="spectre-dependencies">{cargoToml}</DependenciesSnippet>
+
+We can now create the Spectre-specific testbench:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-schematic">{inverterTb}</CodeSnippet>
 

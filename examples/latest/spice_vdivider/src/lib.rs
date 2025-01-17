@@ -3,9 +3,8 @@ use rust_decimal::Decimal;
 use spice::{Resistor, Spice};
 use substrate::{
     block::Block,
-    schematic::netlist::ConvertibleNetlister,
-    schematic::Schematic,
-    types::{InOut, Io, Output, Signal},
+    schematic::{netlist::ConvertibleNetlister, CellBuilder, Schematic},
+    types::{schematic::IoNodeBundle, InOut, Io, Output, Signal},
 };
 // end-code-snippet imports
 
@@ -35,8 +34,8 @@ impl Schematic for Vdivider {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoNodeBundle<Self>,
-        cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
+        io: &IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let r1 = cell.instantiate(Resistor::new(self.r1));
         let r2 = cell.instantiate(Resistor::new(self.r2));

@@ -126,6 +126,24 @@ We can then connect the desired signals:
 
 <CodeSnippet language="rust" snippet="connect-data-views-advanced">{core}</CodeSnippet>
 
+### Arbitrary connections
+
+If you would like to connect two bundles of different kinds and know that they can be connected
+without any reordering/re-mapping of signals, you can flatten both to arrays and connect them.
+This is not recommended since it is almost always better to use an explicit data view, but
+it can come in handy when you just want to test something quickly or
+you do not really care about the order of the bits.
+
+For example, suppose we have two IOs that have the same constituent signals, but are
+different kinds (perhaps they were defined in different crates):
+
+<CodeSnippet language="rust" snippet="arbitrary-connect-ios">{core}</CodeSnippet>
+
+We can connect bundles of these IOs as follows:
+
+<CodeSnippet language="rust" snippet="arbitrary-connect">{core}</CodeSnippet>
+
+
 [`Io`]: {{API}}/substrate/types/trait.Io.html
 [`Directed`]: {{API}}/substrate/types/trait.Directed.html
 [`Input`]: {{API}}/substrate/types/struct.Input.html
