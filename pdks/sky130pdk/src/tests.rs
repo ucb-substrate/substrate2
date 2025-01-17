@@ -1,8 +1,12 @@
 use crate::corner::Sky130Corner;
+use crate::layout::to_gds;
+use crate::mos::{GateDir, MosLength, MosParams, MosTile, Nfet01v8, NmosTile, PmosTile};
 use crate::stdcells::And2;
 use crate::Sky130Pdk;
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
+use gds::GdsUnits;
+use gdsconv::export::GdsExportOpts;
 use ngspice::blocks::Vsource;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
@@ -225,4 +229,44 @@ fn sky130_and2_monte_carlo_spectre() {
             assert_abs_diff_eq!(*vout.v.last().unwrap(), expected, epsilon = 1e-6);
         }
     }
+}
+
+#[test]
+fn nfet_01v8_layout() {
+    let test_name = "nfet_01v8_layout";
+    let ctx = sky130_commercial_ctx();
+    let layout_path = get_path(test_name, "layout.gds");
+
+    let layir = ctx
+        .export_layir(NmosTile::new(1_600, MosLength::L150, 4))
+        .unwrap();
+    let layir = to_gds(&layir.layir);
+    let gds = gdsconv::export::export_gds(
+        layir,
+        GdsExportOpts {
+            name: arcstr::literal!("nfet_01v8_layout"),
+            units: Some(GdsUnits::new(1., 1e-9)),
+        },
+    );
+    gds.save(layout_path).unwrap();
+}
+
+#[test]
+fn pfet_01v8_layout() {
+    let test_name = "pfet_01v8_layout";
+    let ctx = sky130_commercial_ctx();
+    let layout_path = get_path(test_name, "layout.gds");
+
+    let layir = ctx
+        .export_layir(PmosTile::new(1_600, MosLength::L150, 4))
+        .unwrap();
+    let layir = to_gds(&layir.layir);
+    let gds = gdsconv::export::export_gds(
+        layir,
+        GdsExportOpts {
+            name: arcstr::literal!("pfet_01v8_layout"),
+            units: Some(GdsUnits::new(1., 1e-9)),
+        },
+    );
+    gds.save(layout_path).unwrap();
 }

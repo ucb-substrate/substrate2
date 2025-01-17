@@ -1,5 +1,6 @@
 //! Built-in implementations of IO traits.
 
+use crate::types::codegen::HasDefaultLayoutBundle;
 use crate::types::codegen::HasView;
 use crate::types::codegen::PortGeometryBundle;
 use schematic::{
@@ -196,8 +197,8 @@ macro_rules! impl_direction {
             type TerminalBundle = T::TerminalBundle;
         }
 
-        impl<S: crate::layout::schema::Schema, T: HasView<PortGeometryBundle<S>>> HasView<PortGeometryBundle<S>> for $dir<T> {
-            type View = T::View;
+        impl<T: HasDefaultLayoutBundle> HasDefaultLayoutBundle for $dir<T> {
+            type Bundle<S: crate::layout::schema::Schema> = <T as HasDefaultLayoutBundle>::Bundle<S>;
         }
     };
 }

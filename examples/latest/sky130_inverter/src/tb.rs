@@ -285,7 +285,7 @@ impl InverterDesign {
                     let output = sim
                         .simulate(
                             opts,
-                            spectre::tran::Tran {
+                            spectre::analysis::tran::Tran {
                                 stop: dec!(2e-9),
                                 errpreset: Some(spectre::ErrPreset::Conservative),
                                 ..Default::default()

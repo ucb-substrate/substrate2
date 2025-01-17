@@ -1,5 +1,4 @@
 // begin-code-snippet imports
-use serde::{Deserialize, Serialize};
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
@@ -20,7 +19,7 @@ pub struct InverterIo {
 // end-code-snippet inverter-io
 
 // begin-code-snippet inverter-struct
-#[derive(Serialize, Deserialize, Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Block, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 #[substrate(io = "InverterIo")]
 pub struct Inverter {
     /// NMOS width.
