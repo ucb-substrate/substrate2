@@ -8,13 +8,13 @@ use std::convert::Infallible;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
+use layers::Sky130Layer;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
 use unicase::UniCase;
 
-use crate::layers::Sky130Layers;
 use crate::mos::{MosKind, MosParams};
 use scir::schema::{FromSchema, Schema};
 use scir::{Instance, ParamValue};
@@ -23,6 +23,7 @@ use substrate::context::{ContextBuilder, Installation};
 
 pub mod corner;
 pub mod layers;
+pub mod layout;
 pub mod mos;
 pub mod stdcells;
 #[cfg(test)]
@@ -382,3 +383,7 @@ impl Sky130Pdk {
 }
 
 impl Installation for Sky130Pdk {}
+
+impl substrate::layout::schema::Schema for Sky130Pdk {
+    type Layer = Sky130Layer;
+}
