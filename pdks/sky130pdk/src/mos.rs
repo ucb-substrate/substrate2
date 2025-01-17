@@ -300,6 +300,18 @@ pub(crate) struct MosTile {
     pub(crate) gate_dir: GateDir,
 }
 
+impl MosTile {
+    /// Create a new MOS tile with the given physical transistor dimensions.
+    pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
+        Self {
+            w,
+            len,
+            nf,
+            gate_dir: Default::default(),
+        }
+    }
+}
+
 impl Block for MosTile {
     type Io = BareMosTileIo;
 
@@ -329,7 +341,7 @@ pub struct MosTileData {
 impl Layout for MosTile {
     type Schema = Sky130Pdk;
     type Bundle = BareMosTileIoView<substrate::types::codegen::PortGeometryBundle<Sky130Pdk>>;
-    type Data = ();
+    type Data = MosTileData;
     fn layout(
         &self,
         cell: &mut substrate::layout::CellBuilder<Self::Schema>,
@@ -440,7 +452,7 @@ impl Layout for MosTile {
                 g: ArrayBundle::new(Signal, g),
                 sd: ArrayBundle::new(Signal, sd),
             },
-            (),
+            MosTileData { diff },
         ))
     }
 }
@@ -496,16 +508,87 @@ impl Layout for NmosTile {
         &self,
         cell: &mut substrate::layout::CellBuilder<Self::Schema>,
     ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
-        // let x = cell.instantiate(self.tile.clone());
-        // cell.draw(x)?;
-        // let nsdm = data.diff.expand_all(130);
-        // let nsdm = nsdm.with_hspan(data.lcm_bbox.hspan().union(nsdm.hspan()));
-        // cell.draw(Shape::new(cell.ctx.layers.nsdm, nsdm))?;
+        let tile = cell.generate(self.tile);
+        let nsdm = tile.data().diff.expand_all(130);
+        let nsdm = nsdm.with_hspan(tile.bbox_rect().hspan().union(nsdm.hspan()));
+        cell.draw(Shape::new(Sky130Layer::Nsdm, nsdm))?;
 
-        // cell.draw(Shape::new(cell.ctx.layers.pwell, data.lcm_bbox))?;
-        // io.b.push(IoShape::with_layers(cell.ctx.layers.pwell, data.lcm_bbox));
+        let pwell = Shape::new(Sky130Layer::Pwell, tile.bbox_rect());
+        cell.draw(pwell.clone())?;
+        let b = PortGeometry::new(pwell);
+        cell.draw(tile.clone())?;
 
-        // Ok(())
-        todo!()
+        Ok((
+            MosTileIoView {
+                g: tile.io().g,
+                sd: tile.io().sd,
+                b,
+            },
+            (),
+        ))
+    }
+}
+
+/// A tile containing a set of PMOS transistors.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PmosTile {
+    tile: MosTile,
+}
+
+impl PmosTile {
+    /// Create a new PMOS tile with the given physical transistor dimensions.
+    pub fn new(w: i64, len: MosLength, nf: i64) -> Self {
+        Self {
+            tile: MosTile::new(w, len, nf),
+        }
+    }
+}
+
+impl Block for PmosTile {
+    type Io = MosTileIo;
+
+    fn name(&self) -> ArcStr {
+        arcstr::format!("p{}", self.tile.name())
+    }
+
+    fn io(&self) -> Self::Io {
+        let io = self.tile.io();
+        MosTileIo {
+            sd: io.sd,
+            g: io.g,
+            b: InOut(Signal),
+        }
+    }
+}
+
+impl Layout for PmosTile {
+    type Schema = Sky130Pdk;
+    type Bundle = MosTileIoView<PortGeometryBundle<Sky130Pdk>>;
+    type Data = ();
+
+    fn layout(
+        &self,
+        cell: &mut substrate::layout::CellBuilder<Self::Schema>,
+    ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+        let tile = cell.generate(self.tile);
+        let psdm = tile.data().diff.expand_all(130);
+        let bbox = tile.bbox_rect();
+        let psdm = psdm.with_hspan(bbox.hspan().union(psdm.hspan()));
+        cell.draw(Shape::new(Sky130Layer::Psdm, psdm))?;
+
+        let nwell = tile.data().diff.expand_all(180).union(bbox);
+        let nwell = Shape::new(Sky130Layer::Nwell, nwell);
+        cell.draw(nwell.clone())?;
+        let b = PortGeometry::new(nwell);
+        cell.draw(tile.clone())?;
+
+        Ok((
+            MosTileIoView {
+                g: tile.io().g,
+                sd: tile.io().sd,
+                b,
+            },
+            (),
+        ))
     }
 }
