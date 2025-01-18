@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
-          cache-dependency-path: docs/site/yarn.lock
+          cache-dependency-path: docs/docusaurus/yarn.lock
       - run: yarn install
         working-directory: docs/site
       - run: yarn build
