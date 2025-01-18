@@ -108,27 +108,37 @@ impl Layout for Inverter {
 
 #[cfg(test)]
 mod tests {
+    use std::{path::PathBuf, sync::Arc};
+
     use gds::GdsUnits;
     use gdsconv::export::GdsExportOpts;
+    use magic_netgen::LvsParams;
     use sky130pdk::layout::to_gds;
+    use substrate::{block::Block, schematic::ConvertSchema};
 
     use crate::{tb::sky130_open_ctx, Inverter};
 
+    pub const SKY130_MAGIC_TECH_FILE: &str =
+        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
+    pub const SKY130_NETGEN_SETUP_FILE: &str =
+        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
+
     #[test]
     fn inverter_layout() {
-        let layout_path = concat!(
+        let work_dir = PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/inverter_layout/layout.gds"
-        );
+            "/tests/inverter_layout"
+        ));
+        let layout_path = work_dir.join("layout.gds");
         let ctx = sky130_open_ctx();
 
-        let layir = ctx
-            .export_layir(Inverter {
-                nw: 1_200,
-                pw: 2_400,
-                lch: 150,
-            })
-            .unwrap();
+        let dut = Inverter {
+            nw: 1_200,
+            pw: 2_400,
+            lch: 150,
+        };
+
+        let layir = ctx.export_layir(dut).unwrap();
         let layir = to_gds(&layir.layir);
         let gds = gdsconv::export::export_gds(
             layir,
@@ -137,6 +147,21 @@ mod tests {
                 units: Some(GdsUnits::new(1., 1e-9)),
             },
         );
-        gds.save(layout_path).unwrap();
+        gds.save(&layout_path).unwrap();
+
+        let lvs_dir = work_dir.join("lvs");
+        let output = magic_netgen::run_lvs(LvsParams {
+            schematic: Arc::new(ConvertSchema::new(dut)),
+            ctx: ctx.clone(),
+            gds_path: layout_path,
+            work_dir: lvs_dir,
+            layout_cell_name: dut.name(),
+
+            magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
+            netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
+        })
+        .expect("failed to run lvs");
+
+        assert!(output.matches, "layout does not match netlist");
     }
 }

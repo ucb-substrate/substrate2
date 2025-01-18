@@ -336,16 +336,14 @@ impl Block for MosTile {
 #[derive(TransformRef, TranslateRef, TransformMut, TranslateMut)]
 pub struct MosTileData {
     diff: Rect,
+    bbox: Rect,
 }
 
-impl Layout for MosTile {
-    type Schema = Sky130Pdk;
-    type Bundle = BareMosTileIoView<substrate::types::codegen::PortGeometryBundle<Sky130Pdk>>;
-    type Data = MosTileData;
-    fn layout(
+impl MosTile {
+    fn layout_inner(
         &self,
-        cell: &mut substrate::layout::CellBuilder<Self::Schema>,
-    ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+        cell: &mut substrate::layout::CellBuilder<<Self as Layout>::Schema>,
+    ) -> substrate::error::Result<(<Self as Layout>::Bundle, <Self as Layout>::Data)> {
         let m0tracks = UniformTracks::new(170, 260);
         let m1tracks = UniformTracks::new(400, 140);
 
@@ -452,8 +450,23 @@ impl Layout for MosTile {
                 g: ArrayBundle::new(Signal, g),
                 sd: ArrayBundle::new(Signal, sd),
             },
-            MosTileData { diff },
+            MosTileData {
+                diff,
+                bbox: cell.bbox_rect(),
+            },
         ))
+    }
+}
+
+impl Layout for MosTile {
+    type Schema = Sky130Pdk;
+    type Bundle = BareMosTileIoView<substrate::types::codegen::PortGeometryBundle<Sky130Pdk>>;
+    type Data = MosTileData;
+    fn layout(
+        &self,
+        cell: &mut substrate::layout::CellBuilder<Self::Schema>,
+    ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+        self.layout_inner(cell)
     }
 }
 
@@ -508,20 +521,19 @@ impl Layout for NmosTile {
         &self,
         cell: &mut substrate::layout::CellBuilder<Self::Schema>,
     ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
-        let tile = cell.generate(self.tile);
-        let nsdm = tile.data().diff.expand_all(130);
-        let nsdm = nsdm.with_hspan(tile.bbox_rect().hspan().union(nsdm.hspan()));
+        let (tio, tdata) = self.tile.layout_inner(cell)?;
+        let nsdm = tdata.diff.expand_all(130);
+        let nsdm = nsdm.with_hspan(tdata.bbox.hspan().union(nsdm.hspan()));
         cell.draw(Shape::new(Sky130Layer::Nsdm, nsdm))?;
 
-        let pwell = Shape::new(Sky130Layer::Pwell, tile.bbox_rect());
+        let pwell = Shape::new(Sky130Layer::Pwell, tdata.bbox);
         cell.draw(pwell.clone())?;
         let b = PortGeometry::new(pwell);
-        cell.draw(tile.clone())?;
 
         Ok((
             MosTileIoView {
-                g: tile.io().g,
-                sd: tile.io().sd,
+                g: tio.g,
+                sd: tio.sd,
                 b,
             },
             (),
@@ -580,22 +592,21 @@ impl Layout for PmosTile {
         &self,
         cell: &mut substrate::layout::CellBuilder<Self::Schema>,
     ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
-        let tile = cell.generate(self.tile);
-        let psdm = tile.data().diff.expand_all(130);
-        let bbox = tile.bbox_rect();
+        let (tio, tdata) = self.tile.layout_inner(cell)?;
+        let psdm = tdata.diff.expand_all(130);
+        let bbox = tdata.bbox;
         let psdm = psdm.with_hspan(bbox.hspan().union(psdm.hspan()));
         cell.draw(Shape::new(Sky130Layer::Psdm, psdm))?;
 
-        let nwell = tile.data().diff.expand_all(180).union(bbox);
+        let nwell = tdata.diff.expand_all(180).union(bbox);
         let nwell = Shape::new(Sky130Layer::Nwell, nwell);
         cell.draw(nwell.clone())?;
         let b = PortGeometry::new(nwell);
-        cell.draw(tile.clone())?;
 
         Ok((
             MosTileIoView {
-                g: tile.io().g,
-                sd: tile.io().sd,
+                g: tio.g,
+                sd: tio.sd,
                 b,
             },
             (),
