@@ -1,22 +1,29 @@
 use crate::InverterIoKind;
 
 // begin-code-snippet imports
-use super::Inverter;
+use crate::Inverter;
+use crate::SKY130_LVS;
+use crate::SKY130_LVS_RULES_PATH;
+use crate::SKY130_TECHNOLOGY_DIR;
 
-use ngspice::blocks::{Pulse, Vsource};
-use ngspice::tran::Tran;
-use ngspice::{Ngspice, Options};
+use quantus::pex::Pex;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
+use sky130pdk::layout::to_gds;
 use sky130pdk::Sky130Pdk;
+use spectre::analysis::tran::Tran;
+use spectre::blocks::{Pulse, Vsource};
+use spectre::Spectre;
 use spice::Spice;
 use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
 use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
-use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::simulation::Pvt;
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
@@ -24,14 +31,12 @@ use substrate::types::{Signal, TestbenchIo};
 
 #[allow(dead_code)]
 mod schematic_only_tb {
-    use ngspice::blocks::{Pulse, Vsource};
-
     use super::*;
 
     // begin-code-snippet struct-and-impl
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
     #[substrate(io = "TestbenchIo")]
-    pub struct InverterTb {
+    struct InverterTb {
         pvt: Pvt<Sky130Corner>,
         dut: Inverter,
     }
@@ -46,8 +51,9 @@ mod schematic_only_tb {
 
     // begin-code-snippet schematic
     impl Schematic for InverterTb {
-        type Schema = Ngspice;
+        type Schema = Spectre;
         type NestedData = Node;
+
         fn schematic(
             &self,
             io: &IoNodeBundle<Self>,
@@ -70,7 +76,6 @@ mod schematic_only_tb {
                 fall: Some(dec!(1e-12)),
                 rise: Some(dec!(1e-12)),
                 period: None,
-                num_pulses: Some(dec!(1)),
             }));
             cell.connect(inv.io().din, vin.io().p);
             cell.connect(vin.io().n, io.vss);
@@ -83,13 +88,8 @@ mod schematic_only_tb {
         }
     }
     // end-code-snippet schematic
-}
 
-#[allow(dead_code)]
-mod ngspice_only_design {
-    use super::*;
-
-    // begin-code-snippet ngspice-design
+    // begin-code-snippet schematic-design-script
     /// Designs an inverter for balanced pull-up and pull-down times.
     ///
     /// The NMOS width is kept constant; the PMOS width is swept over
@@ -115,24 +115,25 @@ mod ngspice_only_design {
                     pw,
                     lch: self.lch,
                 };
-                let tb = InverterTb::new(pvt, InverterDut::Schematic(dut));
+                let tb = InverterTb::new(pvt, dut);
                 let sim_dir = work_dir.join(format!("pw{pw}"));
                 let sim = ctx
                     .get_sim_controller(tb, sim_dir)
                     .expect("failed to create sim controller");
-                let mut opts = Options::default();
+                let mut opts = spectre::Options::default();
                 sim.set_option(pvt.corner, &mut opts);
-                let vout = sim
+                let output = sim
                     .simulate(
                         opts,
                         Tran {
                             stop: dec!(2e-9),
-                            step: dec!(1e-11),
+                            errpreset: Some(spectre::ErrPreset::Conservative),
                             ..Default::default()
                         },
                     )
                     .expect("failed to run simulation");
 
+                let vout = output.as_ref();
                 let mut trans = vout.transitions(
                     0.2 * pvt.voltage.to_f64().unwrap(),
                     0.8 * pvt.voltage.to_f64().unwrap(),
@@ -161,85 +162,110 @@ mod ngspice_only_design {
             opt.unwrap().1
         }
     }
-    // end-code-snippet ngspice-design
+    // end-code-snippet schematic-design-script
 
-    // begin-code-snippet ngspice-tests
+    // begin-code-snippet spectre-tests
     #[cfg(test)]
     mod tests {
+        use crate::sky130_commercial_ctx;
+
         use super::*;
 
         #[test]
-        pub fn design_inverter_ngspice() {
-            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_ngspice");
-            let mut ctx = sky130_open_ctx();
+        pub fn design_inverter_spectre() {
+            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_spectre");
+            let mut ctx = sky130_commercial_ctx();
             let script = InverterDesign {
                 nw: 1_200,
                 pw: (3_000..=5_000).step_by(200).collect(),
                 lch: 150,
             };
-
             let inv = script.run(&mut ctx, work_dir);
             println!("Designed inverter:\n{:#?}", inv);
         }
     }
-    // end-code-snippet ngspice-tests
+    // end-code-snippet spectre-tests
 }
 
-// begin-code-snippet spectre-schematic
-use spectre::analysis::tran::Tran as SpectreTran;
-use spectre::blocks::{Pulse as SpectrePulse, Vsource as SpectreVsource};
-use spectre::Spectre;
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum InverterDut {
+    Schematic(Inverter),
+    Extracted(quantus::pex::Pex<ConvertSchema<Inverter, Spice>>),
+}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]
 #[substrate(io = "TestbenchIo")]
-struct SpectreInverterTb(InverterTb);
+pub struct InverterTb {
+    pvt: Pvt<Sky130Corner>,
+    dut: InverterDut,
+}
 
-impl Schematic for SpectreInverterTb {
+impl InverterTb {
+    #[inline]
+    pub fn new(pvt: Pvt<Sky130Corner>, dut: impl Into<InverterDut>) -> Self {
+        Self {
+            pvt,
+            dut: dut.into(),
+        }
+    }
+}
+
+impl Schematic for InverterTb {
     type Schema = Spectre;
     type NestedData = Node;
-
     fn schematic(
         &self,
         io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
-        let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.0.dut);
+        let invio = cell.signal(
+            "dut",
+            InverterIoKind {
+                vdd: Signal,
+                vss: Signal,
+                din: Signal,
+                dout: Signal,
+            },
+        );
+
+        match self.dut.clone() {
+            InverterDut::Schematic(inv) => {
+                cell.sub_builder::<Sky130Pdk>()
+                    .instantiate_connected_named(inv, &invio, "inverter");
+            }
+            InverterDut::Extracted(inv) => {
+                cell.sub_builder::<Spice>()
+                    .instantiate_connected_named(inv, &invio, "inverter");
+            }
+        };
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
-
-        let vddsrc = cell.instantiate(SpectreVsource::dc(self.0.pvt.voltage));
+        let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate(SpectreVsource::pulse(SpectrePulse {
+        let vin = cell.instantiate(Vsource::pulse(Pulse {
             val0: 0.into(),
-            val1: self.0.pvt.voltage,
+            val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
             width: Some(dec!(1e-9)),
             fall: Some(dec!(1e-12)),
             rise: Some(dec!(1e-12)),
             period: None,
         }));
-        cell.connect(inv.io().din, vin.io().p);
+        cell.connect(invio.din, vin.io().p);
         cell.connect(vin.io().n, io.vss);
 
-        cell.connect(inv.io().vdd, vdd);
-        cell.connect(inv.io().vss, io.vss);
-        cell.connect(inv.io().dout, dout);
+        cell.connect(invio.vdd, vdd);
+        cell.connect(invio.vss, io.vss);
+        cell.connect(invio.dout, dout);
 
         Ok(dout)
     }
 }
-// end-code-snippet spectre-schematic
 
-// begin-code-snippet final-design
-/// Supported simulation backends.
-pub enum Backend {
-    Ngspice,
-    Spectre,
-}
-
+// begin-code-snippet design-extracted
 /// Designs an inverter for balanced pull-up and pull-down times.
 ///
 /// The NMOS width is kept constant; the PMOS width is swept over
@@ -251,8 +277,8 @@ pub struct InverterDesign {
     pub pw: Vec<i64>,
     /// The transistor channel length.
     pub lch: i64,
-    /// The simulation backend.
-    pub backend: Backend,
+    /// Whether or not to run extracted simulations.
+    pub extracted: bool,
 }
 
 impl InverterDesign {
@@ -267,49 +293,42 @@ impl InverterDesign {
                 pw,
                 lch: self.lch,
             };
-            let tb = InverterTb::new(pvt, InverterDut::Schematic(dut));
-            let sim_dir = work_dir.join(format!("pw{pw}"));
-            let (t, x) = match &self.backend {
-                Backend::Ngspice => {
-                    let sim = ctx
-                        .get_sim_controller(tb, sim_dir)
-                        .expect("failed to create sim controller");
-                    let mut opts = Options::default();
-                    sim.set_option(pvt.corner, &mut opts);
-                    let output = sim
-                        .simulate(
-                            opts,
-                            Tran {
-                                stop: dec!(2e-9),
-                                step: dec!(1e-11),
-                                ..Default::default()
-                            },
-                        )
-                        .expect("failed to run simulation");
-                    (output.t.clone(), output.x.clone())
-                }
-                Backend::Spectre => {
-                    let tb = SpectreInverterTb(tb);
-                    let sim = ctx
-                        .get_sim_controller(tb, work_dir)
-                        .expect("failed to create sim controller");
-                    let mut opts = spectre::Options::default();
-                    sim.set_option(pvt.corner, &mut opts);
-                    let output = sim
-                        .simulate(
-                            opts,
-                            SpectreTran {
-                                stop: dec!(2e-9),
-                                errpreset: Some(spectre::ErrPreset::Conservative),
-                                ..Default::default()
-                            },
-                        )
-                        .expect("failed to run simulation");
-                    (output.t.clone(), output.x.clone())
-                }
+            let inverter = if self.extracted {
+                let work_dir = work_dir.join(format!("pw{pw}"));
+                let layout_path = work_dir.join("layout.gds");
+                ctx.write_layout(dut, to_gds, &layout_path)
+                    .expect("failed to write layout");
+                InverterDut::Extracted(Pex {
+                    schematic: Arc::new(ConvertSchema::new(dut)),
+                    gds_path: work_dir.join("layout.gds"),
+                    layout_cell_name: dut.name(),
+                    work_dir,
+                    lvs_rules_dir: PathBuf::from(SKY130_LVS),
+                    lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
+                    technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                })
+            } else {
+                InverterDut::Schematic(dut)
             };
+            let tb = InverterTb::new(pvt, inverter);
+            let sim_dir = work_dir.join(format!("pw{pw}"));
+            let sim = ctx
+                .get_sim_controller(tb, sim_dir)
+                .expect("failed to create sim controller");
+            let mut opts = spectre::Options::default();
+            sim.set_option(pvt.corner, &mut opts);
+            let output = sim
+                .simulate(
+                    opts,
+                    spectre::analysis::tran::Tran {
+                        stop: dec!(2e-9),
+                        errpreset: Some(spectre::ErrPreset::Conservative),
+                        ..Default::default()
+                    },
+                )
+                .expect("failed to run simulation");
 
-            let vout = WaveformRef::new(&t, &x);
+            let vout = output.as_ref();
             let mut trans = vout.transitions(
                 0.2 * pvt.voltage.to_f64().unwrap(),
                 0.8 * pvt.voltage.to_f64().unwrap(),
@@ -338,168 +357,49 @@ impl InverterDesign {
         opt.unwrap().1
     }
 }
-// end-code-snippet final-design
+// end-code-snippet design-extracted
 
-// begin-code-snippet sky130-open-ctx
-/// Create a new Substrate context for the SKY130 open PDK.
-///
-/// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
-/// environment variable and installs ngspice with default configuration.
-///
-/// # Panics
-///
-/// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
-/// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_open_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
-        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
-    Context::builder()
-        .install(Ngspice::default())
-        .install(Sky130Pdk::open(pdk_root))
-        .build()
-}
-// end-code-snippet sky130-open-ctx
-
-// begin-code-snippet sky130-commercial-ctx
-/// Create a new Substrate context for the SKY130 commercial PDK.
-///
-/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
-/// environment variable and installs Spectre with default configuration.
-///
-/// # Panics
-///
-/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
-/// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_commercial_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
-    Context::builder()
-        .install(Spectre::default())
-        .install(Sky130Pdk::commercial(pdk_root))
-        .build()
-}
-// end-code-snippet sky130-commercial-ctx
-
-// begin-code-snippet final-tests
+// begin-code-snippet tests-extracted
 #[cfg(test)]
 mod tests {
+    use crate::sky130_open_ctx;
+
     use super::*;
 
     #[test]
-    pub fn design_inverter_ngspice() {
-        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_ngspice");
+    pub fn design_inverter_spectre_extracted() {
+        let work_dir = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/design_inverter_spectre_extracted"
+        );
         let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
             lch: 150,
-            backend: Backend::Ngspice,
+            extracted: true,
         };
 
         let inv = script.run(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }
-}
-// end-code-snippet final-tests
-
-#[cfg(feature = "spectre")]
-// begin-code-snippet spectre-tests
-#[cfg(test)]
-mod spectre_tests {
-    use super::*;
 
     #[test]
-    pub fn design_inverter_spectre() {
-        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_spectre");
-        let mut ctx = sky130_commercial_ctx();
+    pub fn design_inverter_spectre_schematic() {
+        let work_dir = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/design_inverter_spectre_schematic"
+        );
+        let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
             lch: 150,
-            backend: Backend::Spectre,
+            extracted: false,
         };
+
         let inv = script.run(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }
 }
-// end-code-snippet spectre-tests
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum InverterDut {
-    Schematic(Inverter),
-    OpenPex(magic_netgen::Pex<ConvertSchema<Inverter, Spice>>),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]
-#[substrate(io = "TestbenchIo")]
-pub struct InverterTb {
-    pvt: Pvt<Sky130Corner>,
-    dut: InverterDut,
-}
-
-impl InverterTb {
-    #[inline]
-    pub fn new(pvt: Pvt<Sky130Corner>, dut: impl Into<InverterDut>) -> Self {
-        Self {
-            pvt,
-            dut: dut.into(),
-        }
-    }
-}
-
-impl Schematic for InverterTb {
-    type Schema = Ngspice;
-    type NestedData = Node;
-    fn schematic(
-        &self,
-        io: &IoNodeBundle<Self>,
-        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-    ) -> Result<Self::NestedData> {
-        let invio = cell.signal(
-            "dut",
-            InverterIoKind {
-                vdd: Signal,
-                vss: Signal,
-                din: Signal,
-                dout: Signal,
-            },
-        );
-
-        match self.dut.clone() {
-            InverterDut::Schematic(inv) => {
-                cell.sub_builder::<Sky130Pdk>()
-                    .instantiate_connected_named(inv, &invio, "inverter");
-            }
-            InverterDut::OpenPex(inv) => {
-                cell.sub_builder::<Spice>()
-                    .instantiate_connected_named(inv, &invio, "inverter");
-            }
-        };
-
-        let vdd = cell.signal("vdd", Signal);
-        let dout = cell.signal("dout", Signal);
-
-        let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
-        cell.connect(vddsrc.io().p, vdd);
-        cell.connect(vddsrc.io().n, io.vss);
-
-        let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
-            val0: 0.into(),
-            val1: self.pvt.voltage,
-            delay: Some(dec!(0.1e-9)),
-            width: Some(dec!(1e-9)),
-            fall: Some(dec!(1e-12)),
-            rise: Some(dec!(1e-12)),
-            period: None,
-            num_pulses: Some(dec!(1)),
-        }));
-        cell.connect(invio.din, vin.io().p);
-        cell.connect(vin.io().n, io.vss);
-
-        cell.connect(invio.vdd, vdd);
-        cell.connect(invio.vss, io.vss);
-        cell.connect(invio.dout, dout);
-
-        Ok(dout)
-    }
-}
+// end-code-snippet tests-extracted

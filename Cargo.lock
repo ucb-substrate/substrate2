@@ -2485,6 +2485,7 @@ dependencies = [
  "layir",
  "magic-netgen",
  "ngspice",
+ "quantus",
  "rust_decimal",
  "rust_decimal_macros",
  "sky130pdk",
