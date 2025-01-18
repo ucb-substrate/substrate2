@@ -55,7 +55,7 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: docs/docusaurus/yarn.lock
       - run: yarn install
-        working-directory: docs/site
+        working-directory: docs/docusaurus
       - run: yarn build
-        working-directory: docs/site
+        working-directory: docs/docusaurus
 
