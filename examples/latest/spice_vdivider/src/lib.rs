@@ -58,6 +58,7 @@ mod tests {
     use spice::netlist::NetlistOptions;
     use std::path::PathBuf;
     use substrate::context::Context;
+    use substrate::schematic::netlist::ConvertibleNetlister;
 
     #[test]
     pub fn netlist_vdivider() {

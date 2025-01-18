@@ -9,3 +9,5 @@ date: 2024-12-24
 # Example post
 
 Test
+
+<!-- truncate -->
