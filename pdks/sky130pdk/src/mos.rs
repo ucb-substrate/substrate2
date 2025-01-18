@@ -330,9 +330,8 @@ impl Block for MosTile {
     }
 }
 
-/// Layout data returned by [`MosTile`].
 #[derive(TransformRef, TranslateRef, TransformMut, TranslateMut)]
-pub struct MosTileData {
+pub(crate) struct MosTileData {
     diff: Rect,
 }
 
