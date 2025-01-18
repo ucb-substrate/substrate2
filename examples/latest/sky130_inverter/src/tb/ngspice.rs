@@ -10,6 +10,7 @@ use ngspice::Ngspice;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
+use sky130pdk::layout::to_gds;
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
 use std::path::Path;
@@ -296,7 +297,9 @@ impl InverterDesign {
             };
             let inverter = if self.extracted {
                 let work_dir = work_dir.join(format!("pw{pw}"));
-                // TODO: write gds
+                let layout_path = work_dir.join("layout.gds");
+                ctx.write_layout(dut, to_gds, &layout_path)
+                    .expect("failed to write layout");
                 InverterDut::Extracted(Pex {
                     schematic: Arc::new(ConvertSchema::new(dut)),
                     gds_path: work_dir.join("layout.gds"),
