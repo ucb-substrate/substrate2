@@ -39,7 +39,7 @@ use crate::{
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data");
+const EXAMPLE_SCS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/example_lib.scs");
 
 #[inline]
 fn get_path(test_name: &str, file_name: &str) -> PathBuf {
@@ -124,10 +124,7 @@ fn spectre_can_include_sections() {
 
     fn run(sim: SimController<Spectre, LibIncludeTb>) -> f64 {
         let mut opts = Options::default();
-        opts.include_section(
-            PathBuf::from(TEST_DATA_DIR).join("spectre/example_lib.scs"),
-            &sim.tb.block().0,
-        );
+        opts.include_section(EXAMPLE_SCS, &sim.tb.block().0);
         let vout = sim
             .simulate(
                 opts,
