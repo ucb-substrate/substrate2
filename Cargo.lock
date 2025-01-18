@@ -2482,6 +2482,7 @@ dependencies = [
  "gds",
  "gdsconv",
  "layir",
+ "magic-netgen",
  "ngspice",
  "rust_decimal",
  "rust_decimal_macros",

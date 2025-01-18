@@ -1,6 +1,6 @@
 use magic::extract::{run_extract, ExtractParams};
 use magic::pex::{run_pex, PexParams};
-use netgen::compare::CompareParams;
+use netgen::compare::{CompareOutput, CompareParams};
 use scir::netlist::ConvertibleNetlister;
 use scir::NetlistLibConversion;
 use scir::{NamedSliceOne, SliceOnePath};
@@ -9,6 +9,7 @@ use spice::Spice;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use substrate::context::Context;
 use substrate::schematic::conv::{ConvertedNodePath, RawLib};
 use substrate::schematic::{
     Cell, HasNestedView, InstancePath, NestedView, PrimitiveBinding, Schematic,
@@ -286,4 +287,61 @@ where
     ) -> <Self as Save<S, A>>::Saved {
         <NestedView<T::NestedData, PexContext> as Save<S, A>>::from_saved(output, key)
     }
+}
+
+#[derive(Clone)]
+pub struct LvsParams<T> {
+    pub schematic: Arc<T>,
+    pub gds_path: PathBuf,
+    pub layout_cell_name: ArcStr,
+    pub work_dir: PathBuf,
+    pub magic_tech_file_path: PathBuf,
+    pub netgen_setup_file_path: PathBuf,
+    pub ctx: Context,
+}
+
+pub fn run_lvs<T>(params: LvsParams<T>) -> substrate::error::Result<CompareOutput>
+where
+    T: Schematic<Schema = Spice>,
+{
+    let source_path = params.work_dir.join("source.spice");
+    let lvs_netlist_path = params
+        .work_dir
+        .join(format!("{}.lvs.spice", params.schematic.name()));
+    let rawlib = params.ctx.export_scir(params.schematic.clone()).unwrap();
+
+    let mut conv =
+        Spice.write_scir_netlist_to_file(&rawlib.scir, &source_path, NetlistOptions::default())?;
+    for (_, cell) in conv.cells.iter_mut() {
+        for (_, inst_name) in cell.instances.iter_mut() {
+            let mut iter = inst_name.chars();
+            iter.next();
+            *inst_name = iter.as_str().into();
+        }
+    }
+
+    let extract_dir = params.work_dir.join("extract");
+    let compare_dir = params.work_dir.join("compare");
+
+    run_extract(&ExtractParams {
+        cell_name: &params.layout_cell_name,
+        work_dir: &extract_dir,
+        gds_path: &params.gds_path,
+        tech_file_path: &params.magic_tech_file_path,
+        netlist_path: &lvs_netlist_path,
+    })
+    .expect("failed to extract layout for LVS");
+
+    let params = CompareParams {
+        netlist1_path: &source_path,
+        cell1: &params.schematic.name(),
+        netlist2_path: &lvs_netlist_path,
+        cell2: &params.layout_cell_name,
+        work_dir: &compare_dir,
+        setup_file_path: &params.netgen_setup_file_path,
+    };
+    let output =
+        netgen::compare::compare(&params).expect("failed to compare schematic and layout netlists");
+
+    Ok(output)
 }

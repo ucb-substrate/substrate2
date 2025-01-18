@@ -12,6 +12,7 @@ sky130pdk = { version = "0.8.1", registry = "substrate", path = "../../../pdks/s
 layir = { version = "0.1.0", registry = "substrate", path = "../../../libs/layir" }
 gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gdsconv" }
 gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
+magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
 
 arcstr = "1"
 rust_decimal = "1.30"
