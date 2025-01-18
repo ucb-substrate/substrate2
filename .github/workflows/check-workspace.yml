@@ -40,9 +40,10 @@ jobs:
       - uses: actions/checkout@v3
       - name: Test
         run: cargo test --locked --all-features
-      - name: Test examples
+      - name: Test release examples
+        if: ${{ ! startsWith(github.ref, 'release-please--') }}
         run: cargo test --locked --all-features
-        working-directory: examples
+        working-directory: examples/release
   check-docs-site:
     name: check-docs-site
     runs-on: ubuntu-22.04
