@@ -116,7 +116,7 @@ mod tests {
     use sky130pdk::layout::to_gds;
     use substrate::{block::Block, schematic::ConvertSchema};
 
-    use crate::{tb::sky130_open_ctx, Inverter};
+    use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
 
     #[test]
     fn inverter_layout() {

@@ -62,3 +62,23 @@ pub const SKY130_MAGIC_TECH_FILE: &str =
     concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
 pub const SKY130_NETGEN_SETUP_FILE: &str =
     concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
+
+// begin-code-snippet sky130-open-ctx
+/// Create a new Substrate context for the SKY130 open PDK.
+///
+/// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
+/// environment variable and installs ngspice with default configuration.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
+/// or if the value of that variable is not a valid UTF-8 string.
+pub fn sky130_open_ctx() -> Context {
+    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
+        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .install(Ngspice::default())
+        .install(Sky130Pdk::open(pdk_root))
+        .build()
+}
+// end-code-snippet sky130-open-ctx

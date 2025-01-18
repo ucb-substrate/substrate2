@@ -165,6 +165,8 @@ mod schematic_only_tb {
     // begin-code-snippet ngspice-tests
     #[cfg(test)]
     mod tests {
+        use crate::sky130_open_ctx;
+
         use super::*;
 
         #[test]
@@ -183,26 +185,6 @@ mod schematic_only_tb {
     }
     // end-code-snippet ngspice-tests
 }
-
-// begin-code-snippet sky130-open-ctx
-/// Create a new Substrate context for the SKY130 open PDK.
-///
-/// Sets the PDK root to the value of the `SKY130_OPEN_PDK_ROOT`
-/// environment variable and installs ngspice with default configuration.
-///
-/// # Panics
-///
-/// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
-/// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_open_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
-        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
-    Context::builder()
-        .install(Ngspice::default())
-        .install(Sky130Pdk::open(pdk_root))
-        .build()
-}
-// end-code-snippet sky130-open-ctx
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum InverterDut {
@@ -378,6 +360,8 @@ impl InverterDesign {
 // begin-code-snippet ngspice-tests-extracted
 #[cfg(test)]
 mod tests {
+    use crate::sky130_open_ctx;
+
     use super::*;
 
     #[test]
