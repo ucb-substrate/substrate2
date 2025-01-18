@@ -551,6 +551,7 @@ dependencies = [
  "quote",
  "rust_decimal",
  "rust_decimal_macros",
+ "scir",
  "snippets",
  "substrate",
  "syn 2.0.96",
