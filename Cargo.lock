@@ -551,6 +551,7 @@ dependencies = [
  "quote",
  "rust_decimal",
  "rust_decimal_macros",
+ "scir",
  "snippets",
  "substrate",
  "syn 2.0.96",
@@ -2667,6 +2668,7 @@ dependencies = [
  "ena",
  "enumify",
  "gds",
+ "gdsconv",
  "geometry",
  "impl-trait-for-tuples",
  "indexmap 2.7.0",
@@ -2790,32 +2792,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
-]
-
-[[package]]
-name = "tests"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "approx",
- "arcstr",
- "cache",
- "geometry",
- "indexmap 2.7.0",
- "lazy_static",
- "ngspice",
- "num",
- "rust_decimal",
- "rust_decimal_macros",
- "scir",
- "serde",
- "sky130pdk",
- "spectre",
- "spice",
- "substrate",
- "test-log",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

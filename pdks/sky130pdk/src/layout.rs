@@ -13,10 +13,7 @@ use substrate::{
         tracks::{Tracks, UniformTracks},
         CellBuilder, Layout,
     },
-    types::{
-        layout::{PortGeometry, PortGeometryBuilder},
-        InOut, Io, Signal,
-    },
+    types::{layout::PortGeometry, InOut, Io, Signal},
 };
 
 use crate::{layers::Sky130Layer, Sky130Pdk};

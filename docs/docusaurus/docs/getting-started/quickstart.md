@@ -13,7 +13,8 @@ export const cargoToml = require("{{EXAMPLES}}/spice_vdivider/Cargo.toml?snippet
 
 To get you up to speed with Substrate's basic features, we'll show you how make a simple voltage divider schematic.
 
-In this tutorial, we'll breeze through the basics to give you a sense of what Substrate generators look like. If you're looking for a deeper dive into how analog design and simulation work in Substrate, check out the [Designing an inverter](inverter.md) tutorial.
+In this tutorial, we'll breeze through the basics to give you a sense of what Substrate generators look like. 
+If you're looking for a deeper dive into how analog design and simulation work in Substrate, check out the [Designing an inverter](inverter/open.md) tutorial.
 
 ## Creating a Substrate project
 

@@ -107,7 +107,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         io,
     ));
     // Implement layout traits
-    all_decls_impls.push(layout_bundle_kind(&view_helper));
+    all_decls_impls.push(layout_bundle_kind(&helper, &kind_helper, &view_helper, io));
     Ok(quote! {
         #( #all_decls_impls )*
     })

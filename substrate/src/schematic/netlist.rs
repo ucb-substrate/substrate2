@@ -1,3 +1,5 @@
+//! Netlist export.
+
 use std::{io::Write, path::Path, sync::Arc};
 
 use scir::NetlistLibConversion;

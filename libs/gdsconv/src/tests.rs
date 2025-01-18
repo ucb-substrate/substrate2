@@ -11,7 +11,7 @@ use crate::{
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
+const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data");
 
 #[inline]
 fn get_path(test_name: &str, file_name: &str) -> PathBuf {
@@ -91,7 +91,7 @@ fn test_export_layir_to_gds() {
 
 #[test]
 fn test_gds_import() {
-    let path = test_data("gds/test_sky130_simple.gds");
+    let path = test_data("test_sky130_simple.gds");
     let bytes = std::fs::read(path).expect("failed to read GDS");
     let rawlib = GdsLibrary::from_bytes(bytes).expect("failed to parse GDS");
     let lib =
@@ -150,7 +150,7 @@ fn test_gds_import() {
 #[test]
 fn test_gds_import_invalid_units() {
     let bytes =
-        std::fs::read(test_data("gds/test_sky130_invalid_units.gds")).expect("failed to read GDS");
+        std::fs::read(test_data("test_sky130_invalid_units.gds")).expect("failed to read GDS");
     let rawlib = GdsLibrary::from_bytes(bytes).expect("failed to parse GDS");
     import_gds(
         &rawlib,
@@ -163,7 +163,7 @@ fn test_gds_import_invalid_units() {
 
 #[test]
 fn test_gds_reexport() {
-    let bytes = std::fs::read(test_data("gds/buffer.gds")).expect("failed to read GDS");
+    let bytes = std::fs::read(test_data("buffer.gds")).expect("failed to read GDS");
     let rawlib = GdsLibrary::from_bytes(bytes).expect("failed to parse GDS");
     let lib =
         import_gds(&rawlib, GdsImportOpts { units: None }).expect("failed to import to LayIR");

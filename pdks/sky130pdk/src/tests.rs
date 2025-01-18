@@ -1,30 +1,26 @@
 use crate::corner::Sky130Corner;
 use crate::layout::to_gds;
-use crate::mos::{GateDir, MosLength, MosParams, MosTile, Nfet01v8, NmosTile, PmosTile};
+use crate::mos::{MosLength, NmosTile, PmosTile};
 use crate::stdcells::And2;
 use crate::Sky130Pdk;
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
 use gds::GdsUnits;
 use gdsconv::export::GdsExportOpts;
-use ngspice::blocks::Vsource;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
-use spectre::analysis::montecarlo::Variations;
 use spectre::Spectre;
 use std::any::Any;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::schematic::schema::{FromSchema, Schema};
-use substrate::schematic::{Cell, CellBuilder, Schematic};
+use substrate::schematic::schema::FromSchema;
+use substrate::schematic::{CellBuilder, Schematic};
 use substrate::simulation::waveform::TimeWaveform;
-use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use substrate::types::schematic::Terminal;
-use substrate::types::{Signal, TestbenchIo, TwoTerminalIo};
+use substrate::types::{TestbenchIo, TwoTerminalIo};
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 
@@ -151,7 +147,7 @@ fn sky130_and2_ngspice() {
     let ctx = sky130_open_ctx();
 
     for (a, b, expected) in [(dec!(1.8), dec!(1.8), 1.8f64), (dec!(1.8), dec!(0), 0f64)] {
-        let mut sim = ctx
+        let sim = ctx
             .get_sim_controller(
                 And2Tb {
                     schema: PhantomData,
@@ -174,7 +170,7 @@ fn sky130_and2_ngspice() {
                 },
             )
             .expect("failed to run simulation");
-        assert_abs_diff_eq!(vout.v.as_ref().last_x().unwrap(), expected, epsilon = 1e-6);
+        assert_abs_diff_eq!(vout.v.last_x().unwrap(), expected, epsilon = 1e-6);
     }
 }
 
@@ -191,7 +187,7 @@ fn sky130_and2_monte_carlo_spectre() {
         (dec!(0), dec!(1.8), 0f64),
         (dec!(0), dec!(0), 0f64),
     ] {
-        let mut sim = ctx
+        let sim = ctx
             .get_sim_controller(
                 And2Tb {
                     schema: PhantomData,
@@ -208,7 +204,7 @@ fn sky130_and2_monte_carlo_spectre() {
             .simulate(
                 opts,
                 spectre::analysis::montecarlo::MonteCarlo {
-                    variations: Variations::All,
+                    variations: spectre::analysis::montecarlo::Variations::All,
                     numruns: 4,
                     seed: None,
                     firstrun: None,
@@ -226,7 +222,7 @@ fn sky130_and2_monte_carlo_spectre() {
             "MonteCarlo output did not contain data from the correct number of runs"
         );
         for vout in &*mc_vout {
-            assert_abs_diff_eq!(*vout.v.last().unwrap(), expected, epsilon = 1e-6);
+            assert_abs_diff_eq!(vout.v.last_x().unwrap(), expected, epsilon = 1e-6);
         }
     }
 }

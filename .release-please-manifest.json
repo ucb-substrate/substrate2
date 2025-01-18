@@ -27,7 +27,6 @@
   "libs/verilog": "0.0.0",
   "pdks/sky130pdk": "0.8.1",
   "substrate": "0.8.1",
-  "tests": "0.0.0",
   "tools/magic": "0.0.0",
   "tools/netgen": "0.0.0",
   "tools/ngspice": "0.3.1",

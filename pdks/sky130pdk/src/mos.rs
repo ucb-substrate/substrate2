@@ -12,16 +12,13 @@ use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
-use substrate::geometry::sign::Sign;
 use substrate::geometry::span::Span;
 use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::layout::Layout;
 use substrate::schematic::CellBuilder;
 use substrate::types::codegen::PortGeometryBundle;
-use substrate::types::layout::{PortGeometry, PortGeometryBuilder};
-use substrate::types::{
-    Array, ArrayBundle, FlatLen, HasBundleKind, InOut, Input, Io, MosIo, MosIoView, Signal,
-};
+use substrate::types::layout::PortGeometry;
+use substrate::types::{Array, ArrayBundle, FlatLen, InOut, Input, Io, MosIo, Signal};
 
 /// MOSFET sizing parameters.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -334,7 +331,7 @@ impl Block for MosTile {
 }
 
 #[derive(TransformRef, TranslateRef, TransformMut, TranslateMut)]
-pub struct MosTileData {
+pub(crate) struct MosTileData {
     diff: Rect,
     bbox: Rect,
 }

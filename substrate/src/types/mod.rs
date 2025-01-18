@@ -212,6 +212,21 @@ impl<T> Array<T> {
     pub fn new(len: usize, kind: T) -> Self {
         Self { len, kind }
     }
+
+    /// Returns if the array has length 0.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Returns the number of elements in the array.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns the kind of the elements in the array.
+    pub fn kind(&self) -> &T {
+        &self.kind
+    }
 }
 
 /// An instantiated array containing a fixed number of elements of `T`.

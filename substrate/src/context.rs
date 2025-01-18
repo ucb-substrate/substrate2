@@ -3,10 +3,12 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use config::Config;
+use gdsconv::export::GdsExportOpts;
+use gdsconv::GdsLayer;
 use indexmap::IndexMap;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
 use tracing::{span, Level};
@@ -19,8 +21,8 @@ use crate::execute::{Executor, LocalExecutor};
 use crate::layout::conv::export_multi_top_layir_lib;
 use crate::layout::element::{NamedPorts, RawCell};
 use crate::layout::error::LayoutError;
-use crate::layout::CellBuilder as LayoutCellBuilder;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
+use crate::layout::{CellBuilder as LayoutCellBuilder, CellLayer};
 use crate::layout::{Layout, LayoutContext};
 use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
@@ -521,6 +523,36 @@ impl Context {
             cells.insert(id, cell);
         }
         Ok(cells.get(&top).unwrap().clone())
+    }
+
+    /// Writes a layout cell to GDS.
+    pub fn write_layout<B: Layout>(
+        &self,
+        block: B,
+        to_gds: impl FnOnce(&layir::Library<CellLayer<B>>) -> layir::Library<GdsLayer>,
+        opts: GdsExportOpts,
+        path: impl AsRef<Path>,
+    ) -> Result<()> {
+        let layir = self.export_layir(block)?;
+        let layir = to_gds(&layir.layir);
+        let gds = gdsconv::export::export_gds(layir, opts);
+        gds.save(path)?;
+        Ok(())
+    }
+
+    /// Writes a set of layout cells to GDS.
+    pub fn write_layout_all<'a, L: Clone + 'a>(
+        &self,
+        cells: impl IntoIterator<Item = &'a RawCell<L>>,
+        to_gds: impl FnOnce(&layir::Library<L>) -> layir::Library<GdsLayer>,
+        opts: GdsExportOpts,
+        path: impl AsRef<Path>,
+    ) -> Result<()> {
+        let layir = self.export_layir_all(cells)?;
+        let layir = to_gds(&layir.layir);
+        let gds = gdsconv::export::export_gds(layir, opts);
+        gds.save(path)?;
+        Ok(())
     }
 }
 

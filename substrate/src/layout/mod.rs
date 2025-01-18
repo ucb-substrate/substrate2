@@ -43,7 +43,10 @@ use crate::block::Block;
 pub trait LayoutData: TransformRef + Send + Sync {}
 impl<T: TransformRef + Send + Sync> LayoutData for T {}
 
-type CellLayer<T> = <<T as Layout>::Schema as Schema>::Layer;
+/// The layer type associated with a layout cell.
+pub type CellLayer<T> = <<T as Layout>::Schema as Schema>::Layer;
+/// The bundle associated with a layout cell.
+pub type CellBundle<T> = <T as Layout>::Bundle;
 
 /// A block that can be laid out in a given layout [`Schema`].
 pub trait Layout: Block {

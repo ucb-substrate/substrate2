@@ -6,6 +6,7 @@ pub(crate) mod common;
 pub(crate) mod io;
 pub(crate) mod layout;
 pub(crate) mod schematic;
+pub(crate) mod simulation;
 
 use crate::io::bundle_kind;
 use crate::schematic::nested_data;
@@ -15,6 +16,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
+use simulation::{save_tuples, SaveTuplesInput};
 use snippets::include_snippet;
 use syn::Ident;
 use syn::{parse_macro_input, DeriveInput};
@@ -88,6 +90,15 @@ pub fn derive_block(input: TokenStream) -> TokenStream {
         #receiver
     )
     .into()
+}
+
+/// Implements saving for tuples of analyses for a given schematic object.
+#[proc_macro]
+pub fn impl_save_tuples(item: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(item as SaveTuplesInput);
+    let output = handle_syn_error!(save_tuples(parsed));
+
+    output.into()
 }
 
 pub(crate) fn substrate_ident() -> TokenStream2 {

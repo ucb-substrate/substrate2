@@ -166,8 +166,9 @@ where
     type View = crate::simulation::data::Saved<T::View, S, A>;
 }
 
-pub trait HasDefaultLayoutBundle {
-    type Bundle<S: crate::layout::schema::Schema>: LayoutBundle<S>;
+pub trait HasDefaultLayoutBundle: HasBundleKind {
+    type Bundle<S: crate::layout::schema::Schema>: LayoutBundle<S>
+        + HasBundleKind<BundleKind = <Self as HasBundleKind>::BundleKind>;
 }
 /// A port geometry bundle view.
 pub struct PortGeometryBundle<S>(PhantomData<S>);

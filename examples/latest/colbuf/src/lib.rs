@@ -306,7 +306,7 @@ mod tests {
                 )
                 .expect("failed to run simulation");
 
-            out.x_31.as_ref().first_x().unwrap()
+            out.x_31.first_x().unwrap()
         }
 
         let test_name = "test_sim_cadence_pex";
@@ -352,7 +352,7 @@ mod tests {
                 )
                 .expect("failed to run simulation");
 
-            out.x_31.as_ref().first_x().unwrap()
+            out.x_31.first_x().unwrap()
         }
 
         let test_name = "test_sim_open_pex";

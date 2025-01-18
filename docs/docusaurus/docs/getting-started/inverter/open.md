@@ -1,4 +1,5 @@
 ---
+title: With open source tools
 sidebar_position: 2
 ---
 
@@ -10,12 +11,12 @@ export const inverterMod = require(`{{EXAMPLES}}/sky130_inverter/src/lib.rs?snip
 export const inverterTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb.rs?snippet`);
 export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippet`);
 
-# Designing an inverter
+# Designing an inverter with open-source tools
 
 In this tutorial, we'll design and simulate a schematic-level inverter in
 the Skywater 130nm process to showcase some of the capabilities of Substrate's
-analog simulation interface. We'll also go into some more detail about what
-the code you're writing is actually doing.
+analog simulation interface. Substrate will call into open source tools (ngspice, magic, and netgen)
+to run simulations, LVS, and extraction. 
 
 ## Setup
 
@@ -47,9 +48,8 @@ Replace the content of `src/lib.rs` with the following:
 
 ### Simulators
 
-This tutorial will demonstrate how to invoke both [ngspice](https://ngspice.sourceforge.io/index.html) and [Spectre](https://www.cadence.com/en_US/home/tools/custom-ic-analog-rf-design/circuit-simulation/spectre-ams-designer.html) from Substrate to run transient simulations.
-You can choose to use whichever simulator you would like, but make sure to install the appropriate simulator before
-running your Rust code. We recommend an ngspice version of at least 41.
+This tutorial will demonstrate how to invoke [ngspice](https://ngspice.sourceforge.io/index.html) from Substrate to run transient simulations.
+Make sure to install an ngspice version of at least 41 before running your Rust code.
 
 ### SKY130 PDK
 
