@@ -53,9 +53,52 @@ pub(crate) fn impl_transform_ref(view_helper: &DeriveInputHelper) -> TokenStream
     })
 }
 
-pub(crate) fn layout_bundle_kind(view_helper: &DeriveInputHelper) -> TokenStream {
+pub(crate) fn impl_has_default_layout_bundle(
+    kind_helper: &DeriveInputHelper,
+    view_helper: &DeriveInputHelper,
+) -> TokenStream {
+    let substrate = substrate_ident();
+    let view_generic_ty: syn::Ident = parse_quote! { __substrate_V };
+    let layer_ident: syn::Ident = parse_quote! { __substrate_L};
+    let mut kind_helper = kind_helper.clone();
+    kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
+        let prev_ty = prev_tys.first().unwrap_or(ty);
+        parse_quote! { #prev_ty: #substrate::types::codegen::HasDefaultLayoutBundle }
+    });
+    let mut layout_bundle_helper = kind_helper.clone();
+    layout_bundle_helper.set_ident(view_helper.get_ident().clone());
+    layout_bundle_helper.push_generic_param(parse_quote! { #view_generic_ty });
+    layout_bundle_helper.add_generic_type_binding(
+        parse_quote! { #view_generic_ty },
+        parse_quote! { #substrate::types::codegen::PortGeometryBundle<#layer_ident> },
+    );
+    layout_bundle_helper.map_types(
+        |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#substrate::types::codegen::PortGeometryBundle<#layer_ident>>>::View },
+    );
+    let layout_bundle_full_ty = layout_bundle_helper.get_full_type();
+
+    kind_helper.impl_trait(&ImplTrait {
+        trait_name: quote! { #substrate::types::codegen::HasDefaultLayoutBundle },
+        trait_body: quote! {
+            type Bundle<#layer_ident: #substrate::layout::schema::Schema> = #layout_bundle_full_ty;
+        },
+        extra_generics: vec![],
+        extra_where_predicates: vec![],
+    })
+}
+
+pub(crate) fn layout_bundle_kind(
+    io_helper: &DeriveInputHelper,
+    kind_helper: &DeriveInputHelper,
+    view_helper: &DeriveInputHelper,
+    io: bool,
+) -> TokenStream {
     let mut all_decls_impls = Vec::new();
 
+    if io {
+        all_decls_impls.push(impl_has_default_layout_bundle(io_helper, view_helper));
+    }
+    all_decls_impls.push(impl_has_default_layout_bundle(kind_helper, view_helper));
     all_decls_impls.push(impl_translate_ref(view_helper));
     all_decls_impls.push(impl_transform_ref(view_helper));
 

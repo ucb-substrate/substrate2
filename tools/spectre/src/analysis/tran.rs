@@ -6,7 +6,6 @@ use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::sync::Arc;
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::simulation::data::{Save, SaveOutput, SaveTime};
@@ -49,13 +48,17 @@ pub struct Output {
     pub(crate) saved_values: HashMap<u64, ArcStr>,
 }
 
+/// An output transient waveform.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct OutputWaveform {
+    /// Time samples.
     pub t: Arc<Vec<f64>>,
+    /// Values corresponding to time samples in `t`.
     pub x: Arc<Vec<f64>>,
 }
 
 impl OutputWaveform {
+    /// Converts an [`OutputWaveform`] to a [`WaveformRef`].
     pub fn as_ref(&self) -> WaveformRef<'_, f64> {
         WaveformRef::new(&self.t, &self.x)
     }

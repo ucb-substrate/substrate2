@@ -3,7 +3,8 @@ use rust_decimal::Decimal;
 use spice::{Resistor, Spice};
 use substrate::{
     block::Block,
-    schematic::{netlist::ConvertibleNetlister, CellBuilder, Schematic},
+    error::Result,
+    schematic::{CellBuilder, Schematic},
     types::{schematic::IoNodeBundle, InOut, Io, Output, Signal},
 };
 // end-code-snippet imports
@@ -36,7 +37,7 @@ impl Schematic for Vdivider {
         &self,
         io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-    ) -> substrate::error::Result<Self::NestedData> {
+    ) -> Result<Self::NestedData> {
         let r1 = cell.instantiate(Resistor::new(self.r1));
         let r2 = cell.instantiate(Resistor::new(self.r2));
 
@@ -58,6 +59,7 @@ mod tests {
     use spice::netlist::NetlistOptions;
     use std::path::PathBuf;
     use substrate::context::Context;
+    use substrate::schematic::netlist::ConvertibleNetlister;
 
     #[test]
     pub fn netlist_vdivider() {

@@ -1,10 +1,12 @@
-use ngspice::Ngspice;
 // begin-code-snippet imports
+use ngspice::Ngspice;
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
 use substrate::context::Context;
+use substrate::error::Result;
 use substrate::schematic::{CellBuilder, Schematic};
+use substrate::types::schematic::IoNodeBundle;
 use substrate::types::{InOut, Input, Io, Output, Signal};
 // end-code-snippet imports
 
@@ -40,9 +42,9 @@ impl Schematic for Inverter {
     type NestedData = ();
     fn schematic(
         &self,
-        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-    ) -> substrate::error::Result<Self::NestedData> {
+    ) -> Result<Self::NestedData> {
         let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));
         cell.connect(io.dout, nmos.io().d);
         cell.connect(io.din, nmos.io().g);

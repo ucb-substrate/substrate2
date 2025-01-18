@@ -1,21 +1,18 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use cache::persistent::client::ClientKind;
 
 use crate::{raw::RawConfig, CacheProviderConfig, Config};
 
-const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/data");
+const CONFIG_DIR: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/test_substrate_config/projects"
+);
 
 #[test]
 fn test_raw_config() -> Result<()> {
-    let mut cfg = RawConfig::new(
-        PathBuf::from(DATA_DIR).join("test_substrate_config/projects"),
-        "".into(),
-    );
+    let mut cfg = RawConfig::new(CONFIG_DIR.into(), "".into());
 
     cfg.set_env(HashMap::from_iter(
         [
@@ -64,10 +61,7 @@ fn test_raw_config() -> Result<()> {
 
 #[test]
 fn test_config() -> Result<()> {
-    let cfg = Config::new(
-        PathBuf::from(DATA_DIR).join("test_substrate_config/projects"),
-        "".into(),
-    )?;
+    let cfg = Config::new(CONFIG_DIR.into(), "".into())?;
 
     assert!(cfg.cache.enable);
     assert!(cfg.cache.skip_memory);

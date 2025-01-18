@@ -19,7 +19,7 @@ use crate::mos::{MosKind, MosParams};
 use scir::schema::{FromSchema, Schema};
 use scir::{Instance, ParamValue};
 use spice::Spice;
-use substrate::context::{ContextBuilder, Installation};
+use substrate::context::Installation;
 
 pub mod corner;
 pub mod layers;
