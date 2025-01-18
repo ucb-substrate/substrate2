@@ -57,3 +57,8 @@ impl Schematic for Inverter {
     }
 }
 // end-code-snippet inverter-schematic
+
+pub const SKY130_MAGIC_TECH_FILE: &str =
+    concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
+pub const SKY130_NETGEN_SETUP_FILE: &str =
+    concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");

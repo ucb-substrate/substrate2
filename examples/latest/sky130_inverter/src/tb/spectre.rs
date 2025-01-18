@@ -22,6 +22,8 @@ use substrate::types::{Signal, TestbenchIo};
 
 #[allow(dead_code)]
 mod schematic_only_tb {
+    use ngspice::blocks::{Pulse, Vsource};
+
     use super::*;
 
     // begin-code-snippet struct-and-impl
@@ -54,11 +56,11 @@ mod schematic_only_tb {
             let vdd = cell.signal("vdd", Signal);
             let dout = cell.signal("dout", Signal);
 
-            let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
+            let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
             cell.connect(vddsrc.io().p, vdd);
             cell.connect(vddsrc.io().n, io.vss);
 
-            let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
+            let vin = cell.instantiate(Vsource::pulse(Pulse {
                 val0: 0.into(),
                 val1: self.pvt.voltage,
                 delay: Some(dec!(0.1e-9)),
