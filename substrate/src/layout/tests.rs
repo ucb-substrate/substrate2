@@ -403,14 +403,13 @@ fn cell_builder_supports_bbox() {
     let block = BufferNxM::new(5, 10, 6);
 
     let ctx = Context::new();
-    let layir = ctx
-        .write_layout(
-            block,
-            to_gds,
-            gds_export_opts(),
-            get_path(test_name, "layout.gds"),
-        )
-        .expect("failed to write layout");
+    ctx.write_layout(
+        block,
+        to_gds,
+        gds_export_opts(),
+        get_path(test_name, "layout.gds"),
+    )
+    .expect("failed to write layout");
 
     let handle = ctx.generate_layout(block);
     let cell = handle.cell();

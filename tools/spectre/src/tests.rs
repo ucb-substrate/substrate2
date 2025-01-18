@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
@@ -19,7 +18,6 @@ use substrate::execute::{ExecOpts, Executor, LocalExecutor};
 use substrate::simulation::options::ic;
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::waveform::TimeWaveform;
-use substrate::simulation::{SimulationContext, Simulator, Testbench};
 use substrate::types::schematic::Terminal;
 use substrate::{
     context::Context,

@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-// TODO: extract to examples.
 
 use std::collections::HashSet;
 
@@ -8,14 +7,13 @@ use arcstr::ArcStr;
 use codegen::Io;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
 
 use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
 use crate::tests::{Buffer, BufferN, BufferNxM, Inverter, InverterMos};
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
-use crate::types::{Array, Flipped, HasBundleKind, Input, MosIo, PowerIo};
+use crate::types::{Array, Flipped, HasBundleKind, Input, PowerIo};
 use crate::{
     block::Block,
     schematic::{conv::RawLib, NestedData, PrimitiveBinding, Schematic},

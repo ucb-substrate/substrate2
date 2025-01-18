@@ -21,7 +21,14 @@ jobs:
       - name: Lint examples
         run: |
           cargo hack --feature-powerset clippy --locked -- -D warnings
-        working-directory: examples
+        working-directory: examples/release
+      - name: Lint tests
+        run: |
+          cargo hack --feature-powerset --tests clippy --locked -- -D warnings
+      - name: Lint examples tests
+        run: |
+          cargo hack --feature-powerset --tests clippy --locked -- -D warnings
+        working-directory: examples/release
   check-docs:
     name: check-docs
     runs-on: bwrc
