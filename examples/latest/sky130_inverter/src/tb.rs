@@ -1,7 +1,9 @@
 // begin-code-snippet imports
 use super::Inverter;
 
-use ngspice::Ngspice;
+use ngspice::blocks::{Pulse, Vsource};
+use ngspice::tran::Tran;
+use ngspice::{Ngspice, Options};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
@@ -47,11 +49,11 @@ impl Schematic for InverterTb {
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
 
-        let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
+        let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
+        let vin = cell.instantiate(Vsource::pulse(Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
@@ -108,12 +110,12 @@ mod ngspice_only_design {
                 let sim = ctx
                     .get_sim_controller(tb, sim_dir)
                     .expect("failed to create sim controller");
-                let mut opts = ngspice::Options::default();
+                let mut opts = Options::default();
                 sim.set_option(pvt.corner, &mut opts);
                 let vout = sim
                     .simulate(
                         opts,
-                        ngspice::tran::Tran {
+                        Tran {
                             stop: dec!(2e-9),
                             step: dec!(1e-11),
                             ..Default::default()
@@ -174,6 +176,8 @@ mod ngspice_only_design {
 }
 
 // begin-code-snippet spectre-schematic
+use spectre::analysis::tran::Tran as SpectreTran;
+use spectre::blocks::{Pulse as SpectrePulse, Vsource as SpectreVsource};
 use spectre::Spectre;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
@@ -194,11 +198,11 @@ impl Schematic for SpectreInverterTb {
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
 
-        let vddsrc = cell.instantiate(spectre::blocks::Vsource::dc(self.0.pvt.voltage));
+        let vddsrc = cell.instantiate(SpectreVsource::dc(self.0.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate(spectre::blocks::Vsource::pulse(spectre::blocks::Pulse {
+        let vin = cell.instantiate(SpectreVsource::pulse(SpectrePulse {
             val0: 0.into(),
             val1: self.0.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
@@ -260,12 +264,12 @@ impl InverterDesign {
                     let sim = ctx
                         .get_sim_controller(tb, sim_dir)
                         .expect("failed to create sim controller");
-                    let mut opts = ngspice::Options::default();
+                    let mut opts = Options::default();
                     sim.set_option(pvt.corner, &mut opts);
                     let output = sim
                         .simulate(
                             opts,
-                            ngspice::tran::Tran {
+                            Tran {
                                 stop: dec!(2e-9),
                                 step: dec!(1e-11),
                                 ..Default::default()
@@ -284,7 +288,7 @@ impl InverterDesign {
                     let output = sim
                         .simulate(
                             opts,
-                            spectre::analysis::tran::Tran {
+                            SpectreTran {
                                 stop: dec!(2e-9),
                                 errpreset: Some(spectre::ErrPreset::Conservative),
                                 ..Default::default()
