@@ -5,8 +5,6 @@ use crate::stdcells::And2;
 use crate::Sky130Pdk;
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
-use gds::GdsUnits;
-use gdsconv::export::GdsExportOpts;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
