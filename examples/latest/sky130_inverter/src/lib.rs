@@ -1,7 +1,9 @@
+use ngspice::Ngspice;
 // begin-code-snippet imports
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
 use substrate::block::Block;
+use substrate::context::Context;
 use substrate::schematic::{CellBuilder, Schematic};
 use substrate::types::{InOut, Input, Io, Output, Signal};
 // end-code-snippet imports
