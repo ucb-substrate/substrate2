@@ -1,3 +1,5 @@
+use crate::InverterIoKind;
+
 // begin-code-snippet imports
 use super::Inverter;
 
@@ -440,11 +442,6 @@ impl InverterTb {
     }
 }
 
-enum Ab<A, B> {
-    A(A),
-    B(B),
-}
-
 impl Schematic for InverterTb {
     type Schema = Ngspice;
     type NestedData = Node;
@@ -453,14 +450,25 @@ impl Schematic for InverterTb {
         io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
-        let inv = match self.dut.clone() {
-            InverterDut::Schematic(inv) => Ab::A(cell.sub_builder::<Sky130Pdk>().instantiate(inv)),
-            InverterDut::OpenPex(inv) => Ab::B(cell.sub_builder::<Spice>().instantiate(inv)),
-        };
+        let invio = cell.signal(
+            "dut",
+            InverterIoKind {
+                vdd: Signal,
+                vss: Signal,
+                din: Signal,
+                dout: Signal,
+            },
+        );
 
-        let invio = match inv {
-            Ab::A(ref inv) => inv.io(),
-            Ab::B(ref inv) => inv.io(),
+        match self.dut.clone() {
+            InverterDut::Schematic(inv) => {
+                cell.sub_builder::<Sky130Pdk>()
+                    .instantiate_connected_named(inv, &invio, "inverter");
+            }
+            InverterDut::OpenPex(inv) => {
+                cell.sub_builder::<Spice>()
+                    .instantiate_connected_named(inv, &invio, "inverter");
+            }
         };
 
         let vdd = cell.signal("vdd", Signal);
