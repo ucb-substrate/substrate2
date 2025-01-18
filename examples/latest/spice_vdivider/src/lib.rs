@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use spice::{Resistor, Spice};
 use substrate::{
     block::Block,
-    schematic::{netlist::ConvertibleNetlister, CellBuilder, Schematic},
+    schematic::{CellBuilder, Schematic},
     types::{schematic::IoNodeBundle, InOut, Io, Output, Signal},
 };
 // end-code-snippet imports

@@ -1,8 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{
-    parse::Parse, parse_quote, punctuated::Punctuated, Expr, Generics, Ident, LitInt, Token, Type,
-};
+use syn::{parse::Parse, parse_quote, Generics, Index, LitInt, Token, Type};
 
 use crate::substrate_ident;
 
@@ -36,12 +34,12 @@ pub(crate) fn save_tuples(input: SaveTuplesInput) -> syn::Result<TokenStream> {
     let sim_generic = "S";
     let sim_generic_ident = format_ident!("{sim_generic}");
     let analysis_generic = "A";
-    let impls = (1..input.num_tuples).map(|i| {
+    let impls = (1..num_tuples).map(|i| {
         let mut impl_generics = generics.clone();
         let tuple_idents = (0..i)
             .map(|j| format_ident!("{analysis_generic}{j}"))
             .collect::<Vec<_>>();
-        let idxs = (0..i).collect::<Vec<_>>();
+        let idxs = (0..i).map(Index::from).collect::<Vec<_>>();
         impl_generics
             .params
             .push(parse_quote! { #sim_generic_ident: #substrate::simulation::Simulator });

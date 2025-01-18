@@ -1,8 +1,6 @@
 //! Built-in implementations of IO traits.
 
 use crate::types::codegen::HasDefaultLayoutBundle;
-use crate::types::codegen::HasView;
-use crate::types::codegen::PortGeometryBundle;
 use schematic::{
     HasNodeBundle, HasTerminalBundle, Node, NodeBundle, SchematicBundleKind, Terminal,
     TerminalBundle,

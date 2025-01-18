@@ -9,11 +9,10 @@ use substrate::{
     geometry::{
         align::{AlignMode, AlignRectMut},
         bbox::Bbox,
-        point::Point,
         prelude::Transformation,
         rect::Rect,
         span::Span,
-        transform::{TransformMut, TranslateMut},
+        transform::TransformMut,
         union::BoundingUnion,
     },
     layout::Layout,

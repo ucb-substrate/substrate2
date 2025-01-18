@@ -525,7 +525,7 @@ impl Context {
         Ok(cells.get(&top).unwrap().clone())
     }
 
-    // Writes a Substrate layout to GDS.
+    /// Writes a layout cell to GDS.
     pub fn write_layout<B: Layout>(
         &self,
         block: B,
@@ -540,7 +540,7 @@ impl Context {
         Ok(())
     }
 
-    // Writes a set of layout cells to GDS.
+    /// Writes a set of layout cells to GDS.
     pub fn write_layout_all<'a, L: Clone + 'a>(
         &self,
         cells: impl IntoIterator<Item = &'a RawCell<L>>,
