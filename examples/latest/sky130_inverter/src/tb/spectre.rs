@@ -362,7 +362,7 @@ impl InverterDesign {
 // begin-code-snippet tests-extracted
 #[cfg(test)]
 mod tests {
-    use crate::sky130_open_ctx;
+    use crate::sky130_commercial_ctx;
 
     use super::*;
 
@@ -372,7 +372,7 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/tests/design_inverter_spectre_extracted"
         );
-        let mut ctx = sky130_open_ctx();
+        let mut ctx = sky130_commercial_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
@@ -390,7 +390,7 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/tests/design_inverter_spectre_schematic"
         );
-        let mut ctx = sky130_open_ctx();
+        let mut ctx = sky130_commercial_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
