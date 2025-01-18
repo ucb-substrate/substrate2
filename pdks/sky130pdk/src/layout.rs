@@ -1,6 +1,7 @@
 //! Layout for sky130.
 
 use arcstr::ArcStr;
+use gds::GdsUnits;
 use gdsconv::GdsLayer;
 use geometry::prelude::Transformation;
 use geometry::{bbox::Bbox, dir::Dir, rect::Rect, span::Span};
@@ -20,7 +21,7 @@ use crate::{layers::Sky130Layer, Sky130Pdk};
 
 /// Convert a sky130 layout library to a GDS layout library.
 // TODO: cell IDs are not preserved
-pub fn to_gds(lib: &layir::Library<Sky130Layer>) -> layir::Library<GdsLayer> {
+pub fn to_gds(lib: &layir::Library<Sky130Layer>) -> (layir::Library<GdsLayer>, GdsUnits) {
     let mut olib = LibraryBuilder::<GdsLayer>::new();
     let cells = lib.topological_order();
     for cell in cells {
@@ -59,7 +60,7 @@ pub fn to_gds(lib: &layir::Library<Sky130Layer>) -> layir::Library<GdsLayer> {
         }
         olib.add_cell(ocell);
     }
-    olib.build().unwrap()
+    (olib.build().unwrap(), GdsUnits::new(1., 1e-9))
 }
 
 struct TapTileData {

@@ -109,8 +109,6 @@ impl Layout for Inverter {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
-    use gds::GdsUnits;
-    use gdsconv::export::GdsExportOpts;
     use magic_netgen::LvsParams;
     use sky130pdk::layout::to_gds;
     use substrate::{block::Block, schematic::ConvertSchema};
@@ -132,16 +130,7 @@ mod tests {
             lch: 150,
         };
 
-        let layir = ctx.export_layir(dut).unwrap();
-        let layir = to_gds(&layir.layir);
-        let gds = gdsconv::export::export_gds(
-            layir,
-            GdsExportOpts {
-                name: arcstr::literal!("pfet_01v8_layout"),
-                units: Some(GdsUnits::new(1., 1e-9)),
-            },
-        );
-        gds.save(&layout_path).unwrap();
+        ctx.write_layout(dut, to_gds, &layout_path).unwrap();
 
         let lvs_dir = work_dir.join("lvs");
         let output = magic_netgen::run_lvs(LvsParams {
