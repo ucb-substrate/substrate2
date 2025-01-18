@@ -6,72 +6,78 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::Sky130Pdk;
+use spice::Spice;
 use std::path::Path;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
-use substrate::schematic::{CellBuilder, Schematic};
+use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::Pvt;
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
 // end-code-snippet imports
 
-// begin-code-snippet struct-and-impl
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
-#[substrate(io = "TestbenchIo")]
-pub struct InverterTb {
-    pvt: Pvt<Sky130Corner>,
-    dut: Inverter,
-}
+#[allow(dead_code)]
+mod schematic_only_tb {
+    use super::*;
 
-impl InverterTb {
-    #[inline]
-    pub fn new(pvt: Pvt<Sky130Corner>, dut: Inverter) -> Self {
-        Self { pvt, dut }
+    // begin-code-snippet struct-and-impl
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
+    #[substrate(io = "TestbenchIo")]
+    pub struct InverterTb {
+        pvt: Pvt<Sky130Corner>,
+        dut: Inverter,
     }
-}
-// end-code-snippet struct-and-impl
 
-// begin-code-snippet schematic
-impl Schematic for InverterTb {
-    type Schema = Ngspice;
-    type NestedData = Node;
-    fn schematic(
-        &self,
-        io: &IoNodeBundle<Self>,
-        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
-    ) -> Result<Self::NestedData> {
-        let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
-
-        let vdd = cell.signal("vdd", Signal);
-        let dout = cell.signal("dout", Signal);
-
-        let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
-        cell.connect(vddsrc.io().p, vdd);
-        cell.connect(vddsrc.io().n, io.vss);
-
-        let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
-            val0: 0.into(),
-            val1: self.pvt.voltage,
-            delay: Some(dec!(0.1e-9)),
-            width: Some(dec!(1e-9)),
-            fall: Some(dec!(1e-12)),
-            rise: Some(dec!(1e-12)),
-            period: None,
-            num_pulses: Some(dec!(1)),
-        }));
-        cell.connect(inv.io().din, vin.io().p);
-        cell.connect(vin.io().n, io.vss);
-
-        cell.connect(inv.io().vdd, vdd);
-        cell.connect(inv.io().vss, io.vss);
-        cell.connect(inv.io().dout, dout);
-
-        Ok(dout)
+    impl InverterTb {
+        #[inline]
+        pub fn new(pvt: Pvt<Sky130Corner>, dut: Inverter) -> Self {
+            Self { pvt, dut }
+        }
     }
+    // end-code-snippet struct-and-impl
+
+    // begin-code-snippet schematic
+    impl Schematic for InverterTb {
+        type Schema = Ngspice;
+        type NestedData = Node;
+        fn schematic(
+            &self,
+            io: &IoNodeBundle<Self>,
+            cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+        ) -> Result<Self::NestedData> {
+            let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
+
+            let vdd = cell.signal("vdd", Signal);
+            let dout = cell.signal("dout", Signal);
+
+            let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
+            cell.connect(vddsrc.io().p, vdd);
+            cell.connect(vddsrc.io().n, io.vss);
+
+            let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
+                val0: 0.into(),
+                val1: self.pvt.voltage,
+                delay: Some(dec!(0.1e-9)),
+                width: Some(dec!(1e-9)),
+                fall: Some(dec!(1e-12)),
+                rise: Some(dec!(1e-12)),
+                period: None,
+                num_pulses: Some(dec!(1)),
+            }));
+            cell.connect(inv.io().din, vin.io().p);
+            cell.connect(vin.io().n, io.vss);
+
+            cell.connect(inv.io().vdd, vdd);
+            cell.connect(inv.io().vss, io.vss);
+            cell.connect(inv.io().dout, dout);
+
+            Ok(dout)
+        }
+    }
+    // end-code-snippet schematic
 }
-// end-code-snippet schematic
 
 #[allow(dead_code)]
 mod ngspice_only_design {
@@ -103,7 +109,7 @@ mod ngspice_only_design {
                     pw,
                     lch: self.lch,
                 };
-                let tb = InverterTb::new(pvt, dut);
+                let tb = InverterTb::new(pvt, InverterDut::Schematic(dut));
                 let sim_dir = work_dir.join(format!("pw{pw}"));
                 let sim = ctx
                     .get_sim_controller(tb, sim_dir)
@@ -254,7 +260,7 @@ impl InverterDesign {
                 pw,
                 lch: self.lch,
             };
-            let tb = InverterTb::new(pvt, dut);
+            let tb = InverterTb::new(pvt, InverterDut::Schematic(dut));
             let sim_dir = work_dir.join(format!("pw{pw}"));
             let (t, x) = match &self.backend {
                 Backend::Ngspice => {
@@ -410,3 +416,77 @@ mod spectre_tests {
     }
 }
 // end-code-snippet spectre-tests
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum InverterDut {
+    Schematic(Inverter),
+    OpenPex(magic_netgen::Pex<ConvertSchema<Inverter, Spice>>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]
+#[substrate(io = "TestbenchIo")]
+pub struct InverterTb {
+    pvt: Pvt<Sky130Corner>,
+    dut: InverterDut,
+}
+
+impl InverterTb {
+    #[inline]
+    pub fn new(pvt: Pvt<Sky130Corner>, dut: impl Into<InverterDut>) -> Self {
+        Self {
+            pvt,
+            dut: dut.into(),
+        }
+    }
+}
+
+enum Ab<A, B> {
+    A(A),
+    B(B),
+}
+
+impl Schematic for InverterTb {
+    type Schema = Ngspice;
+    type NestedData = Node;
+    fn schematic(
+        &self,
+        io: &IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
+    ) -> Result<Self::NestedData> {
+        let inv = match self.dut.clone() {
+            InverterDut::Schematic(inv) => Ab::A(cell.sub_builder::<Sky130Pdk>().instantiate(inv)),
+            InverterDut::OpenPex(inv) => Ab::B(cell.sub_builder::<Spice>().instantiate(inv)),
+        };
+
+        let invio = match inv {
+            Ab::A(ref inv) => inv.io(),
+            Ab::B(ref inv) => inv.io(),
+        };
+
+        let vdd = cell.signal("vdd", Signal);
+        let dout = cell.signal("dout", Signal);
+
+        let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
+        cell.connect(vddsrc.io().p, vdd);
+        cell.connect(vddsrc.io().n, io.vss);
+
+        let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
+            val0: 0.into(),
+            val1: self.pvt.voltage,
+            delay: Some(dec!(0.1e-9)),
+            width: Some(dec!(1e-9)),
+            fall: Some(dec!(1e-12)),
+            rise: Some(dec!(1e-12)),
+            period: None,
+            num_pulses: Some(dec!(1)),
+        }));
+        cell.connect(invio.din, vin.io().p);
+        cell.connect(vin.io().n, io.vss);
+
+        cell.connect(invio.vdd, vdd);
+        cell.connect(invio.vss, io.vss);
+        cell.connect(invio.dout, dout);
+
+        Ok(dout)
+    }
+}

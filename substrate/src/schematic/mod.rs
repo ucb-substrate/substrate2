@@ -83,9 +83,9 @@ pub trait HasNestedView<T = InstancePath> {
 /// The associated nested view of an object.
 pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
 
-impl HasNestedView for () {
+impl<T> HasNestedView<T> for () {
     type NestedView = ();
-    fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
+    fn nested_view(&self, _parent: &T) -> NestedView<Self> {}
 }
 
 // TODO: Potentially use lazy evaluation instead of cloning.

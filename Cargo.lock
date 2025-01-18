@@ -2488,6 +2488,7 @@ dependencies = [
  "rust_decimal_macros",
  "sky130pdk",
  "spectre",
+ "spice",
  "substrate",
 ]
 
