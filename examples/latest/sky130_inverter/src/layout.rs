@@ -176,20 +176,15 @@ mod tests {
 
         let lvs_dir = work_dir.join("lvs");
         let source_path = work_dir.join("schematic.spice");
-        let rawlib = ctx.export_scir(dut).unwrap();
-        let rawlib = rawlib
-            .scir
-            .convert_schema::<Sky130CdsSchema>()
-            .unwrap()
-            .build()
-            .unwrap()
-            .convert_schema::<Spice>()
-            .unwrap()
-            .build()
+        let rawlib = ctx
+            .export_scir(ConvertSchema::<_, Spice>::new(ConvertSchema::<
+                _,
+                Sky130CdsSchema,
+            >::new(dut)))
             .unwrap();
 
         Spice
-            .write_scir_netlist_to_file(&rawlib, &source_path, NetlistOptions::default())
+            .write_scir_netlist_to_file(&rawlib.scir, &source_path, NetlistOptions::default())
             .expect("failed to write netlist");
         let output = pegasus::lvs::run_lvs(&LvsParams {
             work_dir: &lvs_dir,

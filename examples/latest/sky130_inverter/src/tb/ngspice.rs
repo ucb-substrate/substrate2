@@ -192,7 +192,7 @@ mod schematic_only_tb {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum InverterDut {
     Schematic(Inverter),
-    Extracted(magic_netgen::Pex<ConvertSchema<ConvertSchema<Inverter, Sky130OpenSchema>, Spice>>),
+    Extracted(Pex<ConvertSchema<ConvertSchema<Inverter, Sky130OpenSchema>, Spice>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]

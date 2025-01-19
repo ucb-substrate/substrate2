@@ -193,7 +193,7 @@ mod schematic_only_tb {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum InverterDut {
     Schematic(Inverter),
-    Extracted(quantus::pex::Pex<ConvertSchema<ConvertSchema<Inverter, Sky130CdsSchema>, Spice>>),
+    Extracted(Pex<ConvertSchema<ConvertSchema<Inverter, Sky130CdsSchema>, Spice>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]
