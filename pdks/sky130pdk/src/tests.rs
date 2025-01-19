@@ -47,24 +47,24 @@ pub fn sky130_open_ctx() -> Context {
         .build()
 }
 
-/// Create a new Substrate context for the SKY130 commercial PDK.
+/// Create a new Substrate context for the SKY130 SRC NDA PDK.
 ///
-/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// Sets the PDK root to the value of the `SKY130_SRC_NDA_PDK_ROOT`
 /// environment variable and installs Spectre with default configuration.
 ///
 /// # Panics
 ///
-/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
-/// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_commercial_ctx() -> Context {
+/// Panics if either the `SKY130_SRC_NDA_PDK_ROOT` or `SKY130_OPEN_PDK_ROOT` environment variable is not set,
+/// or if the value of the variables are not valid UTF-8 strings.
+pub fn sky130_src_nda_ctx() -> Context {
     // Open PDK needed for standard cells.
     let open_pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
-    let commercial_pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+    let src_nda_pdk_root = std::env::var("SKY130_SRC_NDA_PDK_ROOT")
+        .expect("the SKY130_SRC_NDA_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Spectre::default())
-        .install(Sky130Pdk::new(open_pdk_root, commercial_pdk_root))
+        .install(Sky130Pdk::src_nda(open_pdk_root, src_nda_pdk_root))
         .build()
 }
 
@@ -179,7 +179,7 @@ fn sky130_and2_ngspice() {
 fn sky130_and2_monte_carlo_spectre() {
     let test_name = "sky130_and2_spectre";
     let sim_dir = get_path(test_name, "sim/");
-    let ctx = sky130_commercial_ctx();
+    let ctx = sky130_src_nda_ctx();
 
     for (a, b, expected) in [
         (dec!(1.8), dec!(1.8), 1.8f64),
@@ -230,7 +230,7 @@ fn sky130_and2_monte_carlo_spectre() {
 #[test]
 fn nfet_01v8_layout() {
     let test_name = "nfet_01v8_layout";
-    let ctx = sky130_commercial_ctx();
+    let ctx = sky130_src_nda_ctx();
     let layout_path = get_path(test_name, "layout.gds");
 
     let layir = ctx
@@ -250,7 +250,7 @@ fn nfet_01v8_layout() {
 #[test]
 fn pfet_01v8_layout() {
     let test_name = "pfet_01v8_layout";
-    let ctx = sky130_commercial_ctx();
+    let ctx = sky130_src_nda_ctx();
     let layout_path = get_path(test_name, "layout.gds");
 
     let layir = ctx

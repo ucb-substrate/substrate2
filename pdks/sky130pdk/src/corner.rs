@@ -1,6 +1,9 @@
 //! An enumeration of supported corners.
 
-use crate::Sky130Pdk;
+use std::path::PathBuf;
+
+use crate::{Sky130Pdk, SpectreModelSelect};
+use arcstr::ArcStr;
 use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
 use spectre::Spectre;
@@ -36,6 +39,55 @@ impl Sky130Corner {
     }
 }
 
+impl Sky130Pdk {
+    fn spectre_model_file_includes(&self, corner: Sky130Corner) -> Vec<(PathBuf, Vec<ArcStr>)> {
+        match self.spectre_model_select {
+            SpectreModelSelect::All => [
+                SpectreModelSelect::SrcNda,
+                SpectreModelSelect::Cds,
+                SpectreModelSelect::Open,
+            ]
+            .into_iter()
+            .filter_map(|select| self.spectre_model_file_includes_helper(select, corner))
+            .collect(),
+            select => self
+                .spectre_model_file_includes_helper(select, corner)
+                .into_iter()
+                .collect(),
+        }
+    }
+    fn spectre_model_file_includes_helper(
+        &self,
+        select: SpectreModelSelect,
+        corner: Sky130Corner,
+    ) -> Option<(PathBuf, Vec<ArcStr>)> {
+        Some(match select {
+            SpectreModelSelect::All => unreachable!(),
+            SpectreModelSelect::SrcNda => (
+                self.src_nda_root_dir
+                    .as_ref()?
+                    .join("MODELS/SPECTRE/s8phirs_10r/Models/design_wrapper.lib.scs"),
+                vec![
+                    arcstr::format!("{}_fet", corner.name()),
+                    arcstr::format!("{}_cell", corner.name()),
+                    arcstr::format!("{}_parRC", corner.name()),
+                    arcstr::format!("{}_rc", corner.name()),
+                ],
+            ),
+            SpectreModelSelect::Cds => (
+                self.cds_root_dir.as_ref()?.join("models/sky130.lib.spice"),
+                vec![corner.name()],
+            ),
+            SpectreModelSelect::Open => (
+                self.open_root_dir
+                    .as_ref()?
+                    .join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice"),
+                vec![corner.name()],
+            ),
+        })
+    }
+}
+
 impl SimOption<Spectre> for Sky130Corner {
     fn set_option(
         self,
@@ -46,15 +98,11 @@ impl SimOption<Spectre> for Sky130Corner {
             .ctx
             .get_installation::<Sky130Pdk>()
             .expect("Sky130 PDK must be installed");
-        let design_wrapper_path = pdk
-            .commercial_root_dir
-            .as_ref()
-            .expect("Commercial root directory must be specified")
-            .join("MODELS/SPECTRE/s8phirs_10r/Models/design_wrapper.lib.scs");
-        opts.include_section(&design_wrapper_path, format!("{}_fet", self.name()));
-        opts.include_section(&design_wrapper_path, format!("{}_cell", self.name()));
-        opts.include_section(&design_wrapper_path, format!("{}_parRC", self.name()));
-        opts.include_section(&design_wrapper_path, format!("{}_rc", self.name()));
+        for (path, sections) in pdk.spectre_model_file_includes(self) {
+            for section in sections {
+                opts.include_section(&path, section);
+            }
+        }
     }
 }
 
@@ -71,7 +119,7 @@ impl SimOption<Ngspice> for Sky130Corner {
         opts.include_section(
             pdk.open_root_dir
                 .as_ref()
-                .expect("Commercial root directory must be specified")
+                .expect("Open root directory must be specified")
                 .join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice"),
             self.name(),
         )
