@@ -63,7 +63,7 @@ impl Layout for Inverter {
         );
 
         let mut ptap = cell.generate(PtapTile::new(2, 2));
-        ptap.align_mut(AlignMode::Beneath, ptap.bbox_rect(), nmos.bbox_rect(), 0);
+        ptap.align_mut(AlignMode::Beneath, ptap.bbox_rect(), nmos.bbox_rect(), -20);
         ptap.align_mut(
             AlignMode::CenterHorizontal,
             ptap.bbox_rect(),
