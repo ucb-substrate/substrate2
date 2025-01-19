@@ -49,12 +49,17 @@ pub fn to_gds(lib: &layir::Library<Sky130Layer>) -> (layir::Library<GdsLayer>, G
                 })
                 .for_each(|s| {
                     let center = s.bbox_rect().center();
-                    // places labels on the pin layer
-                    port.add_element(Element::Text(Text::with_transformation(
+                    // places 2 labels: one on the pin layer, and one on the label layer
+                    for layer in [
                         Sky130Layer::gds_pin_layer(s.layer()).unwrap(),
-                        name.clone(),
-                        Transformation::translate(center.x, center.y),
-                    )));
+                        Sky130Layer::gds_label_layer(s.layer()).unwrap(),
+                    ] {
+                        port.add_element(Element::Text(Text::with_transformation(
+                            layer,
+                            name.clone(),
+                            Transformation::translate(center.x, center.y),
+                        )));
+                    }
                 });
             ocell.add_port(name, port);
         }
