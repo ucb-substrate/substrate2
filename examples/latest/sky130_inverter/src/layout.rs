@@ -63,7 +63,7 @@ impl Layout for Inverter {
         );
 
         let mut ptap = cell.generate(PtapTile::new(2, 2));
-        ptap.align_mut(AlignMode::Beneath, ptap.bbox_rect(), nmos.bbox_rect(), 0);
+        ptap.align_mut(AlignMode::Beneath, ptap.bbox_rect(), nmos.bbox_rect(), -20);
         ptap.align_mut(
             AlignMode::CenterHorizontal,
             ptap.bbox_rect(),
@@ -109,14 +109,18 @@ impl Layout for Inverter {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
-    use pegasus::lvs::LvsStatus;
+    use pegasus::{
+        drc::{run_drc, DrcParams},
+        lvs::LvsStatus,
+        RuleCheck,
+    };
     use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
     use spice::{netlist::NetlistOptions, Spice};
     use substrate::{block::Block, schematic::ConvertSchema};
 
     use crate::{
-        sky130_open_ctx, Inverter, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE,
-        SKY130_NETGEN_SETUP_FILE,
+        sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
+        SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE,
     };
 
     #[test]
@@ -154,6 +158,10 @@ mod tests {
         assert!(output.matches, "layout does not match netlist");
     }
 
+    fn test_check_filter(check: &RuleCheck) -> bool {
+        !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
+    }
+
     #[test]
     fn inverter_layout_cds() {
         use pegasus::lvs::LvsParams;
@@ -174,6 +182,27 @@ mod tests {
 
         ctx.write_layout(dut, to_gds, &layout_path).unwrap();
 
+        // Run DRC.
+        let drc_dir = work_dir.join("drc");
+        let data = run_drc(&DrcParams {
+            work_dir: &drc_dir,
+            layout_path: &layout_path,
+            cell_name: &dut.name(),
+            rules_dir: &PathBuf::from(SKY130_DRC),
+            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+        })
+        .expect("failed to run drc");
+
+        assert_eq!(
+            data.rule_checks
+                .into_iter()
+                .filter(test_check_filter)
+                .count(),
+            0,
+            "layout was not DRC clean"
+        );
+
+        // Run LVS.
         let lvs_dir = work_dir.join("lvs");
         let source_path = work_dir.join("schematic.spice");
         let rawlib = ctx

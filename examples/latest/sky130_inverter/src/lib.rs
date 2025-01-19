@@ -72,6 +72,11 @@ pub const SKY130_LVS_RULES_PATH: &str =
     concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);
 pub const SKY130_TECHNOLOGY_DIR: &str =
     concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
+pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
+pub const SKY130_DRC_RULES_PATH: &str = concat!(
+    env!("SKY130_CDS_PDK_ROOT"),
+    "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
+);
 
 // begin-code-snippet sky130-open-ctx
 /// Create a new Substrate context for the SKY130 open PDK.
