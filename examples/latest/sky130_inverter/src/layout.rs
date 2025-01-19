@@ -110,7 +110,7 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use pegasus::lvs::LvsStatus;
-    use sky130pdk::layout::to_gds;
+    use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
     use spice::{netlist::NetlistOptions, Spice};
     use substrate::{block::Block, schematic::ConvertSchema};
 
@@ -139,7 +139,9 @@ mod tests {
 
         let lvs_dir = work_dir.join("lvs");
         let output = magic_netgen::run_lvs(LvsParams {
-            schematic: Arc::new(ConvertSchema::new(dut)),
+            schematic: Arc::new(ConvertSchema::new(
+                ConvertSchema::<_, Sky130OpenSchema>::new(dut),
+            )),
             ctx: ctx.clone(),
             gds_path: layout_path,
             work_dir: lvs_dir,
@@ -177,6 +179,10 @@ mod tests {
         let rawlib = ctx.export_scir(dut).unwrap();
         let rawlib = rawlib
             .scir
+            .convert_schema::<Sky130CdsSchema>()
+            .unwrap()
+            .build()
+            .unwrap()
             .convert_schema::<Spice>()
             .unwrap()
             .build()

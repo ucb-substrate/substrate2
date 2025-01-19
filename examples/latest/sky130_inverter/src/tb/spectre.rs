@@ -10,6 +10,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::layout::to_gds;
+use sky130pdk::Sky130CdsSchema;
 use sky130pdk::Sky130Pdk;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
@@ -30,6 +31,8 @@ use substrate::types::{Signal, TestbenchIo};
 
 #[allow(dead_code)]
 mod schematic_only_tb {
+    use sky130pdk::Sky130CdsSchema;
+
     use super::*;
 
     // begin-code-snippet struct-and-impl
@@ -58,7 +61,9 @@ mod schematic_only_tb {
             io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> Result<Self::NestedData> {
-            let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
+            let inv = cell
+                .sub_builder::<Sky130CdsSchema>()
+                .instantiate(ConvertSchema::new(self.dut));
 
             let vdd = cell.signal("vdd", Signal);
             let dout = cell.signal("dout", Signal);
@@ -166,14 +171,14 @@ mod schematic_only_tb {
     // begin-code-snippet schematic-tests
     #[cfg(test)]
     mod tests {
-        use crate::sky130_commercial_ctx;
+        use crate::sky130_cds_ctx;
 
         use super::*;
 
         #[test]
         pub fn design_inverter_spectre() {
             let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_spectre");
-            let mut ctx = sky130_commercial_ctx();
+            let mut ctx = sky130_cds_ctx();
             let script = InverterDesign {
                 nw: 1_200,
                 pw: (3_000..=5_000).step_by(200).collect(),
@@ -189,7 +194,7 @@ mod schematic_only_tb {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum InverterDut {
     Schematic(Inverter),
-    Extracted(quantus::pex::Pex<ConvertSchema<Inverter, Spice>>),
+    Extracted(quantus::pex::Pex<ConvertSchema<ConvertSchema<Inverter, Sky130CdsSchema>, Spice>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]
@@ -229,8 +234,8 @@ impl Schematic for InverterTb {
 
         match self.dut.clone() {
             InverterDut::Schematic(inv) => {
-                cell.sub_builder::<Sky130Pdk>()
-                    .instantiate_connected_named(inv, &invio, "inverter");
+                cell.sub_builder::<Sky130CdsSchema>()
+                    .instantiate_connected_named(ConvertSchema::new(inv), &invio, "inverter");
             }
             InverterDut::Extracted(inv) => {
                 cell.sub_builder::<Spice>()
@@ -298,7 +303,7 @@ impl InverterDesign {
                 ctx.write_layout(dut, to_gds, &layout_path)
                     .expect("failed to write layout");
                 InverterDut::Extracted(Pex {
-                    schematic: Arc::new(ConvertSchema::new(dut)),
+                    schematic: Arc::new(ConvertSchema::new(ConvertSchema::new(dut))),
                     gds_path: work_dir.join("layout.gds"),
                     layout_cell_name: dut.name(),
                     work_dir,
@@ -361,7 +366,7 @@ impl InverterDesign {
 // begin-code-snippet tests-extracted
 #[cfg(test)]
 mod tests {
-    use crate::sky130_commercial_ctx;
+    use crate::sky130_cds_ctx;
 
     use super::*;
 
@@ -371,7 +376,7 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/tests/design_inverter_spectre_extracted"
         );
-        let mut ctx = sky130_commercial_ctx();
+        let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
@@ -389,7 +394,7 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/tests/design_inverter_spectre_schematic"
         );
-        let mut ctx = sky130_commercial_ctx();
+        let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
