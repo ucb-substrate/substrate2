@@ -8,6 +8,7 @@ use std::convert::Infallible;
 use std::path::PathBuf;
 
 use arcstr::ArcStr;
+use derive_builder::Builder;
 use layers::Sky130Layer;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
@@ -143,7 +144,49 @@ impl FromSchema<Spice> for Sky130Pdk {
     }
 }
 
-impl FromSchema<Sky130Pdk> for Spice {
+/// A schema for the open PDK.
+#[derive(Debug, Clone)]
+pub struct Sky130OpenSchema;
+
+impl scir::schema::Schema for Sky130OpenSchema {
+    type Primitive = Primitive;
+}
+
+impl FromSchema<Sky130Pdk> for Sky130OpenSchema {
+    type Error = Infallible;
+
+    fn convert_primitive(
+        primitive: <Sky130Pdk as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130OpenSchema> for Sky130Pdk {
+    type Error = Infallible;
+
+    fn convert_primitive(
+        primitive: <Sky130Pdk as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130OpenSchema> for Spice {
     type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
@@ -189,13 +232,13 @@ impl FromSchema<Sky130Pdk> for Spice {
     }
 }
 
-impl FromSchema<Sky130Pdk> for Ngspice {
+impl FromSchema<Sky130OpenSchema> for Ngspice {
     type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(ngspice::Primitive::Spice(<Spice as FromSchema<
-            Sky130Pdk,
+            Sky130OpenSchema,
         >>::convert_primitive(
             primitive
         )?))
@@ -204,11 +247,11 @@ impl FromSchema<Sky130Pdk> for Ngspice {
         instance: &mut Instance,
         primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        <Spice as FromSchema<Sky130Pdk>>::convert_instance(instance, primitive)
+        <Spice as FromSchema<Sky130OpenSchema>>::convert_instance(instance, primitive)
     }
 }
 
-impl FromSchema<Sky130Pdk> for Spectre {
+impl FromSchema<Sky130OpenSchema> for Spectre {
     type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
@@ -224,7 +267,7 @@ impl FromSchema<Sky130Pdk> for Spectre {
                 params: params.into_iter().collect(),
             },
             Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
-                cell: kind.commercial_subckt(),
+                cell: kind.open_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: vec![
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
@@ -242,11 +285,15 @@ impl FromSchema<Sky130Pdk> for Spectre {
     }
 }
 
-impl scir::schema::Schema for Sky130CommercialSchema {
+/// A schema for the SRC NDA PDK.
+#[derive(Debug, Clone)]
+pub struct Sky130SrcNdaSchema;
+
+impl scir::schema::Schema for Sky130SrcNdaSchema {
     type Primitive = Primitive;
 }
 
-impl FromSchema<Sky130Pdk> for Sky130CommercialSchema {
+impl FromSchema<Sky130Pdk> for Sky130SrcNdaSchema {
     type Error = Infallible;
 
     fn convert_primitive(
@@ -263,7 +310,24 @@ impl FromSchema<Sky130Pdk> for Sky130CommercialSchema {
     }
 }
 
-impl FromSchema<Sky130CommercialSchema> for Spice {
+impl FromSchema<Sky130SrcNdaSchema> for Sky130Pdk {
+    type Error = Infallible;
+
+    fn convert_primitive(
+        primitive: <Sky130Pdk as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130SrcNdaSchema> for Spice {
     type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
@@ -282,7 +346,7 @@ impl FromSchema<Sky130CommercialSchema> for Spice {
                     .collect(),
             },
             Primitive::Mos { kind, params } => spice::Primitive::Mos {
-                model: kind.commercial_subckt(),
+                model: kind.src_nda_subckt(),
                 params: HashMap::from_iter([
                     (
                         UniCase::new(arcstr::literal!("w")),
@@ -309,7 +373,7 @@ impl FromSchema<Sky130CommercialSchema> for Spice {
     }
 }
 
-impl FromSchema<Sky130CommercialSchema> for Spectre {
+impl FromSchema<Sky130SrcNdaSchema> for Spectre {
     type Error = Infallible;
     fn convert_primitive(
         primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
@@ -325,7 +389,7 @@ impl FromSchema<Sky130CommercialSchema> for Spectre {
                 params: params.into_iter().collect(),
             },
             Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
-                cell: kind.commercial_subckt(),
+                cell: kind.src_nda_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: vec![
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
@@ -343,42 +407,220 @@ impl FromSchema<Sky130CommercialSchema> for Spectre {
     }
 }
 
-/// The Sky 130 PDK.
+/// A schema for the CDS PDK.
 #[derive(Debug, Clone)]
-pub struct Sky130Pdk {
-    open_root_dir: Option<PathBuf>,
-    commercial_root_dir: Option<PathBuf>,
+pub struct Sky130CdsSchema;
+
+impl scir::schema::Schema for Sky130CdsSchema {
+    type Primitive = Primitive;
 }
 
-/// A schema for the commercial PDK.
-#[derive(Debug, Clone)]
-pub struct Sky130CommercialSchema;
+impl FromSchema<Sky130Pdk> for Sky130CdsSchema {
+    type Error = Infallible;
+
+    fn convert_primitive(
+        primitive: <Sky130Pdk as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130CdsSchema> for Sky130Pdk {
+    type Error = Infallible;
+
+    fn convert_primitive(
+        primitive: <Sky130Pdk as Schema>::Primitive,
+    ) -> Result<<Self as Schema>::Primitive, Self::Error> {
+        Ok(primitive)
+    }
+
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130CdsSchema> for Spice {
+    type Error = Infallible;
+    fn convert_primitive(
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
+        Ok(match primitive {
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => spice::Primitive::RawInstance {
+                cell,
+                ports,
+                params: params
+                    .into_iter()
+                    .map(|(k, v)| (UniCase::new(k), v))
+                    .collect(),
+            },
+            Primitive::Mos { kind, params } => spice::Primitive::Mos {
+                model: kind.cds_subckt(),
+                params: HashMap::from_iter([
+                    (
+                        UniCase::new(arcstr::literal!("w")),
+                        Decimal::new(params.w, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("l")),
+                        Decimal::new(params.l, 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("nf")),
+                        Decimal::from(params.nf).into(),
+                    ),
+                    (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
+                ]),
+            },
+        })
+    }
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl FromSchema<Sky130CdsSchema> for Spectre {
+    type Error = Infallible;
+    fn convert_primitive(
+        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
+        Ok(match primitive {
+            Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => spectre::Primitive::RawInstance {
+                cell,
+                ports,
+                params: params.into_iter().collect(),
+            },
+            Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
+                cell: kind.cds_subckt(),
+                ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
+                params: vec![
+                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
+                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                ],
+            },
+        })
+    }
+    fn convert_instance(
+        _instance: &mut Instance,
+        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+/// The algorithm for selecting which Spectre models to include.
+#[derive(Debug, Default, Clone, Copy)]
+pub enum SpectreModelSelect {
+    /// Includes all of the available model files.
+    #[default]
+    All,
+    /// Takes model files from the SRC NDA PDK, throwing an error if they are not present.
+    SrcNda,
+    /// Takes model files from the CDS PDK, throwing an error if they are not present.
+    Cds,
+    /// Takes model files from the open PDK, throwing an error if they are not present.
+    Open,
+}
+
+/// The Sky 130 PDK.
+#[derive(Debug, Clone, Builder)]
+pub struct Sky130Pdk {
+    /// The open PDK root directory.
+    #[builder(setter(into, strip_option))]
+    open_root_dir: Option<PathBuf>,
+    /// The SRC NDA PDK root directory.
+    #[builder(setter(into, strip_option))]
+    src_nda_root_dir: Option<PathBuf>,
+    /// The CDS PDK root directory.
+    #[builder(setter(into, strip_option))]
+    cds_root_dir: Option<PathBuf>,
+    /// The Spectre model selection algorithm.
+    #[builder(default)]
+    spectre_model_select: SpectreModelSelect,
+}
 
 impl Sky130Pdk {
+    /// Returns a new [`Sky130PdkBuilder`].
+    #[inline]
+    pub fn builder() -> Sky130PdkBuilder {
+        Sky130PdkBuilder::default()
+    }
+
     /// Creates an instantiation of the open PDK.
     #[inline]
     pub fn open(root_dir: impl Into<PathBuf>) -> Self {
-        Self {
-            open_root_dir: Some(root_dir.into()),
-            commercial_root_dir: None,
-        }
+        Sky130Pdk::builder()
+            .open_root_dir(root_dir)
+            .spectre_model_select(SpectreModelSelect::Open)
+            .build()
+            .unwrap()
     }
 
-    /// Creates an instantiation of the commercial PDK.
+    /// Creates an instantiation of the SRC NDA PDK.
     #[inline]
-    pub fn commercial(root_dir: impl Into<PathBuf>) -> Self {
-        Self {
-            open_root_dir: None,
-            commercial_root_dir: Some(root_dir.into()),
-        }
+    pub fn src_nda(
+        open_root_dir: impl Into<PathBuf>,
+        src_nda_root_dir: impl Into<PathBuf>,
+    ) -> Self {
+        Sky130Pdk::builder()
+            .open_root_dir(open_root_dir)
+            .src_nda_root_dir(src_nda_root_dir)
+            .spectre_model_select(SpectreModelSelect::SrcNda)
+            .build()
+            .unwrap()
     }
-    /// Creates an instance of the PDK with the given root directories.
+
+    /// Creates an instantiation of the SRC NDA PDK without open source PDK support (no standard
+    /// cells).
     #[inline]
-    pub fn new(open_root_dir: impl Into<PathBuf>, commercial_root_dir: impl Into<PathBuf>) -> Self {
-        Self {
-            open_root_dir: Some(open_root_dir.into()),
-            commercial_root_dir: Some(commercial_root_dir.into()),
-        }
+    pub fn src_nda_only(src_nda_root_dir: impl Into<PathBuf>) -> Self {
+        Sky130Pdk::builder()
+            .src_nda_root_dir(src_nda_root_dir)
+            .spectre_model_select(SpectreModelSelect::SrcNda)
+            .build()
+            .unwrap()
+    }
+
+    /// Creates an instantiation of the CDS PDK.
+    #[inline]
+    pub fn cds(open_root_dir: impl Into<PathBuf>, cds_root_dir: impl Into<PathBuf>) -> Self {
+        Sky130Pdk::builder()
+            .open_root_dir(open_root_dir)
+            .cds_root_dir(cds_root_dir)
+            .spectre_model_select(SpectreModelSelect::Cds)
+            .build()
+            .unwrap()
+    }
+
+    /// Creates an instantiation of the CDS PDK without open source PDK support.
+    #[inline]
+    pub fn cds_only(cds_root_dir: impl Into<PathBuf>) -> Self {
+        Sky130Pdk::builder()
+            .cds_root_dir(cds_root_dir)
+            .spectre_model_select(SpectreModelSelect::Cds)
+            .build()
+            .unwrap()
     }
 }
 

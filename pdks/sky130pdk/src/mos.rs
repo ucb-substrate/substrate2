@@ -58,7 +58,7 @@ impl Display for MosParams {
 }
 
 macro_rules! define_mosfets {
-    ($({$typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $comsubckt:ident}),*) => {
+    ($({$typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $srcndasubckt:ident, $cdssubckt:ident}),*) => {
         /// An enumeration of Sky 130 MOSFET varieties.
         #[derive(Clone, Copy, Debug)]
         pub enum MosKind {
@@ -66,7 +66,8 @@ macro_rules! define_mosfets {
                 #[doc = $doc]
                 #[doc = ""]
                 #[doc = concat!("In the open-source PDK, produces an instance of `", stringify!($opensubckt), "`.")]
-                #[doc = concat!("In the commercial PDK, produces an instance of `", stringify!($comsubckt), "`.")]
+                #[doc = concat!("In the SRC NDA PDK, produces an instance of `", stringify!($srcndasubckt), "`.")]
+                #[doc = concat!("In the CDS PDK, produces an instance of `", stringify!($cdssubckt), "`.")]
                 $typ,
             )*
         }
@@ -79,10 +80,19 @@ macro_rules! define_mosfets {
                     ),*
                 }
             }
-            pub(crate) fn commercial_subckt(&self) -> arcstr::ArcStr {
+
+            pub(crate) fn src_nda_subckt(&self) -> arcstr::ArcStr {
                 match self {
                     $(
-                        MosKind::$typ => arcstr::literal!(stringify!($comsubckt))
+                        MosKind::$typ => arcstr::literal!(stringify!($srcndasubckt))
+                    ),*
+                }
+            }
+
+            pub(crate) fn cds_subckt(&self) -> arcstr::ArcStr {
+                match self {
+                    $(
+                        MosKind::$typ => arcstr::literal!(stringify!($cdssubckt))
                     ),*
                 }
             }
@@ -90,7 +100,7 @@ macro_rules! define_mosfets {
             pub(crate) fn try_from_str(kind: &str) -> Option<Self> {
                 match kind {
                     $(
-                        stringify!($opensubckt) | stringify!($comsubckt) => Some(MosKind::$typ),
+                        stringify!($opensubckt) | stringify!($srcndasubckt) | stringify!($cdssubckt) => Some(MosKind::$typ),
                     )*
                     _ => None,
                 }
@@ -101,7 +111,8 @@ macro_rules! define_mosfets {
         #[doc = $doc]
         #[doc = ""]
         #[doc = concat!("In the open-source PDK, produces an instance of `", stringify!($opensubckt), "`.")]
-        #[doc = concat!("In the commercial PDK, produces an instance of `", stringify!($comsubckt), "`.")]
+        #[doc = concat!("In the SRC NDA PDK, produces an instance of `", stringify!($srcndasubckt), "`.")]
+        #[doc = concat!("In the CDS PDK, produces an instance of `", stringify!($cdssubckt), "`.")]
         pub struct $typ {
             params: MosParams,
         }
@@ -157,84 +168,96 @@ define_mosfets!(
         nfet_01v8,
         "A core NMOS device.",
         sky130_fd_pr__nfet_01v8,
-        nshort
+        nshort,
+        nfet_01v8
     },
     {
         Nfet01v8Lvt,
         nfet_01v8_lvt,
         "A core low-threshold NMOS device.",
         sky130_fd_pr__nfet_01v8_lvt,
-        nlowvt
+        nlowvt,
+        nfet_01v8_lvt
     },
     {
         Nfet03v3Nvt,
         nfet_03v3_nvt,
         "A 3.3V native-threshold NMOS device.",
         sky130_fd_pr__nfet_03v3_nvt,
-        ntvnative
+        ntvnative,
+        nfet_03v3_nvt
     },
     {
         Nfet05v0Nvt,
         nfet_05v0_nvt,
         "A 5.0V native-threshold NMOS device.",
         sky130_fd_pr__nfet_05v0_nvt,
-        nhvnative
+        nhvnative,
+        nfet_05v0_nvt
     },
     {
         Nfet20v0,
         nfet_20v0,
         "A 20.0V NMOS device.",
         sky130_fd_pr__nfet_20v0,
-        nvhv
+        nvhv,
+        nfet_20v0
     },
     {
         SpecialNfetLatch,
         special_nfet_latch,
         "A special latch NMOS, used as the pull down device in SRAM cells.",
         sky130_fd_pr__special_nfet_latch,
-        npd
+        npd,
+        special_nfet_latch
     },
     {
         SpecialNfetPass,
         special_nfet_pass,
         "A special pass NMOS, used as the access device in SRAM cells.",
         sky130_fd_pr__special_nfet_pass,
-        npass
+        npass,
+        special_nfet_pass
     },
     {
         SpecialPfetPass,
         special_pfet_pass,
         "A special pass PMOS, used as the pull-up device in SRAM cells.",
         sky130_fd_pr__special_pfet_pass,
-        ppu
+        ppu,
+        special_pfet_pass
     },
     {
         Pfet01v8,
         pfet_01v8,
         "A core PMOS device.",
         sky130_fd_pr__pfet_01v8,
-        pshort
+        pshort,
+        pfet_01v8
     },
     {
         Pfet01v8Hvt,
         pfet_01v8_hvt,
         "A core high-threshold PMOS device.",
         sky130_fd_pr__pfet_01v8_hvt,
-        phighvt
+        phighvt,
+        pfet_01v8_hvt
     },
     {
         Pfet01v8Lvt,
         pfet_01v8_lvt,
         "A core low-threshold PMOS device.",
         sky130_fd_pr__pfet_01v8_lvt,
-        plowvt
+        plowvt,
+        pfet_01v8_lvt
     },
     {
         Pfet20v0,
         pfet_20v0,
         "A 20.0V PMOS device.",
         sky130_fd_pr__pfet_20v0,
-        pvhv
+        pvhv,
+        pfet_20v0
     }
 );
 

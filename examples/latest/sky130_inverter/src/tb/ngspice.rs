@@ -10,6 +10,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::layout::to_gds;
+use sky130pdk::Sky130OpenSchema;
 use sky130pdk::Sky130Pdk;
 use spice::Spice;
 use std::path::Path;
@@ -28,6 +29,7 @@ use substrate::types::{Signal, TestbenchIo};
 #[allow(dead_code)]
 mod schematic_only_tb {
     use ngspice::blocks::{Pulse, Vsource};
+    use sky130pdk::Sky130OpenSchema;
 
     use super::*;
 
@@ -56,7 +58,9 @@ mod schematic_only_tb {
             io: &IoNodeBundle<Self>,
             cell: &mut CellBuilder<<Self as Schematic>::Schema>,
         ) -> Result<Self::NestedData> {
-            let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
+            let inv = cell
+                .sub_builder::<Sky130OpenSchema>()
+                .instantiate(ConvertSchema::new(self.dut));
 
             let vdd = cell.signal("vdd", Signal);
             let dout = cell.signal("dout", Signal);
@@ -189,7 +193,7 @@ mod schematic_only_tb {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum InverterDut {
     Schematic(Inverter),
-    Extracted(magic_netgen::Pex<ConvertSchema<Inverter, Spice>>),
+    Extracted(magic_netgen::Pex<ConvertSchema<ConvertSchema<Inverter, Sky130OpenSchema>, Spice>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Block)]
@@ -229,8 +233,8 @@ impl Schematic for InverterTb {
 
         match self.dut.clone() {
             InverterDut::Schematic(inv) => {
-                cell.sub_builder::<Sky130Pdk>()
-                    .instantiate_connected_named(inv, &invio, "inverter");
+                cell.sub_builder::<Sky130OpenSchema>()
+                    .instantiate_connected_named(ConvertSchema::new(inv), &invio, "inverter");
             }
             InverterDut::Extracted(inv) => {
                 cell.sub_builder::<Spice>()
@@ -300,7 +304,7 @@ impl InverterDesign {
                 ctx.write_layout(dut, to_gds, &layout_path)
                     .expect("failed to write layout");
                 InverterDut::Extracted(Pex {
-                    schematic: Arc::new(ConvertSchema::new(dut)),
+                    schematic: Arc::new(ConvertSchema::new(ConvertSchema::new(dut))),
                     gds_path: work_dir.join("layout.gds"),
                     layout_cell_name: dut.name(),
                     work_dir,

@@ -94,21 +94,21 @@ pub fn sky130_open_ctx() -> Context {
 // end-code-snippet sky130-open-ctx
 
 // begin-code-snippet sky130-commercial-ctx
-/// Create a new Substrate context for the SKY130 commercial PDK.
+/// Create a new Substrate context for the SKY130 Cadence PDK.
 ///
-/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// Sets the PDK root to the value of the `SKY130_CDS_PDK_ROOT`
 /// environment variable and installs Spectre with default configuration.
 ///
 /// # Panics
 ///
-/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+/// Panics if the `SKY130_CDS_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_commercial_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+pub fn sky130_cds_ctx() -> Context {
+    let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
+        .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Spectre::default())
-        .install(Sky130Pdk::commercial(pdk_root))
+        .install(Sky130Pdk::cds_only(pdk_root))
         .build()
 }
 // end-code-snippet sky130-commercial-ctx
