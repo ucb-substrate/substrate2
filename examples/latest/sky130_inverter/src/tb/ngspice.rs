@@ -1,7 +1,6 @@
-use crate::InverterIoKind;
-
 // begin-code-snippet imports
 use crate::Inverter;
+use crate::InverterIoKind;
 use crate::SKY130_MAGIC_TECH_FILE;
 use crate::SKY130_NETGEN_SETUP_FILE;
 
@@ -88,7 +87,7 @@ mod schematic_only_tb {
     }
     // end-code-snippet schematic
 
-    // begin-code-snippet ngspice-design
+    // begin-code-snippet schematic-design-script
     /// Designs an inverter for balanced pull-up and pull-down times.
     ///
     /// The NMOS width is kept constant; the PMOS width is swept over
@@ -161,9 +160,9 @@ mod schematic_only_tb {
             opt.unwrap().1
         }
     }
-    // end-code-snippet ngspice-design
+    // end-code-snippet schematic-design-script
 
-    // begin-code-snippet ngspice-tests
+    // begin-code-snippet schematic-tests
     #[cfg(test)]
     mod tests {
         use crate::sky130_open_ctx;
@@ -184,7 +183,7 @@ mod schematic_only_tb {
             println!("Designed inverter:\n{:#?}", inv);
         }
     }
-    // end-code-snippet ngspice-tests
+    // end-code-snippet schematic-tests
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -267,7 +266,7 @@ impl Schematic for InverterTb {
     }
 }
 
-// begin-code-snippet ngspice-design-extracted
+// begin-code-snippet design-extracted
 /// Designs an inverter for balanced pull-up and pull-down times.
 ///
 /// The NMOS width is kept constant; the PMOS width is swept over
@@ -358,9 +357,9 @@ impl InverterDesign {
         opt.unwrap().1
     }
 }
-// end-code-snippet ngspice-design-extracted
+// end-code-snippet design-extracted
 
-// begin-code-snippet ngspice-tests-extracted
+// begin-code-snippet tests-extracted
 #[cfg(test)]
 mod tests {
     use crate::sky130_open_ctx;
@@ -403,4 +402,4 @@ mod tests {
         println!("Designed inverter:\n{:#?}", inv);
     }
 }
-// end-code-snippet ngspice-tests-extracted
+// end-code-snippet tests-extracted

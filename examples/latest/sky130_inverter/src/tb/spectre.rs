@@ -1,7 +1,6 @@
-use crate::InverterIoKind;
-
 // begin-code-snippet imports
 use crate::Inverter;
+use crate::InverterIoKind;
 use crate::SKY130_LVS;
 use crate::SKY130_LVS_RULES_PATH;
 use crate::SKY130_TECHNOLOGY_DIR;
@@ -164,7 +163,7 @@ mod schematic_only_tb {
     }
     // end-code-snippet schematic-design-script
 
-    // begin-code-snippet spectre-tests
+    // begin-code-snippet schematic-tests
     #[cfg(test)]
     mod tests {
         use crate::sky130_commercial_ctx;
@@ -184,7 +183,7 @@ mod schematic_only_tb {
             println!("Designed inverter:\n{:#?}", inv);
         }
     }
-    // end-code-snippet spectre-tests
+    // end-code-snippet schematic-tests
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
