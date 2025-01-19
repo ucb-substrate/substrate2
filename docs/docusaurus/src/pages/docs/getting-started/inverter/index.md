@@ -1,6 +1,8 @@
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
 import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
+import Sky130OpenPdk from '@site/src/pages/docs/getting-started/inverter/sky130_open_pdk.md';
+import Sky130CdsPdk from '@site/src/pages/docs/getting-started/inverter/sky130_cds_pdk.md';
 import {isRelease} from '@site/src/utils/versions';
 export const inverterMod = require(`{{EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`);
 export const inverterTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb.rs?snippet`);
@@ -9,7 +11,7 @@ export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippe
 In this tutorial, we'll design and simulate a schematic-level inverter in
 the Skywater 130nm process to showcase some of the capabilities of Substrate's
 analog simulation interface. Substrate will call into {props.open ? "open source tools (ngspice, magic, and netgen)"
-: "Cadence tools (Spectre, Pegasus, Quantus)"} to run simulations, LVS, and extraction. 
+: "Cadence tools (Spectre, Pegasus, and Quantus)"} to run simulations, {props.open ? "" : "DRC, "} LVS, and extraction. 
 
 ## Setup
 
@@ -30,9 +32,13 @@ Next, create a new Rust project:
 cargo new --lib sky130_inverter && cd sky130_inverter
 ```
 
-In your project's `Cargo.toml`, add the following dependencies:
+In your project's `Cargo.toml`, start with the following dependencies:
 
 <DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="dependencies">{cargoToml}</DependenciesSnippet>
+
+To pull in the plugins for the necessary Cadence tools, add these depependencies as well:
+
+<DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet={props.open ? "open-dependencies" : "cds-dependencies"}>{cargoToml}</DependenciesSnippet>
 
 Let's now add some imports that we'll use later on.
 Replace the content of `src/lib.rs` with the following:
@@ -41,19 +47,15 @@ Replace the content of `src/lib.rs` with the following:
 
 ### Simulator
 
-This tutorial will demonstrate how to invoke [ngspice](https://ngspice.sourceforge.io/index.html) from Substrate to run transient simulations.
-Make sure to install an ngspice version of at least 41 before running your Rust code.
+This tutorial will demonstrate how to invoke { props.open ? 
+<a href="https://ngspice.sourceforge.io/index.html" target="_blank" rel="noopener noreferrer">ngspice</a> : 
+<a href="https://www.cadence.com/en_US/home/resources/datasheets/spectre-simulation-platform-ds.html" target="_blank" rel="noopener noreferrer">Spectre</a> } 
+from Substrate to run transient simulations. { props.open ? "Make sure to install an ngspice version of at least 41 before running your Rust code." : 
+"Make sure that Spectre is installed and that the appropriate environment variables have been set." }
 
 ### SKY130 PDK
 
-You will need to install the open source PDK by cloning the [`skywater-pdk` repo](https://github.com/ucb-substrate/skywater-pdk) and pulling the relevant libraries:
-
-```
-git clone https://github.com/ucb-substrate/skywater-pdk.git && cd skywater-pdk
-git submodule update --init libraries/sky130_fd_pr/latest
-```
-
-Also, ensure that the `SKY130_OPEN_PDK_ROOT` environment variable points to the location of the repo you just cloned.
+{ props.open ? <Sky130OpenPdk/> : <Sky130CdsPdk/> }
 
 ## Interface
 
@@ -119,8 +121,7 @@ For example, we connect the drain of the NMOS (`nmos.io().d`) to the inverter ou
 
 ## Testbench
 
-Let's now simulate our inverter and measure the rise and fall times.
-For now, we'll use ngspice as our simulator. Later, we'll add support for Spectre.
+Let's now simulate our inverter and measure the rise and fall times using { props.open ? "ngspice" : "Spectre" }.
 
 Start by creating a new file, `src/tb.rs`. Add a reference to this module
 in `src/lib.rs`:
@@ -153,9 +154,9 @@ The `Pvt<Sky130Corner>` in our testbench is essentially a 3-tuple of a process c
 voltage, and temperature. The process corner here is an instance of `Sky130Corner`,
 which is defined in the `sky130pdk` plugin for Substrate.
 
-Let's now create the schematic for our testbench. We will do this in the `Ngspice` schema so that the ngspice simulator plugin knows how to netlist and simulate our testbench. This should have three components:
+Let's now create the schematic for our testbench. We will do this in the { props.open ? <code>Ngspice</code> : <code>Spectre</code> } schema so that the { props.open ? "ngspice" : "Spectre" } simulator plugin knows how to netlist and simulate our testbench. This should have three components:
 * A pulse input source driving the inverter input.
-* A dc voltage source supplying power to the inverter.
+* A DC voltage source supplying power to the inverter.
 * The instance of the inverter itself.
 
 Recall that schematic generators can return data for later use. Here, we'd like to probe
@@ -165,7 +166,7 @@ Here's our testbench setup:
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="schematic">{inverterTb}</CodeSnippet>
 
-We create two Spectre-specific `Vsource`s (one for VDD, the other as an input stimulus).
+We create two {props.open ? "ngspice" : "Spectre"}-specific `Vsource`s (one for VDD, the other as an input stimulus).
 We also instantiate our inverter and connect everything up.
 The `cell.signal(...)` calls create intermediate nodes.
 Creating them isn't strictly necessary (we could connect `inv.io().vdd` directly to `vddsrc.io().p`,
@@ -173,6 +174,8 @@ for example), but they can sometimes improve readability of your code and of gen
 Finally, we return the node that we want to probe.
 
 ## Design
+
+### Writing a design script
 
 Let's use the code we've written to write a script that
 automatically sizes our inverter for equal rise and fall times.
@@ -189,7 +192,7 @@ We use the `WaveformRef` API to look for 20-80% transitions, and capture their d
 Finally, we keep track of (and eventually return) the inverter instance that minimizes
 the absolute difference between the rise and fall times.
 
-## Running the script
+### Running the script
 
 Let's now run the script we wrote. We must first create a Substrate **context** that stores all information 
 relevant to Substrate. This includes
@@ -205,50 +208,15 @@ We can then write a Rust unit test to run our design script:
 To run the test, run
 
 ```
-cargo test design_inverter_ngspice -- --show-output
+cargo test design_inverter -- --show-output
 ```
 
 If all goes well, the test above should print
 the inverter dimensions with the minimum rise/fall time difference.
 
-## Adding Spectre support
-Adding Spectre support is simply a matter
-of defining a Spectre-specific testbench schematic and running the appropriate Spectre simulation
-in the inverter design script.
+## Layout
 
-We first add the Spectre dependency to our `Cargo.toml`:
-
-<DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="spectre-dependencies">{cargoToml}</DependenciesSnippet>
-
-We can now create the Spectre-specific testbench:
-
-<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-schematic">{inverterTb}</CodeSnippet>
-
-We then modify the original design loop to take in a desired backend and run the appropriate simulation:
-
-<CodeSnippet language="rust" title="src/tb.rs" snippet="final-design" diffSnippet="ngspice-design">{inverterTb}</CodeSnippet>
-
-We now have to create a context with Spectre and the commercial PDK installed:
-
-<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-commercial-ctx">{inverterTb}</CodeSnippet>
-
-We can then create a cargo test to run our design script:
-
-<CodeSnippet language="rust" title="src/tb.rs" snippet="spectre-tests">{inverterTb}</CodeSnippet>
-
-Finally, we will need to modify the ngspice test to specify the desired backend:
-
-<CodeSnippet language="rust" title="src/tb.rs" snippet="final-tests" diffSnippet="ngspice-tests">{inverterTb}</CodeSnippet>
-
-Before running the new Spectre test, ensure that the `SKY130_COMMERCIAL_PDK_ROOT` environment variable points to your installation of
-the SKY130 commercial PDK.
-Also ensure that you have correctly set any environment variables needed by Spectre.
-
-To run the test, run
-
-```
-cargo test design_inverter_spectre --features spectre -- --show-output
-```
+## PEX
 
 ## Conclusion
 

@@ -7,21 +7,24 @@ publish = false
 # begin-code-snippet dependencies
 [dependencies]
 substrate = { version = "0.8.1", registry = "substrate", path = "../../../substrate" }
-ngspice = { version = "0.3.1", registry = "substrate", path = "../../../tools/ngspice" }
 sky130pdk = { version = "0.8.1", registry = "substrate", path = "../../../pdks/sky130pdk" }
 layir = { version = "0.1.0", registry = "substrate", path = "../../../libs/layir" }
 gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gdsconv" }
 gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
-magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
 
 arcstr = "1"
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 # end-code-snippet dependencies
 
-# begin-code-snippet spectre-dependencies
+# begin-code-snippet open-dependencies
+ngspice = { version = "0.3.1", registry = "substrate", path = "../../../tools/ngspice" }
+magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
+# end-code-snippet open-dependencies
+
+# begin-code-snippet cds-dependencies
 spectre = { version = "0.9.1", registry = "substrate", path = "../../../tools/spectre" }
-# end-code-snippet spectre-dependencies
+# end-code-snippet cds-dependencies
 
 # This feature flag allows us to control which tests are run.
 # We don't want to run tests that use Spectre when we are developing locally.
