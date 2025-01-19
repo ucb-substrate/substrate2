@@ -11,7 +11,6 @@ use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
 use sky130pdk::layout::to_gds;
 use sky130pdk::Sky130CdsSchema;
-use sky130pdk::Sky130Pdk;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::Spectre;
