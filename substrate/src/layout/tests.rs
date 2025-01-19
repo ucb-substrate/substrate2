@@ -1,5 +1,5 @@
 use gds::GdsUnits;
-use gdsconv::{export::GdsExportOpts, GdsLayer};
+use gdsconv::GdsLayer;
 use geometry::{
     align::{AlignBbox, AlignMode},
     bbox::Bbox,
@@ -27,11 +27,8 @@ use super::{
     CellBundle, Instance, Layout,
 };
 
-fn gds_export_opts() -> GdsExportOpts {
-    GdsExportOpts {
-        name: arcstr::literal!("TOP"),
-        units: Some(GdsUnits::new(1., 1e-9)),
-    }
+fn gds_units() -> GdsUnits {
+    GdsUnits::new(1., 1e-9)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -62,7 +59,7 @@ impl ExampleLayer {
 }
 
 // TODO: cell IDs are not preserved
-pub fn to_gds(lib: &layir::Library<ExampleLayer>) -> layir::Library<GdsLayer> {
+pub fn to_gds(lib: &layir::Library<ExampleLayer>) -> (layir::Library<GdsLayer>, GdsUnits) {
     let mut olib = LibraryBuilder::<GdsLayer>::new();
     let cells = lib.topological_order();
     for cell in cells {
@@ -84,7 +81,7 @@ pub fn to_gds(lib: &layir::Library<ExampleLayer>) -> layir::Library<GdsLayer> {
         }
         olib.add_cell(ocell);
     }
-    olib.build().unwrap()
+    (olib.build().unwrap(), gds_units())
 }
 
 impl Schema for ExampleSchema {
@@ -363,13 +360,8 @@ fn layout_generation_and_data_propagation_work() {
 
     assert_eq!(cell.bbox(), Some(Rect::from_sides(0, 0, 210, 200)));
 
-    ctx.write_layout(
-        block,
-        to_gds,
-        gds_export_opts(),
-        get_path(test_name, "layout_pdk_a.gds"),
-    )
-    .expect("failed to write layout");
+    ctx.write_layout(block, to_gds, get_path(test_name, "layout_pdk_a.gds"))
+        .expect("failed to write layout");
 }
 
 #[test]
@@ -379,13 +371,8 @@ fn nested_transform_views_work() {
     let block = BufferN::new(5, 10);
 
     let ctx = Context::new();
-    ctx.write_layout(
-        block,
-        to_gds,
-        gds_export_opts(),
-        get_path(test_name, "layout.gds"),
-    )
-    .expect("failed to write layout");
+    ctx.write_layout(block, to_gds, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
 
     let handle = ctx.generate_layout(block);
     let cell = handle.cell();
@@ -403,13 +390,8 @@ fn cell_builder_supports_bbox() {
     let block = BufferNxM::new(5, 10, 6);
 
     let ctx = Context::new();
-    ctx.write_layout(
-        block,
-        to_gds,
-        gds_export_opts(),
-        get_path(test_name, "layout.gds"),
-    )
-    .expect("failed to write layout");
+    ctx.write_layout(block, to_gds, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
 
     let handle = ctx.generate_layout(block);
     let cell = handle.cell();
@@ -436,7 +418,6 @@ fn export_multi_top_layout() {
             block3.cell().raw().as_ref(),
         ],
         to_gds,
-        gds_export_opts(),
         get_path(test_name, "layout.gds"),
     )
     .expect("failed to write layout");
@@ -447,11 +428,6 @@ fn grid_tiler_works_with_various_spans() {
     let test_name = "grid_tiler_works_with_various_spans";
 
     let ctx = Context::new();
-    ctx.write_layout(
-        GridTilerExample,
-        to_gds,
-        gds_export_opts(),
-        get_path(test_name, "layout.gds"),
-    )
-    .expect("failed to write layout");
+    ctx.write_layout(GridTilerExample, to_gds, get_path(test_name, "layout.gds"))
+        .expect("failed to write layout");
 }

@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use config::Config;
+use gds::GdsUnits;
 use gdsconv::export::GdsExportOpts;
 use gdsconv::GdsLayer;
 use indexmap::IndexMap;
@@ -529,13 +530,19 @@ impl Context {
     pub fn write_layout<B: Layout>(
         &self,
         block: B,
-        to_gds: impl FnOnce(&layir::Library<CellLayer<B>>) -> layir::Library<GdsLayer>,
-        opts: GdsExportOpts,
+        to_gds: impl FnOnce(&layir::Library<CellLayer<B>>) -> (layir::Library<GdsLayer>, GdsUnits),
         path: impl AsRef<Path>,
     ) -> Result<()> {
+        let name = block.name();
         let layir = self.export_layir(block)?;
-        let layir = to_gds(&layir.layir);
-        let gds = gdsconv::export::export_gds(layir, opts);
+        let (layir, units) = to_gds(&layir.layir);
+        let gds = gdsconv::export::export_gds(
+            layir,
+            GdsExportOpts {
+                name,
+                units: Some(units),
+            },
+        );
         gds.save(path)?;
         Ok(())
     }
@@ -544,13 +551,19 @@ impl Context {
     pub fn write_layout_all<'a, L: Clone + 'a>(
         &self,
         cells: impl IntoIterator<Item = &'a RawCell<L>>,
-        to_gds: impl FnOnce(&layir::Library<L>) -> layir::Library<GdsLayer>,
-        opts: GdsExportOpts,
+        to_gds: impl FnOnce(&layir::Library<L>) -> (layir::Library<GdsLayer>, GdsUnits),
         path: impl AsRef<Path>,
     ) -> Result<()> {
+        let name = arcstr::literal!("TOP");
         let layir = self.export_layir_all(cells)?;
-        let layir = to_gds(&layir.layir);
-        let gds = gdsconv::export::export_gds(layir, opts);
+        let (layir, units) = to_gds(&layir.layir);
+        let gds = gdsconv::export::export_gds(
+            layir,
+            GdsExportOpts {
+                name,
+                units: Some(units),
+            },
+        );
         gds.save(path)?;
         Ok(())
     }

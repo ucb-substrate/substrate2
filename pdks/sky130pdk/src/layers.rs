@@ -111,6 +111,7 @@ impl Sky130Layer {
             Self::Outline => GdsLayer(236, 0),
         }
     }
+
     pub fn gds_pin_layer(&self) -> Option<GdsLayer> {
         let layer = match self {
             Self::Pwell => GdsLayer(122, 16),
@@ -129,6 +130,29 @@ impl Sky130Layer {
             Self::Via4 => GdsLayer(71, 48),
             Self::Met5 => GdsLayer(72, 16),
             Self::Pad => GdsLayer(76, 16),
+            _ => return None,
+        };
+        Some(layer)
+    }
+
+    pub fn gds_label_layer(&self) -> Option<GdsLayer> {
+        let layer = match self {
+            Self::Pwell => GdsLayer(64, 59),
+            Self::Nwell => GdsLayer(64, 5),
+            Self::Poly => GdsLayer(66, 5),
+            Self::Licon1 => GdsLayer(66, 41),
+            Self::Li1 => GdsLayer(67, 5),
+            Self::Mcon => GdsLayer(67, 41),
+            Self::Met1 => GdsLayer(68, 5),
+            Self::Via => GdsLayer(68, 41),
+            Self::Met2 => GdsLayer(69, 5),
+            Self::Via2 => GdsLayer(69, 41),
+            Self::Met3 => GdsLayer(70, 5),
+            Self::Via3 => GdsLayer(70, 41),
+            Self::Met4 => GdsLayer(71, 5),
+            Self::Via4 => GdsLayer(71, 41),
+            Self::Met5 => GdsLayer(72, 5),
+            Self::Pad => GdsLayer(76, 5),
             _ => return None,
         };
         Some(layer)
