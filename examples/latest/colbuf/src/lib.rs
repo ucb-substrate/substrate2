@@ -20,8 +20,8 @@ pub struct ColInvIo {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Sky130Schema {
     Open,
-    Commercial,
-    Cadence,
+    SrcNda,
+    Cds,
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Block)]
@@ -47,7 +47,7 @@ impl Schematic for ColInv {
                 .ends
             "#
             }
-            Sky130Schema::Commercial => {
+            Sky130Schema::SrcNda => {
                 r#"
                 .subckt col_data_inv din din_b vdd vss
                 M0 din_b din vss vss nshort w=1.4u l=0.15u
@@ -55,7 +55,7 @@ impl Schematic for ColInv {
                 .ends
             "#
             }
-            Sky130Schema::Cadence => {
+            Sky130Schema::Cds => {
                 r#"
                 .subckt col_data_inv din din_b vdd vss
                 M0 din_b din vss vss nfet_01v8 w=1.4u l=0.15u
@@ -204,7 +204,7 @@ impl Schematic for CdsPexTb {
         io: &substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
-        assert_eq!(self.dut.schematic.0, Sky130Schema::Cadence);
+        assert_eq!(self.dut.schematic.0, Sky130Schema::Cds);
         let vdd = cell.signal("vdd", Signal);
         let mut spice_builder = cell.sub_builder::<Spice>();
         let dut = spice_builder.instantiate(self.dut.clone());
@@ -320,7 +320,7 @@ mod tests {
             .get_sim_controller(
                 CdsPexTb {
                     dut: quantus::pex::Pex {
-                        schematic: Arc::new(ColBufArray(Sky130Schema::Cadence)),
+                        schematic: Arc::new(ColBufArray(Sky130Schema::Cds)),
                         gds_path: layout_path,
                         layout_cell_name: "test_col_buffer_array".into(),
                         work_dir,

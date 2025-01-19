@@ -7,12 +7,12 @@ use ngspice::{Ngspice, Options};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sky130pdk::corner::Sky130Corner;
-use sky130pdk::Sky130Pdk;
+use sky130pdk::{Sky130CdsSchema, Sky130OpenSchema, Sky130Pdk};
 use std::path::Path;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
-use substrate::schematic::{CellBuilder, Schematic};
+use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
 use substrate::simulation::Pvt;
 use substrate::types::schematic::{IoNodeBundle, Node};
@@ -44,7 +44,9 @@ impl Schematic for InverterTb {
         io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
-        let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.dut);
+        let inv = cell
+            .sub_builder::<Sky130OpenSchema>()
+            .instantiate(ConvertSchema::new(self.dut));
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
@@ -193,7 +195,9 @@ impl Schematic for SpectreInverterTb {
         io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
-        let inv = cell.sub_builder::<Sky130Pdk>().instantiate(self.0.dut);
+        let inv = cell
+            .sub_builder::<Sky130CdsSchema>()
+            .instantiate(ConvertSchema::new(self.0.dut));
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
@@ -350,25 +354,25 @@ pub fn sky130_open_ctx() -> Context {
 }
 // end-code-snippet sky130-open-ctx
 
-// begin-code-snippet sky130-commercial-ctx
-/// Create a new Substrate context for the SKY130 commercial PDK.
+// begin-code-snippet sky130-cds-ctx
+/// Create a new Substrate context for the SKY130 CDS PDK.
 ///
-/// Sets the PDK root to the value of the `SKY130_COMMERCIAL_PDK_ROOT`
+/// Sets the PDK root to the value of the `SKY130_CDS_PDK_ROOT`
 /// environment variable and installs Spectre with default configuration.
 ///
 /// # Panics
 ///
-/// Panics if the `SKY130_COMMERCIAL_PDK_ROOT` environment variable is not set,
+/// Panics if the `SKY130_CDS_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
-pub fn sky130_commercial_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT")
-        .expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable must be set");
+pub fn sky130_cds_ctx() -> Context {
+    let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
+        .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Spectre::default())
-        .install(Sky130Pdk::commercial(pdk_root))
+        .install(Sky130Pdk::cds_only(pdk_root))
         .build()
 }
-// end-code-snippet sky130-commercial-ctx
+// end-code-snippet sky130-cds-ctx
 
 // begin-code-snippet final-tests
 #[cfg(test)]
@@ -401,7 +405,7 @@ mod spectre_tests {
     #[test]
     pub fn design_inverter_spectre() {
         let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_spectre");
-        let mut ctx = sky130_commercial_ctx();
+        let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
