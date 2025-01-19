@@ -547,13 +547,13 @@ pub enum SpectreModelSelect {
 #[derive(Debug, Clone, Builder)]
 pub struct Sky130Pdk {
     /// The open PDK root directory.
-    #[builder(setter(into, strip_option))]
+    #[builder(setter(into, strip_option), default)]
     open_root_dir: Option<PathBuf>,
     /// The SRC NDA PDK root directory.
-    #[builder(setter(into, strip_option))]
+    #[builder(setter(into, strip_option), default)]
     src_nda_root_dir: Option<PathBuf>,
     /// The CDS PDK root directory.
-    #[builder(setter(into, strip_option))]
+    #[builder(setter(into, strip_option), default)]
     cds_root_dir: Option<PathBuf>,
     /// The Spectre model selection algorithm.
     #[builder(default)]
