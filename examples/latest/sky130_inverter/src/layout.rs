@@ -202,6 +202,7 @@ mod tests {
             "layout was not DRC clean"
         );
 
+        // Run LVS.
         let lvs_dir = work_dir.join("lvs");
         let source_path = work_dir.join("schematic.spice");
         let rawlib = ctx
