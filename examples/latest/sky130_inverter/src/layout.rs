@@ -109,17 +109,22 @@ impl Layout for Inverter {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
-    use magic_netgen::LvsParams;
+    use pegasus::lvs::LvsStatus;
     use sky130pdk::layout::to_gds;
+    use spice::{netlist::NetlistOptions, Spice};
     use substrate::{block::Block, schematic::ConvertSchema};
 
-    use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
+    use crate::{
+        sky130_open_ctx, Inverter, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE,
+        SKY130_NETGEN_SETUP_FILE,
+    };
 
     #[test]
-    fn inverter_layout() {
+    fn inverter_layout_open() {
+        use magic_netgen::LvsParams;
         let work_dir = PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/inverter_layout"
+            "/tests/inverter_layout_open"
         ));
         let layout_path = work_dir.join("layout.gds");
         let ctx = sky130_open_ctx();
@@ -139,12 +144,62 @@ mod tests {
             gds_path: layout_path,
             work_dir: lvs_dir,
             layout_cell_name: dut.name(),
-
             magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
             netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
         })
         .expect("failed to run lvs");
 
         assert!(output.matches, "layout does not match netlist");
+    }
+
+    #[test]
+    fn inverter_layout_cds() {
+        use pegasus::lvs::LvsParams;
+        use scir::netlist::ConvertibleNetlister;
+
+        let work_dir = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/inverter_layout_cds"
+        ));
+        let layout_path = work_dir.join("layout.gds");
+        let ctx = sky130_open_ctx();
+
+        let dut = Inverter {
+            nw: 1_200,
+            pw: 2_400,
+            lch: 150,
+        };
+
+        ctx.write_layout(dut, to_gds, &layout_path).unwrap();
+
+        let lvs_dir = work_dir.join("lvs");
+        let source_path = work_dir.join("schematic.spice");
+        let rawlib = ctx.export_scir(dut).unwrap();
+        let rawlib = rawlib
+            .scir
+            .convert_schema::<Spice>()
+            .unwrap()
+            .build()
+            .unwrap();
+
+        Spice
+            .write_scir_netlist_to_file(&rawlib, &source_path, NetlistOptions::default())
+            .expect("failed to write netlist");
+        let output = pegasus::lvs::run_lvs(&LvsParams {
+            work_dir: &lvs_dir,
+            layout_path: &layout_path,
+            layout_cell_name: &dut.name(),
+            source_paths: &[source_path],
+            source_cell_name: &dut.name(),
+            rules_dir: &PathBuf::from(SKY130_LVS),
+            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+        })
+        .expect("failed to run lvs");
+
+        assert_eq!(
+            output.status,
+            LvsStatus::Correct,
+            "layout does not match netlist"
+        );
     }
 }

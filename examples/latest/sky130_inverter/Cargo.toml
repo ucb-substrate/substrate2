@@ -12,6 +12,7 @@ sky130pdk = { version = "0.8.1", registry = "substrate", path = "../../../pdks/s
 layir = { version = "0.1.0", registry = "substrate", path = "../../../libs/layir" }
 gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gdsconv" }
 gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
+scir = { version = "0.7.0", registry = "substrate", path = "../../../libs/scir" }
 magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
 spice = { version = "0.7.1", registry = "substrate", path = "../../../libs/spice" }
 
@@ -23,4 +24,5 @@ rust_decimal_macros = "1.30"
 # begin-code-snippet spectre-dependencies
 spectre = { version = "0.9.1", registry = "substrate", path = "../../../tools/spectre" }
 quantus = { version = "0.0.0", registry = "substrate", path = "../../../tools/quantus" }
+pegasus = { version = "0.0.0", registry = "substrate", path = "../../../tools/pegasus" }
 # end-code-snippet spectre-dependencies
