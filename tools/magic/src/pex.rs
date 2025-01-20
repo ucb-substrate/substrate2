@@ -70,7 +70,8 @@ fn run_pex_inner(
 ) -> Result<(), Error> {
     fs::create_dir_all(&work_dir).map_err(Error::Io)?;
 
-    execute_run_script(run_script_path.as_ref(), &work_dir, "pex")
+    execute_run_script(run_script_path.as_ref(), &work_dir, "pex")?;
+    Ok(())
 }
 
 pub fn run_pex(params: &PexParams) -> Result<(), Error> {
