@@ -2516,10 +2516,14 @@ dependencies = [
  "layir",
  "magic-netgen",
  "ngspice",
+ "pegasus",
+ "quantus",
  "rust_decimal",
  "rust_decimal_macros",
+ "scir",
  "sky130pdk",
  "spectre",
+ "spice",
  "substrate",
 ]
 

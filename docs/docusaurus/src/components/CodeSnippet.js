@@ -28,7 +28,7 @@ function getSnippet(content, snippet) {
       inSnippet = true;
     } else if (trimmed === `// end-code-snippet ${snippet}` || trimmed === `# end-code-snippet ${snippet}`) {
       return trimLeadingWS(selected);
-    } else if (inSnippet) {
+    } else if (inSnippet && !trimmed.startsWith("// begin-code-snippet") && !trimmed.startsWith("// end-code-snippet")) {
       selected += `${line}\n`;
     }
   }
@@ -58,11 +58,13 @@ function generateDiff(source, target) {
 
 function CodeSnippet({children, snippet, language, title, showLineNumbers, diffSnippet}) {
     let target = getSnippet(children, snippet);
+    let copy;
   if (diffSnippet) {
       let source = getSnippet(children, diffSnippet);
+      copy = target;
       target = generateDiff(source, target);
   }
-  return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers}>{target}</CodeBlock></div>);
+  return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers} copy={copy}>{target}</CodeBlock></div>);
 }
 
 export default CodeSnippet;

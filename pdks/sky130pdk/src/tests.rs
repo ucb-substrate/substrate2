@@ -5,8 +5,6 @@ use crate::stdcells::And2;
 use crate::Sky130Pdk;
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
-use gds::GdsUnits;
-use gdsconv::export::GdsExportOpts;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -233,18 +231,12 @@ fn nfet_01v8_layout() {
     let ctx = sky130_src_nda_ctx();
     let layout_path = get_path(test_name, "layout.gds");
 
-    let layir = ctx
-        .export_layir(NmosTile::new(1_600, MosLength::L150, 4))
-        .unwrap();
-    let layir = to_gds(&layir.layir);
-    let gds = gdsconv::export::export_gds(
-        layir,
-        GdsExportOpts {
-            name: arcstr::literal!("nfet_01v8_layout"),
-            units: Some(GdsUnits::new(1., 1e-9)),
-        },
-    );
-    gds.save(layout_path).unwrap();
+    ctx.write_layout(
+        NmosTile::new(1_600, MosLength::L150, 4),
+        to_gds,
+        layout_path,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -253,16 +245,10 @@ fn pfet_01v8_layout() {
     let ctx = sky130_src_nda_ctx();
     let layout_path = get_path(test_name, "layout.gds");
 
-    let layir = ctx
-        .export_layir(PmosTile::new(1_600, MosLength::L150, 4))
-        .unwrap();
-    let layir = to_gds(&layir.layir);
-    let gds = gdsconv::export::export_gds(
-        layir,
-        GdsExportOpts {
-            name: arcstr::literal!("pfet_01v8_layout"),
-            units: Some(GdsUnits::new(1., 1e-9)),
-        },
-    );
-    gds.save(layout_path).unwrap();
+    ctx.write_layout(
+        PmosTile::new(1_600, MosLength::L150, 4),
+        to_gds,
+        layout_path,
+    )
+    .unwrap();
 }

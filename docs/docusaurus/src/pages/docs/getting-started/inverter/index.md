@@ -5,7 +5,10 @@ import Sky130OpenPdk from '@site/src/pages/docs/getting-started/inverter/sky130_
 import Sky130CdsPdk from '@site/src/pages/docs/getting-started/inverter/sky130_cds_pdk.md';
 import {isRelease} from '@site/src/utils/versions';
 export const inverterMod = require(`{{EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`);
-export const inverterTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb.rs?snippet`);
+export const inverterLayout = require(`{{EXAMPLES}}/sky130_inverter/src/layout.rs?snippet`);
+export const inverterOpenTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb/open.rs?snippet`);
+export const inverterCdsTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb/cds.rs?snippet`);
+export function inverterTb(open) { return open ? inverterOpenTb : inverterCdsTb; }
 export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippet`);
 
 In this tutorial, we'll design and simulate a schematic-level inverter in
@@ -106,9 +109,10 @@ or needs to be regenerated.
 
 We can now generate a schematic for our inverter.
 
-Describing a Schematic in Substrate requires implementing two traits:
-* `ExportsNestedData` declares what nested data a block exposes, such as internal nodes or instances. For now, we don't want to expose anything, so we'll set the associated `NestedData` type to Rust's unit type, `()`.
-* `Schematic` specifies the actual schematic in a particular **schema**. A schema is essentially just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` schema as our inverter should be usable in any block generated in SKY130.
+Describing a schematic in Substrate requires implementing the `Schematic` trait,
+which specifies a block's schematic in a particular **schema**. A schema is essentially 
+just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` 
+schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
 <CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-schematic">{inverterMod}</CodeSnippet>
@@ -131,7 +135,7 @@ pub mod tb;
 ```
 
 Add the following imports to `src/tb.rs`:
-<CodeSnippet language="rust" title="src/tb.rs" snippet="imports">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="imports">{inverterTb(props.open)}</CodeSnippet>
 
 All Substrate testbenches are blocks that have schematics.
 The schematic specifies the simulation structure (i.e. input sources,
@@ -148,7 +152,7 @@ We'll make our testbench take two parameters:
 
 Here's how that looks in Rust code:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="struct-and-impl">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="struct-and-impl">{inverterTb(props.open)}</CodeSnippet>
 
 The `Pvt<Sky130Corner>` in our testbench is essentially a 3-tuple of a process corner,
 voltage, and temperature. The process corner here is an instance of `Sky130Corner`,
@@ -164,7 +168,7 @@ the output node of our inverter, so we'll set `Data` in `HasSchematicData` to be
 
 Here's our testbench setup:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="schematic">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="schematic">{inverterTb(props.open)}</CodeSnippet>
 
 We create two {props.open ? "ngspice" : "Spectre"}-specific `Vsource`s (one for VDD, the other as an input stimulus).
 We also instantiate our inverter and connect everything up.
@@ -184,7 +188,7 @@ We'll assume that we have a fixed NMOS width and channel length and a set
 of possible PMOS widths to sweep over.
 
 Here's our implementation:
-<CodeSnippet language="rust" title="src/tb.rs" snippet="ngspice-design">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="schematic-design-script">{inverterTb(props.open)}</CodeSnippet>
 
 We sweep over possible PMOS widths. For each width,
 we create a new testbench instance and tell Substrate to simulate it.
@@ -197,13 +201,13 @@ the absolute difference between the rise and fall times.
 Let's now run the script we wrote. We must first create a Substrate **context** that stores all information 
 relevant to Substrate. This includes
 the tools you've set up, the current PDK, all blocks that have been generated,
-cached computations, and more.
+cached computations, and more. We will put this in `src/lib.rs`.
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="sky130-open-ctx">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="sky130-open-ctx">{inverterMod}</CodeSnippet>
 
 We can then write a Rust unit test to run our design script:
 
-<CodeSnippet language="rust" title="src/tb.rs" snippet="ngspice-tests">{inverterTb}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="schematic-tests">{inverterTb(props.open)}</CodeSnippet>
 
 To run the test, run
 
@@ -216,7 +220,47 @@ the inverter dimensions with the minimum rise/fall time difference.
 
 ## Layout
 
-## PEX
+### Generator
+
+The next step is to generate an inverter layout.
+
+Describing a layout in Substrate requires implementing the `Layout` trait,
+which specifies a block's layout in a particular **schema**. In the context of layout,
+a schema is essentially just a layer stack. In this case, we want to use the `Sky130Pdk` 
+schema as our inverter uses the SKY130 layer stack.
+
+Start by creating a new file, `src/layout.rs`. Add a reference to this module
+in `src/lib.rs`:
+
+```rust title="src/lib.rs"
+pub mod layout;
+```
+
+In this file, add the following imports:
+<CodeSnippet language="rust" title="src/layout.rs" snippet="imports">{inverterLayout}</CodeSnippet>
+
+Then, implement the layout:
+<!-- TODO: break into smaller snippets -->
+<CodeSnippet language="rust" title="src/layout.rs" snippet="layout">{inverterLayout}</CodeSnippet>
+
+### Verification
+
+We can now run { props.open ? "" : "DRC and"} LVS using { props.open ? "magic and netgen" : "Pegasus" }.
+First, add the following constants to `src/lib.rs`:
+
+<CodeSnippet language="rust" title="src/lib.rs" snippet={ props.open ? "open-constants" : "cds-constants" }>{inverterMod}</CodeSnippet>
+
+We can then write a cargo test in `src/layout.rs` that runs { props.open ? "" : "DRC and"} LVS automatically:
+
+<CodeSnippet language="rust" title="src/layout.rs" snippet={ props.open ? "open-tests" : "cds-tests" }>{inverterLayout}</CodeSnippet>
+
+## Post-extraction design
+
+Now that we have an LVS-clean layout and schematic, we can run our design script using post-extraction simulations.
+
+First, let's update our earlier testbench to use either the pre-extraction or post-extraction netlist.
+
+<CodeSnippet language="rust" title="src/layout.rs" snippet="pex-tb" diffSnippet="schematic-tb">{inverterTb(props.open)}</CodeSnippet>
 
 ## Conclusion
 

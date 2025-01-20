@@ -472,11 +472,11 @@ impl FromSchema<Sky130CdsSchema> for Spice {
                 params: HashMap::from_iter([
                     (
                         UniCase::new(arcstr::literal!("w")),
-                        Decimal::new(params.w, 3).into(),
+                        Decimal::new(params.w, 9).into(),
                     ),
                     (
                         UniCase::new(arcstr::literal!("l")),
-                        Decimal::new(params.l, 3).into(),
+                        Decimal::new(params.l, 9).into(),
                     ),
                     (
                         UniCase::new(arcstr::literal!("nf")),
@@ -514,8 +514,8 @@ impl FromSchema<Sky130CdsSchema> for Spectre {
                 cell: kind.cds_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
                 params: vec![
-                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
-                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
+                    (arcstr::literal!("w"), Decimal::new(params.w, 9).into()),
+                    (arcstr::literal!("l"), Decimal::new(params.l, 9).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ],
             },
@@ -547,13 +547,13 @@ pub enum SpectreModelSelect {
 #[derive(Debug, Clone, Builder)]
 pub struct Sky130Pdk {
     /// The open PDK root directory.
-    #[builder(setter(into, strip_option))]
+    #[builder(setter(into, strip_option), default)]
     open_root_dir: Option<PathBuf>,
     /// The SRC NDA PDK root directory.
-    #[builder(setter(into, strip_option))]
+    #[builder(setter(into, strip_option), default)]
     src_nda_root_dir: Option<PathBuf>,
     /// The CDS PDK root directory.
-    #[builder(setter(into, strip_option))]
+    #[builder(setter(into, strip_option), default)]
     cds_root_dir: Option<PathBuf>,
     /// The Spectre model selection algorithm.
     #[builder(default)]
