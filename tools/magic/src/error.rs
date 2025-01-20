@@ -1,18 +1,17 @@
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    /// Error running Magic.
+    #[error("error running Magic")]
     Magic(std::process::ExitStatus),
-    Io(std::io::Error),
-    Tera(tera::Error),
-    Internal(anyhow::Error),
+    /// Error performing I/O.
+    #[error("error performing I/O")]
+    Io(#[from] std::io::Error),
+    /// Error rendering templates.
+    #[error("error rendering templates")]
+    Tera(#[from] tera::Error),
+    /// An unknown internal error.
+    #[error(transparent)]
+    Internal(#[from] anyhow::Error),
 }
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{self:?}")?;
-        Ok(())
-    }
-}
-
-impl std::error::Error for Error {}
