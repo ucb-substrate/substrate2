@@ -128,6 +128,7 @@ mod open {
     mod tests {
         use std::{path::PathBuf, sync::Arc};
 
+        use magic::drc::{run_drc, DrcParams};
         use sky130pdk::{layout::to_gds, Sky130OpenSchema};
         use substrate::{block::Block, schematic::ConvertSchema};
 
@@ -150,6 +151,21 @@ mod open {
 
             ctx.write_layout(dut, to_gds, &layout_path).unwrap();
 
+            // Run DRC.
+            let drc_dir = work_dir.join("drc");
+            let drc_report_path = drc_dir.join("drc_results.rpt");
+            let data = run_drc(&DrcParams {
+                work_dir: &drc_dir,
+                gds_path: &layout_path,
+                cell_name: &dut.name(),
+                tech_file_path: &PathBuf::from(SKY130_MAGIC_TECH_FILE),
+                drc_report_path: &drc_report_path,
+            })
+            .expect("failed to run drc");
+
+            assert_eq!(data.rule_checks.len(), 0, "layout was not DRC clean");
+
+            // Run LVS.
             let lvs_dir = work_dir.join("lvs");
             let output = magic_netgen::run_lvs(LvsParams {
                 schematic: Arc::new(ConvertSchema::new(

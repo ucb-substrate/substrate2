@@ -3,6 +3,7 @@
 use lazy_static::lazy_static;
 use tera::Tera;
 
+pub mod drc;
 pub mod error;
 pub mod extract;
 pub mod pex;
@@ -27,6 +28,10 @@ mod tests {
     pub const COLBUF_LAYOUT_PATH: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../examples/latest/colbuf/test_col_buffer_array.gds"
+    );
+    pub const INVERTER_LICON8_LAYOUT_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/examples/gds/inverter_licon8.gds"
     );
     pub const SKY130_TECH_FILE: &str = concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
 }

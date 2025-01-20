@@ -447,7 +447,9 @@ impl MosTile {
                 cell.draw(Shape::new(Sky130Layer::Npc, npc))?;
             }
             let poly = Rect::from_spans(
-                gate_spans[i].union(li_track.hspan()),
+                gate_spans[i]
+                    .union(li_track.hspan())
+                    .union(poly_li.hspan().expand_all(50)),
                 Span::new(poly_li.top() - 350, poly_li.top()),
             );
             cell.draw(Shape::new(Sky130Layer::Poly, poly))?;
