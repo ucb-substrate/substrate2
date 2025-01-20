@@ -9,7 +9,7 @@ on:
 env:
     CARGO_TERM_COLOR: always
     DOCS_NAME: ${{ inputs.name || github.ref.name }}
-    PUBLIC_DOCS_DIR: /Users/rohan/Downloads/substrate_docs_public
+    PUBLIC_DOCS_DIR: /tools/C/rohankumar/substrate_docs_public
 
 jobs:
   deploy-docs:
