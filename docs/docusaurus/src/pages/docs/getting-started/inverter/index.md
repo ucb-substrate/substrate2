@@ -1,6 +1,8 @@
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
 import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
+import OpenTools from '@site/src/pages/docs/getting-started/inverter/open_tools.md';
+import CdsTools from '@site/src/pages/docs/getting-started/inverter/cds_tools.md';
 import Sky130OpenPdk from '@site/src/pages/docs/getting-started/inverter/sky130_open_pdk.md';
 import Sky130CdsPdk from '@site/src/pages/docs/getting-started/inverter/sky130_cds_pdk.md';
 import {isRelease} from '@site/src/utils/versions';
@@ -13,7 +15,7 @@ export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippe
 
 In this tutorial, we'll design and simulate a schematic-level inverter in
 the Skywater 130nm process to showcase some of the capabilities of Substrate's
-analog simulation interface. Substrate will call into {props.open ? "open source tools (ngspice, magic, and netgen)"
+analog simulation interface. Substrate will call into {props.open ? "open source tools (ngspice, magic, and Netgen)"
 : "Cadence tools (Spectre, Pegasus, and Quantus)"} to run simulations, {props.open ? "" : "DRC, "} LVS, and extraction. 
 
 ## Setup
@@ -39,7 +41,7 @@ In your project's `Cargo.toml`, start with the following dependencies:
 
 <DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="dependencies">{cargoToml}</DependenciesSnippet>
 
-To pull in the plugins for the necessary Cadence tools, add these depependencies as well:
+To pull in the plugins for the necessary tools, add these depependencies as well:
 
 <DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet={props.open ? "open-dependencies" : "cds-dependencies"}>{cargoToml}</DependenciesSnippet>
 
@@ -48,13 +50,9 @@ Replace the content of `src/lib.rs` with the following:
 
 <CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{inverterMod}</CodeSnippet>
 
-### Simulator
+### EDA Tools
 
-This tutorial will demonstrate how to invoke { props.open ? 
-<a href="https://ngspice.sourceforge.io/index.html" target="_blank" rel="noopener noreferrer">ngspice</a> : 
-<a href="https://www.cadence.com/en_US/home/resources/datasheets/spectre-simulation-platform-ds.html" target="_blank" rel="noopener noreferrer">Spectre</a> } 
-from Substrate to run transient simulations. { props.open ? "Make sure to install an ngspice version of at least 41 before running your Rust code." : 
-"Make sure that Spectre is installed and that the appropriate environment variables have been set." }
+{ props.open ? <OpenTools/> : <CdsTools/> }
 
 ### SKY130 PDK
 
@@ -86,12 +84,11 @@ Substrate blocks are analogous to modules or cells in other generator frameworks
 While Substrate does not require you to structure your blocks in any particular way,
 it is common to define a struct for your block that contains all of its parameters.
 
-We'll make our inverter generator have three parameters:
+We'll make our inverter generator have two parameters:
 * An NMOS width.
 * A PMOS width.
-* A channel length.
 
-We're assuming here that the NMOS and PMOS will have the same length.
+We're assuming here that the NMOS and PMOS will have 150nm length to simplify layout.
 
 In this tutorial, we store all dimensions as integers in layout database units.
 In the SKY130 process, the database unit is a nanometer, so supplying an NMOS width
@@ -224,11 +221,6 @@ the inverter dimensions with the minimum rise/fall time difference.
 
 The next step is to generate an inverter layout.
 
-Describing a layout in Substrate requires implementing the `Layout` trait,
-which specifies a block's layout in a particular **schema**. In the context of layout,
-a schema is essentially just a layer stack. In this case, we want to use the `Sky130Pdk` 
-schema as our inverter uses the SKY130 layer stack.
-
 Start by creating a new file, `src/layout.rs`. Add a reference to this module
 in `src/lib.rs`:
 
@@ -239,7 +231,53 @@ pub mod layout;
 In this file, add the following imports:
 <CodeSnippet language="rust" title="src/layout.rs" snippet="imports">{inverterLayout}</CodeSnippet>
 
-Then, implement the layout:
+
+Describing a layout in Substrate requires implementing the `Layout` trait. Let's start implementing it now:
+
+<CodeSnippet 
+    language="rust"
+    title="src/layout.rs"
+    snippet="layout"
+    replacements={{ "layout-body": "// TODO: Implement layout generator." }}
+>
+    {inverterLayout}
+</CodeSnippet>
+
+Substrate layouts are specified in a particular **schema**. In the context of layout,
+a schema is essentially just a layer stack. We also have to specify `Bundle`,
+which describes the geometry associated with the inverter's IO, and `Data`,
+which describes any nested geometry that we might want to pass up to parent cells.
+
+In this case, we want to use the `Sky130Pdk` schema as our inverter uses the SKY130 layer stack.
+We also choose to use the layout bundle that Substrate autogenerates in its `#[derive(Io)]` macro,
+though more advanced users can choose to implement a custom layout bundle that more accurately describes
+the IO geometry. Substrate's default layout bundle consists of `PortGeometry`s, which are essentially
+just an arbitrary collection of shapes.
+We don't have any data we want to propagate, so we specify `type Data = ();`.
+
+In `fn layout`, let's start writing our generator. We can begin by generating our inverter's
+NMOS and PMOS using generators provided by Substrate's SKY130 plugin:
+<CodeSnippet language="rust" title="src/layout.rs" snippet="generate-mos">{inverterLayout}</CodeSnippet>
+
+Using Substrate's transformation API, we can flip the NMOS and place the PMOS above it:
+<!-- TODO: add diagrams -->
+<CodeSnippet language="rust" title="src/layout.rs" snippet="transform-mos">{inverterLayout}</CodeSnippet>
+
+The drains and gates of the two transistors should now be aligned, so we can simply compute the bounding box
+of the two drains, then the two gates, and draw the resulting rectangles on li1:
+<CodeSnippet language="rust" title="src/layout.rs" snippet="inverter-conns">{inverterLayout}</CodeSnippet>
+
+To get our layout LVS clean, we will need to add taps. We can add our n-well tap above the PMOS and our
+substrate tap below the NMOS. We can then use li1 rectangles to connect the taps to the sources of the NMOS and PMOS.
+
+<CodeSnippet language="rust" title="src/layout.rs" snippet="taps">{inverterLayout}</CodeSnippet>
+
+Now that all the connections have been finalized, we can draw all of our instances and return the
+appropriate geometry to specify where our inverter's pins are located.
+
+<CodeSnippet language="rust" title="src/layout.rs" snippet="finalize-layout">{inverterLayout}</CodeSnippet>
+
+The final layout generator should look like this:
 <!-- TODO: break into smaller snippets -->
 <CodeSnippet language="rust" title="src/layout.rs" snippet="layout">{inverterLayout}</CodeSnippet>
 
@@ -260,7 +298,15 @@ Now that we have an LVS-clean layout and schematic, we can run our design script
 
 First, let's update our earlier testbench to use either the pre-extraction or post-extraction netlist.
 
-<CodeSnippet language="rust" title="src/layout.rs" snippet="pex-tb" diffSnippet="schematic-tb">{inverterTb(props.open)}</CodeSnippet>
+<CodeSnippet language="rust" title="src/tb.rs" snippet="pex-tb" diffSnippet="schematic-tb">{inverterTb(props.open)}</CodeSnippet>
+
+Then, we can update our design script to run either version of the testbench:
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="design-extracted" diffSnippet="schematic-design-script">{inverterTb(props.open)}</CodeSnippet>
+
+Finally, we can split our original test into two tests (one post-extraction and one pre-extraction):
+
+<CodeSnippet language="rust" title="src/tb.rs" snippet="tests-extracted" diffSnippet="schematic-tests">{inverterTb(props.open)}</CodeSnippet>
 
 ## Conclusion
 

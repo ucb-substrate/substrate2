@@ -32,8 +32,6 @@ pub struct Inverter {
     pub nw: i64,
     /// PMOS width.
     pub pw: i64,
-    /// Channel length.
-    pub lch: i64,
 }
 // end-code-snippet inverter-struct
 
@@ -46,13 +44,13 @@ impl Schematic for Inverter {
         io: &IoNodeBundle<Self>,
         cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> Result<Self::NestedData> {
-        let nmos = cell.instantiate(Nfet01v8::new((self.nw, self.lch)));
+        let nmos = cell.instantiate(Nfet01v8::new((self.nw, 150)));
         cell.connect(io.dout, nmos.io().d);
         cell.connect(io.din, nmos.io().g);
         cell.connect(io.vss, nmos.io().s);
         cell.connect(io.vss, nmos.io().b);
 
-        let pmos = cell.instantiate(Pfet01v8::new((self.pw, self.lch)));
+        let pmos = cell.instantiate(Pfet01v8::new((self.pw, 150)));
         cell.connect(io.dout, pmos.io().d);
         cell.connect(io.din, pmos.io().g);
         cell.connect(io.vdd, pmos.io().s);
@@ -71,6 +69,11 @@ pub const SKY130_NETGEN_SETUP_FILE: &str =
 // end-code-snippet open-constants
 
 // begin-code-snippet cds-constants
+pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
+pub const SKY130_DRC_RULES_PATH: &str = concat!(
+    env!("SKY130_CDS_PDK_ROOT"),
+    "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
+);
 pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
 pub const SKY130_LVS_RULES_PATH: &str =
     concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);

@@ -7,6 +7,7 @@ use sky130pdk::{
     Sky130Pdk,
 };
 use substrate::{
+    error::Result,
     geometry::{
         align::{AlignMode, AlignRectMut},
         bbox::Bbox,
@@ -16,30 +17,37 @@ use substrate::{
         transform::TransformMut,
         union::BoundingUnion,
     },
-    layout::Layout,
-    types::layout::PortGeometry,
+    layout::{CellBuilder, CellBundle, Layout},
+    types::{
+        codegen::{PortGeometryBundle, View},
+        layout::PortGeometry,
+    },
 };
 
-use crate::{Inverter, InverterIoView};
+use crate::{Inverter, InverterIo};
 // end-code-snippet imports
 
 // begin-code-snippet layout
 impl Layout for Inverter {
     type Schema = Sky130Pdk;
-    type Bundle = InverterIoView<substrate::types::codegen::PortGeometryBundle<Sky130Pdk>>;
+    type Bundle = View<InverterIo, PortGeometryBundle<Sky130Pdk>>;
     type Data = ();
-    fn layout(
-        &self,
-        cell: &mut substrate::layout::CellBuilder<Self::Schema>,
-    ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+
+    fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)> {
+        // begin-code-replace layout-body
+        // begin-code-snippet generate-mos
         let mut nmos =
             cell.generate(NmosTile::new(self.nw, MosLength::L150, 1).with_gate_dir(GateDir::Left));
         let mut pmos =
             cell.generate(PmosTile::new(self.pw, MosLength::L150, 1).with_gate_dir(GateDir::Left));
+        // end-code-snippet generate-mos
 
+        // begin-code-snippet transform-mos
         nmos.transform_mut(Transformation::reflect_vert());
         pmos.align_mut(AlignMode::Above, pmos.bbox_rect(), nmos.bbox_rect(), 600);
+        // end-code-snippet transform-mos
 
+        // begin-code-snippet inverter-conns
         let dout = Shape::new(
             Sky130Layer::Li1,
             nmos.io().sd[1]
@@ -55,7 +63,9 @@ impl Layout for Inverter {
                 .bounding_union(&pmos.io().g[0].primary),
         );
         cell.draw(din.clone())?;
+        // end-code-snippet inverter-conns
 
+        // begin-code-snippet taps
         let mut ntap = cell.generate(NtapTile::new(2, 2));
         ntap.align_mut(AlignMode::Above, ntap.bbox_rect(), pmos.bbox_rect(), 0);
         ntap.align_mut(
@@ -66,7 +76,7 @@ impl Layout for Inverter {
         );
 
         let mut ptap = cell.generate(PtapTile::new(2, 2));
-        ptap.align_mut(AlignMode::Beneath, ptap.bbox_rect(), nmos.bbox_rect(), 0);
+        ptap.align_mut(AlignMode::Beneath, ptap.bbox_rect(), nmos.bbox_rect(), -20);
         ptap.align_mut(
             AlignMode::CenterHorizontal,
             ptap.bbox_rect(),
@@ -90,14 +100,16 @@ impl Layout for Inverter {
             Span::new(pmos_s.bot(), vdd.bbox_rect().top()),
         );
         cell.draw(Shape::new(Sky130Layer::Li1, vdd_conn))?;
+        // end-code-snippet taps
 
+        // begin-code-snippet finalize-layout
         cell.draw(ntap)?;
         cell.draw(ptap)?;
         cell.draw(nmos)?;
         cell.draw(pmos)?;
 
         Ok((
-            InverterIoView {
+            CellBundle::<Inverter> {
                 vdd: PortGeometry::new(vdd),
                 vss: PortGeometry::new(vss),
                 din: PortGeometry::new(din),
@@ -105,6 +117,8 @@ impl Layout for Inverter {
             },
             (),
         ))
+        // end-code-snippet finalize-layout
+        // end-code-replace layout-body
     }
 }
 // end-code-snippet layout
@@ -115,15 +129,10 @@ mod open {
     mod tests {
         use std::{path::PathBuf, sync::Arc};
 
-        use pegasus::lvs::LvsStatus;
-        use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
-        use spice::{netlist::NetlistOptions, Spice};
+        use sky130pdk::{layout::to_gds, Sky130OpenSchema};
         use substrate::{block::Block, schematic::ConvertSchema};
 
-        use crate::{
-            sky130_open_ctx, Inverter, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE,
-            SKY130_NETGEN_SETUP_FILE,
-        };
+        use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
 
         #[test]
         fn inverter_layout_open() {
@@ -138,7 +147,6 @@ mod open {
             let dut = Inverter {
                 nw: 1_200,
                 pw: 2_400,
-                lch: 150,
             };
 
             ctx.write_layout(dut, to_gds, &layout_path).unwrap();
@@ -167,17 +175,25 @@ mod cds {
     // begin-code-snippet cds-tests
     #[cfg(test)]
     mod tests {
-        use std::{path::PathBuf, sync::Arc};
+        use std::path::PathBuf;
 
-        use pegasus::lvs::LvsStatus;
-        use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
+        use pegasus::{
+            drc::{run_drc, DrcParams},
+            lvs::LvsStatus,
+            RuleCheck,
+        };
+        use sky130pdk::{layout::to_gds, Sky130CdsSchema};
         use spice::{netlist::NetlistOptions, Spice};
         use substrate::{block::Block, schematic::ConvertSchema};
 
         use crate::{
-            sky130_open_ctx, Inverter, SKY130_LVS, SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE,
-            SKY130_NETGEN_SETUP_FILE,
+            sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
+            SKY130_LVS_RULES_PATH,
         };
+
+        fn test_check_filter(check: &RuleCheck) -> bool {
+            !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
+        }
 
         #[test]
         fn inverter_layout_cds() {
@@ -194,11 +210,31 @@ mod cds {
             let dut = Inverter {
                 nw: 1_200,
                 pw: 2_400,
-                lch: 150,
             };
 
             ctx.write_layout(dut, to_gds, &layout_path).unwrap();
 
+            // Run DRC.
+            let drc_dir = work_dir.join("drc");
+            let data = run_drc(&DrcParams {
+                work_dir: &drc_dir,
+                layout_path: &layout_path,
+                cell_name: &dut.name(),
+                rules_dir: &PathBuf::from(SKY130_DRC),
+                rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            })
+            .expect("failed to run drc");
+
+            assert_eq!(
+                data.rule_checks
+                    .into_iter()
+                    .filter(test_check_filter)
+                    .count(),
+                0,
+                "layout was not DRC clean"
+            );
+
+            // Run LVS.
             let lvs_dir = work_dir.join("lvs");
             let source_path = work_dir.join("schematic.spice");
             let rawlib = ctx

@@ -100,8 +100,6 @@ mod schematic_only_tb {
         pub nw: i64,
         /// The set of PMOS widths to sweep.
         pub pw: Vec<i64>,
-        /// The transistor channel length.
-        pub lch: i64,
     }
 
     impl InverterDesign {
@@ -111,11 +109,7 @@ mod schematic_only_tb {
 
             let mut opt = None;
             for pw in self.pw.iter().copied() {
-                let dut = Inverter {
-                    nw: self.nw,
-                    pw,
-                    lch: self.lch,
-                };
+                let dut = Inverter { nw: self.nw, pw };
                 let tb = InverterTb::new(pvt, dut);
                 let sim_dir = work_dir.join(format!("pw{pw}"));
                 let sim = ctx
@@ -179,7 +173,6 @@ mod schematic_only_tb {
             let script = InverterDesign {
                 nw: 1_200,
                 pw: (3_000..=5_000).step_by(200).collect(),
-                lch: 150,
             };
 
             let inv = script.run(&mut ctx, work_dir);
@@ -281,8 +274,6 @@ pub struct InverterDesign {
     pub nw: i64,
     /// The set of PMOS widths to sweep.
     pub pw: Vec<i64>,
-    /// The transistor channel length.
-    pub lch: i64,
     /// Whether or not to run extracted simulations.
     pub extracted: bool,
 }
@@ -294,11 +285,7 @@ impl InverterDesign {
 
         let mut opt = None;
         for pw in self.pw.iter().copied() {
-            let dut = Inverter {
-                nw: self.nw,
-                pw,
-                lch: self.lch,
-            };
+            let dut = Inverter { nw: self.nw, pw };
             let inverter = if self.extracted {
                 let work_dir = work_dir.join(format!("pw{pw}"));
                 let layout_path = work_dir.join("layout.gds");
@@ -381,7 +368,6 @@ mod tests {
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
-            lch: 150,
             extracted: true,
         };
 
@@ -399,7 +385,6 @@ mod tests {
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
-            lch: 150,
             extracted: false,
         };
 

@@ -5,4 +5,7 @@ git clone https://github.com/ucb-substrate/skywater-pdk.git && cd skywater-pdk
 git submodule update --init libraries/sky130_fd_pr/latest
 ```
 
-Also, ensure that the `SKY130_OPEN_PDK_ROOT` environment variable points to the location of the repo you just cloned.
+Set the `SKY130_OPEN_PDK_ROOT` environment variable to point to the location of the repo you just cloned.
+
+You will also need to install Tim Edwards' [Open-PDKs](https://github.com/RTimothyEdwards/open_pdks) and point to your installation
+with the `OPEN_PDKS_ROOT` environment variable.
