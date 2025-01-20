@@ -1,9 +1,11 @@
+drc off
 gds read {{ gds_path }}
 load {{ cell_name }}
 
 set ofile [open "{{drc_report_path}}" w]
 
 # run DRC
+select top cell
 drc on
 drc catchup
 

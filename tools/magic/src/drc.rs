@@ -173,7 +173,7 @@ mod tests {
         assert!(drc_report_path.exists());
         assert_eq!(checks.rule_checks.len(), 1,);
         assert!(checks.rule_checks[0].reason.contains("licon.8"));
-        assert!(checks.rule_checks[0].num_results > 0);
+        assert_eq!(checks.rule_checks[0].num_results, 2);
 
         Ok(())
     }

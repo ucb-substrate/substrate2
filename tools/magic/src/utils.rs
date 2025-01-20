@@ -1,7 +1,7 @@
 use std::fs;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use crate::error::Error;
 
@@ -26,6 +26,7 @@ pub fn execute_run_script(
     let status = Command::new("/usr/bin/bash")
         .arg(path)
         .current_dir(work_dir)
+        .stdin(Stdio::null())
         .stdout(out_file)
         .stderr(err_file)
         .status()
