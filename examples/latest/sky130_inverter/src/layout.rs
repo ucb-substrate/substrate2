@@ -110,14 +110,11 @@ mod open_tests {
     use std::{path::PathBuf, sync::Arc};
 
     use magic::drc::{run_drc, DrcParams};
-    use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
-    use spice::{netlist::NetlistOptions, Spice};
+    use sky130pdk::{layout::to_gds, Sky130OpenSchema};
+
     use substrate::{block::Block, schematic::ConvertSchema};
 
-    use crate::{
-        sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
-        SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE,
-    };
+    use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
 
     #[test]
     fn inverter_layout_open() {
@@ -149,11 +146,7 @@ mod open_tests {
         })
         .expect("failed to run drc");
 
-        assert_eq!(
-            data.rule_checks.into_iter().count(),
-            0,
-            "layout was not DRC clean"
-        );
+        assert_eq!(data.rule_checks.len(), 0, "layout was not DRC clean");
 
         // Run LVS.
         let lvs_dir = work_dir.join("lvs");
@@ -176,19 +169,20 @@ mod open_tests {
 
 #[cfg(test)]
 mod cds_tests {
-    use std::{path::PathBuf, sync::Arc};
+    use std::path::PathBuf;
 
     use pegasus::{
         drc::{run_drc, DrcParams},
+        lvs::LvsStatus,
         RuleCheck,
     };
-    use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
+    use sky130pdk::{layout::to_gds, Sky130CdsSchema};
     use spice::{netlist::NetlistOptions, Spice};
     use substrate::{block::Block, schematic::ConvertSchema};
 
     use crate::{
         sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
-        SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE,
+        SKY130_LVS_RULES_PATH,
     };
 
     fn test_check_filter(check: &RuleCheck) -> bool {
