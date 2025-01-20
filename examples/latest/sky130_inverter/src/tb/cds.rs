@@ -8,9 +8,9 @@ use crate::SKY130_TECHNOLOGY_DIR;
 use quantus::pex::Pex;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
-use sky130pdk::corner::Sky130Corner;
-use sky130pdk::layout::to_gds;
-use sky130pdk::Sky130CdsSchema;
+use sky130::corner::Sky130Corner;
+use sky130::layout::to_gds;
+use sky130::Sky130CdsSchema;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::Spectre;
@@ -30,7 +30,7 @@ use substrate::types::{Signal, TestbenchIo};
 
 #[allow(dead_code)]
 mod schematic_only_tb {
-    use sky130pdk::Sky130CdsSchema;
+    use sky130::Sky130CdsSchema;
 
     use super::*;
 

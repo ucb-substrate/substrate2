@@ -2,7 +2,7 @@ use crate::corner::Sky130Corner;
 use crate::layout::to_gds;
 use crate::mos::{MosLength, NmosTile, PmosTile};
 use crate::stdcells::{And2, And2Io};
-use crate::{Sky130OpenSchema, Sky130Pdk, Sky130SrcNdaSchema};
+use crate::{Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
 use ngspice::Ngspice;
@@ -41,7 +41,7 @@ pub fn sky130_open_ctx() -> Context {
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Ngspice::default())
-        .install(Sky130Pdk::open(pdk_root))
+        .install(Sky130::open(pdk_root))
         .build()
 }
 
@@ -62,7 +62,7 @@ pub fn sky130_src_nda_ctx() -> Context {
         .expect("the SKY130_SRC_NDA_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Spectre::default())
-        .install(Sky130Pdk::src_nda(open_pdk_root, src_nda_pdk_root))
+        .install(Sky130::src_nda(open_pdk_root, src_nda_pdk_root))
         .build()
 }
 

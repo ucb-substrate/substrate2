@@ -51,7 +51,7 @@ pub enum Primitive {
     },
 }
 
-/// An error converting to/from the [`Sky130Pdk`] schema.
+/// An error converting to/from the [`Sky130`] schema.
 #[derive(Debug, Clone, Copy)]
 pub enum ConvError {
     /// A primitive that is not supported by the target schema was encountered.
@@ -64,11 +64,11 @@ pub enum ConvError {
     InvalidParameter,
 }
 
-impl scir::schema::Schema for Sky130Pdk {
+impl scir::schema::Schema for Sky130 {
     type Primitive = Primitive;
 }
 
-impl FromSchema<Spice> for Sky130Pdk {
+impl FromSchema<Spice> for Sky130 {
     type Error = ConvError;
 
     fn convert_primitive(
@@ -152,35 +152,35 @@ impl scir::schema::Schema for Sky130OpenSchema {
     type Primitive = Primitive;
 }
 
-impl FromSchema<Sky130Pdk> for Sky130OpenSchema {
+impl FromSchema<Sky130> for Sky130OpenSchema {
     type Error = Infallible;
 
     fn convert_primitive(
-        primitive: <Sky130Pdk as Schema>::Primitive,
+        primitive: <Sky130 as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as Schema>::Primitive,
+        _primitive: &<Sky130 as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
-impl FromSchema<Sky130OpenSchema> for Sky130Pdk {
+impl FromSchema<Sky130OpenSchema> for Sky130 {
     type Error = Infallible;
 
     fn convert_primitive(
-        primitive: <Sky130Pdk as Schema>::Primitive,
+        primitive: <Sky130 as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as Schema>::Primitive,
+        _primitive: &<Sky130 as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -189,7 +189,7 @@ impl FromSchema<Sky130OpenSchema> for Sky130Pdk {
 impl FromSchema<Sky130OpenSchema> for Spice {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
             Primitive::RawInstance {
@@ -226,7 +226,7 @@ impl FromSchema<Sky130OpenSchema> for Spice {
     }
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -235,7 +235,7 @@ impl FromSchema<Sky130OpenSchema> for Spice {
 impl FromSchema<Sky130OpenSchema> for Ngspice {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Ngspice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(ngspice::Primitive::Spice(<Spice as FromSchema<
             Sky130OpenSchema,
@@ -245,7 +245,7 @@ impl FromSchema<Sky130OpenSchema> for Ngspice {
     }
     fn convert_instance(
         instance: &mut Instance,
-        primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         <Spice as FromSchema<Sky130OpenSchema>>::convert_instance(instance, primitive)
     }
@@ -254,7 +254,7 @@ impl FromSchema<Sky130OpenSchema> for Ngspice {
 impl FromSchema<Sky130OpenSchema> for Spectre {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
             Primitive::RawInstance {
@@ -279,7 +279,7 @@ impl FromSchema<Sky130OpenSchema> for Spectre {
     }
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -293,35 +293,35 @@ impl scir::schema::Schema for Sky130SrcNdaSchema {
     type Primitive = Primitive;
 }
 
-impl FromSchema<Sky130Pdk> for Sky130SrcNdaSchema {
+impl FromSchema<Sky130> for Sky130SrcNdaSchema {
     type Error = Infallible;
 
     fn convert_primitive(
-        primitive: <Sky130Pdk as Schema>::Primitive,
+        primitive: <Sky130 as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as Schema>::Primitive,
+        _primitive: &<Sky130 as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
-impl FromSchema<Sky130SrcNdaSchema> for Sky130Pdk {
+impl FromSchema<Sky130SrcNdaSchema> for Sky130 {
     type Error = Infallible;
 
     fn convert_primitive(
-        primitive: <Sky130Pdk as Schema>::Primitive,
+        primitive: <Sky130 as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as Schema>::Primitive,
+        _primitive: &<Sky130 as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -330,7 +330,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Sky130Pdk {
 impl FromSchema<Sky130SrcNdaSchema> for Spice {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
             Primitive::RawInstance {
@@ -367,7 +367,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
     }
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -376,7 +376,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
 impl FromSchema<Sky130SrcNdaSchema> for Spectre {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
             Primitive::RawInstance {
@@ -401,7 +401,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
     }
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -415,35 +415,35 @@ impl scir::schema::Schema for Sky130CdsSchema {
     type Primitive = Primitive;
 }
 
-impl FromSchema<Sky130Pdk> for Sky130CdsSchema {
+impl FromSchema<Sky130> for Sky130CdsSchema {
     type Error = Infallible;
 
     fn convert_primitive(
-        primitive: <Sky130Pdk as Schema>::Primitive,
+        primitive: <Sky130 as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as Schema>::Primitive,
+        _primitive: &<Sky130 as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
-impl FromSchema<Sky130CdsSchema> for Sky130Pdk {
+impl FromSchema<Sky130CdsSchema> for Sky130 {
     type Error = Infallible;
 
     fn convert_primitive(
-        primitive: <Sky130Pdk as Schema>::Primitive,
+        primitive: <Sky130 as Schema>::Primitive,
     ) -> Result<<Self as Schema>::Primitive, Self::Error> {
         Ok(primitive)
     }
 
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as Schema>::Primitive,
+        _primitive: &<Sky130 as Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -452,7 +452,7 @@ impl FromSchema<Sky130CdsSchema> for Sky130Pdk {
 impl FromSchema<Sky130CdsSchema> for Spice {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Spice as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
             Primitive::RawInstance {
@@ -489,7 +489,7 @@ impl FromSchema<Sky130CdsSchema> for Spice {
     }
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -498,7 +498,7 @@ impl FromSchema<Sky130CdsSchema> for Spice {
 impl FromSchema<Sky130CdsSchema> for Spectre {
     type Error = Infallible;
     fn convert_primitive(
-        primitive: <Sky130Pdk as scir::schema::Schema>::Primitive,
+        primitive: <Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<<Spectre as scir::schema::Schema>::Primitive, Self::Error> {
         Ok(match primitive {
             Primitive::RawInstance {
@@ -523,7 +523,7 @@ impl FromSchema<Sky130CdsSchema> for Spectre {
     }
     fn convert_instance(
         _instance: &mut Instance,
-        _primitive: &<Sky130Pdk as scir::schema::Schema>::Primitive,
+        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -545,7 +545,7 @@ pub enum SpectreModelSelect {
 
 /// The Sky 130 PDK.
 #[derive(Debug, Clone, Builder)]
-pub struct Sky130Pdk {
+pub struct Sky130 {
     /// The open PDK root directory.
     #[builder(setter(into, strip_option), default)]
     open_root_dir: Option<PathBuf>,
@@ -560,17 +560,17 @@ pub struct Sky130Pdk {
     spectre_model_select: SpectreModelSelect,
 }
 
-impl Sky130Pdk {
-    /// Returns a new [`Sky130PdkBuilder`].
+impl Sky130 {
+    /// Returns a new [`Sky130Builder`].
     #[inline]
-    pub fn builder() -> Sky130PdkBuilder {
-        Sky130PdkBuilder::default()
+    pub fn builder() -> Sky130Builder {
+        Sky130Builder::default()
     }
 
     /// Creates an instantiation of the open PDK.
     #[inline]
     pub fn open(root_dir: impl Into<PathBuf>) -> Self {
-        Sky130Pdk::builder()
+        Sky130::builder()
             .open_root_dir(root_dir)
             .spectre_model_select(SpectreModelSelect::Open)
             .build()
@@ -583,7 +583,7 @@ impl Sky130Pdk {
         open_root_dir: impl Into<PathBuf>,
         src_nda_root_dir: impl Into<PathBuf>,
     ) -> Self {
-        Sky130Pdk::builder()
+        Sky130::builder()
             .open_root_dir(open_root_dir)
             .src_nda_root_dir(src_nda_root_dir)
             .spectre_model_select(SpectreModelSelect::SrcNda)
@@ -595,7 +595,7 @@ impl Sky130Pdk {
     /// cells).
     #[inline]
     pub fn src_nda_only(src_nda_root_dir: impl Into<PathBuf>) -> Self {
-        Sky130Pdk::builder()
+        Sky130::builder()
             .src_nda_root_dir(src_nda_root_dir)
             .spectre_model_select(SpectreModelSelect::SrcNda)
             .build()
@@ -605,7 +605,7 @@ impl Sky130Pdk {
     /// Creates an instantiation of the CDS PDK.
     #[inline]
     pub fn cds(open_root_dir: impl Into<PathBuf>, cds_root_dir: impl Into<PathBuf>) -> Self {
-        Sky130Pdk::builder()
+        Sky130::builder()
             .open_root_dir(open_root_dir)
             .cds_root_dir(cds_root_dir)
             .spectre_model_select(SpectreModelSelect::Cds)
@@ -616,7 +616,7 @@ impl Sky130Pdk {
     /// Creates an instantiation of the CDS PDK without open source PDK support.
     #[inline]
     pub fn cds_only(cds_root_dir: impl Into<PathBuf>) -> Self {
-        Sky130Pdk::builder()
+        Sky130::builder()
             .cds_root_dir(cds_root_dir)
             .spectre_model_select(SpectreModelSelect::Cds)
             .build()
@@ -624,8 +624,8 @@ impl Sky130Pdk {
     }
 }
 
-impl Installation for Sky130Pdk {}
+impl Installation for Sky130 {}
 
-impl substrate::layout::schema::Schema for Sky130Pdk {
+impl substrate::layout::schema::Schema for Sky130 {
     type Layer = Sky130Layer;
 }

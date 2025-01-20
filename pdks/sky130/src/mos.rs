@@ -3,7 +3,7 @@
 use std::fmt::Display;
 
 use crate::layers::Sky130Layer;
-use crate::Sky130Pdk;
+use crate::Sky130;
 use arcstr::ArcStr;
 use geometry_macros::{TransformMut, TransformRef, TranslateMut, TranslateRef};
 use layir::Shape;
@@ -139,7 +139,7 @@ macro_rules! define_mosfets {
         }
 
         impl substrate::schematic::Schematic for $typ {
-            type Schema = crate::Sky130Pdk;
+            type Schema = crate::Sky130;
             type NestedData = ();
             fn schematic(
                     &self,
@@ -481,8 +481,8 @@ impl MosTile {
 }
 
 impl Layout for MosTile {
-    type Schema = Sky130Pdk;
-    type Bundle = BareMosTileIoView<substrate::types::codegen::PortGeometryBundle<Sky130Pdk>>;
+    type Schema = Sky130;
+    type Bundle = BareMosTileIoView<substrate::types::codegen::PortGeometryBundle<Sky130>>;
     type Data = MosTileData;
     fn layout(
         &self,
@@ -535,8 +535,8 @@ impl Block for NmosTile {
 }
 
 impl Layout for NmosTile {
-    type Schema = Sky130Pdk;
-    type Bundle = MosTileIoView<PortGeometryBundle<Sky130Pdk>>;
+    type Schema = Sky130;
+    type Bundle = MosTileIoView<PortGeometryBundle<Sky130>>;
     type Data = ();
 
     fn layout(
@@ -606,8 +606,8 @@ impl Block for PmosTile {
 }
 
 impl Layout for PmosTile {
-    type Schema = Sky130Pdk;
-    type Bundle = MosTileIoView<PortGeometryBundle<Sky130Pdk>>;
+    type Schema = Sky130;
+    type Bundle = MosTileIoView<PortGeometryBundle<Sky130>>;
     type Data = ();
 
     fn layout(

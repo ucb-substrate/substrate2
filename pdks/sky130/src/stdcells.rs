@@ -1,6 +1,6 @@
 //! Standard cell definitions and utilities.
 
-use crate::Sky130Pdk;
+use crate::Sky130;
 use arcstr::ArcStr;
 use paste::paste;
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use substrate::block::Block;
 use substrate::schematic::{CellBuilder, Schematic};
 use substrate::types::{InOut, Input, Io, Output, Signal};
 
-impl Sky130Pdk {
+impl Sky130 {
     pub(crate) fn stdcell_path(&self, lib: &str, name: &str) -> PathBuf {
         self.open_root_dir
             .as_ref()
@@ -77,7 +77,7 @@ paste! {
     }
 
     impl Schematic for $typ {
-        type Schema = Sky130Pdk;
+        type Schema = Sky130;
         type NestedData = ();
         fn schematic(
                 &self,
@@ -86,7 +86,7 @@ paste! {
             ) -> substrate::error::Result<Self::NestedData> {
             let pdk = cell
                 .ctx()
-                .get_installation::<Sky130Pdk>()
+                .get_installation::<Sky130>()
                 .expect("Requires Sky130 PDK installation");
 
             let lib = "sky130_fd_sc_hd";
@@ -97,7 +97,7 @@ paste! {
                     .join(format!("{}.spice", cell_name)),
                 &cell_name,
             )
-            .convert_schema::<Sky130Pdk>()?;
+            .convert_schema::<Sky130>()?;
 
             scir.connect("VGND", io.pwr.vgnd);
             scir.connect("VNB", io.pwr.vnb);

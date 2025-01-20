@@ -5,6 +5,9 @@
   "docs/snippets": "0.5.1",
   "examples/latest/sky130_inverter": "0.0.0",
   "examples/latest/spice_vdivider": "0.0.0",
+  "examples/latest/colbuf": "0.0.0",
+  "examples/latest/vdivider": "0.0.0",
+  "examples/latest/via": "0.0.0",
   "examples/latest/substrate_api_examples": "0.0.0",
   "libs/cache": "0.5.0",
   "libs/diagnostics": "0.3.0",
@@ -25,12 +28,13 @@
   "libs/type_dispatch_macros": "0.3.0",
   "libs/uniquify": "0.2.0",
   "libs/verilog": "0.0.0",
-  "pdks/sky130pdk": "0.8.1",
+  "pdks/sky130": "0.8.1",
   "substrate": "0.8.1",
   "tools/magic": "0.0.0",
   "tools/netgen": "0.0.0",
   "tools/ngspice": "0.3.1",
   "tools/pegasus": "0.0.0",
   "tools/quantus": "0.0.0",
-  "tools/spectre": "0.9.1"
+  "tools/spectre": "0.9.1",
+  "tools/magic_netgen": "0.0.0"
 }

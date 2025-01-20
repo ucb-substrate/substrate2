@@ -13,6 +13,9 @@
     "docs/snippets": {},
     "examples/latest/sky130_inverter": {},
     "examples/latest/spice_vdivider": {},
+    "examples/latest/colbuf": {},
+    "examples/latest/vdivider": {},
+    "examples/latest/via": {},
     "examples/latest/substrate_api_examples": {},
     "libs/cache": {},
     "libs/diagnostics": {},
@@ -32,13 +35,14 @@
     "libs/type_dispatch_macros": {},
     "libs/uniquify": {},
     "libs/verilog": {},
-    "pdks/sky130pdk": {},
+    "pdks/sky130": {},
     "substrate": {},
     "tools/magic": {},
     "tools/netgen": {},
     "tools/ngspice": {},
     "tools/pegasus": {},
     "tools/quantus": {},
-    "tools/spectre": {}
+    "tools/spectre": {},
+    "tools/magic_netgen": {}
   }
 }

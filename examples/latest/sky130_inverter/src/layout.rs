@@ -1,10 +1,10 @@
 // begin-code-snippet imports
 use layir::Shape;
-use sky130pdk::{
+use sky130::{
     layers::Sky130Layer,
     layout::{NtapTile, PtapTile},
     mos::{GateDir, MosLength, NmosTile, PmosTile},
-    Sky130Pdk,
+    Sky130,
 };
 use substrate::{
     error::Result,
@@ -29,8 +29,8 @@ use crate::{Inverter, InverterIo};
 
 // begin-code-snippet layout
 impl Layout for Inverter {
-    type Schema = Sky130Pdk;
-    type Bundle = View<InverterIo, PortGeometryBundle<Sky130Pdk>>;
+    type Schema = Sky130;
+    type Bundle = View<InverterIo, PortGeometryBundle<Sky130>>;
     type Data = ();
     fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)> {
         // begin-code-replace layout-body
@@ -129,7 +129,7 @@ mod open {
         use std::{path::PathBuf, sync::Arc};
 
         use magic::drc::{run_drc, DrcParams};
-        use sky130pdk::{layout::to_gds, Sky130OpenSchema};
+        use sky130::{layout::to_gds, Sky130OpenSchema};
         use substrate::{block::Block, schematic::ConvertSchema};
 
         use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
@@ -197,7 +197,7 @@ mod cds {
             lvs::LvsStatus,
             RuleCheck,
         };
-        use sky130pdk::{layout::to_gds, Sky130CdsSchema};
+        use sky130::{layout::to_gds, Sky130CdsSchema};
         use spice::{netlist::NetlistOptions, Spice};
         use substrate::{block::Block, schematic::ConvertSchema};
 

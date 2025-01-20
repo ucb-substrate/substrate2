@@ -1,6 +1,6 @@
 // begin-code-snippet imports
-use sky130pdk::mos::{Nfet01v8, Pfet01v8};
-use sky130pdk::Sky130Pdk;
+use sky130::mos::{Nfet01v8, Pfet01v8};
+use sky130::Sky130;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
@@ -35,7 +35,7 @@ pub struct Inverter {
 
 // begin-code-snippet inverter-schematic
 impl Schematic for Inverter {
-    type Schema = Sky130Pdk;
+    type Schema = Sky130;
     type NestedData = ();
     fn schematic(
         &self,
@@ -94,7 +94,7 @@ pub fn sky130_open_ctx() -> Context {
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(ngspice::Ngspice::default())
-        .install(Sky130Pdk::open(pdk_root))
+        .install(Sky130::open(pdk_root))
         .build()
 }
 // end-code-snippet sky130-open-ctx
@@ -114,7 +114,7 @@ pub fn sky130_cds_ctx() -> Context {
         .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(spectre::Spectre::default())
-        .install(Sky130Pdk::cds_only(pdk_root))
+        .install(Sky130::cds_only(pdk_root))
         .build()
 }
 // end-code-snippet sky130-cds-ctx

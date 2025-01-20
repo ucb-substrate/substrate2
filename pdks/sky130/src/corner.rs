@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::{Sky130Pdk, SpectreModelSelect};
+use crate::{Sky130, SpectreModelSelect};
 use arcstr::ArcStr;
 use ngspice::Ngspice;
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,7 @@ impl Sky130Corner {
     }
 }
 
-impl Sky130Pdk {
+impl Sky130 {
     fn spectre_model_file_includes(&self, corner: Sky130Corner) -> Vec<(PathBuf, Vec<ArcStr>)> {
         match self.spectre_model_select {
             SpectreModelSelect::All => [
@@ -96,7 +96,7 @@ impl SimOption<Spectre> for Sky130Corner {
     ) {
         let pdk = ctx
             .ctx
-            .get_installation::<Sky130Pdk>()
+            .get_installation::<Sky130>()
             .expect("Sky130 PDK must be installed");
         for (path, sections) in pdk.spectre_model_file_includes(self) {
             for section in sections {
@@ -114,7 +114,7 @@ impl SimOption<Ngspice> for Sky130Corner {
     ) {
         let pdk = ctx
             .ctx
-            .get_installation::<Sky130Pdk>()
+            .get_installation::<Sky130>()
             .expect("Sky130 PDK must be installed");
         opts.include_section(
             pdk.open_root_dir
