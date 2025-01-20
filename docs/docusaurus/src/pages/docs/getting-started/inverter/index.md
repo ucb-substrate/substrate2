@@ -88,7 +88,7 @@ We'll make our inverter generator have two parameters:
 * An NMOS width.
 * A PMOS width.
 
-We're assuming here that the NMOS and PMOS will have 150nm length to simplify layout.
+We're assuming here that the NMOS and PMOS will have a length of 150 nanometers to simplify layout.
 
 In this tutorial, we store all dimensions as integers in layout database units.
 In the SKY130 process, the database unit is a nanometer, so supplying an NMOS width
@@ -136,9 +136,7 @@ Add the following imports to `src/tb.rs`:
 
 All Substrate testbenches are blocks that have schematics.
 The schematic specifies the simulation structure (i.e. input sources,
-the device being tested, etc.).
-
-As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
+the device being tested, etc.). As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
 All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows 
 simulators to identify a global ground (which they often assign to node 0).
 
@@ -197,7 +195,7 @@ the absolute difference between the rise and fall times.
 
 Let's now run the script we wrote. We must first create a Substrate **context** that stores all information 
 relevant to Substrate. This includes
-the tools you've set up, the current PDK, all blocks that have been generated,
+the tools and PDKs you've set up, all blocks that have been generated,
 cached computations, and more. We will put this in `src/lib.rs`.
 
 <CodeSnippet language="rust" title="src/lib.rs" snippet="sky130-open-ctx">{inverterMod}</CodeSnippet>
@@ -267,7 +265,7 @@ The drains and gates of the two transistors should now be aligned, so we can sim
 of the two drains, then the two gates, and draw the resulting rectangles on li1:
 <CodeSnippet language="rust" title="src/layout.rs" snippet="inverter-conns">{inverterLayout}</CodeSnippet>
 
-To get our layout LVS clean, we will need to add taps. We can add our n-well tap above the PMOS and our
+To get our layout LVS clean, we will need to add taps. We can add an n-well tap above the PMOS and a
 substrate tap below the NMOS. We can then use li1 rectangles to connect the taps to the sources of the NMOS and PMOS.
 
 <CodeSnippet language="rust" title="src/layout.rs" snippet="taps">{inverterLayout}</CodeSnippet>
@@ -307,6 +305,15 @@ Then, we can update our design script to run either version of the testbench:
 Finally, we can split our original test into two tests (one post-extraction and one pre-extraction):
 
 <CodeSnippet language="rust" title="src/tb.rs" snippet="tests-extracted" diffSnippet="schematic-tests">{inverterTb(props.open)}</CodeSnippet>
+
+To run the test, run
+
+```
+cargo test design_inverter_extracted -- --show-output
+```
+
+If all goes well, the test above should print
+the inverter dimensions with the minimum rise/fall time difference.
 
 ## Conclusion
 

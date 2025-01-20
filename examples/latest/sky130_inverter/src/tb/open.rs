@@ -167,8 +167,8 @@ mod schematic_only_tb {
         use super::*;
 
         #[test]
-        pub fn design_inverter_ngspice() {
-            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_ngspice");
+        pub fn design_inverter_open() {
+            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_open");
             let mut ctx = sky130_open_ctx();
             let script = InverterDesign {
                 nw: 1_200,
@@ -359,10 +359,10 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn design_inverter_ngspice_extracted() {
+    pub fn design_inverter_extracted_open() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/design_inverter_ngspice_extracted"
+            "/tests/design_inverter_extracted_open"
         );
         let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
@@ -376,10 +376,10 @@ mod tests {
     }
 
     #[test]
-    pub fn design_inverter_ngspice_schematic() {
+    pub fn design_inverter_schematic_open() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/design_inverter_ngspice_schematic"
+            "/tests/design_inverter_schematic_open"
         );
         let mut ctx = sky130_open_ctx();
         let script = InverterDesign {

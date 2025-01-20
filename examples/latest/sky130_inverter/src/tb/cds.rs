@@ -55,7 +55,6 @@ mod schematic_only_tb {
     impl Schematic for InverterTb {
         type Schema = Spectre;
         type NestedData = Node;
-
         fn schematic(
             &self,
             io: &IoNodeBundle<Self>,
@@ -171,8 +170,8 @@ mod schematic_only_tb {
         use super::*;
 
         #[test]
-        pub fn design_inverter_spectre() {
-            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_spectre");
+        pub fn design_inverter_cds() {
+            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_cds");
             let mut ctx = sky130_cds_ctx();
             let script = InverterDesign {
                 nw: 1_200,
@@ -361,10 +360,10 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn design_inverter_spectre_extracted() {
+    pub fn design_inverter_extracted_cds() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/design_inverter_spectre_extracted"
+            "/tests/design_inverter_extracted_cds"
         );
         let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {
@@ -378,10 +377,10 @@ mod tests {
     }
 
     #[test]
-    pub fn design_inverter_spectre_schematic() {
+    pub fn design_inverter_schematic_cds() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/design_inverter_spectre_schematic"
+            "/tests/design_inverter_schematic_cds"
         );
         let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {

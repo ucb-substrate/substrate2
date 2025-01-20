@@ -32,7 +32,6 @@ impl Layout for Inverter {
     type Schema = Sky130Pdk;
     type Bundle = View<InverterIo, PortGeometryBundle<Sky130Pdk>>;
     type Data = ();
-
     fn layout(&self, cell: &mut CellBuilder<Self::Schema>) -> Result<(Self::Bundle, Self::Data)> {
         // begin-code-replace layout-body
         // begin-code-snippet generate-mos
@@ -135,7 +134,7 @@ mod open {
         use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
 
         #[test]
-        fn inverter_layout_open() {
+        fn inverter_layout() {
             use magic_netgen::LvsParams;
             let work_dir = PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -196,7 +195,7 @@ mod cds {
         }
 
         #[test]
-        fn inverter_layout_cds() {
+        fn inverter_layout() {
             use pegasus::lvs::LvsParams;
             use scir::netlist::ConvertibleNetlister;
 
