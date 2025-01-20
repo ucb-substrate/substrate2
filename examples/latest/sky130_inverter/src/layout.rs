@@ -106,22 +106,15 @@ impl Layout for Inverter {
 }
 
 #[cfg(test)]
-mod tests {
+mod open_tests {
     use std::{path::PathBuf, sync::Arc};
 
-    use pegasus::{
-        drc::{run_drc, DrcParams},
-        lvs::LvsStatus,
-        RuleCheck,
-    };
-    use sky130pdk::{layout::to_gds, Sky130CdsSchema, Sky130OpenSchema};
-    use spice::{netlist::NetlistOptions, Spice};
+    use magic::drc::{run_drc, DrcParams};
+    use sky130pdk::{layout::to_gds, Sky130OpenSchema};
+
     use substrate::{block::Block, schematic::ConvertSchema};
 
-    use crate::{
-        sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
-        SKY130_LVS_RULES_PATH, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE,
-    };
+    use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
 
     #[test]
     fn inverter_layout_open() {
@@ -141,6 +134,21 @@ mod tests {
 
         ctx.write_layout(dut, to_gds, &layout_path).unwrap();
 
+        // Run DRC.
+        let drc_dir = work_dir.join("drc");
+        let drc_report_path = drc_dir.join("drc_results.rpt");
+        let data = run_drc(&DrcParams {
+            work_dir: &drc_dir,
+            gds_path: &layout_path,
+            cell_name: &dut.name(),
+            tech_file_path: &PathBuf::from(SKY130_MAGIC_TECH_FILE),
+            drc_report_path: &drc_report_path,
+        })
+        .expect("failed to run drc");
+
+        assert_eq!(data.rule_checks.len(), 0, "layout was not DRC clean");
+
+        // Run LVS.
         let lvs_dir = work_dir.join("lvs");
         let output = magic_netgen::run_lvs(LvsParams {
             schematic: Arc::new(ConvertSchema::new(
@@ -157,6 +165,25 @@ mod tests {
 
         assert!(output.matches, "layout does not match netlist");
     }
+}
+
+#[cfg(test)]
+mod cds_tests {
+    use std::path::PathBuf;
+
+    use pegasus::{
+        drc::{run_drc, DrcParams},
+        lvs::LvsStatus,
+        RuleCheck,
+    };
+    use sky130pdk::{layout::to_gds, Sky130CdsSchema};
+    use spice::{netlist::NetlistOptions, Spice};
+    use substrate::{block::Block, schematic::ConvertSchema};
+
+    use crate::{
+        sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
+        SKY130_LVS_RULES_PATH,
+    };
 
     fn test_check_filter(check: &RuleCheck) -> bool {
         !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())

@@ -72,7 +72,8 @@ fn run_extract_inner(
 ) -> Result<(), Error> {
     fs::create_dir_all(&work_dir).map_err(Error::Io)?;
 
-    execute_run_script(run_script_path.as_ref(), &work_dir, "extract")
+    execute_run_script(run_script_path.as_ref(), &work_dir, "extract")?;
+    Ok(())
 }
 
 pub fn run_extract(params: &ExtractParams) -> Result<(), Error> {

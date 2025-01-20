@@ -2525,6 +2525,7 @@ dependencies = [
  "gds",
  "gdsconv",
  "layir",
+ "magic",
  "magic-netgen",
  "ngspice",
  "pegasus",

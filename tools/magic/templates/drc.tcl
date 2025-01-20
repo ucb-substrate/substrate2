@@ -16,4 +16,6 @@ foreach {msg locs} [drc listall why] {
 }
 flush $ofile
 close $ofile
+
+puts "__substrate_magic_drc_complete_0"
 quit

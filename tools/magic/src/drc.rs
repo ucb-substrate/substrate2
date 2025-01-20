@@ -1,6 +1,6 @@
 //! Run design rule checking (DRC) using Magic.
 
-use crate::utils::execute_run_script;
+use crate::utils::{execute_run_script, OutputFiles};
 use crate::{error::Error, TEMPLATES};
 use anyhow::anyhow;
 use itertools::Itertools;
@@ -108,7 +108,7 @@ pub fn parse_drc_results(report_path: impl AsRef<Path>) -> Result<DrcData, Error
 fn run_drc_inner(
     work_dir: impl AsRef<Path>,
     run_script_path: impl AsRef<Path>,
-) -> Result<(), Error> {
+) -> Result<OutputFiles, Error> {
     fs::create_dir_all(&work_dir).map_err(Error::Io)?;
 
     execute_run_script(run_script_path.as_ref(), &work_dir, "drc")
@@ -119,7 +119,12 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
     let DrcGeneratedPaths {
         run_script_path, ..
     } = write_drc_files(params)?;
-    run_drc_inner(params.work_dir, run_script_path)?;
+    let output_files = run_drc_inner(params.work_dir, run_script_path)?;
+    // Magic sometimes exits with exit code 0 even if one of the TCL commands had an error.
+    // This checks that Magic reached and executed the final TCL command.
+    if !std::fs::read_to_string(output_files.stdout)?.contains("__substrate_magic_drc_complete_0") {
+        return Err(anyhow!("magic did not complete successfully").into());
+    }
     parse_drc_results(params.drc_report_path)
 }
 
