@@ -18,14 +18,14 @@ jobs:
       - name: Lint
         run: |
           cargo hack clippy --feature-powerset --locked -- -D warnings
-      - name: Lint examples
+      - name: Lint release examples
         run: |
           cargo hack clippy --feature-powerset --locked -- -D warnings
         working-directory: examples/release
       - name: Lint tests
         run: |
           cargo hack clippy --feature-powerset --tests --locked -- -D warnings
-      - name: Lint examples tests
+      - name: Lint release examples tests
         run: |
           cargo hack clippy --feature-powerset --tests --locked -- -D warnings
         working-directory: examples/release
