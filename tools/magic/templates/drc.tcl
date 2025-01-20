@@ -5,7 +5,7 @@ load {{ cell_name }}
 set ofile [open "{{drc_report_path}}" w]
 
 # run DRC
-seelct top cell
+select top cell
 drc on
 drc catchup
 
