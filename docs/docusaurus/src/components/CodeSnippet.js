@@ -79,7 +79,7 @@ function getSnippet(content, snippet, replacements = {}) {
 }
 
 function generateDiff(source, target) {
-    var diff = Diff.diffLines(source, target, {ignoreWhitespace: true});
+    var diff = Diff.diffLines(source, target);
     var final = "";
     diff.forEach((part) => {
         // green for additions, red for deletions

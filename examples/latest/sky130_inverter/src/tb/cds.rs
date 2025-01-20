@@ -66,7 +66,6 @@ mod schematic_only_tb {
 
             let vdd = cell.signal("vdd", Signal);
             let dout = cell.signal("dout", Signal);
-
             let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
             cell.connect(vddsrc.io().p, vdd);
             cell.connect(vddsrc.io().n, io.vss);
@@ -313,7 +312,7 @@ impl InverterDesign {
             let output = sim
                 .simulate(
                     opts,
-                    spectre::analysis::tran::Tran {
+                    Tran {
                         stop: dec!(2e-9),
                         errpreset: Some(spectre::ErrPreset::Conservative),
                         ..Default::default()
@@ -371,7 +370,6 @@ mod tests {
             pw: (3_000..=5_000).step_by(200).collect(),
             extracted: true,
         };
-
         let inv = script.run(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }
@@ -388,7 +386,6 @@ mod tests {
             pw: (3_000..=5_000).step_by(200).collect(),
             extracted: false,
         };
-
         let inv = script.run(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }

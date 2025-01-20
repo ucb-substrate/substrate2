@@ -1,8 +1,6 @@
 // begin-code-snippet imports
-use ngspice::Ngspice;
 use sky130pdk::mos::{Nfet01v8, Pfet01v8};
 use sky130pdk::Sky130Pdk;
-use spectre::Spectre;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
@@ -95,13 +93,13 @@ pub fn sky130_open_ctx() -> Context {
     let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
-        .install(Ngspice::default())
+        .install(ngspice::Ngspice::default())
         .install(Sky130Pdk::open(pdk_root))
         .build()
 }
 // end-code-snippet sky130-open-ctx
 
-// begin-code-snippet sky130-commercial-ctx
+// begin-code-snippet sky130-cds-ctx
 /// Create a new Substrate context for the SKY130 Cadence PDK.
 ///
 /// Sets the PDK root to the value of the `SKY130_CDS_PDK_ROOT`
@@ -115,8 +113,8 @@ pub fn sky130_cds_ctx() -> Context {
     let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
         .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
     Context::builder()
-        .install(Spectre::default())
+        .install(spectre::Spectre::default())
         .install(Sky130Pdk::cds_only(pdk_root))
         .build()
 }
-// end-code-snippet sky130-commercial-ctx
+// end-code-snippet sky130-cds-ctx

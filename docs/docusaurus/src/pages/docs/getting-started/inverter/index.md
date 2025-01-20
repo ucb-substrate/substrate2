@@ -50,6 +50,10 @@ Replace the content of `src/lib.rs` with the following:
 
 <CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{inverterMod}</CodeSnippet>
 
+Also, add the following constants:
+
+<CodeSnippet language="rust" title="src/lib.rs" snippet={ props.open ? "open-constants" : "cds-constants" }>{inverterMod}</CodeSnippet>
+
 ### EDA Tools
 
 { props.open ? <OpenTools/> : <CdsTools/> }
@@ -198,7 +202,7 @@ relevant to Substrate. This includes
 the tools and PDKs you've set up, all blocks that have been generated,
 cached computations, and more. We will put this in `src/lib.rs`.
 
-<CodeSnippet language="rust" title="src/lib.rs" snippet="sky130-open-ctx">{inverterMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet={props.open ? "sky130-open-ctx" : "sky130-cds-ctx"}>{inverterMod}</CodeSnippet>
 
 We can then write a Rust unit test to run our design script:
 
@@ -281,14 +285,16 @@ The final layout generator should look like this:
 
 ### Verification
 
-We can now run { props.open ? "" : "DRC and"} LVS using { props.open ? "magic and netgen" : "Pegasus" }.
-First, add the following constants to `src/lib.rs`:
-
-<CodeSnippet language="rust" title="src/lib.rs" snippet={ props.open ? "open-constants" : "cds-constants" }>{inverterMod}</CodeSnippet>
-
-We can then write a cargo test in `src/layout.rs` that runs { props.open ? "" : "DRC and"} LVS automatically:
+We can now run { props.open ? "" : "DRC and"} LVS using { props.open ? "magic and netgen" : "Pegasus" }
+by writing a cargo test in `src/layout.rs`:
 
 <CodeSnippet language="rust" title="src/layout.rs" snippet={ props.open ? "open-tests" : "cds-tests" }>{inverterLayout}</CodeSnippet>
+
+To run the test, run
+
+```
+cargo test inverter_layout -- --show-output
+```
 
 ## Post-extraction design
 

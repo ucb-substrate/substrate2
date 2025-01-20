@@ -134,7 +134,7 @@ mod open {
         use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
 
         #[test]
-        fn inverter_layout() {
+        fn inverter_layout_open() {
             use magic_netgen::LvsParams;
             let work_dir = PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -186,7 +186,7 @@ mod cds {
         use substrate::{block::Block, schematic::ConvertSchema};
 
         use crate::{
-            sky130_open_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
+            sky130_cds_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
             SKY130_LVS_RULES_PATH,
         };
 
@@ -195,7 +195,7 @@ mod cds {
         }
 
         #[test]
-        fn inverter_layout() {
+        fn inverter_layout_cds() {
             use pegasus::lvs::LvsParams;
             use scir::netlist::ConvertibleNetlister;
 
@@ -204,7 +204,7 @@ mod cds {
                 "/tests/inverter_layout_cds"
             ));
             let layout_path = work_dir.join("layout.gds");
-            let ctx = sky130_open_ctx();
+            let ctx = sky130_cds_ctx();
 
             let dut = Inverter {
                 nw: 1_200,
