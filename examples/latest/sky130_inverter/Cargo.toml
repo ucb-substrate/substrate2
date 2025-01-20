@@ -14,6 +14,7 @@ gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gds
 gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
 scir = { version = "0.7.0", registry = "substrate", path = "../../../libs/scir" }
 magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
+magic = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic" }
 spice = { version = "0.7.1", registry = "substrate", path = "../../../libs/spice" }
 
 arcstr = "1"
