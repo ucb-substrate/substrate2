@@ -155,7 +155,7 @@ Here's how that looks in Rust code:
 
 The `Pvt<Sky130Corner>` in our testbench is essentially a 3-tuple of a process corner,
 voltage, and temperature. The process corner here is an instance of `Sky130Corner`,
-which is defined in the `sky130pdk` plugin for Substrate.
+which is defined in the `sky130` plugin for Substrate.
 
 Let's now create the schematic for our testbench. We will do this in the { props.open ? <code>Ngspice</code> : <code>Spectre</code> } schema so that the { props.open ? "ngspice" : "Spectre" } simulator plugin knows how to netlist and simulate our testbench. This should have three components:
 * A pulse input source driving the inverter input.
