@@ -13,7 +13,7 @@ export const cargoToml = require("{{EXAMPLES}}/spice_vdivider/Cargo.toml?snippet
 
 To get you up to speed with Substrate's basic features, we'll show you how make a simple voltage divider schematic.
 
-In this tutorial, we'll breeze through the basics to give you a sense of what Substrate generators look like. 
+In this tutorial, we'll breeze through the basics to give you a sense of what Substrate generators look like.
 If you're looking for a deeper dive into how analog design and simulation work in Substrate, check out the [Designing an inverter](inverter/open.md) tutorial.
 
 ## Creating a Substrate project
@@ -26,15 +26,16 @@ First, add the Substrate registry to your Cargo config:
 <SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
+
 </div> : <div/> }
 
 Next, create a new Rust project:
+
 ```bash
 cargo new --lib my_generator && cd my_generator
 ```
 
 In your project's `Cargo.toml`, add the following dependencies:
-
 
 <DependenciesSnippet version="{{VERSION}}" language="toml" title="Cargo.toml" snippet="dependencies">{cargoToml}</DependenciesSnippet>
 
@@ -78,4 +79,3 @@ cargo test netlist_vdivider
 
 If all goes well, the test above should write the voltage divider netlist to `tests/netlist_vdivider/vdivider.spice`.
 A full, runnable example for this tutorial is available [here]({{GITHUB_URL}}/examples/spice_vdivider).
-

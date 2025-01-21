@@ -1,4 +1,4 @@
-This tutorial will demonstrate how to invoke [Spectre] from Substrate to run transient simulations. 
+This tutorial will demonstrate how to invoke [Spectre] from Substrate to run transient simulations.
 Make sure that Spectre is installed and that the appropriate environment variables have been set.
 
 You will also need to have [Pegasus] and [Quantus] installed for verification and extraction.

@@ -16,15 +16,15 @@ This section will cover where SCIR is used in Substrate's API and how it interfa
 
 The table below provides high-level definitions of basic SCIR objects.
 
-| Term | Definition |
-| --- | --- |
-| Instance | An instantiation of another SCIR object. |
-| Cell | A collection of interconnected SCIR instances, corresponding to a SUBCKT in SPICE. |
-| Signal | A node or bus within a SCIR cell. |
-| Slice | A subset of a SCIR signal. |
-| Port | A SCIR signal that has been exposed to the instantiators of its parent SCIR cell. |
-| Connection | A SCIR signal from a parent cell connected to a port of child SCIR instance. |
-| Library | A set of cells, of which one may be designated as the "top" cell. |
+| Term       | Definition                                                                         |
+| ---------- | ---------------------------------------------------------------------------------- |
+| Instance   | An instantiation of another SCIR object.                                           |
+| Cell       | A collection of interconnected SCIR instances, corresponding to a SUBCKT in SPICE. |
+| Signal     | A node or bus within a SCIR cell.                                                  |
+| Slice      | A subset of a SCIR signal.                                                         |
+| Port       | A SCIR signal that has been exposed to the instantiators of its parent SCIR cell.  |
+| Connection | A SCIR signal from a parent cell connected to a port of child SCIR instance.       |
+| Library    | A set of cells, of which one may be designated as the "top" cell.                  |
 
 Take the following SPICE circuit as an example:
 
@@ -72,25 +72,25 @@ While SCIR cells and instances do not have parameters, parameters can be injecte
 
 ### Schemas
 
-SCIR schemas are simply sets of primitives that can be used to describe circuits. For example, the 
-SPICE schema consists of MOSFET, resistor, capacitor, raw instance, and other primitives that can 
-describe any circuit that can be netlisted to SPICE. Similarly, SKY130 is also a schema since it 
+SCIR schemas are simply sets of primitives that can be used to describe circuits. For example, the
+SPICE schema consists of MOSFET, resistor, capacitor, raw instance, and other primitives that can
+describe any circuit that can be netlisted to SPICE. Similarly, SKY130 is also a schema since it
 has its own set of primitive MOSFETs and resistors that can be fabricated in the SKY130 process.
 
-When you write a schema, you can also specify which schemas it can be converted to. This allows you to elegantly 
-encode portability in the type system. Since the SKY130 PDK supports simulations in ngspice and Spectre, we 
-can declare that the SKY130 schema can be converted to both the ngspice and Spectre schemas. 
+When you write a schema, you can also specify which schemas it can be converted to. This allows you to elegantly
+encode portability in the type system. Since the SKY130 PDK supports simulations in ngspice and Spectre, we
+can declare that the SKY130 schema can be converted to both the ngspice and Spectre schemas.
 The specifics of this procedure will be detailed later on this page.
 
 ### Relationship to Substrate
 
-Generators in Substrate produce cells that can be exported to SCIR. Substrate's APIs allow defining 
-schematics in different schemas, which encodes generator compatibility in the Rust type system. For example, 
+Generators in Substrate produce cells that can be exported to SCIR. Substrate's APIs allow defining
+schematics in different schemas, which encodes generator compatibility in the Rust type system. For example,
 a Substrate block with a schematic in the `Sky130Pdk` schema can be included in a Spectre testbench's schematic in the `Spectre` schema, but cannot be included in an HSPICE testbench since the `Sky130Pdk` schema is not compatible with the HSPICE schema. Similarly, you cannot instantiate a SKY130 schematic in a schematic in a different process node (e.g. GF180).
 
 While the user generally interfaces with Substrate's block API, simulator and netlister plugins interface with SCIR.
 This allows backend tools to abstract away Substrate's internal representation of cells.
-For simulation and netlisting, Substrate will export the appropriate cell to SCIR and pass the generated SCIR 
+For simulation and netlisting, Substrate will export the appropriate cell to SCIR and pass the generated SCIR
 library to the necessary plugin for processing.
 
 ## Technical Details
@@ -105,9 +105,9 @@ pub trait Schema {
 }
 ```
 
-A SCIR schema has an associated primitive type that describes available primitives for 
-representing objects that cannot be represented directly in SCIR. As an example, 
-the most basic schema, [`NoSchema`], has a primitive type of 
+A SCIR schema has an associated primitive type that describes available primitives for
+representing objects that cannot be represented directly in SCIR. As an example,
+the most basic schema, [`NoSchema`], has a primitive type of
 [`NoPrimitive`] that cannot be instantiated — as such, any SCIR library with this schema will have no primitives.
 
 The relationship between schemas is encoded via the [`FromSchema`] trait, which describes how one schema is converted to another.
@@ -127,8 +127,8 @@ pub trait FromSchema<S: Schema>: Schema {
 }
 ```
 
-Schemas that are inter-convertible must have a 1-to-1 correspondence between their primitives, as shown by the 
-signature of `fn convert_primitive(...)`. The instance conversion function, `fn convert_instance(...)`, 
+Schemas that are inter-convertible must have a 1-to-1 correspondence between their primitives, as shown by the
+signature of `fn convert_primitive(...)`. The instance conversion function, `fn convert_instance(...)`,
 allows you to modify the connections of a SCIR instance that is associated with a primitive to correctly
 connect to the ports of the primitive in the new schema.
 
@@ -136,8 +136,8 @@ The `FromSchema` trait is particularly important since it allows for schematics 
 
 ### Libraries
 
-Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`]. 
-To create a library with the [`StringSchema`] schema, whose primitives are arbitrary `ArcStr`s, 
+Once we have a schema, we can start creating a SCIR library by instantiating a [`LibraryBuilder`].
+To create a library with the [`StringSchema`] schema, whose primitives are arbitrary `ArcStr`s,
 we write the following:
 
 <CodeSnippet language="rust" snippet="scir-library-builder">{core}</CodeSnippet>
@@ -166,7 +166,7 @@ We can then create a cell that instantiates two of our newly-defined voltage div
 
 ### Bindings
 
-SCIR primitives and cells can be instantiated in Substrate generators using *bindings*. Suppose we have the following schema that supports instantiating resistor and capacitor primitives:
+SCIR primitives and cells can be instantiated in Substrate generators using _bindings_. Suppose we have the following schema that supports instantiating resistor and capacitor primitives:
 
 <CodeSnippet language="rust" snippet="scir-schema">{core}</CodeSnippet>
 

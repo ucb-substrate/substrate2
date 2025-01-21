@@ -23,15 +23,16 @@ the code you're writing is actually doing.
 
 Ensure that you have a recent version of Rust installed.
 { isRelease("{{VERSION}}") ? <div>
-Add the Substrate registry to your Cargo config: 
+Add the Substrate registry to your Cargo config:
 
 <SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
+
 </div> : <div/> }
 
-
 Next, create a new Rust project:
+
 ```bash
 cargo new --lib sky130_inverter && cd sky130_inverter
 ```
@@ -69,9 +70,10 @@ If you would like to use Spectre, you will also need to ensure that the `SKY130_
 We'll first define the interface (also referred to as IO) exposed by our inverter.
 
 The inverter should have four ports:
-* `vdd` and `vss` are inout ports.
-* `din` is an input.
-* `dout` is the inverted output.
+
+- `vdd` and `vss` are inout ports.
+- `din` is an input.
+- `dout` is the inverted output.
 
 This is how that description translates to Substrate:
 
@@ -91,9 +93,10 @@ While Substrate does not require you to structure your blocks in any particular 
 it is common to define a struct for your block that contains all of its parameters.
 
 We'll make our inverter generator have three parameters:
-* An NMOS width.
-* A PMOS width.
-* A channel length.
+
+- An NMOS width.
+- A PMOS width.
+- A channel length.
 
 We're assuming here that the NMOS and PMOS will have the same length.
 
@@ -114,8 +117,9 @@ or needs to be regenerated.
 We can now generate a schematic for our inverter.
 
 Describing a Schematic in Substrate requires implementing two traits:
-* `ExportsNestedData` declares what nested data a block exposes, such as internal nodes or instances. For now, we don't want to expose anything, so we'll set the associated `NestedData` type to Rust's unit type, `()`.
-* `Schematic` specifies the actual schematic in a particular **schema**. A schema is essentially just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` schema as our inverter should be usable in any block generated in SKY130.
+
+- `ExportsNestedData` declares what nested data a block exposes, such as internal nodes or instances. For now, we don't want to expose anything, so we'll set the associated `NestedData` type to Rust's unit type, `()`.
+- `Schematic` specifies the actual schematic in a particular **schema**. A schema is essentially just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
 <CodeSnippet language="rust" title="src/lib.rs" snippet="inverter-schematic">{inverterMod}</CodeSnippet>
@@ -146,13 +150,14 @@ The schematic specifies the simulation structure (i.e. input sources,
 the device being tested, etc.).
 
 As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
-All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows 
+All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows
 simulators to identify a global ground (which they often assign to node 0).
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
 We'll make our testbench take two parameters:
-* A PVT corner.
-* An `Inverter` instance to simulate.
+
+- A PVT corner.
+- An `Inverter` instance to simulate.
 
 Here's how that looks in Rust code:
 
@@ -163,9 +168,10 @@ voltage, and temperature. The process corner here is an instance of `Sky130Corne
 which is defined in the `sky130pdk` plugin for Substrate.
 
 Let's now create the schematic for our testbench. We will do this in the `Ngspice` schema so that the ngspice simulator plugin knows how to netlist and simulate our testbench. This should have three components:
-* A pulse input source driving the inverter input.
-* A dc voltage source supplying power to the inverter.
-* The instance of the inverter itself.
+
+- A pulse input source driving the inverter input.
+- A dc voltage source supplying power to the inverter.
+- The instance of the inverter itself.
 
 Recall that schematic generators can return data for later use. Here, we'd like to probe
 the output node of our inverter, so we'll set `Data` in `HasSchematicData` to be of type `Node`.
@@ -218,7 +224,7 @@ simulators simply by implementing `Testbench` for each simulator we would like t
 
 ## Running the script
 
-Let's now run the script we wrote. We must first create a Substrate **context** that stores all information 
+Let's now run the script we wrote. We must first create a Substrate **context** that stores all information
 relevant to Substrate. This includes
 the tools you've set up, the current PDK, all blocks that have been generated,
 cached computations, and more.
@@ -239,8 +245,9 @@ If all goes well, the test above should print
 the inverter dimensions with the minimum rise/fall time difference.
 
 ## Adding Spectre support
+
 Because we designed in multi-simulator support from the beginning, adding Spectre support is simply a matter
-of defining a Spectre-specific testbench schematic, running the appropriate Spectre simulation, and 
+of defining a Spectre-specific testbench schematic, running the appropriate Spectre simulation, and
 returning the data in the appropriate format.
 
 To add Spectre support, we can simply add the following code:
@@ -261,4 +268,3 @@ cargo test design_inverter_spectre --features spectre -- --show-output
 
 You should now be well equipped to start writing your own schematic generators in Substrate.
 A full, runnable example for this tutorial is available [here](https://github.com/substrate-labs/substrate2/tree/main/examples/sky130_inverter).
-

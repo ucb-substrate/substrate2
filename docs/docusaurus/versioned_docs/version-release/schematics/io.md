@@ -34,17 +34,17 @@ This allows you to parametrize the contents of your interface at runtime in what
 
 Since port direction rules are often broken in analog design, Substrate does not enforce any directionality checks when connecting two ports. However, Substrate does run a basic driver analysis that throws warnings if there are multiple drivers of a net or no drivers, which may be helpful for debugging purposes.
 
-All IOs implement the [`Directed`](https://api.substratelabs.io/substrate/io/trait.Directed.html) trait, 
-which allows them to specify the direction of each of their constituent ports. By default, all 
-signals are made to be [`InOut`](https://api.substratelabs.io/substrate/io/enum.Direction.html#variant.InOut), 
-but this can be overwritten by wrapping the signal with one of the 
-[`Input`](https://api.substratelabs.io/substrate/io/struct.Input.html), 
-[`Output`](https://api.substratelabs.io/substrate/io/struct.Output.html), or 
-[`InOut`](https://api.substratelabs.io/substrate/io/struct.InOut.html) wrapper types. 
-While you are not required to specify directions, it is recommended to improve debuggability and 
+All IOs implement the [`Directed`](https://api.substratelabs.io/substrate/io/trait.Directed.html) trait,
+which allows them to specify the direction of each of their constituent ports. By default, all
+signals are made to be [`InOut`](https://api.substratelabs.io/substrate/io/enum.Direction.html#variant.InOut),
+but this can be overwritten by wrapping the signal with one of the
+[`Input`](https://api.substratelabs.io/substrate/io/struct.Input.html),
+[`Output`](https://api.substratelabs.io/substrate/io/struct.Output.html), or
+[`InOut`](https://api.substratelabs.io/substrate/io/struct.InOut.html) wrapper types.
+While you are not required to specify directions, it is recommended to improve debuggability and
 readability of your generators.
 
-Wrapping a composite type with a direction will overwrite the direction of all constituent signals. 
+Wrapping a composite type with a direction will overwrite the direction of all constituent signals.
 In the example below, all of the ports of `SramObserverIo` are inputs.
 
 <CodeSnippet language="rust" snippet="sram-io">{core}</CodeSnippet>
@@ -53,13 +53,12 @@ Similarly, if we wanted to create an `SramDriverIo` that drives the input signal
 
 <CodeSnippet language="rust" snippet="sram-driver-io">{core}</CodeSnippet>
 
-
 ## Bundles
 
-Since IO structs only define the properties of an interface, a separate struct is needed to store 
-connectivity data for the signals and buses defined by the IO struct. This struct is called a 
-**bundle** and is associated with an IO struct via the 
-[SchematicType](https://api.substratelabs.io/substrate/io/trait.SchematicType.html) trait that 
+Since IO structs only define the properties of an interface, a separate struct is needed to store
+connectivity data for the signals and buses defined by the IO struct. This struct is called a
+**bundle** and is associated with an IO struct via the
+[SchematicType](https://api.substratelabs.io/substrate/io/trait.SchematicType.html) trait that
 all IOs must implement.
 
 A bundle essentially just stores what each port in the IO is connected to and is created when the schematic type described by an IO struct is instantiated. In the case of the `VdividerIo` given before, the `#[derive(Io)]` macro automatically generates an appropriate schematic type called `VdividerIoSchematic`:
