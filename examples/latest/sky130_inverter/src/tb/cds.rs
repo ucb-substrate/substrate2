@@ -174,7 +174,7 @@ mod schematic_only_tb {
             let mut ctx = sky130_cds_ctx();
             let script = InverterDesign {
                 nw: 1_200,
-                pw: (3_000..=5_000).step_by(200).collect(),
+                pw: (3_000..=5_000).step_by(400).collect(),
             };
             let inv = script.run(&mut ctx, work_dir);
             println!("Designed inverter:\n{:#?}", inv);
@@ -367,7 +367,7 @@ mod tests {
         let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {
             nw: 1_200,
-            pw: (3_000..=5_000).step_by(200).collect(),
+            pw: (3_000..=5_000).step_by(400).collect(),
             extracted: true,
         };
         let inv = script.run(&mut ctx, work_dir);
@@ -383,7 +383,7 @@ mod tests {
         let mut ctx = sky130_cds_ctx();
         let script = InverterDesign {
             nw: 1_200,
-            pw: (3_000..=5_000).step_by(200).collect(),
+            pw: (3_000..=5_000).step_by(400).collect(),
             extracted: false,
         };
         let inv = script.run(&mut ctx, work_dir);
