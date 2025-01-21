@@ -21,7 +21,7 @@ rust_decimal_macros = "1.30"
 
 # begin-code-snippet open-dependencies
 ngspice = { version = "0.3.1", registry = "substrate", path = "../../../tools/ngspice" }
-magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
+magic_netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic_netgen" }
 magic = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic" }
 # end-code-snippet open-dependencies
 

@@ -562,7 +562,7 @@ name = "colbuf"
 version = "0.0.0"
 dependencies = [
  "approx",
- "magic-netgen",
+ "magic_netgen",
  "ngspice",
  "quantus",
  "rust_decimal",
@@ -1546,7 +1546,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "magic-netgen"
+name = "magic_netgen"
 version = "0.0.0"
 dependencies = [
  "magic",
@@ -2552,7 +2552,7 @@ dependencies = [
  "gdsconv",
  "layir",
  "magic",
- "magic-netgen",
+ "magic_netgen",
  "ngspice",
  "pegasus",
  "quantus",
