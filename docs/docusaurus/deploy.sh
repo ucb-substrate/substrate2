@@ -20,7 +20,7 @@ cat << EOF > ./site-config.json
     "branch": "$REF_NAME"
 }
 EOF
-yarn install
+yarn install --frozen-lockfile
 yarn build
 if [ $REF_NAME = "main" ]; then
     find $PUBLIC_DOCS_DIR/docusaurus/static -not -path "$PUBLIC_DOCS_DIR/docusaurus/static/branch/*" -not -name "fly.toml" -not -name "Dockerfile" -delete
