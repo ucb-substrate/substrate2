@@ -31,7 +31,7 @@ members = [
     "libs/type_dispatch_macros",
     "libs/uniquify",
     "libs/verilog",
-    "pdks/sky130pdk",
+    "pdks/sky130",
     "substrate",
     "tools/magic",
     "tools/netgen",
@@ -42,5 +42,5 @@ members = [
     "tools/magic-netgen",
 ]
 
-exclude = ["pdks/sky130pdk", "examples/release"]
+exclude = ["examples/release"]
 

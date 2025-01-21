@@ -17,7 +17,7 @@ use substrate::{
     types::{layout::PortGeometry, InOut, Io, Signal},
 };
 
-use crate::{layers::Sky130Layer, Sky130Pdk};
+use crate::{layers::Sky130Layer, Sky130};
 
 /// Convert a sky130 layout library to a GDS layout library.
 // TODO: cell IDs are not preserved
@@ -95,7 +95,7 @@ impl TapTile {
 }
 
 impl TapTile {
-    fn layout(&self, cell: &mut CellBuilder<Sky130Pdk>) -> substrate::error::Result<TapTileData> {
+    fn layout(&self, cell: &mut CellBuilder<Sky130>) -> substrate::error::Result<TapTileData> {
         let m0tracks = UniformTracks::new(170, 260);
         let m1tracks = UniformTracks::new(400, 140);
 
@@ -165,8 +165,8 @@ impl Block for NtapTile {
 }
 
 impl Layout for NtapTile {
-    type Schema = Sky130Pdk;
-    type Bundle = NtapIoView<PortGeometryBundle<Sky130Pdk>>;
+    type Schema = Sky130;
+    type Bundle = NtapIoView<PortGeometryBundle<Sky130>>;
     type Data = ();
     fn layout(
         &self,
@@ -231,8 +231,8 @@ impl Block for PtapTile {
 }
 
 impl Layout for PtapTile {
-    type Schema = Sky130Pdk;
-    type Bundle = PtapIoView<PortGeometryBundle<Sky130Pdk>>;
+    type Schema = Sky130;
+    type Bundle = PtapIoView<PortGeometryBundle<Sky130>>;
     type Data = ();
     fn layout(
         &self,

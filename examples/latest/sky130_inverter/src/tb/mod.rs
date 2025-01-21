@@ -1,2 +1,2 @@
-pub mod ngspice;
-pub mod spectre;
+pub mod cds;
+pub mod open;

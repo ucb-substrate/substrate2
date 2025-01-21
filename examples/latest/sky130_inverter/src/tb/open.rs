@@ -5,12 +5,13 @@ use crate::SKY130_MAGIC_TECH_FILE;
 use crate::SKY130_NETGEN_SETUP_FILE;
 
 use magic_netgen::Pex;
+use ngspice::blocks::{Pulse, Vsource};
 use ngspice::Ngspice;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
-use sky130pdk::corner::Sky130Corner;
-use sky130pdk::layout::to_gds;
-use sky130pdk::Sky130OpenSchema;
+use sky130::corner::Sky130Corner;
+use sky130::layout::to_gds;
+use sky130::Sky130OpenSchema;
 use spice::Spice;
 use std::path::Path;
 use std::path::PathBuf;
@@ -27,11 +28,9 @@ use substrate::types::{Signal, TestbenchIo};
 
 #[allow(dead_code)]
 mod schematic_only_tb {
-    use ngspice::blocks::{Pulse, Vsource};
-    use sky130pdk::Sky130OpenSchema;
-
     use super::*;
 
+    // begin-code-snippet schematic-tb
     // begin-code-snippet struct-and-impl
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Block)]
     #[substrate(io = "TestbenchIo")]
@@ -63,7 +62,6 @@ mod schematic_only_tb {
 
             let vdd = cell.signal("vdd", Signal);
             let dout = cell.signal("dout", Signal);
-
             let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
             cell.connect(vddsrc.io().p, vdd);
             cell.connect(vddsrc.io().n, io.vss);
@@ -89,6 +87,7 @@ mod schematic_only_tb {
         }
     }
     // end-code-snippet schematic
+    // end-code-snippet schematic-tb
 
     // begin-code-snippet schematic-design-script
     /// Designs an inverter for balanced pull-up and pull-down times.
@@ -100,8 +99,6 @@ mod schematic_only_tb {
         pub nw: i64,
         /// The set of PMOS widths to sweep.
         pub pw: Vec<i64>,
-        /// The transistor channel length.
-        pub lch: i64,
     }
 
     impl InverterDesign {
@@ -111,11 +108,7 @@ mod schematic_only_tb {
 
             let mut opt = None;
             for pw in self.pw.iter().copied() {
-                let dut = Inverter {
-                    nw: self.nw,
-                    pw,
-                    lch: self.lch,
-                };
+                let dut = Inverter { nw: self.nw, pw };
                 let tb = InverterTb::new(pvt, dut);
                 let sim_dir = work_dir.join(format!("pw{pw}"));
                 let sim = ctx
@@ -173,15 +166,13 @@ mod schematic_only_tb {
         use super::*;
 
         #[test]
-        pub fn design_inverter_ngspice() {
-            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_ngspice");
+        pub fn design_inverter_open() {
+            let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/design_inverter_open");
             let mut ctx = sky130_open_ctx();
             let script = InverterDesign {
                 nw: 1_200,
                 pw: (3_000..=5_000).step_by(200).collect(),
-                lch: 150,
             };
-
             let inv = script.run(&mut ctx, work_dir);
             println!("Designed inverter:\n{:#?}", inv);
         }
@@ -189,6 +180,7 @@ mod schematic_only_tb {
     // end-code-snippet schematic-tests
 }
 
+// begin-code-snippet pex-tb
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum InverterDut {
     Schematic(Inverter),
@@ -243,12 +235,11 @@ impl Schematic for InverterTb {
 
         let vdd = cell.signal("vdd", Signal);
         let dout = cell.signal("dout", Signal);
-
-        let vddsrc = cell.instantiate(ngspice::blocks::Vsource::dc(self.pvt.voltage));
+        let vddsrc = cell.instantiate(Vsource::dc(self.pvt.voltage));
         cell.connect(vddsrc.io().p, vdd);
         cell.connect(vddsrc.io().n, io.vss);
 
-        let vin = cell.instantiate(ngspice::blocks::Vsource::pulse(ngspice::blocks::Pulse {
+        let vin = cell.instantiate(Vsource::pulse(Pulse {
             val0: 0.into(),
             val1: self.pvt.voltage,
             delay: Some(dec!(0.1e-9)),
@@ -268,6 +259,7 @@ impl Schematic for InverterTb {
         Ok(dout)
     }
 }
+// end-code-snippet pex-tb
 
 // begin-code-snippet design-extracted
 /// Designs an inverter for balanced pull-up and pull-down times.
@@ -279,8 +271,6 @@ pub struct InverterDesign {
     pub nw: i64,
     /// The set of PMOS widths to sweep.
     pub pw: Vec<i64>,
-    /// The transistor channel length.
-    pub lch: i64,
     /// Whether or not to run extracted simulations.
     pub extracted: bool,
 }
@@ -292,11 +282,7 @@ impl InverterDesign {
 
         let mut opt = None;
         for pw in self.pw.iter().copied() {
-            let dut = Inverter {
-                nw: self.nw,
-                pw,
-                lch: self.lch,
-            };
+            let dut = Inverter { nw: self.nw, pw };
             let inverter = if self.extracted {
                 let work_dir = work_dir.join(format!("pw{pw}"));
                 let layout_path = work_dir.join("layout.gds");
@@ -370,37 +356,33 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn design_inverter_ngspice_extracted() {
+    pub fn design_inverter_extracted_open() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/design_inverter_ngspice_extracted"
+            "/tests/design_inverter_extracted_open"
         );
         let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
-            lch: 150,
             extracted: true,
         };
-
         let inv = script.run(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }
 
     #[test]
-    pub fn design_inverter_ngspice_schematic() {
+    pub fn design_inverter_schematic_open() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/design_inverter_ngspice_schematic"
+            "/tests/design_inverter_schematic_open"
         );
         let mut ctx = sky130_open_ctx();
         let script = InverterDesign {
             nw: 1_200,
             pw: (3_000..=5_000).step_by(200).collect(),
-            lch: 150,
             extracted: false,
         };
-
         let inv = script.run(&mut ctx, work_dir);
         println!("Designed inverter:\n{:#?}", inv);
     }

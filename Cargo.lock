@@ -2518,29 +2518,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
-name = "sky130_inverter"
-version = "0.0.0"
-dependencies = [
- "arcstr",
- "gds",
- "gdsconv",
- "layir",
- "magic",
- "magic-netgen",
- "ngspice",
- "pegasus",
- "quantus",
- "rust_decimal",
- "rust_decimal_macros",
- "scir",
- "sky130pdk",
- "spectre",
- "spice",
- "substrate",
-]
-
-[[package]]
-name = "sky130pdk"
+name = "sky130"
 version = "0.8.1"
 dependencies = [
  "approx",
@@ -2563,6 +2541,28 @@ dependencies = [
  "spice",
  "substrate",
  "unicase",
+]
+
+[[package]]
+name = "sky130_inverter"
+version = "0.0.0"
+dependencies = [
+ "arcstr",
+ "gds",
+ "gdsconv",
+ "layir",
+ "magic",
+ "magic-netgen",
+ "ngspice",
+ "pegasus",
+ "quantus",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scir",
+ "sky130",
+ "spectre",
+ "spice",
+ "substrate",
 ]
 
 [[package]]
@@ -3344,7 +3344,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vdivider"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "approx",
  "arcstr",

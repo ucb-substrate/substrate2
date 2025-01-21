@@ -1,5 +1,5 @@
 [package]
-name = "sky130pdk"
+name = "sky130"
 version = "0.8.1"
 edition = "2021"
 

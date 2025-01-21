@@ -1,8 +1,8 @@
 use crate::corner::Sky130Corner;
 use crate::layout::to_gds;
 use crate::mos::{MosLength, NmosTile, PmosTile};
-use crate::stdcells::And2;
-use crate::Sky130Pdk;
+use crate::stdcells::{And2, And2Io};
+use crate::{Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
 use ngspice::Ngspice;
@@ -14,8 +14,8 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 use substrate::block::Block;
 use substrate::context::Context;
-use substrate::schematic::schema::FromSchema;
-use substrate::schematic::{CellBuilder, Schematic};
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
 use substrate::simulation::waveform::TimeWaveform;
 use substrate::types::schematic::Terminal;
 use substrate::types::{TestbenchIo, TwoTerminalIo};
@@ -41,7 +41,7 @@ pub fn sky130_open_ctx() -> Context {
         .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Ngspice::default())
-        .install(Sky130Pdk::open(pdk_root))
+        .install(Sky130::open(pdk_root))
         .build()
 }
 
@@ -62,7 +62,7 @@ pub fn sky130_src_nda_ctx() -> Context {
         .expect("the SKY130_SRC_NDA_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(Spectre::default())
-        .install(Sky130Pdk::src_nda(open_pdk_root, src_nda_pdk_root))
+        .install(Sky130::src_nda(open_pdk_root, src_nda_pdk_root))
         .build()
 }
 
@@ -86,21 +86,33 @@ impl<S: Any> Block for And2Tb<S> {
     }
 }
 
-pub trait SupportsAnd2Tb: FromSchema<Sky130Pdk> {
+pub trait SupportsAnd2Tb: Schema {
+    type And2: Block<Io = And2Io> + Schematic<Schema = Self>;
     type DcVsource: Block<Io = TwoTerminalIo> + Schematic<Schema = Self>;
 
+    fn and2(params: And2) -> Self::And2;
     fn dc_vsource(v: Decimal) -> Self::DcVsource;
 }
 
 impl SupportsAnd2Tb for Ngspice {
+    type And2 = ConvertSchema<ConvertSchema<And2, Sky130OpenSchema>, Ngspice>;
     type DcVsource = ngspice::blocks::Vsource;
+
+    fn and2(params: And2) -> Self::And2 {
+        ConvertSchema::new(ConvertSchema::new(params))
+    }
     fn dc_vsource(v: Decimal) -> Self::DcVsource {
         ngspice::blocks::Vsource::dc(v)
     }
 }
 
 impl SupportsAnd2Tb for Spectre {
+    type And2 = ConvertSchema<ConvertSchema<And2, Sky130SrcNdaSchema>, Spectre>;
     type DcVsource = spectre::blocks::Vsource;
+
+    fn and2(params: And2) -> Self::And2 {
+        ConvertSchema::new(ConvertSchema::new(params))
+    }
     fn dc_vsource(v: Decimal) -> Self::DcVsource {
         spectre::blocks::Vsource::dc(v)
     }
@@ -117,10 +129,7 @@ impl<S: SupportsAnd2Tb> Schematic for And2Tb<S> {
         let vddsrc = cell.instantiate(S::dc_vsource(self.vdd));
         let asrc = cell.instantiate(S::dc_vsource(self.a));
         let bsrc = cell.instantiate(S::dc_vsource(self.b));
-        let and2 = cell
-            .sub_builder::<Sky130Pdk>()
-            .instantiate_blocking(And2::S0)
-            .unwrap();
+        let and2 = cell.instantiate_blocking(S::and2(And2::S0)).unwrap();
 
         cell.connect(io.vss, vddsrc.io().n);
         cell.connect_multiple(&[

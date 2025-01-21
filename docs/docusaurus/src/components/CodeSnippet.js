@@ -1,5 +1,6 @@
 import CodeBlock from "@theme/CodeBlock";
 const Diff = require("diff");
+const magicComments = ["begin-code-snippet", "end-code-snippet", "begin-code-replace", "end-code-replace"];
 
 function trimLeadingWS(str) {
   /*
@@ -19,16 +20,57 @@ function trimLeadingWS(str) {
   }
 };
 
-function getSnippet(content, snippet) {
+function getCommentSnippet(trimmed, comment) {
+    let re = new RegExp(`^// ${comment} ([a-zA-Z_-]*)`);
+    let caps = re.exec(trimmed);
+
+    return caps ? caps[1] : null;
+}
+
+function isMagicComment(trimmed, comment, snippet) {
+    if (comment) {
+        let suffix = "";
+        if (snippet) {
+            if (trimmed === `// ${comment} ${snippet}` || trimmed === `# ${comment} ${snippet}`) {
+                return snippet;
+            }
+        } else {
+            return getCommentSnippet(trimmed, comment);
+        }
+    } else {
+        for (const comment of magicComments) {
+            let snippet = getCommentSnippet(trimmed, comment);
+            if (snippet) {
+                return snippet;
+            }
+        }
+    }
+    return null;
+}
+
+function getSnippet(content, snippet, replacements = {}) {
+    console.log(replacements);
   var inSnippet = false;
+  var inReplace = null;
+  var commentSnippet;
   var selected = "";
   for (const line of content.split('\n')) {
+    console.log(inReplace);
     const trimmed = line.trim();
-    if (trimmed === `// begin-code-snippet ${snippet}` || trimmed === `# begin-code-snippet ${snippet}`) {
+    if (isMagicComment(trimmed, "begin-code-snippet", snippet)) {
       inSnippet = true;
-    } else if (trimmed === `// end-code-snippet ${snippet}` || trimmed === `# end-code-snippet ${snippet}`) {
+    } else if (isMagicComment(trimmed, "end-code-snippet", snippet)) {
       return trimLeadingWS(selected);
-    } else if (inSnippet) {
+    } else if (!inReplace && (commentSnippet = isMagicComment(trimmed, "begin-code-replace"))) {
+        if (commentSnippet in replacements) {
+            inReplace = commentSnippet;
+        }
+        console.log(inReplace);
+    } else if (inReplace && isMagicComment(trimmed, "end-code-replace") === inReplace) {
+        let ws = line.match(/^\s*/);
+        selected += `${ws}${replacements[inReplace]}\n`;
+        inReplace = null;
+    } else if (inSnippet && !inReplace && !isMagicComment(trimmed)) {
       selected += `${line}\n`;
     }
   }
@@ -37,7 +79,7 @@ function getSnippet(content, snippet) {
 }
 
 function generateDiff(source, target) {
-    var diff = Diff.diffLines(source, target, {ignoreWhitespace: true});
+    var diff = Diff.diffLines(source, target);
     var final = "";
     diff.forEach((part) => {
         // green for additions, red for deletions
@@ -56,13 +98,15 @@ function generateDiff(source, target) {
 }
 
 
-function CodeSnippet({children, snippet, language, title, showLineNumbers, diffSnippet}) {
-    let target = getSnippet(children, snippet);
+function CodeSnippet({children, snippet, language, title, showLineNumbers, diffSnippet, replacements}) {
+    let target = getSnippet(children, snippet, replacements);
+    let copy;
   if (diffSnippet) {
-      let source = getSnippet(children, diffSnippet);
+      let source = getSnippet(children, diffSnippet, replacements);
+      copy = target;
       target = generateDiff(source, target);
   }
-  return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers}>{target}</CodeBlock></div>);
+  return (<div><CodeBlock language={language} title={title} showLineNumbers={showLineNumbers} copy={copy}>{target}</CodeBlock></div>);
 }
 
 export default CodeSnippet;
