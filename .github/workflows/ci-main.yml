@@ -26,9 +26,7 @@ jobs:
         with:
           repository: rohanku/release-please
           path: release-please
-          # Can change back to `dev` once this is merged into Substrate `main` and 
-          # the release-please `substrate-workspace` branch is merged into `dev`.
-          ref: substrate-workspace
+          ref: dev
       - uses: actions/setup-node@v3
         with:
           node-version: 18
