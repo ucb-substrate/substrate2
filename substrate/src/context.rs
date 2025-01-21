@@ -3,16 +3,14 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use arcstr::ArcStr;
 use config::Config;
-use examples::get_snippets;
 use gds::GdsUnits;
+use gdsconv::export::GdsExportOpts;
+use gdsconv::GdsLayer;
 use indexmap::IndexMap;
-use rust_decimal::prelude::ToPrimitive;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
 use tracing::{span, Level};
 
@@ -21,49 +19,39 @@ use crate::cache::Cache;
 use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
-use crate::io::layout::{BundleBuilder, HardwareType as LayoutType};
-use crate::io::schematic::{HardwareType as SchematicType, NodeContext, NodePriority, Port};
-use crate::io::{Flatten, Flipped, HasNameTree};
-use crate::layout::element::RawCell;
-use crate::layout::error::{GdsExportError, LayoutError};
-use crate::layout::gds::{GdsExporter, GdsImporter, ImportedGds};
-use crate::layout::CellBuilder as LayoutCellBuilder;
+use crate::layout::conv::export_multi_top_layir_lib;
+use crate::layout::element::{NamedPorts, RawCell};
+use crate::layout::error::LayoutError;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
+use crate::layout::{CellBuilder as LayoutCellBuilder, CellLayer};
 use crate::layout::{Layout, LayoutContext};
-use crate::pdk::layers::LayerContext;
-use crate::pdk::layers::LayerId;
-use crate::pdk::layers::Layers;
-use crate::pdk::layers::{GdsLayerSpec, InstalledLayers};
-use crate::pdk::Pdk;
 use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,
-    InstancePath, RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic,
-    SchematicContext,
+    RawCellInnerBuilder, SchemaCellCacheValue, SchemaCellHandle, Schematic, SchematicContext,
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
+use crate::types::layout::PortGeometryBuilder;
+use crate::types::schematic::{IoNodeBundle, NodeContext, NodePriority, Port};
+use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBuf};
 
+// begin-code-snippet context
 /// The global context.
 ///
 /// Stores configuration such as the PDK and tool plugins to use during generation.
 ///
 /// Cheaply clonable.
-///
-/// # Examples
-///
-#[doc = get_snippets!("core", "generate")]
 #[derive(Clone)]
 pub struct Context {
     pub(crate) inner: Arc<RwLock<ContextInner>>,
     installations: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
-    /// Map from `PDK` to `InstalledLayers<PDK>`.
-    layers: Arc<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>,
     /// The executor to which commands should be submitted.
     pub executor: Arc<dyn Executor>,
     /// A cache for storing the results of expensive computations.
     pub cache: Cache,
 }
+// end-code-snippet context
 
 impl Default for Context {
     fn default() -> Self {
@@ -72,7 +60,6 @@ impl Default for Context {
         Self {
             inner: Default::default(),
             installations: Default::default(),
-            layers: Default::default(),
             executor: Arc::new(LocalExecutor),
             cache: Cache::new(
                 cfg.cache
@@ -104,29 +91,9 @@ pub trait Installation: Any + Send + Sync {
 /// A private item that can be installed in a context after it is built.
 pub trait PrivateInstallation: Any + Send + Sync {}
 
-/// A [`Context`] with an associated PDK `PDK`.
-pub struct PdkContext<PDK: Pdk + ?Sized> {
-    /// PDK configuration and general data.
-    pub pdk: Arc<PDK>,
-    /// The PDK layer set.
-    pub layers: Arc<PDK::Layers>,
-    layer_ctx: Arc<RwLock<LayerContext>>,
-    ctx: Context,
-}
-
-impl<PDK: Pdk> Deref for PdkContext<PDK> {
-    type Target = Context;
-
-    fn deref(&self) -> &Self::Target {
-        &self.ctx
-    }
-}
-
 /// Builder for creating a Substrate [`Context`].
 pub struct ContextBuilder {
     installations: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
-    /// Map from `PDK` to `InstalledLayers<PDK>`.
-    layers: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     executor: Arc<dyn Executor>,
     cache: Option<Cache>,
 }
@@ -135,7 +102,6 @@ impl Default for ContextBuilder {
     fn default() -> Self {
         Self {
             installations: Default::default(),
-            layers: Default::default(),
             executor: Arc::new(LocalExecutor),
             cache: None,
         }
@@ -171,23 +137,6 @@ impl ContextBuilder {
         self
     }
 
-    /// Installs layers for a PDK.
-    ///
-    /// For use in [`Installation::post_install`] hooks for PDK types.
-    pub fn install_pdk_layers<PDK: Pdk>(&mut self) -> Arc<PDK::Layers> {
-        let mut ctx = LayerContext::default();
-        let layers = ctx.install_layers::<PDK::Layers>();
-        let result = layers.clone();
-        self.layers.insert(
-            TypeId::of::<PDK>(),
-            Arc::new(InstalledLayers::<PDK> {
-                layers,
-                ctx: Arc::new(RwLock::new(ctx)),
-            }),
-        );
-        result
-    }
-
     /// Sets the desired cache configuration.
     pub fn cache(&mut self, cache: Cache) -> &mut Self {
         self.cache = Some(cache);
@@ -201,7 +150,6 @@ impl ContextBuilder {
         Context {
             inner: Arc::new(RwLock::new(ContextInner::new())),
             installations: Arc::new(self.installations.clone()),
-            layers: Arc::new(self.layers.clone()),
             executor: self.executor.clone(),
             cache: self.cache.clone().unwrap_or_else(|| {
                 Cache::new(
@@ -216,17 +164,6 @@ impl ContextBuilder {
     /// Gets an installation from the context installation map.
     pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
         retrieve_installation(&self.installations)
-    }
-}
-
-impl<PDK: Pdk> Clone for PdkContext<PDK> {
-    fn clone(&self) -> Self {
-        Self {
-            pdk: self.pdk.clone(),
-            layers: self.layers.clone(),
-            layer_ctx: self.layer_ctx.clone(),
-            ctx: self.ctx.clone(),
-        }
     }
 }
 
@@ -249,34 +186,6 @@ impl Context {
         Default::default()
     }
 
-    /// Creates a [`PdkContext`] for the given installed PDK.
-    ///
-    /// The PDK must first be installed in the context.
-    pub fn with_pdk<PDK: Pdk>(&self) -> PdkContext<PDK> {
-        // Instantiate PDK layers.
-        let pdk = self
-            .installations
-            .get(&TypeId::of::<PDK>())
-            .expect("PDK must be installed")
-            .clone()
-            .downcast()
-            .unwrap();
-
-        let InstalledLayers { layers, ctx } = self
-            .layers
-            .get(&TypeId::of::<PDK>())
-            .expect("PDK layer set must be installed")
-            .downcast_ref::<InstalledLayers<PDK>>()
-            .unwrap();
-
-        PdkContext {
-            pdk,
-            layers: layers.clone(),
-            layer_ctx: ctx.clone(),
-            ctx: self.clone(),
-        }
-    }
-
     /// Allocates a new [`CellId`].
     fn alloc_cell_id(&self) -> CellId {
         let mut inner = self.inner.write().unwrap();
@@ -294,13 +203,13 @@ impl Context {
     /// - If yes:
     ///     - Retrieve created cell ID, io_data, and handle to cell
     ///     - being generated and return immediately
-    pub(crate) fn generate_schematic_inner<S: Schema + ?Sized, B: Schematic<S>>(
+    pub(crate) fn generate_schematic_inner<B: Schematic>(
         &self,
         block: Arc<B>,
-    ) -> SchemaCellHandle<S, B> {
+    ) -> SchemaCellHandle<B::Schema, B> {
         let key = CellCacheKey {
             block: block.clone(),
-            phantom: PhantomData::<S>,
+            phantom: PhantomData::<B::Schema>,
         };
         let block_clone = block.clone();
         let mut inner = self.inner.write().unwrap();
@@ -327,10 +236,21 @@ impl Context {
             },
             move |_key, (id, mut cell_builder, io_data)| {
                 let res = B::schematic(block_clone.as_ref(), io_data.as_ref(), &mut cell_builder);
-                res.map(|data| SchemaCellCacheValue {
-                    raw: Arc::new(cell_builder.finish()),
-                    cell: Arc::new(SchematicCell::new(id, io_data, block_clone, Arc::new(data))),
-                })
+                let fatal = cell_builder.fatal_error;
+                let raw = Arc::new(cell_builder.finish());
+                (!fatal)
+                    .then_some(())
+                    .ok_or(crate::error::Error::CellBuildFatal)
+                    .and(res.map(|data| SchemaCellCacheValue {
+                        raw: raw.clone(),
+                        cell: Arc::new(SchematicCell::new(
+                            id,
+                            io_data,
+                            block_clone,
+                            raw,
+                            Arc::new(data),
+                        )),
+                    }))
             },
         );
 
@@ -350,11 +270,7 @@ impl Context {
         }
     }
 
-    fn generate_cross_schematic_inner<
-        S1: Schema + ?Sized,
-        S2: FromSchema<S1> + ?Sized,
-        B: Schematic<S1>,
-    >(
+    fn generate_cross_schematic_inner<B: Schematic, S2: FromSchema<B::Schema> + ?Sized>(
         &self,
         block: Arc<B>,
     ) -> SchemaCellHandle<S2, B> {
@@ -362,7 +278,7 @@ impl Context {
         let mut inner = self.inner.write().unwrap();
         SchemaCellHandle {
             handle: inner.schematic.cell_cache.generate(
-                ConvCacheKey::<B, S2, S1> {
+                ConvCacheKey::<B, S2, B::Schema> {
                     block: handle.cell.block.clone(),
                     phantom: PhantomData,
                 },
@@ -386,11 +302,7 @@ impl Context {
     /// Generates a schematic of a block in schema `S1` for use in schema `S2`.
     ///
     /// Can only generate a cross schematic with one layer of [`FromSchema`] indirection.
-    pub fn generate_cross_schematic<
-        S1: Schema + ?Sized,
-        S2: FromSchema<S1> + ?Sized,
-        B: Schematic<S1>,
-    >(
+    pub fn generate_cross_schematic<B: Schematic, S2: FromSchema<B::Schema> + ?Sized>(
         &self,
         block: B,
     ) -> SchemaCellHandle<S2, B> {
@@ -400,10 +312,7 @@ impl Context {
     /// Generates a schematic for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_schematic<S: Schema + ?Sized, T: Schematic<S>>(
-        &self,
-        block: T,
-    ) -> SchemaCellHandle<S, T> {
+    pub fn generate_schematic<T: Schematic>(&self, block: T) -> SchemaCellHandle<T::Schema, T> {
         let block = Arc::new(block);
         self.generate_schematic_inner(block)
     }
@@ -411,10 +320,7 @@ impl Context {
     /// Export the given block and all sub-blocks as a SCIR library.
     ///
     /// Returns a SCIR library and metadata for converting between SCIR and Substrate formats.
-    pub fn export_scir<S: Schema + ?Sized, T: Schematic<S>>(
-        &self,
-        block: T,
-    ) -> Result<RawLib<S>, ConvError> {
+    pub fn export_scir<T: Schematic>(&self, block: T) -> Result<RawLib<T::Schema>, ConvError> {
         let cell = self.generate_schematic(block);
         // TODO: Handle errors.
         let SchemaCellCacheValue { raw, .. } = cell.handle.unwrap_inner();
@@ -431,10 +337,12 @@ impl Context {
         export_multi_top_scir_lib(cells)
     }
 
-    /// Simulate the given testbench.
-    ///
-    /// The simulator must be installed in the context.
-    pub fn simulate<S, T>(&self, block: T, work_dir: impl Into<PathBuf>) -> Result<T::Output>
+    /// Returns a simulation controller for the given testbench and simulator.
+    pub fn get_sim_controller<S, T>(
+        &self,
+        block: T,
+        work_dir: impl Into<PathBuf>,
+    ) -> Result<SimController<S, T>>
     where
         S: Simulator,
         T: Testbench<S>,
@@ -443,7 +351,7 @@ impl Context {
             .get_installation::<S>()
             .expect("Simulator must be installed");
         let block = Arc::new(block);
-        let cell = self.generate_schematic_inner::<<S as Simulator>::Schema, _>(block.clone());
+        let cell = self.generate_schematic_inner(block.clone());
         // TODO: Handle errors.
         let SchemaCellCacheValue { raw, cell } = cell.handle.unwrap_inner();
         let lib = raw.to_scir_lib()?;
@@ -452,14 +360,11 @@ impl Context {
             work_dir: work_dir.into(),
             ctx: self.clone(),
         };
-        let controller = SimController {
+        Ok(SimController {
             tb: cell.clone(),
             simulator,
             ctx,
-        };
-
-        // TODO caching
-        Ok(block.run(controller))
+        })
     }
 
     /// Installs the given [`PrivateInstallation`].
@@ -509,28 +414,13 @@ impl Context {
     pub fn get_installation<I: Installation>(&self) -> Option<Arc<I>> {
         retrieve_installation(&self.installations)
     }
-}
-
-fn retrieve_installation<I: Any + Send + Sync>(
-    map: &HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
-) -> Option<Arc<I>> {
-    map.get(&TypeId::of::<I>())
-        .map(|arc| arc.clone().downcast().unwrap())
-}
-
-impl<PDK: Pdk> PdkContext<PDK> {
-    /// Creates a new global context.
-    #[inline]
-    pub fn new(pdk: PDK) -> Self {
-        ContextBuilder::new().install(pdk).build().with_pdk()
-    }
 
     /// Generates a layout for `block` in the background.
     ///
     /// Returns a handle to the cell being generated.
-    pub fn generate_layout<T: Layout<PDK>>(&self, block: T) -> LayoutCellHandle<T> {
+    pub fn generate_layout<T: Layout>(&self, block: T) -> LayoutCellHandle<T> {
         let context_clone = self.clone();
-        let mut inner_mut = self.ctx.inner.write().unwrap();
+        let mut inner_mut = self.inner.write().unwrap();
         let id = inner_mut.layout.get_id();
         let block = Arc::new(block);
 
@@ -544,114 +434,146 @@ impl<PDK: Pdk> PdkContext<PDK> {
         LayoutCellHandle {
             block: block.clone(),
             cell: inner_mut.layout.cell_cache.generate(block, move |block| {
-                let mut io_builder = block.io().builder();
+                let block_io = block.io();
                 let mut cell_builder = LayoutCellBuilder::new(context_clone);
                 let _guard = span.enter();
-                let data = block.layout(&mut io_builder, &mut cell_builder);
-
-                let io = io_builder.build()?;
+                let (io, data) = block.layout(&mut cell_builder)?;
+                if block_io.kind() != io.kind() || block_io.kind().len() != io.len() {
+                    tracing::event!(
+                        Level::ERROR,
+                        "layout IO and block IO have different bundle kinds or flattened lengths"
+                    );
+                    return Err(LayoutError::IoDefinition.into());
+                }
                 let ports = IndexMap::from_iter(
                     block
                         .io()
+                        .kind()
                         .flat_names(None)
                         .into_iter()
                         .zip(io.flatten_vec()),
                 );
-                data.map(|data| {
-                    LayoutCell::new(
-                        block.clone(),
-                        data,
-                        Arc::new(io),
-                        Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
-                    )
-                })
+                Ok(LayoutCell::new(
+                    block.clone(),
+                    data,
+                    io,
+                    Arc::new(cell_builder.finish(id, block.name()).with_ports(ports)),
+                ))
             }),
         }
     }
 
-    /// Writes a layout to a GDS file.
-    pub fn write_layout<T: Layout<PDK>>(&self, block: T, path: impl AsRef<Path>) -> Result<()> {
+    /// Exports the layout of a block to a LayIR library.
+    pub fn export_layir<T: Layout>(
+        &self,
+        block: T,
+    ) -> Result<crate::layout::conv::RawLib<<T::Schema as crate::layout::schema::Schema>::Layer>>
+    {
         let handle = self.generate_layout(block);
         let cell = handle.try_cell()?;
-
-        let layer_ctx = self.layer_ctx.read().unwrap();
-        let db_units = PDK::LAYOUT_DB_UNITS.to_f64().unwrap();
-        GdsExporter::with_units(
-            vec![cell.raw.clone()],
-            &layer_ctx,
-            GdsUnits::new(db_units / 1e-6, db_units),
-        )
-        .export()
-        .map_err(LayoutError::from)?
-        .save(path)
-        .map_err(GdsExportError::from)
-        .map_err(LayoutError::from)?;
-        Ok(())
+        let lib = cell.raw().to_layir_lib()?;
+        Ok(lib)
     }
 
-    /// Writes a set of layout cells to a GDS file.
-    pub fn write_layout_all(
+    /// Writes a set of layout cells to a LayIR library.
+    pub fn export_layir_all<'a, L: Clone + 'a>(
         &self,
-        cells: impl IntoIterator<Item = Arc<RawCell>>,
+        cells: impl IntoIterator<Item = &'a RawCell<L>>,
+    ) -> Result<crate::layout::conv::RawLib<L>> {
+        let cells = cells.into_iter().collect::<Vec<_>>();
+        let lib = export_multi_top_layir_lib(&cells)?;
+        Ok(lib)
+    }
+
+    /// Imports a LayIR library into the context.
+    pub fn import_layir<S: crate::layout::schema::Schema>(
+        &self,
+        lib: layir::Library<S::Layer>,
+        top: layir::CellId,
+    ) -> Result<Arc<crate::layout::element::RawCell<S::Layer>>> {
+        use crate::layout::element::{RawCell, RawInstance};
+        let mut inner = self.inner.write().unwrap();
+        let mut cells: HashMap<layir::CellId, Arc<RawCell<S::Layer>>> = HashMap::new();
+        for id in lib.topological_order() {
+            let cell = lib.cell(id);
+            let sid = inner.layout.get_id();
+            let mut raw = RawCell::new(sid, cell.name());
+            for elt in cell.elements() {
+                raw.add_element(elt.clone());
+            }
+            for (_, inst) in cell.instances() {
+                let rinst = RawInstance::new(
+                    cells.get(&inst.child()).unwrap().clone(),
+                    inst.transformation(),
+                );
+                raw.add_element(rinst);
+            }
+            let mut ports = NamedPorts::new();
+            for (name, port) in cell.ports() {
+                let mut pg = PortGeometryBuilder::default();
+                for elt in port.elements() {
+                    if let layir::Element::Shape(s) = elt {
+                        pg.push(s.clone());
+                    }
+                }
+                let pg = pg.build()?;
+                ports.insert(NameBuf::from(name), pg);
+            }
+            raw = raw.with_ports(ports);
+            let cell = Arc::new(raw);
+            cells.insert(id, cell);
+        }
+        Ok(cells.get(&top).unwrap().clone())
+    }
+
+    /// Writes a layout cell to GDS.
+    pub fn write_layout<B: Layout>(
+        &self,
+        block: B,
+        to_gds: impl FnOnce(&layir::Library<CellLayer<B>>) -> (layir::Library<GdsLayer>, GdsUnits),
         path: impl AsRef<Path>,
     ) -> Result<()> {
-        let layer_ctx = self.layer_ctx.read().unwrap();
-        let db_units = PDK::LAYOUT_DB_UNITS.to_f64().unwrap();
-        GdsExporter::with_units(
-            cells.into_iter().collect::<Vec<_>>(),
-            &layer_ctx,
-            GdsUnits::new(db_units / 1e-6, db_units),
-        )
-        .export()
-        .map_err(LayoutError::from)?
-        .save(path)
-        .map_err(GdsExportError::from)
-        .map_err(LayoutError::from)?;
+        let name = block.name();
+        let layir = self.export_layir(block)?;
+        let (layir, units) = to_gds(&layir.layir);
+        let gds = gdsconv::export::export_gds(
+            layir,
+            GdsExportOpts {
+                name,
+                units: Some(units),
+            },
+        );
+        gds.save(path)?;
         Ok(())
     }
 
-    /// Reads a layout from a GDS file.
-    pub fn read_gds(&self, path: impl AsRef<Path>) -> Result<ImportedGds> {
-        let lib = gds::GdsLibrary::load(path)?;
-        let mut inner = self.ctx.inner.write().unwrap();
-        let ContextInner { ref mut layout, .. } = *inner;
-        let mut layer_ctx = self.layer_ctx.write().unwrap();
-        let imported =
-            GdsImporter::new(&lib, layout, &mut layer_ctx, Some(PDK::LAYOUT_DB_UNITS)).import()?;
-        Ok(imported)
-    }
-
-    /// Reads the layout of a single cell from a GDS file.
-    pub fn read_gds_cell(
+    /// Writes a set of layout cells to GDS.
+    pub fn write_layout_all<'a, L: Clone + 'a>(
         &self,
+        cells: impl IntoIterator<Item = &'a RawCell<L>>,
+        to_gds: impl FnOnce(&layir::Library<L>) -> (layir::Library<GdsLayer>, GdsUnits),
         path: impl AsRef<Path>,
-        cell: impl Into<ArcStr>,
-    ) -> Result<Arc<RawCell>> {
-        let lib = gds::GdsLibrary::load(path)?;
-        let mut inner = self.ctx.inner.write().unwrap();
-        let ContextInner { ref mut layout, .. } = *inner;
-        let mut layer_ctx = self.layer_ctx.write().unwrap();
-        let imported = GdsImporter::new(&lib, layout, &mut layer_ctx, Some(PDK::LAYOUT_DB_UNITS))
-            .import_cell(cell)?;
-        Ok(imported)
+    ) -> Result<()> {
+        let name = arcstr::literal!("TOP");
+        let layir = self.export_layir_all(cells)?;
+        let (layir, units) = to_gds(&layir.layir);
+        let gds = gdsconv::export::export_gds(
+            layir,
+            GdsExportOpts {
+                name,
+                units: Some(units),
+            },
+        );
+        gds.save(path)?;
+        Ok(())
     }
+}
 
-    /// Installs a new layer set in the context.
-    ///
-    /// Allows for accessing GDS layers or other extra layers that are not present in the PDK.
-    pub fn install_layers<L: Layers>(&self) -> Arc<L> {
-        let mut layer_ctx = self.layer_ctx.write().unwrap();
-        layer_ctx.install_layers::<L>()
-    }
-
-    /// Gets a layer by its GDS layer spec.
-    ///
-    /// Should generally not be used except for situations involving GDS import, where
-    /// layers may be imported at runtime.
-    pub fn get_gds_layer(&self, spec: GdsLayerSpec) -> Option<LayerId> {
-        let layer_ctx = self.layer_ctx.read().unwrap();
-        layer_ctx.get_gds_layer(spec)
-    }
+fn retrieve_installation<I: Any + Send + Sync>(
+    map: &HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+) -> Option<Arc<I>> {
+    map.get(&TypeId::of::<I>())
+        .map(|arc| arc.clone().downcast().unwrap())
 }
 
 /// Only public for use in ATOLL. Do NOT use externally.
@@ -659,11 +581,11 @@ impl<PDK: Pdk> PdkContext<PDK> {
 /// If the `id` argument is Some, the cell will use the given ID.
 /// Otherwise, a new [`CellId`] will be allocated by calling [`Context::alloc_cell_id`].
 #[doc(hidden)]
-pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
+pub fn prepare_cell_builder<T: Schematic>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (CellBuilder<S>, <<T as Block>::Io as SchematicType>::Bundle) {
+) -> (CellBuilder<T::Schema>, IoNodeBundle<T>) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
@@ -676,7 +598,7 @@ pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
         node_ctx.instantiate_directed(&io_internal, NodePriority::Io, SourceInfo::from_caller());
     let cell_name = block.name();
 
-    let names = io_outward.flat_names(None);
+    let names = <<T as Block>::Io as HasBundleKind>::kind(&io_outward).flat_names(None);
     let outward_dirs = io_outward.flatten_vec();
     assert_eq!(nodes.len(), names.len());
     assert_eq!(nodes.len(), outward_dirs.len());
@@ -693,11 +615,11 @@ pub fn prepare_cell_builder<S: Schema + ?Sized, T: Block>(
     (
         CellBuilder {
             id,
-            root: InstancePath::new(id),
             cell_name,
             ctx: context,
             node_ctx,
             node_names,
+            fatal_error: false,
             ports,
             flatten: false,
             contents: RawCellContentsBuilder::Cell(RawCellInnerBuilder::default()),

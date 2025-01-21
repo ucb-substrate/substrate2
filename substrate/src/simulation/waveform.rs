@@ -273,7 +273,7 @@ pub struct Values<'a, T: ?Sized> {
     idx: usize,
 }
 
-impl<'a, W> Iterator for Values<'a, W>
+impl<W> Iterator for Values<'_, W>
 where
     W: TimeWaveform,
 {
@@ -287,7 +287,7 @@ where
     }
 }
 
-impl<'a, W> FusedIterator for Values<'a, W> where W: TimeWaveform {}
+impl<W> FusedIterator for Values<'_, W> where W: TimeWaveform {}
 
 impl<T> TimeWaveform for Waveform<T>
 where
@@ -310,7 +310,7 @@ where
     }
 }
 
-impl<'a, T> TimeWaveform for WaveformRef<'a, T>
+impl<T> TimeWaveform for WaveformRef<'_, T>
 where
     T: Copy
         + Add<T, Output = T>
@@ -465,7 +465,7 @@ where
     t0 + c * (t1 - t0)
 }
 
-impl<'a, W> Edges<'a, W, W::Data>
+impl<W> Edges<'_, W, W::Data>
 where
     W: TimeWaveform,
     <W as TimeWaveform>::Data: Copy,
@@ -494,7 +494,7 @@ where
     }
 }
 
-impl<'a, W> Iterator for Edges<'a, W, W::Data>
+impl<W> Iterator for Edges<'_, W, W::Data>
 where
     W: TimeWaveform,
 {
@@ -516,9 +516,9 @@ where
     }
 }
 
-impl<'a, W> FusedIterator for Edges<'a, W, W::Data> where W: TimeWaveform {}
+impl<W> FusedIterator for Edges<'_, W, W::Data> where W: TimeWaveform {}
 
-impl<'a, W> Transitions<'a, W, <W as TimeWaveform>::Data>
+impl<W> Transitions<'_, W, <W as TimeWaveform>::Data>
 where
     W: TimeWaveform,
     W::Data: PartialOrd,
@@ -538,7 +538,7 @@ where
     }
 }
 
-impl<'a, W> Iterator for Transitions<'a, W, <W as TimeWaveform>::Data>
+impl<W> Iterator for Transitions<'_, W, <W as TimeWaveform>::Data>
 where
     W: TimeWaveform,
     W::Data: PartialOrd,
@@ -602,7 +602,7 @@ where
     }
 }
 
-impl<'a, W> FusedIterator for Transitions<'a, W, <W as TimeWaveform>::Data>
+impl<W> FusedIterator for Transitions<'_, W, <W as TimeWaveform>::Data>
 where
     W: TimeWaveform,
     <W as TimeWaveform>::Data: Copy

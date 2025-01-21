@@ -2,10 +2,9 @@
 
 use std::hash::Hash;
 
-use approx::abs_diff_eq;
 use serde::{Deserialize, Serialize};
 
-use crate::transform::Transformation;
+use crate::transform::{Rotation, Transformation};
 
 /// A named orientation.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -39,7 +38,7 @@ pub enum NamedOrientation {
 /// An orientation of a geometric object.
 ///
 /// Captures reflection and rotation, but not position or scaling.
-#[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Orientation {
     /// Reflect vertically.
     ///
@@ -48,7 +47,7 @@ pub struct Orientation {
     /// Counter-clockwise angle in degrees.
     ///
     /// Applied after reflecting vertically.
-    pub(crate) angle: f64,
+    pub(crate) angle: Rotation,
 }
 
 /// An orientation of a geometric object, represented as raw bytes.
@@ -58,7 +57,7 @@ pub struct OrientationBytes {
     ///
     /// Applied before rotation.
     pub(crate) reflect_vert: bool,
-    /// Counter-clockwise angle in degrees.
+    /// Counter-clockwise angle in degrees, represented as raw bytes from an [`f64`].
     ///
     /// Applied after reflecting vertically.
     pub(crate) angle: u64,
@@ -68,7 +67,7 @@ impl From<Orientation> for OrientationBytes {
     fn from(value: Orientation) -> Self {
         Self {
             reflect_vert: value.reflect_vert,
-            angle: value.angle.to_bits(),
+            angle: value.angle.degrees().to_bits(),
         }
     }
 }
@@ -96,15 +95,12 @@ impl NamedOrientation {
         Orientation::from(self)
     }
 
-    /// Attempts to convert the given orientation to a named orientation.
-    ///
-    /// The conversion is based on approximate equality.
-    /// If no named orientation is approximately equal to `orientation`,
-    /// returns [`None`].
-    pub fn from_orientation(orientation: Orientation) -> Option<Self> {
+    /// Converts the given orientation to a named orientation.
+    pub fn from_orientation(orientation: Orientation) -> Self {
         Self::all_rectangular()
             .into_iter()
-            .find(|o| orientation.approx_eq(&o.into_orientation()))
+            .find(|o| orientation == o.into_orientation())
+            .expect("orientation did not represent a valid Manhattan orientation")
     }
 }
 
@@ -112,14 +108,14 @@ impl From<NamedOrientation> for Orientation {
     fn from(value: NamedOrientation) -> Self {
         use NamedOrientation::*;
         let (reflect_vert, angle) = match value {
-            R0 => (false, 0.),
-            R90 | R270Cw => (false, 90.),
-            R180 | R180Cw => (false, 180.),
-            R270 | R90Cw => (false, 270.),
-            ReflectVert => (true, 0.),
-            FlipYx => (true, 90.),
-            ReflectHoriz => (true, 180.),
-            FlipMinusYx => (true, 270.),
+            R0 => (false, Rotation::R0),
+            R90 | R270Cw => (false, Rotation::R90),
+            R180 | R180Cw => (false, Rotation::R180),
+            R270 | R90Cw => (false, Rotation::R270),
+            ReflectVert => (true, Rotation::R0),
+            FlipYx => (true, Rotation::R90),
+            ReflectHoriz => (true, Rotation::R180),
+            FlipMinusYx => (true, Rotation::R270),
         };
         Self {
             reflect_vert,
@@ -131,7 +127,7 @@ impl From<NamedOrientation> for Orientation {
 impl Orientation {
     /// Creates a new orientation with the given reflection and angle settings.
     #[inline]
-    pub fn from_reflect_and_angle(reflect_vert: bool, angle: f64) -> Self {
+    pub fn from_reflect_and_angle(reflect_vert: bool, angle: Rotation) -> Self {
         Self {
             reflect_vert,
             angle,
@@ -164,8 +160,7 @@ impl Orientation {
             }
         }
 
-        // Keep the angle between 0 and 360 degrees.
-        self.wrap_angle()
+        self
     }
 
     /// Reflects the orientation vertically.
@@ -235,22 +230,8 @@ impl Orientation {
 
     /// Returns the angle associated with this orientation.
     #[inline]
-    pub fn angle(&self) -> f64 {
+    pub fn angle(&self) -> Rotation {
         self.angle
-    }
-
-    /// Wraps the given angle to the interval `[0, 360)` degrees.
-    #[inline]
-    fn wrap_angle(mut self) -> Self {
-        self.angle = crate::wrap_angle(self.angle);
-        self
-    }
-
-    /// Compares the two orientations for approximate equality.
-    pub fn approx_eq(&self, other: &Self) -> bool {
-        let a = self.wrap_angle();
-        let b = other.wrap_angle();
-        a.reflect_vert == b.reflect_vert && abs_diff_eq!(a.angle(), b.angle())
     }
 
     /// Returns the orientation represented by the given transformation.

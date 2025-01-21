@@ -12,18 +12,18 @@ proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
 
-examples = { version = "0.5.1", registry = "substrate", path = "../docs/examples" }
-type_dispatch = { version = "0.3.0", registry = "substrate", path = "../libs/type_dispatch" }
+snippets = { version = "0.5.1", registry = "substrate", path = "../docs/snippets" }
+macrotools = { version = "0.0.0", registry = "substrate", path = "../libs/macrotools" }
 
 [dev-dependencies]
-arcstr = "1"
-serde = { version = "1", features = ["derive"] }
 substrate = { version = "<=0.8.1", registry = "substrate", path = "../substrate" }
-sky130pdk = { version = "<=0.8.1", registry = "substrate", path = "../pdks/sky130pdk" }
-spectre = { version = "<=0.9.1", registry = "substrate", path = "../tools/spectre" }
-spice = { version = "<=0.7.1", registry = "substrate", path = "../libs/spice" }
+scir = { version = "0.7.0", registry = "substrate", path = "../libs/scir" }
+arcstr = "1"
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
+
+[build-dependencies]
+snippets = { version = "0.5.1", registry = "substrate", path = "../docs/snippets" }
 
 [lib]
 proc-macro = true

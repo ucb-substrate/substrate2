@@ -67,7 +67,7 @@ For larger feature additions, please discuss your ideas with us before implement
 Contributions can be submitted by opening a pull request against the `main` branch
 of this repository.
 
-Please see [the contributing guide](docs/CONTRIBUTING.md) and the [Getting Started page](https://docs.substratelabs.io/docs/development/getting-started) for more information.
+Please see the [Getting Started page](https://docs.substratelabs.io/dev) for more information.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion
 in the work by you shall be licensed under the BSD 3-Clause license, without any additional terms or conditions.

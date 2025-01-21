@@ -11,11 +11,11 @@ use scir::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
 use scir::{Instance, Library, NetlistLibConversion, ParamValue, SliceOnePath};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use substrate::block::Block;
-use substrate::io::schematic::HardwareType;
-use substrate::schematic::primitives::Resistor;
+use substrate::schematic::pex::StringPathSchema;
 use substrate::schematic::{CellBuilder, Schematic};
+use substrate::types::TwoTerminalIo;
 use unicase::UniCase;
 
 pub mod netlist;
@@ -83,16 +83,15 @@ impl Spice {
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
     ) -> String {
-        Self::node_path_with_prefix_and_separator(lib, conv, path, "", ".")
+        Self::node_path_with_separator(lib, conv, path, ".")
     }
 
     /// Converts a [`SliceOnePath`] to a Spice path string corresponding to the associated
     /// node voltage, using the given instance prefix hierarchy separator.
-    pub fn node_path_with_prefix_and_separator(
+    pub fn node_path_with_separator(
         lib: &Library<Spice>,
         conv: &NetlistLibConversion,
         path: &SliceOnePath,
-        prefix: &str,
         sep: &str,
     ) -> String {
         let path = lib.convert_slice_one_path_with_conv(conv, path.clone(), |name, index| {
@@ -102,18 +101,13 @@ impl Spice {
                 name.clone()
             }
         });
-        let n = path.len();
-        path.iter()
-            .enumerate()
-            .map(|(i, elt)| {
-                if i + 1 == n {
-                    // Don't add a prefix to the last element.
-                    elt.clone()
-                } else {
-                    arcstr::format!("{}{}", prefix, elt)
-                }
-            })
-            .join(sep)
+        path.iter().join(sep)
+    }
+}
+
+impl StringPathSchema for Spice {
+    fn node_path(lib: &Library<Self>, conv: &NetlistLibConversion, path: &SliceOnePath) -> String {
+        Self::node_path_with_separator(lib, conv, path, "/")
     }
 }
 
@@ -223,6 +217,17 @@ pub enum Primitive {
         /// The contents of the cell.
         contents: BlackboxContents,
     },
+    /// A raw instance with an associated cell in a SPICE netlist.
+    ///
+    /// Parameters are not supported.
+    RawInstanceWithInclude {
+        /// The name of the associated cell.
+        cell: ArcStr,
+        /// The path to the included netlist.
+        netlist: PathBuf,
+        /// The ordered ports of the instance.
+        ports: Vec<ArcStr>,
+    },
 }
 
 /// Contents of a blackboxed instance.
@@ -297,6 +302,7 @@ impl Primitive {
             Primitive::Mos { .. } => vec!["D".into(), "G".into(), "S".into(), "B".into()],
             Primitive::RawInstance { ports, .. } => ports.clone(),
             Primitive::RawInstanceWithCell { ports, .. } => ports.clone(),
+            Primitive::RawInstanceWithInclude { ports, .. } => ports.clone(),
             Primitive::BlackboxInstance { contents } => contents
                 .elems
                 .iter()
@@ -314,11 +320,37 @@ impl Primitive {
     }
 }
 
-impl Schematic<Spice> for Resistor {
+/// An ideal 2-terminal resistor.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Block)]
+#[substrate(io = "TwoTerminalIo")]
+pub struct Resistor {
+    /// The resistor value.
+    value: Decimal,
+}
+impl Resistor {
+    /// Create a new resistor with the given value.
+    #[inline]
+    pub fn new(value: impl Into<Decimal>) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+
+    /// The value of the resistor.
+    #[inline]
+    pub fn value(&self) -> Decimal {
+        self.value
+    }
+}
+
+impl Schematic for Resistor {
+    type Schema = Spice;
+    type NestedData = ();
+
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spice>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
         let mut prim = substrate::schematic::PrimitiveBinding::new(Primitive::Res2 {
             value: ComponentValue::Fixed(self.value()),

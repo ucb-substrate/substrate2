@@ -1,0 +1,31 @@
+name: deploy-docs
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      name:
+
+env:
+    CARGO_TERM_COLOR: always
+    DOCS_NAME: ${{ inputs.name || github.ref.name }}
+    PUBLIC_DOCS_DIR: /tools/C/rohankumar/substrate_docs_public
+
+jobs:
+  deploy-docs:
+    name: Deploy documentation
+    runs-on: bwrc
+    environment: docs
+    steps:
+      - uses: actions/checkout@v3
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: docs/docusaurus/yarn.lock
+      - run: ./deploy.sh ${{ env.PUBLIC_DOCS_DIR }} ${{ inputs.name || github.ref_name }}
+        working-directory: docs/docusaurus
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
+

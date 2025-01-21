@@ -1,0 +1,32 @@
+[package]
+name = "sky130"
+version = "0.8.1"
+edition = "2021"
+
+[dependencies]
+substrate = { version = "0.8.1", registry = "substrate", path = "../../substrate" }
+scir = { version = "0.7.0", registry = "substrate", path = "../../libs/scir" }
+layir = { version = "0.1.0", registry = "substrate", path = "../../libs/layir" }
+gdsconv = { version = "0.1.0", registry = "substrate", path = "../../libs/gdsconv" }
+gds = { version = "0.3.0", registry = "substrate", path = "../../libs/gds" }
+spectre = { version = "0.9.1", registry = "substrate", path = "../../tools/spectre" }
+ngspice = { version = "0.3.1", registry = "substrate", path = "../../tools/ngspice" }
+spice = { version = "0.7.1", registry = "substrate", path = "../../libs/spice" }
+geometry_macros = { version = "0.0.1", registry = "substrate", path = "../../libs/geometry_macros" }
+geometry = { version = "0.5.0", registry = "substrate", path = "../../libs/geometry" }
+
+rust_decimal = "1"
+rust_decimal_macros = "1"
+indexmap = { version = "2", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+arcstr = { version = "1", features = ["serde"] }
+paste = "1"
+unicase = "2"
+derive_builder = "0.20"
+
+[dev-dependencies]
+approx = "0.5"
+derive-where = "1"
+
+[features]
+spectre = []

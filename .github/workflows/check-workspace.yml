@@ -17,11 +17,18 @@ jobs:
           cargo fmt --check
       - name: Lint
         run: |
-          cargo hack --feature-powerset clippy --locked -- -D warnings
-      - name: Lint examples
+          cargo hack clippy --feature-powerset --locked -- -D warnings
+      - name: Lint release examples
         run: |
-          cargo hack --feature-powerset clippy --locked -- -D warnings
-        working-directory: examples
+          cargo hack clippy --feature-powerset --locked -- -D warnings
+        working-directory: examples/release
+      - name: Lint tests
+        run: |
+          cargo hack clippy --feature-powerset --tests --locked -- -D warnings
+      - name: Lint release examples tests
+        run: |
+          cargo hack clippy --feature-powerset --tests --locked -- -D warnings
+        working-directory: examples/release
   check-docs:
     name: check-docs
     runs-on: bwrc
@@ -35,14 +42,15 @@ jobs:
           RUSTDOCFLAGS: '-D warnings'
   test:
     name: test
-    runs-on: [bwrc, nfs]
+    runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
       - name: Test
         run: cargo test --locked --all-features
-      - name: Test examples
+      - name: Test release examples
+        if: ${{ ! startsWith(github.ref, 'release-please--') }}
         run: cargo test --locked --all-features
-        working-directory: examples
+        working-directory: examples/release
   check-docs-site:
     name: check-docs-site
     runs-on: ubuntu-22.04
@@ -52,9 +60,9 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
-          cache-dependency-path: docs/site/yarn.lock
+          cache-dependency-path: docs/docusaurus/yarn.lock
       - run: yarn install
-        working-directory: docs/site
+        working-directory: docs/docusaurus
       - run: yarn build
-        working-directory: docs/site
+        working-directory: docs/docusaurus
 

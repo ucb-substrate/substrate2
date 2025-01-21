@@ -22,21 +22,18 @@ use serde::{Deserialize, Serialize};
 use spice::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
 };
-use spice::{ComponentValue, Spice};
-use substrate::block::Block;
+use spice::Spice;
 use substrate::context::Installation;
 use substrate::execute::Executor;
-use substrate::io::schematic::HardwareType;
-use substrate::schematic::primitives::{RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
-use unicase::UniCase;
 
 pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
+#[cfg(test)]
+mod tests;
 pub mod tran;
 
 /// ngspice primitives.
@@ -69,6 +66,17 @@ pub enum SaveStmt {
     ScirVoltage(SliceOnePath),
     /// A SCIR signal path representing a resistor whose current should be saved.
     ResistorCurrent(scir::InstancePath),
+    /// An instance path followed by a raw tail path.
+    InstanceTail(InstanceTail),
+}
+
+/// An instance path followed by a raw tail path.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct InstanceTail {
+    /// The path to the instance.
+    pub instance: scir::InstancePath,
+    /// The raw tail string.
+    pub tail: ArcStr,
 }
 
 impl<T: Into<ArcStr>> From<T> for SaveStmt {
@@ -101,6 +109,11 @@ impl SaveStmt {
                     instance_path(lib, conv, scir)
                 )
             }
+            SaveStmt::InstanceTail(itail) => arcstr::format!(
+                "v({}.{})",
+                instance_path(lib, conv, &itail.instance),
+                itail.tail
+            ),
         }
     }
 
@@ -115,6 +128,7 @@ impl SaveStmt {
             SaveStmt::ResistorCurrent(_) => {
                 arcstr::format!("i({})", self.to_save_string(lib, conv).to_lowercase())
             }
+            SaveStmt::InstanceTail(_) => self.to_save_string(lib, conv),
         }
     }
 }
@@ -184,8 +198,16 @@ impl SavedData {
         conv: &NetlistLibConversion,
     ) -> std::io::Result<()> {
         match self {
-            Self::Save(save) => write!(out, ".save {}", save.to_save_string(lib, conv)),
-            Self::Probe(probe) => write!(out, ".probe {}", probe.to_probe_string(lib, conv)),
+            Self::Save(save) => write!(
+                out,
+                ".save {}",
+                save.to_save_string(lib, conv).to_lowercase()
+            ),
+            Self::Probe(probe) => write!(
+                out,
+                ".probe {}",
+                probe.to_probe_string(lib, conv).to_lowercase()
+            ),
         }
     }
 
@@ -195,8 +217,8 @@ impl SavedData {
         conv: &NetlistLibConversion,
     ) -> ArcStr {
         match self {
-            Self::Save(save) => save.to_data_string(lib, conv),
-            Self::Probe(probe) => probe.to_data_string(lib, conv),
+            Self::Save(save) => save.to_data_string(lib, conv).to_lowercase().into(),
+            Self::Probe(probe) => probe.to_data_string(lib, conv).to_lowercase().into(),
         }
     }
 }
@@ -251,18 +273,18 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> tran::VoltageSavedKey {
-        tran::VoltageSavedKey(self.save_inner(save.into()))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SaveStmt>) -> tran::VoltageSaveKey {
+        tran::VoltageSaveKey(self.save_inner(save.into()))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> tran::CurrentSavedKey {
-        tran::CurrentSavedKey(vec![self.save_inner(save.into())])
+    pub fn save_tran_current(&mut self, save: impl Into<SaveStmt>) -> tran::CurrentSaveKey {
+        tran::CurrentSaveKey(vec![self.save_inner(save.into())])
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> tran::CurrentSavedKey {
-        tran::CurrentSavedKey(vec![self.save_inner(save.into())])
+    pub fn probe_tran_current(&mut self, save: impl Into<ProbeStmt>) -> tran::CurrentSaveKey {
+        tran::CurrentSaveKey(vec![self.save_inner(save.into())])
     }
 }
 
@@ -369,6 +391,13 @@ impl Ngspice {
         let mut w = Vec::new();
 
         let mut includes = options.includes.into_iter().collect::<Vec<_>>();
+        includes.extend(ctx.lib.scir.primitives().filter_map(|(_, p)| {
+            if let Primitive::Spice(spice::Primitive::RawInstanceWithInclude { netlist, .. }) = p {
+                Some(netlist.clone().into())
+            } else {
+                None
+            }
+        }));
         let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
         // Sorting the include list makes repeated netlist invocations
         // produce the same output. If we were to iterate over the HashSet directly,
@@ -478,43 +507,23 @@ impl FromSchema<NoSchema> for Ngspice {
     }
 }
 
-impl Schematic<Ngspice> for RawInstance {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Ngspice>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::RawInstance {
-            cell: self.cell.clone(),
-            ports: self.ports.clone(),
-            params: self
-                .params
-                .clone()
-                .into_iter()
-                .map(|(k, v)| (UniCase::new(k), v))
-                .collect(),
-        }));
-        for (i, port) in self.ports.iter().enumerate() {
-            prim.connect(port, io[i]);
-        }
-        cell.set_primitive(prim);
-        Ok(())
-    }
-}
+/// An error converting to/from the [`Ngspice`] schema.
+#[derive(Debug, Clone, Copy)]
+pub enum NgspiceConvError {}
 
-impl Schematic<Ngspice> for Resistor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Ngspice>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        let mut prim = PrimitiveBinding::new(Primitive::Spice(spice::Primitive::Res2 {
-            value: ComponentValue::Fixed(self.value()),
-            params: Default::default(),
-        }));
-        prim.connect("1", io.p);
-        prim.connect("2", io.n);
-        cell.set_primitive(prim);
+impl FromSchema<Spice> for Ngspice {
+    type Error = NgspiceConvError;
+
+    fn convert_primitive(
+        primitive: <Spice as scir::schema::Schema>::Primitive,
+    ) -> std::result::Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
+        Ok(Primitive::Spice(primitive))
+    }
+
+    fn convert_instance(
+        _instance: &mut scir::Instance,
+        _primitive: &<Spice as scir::schema::Schema>::Primitive,
+    ) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
 }

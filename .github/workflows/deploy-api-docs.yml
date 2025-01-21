@@ -1,0 +1,25 @@
+name: deploy-api-docs
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      name:
+
+env:
+    CARGO_TERM_COLOR: always
+    DOCS_NAME: ${{ inputs.name || github.ref.name }}
+    PUBLIC_DOCS_DIR: /tools/C/rohankumar/substrate_docs_public
+
+jobs:
+  deploy-api-docs:
+    name: Deploy API documentation
+    runs-on: bwrc
+    environment: docs
+    steps:
+      - uses: actions/checkout@v3
+      - uses: superfly/flyctl-actions/setup-flyctl@ddcac349402ef55840d9870785f4df1890768078
+      - run: ./deploy.sh ${{ env.PUBLIC_DOCS_DIR }} ${{ inputs.name || github.ref_name }}
+        working-directory: docs/api
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}

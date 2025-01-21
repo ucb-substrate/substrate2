@@ -1,0 +1,32 @@
+[package]
+name = "sky130_inverter"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# begin-code-snippet dependencies
+[dependencies]
+substrate = { version = "0.8.1", registry = "substrate", path = "../../../substrate" }
+sky130 = { version = "0.8.1", registry = "substrate", path = "../../../pdks/sky130" }
+layir = { version = "0.1.0", registry = "substrate", path = "../../../libs/layir" }
+gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gdsconv" }
+gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
+scir = { version = "0.7.0", registry = "substrate", path = "../../../libs/scir" }
+spice = { version = "0.7.1", registry = "substrate", path = "../../../libs/spice" }
+
+arcstr = "1"
+rust_decimal = "1.30"
+rust_decimal_macros = "1.30"
+# end-code-snippet dependencies
+
+# begin-code-snippet open-dependencies
+ngspice = { version = "0.3.1", registry = "substrate", path = "../../../tools/ngspice" }
+magic-netgen = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic-netgen" }
+magic = { version = "0.0.0", registry = "substrate", path = "../../../tools/magic" }
+# end-code-snippet open-dependencies
+
+# begin-code-snippet cds-dependencies
+spectre = { version = "0.9.1", registry = "substrate", path = "../../../tools/spectre" }
+quantus = { version = "0.0.0", registry = "substrate", path = "../../../tools/quantus" }
+pegasus = { version = "0.0.0", registry = "substrate", path = "../../../tools/pegasus" }
+# end-code-snippet cds-dependencies

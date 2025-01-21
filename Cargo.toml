@@ -1,35 +1,46 @@
 [workspace]
 
 resolver = "2"
-
 members = [
     "bins/cdl2spice",
     "codegen",
     "config",
-    "docs/examples",
-    "libs/atoll",
+    "docs/snippets",
+    "examples/latest/sky130_inverter",
+    "examples/latest/spice_vdivider",
+    "examples/latest/colbuf",
+    "examples/latest/vdivider",
+    "examples/latest/via",
+    "examples/latest/substrate_api_examples",
     "libs/cache",
     "libs/diagnostics",
+    "libs/layir",
     "libs/enumify",
     "libs/enumify_macros",
     "libs/gds",
+    "libs/gdsconv",
     "libs/geometry",
     "libs/geometry_macros",
     "libs/lefdef",
     "libs/pathtree",
     "libs/scir",
     "libs/spice",
+    "libs/macrotools",
     "libs/nutlex",
     "libs/type_dispatch",
     "libs/type_dispatch_macros",
     "libs/uniquify",
     "libs/verilog",
-    "pdks/sky130pdk",
+    "pdks/sky130",
     "substrate",
-    "tests",
+    "tools/magic",
+    "tools/netgen",
     "tools/ngspice",
-    "tools/spectre",
+    "tools/pegasus",
+    "tools/quantus",
+    "tools/spectre", 
+    "tools/magic-netgen",
 ]
 
-exclude = ["examples"]
+exclude = ["examples/release"]
 

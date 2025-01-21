@@ -4,23 +4,46 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use data::{Save, Saved};
 use impl_trait_for_tuples::impl_for_tuples;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use crate::block::Block;
 use crate::context::{Context, Installation};
-use crate::io::TestbenchIo;
 use crate::schematic::conv::RawLib;
 use crate::schematic::schema::Schema;
-use crate::schematic::{Cell, ExportsNestedData, Schematic};
-use crate::simulation::data::SaveTb;
-use codegen::simulator_tuples;
-use substrate::simulation::data::FromSaved;
+use crate::schematic::{Cell, HasNestedView, NestedView, Schematic};
+use crate::types::TestbenchIo;
 
 pub mod data;
 pub mod options;
 pub mod waveform;
+
+/// A process-voltage-temperature corner.
+///
+/// Contains a process corner, a voltage, and a temperature (in Celsius).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Pvt<C> {
+    /// The process corner.
+    pub corner: C,
+    /// The voltage.
+    pub voltage: Decimal,
+    /// The temperature, in degrees celsius.
+    pub temp: Decimal,
+}
+
+impl<C> Pvt<C> {
+    /// Create a new PVT corner.
+    #[inline]
+    pub fn new(corner: C, voltage: Decimal, temp: Decimal) -> Self {
+        Self {
+            corner,
+            voltage,
+            temp,
+        }
+    }
+}
 
 /// A single simulator analysis.
 pub trait Analysis {
@@ -87,20 +110,18 @@ pub trait SupportedBy<S: Simulator>: Analysis {
 }
 
 /// Controls simulation options.
-pub struct SimController<S: Simulator, T: ExportsNestedData> {
+pub struct SimController<S: Simulator, T: Schematic> {
     pub(crate) simulator: Arc<S>,
     /// The current testbench cell.
     pub tb: Arc<Cell<T>>,
     pub(crate) ctx: SimulationContext<S>,
 }
 
+/// Data saved by block `T` in simulator `S` for analysis `A`.
+pub type SavedData<T, S, A> = Saved<NestedView<<T as Schematic>::NestedData>, S, A>;
+
 impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     /// Run the given analysis, returning the default output.
-    ///
-    /// Note that providing [`None`] for `corner` will result in model files not being included,
-    /// potentially causing simulator errors due to missing models.
-    ///
-    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
     pub fn simulate_default<A: SupportedBy<S>>(
         &self,
         options: S::Options,
@@ -110,23 +131,25 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
     }
 
     /// Run the given analysis, returning the desired output type.
-    ///
-    /// Note that providing [`None`] for `corner` will result in model files not being included,
-    /// potentially causing simulator errors due to missing models.
-    ///
-    /// If any PDK primitives are being used by the testbench, make sure to supply a corner.
-    pub fn simulate<A: SupportedBy<S>, O>(
+    pub fn simulate<A: SupportedBy<S>>(
         &self,
         mut options: S::Options,
         input: A,
-    ) -> Result<O, S::Error>
+    ) -> Result<SavedData<T, S, A>, S::Error>
     where
-        O: FromSaved<S, A>,
-        T: SaveTb<S, A, O>,
+        T: Schematic<NestedData: HasNestedView<NestedView: Save<S, A>>>,
     {
-        let key = T::save_tb(&self.ctx, &self.tb, &mut options);
+        let key = <NestedView<<T as Schematic>::NestedData> as Save<S, A>>::save(
+            &self.tb.data(),
+            &self.ctx,
+            &mut options,
+        );
         let output = self.simulate_default(options, input)?;
-        Ok(O::from_saved(&output, &key))
+        Ok(
+            <<<T as Schematic>::NestedData as HasNestedView>::NestedView>::from_saved(
+                &output, &key,
+            ),
+        )
     }
 
     /// Set an option by mutating the given options.
@@ -139,16 +162,24 @@ impl<S: Simulator, T: Testbench<S>> SimController<S, T> {
 }
 
 /// A testbench that can be simulated.
-pub trait Testbench<S: Simulator>: Schematic<S::Schema> + Block<Io = TestbenchIo> {
-    /// The output produced by this testbench.
-    type Output: Any + Serialize + DeserializeOwned;
-    /// Run the testbench using the given simulation controller.
-    fn run(&self, sim: SimController<S, Self>) -> Self::Output;
-}
+pub trait Testbench<S: Simulator>: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo> {}
+impl<S: Simulator, T: Schematic<Schema = S::Schema> + Block<Io = TestbenchIo>> Testbench<S> for T {}
 
 #[impl_for_tuples(64)]
 impl Analysis for Tuple {
     for_tuples!( type Output = ( #( Tuple::Output ),* ); );
 }
 
-simulator_tuples!(64);
+#[impl_for_tuples(64)]
+impl<S: Simulator> SupportedBy<S> for Tuple {
+    fn into_input(self, inputs: &mut Vec<<S as Simulator>::Input>) {
+        for_tuples!( #( <Tuple as SupportedBy<S>>::into_input(self.Tuple, inputs); )* )
+    }
+
+    #[allow(clippy::unused_unit)]
+    fn from_output(
+        outputs: &mut impl Iterator<Item = <S as Simulator>::Output>,
+    ) -> <Self as Analysis>::Output {
+        (for_tuples!( #( <Tuple as SupportedBy<S>>::from_output(outputs) ),* ))
+    }
+}

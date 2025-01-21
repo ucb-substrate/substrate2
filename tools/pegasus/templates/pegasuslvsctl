@@ -1,0 +1,9 @@
+schematic_path "{{ source_path }}";
+schematic_primary "{{ source_cell_name }}";
+layout_path "{{ layout_path }}";
+layout_primary "{{ layout_cell_name }}";
+lvs_find_shorts yes;
+lvs_report_opt S;
+results_db -erc "{{ erc_db_path }}";
+report_summary -erc "{{ erc_summary_path }}";
+lvs_report_file "{{ lvs_rpt_path }}";

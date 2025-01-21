@@ -1,0 +1,159 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #3368ff;
+  --ifm-color-primary-dark: #1d50e4;
+  --ifm-color-primary-darker: #12328f;
+  --ifm-color-primary-darkest:  #082167;
+  --ifm-color-primary-light: #c0cffa;
+  --ifm-color-primary-lighter: #e0e8ff;
+  --ifm-color-primary-lightest:  #f2f5ff;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-navbar-background-color: #f3f4f6;
+  --ifm-navbar-height: 80px;
+  --ifm-navbar-shadow: rgba(0, 0, 0, 0) 0px 1px 2px 0px;
+}
+
+[data-theme='light'] .hero {
+  background-color: #f3f4f6;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark']:root {
+  --ifm-link-color:  #5d85f8;
+  --ifm-color-primary: #c0cffa;
+  --ifm-color-primary-dark: #3368ff;
+  --ifm-color-primary-darker: #1d50e4;
+  --ifm-color-primary-darkest: #12328f;
+  --ifm-color-primary-light: #e0e8ff;
+  --ifm-color-primary-lighter:  #f2f5ff;
+  --ifm-color-primary-lightest:  #fafbff;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-background-color: #111927;
+  --ifm-background-surface-color: #161f36;
+  --ifm-navbar-background-color: #161f36;
+}
+.menu {
+    background-color: var(--ifm-navbar-background-color);
+}
+[data-theme='dark'] .footer--dark {
+  --ifm-footer-background-color: #0f121b;
+}
+
+[data-theme='dark'] .featureSvg {
+  filter: invert(100%);
+}
+h1 {
+  @apply text-3xl font-bold;
+  font-size: 1.75rem;
+}
+.hero__title {
+  @apply pb-4;
+}
+h2 {
+  @apply font-bold;
+  font-size: 1.5rem;
+}
+.markdown > h2 {
+  font-size: 1.5rem !important;
+}
+h3 {
+  @apply font-bold;
+  font-size: 1.25rem;
+}
+
+h4 {
+  @apply font-bold mb-4;
+  font-size: 1.125rem;
+}
+
+h5 {
+  @apply font-bold;
+  font-size: 1rem;
+}
+
+h6 {
+  @apply font-bold uppercase;
+  font-size: 0.75rem;
+}
+
+.breadcrumbs {
+    margin: 20px 0 0px 0 !important;
+}
+.badge {
+    margin: 10px 0 20px 0 !important;
+}
+.breadcrumbs__item--active {
+    margin: 0 0.2rem;
+}
+.breadcrumbs__item:not(:last-child)::after {
+    margin: 0 0;
+}
+
+[data-theme='light'] {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        color: var(--ifm-color-primary-darkest);
+    }
+}
+[data-theme='dark'] {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        color: var(--ifm-color-primary);
+    }
+}
+
+.code-block-diff-add-line {
+  background-color: rgba(0, 255, 128, .1);
+  display: block;
+  margin: 0 -40px;
+  padding: 0 40px;
+}
+
+.code-block-diff-add-line::before {
+  position: absolute;
+  left: 8px;
+  padding-right: 8px;
+  content: '+';
+}
+
+.code-block-diff-remove-line {
+  background-color: rgba(255, 0, 0, .1);
+  display: block;
+  margin: 0 -40px;
+  padding: 0 40px;
+}
+
+.code-block-diff-remove-line::before {
+  position: absolute;
+  left: 8px;
+  padding-right: 8px;
+  content: '-';
+}
+
+/**
+ * use magic comments to mark diff blocks
+ */
+pre code:has(.code-block-diff-add-line) {
+  padding-left: 40px!important;
+  padding-right: 40px!important;
+}
+
+pre code:has(.code-block-diff-remove-line) {
+  padding-left: 40px!important;
+  padding-right: 40px!important;
+}

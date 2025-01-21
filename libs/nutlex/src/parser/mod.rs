@@ -24,6 +24,8 @@ pub struct Analysis<'a> {
     pub title: Option<&'a str>,
     /// The date on which the analysis was performed.
     pub date: Option<&'a str>,
+    /// The command being run.
+    pub command: Option<&'a str>,
     /// Plot name.
     pub plotname: &'a str,
     /// Flags.
@@ -293,6 +295,7 @@ fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
         let (input, _) = take_while(is_space_or_line)(input)?;
         let (input, title) = opt(header("Title:"))(input)?;
         let (input, date) = opt(header("Date:"))(input)?;
+        let (input, command) = opt(header("Command:"))(input)?;
         let (input, plotname) = header("Plotname:")(input)?;
         let (input, flags) = header("Flags:")(input)?;
         let (input, num_variables) = header("No. Variables:")(input)?;
@@ -312,6 +315,7 @@ fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
             Analysis {
                 title,
                 date,
+                command,
                 plotname,
                 flags,
                 num_variables,

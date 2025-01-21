@@ -27,6 +27,7 @@ use psfparser::analysis::ac::AcData;
 use psfparser::analysis::transient::TransientData;
 use regex::Regex;
 use rust_decimal::Decimal;
+use scir::netlist::ConvertibleNetlister;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{
     Library, NamedSliceOne, NetlistLibConversion, ParamValue, SignalInfo, Slice, SliceOnePath,
@@ -36,27 +37,23 @@ use spice::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
 };
 use spice::{BlackboxContents, BlackboxElement, Spice};
-use substrate::block::Block;
 use substrate::context::Installation;
 use substrate::execute::Executor;
-use substrate::io::schematic::HardwareType;
-use substrate::io::schematic::NodePath;
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::netlist::ConvertibleNetlister;
-use substrate::schematic::primitives::{Capacitor, RawInstance, Resistor};
 use substrate::schematic::schema::Schema;
-use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic};
 use substrate::simulation::options::ic::InitialCondition;
 use substrate::simulation::options::{ic, SimOption, Temperature};
 use substrate::simulation::{SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
+use substrate::types::schematic::NodePath;
 use templates::{write_run_script, RunScriptContext};
+use type_dispatch::impl_dispatch;
 
 pub mod analysis;
 pub mod blocks;
-pub mod dspf;
 pub mod error;
 pub(crate) mod templates;
+#[cfg(test)]
+mod tests;
 
 /// Spectre primitives.
 #[derive(Debug, Clone)]
@@ -68,7 +65,7 @@ pub enum Primitive {
         /// The ordered ports of the instance.
         ports: Vec<ArcStr>,
         /// Parameters associated with the instance.
-        params: HashMap<ArcStr, ParamValue>,
+        params: Vec<(ArcStr, ParamValue)>,
     },
     /// A raw instance with an associated cell represented in SPF format.
     ///
@@ -266,23 +263,23 @@ impl Options {
     }
 
     /// Marks a transient voltage to be saved in all transient analyses.
-    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> tran::VoltageSavedKey {
-        tran::VoltageSavedKey(self.save_inner(save))
+    pub fn save_tran_voltage(&mut self, save: impl Into<SimSignal>) -> tran::VoltageSaveKey {
+        tran::VoltageSaveKey(self.save_inner(save))
     }
 
     /// Marks a transient current to be saved in all transient analyses.
-    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentSavedKey {
-        tran::CurrentSavedKey(vec![self.save_inner(save)])
+    pub fn save_tran_current(&mut self, save: impl Into<SimSignal>) -> tran::CurrentSaveKey {
+        tran::CurrentSaveKey(vec![self.save_inner(save)])
     }
 
     /// Marks an AC voltage to be saved in all AC analyses.
-    pub fn save_ac_voltage(&mut self, save: impl Into<SimSignal>) -> ac::VoltageSavedKey {
-        ac::VoltageSavedKey(self.save_inner(save))
+    pub fn save_ac_voltage(&mut self, save: impl Into<SimSignal>) -> ac::VoltageSaveKey {
+        ac::VoltageSaveKey(self.save_inner(save))
     }
 
     /// Marks an AC current to be saved in all AC analyses.
-    pub fn save_ac_current(&mut self, save: impl Into<SimSignal>) -> ac::CurrentSavedKey {
-        ac::CurrentSavedKey(vec![self.save_inner(save)])
+    pub fn save_ac_current(&mut self, save: impl Into<SimSignal>) -> ac::CurrentSaveKey {
+        ac::CurrentSaveKey(vec![self.save_inner(save)])
     }
 
     /// Set the simulation temperature.
@@ -754,67 +751,6 @@ impl FromSchema<Spice> for Spectre {
     }
 }
 
-impl Schematic<Spectre> for Resistor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
-            cell: arcstr::literal!("resistor"),
-            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
-            params: HashMap::from_iter([(
-                arcstr::literal!("r"),
-                ParamValue::Numeric(self.value()),
-            )]),
-        });
-        prim.connect("1", io.p);
-        prim.connect("2", io.n);
-        cell.set_primitive(prim);
-        Ok(())
-    }
-}
-
-impl Schematic<Spectre> for Capacitor {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
-            cell: arcstr::literal!("capacitor"),
-            ports: vec![arcstr::literal!("1"), arcstr::literal!("2")],
-            params: HashMap::from_iter([(
-                arcstr::literal!("c"),
-                ParamValue::Numeric(self.value()),
-            )]),
-        });
-        prim.connect("1", io.p);
-        prim.connect("2", io.n);
-        cell.set_primitive(prim);
-        Ok(())
-    }
-}
-
-impl Schematic<Spectre> for RawInstance {
-    fn schematic(
-        &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
-    ) -> substrate::error::Result<Self::NestedData> {
-        let mut prim = PrimitiveBinding::new(Primitive::RawInstance {
-            cell: self.cell.clone(),
-            ports: self.ports.clone(),
-            params: self.params.clone(),
-        });
-        for (i, port) in self.ports.iter().enumerate() {
-            prim.connect(port, io[i]);
-        }
-        cell.set_primitive(prim);
-        Ok(())
-    }
-}
-
 impl Installation for Spectre {}
 
 impl Simulator for Spectre {
@@ -1072,6 +1008,25 @@ impl HasSpiceLikeNetlist for Spectre {
             writeln!(out, "dspf_include {:?}", spf_path)?;
         }
 
+        // find all unique SPICE netlists and include them
+        let includes = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::Spice(spice::Primitive::RawInstanceWithInclude {
+                    netlist, ..
+                }) = p.1
+                {
+                    Some(netlist.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
+        for include in includes.iter().sorted() {
+            writeln!(out, "include {:?}", include)?;
+        }
+
         Ok(())
     }
 
@@ -1145,7 +1100,7 @@ impl HasSpiceLikeNetlist for Spectre {
                     .flat_map(|port| connections.remove(port).unwrap_or_else(|| panic!("raw instance `{name}` must connect to all ports; missing connection to port `{port}`")))
                     .collect();
                 let name = self.write_instance(out, name, connections, cell)?;
-                for (key, value) in params.iter().sorted_by_key(|(key, _)| *key) {
+                for (key, value) in params.iter().sorted_by_key(|(key, _)| key) {
                     write!(out, " {key}={value}")?;
                 }
                 name

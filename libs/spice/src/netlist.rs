@@ -2,7 +2,8 @@
 
 use arcstr::ArcStr;
 use itertools::Itertools;
-use std::collections::HashMap;
+use scir::netlist::ConvertibleNetlister;
+use std::collections::{HashMap, HashSet};
 
 use std::io::{Result, Write};
 use std::path::PathBuf;
@@ -12,8 +13,6 @@ use scir::schema::Schema;
 use scir::{
     Cell, ChildId, Library, NetlistCellConversion, NetlistLibConversion, SignalInfo, Slice,
 };
-
-use substrate::schematic::netlist::ConvertibleNetlister;
 
 /// A netlist include statement.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -175,7 +174,7 @@ impl<'a, S: Schema, W> NetlisterInstance<'a, S, W> {
     }
 }
 
-impl<'a, S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'a, S, W> {
+impl<S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'_, S, W> {
     /// Exports a SCIR library to the output stream as a SPICE-like netlist.
     pub fn export(mut self) -> Result<NetlistLibConversion> {
         let lib = self.export_library()?;
@@ -317,6 +316,22 @@ impl HasSpiceLikeNetlist for Spice {
                 writeln!(out)?;
             }
         }
+
+        let includes = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::RawInstanceWithInclude { netlist, .. } = p.1 {
+                    Some(netlist.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
+        for include in includes.iter().sorted() {
+            writeln!(out, ".INCLUDE {:?}", include)?;
+        }
+
         Ok(())
     }
 
@@ -466,17 +481,15 @@ impl HasSpiceLikeNetlist for Spice {
                 }
                 name
             }
-            Primitive::RawInstance {
-                cell,
-                ports,
-                params,
-            }
-            | Primitive::RawInstanceWithCell {
-                cell,
-                ports,
-                params,
-                ..
-            } => {
+            Primitive::RawInstance { cell, ports, .. }
+            | Primitive::RawInstanceWithCell { cell, ports, .. }
+            | Primitive::RawInstanceWithInclude { cell, ports, .. } => {
+                let default_params = HashMap::new();
+                let params = match &primitive {
+                    Primitive::RawInstance { params, .. }
+                    | Primitive::RawInstanceWithCell { params, .. } => params,
+                    _ => &default_params,
+                };
                 let name = arcstr::format!("X{}", name);
                 write!(out, "{}", name)?;
                 for port in ports {
@@ -526,3 +539,5 @@ impl ConvertibleNetlister<Spice> for Spice {
         NetlisterInstance::new(self, lib, out, opts).export()
     }
 }
+
+impl substrate::schematic::netlist::ConvertibleNetlister<Spice> for Spice {}

@@ -316,3 +316,25 @@ fn name_path_conversion() {
         );
     }
 }
+
+#[test]
+fn merge_scir_libraries() {
+    let mut lib1 = LibraryBuilder::<StringSchema>::new();
+    lib1.add_cell(Cell::new("vdivider"));
+    let mapping = lib1.merge(lib1.clone());
+
+    let vdivider_id = lib1.cell_id_named("vdivider");
+    let new_id = mapping.new_cell_id(vdivider_id);
+
+    let issues = lib1.validate();
+    assert_eq!(issues.num_warnings(), 0);
+    assert_eq!(issues.num_errors(), 0);
+
+    assert_eq!(lib1.cells().count(), 2);
+
+    let new_name = lib1.cell(new_id).name();
+
+    assert_ne!(new_name, "vdivider");
+    assert!(new_name.starts_with("vdivider"));
+    assert_eq!(lib1.cell(vdivider_id).name(), "vdivider");
+}

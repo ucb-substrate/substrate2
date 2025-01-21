@@ -4,8 +4,10 @@ use crate::{Input, Spectre};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use substrate::simulation::data::{FromSaved, Save};
-use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
+use substrate::simulation::data::Save;
+use substrate::simulation::{Analysis, Simulator, SupportedBy};
+use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
+use type_dispatch::impl_dispatch;
 
 /// Level of statistical variation to apply in a Monte Carlo analysis.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -82,32 +84,60 @@ impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for MonteCarlo<Vec<Input>> {
     }
 }
 
-impl<A: Analysis, T: FromSaved<Spectre, A>> FromSaved<Spectre, MonteCarlo<A>> for Output<T> {
-    type SavedKey = T::SavedKey;
-
-    fn from_saved(output: &<MonteCarlo<A> as Analysis>::Output, key: &Self::SavedKey) -> Self {
-        Output(
-            output
-                .0
-                .iter()
-                .map(|output| T::from_saved(output, key))
-                .collect(),
-        )
-    }
-}
-
-impl<A: SupportedBy<Spectre>, T, S> Save<Spectre, MonteCarlo<A>, T> for Output<S>
+#[impl_dispatch({NestedNode; RawNestedNode; NestedTerminal})]
+impl<T, A: Analysis> Save<Spectre, MonteCarlo<A>> for T
 where
-    S: Save<Spectre, A, T>,
+    T: Save<Spectre, A>,
 {
+    type SaveKey = <T as Save<Spectre, A>>::SaveKey;
+    type Saved = Vec<<T as Save<Spectre, A>>::Saved>;
+
     fn save(
-        ctx: &SimulationContext<Spectre>,
-        to_save: T,
+        &self,
+        ctx: &substrate::simulation::SimulationContext<Spectre>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as FromSaved<Spectre, MonteCarlo<A>>>::SavedKey {
-        S::save(ctx, to_save, opts)
+    ) -> <Self as Save<Spectre, MonteCarlo<A>>>::SaveKey {
+        self.save(ctx, opts)
+    }
+
+    fn from_saved(
+        output: &<MonteCarlo<A> as Analysis>::Output,
+        key: &<Self as Save<Spectre, MonteCarlo<A>>>::SaveKey,
+    ) -> <Self as Save<Spectre, MonteCarlo<A>>>::Saved {
+        output
+            .0
+            .iter()
+            .map(|output| T::from_saved(output, key))
+            .collect()
     }
 }
+
+// impl<A: Analysis, T: FromSaved<Spectre, A>> FromSaved<Spectre, MonteCarlo<A>> for Output<T> {
+//     type SavedKey = T::SavedKey;
+//
+//     fn from_saved(output: &<MonteCarlo<A> as Analysis>::Output, key: &Self::SavedKey) -> Self {
+//         Output(
+//             output
+//                 .0
+//                 .iter()
+//                 .map(|output| T::from_saved(output, key))
+//                 .collect(),
+//         )
+//     }
+// }
+//
+// impl<A: SupportedBy<Spectre>, T, S> Save<Spectre, MonteCarlo<A>, T> for Output<S>
+// where
+//     S: Save<Spectre, A, T>,
+// {
+//     fn save(
+//         ctx: &SimulationContext<Spectre>,
+//         to_save: T,
+//         opts: &mut <Spectre as Simulator>::Options,
+//     ) -> <Self as FromSaved<Spectre, MonteCarlo<A>>>::SavedKey {
+//         S::save(ctx, to_save, opts)
+//     }
+// }
 
 impl<A: Analysis> Analysis for MonteCarlo<A> {
     type Output = Output<A::Output>;

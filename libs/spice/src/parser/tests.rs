@@ -2,10 +2,10 @@ use super::*;
 
 use crate::netlist::NetlistOptions;
 use crate::Primitive;
+use scir::netlist::ConvertibleNetlister;
 use std::path::PathBuf;
-use substrate::schematic::netlist::ConvertibleNetlister;
 
-pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data");
+pub const TEST_DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data");
 
 pub const SPICE_MOS: &str = r#"
 .subckt my_mos d g s b
@@ -49,7 +49,7 @@ fn spice_resistor_tokens() {
 
 #[test]
 fn parse_dff() {
-    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/dff.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("dff.spice")).unwrap();
     assert_eq!(parsed.ast.elems.len(), 1);
     match &parsed.ast.elems[0] {
         Elem::Subckt(Subckt {
@@ -104,7 +104,7 @@ fn parse_dff() {
 
 #[test]
 fn parse_pex_netlist() {
-    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/pex_netlist.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("pex_netlist.spice")).unwrap();
     assert_eq!(parsed.ast.elems.len(), 1);
     match &parsed.ast.elems[0] {
         Elem::Subckt(Subckt {
@@ -157,7 +157,7 @@ fn convert_mos_to_scir() {
 
 #[test]
 fn convert_dff_to_scir() {
-    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/dff.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("dff.spice")).unwrap();
     let mut converter = ScirConverter::new(&parsed.ast);
     converter.blackbox("sky130_fd_pr__nfet_01v8");
     converter.blackbox("sky130_fd_pr__pfet_01v8");
@@ -187,7 +187,7 @@ fn convert_dff_to_scir() {
 
 #[test]
 fn convert_blackbox_to_scir() {
-    let parsed = Parser::parse_file(Dialect::Spice, test_data("spice/blackbox.spice")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Spice, test_data("blackbox.spice")).unwrap();
     let mut converter = ScirConverter::new(&parsed.ast);
     converter.blackbox("blackbox1");
     converter.blackbox("blackbox2");
@@ -217,7 +217,7 @@ fn convert_blackbox_to_scir() {
 
 #[test]
 fn convert_cdl_rdac_to_scir() {
-    let parsed = Parser::parse_file(Dialect::Cdl, test_data("spice/AA_rdac.cdl")).unwrap();
+    let parsed = Parser::parse_file(Dialect::Cdl, test_data("AA_rdac.cdl")).unwrap();
     let mut converter = ScirConverter::new(&parsed.ast);
     converter.blackbox("poly_resistor");
     let lib = converter.convert().unwrap();

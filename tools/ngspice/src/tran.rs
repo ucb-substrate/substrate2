@@ -1,19 +1,17 @@
 //! ngspice transient analysis options and data structures.
 
-use crate::{Ngspice, ProbeStmt, SaveStmt};
+use crate::{InstanceTail, Ngspice, ProbeStmt, SaveStmt};
 use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use substrate::io::schematic::{NestedNode, NestedTerminal, NodePath, TerminalPath};
 use substrate::schematic::conv::ConvertedNodePath;
-use substrate::schematic::primitives::Resistor;
-use substrate::schematic::NestedInstance;
-use substrate::simulation::data::{tran, FromSaved, Save};
+use substrate::simulation::data::{Save, SaveOutput, SaveTime};
+use substrate::simulation::waveform::{TimePoint, TimeWaveform, WaveformRef};
 use substrate::simulation::{Analysis, SimulationContext, Simulator, SupportedBy};
-use substrate::type_dispatch::impl_dispatch;
+use substrate::types::schematic::{NestedNode, NestedTerminal, RawNestedNode};
 
 /// A transient analysis.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -39,147 +37,189 @@ pub struct Output {
     pub(crate) saved_values: HashMap<u64, ArcStr>,
 }
 
-impl FromSaved<Ngspice, Tran> for Output {
-    type SavedKey = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: &Self::SavedKey) -> Self {
-        (*output).clone()
+/// An output transient waveform.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct OutputWaveform {
+    /// Time samples.
+    pub t: Arc<Vec<f64>>,
+    /// Values corresponding to time samples in `t`.
+    pub x: Arc<Vec<f64>>,
+}
+
+impl OutputWaveform {
+    /// Converts an [`OutputWaveform`] to a [`WaveformRef`].
+    pub fn as_ref(&self) -> WaveformRef<'_, f64> {
+        WaveformRef::new(self.t.as_ref(), self.x.as_ref())
     }
 }
 
-impl Save<Ngspice, Tran, ()> for Output {
+impl TimeWaveform for OutputWaveform {
+    type Data = f64;
+    fn get(&self, idx: usize) -> Option<TimePoint<f64>> {
+        self.as_ref().get(idx)
+    }
+
+    fn len(&self) -> usize {
+        self.t.len()
+    }
+}
+
+impl Save<Ngspice, Tran> for SaveOutput {
+    type SaveKey = ();
+    type Saved = Output;
     fn save(
+        &self,
         _ctx: &SimulationContext<Ngspice>,
-        _to_save: (),
         _opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
+    ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
+    }
+
+    fn from_saved(
+        output: &<Tran as Analysis>::Output,
+        _key: &<Self as Save<Ngspice, Tran>>::SaveKey,
+    ) -> <Self as Save<Ngspice, Tran>>::Saved {
+        output.clone()
     }
 }
 
-impl FromSaved<Ngspice, Tran> for tran::Time {
-    type SavedKey = ();
-    fn from_saved(output: &<Tran as Analysis>::Output, _key: &Self::SavedKey) -> Self {
-        tran::Time(output.time.clone())
-    }
-}
-
-impl Save<Ngspice, Tran, ()> for tran::Time {
+impl Save<Ngspice, Tran> for SaveTime {
+    type SaveKey = ();
+    type Saved = Arc<Vec<f64>>;
     fn save(
+        &self,
         _ctx: &SimulationContext<Ngspice>,
-        _to_save: (),
         _opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
+    ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
+    }
+    fn from_saved(
+        output: &<Tran as Analysis>::Output,
+        _key: &<Self as Save<Ngspice, Tran>>::SaveKey,
+    ) -> <Self as Save<Ngspice, Tran>>::Saved {
+        output.time.clone()
     }
 }
 
 /// An identifier for a saved transient voltage.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VoltageSavedKey(pub(crate) u64);
+pub struct VoltageSaveKey(pub(crate) u64);
 
-impl FromSaved<Ngspice, Tran> for tran::Voltage {
-    type SavedKey = VoltageSavedKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: &Self::SavedKey) -> Self {
-        tran::Voltage(
-            output
-                .raw_values
-                .get(output.saved_values.get(&key.0).unwrap())
-                .unwrap()
-                .clone(),
-        )
-    }
-}
-
-#[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
-impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
+impl Save<Ngspice, Tran> for NestedNode {
+    type SaveKey = VoltageSaveKey;
+    type Saved = OutputWaveform;
     fn save(
-        _ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        opts.save_tran_voltage(to_save)
-    }
-}
-
-impl Save<Ngspice, Tran, &SliceOnePath> for tran::Voltage {
-    fn save(
-        _ctx: &SimulationContext<Ngspice>,
-        to_save: &SliceOnePath,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        opts.save_tran_voltage(SaveStmt::ScirVoltage(to_save.clone()))
-    }
-}
-
-impl Save<Ngspice, Tran, &ConvertedNodePath> for tran::Voltage {
-    fn save(
+        &self,
         ctx: &SimulationContext<Ngspice>,
-        to_save: &ConvertedNodePath,
         opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(
-            ctx,
-            match to_save {
+    ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
+        opts.save_tran_voltage(SaveStmt::ScirVoltage(
+            match ctx.lib.convert_node_path(&self.path()).unwrap() {
                 ConvertedNodePath::Cell(path) => path.clone(),
                 ConvertedNodePath::Primitive {
                     instances, port, ..
                 } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
             },
-            opts,
+        ))
+    }
+
+    fn from_saved(
+        output: &<Tran as Analysis>::Output,
+        key: &<Self as Save<Ngspice, Tran>>::SaveKey,
+    ) -> <Self as Save<Ngspice, Tran>>::Saved {
+        OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0).unwrap())
+                .unwrap()
+                .clone(),
+        }
+    }
+}
+
+impl Save<Ngspice, Tran> for RawNestedNode {
+    type SaveKey = VoltageSaveKey;
+    type Saved = OutputWaveform;
+
+    fn save(
+        &self,
+        ctx: &SimulationContext<Ngspice>,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
+        let itail = InstanceTail {
+            instance: ctx.lib.convert_instance_path(self.instances()).unwrap(),
+            tail: self.tail().clone(),
+        };
+        opts.save_tran_voltage(SaveStmt::InstanceTail(itail))
+    }
+
+    fn from_saved(
+        output: &<Tran as Analysis>::Output,
+        key: &<Self as Save<Ngspice, Tran>>::SaveKey,
+    ) -> <Self as Save<Ngspice, Tran>>::Saved {
+        let name = output.saved_values.get(&key.0).unwrap();
+        OutputWaveform {
+            t: output.time.clone(),
+            x: output.raw_values.get(name).unwrap().clone(),
+        }
+    }
+}
+
+/// The output of saving a terminal.
+pub struct NestedTerminalOutput {
+    /// The voltage at the terminal.
+    pub v: OutputWaveform,
+    /// The current flowing through the terminal.
+    pub i: OutputWaveform,
+}
+
+impl Save<Ngspice, Tran> for NestedTerminal {
+    type SaveKey = (VoltageSaveKey, CurrentSaveKey);
+    type Saved = NestedTerminalOutput;
+
+    fn save(
+        &self,
+        ctx: &SimulationContext<Ngspice>,
+        opts: &mut <Ngspice as Simulator>::Options,
+    ) -> <Self as Save<Ngspice, Tran>>::SaveKey {
+        (
+            <NestedNode as Save<Ngspice, Tran>>::save(self, ctx, opts),
+            CurrentSaveKey(
+                ctx.lib
+                    .convert_terminal_path(&self.path())
+                    .unwrap()
+                    .into_iter()
+                    .flat_map(|path| {
+                        opts.probe_tran_current(ProbeStmt::ScirCurrent(match path {
+                            ConvertedNodePath::Cell(path) => path.clone(),
+                            ConvertedNodePath::Primitive {
+                                instances, port, ..
+                            } => SliceOnePath::new(
+                                instances.clone(),
+                                NamedSliceOne::new(port.clone()),
+                            ),
+                        }))
+                        .0
+                    })
+                    .collect(),
+            ),
         )
     }
-}
 
-impl Save<Ngspice, Tran, &NodePath> for tran::Voltage {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: &NodePath,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(ctx, ctx.lib.convert_node_path(to_save).unwrap(), opts)
-    }
-}
-
-#[impl_dispatch({SliceOnePath; ConvertedNodePath; NodePath})]
-impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(ctx, &to_save, opts)
-    }
-}
-
-#[impl_dispatch({NestedNode; &NestedNode; NestedTerminal; &NestedTerminal})]
-impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(ctx, to_save.path(), opts)
-    }
-}
-
-#[impl_dispatch({TerminalPath; &TerminalPath})]
-impl<T> Save<Ngspice, Tran, T> for tran::Voltage {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(ctx, to_save.as_ref(), opts)
-    }
-}
-
-/// An identifier for a saved transient current.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CurrentSavedKey(pub(crate) Vec<u64>);
-
-impl FromSaved<Ngspice, Tran> for tran::Current {
-    type SavedKey = CurrentSavedKey;
-    fn from_saved(output: &<Tran as Analysis>::Output, key: &Self::SavedKey) -> Self {
+    fn from_saved(
+        output: &<Tran as Analysis>::Output,
+        key: &<Self as Save<Ngspice, Tran>>::SaveKey,
+    ) -> <Self as Save<Ngspice, Tran>>::Saved {
+        let v = OutputWaveform {
+            t: output.time.clone(),
+            x: output
+                .raw_values
+                .get(output.saved_values.get(&key.0 .0).unwrap())
+                .unwrap()
+                .clone(),
+        };
         let currents: Vec<Arc<Vec<f64>>> = key
-            .0
+            .1
+             .0
             .iter()
             .map(|key| {
                 output
@@ -196,104 +236,19 @@ impl FromSaved<Ngspice, Tran> for tran::Current {
                 total_current[i] += *current;
             }
         }
-        tran::Current(Arc::new(total_current))
-    }
-}
-
-#[impl_dispatch({&str; &String; ArcStr; String; SaveStmt})]
-impl<T> Save<Ngspice, Tran, T> for tran::Current {
-    fn save(
-        _ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        opts.save_tran_current(to_save)
-    }
-}
-
-#[impl_dispatch({
-    &NestedInstance<Resistor>;
-    NestedInstance<Resistor>
-})]
-impl<T> Save<Ngspice, Tran, T> for tran::Current {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        opts.save_tran_current(SaveStmt::ResistorCurrent(
-            ctx.lib.convert_instance_path(to_save.path()).unwrap(),
-        ))
-    }
-}
-
-impl Save<Ngspice, Tran, &SliceOnePath> for tran::Current {
-    fn save(
-        _ctx: &SimulationContext<Ngspice>,
-        to_save: &SliceOnePath,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        opts.probe_tran_current(ProbeStmt::ScirCurrent(to_save.clone()))
-    }
-}
-
-impl Save<Ngspice, Tran, &ConvertedNodePath> for tran::Current {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: &ConvertedNodePath,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(
-            ctx,
-            match to_save {
-                ConvertedNodePath::Cell(path) => path.clone(),
-                ConvertedNodePath::Primitive {
-                    instances, port, ..
-                } => SliceOnePath::new(instances.clone(), NamedSliceOne::new(port.clone())),
+        NestedTerminalOutput {
+            v,
+            i: OutputWaveform {
+                t: output.time.clone(),
+                x: Arc::new(total_current),
             },
-            opts,
-        )
+        }
     }
 }
 
-impl Save<Ngspice, Tran, &TerminalPath> for tran::Current {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: &TerminalPath,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        CurrentSavedKey(
-            ctx.lib
-                .convert_terminal_path(to_save)
-                .unwrap()
-                .into_iter()
-                .flat_map(|path| Self::save(ctx, path, opts).0)
-                .collect(),
-        )
-    }
-}
-
-#[impl_dispatch({SliceOnePath; ConvertedNodePath; TerminalPath})]
-impl<T> Save<Ngspice, Tran, T> for tran::Current {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(ctx, &to_save, opts)
-    }
-}
-
-#[impl_dispatch({NestedTerminal; &NestedTerminal})]
-impl<T> Save<Ngspice, Tran, T> for tran::Current {
-    fn save(
-        ctx: &SimulationContext<Ngspice>,
-        to_save: T,
-        opts: &mut <Ngspice as Simulator>::Options,
-    ) -> Self::SavedKey {
-        Self::save(ctx, to_save.path(), opts)
-    }
-}
+/// An identifier for a saved transient current.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CurrentSaveKey(pub(crate) Vec<u64>);
 
 impl Analysis for Tran {
     type Output = Output;

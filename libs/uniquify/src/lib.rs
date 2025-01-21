@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// A set of unique names.
 ///
 /// Each key of type `K` is assigned a unique name.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Names<K: Hash + Eq> {
     names: HashSet<ArcStr>,
     assignments: HashMap<K, ArcStr>,
