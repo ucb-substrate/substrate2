@@ -2,6 +2,13 @@ name: check-workspace
 
 on:
   workflow_call:
+    inputs:
+      workspace_path:
+        required: true
+        type: string
+      locked:
+        default: false
+        type: boolean
 
 env:
     CARGO_TERM_COLOR: always
@@ -15,54 +22,37 @@ jobs:
       - name: Check formatting
         run: |
           cargo fmt --check
-      - name: Lint
+        working-directory: ${{ inputs.workspace_path }}
+      - name: Lint locked
+        if: ${{ inputs.locked }}
         run: |
           cargo hack clippy --feature-powerset --locked -- -D warnings
-      - name: Lint release examples
-        run: |
-          cargo hack clippy --feature-powerset -- -D warnings
-        working-directory: examples/release
-      - name: Lint tests
+        working-directory: ${{ inputs.workspace_path }}
+      - name: Lint tests locked
+        if: ${{ inputs.locked }}
         run: |
           cargo hack clippy --feature-powerset --tests --locked -- -D warnings
-      - name: Lint release examples tests
+        working-directory: ${{ inputs.workspace_path }}
+      - name: Lint
+        if: ${{ ! inputs.locked }}
+        run: |
+          cargo hack clippy --feature-powerset -- -D warnings
+        working-directory: ${{ inputs.workspace_path }}
+      - name: Lint tests
+        if: ${{ ! inputs.locked }}
         run: |
           cargo hack clippy --feature-powerset --tests -- -D warnings
-        working-directory: examples/release
-  check-docs:
-    name: check-docs
-    runs-on: bwrc
-    steps:
-      - uses: actions/checkout@v3
-      - name: Check docs
-        run: |
-          cargo hack --all rustdoc --all-features
-        env:
-          RUSTFLAGS: '-D warnings'
-          RUSTDOCFLAGS: '-D warnings'
+        working-directory: ${{ inputs.workspace_path }}
   test:
     name: test
     runs-on: bwrc
     steps:
       - uses: actions/checkout@v3
-      - name: Test
+      - name: Test locked
+        if: ${{ inputs.locked }}
         run: cargo test --locked --all-features
-      - name: Test release examples
-        if: ${{ ! startsWith(github.ref, 'release-please--') }}
+        working-directory: ${{ inputs.workspace_path }}
+      - name: Test
+        if: ${{ ! inputs.locked }}
         run: cargo test --all-features
-        working-directory: examples/release
-  check-docs-site:
-    name: check-docs-site
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: docs/docusaurus/yarn.lock
-      - run: yarn install
-        working-directory: docs/docusaurus
-      - run: yarn build
-        working-directory: docs/docusaurus
-
+        working-directory: ${{ inputs.workspace_path }}

@@ -5,5 +5,4 @@ resolver = "2"
 members = [
   "sky130_inverter",
   "spice_vdivider",
-  "substrate_api_examples"
 ]
