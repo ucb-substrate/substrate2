@@ -92,6 +92,8 @@ jobs:
       workspace_path: examples/release
   deploy-api-docs:
     uses: ./.github/workflows/deploy-api-docs.yml
+    secrets: inherit
   deploy-docs:
     uses: ./.github/workflows/deploy-docs.yml
+    secrets: inherit
 
