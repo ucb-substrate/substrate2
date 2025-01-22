@@ -16,6 +16,7 @@ jobs:
     uses: ./.github/workflows/check-workspace.yml
     with:
       workspace_path: .
+      locked: true
   check-release-examples-workspace:
     if: ${{ inputs.check-release-examples }}
     name: check-release-examples-workspace
@@ -33,17 +34,6 @@ jobs:
         env:
           RUSTFLAGS: '-D warnings'
           RUSTDOCFLAGS: '-D warnings'
-  test:
-    name: test
-    runs-on: bwrc
-    steps:
-      - uses: actions/checkout@v3
-      - name: Test
-        run: cargo test --locked --all-features
-      - name: Test release examples
-        if: ${{ ! startsWith(github.ref, 'release-please--') }}
-        run: cargo test --all-features
-        working-directory: examples/release
   check-docs-site:
     name: check-docs-site
     runs-on: ubuntu-22.04
