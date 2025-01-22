@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 substrate = { version = "0.8.1", registry = "substrate", path = "../../../substrate" }
 sky130 = { version = "0.8.1", registry = "substrate", path = "../../../pdks/sky130" }
-layir = { version = "0.1.0", registry = "substrate", path = "../../../libs/layir" }
+layir = { version = "0.0.0", registry = "substrate", path = "../../../libs/layir" }
 gdsconv = { version = "0.1.0", registry = "substrate", path = "../../../libs/gdsconv" }
 gds = { version = "0.3.0", registry = "substrate", path = "../../../libs/gds" }
 scir = { version = "0.7.0", registry = "substrate", path = "../../../libs/scir" }
