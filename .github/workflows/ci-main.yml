@@ -81,7 +81,11 @@ jobs:
       - name: Build `cargo-workspaces`
         working-directory: cargo-workspaces/cargo-workspaces
         run: cargo build
-      - uses: extractions/setup-just@v1
+      - name: Remove latest example Cargo.tomls while publishing
+        working-directory: substrate
+        run: |
+            find examples/latest -name Cargo.toml -delete && \
+            sed -ri.bak 's/\"examples\/latest\/[a-zA-Z0-9_-]*\",?//g' Cargo.toml
       - name: Publish crates
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
