@@ -56,4 +56,3 @@ jobs:
         if: ${{ ! inputs.locked }}
         run: cargo test --all-features
         working-directory: ${{ inputs.workspace_path }}
-        if: ${{ ! startsWith(github.ref, 'release-please--') }}
