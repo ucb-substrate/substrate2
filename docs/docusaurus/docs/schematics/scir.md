@@ -86,7 +86,9 @@ The specifics of this procedure will be detailed later on this page.
 
 Generators in Substrate produce cells that can be exported to SCIR. Substrate's APIs allow defining
 schematics in different schemas, which encodes generator compatibility in the Rust type system. For example,
-a Substrate block with a schematic in the `Sky130Pdk` schema can be included in a Spectre testbench's schematic in the `Spectre` schema, but cannot be included in an HSPICE testbench since the `Sky130Pdk` schema is not compatible with the HSPICE schema. Similarly, you cannot instantiate a SKY130 schematic in a schematic in a different process node (e.g. GF180).
+a Substrate block with a schematic in the `Sky130CdsSchema` schema can be included in a Spectre testbench's schematic in the `Spectre` schema,
+but cannot be included in an HSPICE testbench since the `Sky130CdsSchema` schema is not compatible with the HSPICE schema.
+Similarly, you cannot instantiate a SKY130 schematic in a schematic in a different process node (e.g. GF180).
 
 While the user generally interfaces with Substrate's block API, simulator and netlister plugins interface with SCIR.
 This allows backend tools to abstract away Substrate's internal representation of cells.
