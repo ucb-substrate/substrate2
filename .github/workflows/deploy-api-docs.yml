@@ -2,9 +2,13 @@ name: deploy-api-docs
 
 on:
   workflow_call:
+    inputs:
+      name:
+        type: string
   workflow_dispatch:
     inputs:
       name:
+        type: string
 
 env:
     CARGO_TERM_COLOR: always

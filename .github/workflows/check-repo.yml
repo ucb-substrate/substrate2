@@ -1,0 +1,51 @@
+name: check-repo
+
+on:
+  workflow_call:
+    inputs:
+      check-release-examples:
+        default: true
+        type: boolean
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+  check-root-workspace:
+    name: check-root-workspace
+    uses: ./.github/workflows/check-workspace.yml
+    with:
+      workspace_path: .
+      locked: true
+  check-release-examples-workspace:
+    if: ${{ inputs.check-release-examples }}
+    name: check-release-examples-workspace
+    uses: ./.github/workflows/check-workspace.yml
+    with:
+      workspace_path: examples/release
+  check-docs:
+    name: check-docs
+    runs-on: bwrc
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check docs
+        run: |
+          cargo hack --all rustdoc --all-features
+        env:
+          RUSTFLAGS: '-D warnings'
+          RUSTDOCFLAGS: '-D warnings'
+  check-docs-site:
+    name: check-docs-site
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: docs/docusaurus/yarn.lock
+      - run: yarn install
+        working-directory: docs/docusaurus
+      - run: yarn build
+        working-directory: docs/docusaurus
+

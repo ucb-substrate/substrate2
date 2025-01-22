@@ -43,13 +43,15 @@ jobs:
               --token ${{ secrets.SUBSTRATE2_CI_TOKEN_MAIN }} \
               --repo-url ${{ github.repository }}
           done
-  check-workspace:
-    uses: ./.github/workflows/check-workspace.yml
+  check-repo:
+    uses: ./.github/workflows/check-repo.yml
+    with:
+      check-release-examples: false
   publish-crates:
     name: Publish crates
     runs-on: ubuntu-22.04
     environment: main
-    needs: [ release-please, check-workspace ]
+    needs: [ release-please, check-repo ]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -83,6 +85,11 @@ jobs:
       - name: Publish crates
         working-directory: substrate
         run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
+  check-release-examples:
+    uses: ./.github/workflows/check-workspace.yml
+    needs: [ publish-crates ]
+    with:
+      workspace_path: examples/release
   deploy-api-docs:
     uses: ./.github/workflows/deploy-api-docs.yml
   deploy-docs:
