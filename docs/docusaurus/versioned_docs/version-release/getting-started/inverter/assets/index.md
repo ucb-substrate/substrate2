@@ -111,8 +111,8 @@ or needs to be regenerated.
 We can now generate a schematic for our inverter.
 
 Describing a schematic in Substrate requires implementing the `Schematic` trait,
-which specifies a block's schematic in a particular **schema**. A schema is essentially 
-just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` 
+which specifies a block's schematic in a particular **schema**. A schema is essentially
+just a format for representing a schematic. In this case, we want to use the `Sky130`
 schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
@@ -250,7 +250,7 @@ a schema is essentially just a layer stack. We also have to specify `Bundle`,
 which describes the geometry associated with the inverter's IO, and `Data`,
 which describes any nested geometry that we might want to pass up to parent cells.
 
-In this case, we want to use the `Sky130Pdk` schema as our inverter uses the SKY130 layer stack.
+In this case, we want to use the `Sky130` schema as our inverter uses the SKY130 layer stack.
 We also choose to use the layout bundle that Substrate autogenerates in its `#[derive(Io)]` macro,
 though more advanced users can choose to implement a custom layout bundle that more accurately describes
 the IO geometry. Substrate's default layout bundle consists of `PortGeometry`s, which are essentially
