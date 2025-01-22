@@ -544,6 +544,7 @@ dependencies = [
  "arcstr",
  "convert_case 0.6.0",
  "darling 0.20.10",
+ "examples",
  "macrotools",
  "proc-macro-crate 1.3.1",
  "proc-macro-error",
@@ -934,6 +935,10 @@ dependencies = [
  "libc",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "examples"
+version = "0.1.0"
 
 [[package]]
 name = "fallible-iterator"
@@ -2715,6 +2720,7 @@ dependencies = [
  "duplicate",
  "ena",
  "enumify",
+ "examples",
  "gds",
  "gdsconv",
  "geometry",

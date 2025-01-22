@@ -11,6 +11,7 @@
     "codegen": {},
     "config": {},
     "docs/snippets": {},
+    "examples": {},
     "examples/latest/sky130_inverter": {},
     "examples/latest/spice_vdivider": {},
     "examples/latest/colbuf": {},
