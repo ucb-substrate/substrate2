@@ -19,4 +19,4 @@ rm -rf $PUBLIC_DOCS_DIR/api/static/$REF_NAME
 mkdir -p $PUBLIC_DOCS_DIR/api/static/$REF_NAME
 cp -r ./target/doc/. $PUBLIC_DOCS_DIR/api/static/$REF_NAME
 cd $PUBLIC_DOCS_DIR/api
-flyctl deploy --remote-only --detach
+flyctl deploy --remote-only --detach --access-token=$FLY_API_TOKEN
