@@ -32,4 +32,4 @@ else
     cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
 fi
 cd $PUBLIC_DOCS_DIR/docusaurus
-flyctl deploy --remote-only --detach --access-token=$FLY_API_TOKEN
+flyctl deploy --remote-only --detach --access-token=$FLY_ACCESS_TOKEN
