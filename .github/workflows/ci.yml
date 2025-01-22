@@ -7,7 +7,7 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
-  check-workspace:
-    uses: ./.github/workflows/check-workspace.yml
+  check-repo:
+    uses: ./.github/workflows/check-repo.yml
     with:
       check-release-examples: ${{ ! startsWith(github.ref, 'release-please--') }}
