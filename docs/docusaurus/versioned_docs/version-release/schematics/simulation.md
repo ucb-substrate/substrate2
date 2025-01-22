@@ -21,12 +21,12 @@ Simulators can also provide a set of options that allow users to modify the beha
 
 ### Saved data
 
-Simulators can also specify what data can be saved from a testbench using the 
-[`FromSaved`](https://api.substratelabs.io/substrate/simulation/data/trait.FromSaved.html) and 
-[`Save`](https://api.substratelabs.io/substrate/simulation/data/trait.Save.html) traits. The `Save` 
-trait modifies the simulator options to keep track of what data needs to be saved and returns a key for 
-accessing that data. The `FromSaved` trait then takes this key and uses it to retrieve the associated data 
-from the simulation output after the simulation has run. The simulator plugin writer will need to 
+Simulators can also specify what data can be saved from a testbench using the
+[`FromSaved`](https://api.substratelabs.io/substrate/simulation/data/trait.FromSaved.html) and
+[`Save`](https://api.substratelabs.io/substrate/simulation/data/trait.Save.html) traits. The `Save`
+trait modifies the simulator options to keep track of what data needs to be saved and returns a key for
+accessing that data. The `FromSaved` trait then takes this key and uses it to retrieve the associated data
+from the simulation output after the simulation has run. The simulator plugin writer will need to
 store keys in the options and propagate them to the simulation output so that data can be retrieved correctly.
 
 Simulators should generally support saving currents and voltages for nodes and terminals in Substrate and SCIR formats.

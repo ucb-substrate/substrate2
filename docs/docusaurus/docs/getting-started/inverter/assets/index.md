@@ -1,10 +1,10 @@
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
 import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
-import OpenTools from '@site/src/pages/docs/getting-started/inverter/open_tools.md';
-import CdsTools from '@site/src/pages/docs/getting-started/inverter/cds_tools.md';
-import Sky130OpenPdk from '@site/src/pages/docs/getting-started/inverter/sky130_open_pdk.md';
-import Sky130CdsPdk from '@site/src/pages/docs/getting-started/inverter/sky130_cds_pdk.md';
+import OpenTools from './open_tools.md';
+import CdsTools from './cds_tools.md';
+import Sky130OpenPdk from './sky130_open_pdk.md';
+import Sky130CdsPdk from './sky130_cds_pdk.md';
 import {isRelease} from '@site/src/utils/versions';
 export const inverterMod = require(`{{EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`);
 export const inverterLayout = require(`{{EXAMPLES}}/sky130_inverter/src/layout.rs?snippet`);
@@ -155,7 +155,7 @@ Here's how that looks in Rust code:
 
 The `Pvt<Sky130Corner>` in our testbench is essentially a 3-tuple of a process corner,
 voltage, and temperature. The process corner here is an instance of `Sky130Corner`,
-which is defined in the `sky130pdk` plugin for Substrate.
+which is defined in the `sky130` plugin for Substrate.
 
 Let's now create the schematic for our testbench. We will do this in the { props.open ? <code>Ngspice</code> : <code>Spectre</code> } schema so that the { props.open ? "ngspice" : "Spectre" } simulator plugin knows how to netlist and simulate our testbench. This should have three components:
 * A pulse input source driving the inverter input.

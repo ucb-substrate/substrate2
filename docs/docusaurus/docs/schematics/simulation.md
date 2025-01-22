@@ -17,22 +17,22 @@ Once a simulator is defined, a set of supported analyses can be defined using th
 
 ### Options
 
-Simulators can also provide a set of options that allow users to modify the behavior of the simulator by carefully designing the interface for their options type. An example of this is the Spectre plugin's [`Options`] type, which allows users to specify includes, saved currents/voltages, and more. Additional supported options, especially ones that should be simulator-portable, 
+Simulators can also provide a set of options that allow users to modify the behavior of the simulator by carefully designing the interface for their options type. An example of this is the Spectre plugin's [`Options`] type, which allows users to specify includes, saved currents/voltages, and more. Additional supported options, especially ones that should be simulator-portable,
 can be defined using the [`SimOption`] trait.
 
 ### Saved data
 
-Simulators can also specify what data can be saved using the 
-[`Save`] trait. Before the simulation runs, [`Save::save`] modifies the simulator options to keep track of what data needs to be saved and returns a key for 
-accessing that data. [`Save::from_saved`] then takes this key and uses it to retrieve the associated data 
-from the simulation output after the simulation has run. The simulator plugin writer will need to 
+Simulators can also specify what data can be saved using the
+[`Save`] trait. Before the simulation runs, [`Save::save`] modifies the simulator options to keep track of what data needs to be saved and returns a key for
+accessing that data. [`Save::from_saved`] then takes this key and uses it to retrieve the associated data
+from the simulation output after the simulation has run. The simulator plugin writer will need to
 store keys in the options and propagate them to the simulation output so that data can be retrieved correctly.
 
 Simulators should generally support saving currents and voltages for nodes and terminals in Substrate and SCIR formats.
 
 [`Simulator`]: {{API}}/substrate/simulation/trait.Simulator.html
 [`Analysis`]: {{API}}/substrate/simulation/trait.SupportedBy.html
-[`SupportedBy`]: {{API}}/substrate/simulation/trait.SupportedBy.html 
+[`SupportedBy`]: {{API}}/substrate/simulation/trait.SupportedBy.html
 [`Options`]: {{API}}/spectre/struct.Options.html
 [`SimOption`]: {{API}}/substrate/simulation/options/trait.SimOption.html
 [`Save`]: {{API}}/substrate/simulation/data/trait.Save.html

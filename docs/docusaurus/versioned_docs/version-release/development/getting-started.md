@@ -26,4 +26,3 @@ Follow the instructions below to set up your development environment for Substra
 ## Reading
 
 Read the Substrate [README](https://github.com/substrate-labs/substrate2) and [contributing guide](https://github.com/substrate-labs/substrate2/blob/main/docs/CONTRIBUTING.md).
-

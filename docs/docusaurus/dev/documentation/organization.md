@@ -16,6 +16,7 @@ The API docs simply uses `cargo doc` to generate docs for the root cargo workspa
 The user docs and developer docs are Docusaurus docs. The Docusaurus website is configured
 using [`docusaurus.config.ts`] and [`site-config.json`]. The behavior of the website differs
 depending on whether the `branch` key in [`site-config.json`] is `main` or a different branch:
+
 - On the `main` branch, the blog is present and release documentation is available.
 - On other branches, only documentation corresponding to the latest code is available.
 
@@ -31,10 +32,14 @@ In the user docs, code snippets should always reference code in the appropriatel
 This can be done using the `EXAMPLES` global variable:
 
 ```jsx
-import CodeSnippet from '@site/src/components/CodeSnippet';
-export const inverterMod = require(`{{>EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`);
+import CodeSnippet from "@site/src/components/CodeSnippet";
+export const inverterMod = require(
+  `{{>EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`,
+);
 
-<CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{inverterMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="imports">
+  {inverterMod}
+</CodeSnippet>;
 ```
 
 The developer docs should always reference the latest code. All of the global variables will reference
@@ -42,16 +47,17 @@ the correctly-versioned docs when referenced in the developer docs. The followin
 to reference the actual code base:
 
 ```jsx
-import CodeSnippet from '@site/src/components/CodeSnippet';
+import CodeSnippet from "@site/src/components/CodeSnippet";
 export const context = require(`@substrate/substrate/src/context.rs?snippet`);
 
-<CodeSnippet language="rust" title="substrate/src/context.rs" snippet="context">{context}</CodeSnippet>
+<CodeSnippet language="rust" title="substrate/src/context.rs" snippet="context">
+  {context}
+</CodeSnippet>;
 ```
 
 The resulting code snippet would look like this:
 
 <CodeSnippet language="rust" title="substrate/src/context.rs" snippet="context">{context}</CodeSnippet>
-
 
 [API docs]: {{GITHUB_URL}}/docs/api
 [user docs]: {{GITHUB_URL}}/docs/docusaurus/docs

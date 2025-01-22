@@ -1,5 +1,5 @@
 {
-  "name": "site-2",
+  "name": "substrate-docs",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -30,6 +30,7 @@
     "@docusaurus/module-type-aliases": "3.0.0",
     "@docusaurus/tsconfig": "3.0.0",
     "@docusaurus/types": "3.0.0",
+    "prettier": "3.4.2",
     "typescript": "~5.2.2"
   },
   "browserslist": {

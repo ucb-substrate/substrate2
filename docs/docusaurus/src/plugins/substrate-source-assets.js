@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require("path");
 // A JavaScript function that returns an object.
 // `context` is provided by Docusaurus. Example: siteConfig can be accessed from context.
 // `opts` is the user-defined options.
@@ -9,7 +9,7 @@ async function substrateSourceAssets(context, opts) {
     // If you're writing your own local plugin, you will want it to
     // be unique in order not to potentially conflict with imported plugins.
     // A good way will be to add your own project name within.
-    name: 'substrate-labs-substrate-source-assets',
+    name: "substrate-labs-substrate-source-assets",
 
     configureWebpack(config, isServer, utils, content) {
       // Modify internal webpack config. If returned value is an Object, it
@@ -20,22 +20,21 @@ async function substrateSourceAssets(context, opts) {
           rules: [
             {
               resourceQuery: /snippet/,
-              type: 'asset/source',
-            }
-          ]
+              type: "asset/source",
+            },
+          ],
         },
         resolve: {
           alias: {
-            "@substrate": path.resolve(__dirname, '../../../../'),
-          }
-        }
+            "@substrate": path.resolve(__dirname, "../../../../"),
+          },
+        },
       };
     },
 
     getPathsToWatch() {
       // Paths to watch.
     },
-
   };
 }
 

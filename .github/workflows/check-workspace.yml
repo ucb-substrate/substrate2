@@ -20,14 +20,14 @@ jobs:
           cargo hack clippy --feature-powerset --locked -- -D warnings
       - name: Lint release examples
         run: |
-          cargo hack clippy --feature-powerset --locked -- -D warnings
+          cargo hack clippy --feature-powerset -- -D warnings
         working-directory: examples/release
       - name: Lint tests
         run: |
           cargo hack clippy --feature-powerset --tests --locked -- -D warnings
       - name: Lint release examples tests
         run: |
-          cargo hack clippy --feature-powerset --tests --locked -- -D warnings
+          cargo hack clippy --feature-powerset --tests -- -D warnings
         working-directory: examples/release
   check-docs:
     name: check-docs
@@ -49,7 +49,7 @@ jobs:
         run: cargo test --locked --all-features
       - name: Test release examples
         if: ${{ ! startsWith(github.ref, 'release-please--') }}
-        run: cargo test --locked --all-features
+        run: cargo test --all-features
         working-directory: examples/release
   check-docs-site:
     name: check-docs-site

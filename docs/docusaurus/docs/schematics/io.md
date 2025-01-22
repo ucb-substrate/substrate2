@@ -46,31 +46,30 @@ This allows you to parametrize the contents of your interface at runtime in what
 
 Since port direction rules are often broken in analog design, Substrate does not enforce any directionality checks when connecting two ports. However, Substrate does run a basic driver analysis that throws warnings if there are multiple drivers of a net or no drivers, which may be helpful for debugging purposes.
 
-All IOs implement the [`Directed`] trait, 
-which allows them to specify the direction of each of their constituent ports. 
-Wrapping a signal with one of the 
-[`Input`], 
-[`Output`], or 
+All IOs implement the [`Directed`] trait,
+which allows them to specify the direction of each of their constituent ports.
+Wrapping a signal with one of the
+[`Input`],
+[`Output`], or
 [`InOut`] wrapper types allows you to specify the direction of different components of the IO.
 All IO ports must have a specified direction.
 
-Wrapping a composite type with a direction will overwrite the direction of all constituent signals. 
+Wrapping a composite type with a direction will overwrite the direction of all constituent signals.
 In the example below, all of the ports of `SramObserverIo` are inputs.
 
 <CodeSnippet language="rust" snippet="sram-io">{core}</CodeSnippet>
 
-Similarly, if we wanted to create an `SramDriverIo` that drives the input signals of an SRAM and 
-reads the output, we can use the [`Flipped`] wrapper type, which flips the 
+Similarly, if we wanted to create an `SramDriverIo` that drives the input signals of an SRAM and
+reads the output, we can use the [`Flipped`] wrapper type, which flips the
 direction of each constituent port.
 
 <CodeSnippet language="rust" snippet="sram-driver-io">{core}</CodeSnippet>
 
-
 ## Bundles
 
-Since bundle kind structs only define the properties of an interface, a separate struct is needed to store 
-connectivity data for the signals and buses defined by the IO struct. This struct is called a 
-**bundle** and is associated with an IO struct via the 
+Since bundle kind structs only define the properties of an interface, a separate struct is needed to store
+connectivity data for the signals and buses defined by the IO struct. This struct is called a
+**bundle** and is associated with an IO struct via the
 [`SchematicBundleKind`] trait.
 
 A bundle essentially just stores what each port in the IO is connected to and is created when the schematic type described by an IO struct is instantiated. In the case of the `VdividerIo` given before, the `#[derive(Io)]` macro automatically generates an appropriate schematic bundle
@@ -93,9 +92,9 @@ Substrate can connect any two bundles that have the same bundle kind. For exampl
 kind `Array::new(5)` can be connected to one another, but a bundle with kind `Array::new(5)` cannot
 be connected to a bundle with kind `Array::new(6)`.
 
-Connections are made between two bundles by flattening bundles into an array of 
-constituent wires and connecting these wires in order. As such, only bundles of the same 
-bundle kind can be connected since Substrate cannot make any assumptions 
+Connections are made between two bundles by flattening bundles into an array of
+constituent wires and connecting these wires in order. As such, only bundles of the same
+bundle kind can be connected since Substrate cannot make any assumptions
 on the ordering of wires in different bundle kinds.
 
 ### Custom connections
@@ -142,7 +141,6 @@ different kinds (perhaps they were defined in different crates):
 We can connect bundles of these IOs as follows:
 
 <CodeSnippet language="rust" snippet="arbitrary-connect">{core}</CodeSnippet>
-
 
 [`Io`]: {{API}}/substrate/types/trait.Io.html
 [`Directed`]: {{API}}/substrate/types/trait.Directed.html

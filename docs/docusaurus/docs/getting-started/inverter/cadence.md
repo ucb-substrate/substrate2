@@ -3,7 +3,7 @@ title: With Cadence tools
 sidebar_position: 3
 ---
 
-import Inverter from '@site/src/pages/docs/getting-started/inverter/index.md';
+import Inverter from './assets/index.md';
 
 # Designing an inverter with Cadence tools
 

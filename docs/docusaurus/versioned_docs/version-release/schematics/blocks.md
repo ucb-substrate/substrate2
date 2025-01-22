@@ -16,8 +16,8 @@ A block is simply a Rust type that stores generator parameters:
 
 <CodeSnippet language="rust" snippet="vdivider-struct">{vdividerMod}</CodeSnippet>
 
-A block must implement the [`Block`] trait. In the 
-above example, this is done using `#[derive(Block)]` and `#[substrate(io = "VdividerIo")]`. However, this only works when the IO (in this 
+A block must implement the [`Block`] trait. In the
+above example, this is done using `#[derive(Block)]` and `#[substrate(io = "VdividerIo")]`. However, this only works when the IO (in this
 case, `VdividerIo`) implements `Default`.
 
 Though it is more verbose, it is generally preferred to implement the trait manually as this also allows you to provide a more descriptive name for generated cells and parameterize the block's IO:
@@ -26,13 +26,12 @@ Though it is more verbose, it is generally preferred to implement the trait manu
 
 There are a few things you need to specify when defining a block:
 
-
-| Member | Description |
-|---|---|
-| `type Io` | The IO type of the block. See the [IOs section](./io.md) for more details. |
-| `fn id() -> ArcStr` | Returns a unique ID of this block within the crate. While this is not used by Substrate as of November 2023, its intended purpose is to allow generators to be called by name, potentially via a CLI. **No two blocks in the same crate should have the same ID string.** |
-| `fn name(&self)` | Returns a name describing a specific instantiation of a block. This is used to create descriptive cell names when netlisting or writing a layout to GDS. |
-| `fn io(&self) -> Self::Io` | Returns an instantiation of the block's IO type, describing the properties of the IO for a specific set of parameters. This allows you to vary bus lengths at runtime based on block parameters. |
+| Member                     | Description                                                                                                                                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type Io`                  | The IO type of the block. See the [IOs section](./io.md) for more details.                                                                                                                                                                                                |
+| `fn id() -> ArcStr`        | Returns a unique ID of this block within the crate. While this is not used by Substrate as of November 2023, its intended purpose is to allow generators to be called by name, potentially via a CLI. **No two blocks in the same crate should have the same ID string.** |
+| `fn name(&self)`           | Returns a name describing a specific instantiation of a block. This is used to create descriptive cell names when netlisting or writing a layout to GDS.                                                                                                                  |
+| `fn io(&self) -> Self::Io` | Returns an instantiation of the block's IO type, describing the properties of the IO for a specific set of parameters. This allows you to vary bus lengths at runtime based on block parameters.                                                                          |
 
 ## Block contents
 

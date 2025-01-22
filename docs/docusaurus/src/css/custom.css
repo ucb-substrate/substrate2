@@ -9,10 +9,10 @@
   --ifm-color-primary: #3368ff;
   --ifm-color-primary-dark: #1d50e4;
   --ifm-color-primary-darker: #12328f;
-  --ifm-color-primary-darkest:  #082167;
+  --ifm-color-primary-darkest: #082167;
   --ifm-color-primary-light: #c0cffa;
   --ifm-color-primary-lighter: #e0e8ff;
-  --ifm-color-primary-lightest:  #f2f5ff;
+  --ifm-color-primary-lightest: #f2f5ff;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-navbar-background-color: #f3f4f6;
@@ -20,33 +20,33 @@
   --ifm-navbar-shadow: rgba(0, 0, 0, 0) 0px 1px 2px 0px;
 }
 
-[data-theme='light'] .hero {
+[data-theme="light"] .hero {
   background-color: #f3f4f6;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark']:root {
-  --ifm-link-color:  #5d85f8;
+[data-theme="dark"]:root {
+  --ifm-link-color: #5d85f8;
   --ifm-color-primary: #c0cffa;
   --ifm-color-primary-dark: #3368ff;
   --ifm-color-primary-darker: #1d50e4;
   --ifm-color-primary-darkest: #12328f;
   --ifm-color-primary-light: #e0e8ff;
-  --ifm-color-primary-lighter:  #f2f5ff;
-  --ifm-color-primary-lightest:  #fafbff;
+  --ifm-color-primary-lighter: #f2f5ff;
+  --ifm-color-primary-lightest: #fafbff;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
   --ifm-background-color: #111927;
   --ifm-background-surface-color: #161f36;
   --ifm-navbar-background-color: #161f36;
 }
 .menu {
-    background-color: var(--ifm-navbar-background-color);
+  background-color: var(--ifm-navbar-background-color);
 }
-[data-theme='dark'] .footer--dark {
+[data-theme="dark"] .footer--dark {
   --ifm-footer-background-color: #0f121b;
 }
 
-[data-theme='dark'] .featureSvg {
+[data-theme="dark"] .featureSvg {
   filter: invert(100%);
 }
 h1 {
@@ -84,41 +84,41 @@ h6 {
 }
 
 .breadcrumbs {
-    margin: 20px 0 0px 0 !important;
+  margin: 20px 0 0px 0 !important;
 }
 .badge {
-    margin: 10px 0 20px 0 !important;
+  margin: 10px 0 20px 0 !important;
 }
 .breadcrumbs__item--active {
-    margin: 0 0.2rem;
+  margin: 0 0.2rem;
 }
 .breadcrumbs__item:not(:last-child)::after {
-    margin: 0 0;
+  margin: 0 0;
 }
 
-[data-theme='light'] {
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-        color: var(--ifm-color-primary-darkest);
-    }
+[data-theme="light"] {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--ifm-color-primary-darkest);
+  }
 }
-[data-theme='dark'] {
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-        color: var(--ifm-color-primary);
-    }
+[data-theme="dark"] {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--ifm-color-primary);
+  }
 }
 
 .code-block-diff-add-line {
-  background-color: rgba(0, 255, 128, .1);
+  background-color: rgba(0, 255, 128, 0.1);
   display: block;
   margin: 0 -40px;
   padding: 0 40px;
@@ -128,11 +128,11 @@ h6 {
   position: absolute;
   left: 8px;
   padding-right: 8px;
-  content: '+';
+  content: "+";
 }
 
 .code-block-diff-remove-line {
-  background-color: rgba(255, 0, 0, .1);
+  background-color: rgba(255, 0, 0, 0.1);
   display: block;
   margin: 0 -40px;
   padding: 0 40px;
@@ -142,18 +142,18 @@ h6 {
   position: absolute;
   left: 8px;
   padding-right: 8px;
-  content: '-';
+  content: "-";
 }
 
 /**
  * use magic comments to mark diff blocks
  */
 pre code:has(.code-block-diff-add-line) {
-  padding-left: 40px!important;
-  padding-right: 40px!important;
+  padding-left: 40px !important;
+  padding-right: 40px !important;
 }
 
 pre code:has(.code-block-diff-remove-line) {
-  padding-left: 40px!important;
-  padding-right: 40px!important;
+  padding-left: 40px !important;
+  padding-right: 40px !important;
 }
