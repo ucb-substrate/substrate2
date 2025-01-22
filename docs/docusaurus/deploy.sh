@@ -23,7 +23,7 @@ EOF
 yarn install --frozen-lockfile
 yarn build
 if [ $REF_NAME = "main" ]; then
-    find $PUBLIC_DOCS_DIR/docusaurus/static -not -path "$PUBLIC_DOCS_DIR/docusaurus/static/branch/*" -not -name "fly.toml" -not -name "Dockerfile" -delete
+    find $PUBLIC_DOCS_DIR/docusaurus/static -maxdepth 1 -mindepth 1 -not -name "branch" -exec rm -r {} +
     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static
     cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static
 else
