@@ -1,6 +1,6 @@
 [package]
 name = "nutlex"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Parses SPICE nutmeg files (aka rawfiles)"
 
@@ -9,7 +9,7 @@ nom = "7.1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 
-enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
+enumify = { version = "0.1.1", path = "../enumify", registry = "substrate" }
 
 [dev-dependencies]
 approx = "0.5"

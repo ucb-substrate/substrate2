@@ -1,7 +1,7 @@
 [package]
 name = "enumify"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
-enumify_macros = { version = "0.1.0", registry = "substrate", path = "../enumify_macros" }
+enumify_macros = { version = "0.2.0", registry = "substrate", path = "../enumify_macros" }

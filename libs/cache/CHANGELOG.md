@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.5.0...cache-v0.6.0) (2025-01-22)
+
+
+### Features
+
+* **ac:** implement Save for Substrate types in Spectre AC sim, fix lints ([#471](https://github.com/ucb-substrate/substrate2/issues/471)) ([9825520](https://github.com/ucb-substrate/substrate2/commit/98255207569cc00bd9ddc35419c2df1e48f1999c))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **magic:** support magic for pex and lvs extraction ([#465](https://github.com/ucb-substrate/substrate2/issues/465)) ([c759341](https://github.com/ucb-substrate/substrate2/commit/c759341f065cf1e8aca8c4552a214391a7149cbf))
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/cache-v0.4.0...cache-v0.5.0) (2023-11-25)
 
 

@@ -16,6 +16,22 @@
   * dependencies
     * cache bumped from 0.4.0 to 0.5.0
 
+## [0.3.0](https://github.com/ucb-substrate/substrate2/compare/config-v0.2.5...config-v0.3.0) (2025-01-22)
+
+
+### Features
+
+* **ac:** implement Save for Substrate types in Spectre AC sim, fix lints ([#471](https://github.com/ucb-substrate/substrate2/issues/471)) ([9825520](https://github.com/ucb-substrate/substrate2/commit/98255207569cc00bd9ddc35419c2df1e48f1999c))
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **tests:** fix compilation and lint errors ([#482](https://github.com/ucb-substrate/substrate2/issues/482)) ([b55d04e](https://github.com/ucb-substrate/substrate2/commit/b55d04ecd2472f9f72b926ba5286f0d928bc2691))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.5.0 to 0.6.0
+
 ## [0.2.4](https://github.com/ucb-substrate/substrate2/compare/config-v0.2.3...config-v0.2.4) (2023-11-02)
 
 

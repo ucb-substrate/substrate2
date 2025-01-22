@@ -6,20 +6,27 @@ publish = false
 
 # begin-code-snippet dependencies
 [dependencies]
-substrate = { version = "0.8.1", registry = "substrate" }
-ngspice = { version = "0.3.1", registry = "substrate" }
-sky130pdk = { version = "0.8.1", registry = "substrate" }
+substrate = { version = "0.9.0", registry = "substrate" }
+sky130 = { version = "0.9.0", registry = "substrate" }
+layir = { version = "0.1.0", registry = "substrate" }
+gdsconv = { version = "0.1.0", registry = "substrate" }
+gds = { version = "0.3.1", registry = "substrate" }
+scir = { version = "0.8.0", registry = "substrate" }
+spice = { version = "0.8.0", registry = "substrate" }
 
-serde = { version = "1", features = ["derive"] }
+arcstr = "1"
 rust_decimal = "1.30"
 rust_decimal_macros = "1.30"
 # end-code-snippet dependencies
 
-spectre = { version = "0.9.1", registry = "substrate", optional = true }
+# begin-code-snippet open-dependencies
+ngspice = { version = "0.4.0", registry = "substrate" }
+magic_netgen = { version = "0.1.0", registry = "substrate" }
+magic = { version = "0.1.0", registry = "substrate" }
+# end-code-snippet open-dependencies
 
-# This feature flag allows us to control which tests are run.
-# We don't want to run tests that use Spectre when we are developing locally.
-# If you are copying this example, you can remove this section
-# and remove the `#[cfg(feature = "spectre")]` in `src/tb.rs`.
-[features]
-spectre = ["dep:spectre"]
+# begin-code-snippet cds-dependencies
+spectre = { version = "0.10.0", registry = "substrate" }
+quantus = { version = "0.1.0", registry = "substrate" }
+pegasus = { version = "0.1.0", registry = "substrate" }
+# end-code-snippet cds-dependencies
