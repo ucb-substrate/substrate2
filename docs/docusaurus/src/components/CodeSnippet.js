@@ -57,13 +57,11 @@ function isMagicComment(trimmed, comment, snippet) {
 }
 
 function getSnippet(content, snippet, replacements = {}) {
-  console.log(replacements);
   var inSnippet = false;
   var inReplace = null;
   var commentSnippet;
   var selected = "";
   for (const line of content.split("\n")) {
-    console.log(inReplace);
     const trimmed = line.trim();
     if (isMagicComment(trimmed, "begin-code-snippet", snippet)) {
       inSnippet = true;
@@ -76,7 +74,6 @@ function getSnippet(content, snippet, replacements = {}) {
       if (commentSnippet in replacements) {
         inReplace = commentSnippet;
       }
-      console.log(inReplace);
     } else if (
       inReplace &&
       isMagicComment(trimmed, "end-code-replace") === inReplace
