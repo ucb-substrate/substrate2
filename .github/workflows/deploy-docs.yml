@@ -26,5 +26,5 @@ jobs:
       - run: ./deploy.sh ${{ env.PUBLIC_DOCS_DIR }} ${{ inputs.name || github.ref_name }}
         working-directory: docs/docusaurus
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
+          FLY_ACCESS_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}
 
