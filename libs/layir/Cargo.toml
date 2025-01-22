@@ -1,6 +1,6 @@
 [package]
 name = "layir"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
@@ -13,9 +13,9 @@ indexmap = { version = "2", features = ["serde"] }
 thiserror = "1"
 
 diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
-uniquify = { version = "0.2.0", path = "../uniquify", registry = "substrate" }
-enumify = { version = "0.1.0", path = "../enumify", registry = "substrate" }
-geometry = { version = "0.5.0", registry = "substrate", path = "../geometry" }
+uniquify = { version = "0.3.0", path = "../uniquify", registry = "substrate" }
+enumify = { version = "0.1.1", path = "../enumify", registry = "substrate" }
+geometry = { version = "0.6.0", registry = "substrate", path = "../geometry" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

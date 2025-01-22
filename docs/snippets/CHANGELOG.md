@@ -20,6 +20,14 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.6.0](https://github.com/ucb-substrate/substrate2/compare/snippets-v0.5.1...snippets-v0.6.0) (2025-01-22)
+
+
+### Features
+
+* **ac:** implement Save for Substrate types in Spectre AC sim, fix lints ([#471](https://github.com/ucb-substrate/substrate2/issues/471)) ([9825520](https://github.com/ucb-substrate/substrate2/commit/98255207569cc00bd9ddc35419c2df1e48f1999c))
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.4.1...examples-v0.5.0) (2023-11-25)
 
 

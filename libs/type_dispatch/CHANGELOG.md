@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/type_dispatch-v0.3.0...type_dispatch-v0.4.0) (2025-01-22)
+
+
+### Features
+
+* **grid:** add ATOLL LCM routing grid and layer stack definition ([#338](https://github.com/ucb-substrate/substrate2/issues/338)) ([1e1ad90](https://github.com/ucb-substrate/substrate2/commit/1e1ad90d02b50dd0dd15516c306971241bf30b7c))
+* **tests:** reorganize tests and documentation ([#464](https://github.com/ucb-substrate/substrate2/issues/464)) ([928b9b7](https://github.com/ucb-substrate/substrate2/commit/928b9b7c45dc334ca11d86e4564edc58bf6db6f2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * type_dispatch_macros bumped from 0.3.0 to 0.3.1
+
 ## [0.3.0](https://github.com/substrate-labs/substrate2/compare/type_dispatch-v0.2.0...type_dispatch-v0.3.0) (2023-08-08)
 
 
