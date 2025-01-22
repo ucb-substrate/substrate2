@@ -14,7 +14,7 @@
   "libs/enumify": "0.1.0",
   "libs/enumify_macros": "0.1.0",
   "libs/gds": "0.3.0",
-  "libs/gdsconv": "0.1.0",
+  "libs/gdsconv": "0.0.0",
   "libs/geometry": "0.5.0",
   "libs/geometry_macros": "0.0.1",
   "libs/pathtree": "0.2.0",

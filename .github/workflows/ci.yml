@@ -10,4 +10,4 @@ jobs:
   check-repo:
     uses: ./.github/workflows/check-repo.yml
     with:
-      check-release-examples: ${{ ! startsWith(github.ref, 'refs/heads/release-please--') }}
+      check-release-examples: ${{ ! startsWith(github.head_ref, 'release-please--') }}
