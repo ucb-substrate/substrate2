@@ -285,7 +285,7 @@ The final layout generator should look like this:
 
 ### Verification
 
-We can now run { props.open ? "" : "DRC and"} LVS using { props.open ? "magic and netgen" : "Pegasus" }
+We can now run DRC and LVS using { props.open ? "magic and netgen" : "Pegasus" }
 by writing a cargo test in `src/layout.rs`:
 
 <CodeSnippet language="rust" title="src/layout.rs" snippet={ props.open ? "open-tests" : "cds-tests" }>{inverterLayout}</CodeSnippet>
