@@ -1,0 +1,8 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+]

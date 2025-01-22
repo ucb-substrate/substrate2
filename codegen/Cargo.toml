@@ -24,6 +24,7 @@ rust_decimal_macros = "1.30"
 
 [build-dependencies]
 snippets = { version = "0.6.0", registry = "substrate", path = "../docs/snippets" }
+examples = { version = "0.1.0", registry = "substrate", path = "../examples" }
 
 [lib]
 proc-macro = true

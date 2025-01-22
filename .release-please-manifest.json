@@ -3,6 +3,7 @@
   "codegen": "0.9.0",
   "config": "0.3.0",
   "docs/snippets": "0.6.0",
+  "examples": "0.1.0",
   "examples/latest/sky130_inverter": "0.0.0",
   "examples/latest/spice_vdivider": "0.0.0",
   "examples/latest/colbuf": "0.0.0",
