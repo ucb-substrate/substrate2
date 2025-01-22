@@ -9,3 +9,5 @@ env:
 jobs:
   check-workspace:
     uses: ./.github/workflows/check-workspace.yml
+    with:
+      check-release-examples: ${{ ! startsWith(github.ref, 'release-please--') }}
