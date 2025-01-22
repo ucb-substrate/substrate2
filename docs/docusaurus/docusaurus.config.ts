@@ -64,6 +64,7 @@ const config: Config = {
             onlyIncludeVersions: ["current"],
             lastVersion: "current",
           }),
+          exclude: ['**/assets/**'],
           sidebarPath: require.resolve("./sidebars.js"),
           versions: {
             current: {

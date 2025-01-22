@@ -1,10 +1,10 @@
 import CodeSnippet from '@site/src/components/CodeSnippet';
 import SubstrateRegistryConfig from '@site/src/components/SubstrateRegistryConfig.mdx';
 import DependenciesSnippet from '@site/src/components/DependenciesSnippet';
-import OpenTools from '@site/src/pages/docs/getting-started/inverter/open_tools.md';
-import CdsTools from '@site/src/pages/docs/getting-started/inverter/cds_tools.md';
-import Sky130OpenPdk from '@site/src/pages/docs/getting-started/inverter/sky130_open_pdk.md';
-import Sky130CdsPdk from '@site/src/pages/docs/getting-started/inverter/sky130_cds_pdk.md';
+import OpenTools from './open_tools.md';
+import CdsTools from './cds_tools.md';
+import Sky130OpenPdk from './sky130_open_pdk.md';
+import Sky130CdsPdk from './sky130_cds_pdk.md';
 import {isRelease} from '@site/src/utils/versions';
 export const inverterMod = require(`{{EXAMPLES}}/sky130_inverter/src/lib.rs?snippet`);
 export const inverterLayout = require(`{{EXAMPLES}}/sky130_inverter/src/layout.rs?snippet`);
@@ -16,7 +16,7 @@ export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippe
 In this tutorial, we'll design and simulate a schematic-level inverter in
 the Skywater 130nm process to showcase some of the capabilities of Substrate's
 analog simulation interface. Substrate will call into {props.open ? "open source tools (ngspice, magic, and Netgen)"
-: "Cadence tools (Spectre, Pegasus, and Quantus)"} to run simulations, {props.open ? "" : "DRC, "} LVS, and extraction.
+: "Cadence tools (Spectre, Pegasus, and Quantus)"} to run simulations, {props.open ? "" : "DRC, "} LVS, and extraction. 
 
 ## Setup
 
@@ -24,16 +24,15 @@ analog simulation interface. Substrate will call into {props.open ? "open source
 
 Ensure that you have a recent version of Rust installed.
 { isRelease("{{VERSION}}") ? <div>
-Add the Substrate registry to your Cargo config:
+Add the Substrate registry to your Cargo config: 
 
 <SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
-
 </div> : <div/> }
 
-Next, create a new Rust project:
 
+Next, create a new Rust project:
 ```bash
 cargo new --lib sky130_inverter && cd sky130_inverter
 ```
@@ -68,10 +67,9 @@ Also, add the following constants:
 We'll first define the interface (also referred to as IO) exposed by our inverter.
 
 The inverter should have four ports:
-
-- `vdd` and `vss` are inout ports.
-- `din` is an input.
-- `dout` is the inverted output.
+* `vdd` and `vss` are inout ports.
+* `din` is an input.
+* `dout` is the inverted output.
 
 This is how that description translates to Substrate:
 
@@ -91,9 +89,8 @@ While Substrate does not require you to structure your blocks in any particular 
 it is common to define a struct for your block that contains all of its parameters.
 
 We'll make our inverter generator have two parameters:
-
-- An NMOS width.
-- A PMOS width.
+* An NMOS width.
+* A PMOS width.
 
 We're assuming here that the NMOS and PMOS will have a length of 150 nanometers to simplify layout.
 
@@ -114,8 +111,8 @@ or needs to be regenerated.
 We can now generate a schematic for our inverter.
 
 Describing a schematic in Substrate requires implementing the `Schematic` trait,
-which specifies a block's schematic in a particular **schema**. A schema is essentially
-just a format for representing a schematic. In this case, we want to use the `Sky130Pdk`
+which specifies a block's schematic in a particular **schema**. A schema is essentially 
+just a format for representing a schematic. In this case, we want to use the `Sky130Pdk` 
 schema as our inverter should be usable in any block generated in SKY130.
 
 Here's how our schematic generator looks:
@@ -144,14 +141,13 @@ Add the following imports to `src/tb.rs`:
 All Substrate testbenches are blocks that have schematics.
 The schematic specifies the simulation structure (i.e. input sources,
 the device being tested, etc.). As a result, creating a testbench is the same as creating a regular block except that we don't have to define an IO.
-All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows
+All testbenches must declare their IO to be `TestbenchIo`, which has one port, `vss`, that allows 
 simulators to identify a global ground (which they often assign to node 0).
 
 Just like regular blocks, testbenches are usually structs containing their parameters.
 We'll make our testbench take two parameters:
-
-- A PVT corner.
-- An `Inverter` instance to simulate.
+* A PVT corner.
+* An `Inverter` instance to simulate.
 
 Here's how that looks in Rust code:
 
@@ -162,10 +158,9 @@ voltage, and temperature. The process corner here is an instance of `Sky130Corne
 which is defined in the `sky130` plugin for Substrate.
 
 Let's now create the schematic for our testbench. We will do this in the { props.open ? <code>Ngspice</code> : <code>Spectre</code> } schema so that the { props.open ? "ngspice" : "Spectre" } simulator plugin knows how to netlist and simulate our testbench. This should have three components:
-
-- A pulse input source driving the inverter input.
-- A DC voltage source supplying power to the inverter.
-- The instance of the inverter itself.
+* A pulse input source driving the inverter input.
+* A DC voltage source supplying power to the inverter.
+* The instance of the inverter itself.
 
 Recall that schematic generators can return data for later use. Here, we'd like to probe
 the output node of our inverter, so we'll set `Data` in `HasSchematicData` to be of type `Node`.
@@ -202,7 +197,7 @@ the absolute difference between the rise and fall times.
 
 ### Running the script
 
-Let's now run the script we wrote. We must first create a Substrate **context** that stores all information
+Let's now run the script we wrote. We must first create a Substrate **context** that stores all information 
 relevant to Substrate. This includes
 the tools and PDKs you've set up, all blocks that have been generated,
 cached computations, and more. We will put this in `src/lib.rs`.
@@ -238,18 +233,16 @@ pub mod layout;
 In this file, add the following imports:
 <CodeSnippet language="rust" title="src/layout.rs" snippet="imports">{inverterLayout}</CodeSnippet>
 
+
 Describing a layout in Substrate requires implementing the `Layout` trait. Let's start implementing it now:
 
-<CodeSnippet
-language="rust"
-title="src/layout.rs"
-snippet="layout"
-replacements={{ "layout-body": "// TODO: Implement layout generator." }}
-
+<CodeSnippet 
+    language="rust"
+    title="src/layout.rs"
+    snippet="layout"
+    replacements={{ "layout-body": "// TODO: Implement layout generator." }}
 >
-
     {inverterLayout}
-
 </CodeSnippet>
 
 Substrate layouts are specified in a particular **schema**. In the context of layout,
@@ -269,9 +262,7 @@ NMOS and PMOS using generators provided by Substrate's SKY130 plugin:
 <CodeSnippet language="rust" title="src/layout.rs" snippet="generate-mos">{inverterLayout}</CodeSnippet>
 
 Using Substrate's transformation API, we can flip the NMOS and place the PMOS above it:
-
 <!-- TODO: add diagrams -->
-
 <CodeSnippet language="rust" title="src/layout.rs" snippet="transform-mos">{inverterLayout}</CodeSnippet>
 
 The drains and gates of the two transistors should now be aligned, so we can simply compute the bounding box
@@ -289,9 +280,7 @@ appropriate geometry to specify where our inverter's pins are located.
 <CodeSnippet language="rust" title="src/layout.rs" snippet="finalize-layout">{inverterLayout}</CodeSnippet>
 
 The final layout generator should look like this:
-
 <!-- TODO: break into smaller snippets -->
-
 <CodeSnippet language="rust" title="src/layout.rs" snippet="layout">{inverterLayout}</CodeSnippet>
 
 ### Verification
@@ -336,3 +325,4 @@ the inverter dimensions with the minimum rise/fall time difference.
 
 You should now be well-equipped to start writing your own schematic generators in Substrate.
 A full, runnable example for this tutorial is available [here]({{GITHUB_URL}}/examples/sky130_inverter).
+
