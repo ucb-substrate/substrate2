@@ -1,6 +1,6 @@
 [package]
 name = "cache"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "A general purpose cache with possibly multiple remote servers for storing and retrieving data."
 license = "BSD-3-Clause"
