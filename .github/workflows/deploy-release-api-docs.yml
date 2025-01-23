@@ -9,5 +9,6 @@ jobs:
   deploy-api-docs:
     if: "${{ github.event.label.name == 'autorelease: tagged' }}"
     uses: ./.github/workflows/deploy-api-docs.yml
+    secrets: inherit
     with:
       name: release
