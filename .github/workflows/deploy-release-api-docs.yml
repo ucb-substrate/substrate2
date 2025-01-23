@@ -1,11 +1,13 @@
 name: deploy-release-api-docs
 
 on:
-  release:
-    types: [created]
+  pull_request_target:
+    types: [labeled]
+    branches: [main]
 
 jobs:
   deploy-api-docs:
+    if: "${{ github.event.label.named == 'autorelease: tagged' }}"
     uses: ./.github/workflows/deploy-api-docs.yml
     with:
       name: release
