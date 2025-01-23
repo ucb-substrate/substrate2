@@ -12,7 +12,7 @@ Among other things, it provides:
 - Simulation waveform verification
 - Waveform query utilities
 - Higher-level layout APIs (grid/track-based, tiling)
-- Full control of exported circuit via IRs
+- Full control over exported collateral via intermediate representations (IRs)
 - Rudimentary caching, multi-threading, error handling
 - An ecosystem of simulation, DRC, LVS, and extraction plugins
 
