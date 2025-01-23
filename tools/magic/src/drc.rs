@@ -11,12 +11,20 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tera::Context;
 
+/// Parameters for running DRC using Magic.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DrcParams<'a> {
+    /// The name of the cell to DRC check.
     pub cell_name: &'a str,
+    /// The working directory.
     pub work_dir: &'a Path,
+    /// The path to the GDS layout file, which must contain a cell named `cell_name`.
     pub gds_path: &'a Path,
+    /// The path to the Magic tech file.
+    ///
+    /// Contains process-specific information, such as available layers and DRC rules.
     pub tech_file_path: &'a Path,
+    /// The path to which the DRC report should be written.
     pub drc_report_path: &'a Path,
 }
 
