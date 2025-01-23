@@ -1,6 +1,6 @@
 [package]
 name = "config"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -11,7 +11,7 @@ toml_edit = "0.20"
 log = "0.4"
 toml = "0.8"
 
-cache = { version = "0.6.0", registry = "substrate", path = "../libs/cache" }
+cache = { version = "0.7.0", registry = "substrate", path = "../libs/cache" }
 
 [target.'cfg(windows)'.dependencies.windows-sys]
 version = "0.48"
