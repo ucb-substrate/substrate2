@@ -13,10 +13,9 @@ export const inverterCdsTb = require(`{{EXAMPLES}}/sky130_inverter/src/tb/cds.rs
 export function inverterTb(open) { return open ? inverterOpenTb : inverterCdsTb; }
 export const cargoToml = require(`{{EXAMPLES}}/sky130_inverter/Cargo.toml?snippet`);
 
-In this tutorial, we'll design and simulate a schematic-level inverter in
-the Skywater 130nm process to showcase some of the capabilities of Substrate's
-analog simulation interface. Substrate will call into {props.open ? "open source tools (ngspice, magic, and Netgen)"
-: "Cadence tools (Spectre, Pegasus, and Quantus)"} to run simulations, {props.open ? "" : "DRC, "} LVS, and extraction. 
+In this tutorial, we'll design and lay out an inverter in the Skywater 130nm process.
+Substrate will call into {props.open ? "open source tools (ngspice, magic, and Netgen)"
+: "Cadence tools (Spectre, Pegasus, and Quantus)"} to run simulations, DRC, LVS, and extraction. 
 
 ## Setup
 
@@ -285,7 +284,7 @@ The final layout generator should look like this:
 
 ### Verification
 
-We can now run { props.open ? "" : "DRC and"} LVS using { props.open ? "magic and netgen" : "Pegasus" }
+We can now run DRC and LVS using { props.open ? "magic and netgen" : "Pegasus" }
 by writing a cargo test in `src/layout.rs`:
 
 <CodeSnippet language="rust" title="src/layout.rs" snippet={ props.open ? "open-tests" : "cds-tests" }>{inverterLayout}</CodeSnippet>
