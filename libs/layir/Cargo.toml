@@ -12,9 +12,9 @@ serde = "1"
 indexmap = { version = "2", features = ["serde"] }
 thiserror = "1"
 
-diagnostics = { version = "0.3.0", path = "../diagnostics", registry = "substrate" }
-uniquify = { version = "0.3.0", path = "../uniquify", registry = "substrate" }
-enumify = { version = "0.1.1", path = "../enumify", registry = "substrate" }
+diagnostics = { version = "0.3.0", registry = "substrate", path = "../diagnostics" }
+uniquify = { version = "0.3.0", registry = "substrate", path = "../uniquify" }
+enumify = { version = "0.1.1", registry = "substrate", path = "../enumify" }
 geometry = { version = "0.6.0", registry = "substrate", path = "../geometry" }
 
 [dev-dependencies]
