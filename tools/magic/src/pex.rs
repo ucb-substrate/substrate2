@@ -1,5 +1,6 @@
 use crate::utils::execute_run_script;
 use crate::{error::Error, TEMPLATES};
+use anyhow::anyhow;
 use serde::Serialize;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -75,10 +76,14 @@ fn run_pex_inner(
 }
 
 pub fn run_pex(params: &PexParams) -> Result<(), Error> {
+    let _ = std::fs::remove_file(params.pex_netlist_path);
     let PexGeneratedPaths {
         run_script_path, ..
     } = write_pex_files(params)?;
     run_pex_inner(params.work_dir, run_script_path)?;
+    if !params.pex_netlist_path.exists() {
+        return Err(anyhow!("magic failed to write output PEX netlist").into());
+    }
     Ok(())
 }
 

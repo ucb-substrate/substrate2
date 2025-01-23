@@ -1,5 +1,6 @@
 use crate::utils::execute_run_script;
 use crate::{error::Error, TEMPLATES};
+use anyhow::anyhow;
 use serde::Serialize;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -77,10 +78,14 @@ fn run_extract_inner(
 }
 
 pub fn run_extract(params: &ExtractParams) -> Result<(), Error> {
+    let _ = std::fs::remove_file(params.netlist_path);
     let ExtractGeneratedPaths {
         run_script_path, ..
     } = write_extract_files(params)?;
     run_extract_inner(params.work_dir, run_script_path)?;
+    if !params.netlist_path.exists() {
+        return Err(anyhow!("magic failed to write output netlist").into());
+    }
     Ok(())
 }
 
