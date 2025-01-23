@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.2](https://github.com/ucb-substrate/substrate2/compare/magic_netgen-v0.1.1...magic_netgen-v0.1.2) (2025-01-23)
+
+
+### Bug Fixes
+
+* **ci:** fix ci for Substrate v2.1 ([#490](https://github.com/ucb-substrate/substrate2/issues/490)) ([cc09d71](https://github.com/ucb-substrate/substrate2/commit/cc09d7199b41fb2986d1d733aa3678db49464f70))
+* **deps:** add missing `registry=substrate` for in-tree dependencies ([#517](https://github.com/ucb-substrate/substrate2/issues/517)) ([505d95c](https://github.com/ucb-substrate/substrate2/commit/505d95c17c5997166c1987cbc30e344fdd4c78fb))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.0 to 0.11.0
+    * scir bumped from 0.9.0 to 0.10.0
+    * spice bumped from 0.9.0 to 0.10.0
+    * magic bumped from 0.2.0 to 0.3.0
+    * netgen bumped from 0.2.0 to 0.3.0
+
 ## [0.1.1](https://github.com/ucb-substrate/substrate2/compare/magic_netgen-v0.1.0...magic_netgen-v0.1.1) (2025-01-23)
 
 

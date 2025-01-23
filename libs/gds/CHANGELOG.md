@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/gds-v0.4.0...gds-v0.5.0) (2025-01-23)
+
+
+### Features
+
+* **repo:** reorganize repo ([#207](https://github.com/ucb-substrate/substrate2/issues/207)) ([54a6b43](https://github.com/ucb-substrate/substrate2/commit/54a6b43079d283a29bc0aa9e18dc6230b56fa385))
+
+
+### Bug Fixes
+
+* **layout:** fix issues in GDS export and ATOLL API ([#341](https://github.com/ucb-substrate/substrate2/issues/341)) ([08930b1](https://github.com/ucb-substrate/substrate2/commit/08930b1b25d018c20758986e206dc8882df782af))
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/gds-v0.3.1...gds-v0.4.0) (2025-01-23)
 
 
