@@ -6,6 +6,7 @@
   "release-type": "rust",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
+  "skip-github-release": true,
   "packages": {
     "bins/cdl2spice": {},
     "codegen": {},
