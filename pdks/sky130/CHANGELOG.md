@@ -25,6 +25,34 @@
     * ngspice bumped from 0.3.0 to 0.3.1
     * spice bumped from 0.7.0 to 0.7.1
 
+## [0.11.0](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.0...sky130-v0.11.0) (2025-01-23)
+
+
+### Features
+
+* **docs:** inverter tutorial cleanup and layout/pex sections ([#487](https://github.com/ucb-substrate/substrate2/issues/487)) ([5e509df](https://github.com/ucb-substrate/substrate2/commit/5e509df95a5c145fc69280269d36d860418fb1c0))
+
+
+### Bug Fixes
+
+* **ci:** use head_ref instead of ref and fix gdsconv version ([#498](https://github.com/ucb-substrate/substrate2/issues/498)) ([bc5d66e](https://github.com/ucb-substrate/substrate2/commit/bc5d66e5aad82ea79436e2fb3ec33e960a58f7b6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.0 to 0.11.0
+    * scir bumped from 0.9.0 to 0.10.0
+    * layir bumped from 0.2.0 to 0.3.0
+    * gdsconv bumped from 0.2.0 to 0.3.0
+    * gds bumped from 0.4.0 to 0.5.0
+    * spectre bumped from 0.11.0 to 0.12.0
+    * ngspice bumped from 0.5.0 to 0.6.0
+    * spice bumped from 0.9.0 to 0.10.0
+    * geometry_macros bumped from 0.0.3 to 0.0.4
+    * geometry bumped from 0.7.0 to 0.8.0
+
 ## [0.10.0](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.9.0...sky130-v0.10.0) (2025-01-23)
 
 

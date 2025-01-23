@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.4.0...nutlex-v0.5.0) (2025-01-23)
+
+
+### Features
+
+* **macros:** refactor derive NestedData, start organizing tests ([#477](https://github.com/ucb-substrate/substrate2/issues/477)) ([aca48ef](https://github.com/ucb-substrate/substrate2/commit/aca48ef7a49c959e35ec4614345a55e667ff5146))
+* **parser:** use nutmeg format for spectre output ([#289](https://github.com/ucb-substrate/substrate2/issues/289)) ([034f58f](https://github.com/ucb-substrate/substrate2/commit/034f58f99c587c61003761971e76c26038de9b3b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.0 to 0.3.0
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.3.0...nutlex-v0.4.0) (2025-01-23)
 
 

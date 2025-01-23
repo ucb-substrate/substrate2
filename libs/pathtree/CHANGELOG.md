@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/pathtree-v0.3.0...pathtree-v0.4.0) (2025-01-23)
+
+
+### Features
+
+* **blackboxing:** support Substrate and SCIR blackboxes ([#135](https://github.com/ucb-substrate/substrate2/issues/135)) ([049a598](https://github.com/ucb-substrate/substrate2/commit/049a598e2b8d11228c63f03dc878fc4c56e036a6))
+* **simulation:** access nested nodes without strings in simulation ([#139](https://github.com/ucb-substrate/substrate2/issues/139)) ([ed7989c](https://github.com/ucb-substrate/substrate2/commit/ed7989cfb190528163a1722ae5fe3383ec3c4310))
+* **terminals:** add support for terminal paths ([#236](https://github.com/ucb-substrate/substrate2/issues/236)) ([3fba7f6](https://github.com/ucb-substrate/substrate2/commit/3fba7f6227bbf2efcaf79d849c79175e44d783a4))
+* **tests:** add SCIR and SPICE netlister blackbox tests ([049a598](https://github.com/ucb-substrate/substrate2/commit/049a598e2b8d11228c63f03dc878fc4c56e036a6))
+
 ## [0.3.0](https://github.com/ucb-substrate/substrate2/compare/pathtree-v0.2.0...pathtree-v0.3.0) (2025-01-23)
 
 
