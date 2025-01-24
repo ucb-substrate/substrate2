@@ -36,7 +36,7 @@ jobs:
           RUSTDOCFLAGS: '-D warnings'
   check-docs-site:
     name: check-docs-site
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
