@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 [dependencies]
 serde = { version = "1", features = ["derive", "rc"] }
 once_cell = "1"
-tonic = "0.10"
+tonic = "0.12"
 futures-core = "0.3"
 futures-util = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
@@ -33,7 +33,7 @@ regex = "1"
 lazy_static = "1"
 
 [build-dependencies]
-tonic-build = "0.10"
+tonic-build = "0.12"
 
 [dev-dependencies]
 crossbeam-channel = "0.5"
