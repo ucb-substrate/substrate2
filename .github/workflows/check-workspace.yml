@@ -18,7 +18,7 @@ jobs:
     name: lint
     runs-on: bwrc
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check formatting
         run: |
           cargo fmt --check
@@ -47,7 +47,7 @@ jobs:
     name: test
     runs-on: bwrc
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Test locked
         if: ${{ inputs.locked }}
         run: cargo test --locked --all-features
