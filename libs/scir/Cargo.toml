@@ -5,8 +5,7 @@ edition = "2021"
 
 [dependencies]
 arcstr = { version = "1", features = ["serde"] }
-rust_decimal = "1.32"
-rust_decimal_macros = "1.32"
+rust_decimal = "1"
 tracing = "0.1"
 serde = "1"
 indexmap = { version = "2", features = ["serde"] }

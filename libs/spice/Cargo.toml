@@ -8,14 +8,14 @@ arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
 nom = "7"
 thiserror = "1"
 tracing = "0.1"
-itertools = "0.11.0"
+itertools = "0.11"
 rust_decimal = { version = "1", features = ["serde", "maths"] }
 rust_decimal_macros = "1"
 unicase = "2"
 ena = "0.14"
-regex = "1.10.2"
-lazy_static = "1.4.0"
-num-traits = "0.2.17"
+regex = "1"
+lazy_static = "1"
+num-traits = "0.2"
 
 scir = { version = "0.9.0", registry = "substrate", path = "../scir" }
 substrate = { version = "0.10.0", registry = "substrate", path = "../../substrate" }

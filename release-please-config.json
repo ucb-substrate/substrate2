@@ -26,6 +26,7 @@
     "libs/gds": {},
     "libs/gdsconv": {},
     "libs/geometry": {},
+    "libs/geometry_macros": {},
     "libs/pathtree": {},
     "libs/scir": {},
     "libs/spice": {},

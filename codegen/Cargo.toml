@@ -9,7 +9,6 @@ syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"
 proc-macro-crate = "1"
-proc-macro-error = "1"
 convert_case = "0.6"
 
 snippets = { version = "0.7.0", registry = "substrate", path = "../docs/snippets" }
