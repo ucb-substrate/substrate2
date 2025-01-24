@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "geometry_macros"
-version = "0.0.3"
+version = "0.1.0"
 dependencies = [
  "darling 0.20.10",
  "macrotools",
