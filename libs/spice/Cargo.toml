@@ -6,9 +6,9 @@ edition = "2021"
 [dependencies]
 arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
 nom = "7"
-thiserror = "1"
+thiserror = "2"
 tracing = "0.1"
-itertools = "0.11"
+itertools = "0.14"
 rust_decimal = { version = "1", features = ["serde", "maths"] }
 rust_decimal_macros = "1"
 unicase = "2"

@@ -7,7 +7,7 @@ description = "Parses SPICE nutmeg files (aka rawfiles)"
 [dependencies]
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }
-thiserror = "1"
+thiserror = "2"
 
 enumify = { version = "0.2.0", path = "../enumify", registry = "substrate" }
 
