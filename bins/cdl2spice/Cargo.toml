@@ -4,8 +4,8 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.86"
-clap = { version = "4.5.6", features = ["derive"] }
+anyhow = "1.0.95"
+clap = { version = "4.5.27", features = ["derive"] }
 scir = { version = "0.9.0", registry = "substrate", path = "../../libs/scir" }
 spice = { version = "0.9.0", registry = "substrate", path = "../../libs/spice" }
 arcstr = "1"
