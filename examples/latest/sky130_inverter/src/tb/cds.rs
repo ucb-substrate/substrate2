@@ -268,6 +268,7 @@ impl Schematic for InverterTb {
 ///
 /// The NMOS width is kept constant; the PMOS width is swept over
 /// the given range.
+#[derive(Clone, Debug)]
 pub struct InverterDesign {
     /// The fixed NMOS width.
     pub nw: i64,
@@ -279,63 +280,76 @@ pub struct InverterDesign {
 
 impl InverterDesign {
     pub fn run(&self, ctx: &mut Context, work_dir: impl AsRef<Path>) -> Inverter {
-        let work_dir = work_dir.as_ref();
-        let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
-
         let mut opt = None;
-        for pw in self.pw.iter().copied() {
-            let dut = Inverter { nw: self.nw, pw };
-            let inverter = if self.extracted {
-                let work_dir = work_dir.join(format!("pw{pw}"));
-                let layout_path = work_dir.join("layout.gds");
-                ctx.write_layout(dut, to_gds, &layout_path)
-                    .expect("failed to write layout");
-                InverterDut::Extracted(Pex {
-                    schematic: Arc::new(ConvertSchema::new(ConvertSchema::new(dut))),
-                    gds_path: work_dir.join("layout.gds"),
-                    layout_cell_name: dut.name(),
-                    work_dir,
-                    lvs_rules_dir: PathBuf::from(SKY130_LVS),
-                    lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
-                    technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+
+        let handles = self
+            .pw
+            .iter()
+            .copied()
+            .map(|pw| {
+                let pvt = Pvt::new(Sky130Corner::Tt, dec!(1.8), dec!(25));
+                let ctx = ctx.clone();
+                let dsn = self.clone();
+                let work_dir = work_dir.as_ref().to_owned();
+                std::thread::spawn(move || {
+                    let dut = Inverter { nw: dsn.nw, pw };
+                    let inverter = if dsn.extracted {
+                        let work_dir = work_dir.join(format!("pw{pw}"));
+                        let layout_path = work_dir.join("layout.gds");
+                        ctx.write_layout(dut, to_gds, &layout_path)
+                            .expect("failed to write layout");
+                        InverterDut::Extracted(Pex {
+                            schematic: Arc::new(ConvertSchema::new(ConvertSchema::new(dut))),
+                            gds_path: work_dir.join("layout.gds"),
+                            layout_cell_name: dut.name(),
+                            work_dir,
+                            lvs_rules_dir: PathBuf::from(SKY130_LVS),
+                            lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
+                            technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                        })
+                    } else {
+                        InverterDut::Schematic(dut)
+                    };
+                    let tb = InverterTb::new(pvt, inverter);
+                    let sim_dir = work_dir.join(format!("pw{pw}"));
+                    let sim = ctx
+                        .get_sim_controller(tb, sim_dir)
+                        .expect("failed to create sim controller");
+                    let mut opts = spectre::Options::default();
+                    sim.set_option(pvt.corner, &mut opts);
+                    let output = sim
+                        .simulate(
+                            opts,
+                            Tran {
+                                stop: dec!(2e-9),
+                                errpreset: Some(spectre::ErrPreset::Conservative),
+                                ..Default::default()
+                            },
+                        )
+                        .expect("failed to run simulation");
+
+                    let vout = output.as_ref();
+                    let mut trans = vout.transitions(
+                        0.2 * pvt.voltage.to_f64().unwrap(),
+                        0.8 * pvt.voltage.to_f64().unwrap(),
+                    );
+                    // The input waveform has a low -> high, then a high -> low transition.
+                    // So the first transition of the inverter output is high -> low.
+                    // The duration of this transition is the inverter fall time.
+                    let falling_transition = trans.next().unwrap();
+                    assert_eq!(falling_transition.dir(), EdgeDir::Falling);
+                    let tf = falling_transition.duration();
+                    let rising_transition = trans.next().unwrap();
+                    assert_eq!(rising_transition.dir(), EdgeDir::Rising);
+                    let tr = rising_transition.duration();
+
+                    println!("Simulating with pw = {pw} gave tf = {}, tr = {}", tf, tr);
+                    (dut, tf, tr)
                 })
-            } else {
-                InverterDut::Schematic(dut)
-            };
-            let tb = InverterTb::new(pvt, inverter);
-            let sim_dir = work_dir.join(format!("pw{pw}"));
-            let sim = ctx
-                .get_sim_controller(tb, sim_dir)
-                .expect("failed to create sim controller");
-            let mut opts = spectre::Options::default();
-            sim.set_option(pvt.corner, &mut opts);
-            let output = sim
-                .simulate(
-                    opts,
-                    Tran {
-                        stop: dec!(2e-9),
-                        errpreset: Some(spectre::ErrPreset::Conservative),
-                        ..Default::default()
-                    },
-                )
-                .expect("failed to run simulation");
-
-            let vout = output.as_ref();
-            let mut trans = vout.transitions(
-                0.2 * pvt.voltage.to_f64().unwrap(),
-                0.8 * pvt.voltage.to_f64().unwrap(),
-            );
-            // The input waveform has a low -> high, then a high -> low transition.
-            // So the first transition of the inverter output is high -> low.
-            // The duration of this transition is the inverter fall time.
-            let falling_transition = trans.next().unwrap();
-            assert_eq!(falling_transition.dir(), EdgeDir::Falling);
-            let tf = falling_transition.duration();
-            let rising_transition = trans.next().unwrap();
-            assert_eq!(rising_transition.dir(), EdgeDir::Rising);
-            let tr = rising_transition.duration();
-
-            println!("Simulating with pw = {pw} gave tf = {}, tr = {}", tf, tr);
+            })
+            .collect::<Vec<_>>();
+        for handle in handles {
+            let (dut, tr, tf) = handle.join().unwrap();
             let diff = (tr - tf).abs();
             if let Some((pdiff, _)) = opt {
                 if diff < pdiff {
