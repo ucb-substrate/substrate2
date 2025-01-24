@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/type_dispatch-v0.5.0...type_dispatch-v0.5.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* update deps, GH actions ([#551](https://github.com/ucb-substrate/substrate2/issues/551)) ([357e82a](https://github.com/ucb-substrate/substrate2/commit/357e82ae0a01317d3ad5afb33b5290d3ac10cd7a))
+* The following workspace dependencies were updated
+  * dependencies
+    * type_dispatch_macros bumped from 0.4.0 to 0.4.1
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/type_dispatch-v0.4.0...type_dispatch-v0.5.0) (2025-01-23)
 
 

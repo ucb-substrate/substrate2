@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.2.0...quantus-v0.2.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.0 to 0.10.1
+    * scir bumped from 0.9.0 to 0.9.1
+    * spice bumped from 0.9.0 to 0.9.1
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.1.0...quantus-v0.2.0) (2025-01-23)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/magic-v0.2.0...magic-v0.2.1) (2025-01-24)
+
+
+### Features
+
+* **docs:** document DRC parameters for Magic DRC ([#527](https://github.com/ucb-substrate/substrate2/issues/527)) ([d55c926](https://github.com/ucb-substrate/substrate2/commit/d55c926d8fbaba720394ab4c69d01e28905bc1b9))
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/magic-v0.1.0...magic-v0.2.0) (2025-01-23)
 
 

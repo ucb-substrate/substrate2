@@ -9,8 +9,8 @@ arcstr = { version = "1", features = ["serde"] }
 rust_decimal = "1"
 rust_decimal_macros = "1"
 serde = { version = "1.0.217", features = ["derive"] }
-substrate = { version = "0.10.0", registry = "substrate", path = "../../../substrate" }
-spectre = { version = "0.11.0", registry = "substrate", path = "../../../tools/spectre" }
+substrate = { version = "0.10.1", registry = "substrate", path = "../../../substrate" }
+spectre = { version = "0.11.1", registry = "substrate", path = "../../../tools/spectre" }
 
 [dev-dependencies]
 approx = "0.5"

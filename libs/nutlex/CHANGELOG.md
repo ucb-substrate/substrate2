@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.4.0...nutlex-v0.4.1) (2025-01-24)
+
+
+### Dependencies
+
+* update deps, GH actions ([#551](https://github.com/ucb-substrate/substrate2/issues/551)) ([357e82a](https://github.com/ucb-substrate/substrate2/commit/357e82ae0a01317d3ad5afb33b5290d3ac10cd7a))
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.0 to 0.2.1
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.3.0...nutlex-v0.4.0) (2025-01-23)
 
 

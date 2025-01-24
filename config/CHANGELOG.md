@@ -16,6 +16,16 @@
   * dependencies
     * cache bumped from 0.4.0 to 0.5.0
 
+## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/config-v0.4.0...config-v0.4.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([#538](https://github.com/ucb-substrate/substrate2/issues/538)) ([19438d6](https://github.com/ucb-substrate/substrate2/commit/19438d65ac7078a2a971b4147420364ca0717763))
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.7.0 to 0.7.1
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/config-v0.3.0...config-v0.4.0) (2025-01-23)
 
 
