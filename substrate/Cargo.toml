@@ -15,7 +15,7 @@ test-log = { version = "0.2", features = ["log", "trace"] }
 rust_decimal = "1"
 rust_decimal_macros = "1"
 ena = "0.14"
-duplicate = "1"
+duplicate = "2"
 derive_builder = "0.20"
 slotmap = "1"
 downcast-rs = "1"
