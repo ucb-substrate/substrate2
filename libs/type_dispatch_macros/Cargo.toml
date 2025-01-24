@@ -9,7 +9,7 @@ license = "BSD-3-Clause"
 syn = { version = "2", features = ["full", "extra-traits"] }
 quote = "1"
 proc-macro2 = "1"
-proc-macro-crate = "1"
+proc-macro-crate = "3"
 itertools = "0.14"
 
 [dev-dependencies]
