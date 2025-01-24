@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 byteorder = "1"
 chrono = { version = "0.4", features = ["serde"] }
-derive_builder = "0.12"
+derive_builder = "0.20"
 derive_more = "0.99"
 num-derive = "0.4"
 num-traits = "0.2"

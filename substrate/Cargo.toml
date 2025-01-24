@@ -16,7 +16,7 @@ rust_decimal = "1"
 rust_decimal_macros = "1"
 ena = "0.14"
 duplicate = "1"
-derive_builder = "0.12"
+derive_builder = "0.20"
 slotmap = "1"
 downcast-rs = "1"
 indexmap = { version = "2", features = ["serde"] }
