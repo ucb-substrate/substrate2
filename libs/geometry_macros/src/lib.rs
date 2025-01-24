@@ -10,6 +10,23 @@ use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 use syn::{parse_macro_input, parse_quote, DeriveInput, Ident};
 
+pub(crate) fn geometry_ident() -> TokenStream2 {
+    match crate_name("geometry") {
+        Ok(FoundCrate::Itself) => quote!(::geometry),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = Ident::new(&name, Span::call_site());
+            quote!(::#ident)
+        }
+        Err(_) => match crate_name("substrate").expect("geometry not found in Cargo.toml") {
+            FoundCrate::Itself => quote!(::substrate::geometry),
+            FoundCrate::Name(name) => {
+                let ident = Ident::new(&name, Span::call_site());
+                quote!(::#ident::geometry)
+            }
+        },
+    }
+}
+
 /// Derives `geometry::transform::TranslateMut`.
 #[proc_macro_derive(TranslateMut)]
 pub fn derive_translate_mut(input: TokenStream) -> TokenStream {
@@ -100,21 +117,4 @@ pub fn derive_transform_ref(input: TokenStream) -> TokenStream {
         #output
     )
     .into()
-}
-
-pub(crate) fn geometry_ident() -> TokenStream2 {
-    match crate_name("geometry") {
-        Ok(FoundCrate::Itself) => quote!(::geometry),
-        Ok(FoundCrate::Name(name)) => {
-            let ident = Ident::new(&name, Span::call_site());
-            quote!(::#ident)
-        }
-        Err(_) => match crate_name("substrate").expect("geometry not found in Cargo.toml") {
-            FoundCrate::Itself => quote!(::substrate::geometry),
-            FoundCrate::Name(name) => {
-                let ident = Ident::new(&name, Span::call_site());
-                quote!(::#ident::geometry)
-            }
-        },
-    }
 }
