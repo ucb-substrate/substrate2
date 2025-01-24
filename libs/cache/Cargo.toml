@@ -18,13 +18,13 @@ prost = "0.13"
 prost-types = "0.13"
 rusqlite = { version = "0.32", features = ["bundled"] }
 fs4 = { version = "0.12", features = ["tokio"] }
-thiserror = "1"
+thiserror = "2"
 toml = "0.8"
 clap = { version = "4", features = ["derive"] }
 tokio-rusqlite = "0.6"
 sha2 = "0.10"
 hex = "0.4"
-flexbuffers = "2"
+flexbuffers = "25"
 path-absolutize = "3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
