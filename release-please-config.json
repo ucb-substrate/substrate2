@@ -26,7 +26,9 @@
     "libs/gds": {},
     "libs/gdsconv": {},
     "libs/geometry": {},
-    "libs/geometry_macros": {},
+    "libs/geometry_macros": {
+      "last-release-sha": "a332717e549fdea50306067e1c92dc60293aed4c",
+    },
     "libs/pathtree": {},
     "libs/scir": {},
     "libs/spice": {},
