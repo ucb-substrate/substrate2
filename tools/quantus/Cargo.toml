@@ -17,6 +17,3 @@ pegasus = { version = "0.2.0", registry = "substrate", path = "../pegasus" }
 
 [dev-dependencies]
 rust_decimal = "1"
-rust_decimal_macros = "1"
-spectre = { version = "<=0.11.0", registry = "substrate", path = "../spectre" }
-approx = "0.5"

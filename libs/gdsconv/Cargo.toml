@@ -6,10 +6,8 @@ edition = "2021"
 [dependencies]
 arcstr = { version = "1", features = ["serde"] }
 tracing = "0.1"
-rust_decimal = "1.36.0"
-rust_decimal_macros = "1.36.0"
 slotmap = "1"
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 
 layir = { version = "0.2.0", registry = "substrate", path = "../layir" }
 gds = { version = "0.4.0", registry = "substrate", path = "../gds" }
