@@ -4,6 +4,20 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.0...spice-v0.9.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* update dependencies ([#538](https://github.com/ucb-substrate/substrate2/issues/538)) ([19438d6](https://github.com/ucb-substrate/substrate2/commit/19438d65ac7078a2a971b4147420364ca0717763))
+* update deps, GH actions ([#551](https://github.com/ucb-substrate/substrate2/issues/551)) ([357e82a](https://github.com/ucb-substrate/substrate2/commit/357e82ae0a01317d3ad5afb33b5290d3ac10cd7a))
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.9.0 to 0.9.1
+    * substrate bumped from 0.10.0 to 0.10.1
+    * enumify bumped from 0.2.0 to 0.2.1
+
 ## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/spice-v0.8.0...spice-v0.9.0) (2025-01-23)
 
 

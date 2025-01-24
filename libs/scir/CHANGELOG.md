@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/scir-v0.9.0...scir-v0.9.1) (2025-01-24)
+
+
+### Dependencies
+
+* bump thiserror to v2 ([206a09e](https://github.com/ucb-substrate/substrate2/commit/206a09e01540b4e4a2b0d8b4c6e20619f35a8452))
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.0 to 0.2.1
+
 ## [0.9.0](https://github.com/ucb-substrate/substrate2/compare/scir-v0.8.0...scir-v0.9.0) (2025-01-23)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.5.0...ngspice-v0.5.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* update deps, GH actions ([#551](https://github.com/ucb-substrate/substrate2/issues/551)) ([357e82a](https://github.com/ucb-substrate/substrate2/commit/357e82ae0a01317d3ad5afb33b5290d3ac10cd7a))
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.7.0 to 0.7.1
+    * scir bumped from 0.9.0 to 0.9.1
+    * substrate bumped from 0.10.0 to 0.10.1
+    * nutlex bumped from 0.4.0 to 0.4.1
+    * spice bumped from 0.9.0 to 0.9.1
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.4.0...ngspice-v0.5.0) (2025-01-23)
 
 

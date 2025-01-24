@@ -397,7 +397,7 @@ checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 
 [[package]]
 name = "cache"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "backoff",
@@ -441,7 +441,7 @@ dependencies = [
 
 [[package]]
 name = "cdl2spice"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "arcstr",
@@ -541,7 +541,7 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "codegen"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "arcstr",
  "convert_case 0.7.1",
@@ -582,7 +582,7 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
 name = "config"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "cache",
@@ -828,14 +828,14 @@ dependencies = [
 
 [[package]]
 name = "enumify"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "enumify_macros",
 ]
 
 [[package]]
 name = "enumify_macros"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "convert_case 0.7.1",
  "darling",
@@ -1007,7 +1007,7 @@ dependencies = [
 
 [[package]]
 name = "gds"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -1027,7 +1027,7 @@ dependencies = [
 
 [[package]]
 name = "gdsconv"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "arcstr",
  "gds",
@@ -1050,7 +1050,7 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "array_map",
  "geometry_macros",
@@ -1061,7 +1061,7 @@ dependencies = [
 
 [[package]]
 name = "geometry_macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "darling",
  "macrotools",
@@ -1412,7 +1412,7 @@ dependencies = [
 
 [[package]]
 name = "layir"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "arcstr",
  "geometry",
@@ -1436,7 +1436,7 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "lefdef"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "geometry",
 ]
@@ -1488,7 +1488,7 @@ dependencies = [
 
 [[package]]
 name = "magic"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -1501,7 +1501,7 @@ dependencies = [
 
 [[package]]
 name = "magic_netgen"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "magic",
  "netgen",
@@ -1583,7 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "ngspice"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "approx",
  "arcstr",
@@ -1733,7 +1733,7 @@ dependencies = [
 
 [[package]]
 name = "nutlex"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "approx",
  "enumify",
@@ -2119,7 +2119,7 @@ dependencies = [
 
 [[package]]
 name = "quantus"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -2342,7 +2342,7 @@ dependencies = [
 
 [[package]]
 name = "scir"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arcstr",
  "diagnostics",
@@ -2466,7 +2466,7 @@ checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "sky130"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "arcstr",
@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "approx",
  "arcstr",
@@ -2596,7 +2596,7 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arcstr",
  "ena",
@@ -2642,7 +2642,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "substrate"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "approx",
@@ -3106,7 +3106,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "type_dispatch"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "duplicate",
  "type_dispatch_macros",
@@ -3114,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "type_dispatch_macros"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "itertools 0.14.0",
  "proc-macro-crate 3.2.0",
@@ -3275,7 +3275,7 @@ dependencies = [
 
 [[package]]
 name = "verilog"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "scir",
 ]
