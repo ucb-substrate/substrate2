@@ -1,6 +1,6 @@
 [package]
 name = "layir"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 [dependencies]
@@ -10,5 +10,5 @@ serde = "1"
 indexmap = { version = "2", features = ["serde"] }
 
 uniquify = { version = "0.4.0", registry = "substrate", path = "../uniquify" }
-geometry = { version = "0.7.0", registry = "substrate", path = "../geometry" }
+geometry = { version = "0.7.1", registry = "substrate", path = "../geometry" }
 

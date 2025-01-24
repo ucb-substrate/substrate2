@@ -1,5 +1,10 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.0 to 0.10.1
+    * spice bumped from 0.9.0 to 0.9.1
+
 ## [0.5.0](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.4.0...ngspice-v0.5.0) (2025-01-23)
 
 

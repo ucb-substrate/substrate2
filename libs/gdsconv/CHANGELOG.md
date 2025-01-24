@@ -1,5 +1,10 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * layir bumped from 0.2.0 to 0.2.1
+    * geometry bumped from 0.7.0 to 0.7.1
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/gdsconv-v0.1.0...gdsconv-v0.2.0) (2025-01-23)
 
 

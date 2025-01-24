@@ -8,6 +8,11 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.0 to 0.10.1
+    * spice bumped from 0.9.0 to 0.9.1
+
 ## [0.11.0](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.10.0...spectre-v0.11.0) (2025-01-23)
 
 

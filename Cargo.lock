@@ -433,7 +433,7 @@ dependencies = [
 
 [[package]]
 name = "cdl2spice"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "arcstr",
@@ -533,7 +533,7 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "codegen"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "arcstr",
  "convert_case 0.6.0",
@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "gdsconv"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "arcstr",
  "gds",
@@ -1096,7 +1096,7 @@ dependencies = [
 
 [[package]]
 name = "geometry"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "array_map",
  "geometry_macros",
@@ -1107,7 +1107,7 @@ dependencies = [
 
 [[package]]
 name = "geometry_macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "darling 0.20.10",
  "macrotools",
@@ -1444,7 +1444,7 @@ dependencies = [
 
 [[package]]
 name = "layir"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "arcstr",
  "geometry",
@@ -1468,7 +1468,7 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "lefdef"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "geometry",
 ]
@@ -1520,7 +1520,7 @@ dependencies = [
 
 [[package]]
 name = "magic"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -1533,7 +1533,7 @@ dependencies = [
 
 [[package]]
 name = "magic_netgen"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "magic",
  "netgen",
@@ -1615,7 +1615,7 @@ dependencies = [
 
 [[package]]
 name = "ngspice"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "approx",
  "arcstr",
@@ -2139,7 +2139,7 @@ dependencies = [
 
 [[package]]
 name = "quantus"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -2501,7 +2501,7 @@ checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "sky130"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "arcstr",
@@ -2607,7 +2607,7 @@ dependencies = [
 
 [[package]]
 name = "spectre"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "approx",
  "arcstr",
@@ -2631,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "spice"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arcstr",
  "ena",
@@ -2683,7 +2683,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "substrate"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "approx",

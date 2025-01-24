@@ -24,6 +24,13 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * codegen bumped from 0.10.0 to 0.10.1
+    * layir bumped from 0.2.0 to 0.2.1
+    * geometry bumped from 0.7.0 to 0.7.1
+    * gdsconv bumped from 0.2.0 to 0.2.1
+
 ## [0.10.0](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.9.0...substrate-v0.10.0) (2025-01-23)
 
 
