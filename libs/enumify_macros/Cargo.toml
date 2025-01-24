@@ -10,7 +10,6 @@ darling = "0.20"
 syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"
-proc-macro-crate = "1"
 proc-macro-error = "1"
 convert_case = "0.6"
 

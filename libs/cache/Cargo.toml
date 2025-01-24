@@ -16,12 +16,12 @@ tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 prost = "0.12"
 prost-types = "0.12"
-rusqlite = { version = "0.30", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 fs4 = { version = "0.7", features = ["tokio"] }
 thiserror = "1"
 toml = "0.8"
 clap = { version = "4", features = ["derive"] }
-tokio-rusqlite = "0.5"
+tokio-rusqlite = "0.6"
 sha2 = "0.10"
 hex = "0.4"
 flexbuffers = "2"
@@ -29,8 +29,8 @@ path-absolutize = "3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 backoff = "0.4"
-regex = "1.9"
-lazy_static = "1.4"
+regex = "1"
+lazy_static = "1"
 
 [build-dependencies]
 tonic-build = "0.10"

@@ -17,7 +17,7 @@
   "libs/gds": "0.4.0",
   "libs/gdsconv": "0.2.0",
   "libs/geometry": "0.7.0",
-  "libs/geometry_macros": "0.0.3",
+  "libs/geometry_macros": "0.1.0",
   "libs/pathtree": "0.3.0",
   "libs/scir": "0.9.0",
   "libs/spice": "0.9.0",
