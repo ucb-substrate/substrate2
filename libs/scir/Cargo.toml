@@ -9,7 +9,7 @@ rust_decimal = "1"
 tracing = "0.1"
 serde = "1"
 indexmap = { version = "2", features = ["serde"] }
-thiserror = "1"
+thiserror = "2"
 
 diagnostics = { version = "0.4.0", path = "../diagnostics", registry = "substrate" }
 uniquify = { version = "0.4.0", path = "../uniquify", registry = "substrate" }
