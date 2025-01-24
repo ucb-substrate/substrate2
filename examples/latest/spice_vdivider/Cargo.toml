@@ -9,6 +9,6 @@ publish = false
 substrate = { version = "0.10.0", registry = "substrate", path = "../../../substrate" }
 spice = { version = "0.9.0", registry = "substrate", path = "../../../libs/spice" }
 
-rust_decimal = "1.36"
-rust_decimal_macros = "1.36"
+rust_decimal = "1"
+rust_decimal_macros = "1"
 # end-code-snippet dependencies
