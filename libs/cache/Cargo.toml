@@ -24,7 +24,7 @@ clap = { version = "4", features = ["derive"] }
 tokio-rusqlite = "0.6"
 sha2 = "0.10"
 hex = "0.4"
-flexbuffers = "2"
+flexbuffers = "25"
 path-absolutize = "3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
