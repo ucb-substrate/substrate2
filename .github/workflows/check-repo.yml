@@ -27,7 +27,7 @@ jobs:
     name: check-docs
     runs-on: bwrc
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check docs
         run: |
           cargo hack --all rustdoc --all-features
@@ -36,12 +36,12 @@ jobs:
           RUSTDOCFLAGS: '-D warnings'
   check-docs-site:
     name: check-docs-site
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: latest
           cache: 'yarn'
           cache-dependency-path: docs/docusaurus/yarn.lock
       - run: yarn install

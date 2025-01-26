@@ -1,6 +1,6 @@
 [package]
 name = "geometry_macros"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
@@ -8,7 +8,7 @@ darling = "0.20"
 syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"
-proc-macro-crate = "1"
+proc-macro-crate = "3"
 
 macrotools = { version = "0.2.0", registry = "substrate", path = "../macrotools" }
 

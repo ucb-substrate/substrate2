@@ -25,6 +25,25 @@
     * ngspice bumped from 0.3.0 to 0.3.1
     * spice bumped from 0.7.0 to 0.7.1
 
+## [0.10.1](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.0...sky130-v0.10.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.0 to 0.10.1
+    * scir bumped from 0.9.0 to 0.9.1
+    * layir bumped from 0.2.0 to 0.2.1
+    * gdsconv bumped from 0.2.0 to 0.2.1
+    * gds bumped from 0.4.0 to 0.4.1
+    * spectre bumped from 0.11.0 to 0.11.1
+    * ngspice bumped from 0.5.0 to 0.5.1
+    * spice bumped from 0.9.0 to 0.9.1
+    * geometry_macros bumped from 0.1.0 to 0.1.1
+    * geometry bumped from 0.7.0 to 0.7.1
+
 ## [0.10.0](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.9.0...sky130-v0.10.0) (2025-01-23)
 
 

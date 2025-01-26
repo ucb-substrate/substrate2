@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/layir-v0.2.0...layir-v0.2.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* The following workspace dependencies were updated
+  * dependencies
+    * geometry bumped from 0.7.0 to 0.7.1
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/layir-v0.1.0...layir-v0.2.0) (2025-01-23)
 
 

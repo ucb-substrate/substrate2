@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.7.0...geometry-v0.7.1) (2025-01-24)
+
+
+### Dependencies
+
+* update dependencies ([0b87032](https://github.com/ucb-substrate/substrate2/commit/0b8703276631fbb19a958453394c981d6b092441))
+* The following workspace dependencies were updated
+  * dependencies
+    * geometry_macros bumped from 0.1.0 to 0.1.1
+
 ## [0.7.0](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.6.0...geometry-v0.7.0) (2025-01-23)
 
 
