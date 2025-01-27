@@ -77,7 +77,7 @@ const config: Config = {
           // Remove this to remove the "edit this page" links.
           editUrl: editUrl,
         },
-        blog: isMain
+        blog: false // replace with `isMain` once blog is ready
           ? {
               // Please change this to your repo.
               // Remove this to remove the "edit this page" links.
@@ -149,7 +149,7 @@ const config: Config = {
         },
         ...(isMain
           ? [
-              { to: "blog", label: "Blog", position: "left" },
+              // { to: "blog", label: "Blog", position: "left" }, // Uncomment once blog is ready
               {
                 type: "docsVersionDropdown",
                 position: "right",
