@@ -7,6 +7,7 @@ use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 use std::sync::Arc;
 
 use crate::analysis::ac::{Ac, Sweep};
@@ -489,7 +490,10 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             std::fs::set_permissions(&run_script, perms)?;
 
             let mut command = std::process::Command::new("/bin/bash");
-            command.arg(&run_script).current_dir(&work_dir);
+            command
+                .arg(&run_script)
+                .current_dir(&work_dir)
+                .stdin(Stdio::null());
             executor
                 .execute(command, Default::default())
                 .map_err(|_| Error::SpectreError)?;
