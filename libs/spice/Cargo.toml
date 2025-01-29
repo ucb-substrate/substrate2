@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 arcstr = { version = "1", features = ["serde", "substr-usize-indices"] }
-nom = "7"
+nom = "8"
 thiserror = "2"
 tracing = "0.1"
 itertools = "0.14"

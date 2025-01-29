@@ -8,6 +8,7 @@ mod tests;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::iter::FusedIterator;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
@@ -15,8 +16,7 @@ use crate::parser::conv::convert_str_to_numeric_lit;
 use crate::Spice;
 use arcstr::ArcStr;
 use nom::bytes::complete::{take_till, take_while};
-use nom::error::ErrorKind;
-use nom::{IResult, InputTakeAtPosition};
+use nom::Input;
 use thiserror::Error;
 
 use self::conv::ScirConverter;
@@ -909,63 +909,88 @@ impl DerefMut for Substr {
     }
 }
 
-impl InputTakeAtPosition for Substr {
+impl Input for Substr {
     type Item = char;
-    fn split_at_position<P, E: nom::error::ParseError<Self>>(
-        &self,
-        predicate: P,
-    ) -> IResult<Self, Self, E>
-    where
-        P: Fn(Self::Item) -> bool,
-    {
-        <&str as InputTakeAtPosition>::split_at_position::<P, (&str, ErrorKind)>(
-            &&***self, predicate,
-        )
-        .map(|(i, o)| (Substr(self.0.substr_from(i)), Substr(self.0.substr_from(o))))
-        .map_err(|e| e.map(|e| E::from_error_kind(self.clone(), e.1)))
+    type Iter = SubstrChars;
+    type IterIndices = SubstrCharIndices;
+
+    fn input_len(&self) -> usize {
+        <&str as Input>::input_len(&&***self)
     }
-    fn split_at_position1<P, E: nom::error::ParseError<Self>>(
-        &self,
-        predicate: P,
-        e: nom::error::ErrorKind,
-    ) -> IResult<Self, Self, E>
-    where
-        P: Fn(Self::Item) -> bool,
-    {
-        <&str as InputTakeAtPosition>::split_at_position1::<P, (&str, ErrorKind)>(
-            &&***self, predicate, e,
-        )
-        .map(|(i, o)| (Substr(self.0.substr_from(i)), Substr(self.0.substr_from(o))))
-        .map_err(|e| e.map(|e| E::from_error_kind(self.clone(), e.1)))
+
+    fn take(&self, index: usize) -> Self {
+        Substr(self.0.substr_from(<&str as Input>::take(&&***self, index)))
     }
-    fn split_at_position_complete<P, E: nom::error::ParseError<Self>>(
-        &self,
-        predicate: P,
-    ) -> IResult<Self, Self, E>
-    where
-        P: Fn(Self::Item) -> bool,
-    {
-        <&str as InputTakeAtPosition>::split_at_position_complete::<P, (&str, ErrorKind)>(
-            &&***self, predicate,
+
+    fn take_from(&self, index: usize) -> Self {
+        Substr(
+            self.0
+                .substr_from(<&str as Input>::take_from(&&***self, index)),
         )
-        .map(|(i, o)| (Substr(self.0.substr_from(i)), Substr(self.0.substr_from(o))))
-        .map_err(|e| e.map(|e| E::from_error_kind(self.clone(), e.1)))
     }
-    fn split_at_position1_complete<P, E: nom::error::ParseError<Self>>(
-        &self,
-        predicate: P,
-        e: nom::error::ErrorKind,
-    ) -> IResult<Self, Self, E>
+
+    fn take_split(&self, index: usize) -> (Self, Self) {
+        let (a, b) = <&str as Input>::take_split(&&***self, index);
+        (Substr(self.0.substr_from(a)), Substr(self.0.substr_from(b)))
+    }
+
+    fn position<P>(&self, predicate: P) -> Option<usize>
     where
         P: Fn(Self::Item) -> bool,
     {
-        <&str as InputTakeAtPosition>::split_at_position1_complete::<P, (&str, ErrorKind)>(
-            &&***self, predicate, e,
-        )
-        .map(|(i, o)| (Substr(self.0.substr_from(i)), Substr(self.0.substr_from(o))))
-        .map_err(|e| e.map(|e| E::from_error_kind(self.clone(), e.1)))
+        <&str as Input>::position(&&***self, predicate)
+    }
+
+    fn iter_elements(&self) -> Self::Iter {
+        SubstrChars {
+            substr: self.clone(),
+        }
+    }
+
+    fn iter_indices(&self) -> Self::IterIndices {
+        SubstrCharIndices {
+            substr: self.clone(),
+        }
+    }
+
+    fn slice_index(&self, count: usize) -> Result<usize, nom::Needed> {
+        <&str as Input>::slice_index(&&***self, count)
     }
 }
+
+/// An iterator over the chars of a [`Substr`].
+pub struct SubstrChars {
+    substr: Substr,
+}
+
+impl Iterator for SubstrChars {
+    type Item = char;
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut chars = self.substr.chars();
+        let c = chars.next();
+        self.substr = Substr(self.substr.0.substr_from(chars.as_str()));
+        c
+    }
+}
+
+impl FusedIterator for SubstrChars {}
+
+/// An iterator over the chars of a [`Substr`], and their positions.
+pub struct SubstrCharIndices {
+    substr: Substr,
+}
+
+impl Iterator for SubstrCharIndices {
+    type Item = (usize, char);
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut chars = self.substr.char_indices();
+        let c = chars.next();
+        self.substr = Substr(self.substr.0.substr_from(chars.as_str()));
+        c
+    }
+}
+
+impl FusedIterator for SubstrCharIndices {}
 
 impl Display for Substr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
