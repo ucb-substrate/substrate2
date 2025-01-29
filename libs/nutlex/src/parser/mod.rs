@@ -8,8 +8,8 @@ use nom::combinator::opt;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
 use nom::number::complete::{be_f64, le_f64};
-use nom::sequence::{delimited, tuple};
-use nom::{Err, IResult};
+use nom::sequence::delimited;
+use nom::{Err, IResult, Parser};
 use serde::{Deserialize, Serialize};
 
 use crate::{ByteOrder, Options};
@@ -98,7 +98,7 @@ fn header<'a, 'b>(key: &'b str) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], &'a st
         let tag = tag_no_case(key);
         let (input, _) = space0(input)?;
         let header_value = take_till1(is_newline);
-        let (input, value) = delimited(tag, header_value, line_ending)(input)?;
+        let (input, value) = delimited(tag, header_value, line_ending).parse(input)?;
         let value = from_utf8(value)?;
         Ok((input, value))
     }
@@ -137,21 +137,21 @@ fn parse_f64(input: &[u8]) -> Result<f64, Err<Error<&[u8]>>> {
 }
 
 fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
-    let value = take_till1(is_space_or_line);
     // In AC analysis, may have a `grid=X` declaration
     let kwargs = opt(take_till1(is_newline));
-    let (input, (_, idx, _, name, _, unit, _, _, _, _)) = tuple((
+    let (input, (_, idx, _, name, _, unit, _, _, _, _)) = (
         space0,
-        &value,
+        take_till1(is_space_or_line),
         space1,
-        &value,
+        take_till1(is_space_or_line),
         space1,
-        &value,
+        take_till1(is_space_or_line),
         space0,
         kwargs,
         space0,
         line_ending,
-    ))(input)?;
+    )
+        .parse(input)?;
     let idx = parse_usize(idx)?;
     let name = from_utf8(name)?;
     let unit = from_utf8(unit)?;
@@ -159,8 +159,8 @@ fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
 }
 
 fn variables(input: &[u8]) -> IResult<&[u8], Vec<Variable>> {
-    let (input, _) = tuple((tag_no_case("Variables:"), space0, opt(line_ending), space0))(input)?;
-    let (input, vars) = many0(variable)(input)?;
+    let (input, _) = (tag_no_case("Variables:"), space0, opt(line_ending), space0).parse(input)?;
+    let (input, vars) = many0(variable).parse(input)?;
     Ok((input, vars))
 }
 
@@ -170,7 +170,7 @@ fn real_data_binary(
     opts: Options,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
-        let (mut input, _) = tuple((tag_no_case("Binary:"), space0, line_ending))(input)?;
+        let (mut input, _) = (tag_no_case("Binary:"), space0, line_ending).parse(input)?;
         let mut out = vec![Vec::with_capacity(points); vars];
         for _ in 0..points {
             for item in out.iter_mut().take(vars) {
@@ -189,7 +189,7 @@ fn real_data_binary(
 
 fn real_data_ascii(vars: usize, points: usize) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
-        let (mut input, _) = tuple((tag_no_case("Values:"), space0, line_ending))(input)?;
+        let (mut input, _) = (tag_no_case("Values:"), space0, line_ending).parse(input)?;
         (input, _) = take_while(is_space_or_line)(input)?;
 
         let mut out = vec![Vec::with_capacity(points); vars];
@@ -217,7 +217,8 @@ fn real_data(
     alt((
         real_data_binary(vars, points, opts),
         real_data_ascii(vars, points),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn complex_data_binary(
@@ -226,7 +227,7 @@ fn complex_data_binary(
     opts: Options,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
-        let (mut input, _) = tuple((tag_no_case("Binary:"), space0, line_ending))(input)?;
+        let (mut input, _) = (tag_no_case("Binary:"), space0, line_ending).parse(input)?;
 
         let mut out = vec![ComplexSignal::with_capacity(points); vars];
         for _ in 0..points {
@@ -255,7 +256,7 @@ fn complex_data_ascii(
     points: usize,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], AnalysisData> {
     move |input| {
-        let (mut input, _) = tuple((tag_no_case("Values:"), space0, line_ending))(input)?;
+        let (mut input, _) = (tag_no_case("Values:"), space0, line_ending).parse(input)?;
         (input, _) = take_while(is_space_or_line)(input)?;
 
         let mut out = vec![ComplexSignal::with_capacity(points); vars];
@@ -287,15 +288,16 @@ fn complex_data(
     alt((
         complex_data_binary(vars, points, opts),
         complex_data_ascii(vars, points),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
     move |input: &[u8]| -> IResult<&[u8], Analysis> {
         let (input, _) = take_while(is_space_or_line)(input)?;
-        let (input, title) = opt(header("Title:"))(input)?;
-        let (input, date) = opt(header("Date:"))(input)?;
-        let (input, command) = opt(header("Command:"))(input)?;
+        let (input, title) = opt(header("Title:")).parse(input)?;
+        let (input, date) = opt(header("Date:")).parse(input)?;
+        let (input, command) = opt(header("Command:")).parse(input)?;
         let (input, plotname) = header("Plotname:")(input)?;
         let (input, flags) = header("Flags:")(input)?;
         let (input, num_variables) = header("No. Variables:")(input)?;
@@ -328,5 +330,5 @@ fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
 }
 
 pub(crate) fn analyses(input: &[u8], opts: Options) -> IResult<&[u8], Vec<Analysis>> {
-    many0(analysis(opts))(input)
+    many0(analysis(opts)).parse(input)
 }
