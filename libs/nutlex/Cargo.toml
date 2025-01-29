@@ -5,7 +5,7 @@ edition = "2021"
 description = "Parses SPICE nutmeg files (aka rawfiles)"
 
 [dependencies]
-nom = "7.1"
+nom = "8.0"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
