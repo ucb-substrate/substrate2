@@ -88,7 +88,7 @@ jobs:
             sed -ri.bak 's/\"examples\/latest\/[a-zA-Z0-9_-]*\",?//g' Cargo.toml
       - name: Publish crates
         working-directory: substrate
-        run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty --locked
+        run: ../cargo-workspaces/cargo-workspaces/target/debug/cargo-ws workspaces publish --from-git --token=${{ secrets.KTRA_TOKEN }} --registry=substrate --yes --allow-dirty
   check-release-examples:
     uses: ./.github/workflows/check-workspace.yml
     needs: [ publish-crates ]
