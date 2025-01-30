@@ -3,15 +3,19 @@ use std::collections::HashMap;
 use crate::ascii::ast::PsfAst as AsciiAst;
 use crate::binary::ast::{PsfAst as BinaryAst, SignalValues};
 
+#[enumify::enumify]
+#[derive(Debug, Clone)]
 pub enum DcData {
     Op(OpData),
     Sweep(SweepData),
 }
 
+#[derive(Debug, Clone)]
 pub struct OpData {
     pub signals: HashMap<String, f64>,
 }
 
+#[derive(Debug, Clone)]
 pub struct SweepData {
     /// A map from signal name to values.
     ///

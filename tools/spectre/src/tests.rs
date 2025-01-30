@@ -29,8 +29,10 @@ use substrate::{
     },
 };
 
-use crate::analysis::ac::{Ac, Sweep};
+use crate::analysis::ac::Ac;
+use crate::analysis::dc::DcOp;
 use crate::analysis::tran::Tran;
+use crate::analysis::Sweep;
 use crate::{
     blocks::{AcSource, Capacitor, Isource, RawInstance, Resistor, Vsource},
     ErrPreset, Options, Primitive, Spectre,
@@ -294,7 +296,7 @@ impl Schematic for RcTb {
         cell.connect(c.io().n, io.vss);
 
         let isource = cell.instantiate(Isource::ac(AcSource {
-            dc: dec!(0),
+            dc: dec!(5e-3),
             mag: dec!(1),
             phase: dec!(0),
         }));
@@ -305,8 +307,11 @@ impl Schematic for RcTb {
     }
 }
 
-// TODO: uncomment
-fn simulate_rc_tb(ctx: &Context, tb: RcTb, sim_dir: impl Into<PathBuf>) -> (f64, f64, Complex64) {
+fn simulate_rc_tb(
+    ctx: &Context,
+    tb: RcTb,
+    sim_dir: impl Into<PathBuf>,
+) -> (f64, f64, Complex64, f64) {
     let sim = ctx
         .get_sim_controller(tb, sim_dir)
         .expect("failed to create sim controller");
@@ -318,7 +323,7 @@ fn simulate_rc_tb(ctx: &Context, tb: RcTb, sim_dir: impl Into<PathBuf>) -> (f64,
         },
         &mut opts,
     );
-    let (tran_vout, ac_vout) = sim
+    let (tran_vout, ac_vout, dc_vout) = sim
         .simulate(
             opts,
             (
@@ -330,15 +335,15 @@ fn simulate_rc_tb(ctx: &Context, tb: RcTb, sim_dir: impl Into<PathBuf>) -> (f64,
                     start: dec!(1e6),
                     stop: dec!(2e6),
                     sweep: Sweep::Linear(10),
-                    errpreset: Some(ErrPreset::Conservative),
                 },
+                DcOp,
             ),
         )
         .unwrap();
 
     let first = tran_vout.first_x().unwrap();
     let last = tran_vout.last_x().unwrap();
-    (first, last, ac_vout[2])
+    (first, last, ac_vout[2], dc_vout)
 }
 
 #[test]
@@ -347,10 +352,10 @@ fn spectre_initial_condition() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = spectre_ctx();
 
-    let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(1.4)), &sim_dir);
+    let (first, _, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(1.4)), &sim_dir);
     assert_relative_eq!(first, 1.4);
 
-    let (first, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(2.1)), sim_dir);
+    let (first, _, _, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(2.1)), sim_dir);
     assert_relative_eq!(first, 2.1);
 }
 
@@ -360,9 +365,19 @@ fn spectre_rc_zin_ac() {
     let sim_dir = get_path(test_name, "sim/");
     let ctx = spectre_ctx();
 
-    let (_, _, z) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
+    let (_, _, z, _) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
     assert_relative_eq!(z.re, -17.286407017773225);
     assert_relative_eq!(z.im, 130.3364383055986);
+}
+
+#[test]
+fn spectre_rc_dcop() {
+    let test_name = "spectre_rc_dcop";
+    let sim_dir = get_path(test_name, "sim/");
+    let ctx = spectre_ctx();
+
+    let (_, _, _, vout) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
+    assert_relative_eq!(vout, -5.);
 }
 
 #[test]
