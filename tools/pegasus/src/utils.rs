@@ -1,7 +1,7 @@
 use std::fs;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use serde::Serialize;
 
@@ -51,6 +51,7 @@ pub fn execute_run_script(
     let status = Command::new("/usr/bin/bash")
         .arg(path)
         .current_dir(work_dir)
+        .stdin(Stdio::null())
         .stdout(out_file)
         .stderr(err_file)
         .status()

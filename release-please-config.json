@@ -29,6 +29,7 @@
     "libs/geometry": {},
     "libs/geometry_macros": {},
     "libs/pathtree": {},
+    "libs/psfparser": {},
     "libs/scir": {},
     "libs/spice": {},
     "libs/layir": {},
