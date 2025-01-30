@@ -24,6 +24,7 @@ members = [
     "libs/geometry_macros",
     "libs/lefdef",
     "libs/pathtree",
+    "libs/psfparser",
     "libs/scir",
     "libs/spice",
     "libs/macrotools",

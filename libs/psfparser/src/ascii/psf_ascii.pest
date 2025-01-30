@@ -1,0 +1,111 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+psf_ascii = _{ SOI ~ psf_ascii_inner ~ EOI }
+psf_ascii_inner = {
+    header_section
+    ~ (type_section ~ sweep_section? ~ trace_section? ~ value_section)?
+    ~ end
+}
+
+header_section = {
+    "HEADER"
+    ~ named_values
+}
+
+named_values = { (named_value)* }
+named_value = { string ~ value }
+value = _{ string | real_value | integer }
+real_value = _{ real | nan }
+nan = { "nan" | "NaN" }
+
+type_section = {
+    "TYPE"
+    ~ types
+}
+
+types = { (type_def)* }
+
+type_def = { string ~ kinds }
+
+kinds = { (kind)* }
+
+kind = {
+    (t_float| t_double | t_complex | t_int | t_byte | t_long | t_string | array | struct_decl | prop | star)
+}
+t_float = { "FLOAT" }
+t_double = { "DOUBLE" }
+t_complex = { "COMPLEX" }
+t_int = { "INT" }
+t_byte = { "BYTE" }
+t_long = { "LONG" }
+t_string = { "STRING" }
+
+struct_decl = { "STRUCT" ~ "(" ~ types ~ ")" }
+array = { "ARRAY" ~ "(" ~ star ~ ")" }
+prop = { "PROP" ~ "(" ~ named_values ~ ")" }
+star = { "*" }
+
+sweep_section = { "SWEEP" ~ sweeps }
+sweeps = { (sweep)* }
+sweep = { string ~ string ~ kinds }
+
+trace_section = { "TRACE" ~ traces }
+traces = { (trace)* }
+trace = { 
+    trace_group
+    | trace_with_props
+    | simple_trace
+}
+
+simple_trace = { string ~ string }
+trace_group = { string ~ "GROUP" ~ integer }
+trace_with_props = { string ~ string ~ prop }
+
+value_section = { "VALUE" ~ values }
+values = _{ (signal_value)* }
+signal_value = {
+    signal_value_typed | signal_value_simple
+}
+signal_value_simple = { string ~ numbers }
+signal_value_typed = { string ~ string ~ numbers }
+
+numbers = _{ simple_numbers | composite_numbers }
+simple_numbers = { (simple_number)+ }
+simple_number = _{
+    (nan ~ prop)
+    | nan
+    | (real ~ prop)
+    | real
+    | integer
+}
+composite_numbers = { (composite_number)+ }
+composite_number = {
+    ("(" ~ simple_numbers ~ ")" ~ prop)
+    | ("(" ~ simple_numbers ~ ")")
+}
+
+
+end = _{ "END" }
+
+
+real = @{
+    ("+" | "-")?
+    ~ (ASCII_DIGIT)+
+    ~ "."
+    ~ (ASCII_DIGIT)*
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+integer = @{
+    "-"?
+    ~ (ASCII_DIGIT)+
+}
+
+string = ${ "\"" ~ string_inner ~ "\"" }
+string_inner = @{ string_char* }
+string_char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+

@@ -19,6 +19,7 @@
   "libs/geometry": "0.7.1",
   "libs/geometry_macros": "0.1.1",
   "libs/pathtree": "0.3.0",
+  "libs/psfparser": "0.1.3",
   "libs/scir": "0.9.1",
   "libs/spice": "0.9.1",
   "libs/layir": "0.2.1",

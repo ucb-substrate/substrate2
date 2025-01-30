@@ -2091,11 +2091,11 @@ dependencies = [
 
 [[package]]
 name = "psfparser"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aded49e0746579b54e939471e8b3f40e835cd1a954f257d9af130a31151d1e04"
+version = "0.1.3"
 dependencies = [
  "anyhow",
+ "approx",
+ "enumify",
  "float_eq",
  "num",
  "pest",
