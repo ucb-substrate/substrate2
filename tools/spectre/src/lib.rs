@@ -10,13 +10,14 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 
-use crate::analysis::ac::{Ac, Sweep};
+use crate::analysis::ac::Ac;
 use crate::analysis::montecarlo;
 use crate::analysis::montecarlo::MonteCarlo;
 
-use analysis::ac;
+use analysis::dc::DcOp;
 use analysis::tran;
 use analysis::tran::Tran;
+use analysis::{ac, dc, Sweep};
 use arcstr::ArcStr;
 use cache::error::TryInnerError;
 use cache::CacheableWithState;
@@ -25,6 +26,7 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use num::complex::Complex64;
 use psfparser::analysis::ac::AcData;
+use psfparser::analysis::dc::DcData;
 use psfparser::analysis::transient::TransientData;
 use regex::Regex;
 use rust_decimal::Decimal;
@@ -283,6 +285,16 @@ impl Options {
         ac::CurrentSaveKey(vec![self.save_inner(save)])
     }
 
+    /// Marks a DC voltage to be saved in all DC analyses.
+    pub fn save_dc_voltage(&mut self, save: impl Into<SimSignal>) -> dc::VoltageSaveKey {
+        dc::VoltageSaveKey(self.save_inner(save))
+    }
+
+    /// Marks a DC current to be saved in all DC analyses.
+    pub fn save_dc_current(&mut self, save: impl Into<SimSignal>) -> dc::CurrentSaveKey {
+        dc::CurrentSaveKey(vec![self.save_inner(save)])
+    }
+
     /// Set the simulation temperature.
     pub fn set_temp(&mut self, temp: Decimal) {
         self.temp = Some(temp);
@@ -403,6 +415,7 @@ enum CachedData {
         freq: Vec<f64>,
         signals: HashMap<String, Vec<Complex64>>,
     },
+    DcOp(HashMap<String, f64>),
     // The outer vec has length `numruns`.
     // The inner vec length equals the length of the inner analysis.
     MonteCarlo(Vec<Vec<CachedData>>),
@@ -433,6 +446,17 @@ impl CachedData {
                 raw_values: signals
                     .into_iter()
                     .map(|(k, v)| (ArcStr::from(k), Arc::new(v)))
+                    .collect(),
+                saved_values: saves
+                    .iter()
+                    .map(|(k, v)| (*v, k.to_string(&ctx.lib.scir, conv)))
+                    .collect(),
+            }
+            .into(),
+            CachedData::DcOp(values) => dc::OpOutput {
+                raw_values: values
+                    .into_iter()
+                    .map(|(k, v)| (ArcStr::from(k), v))
                     .collect(),
                 saved_values: saves
                     .iter()
@@ -781,6 +805,8 @@ pub enum Input {
     Tran(Tran),
     /// AC simulation input.
     Ac(Ac),
+    /// A DC operating point input.
+    DcOp(DcOp),
     /// A Monte Carlo input.
     MonteCarlo(MonteCarlo<Vec<Input>>),
 }
@@ -797,6 +823,12 @@ impl From<Ac> for Input {
     }
 }
 
+impl From<DcOp> for Input {
+    fn from(value: DcOp) -> Self {
+        Self::DcOp(value)
+    }
+}
+
 impl<A: SupportedBy<Spectre>> From<MonteCarlo<A>> for Input {
     fn from(value: MonteCarlo<A>) -> Self {
         Self::MonteCarlo(value.into())
@@ -810,6 +842,8 @@ pub enum Output {
     Tran(tran::Output),
     /// AC simulation output.
     Ac(ac::Output),
+    /// DC operating point simulation output.
+    DcOp(analysis::dc::OpOutput),
     /// Monte Carlo simulation output.
     MonteCarlo(montecarlo::Output<Vec<Output>>),
 }
@@ -823,6 +857,12 @@ impl From<tran::Output> for Output {
 impl From<ac::Output> for Output {
     fn from(value: ac::Output) -> Self {
         Self::Ac(value)
+    }
+}
+
+impl From<analysis::dc::OpOutput> for Output {
+    fn from(value: analysis::dc::OpOutput) -> Self {
+        Self::DcOp(value)
     }
 }
 
@@ -841,6 +881,16 @@ impl TryFrom<Output> for ac::Output {
     fn try_from(value: Output) -> Result<Self> {
         match value {
             Output::Ac(ac) => Ok(ac),
+            _ => Err(Error::SpectreError),
+        }
+    }
+}
+
+impl TryFrom<Output> for analysis::dc::OpOutput {
+    type Error = Error;
+    fn try_from(value: Output) -> Result<Self> {
+        match value {
+            Output::DcOp(dcop) => Ok(dcop),
             _ => Err(Error::SpectreError),
         }
     }
@@ -868,6 +918,7 @@ impl Input {
         match self {
             Self::Tran(t) => t.netlist(out),
             Input::Ac(ac) => ac.netlist(out),
+            Input::DcOp(dcop) => dcop.netlist(out),
             Self::MonteCarlo(mc) => mc.netlist(out, name),
         }
     }
@@ -900,9 +951,13 @@ impl Ac {
             Sweep::Logarithmic(pts) => write!(out, " log={pts}")?,
             Sweep::Decade(pts) => write!(out, " dec={pts}")?,
         };
-        if let Some(errpreset) = self.errpreset {
-            write!(out, " errpreset={errpreset}")?;
-        }
+        Ok(())
+    }
+}
+
+impl DcOp {
+    fn netlist<W: Write>(&self, out: &mut W) -> Result<()> {
+        write!(out, "dc")?;
         Ok(())
     }
 }
@@ -934,6 +989,7 @@ fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<Cac
                 format!("{name}.tran.tran")
             }
             Input::Ac(_) => format!("{name}.ac"),
+            Input::DcOp(_) => format!("{name}.dc"),
             Input::MonteCarlo(_) => unreachable!(),
         };
         let psf_path = output_dir.join(file_name);
@@ -951,6 +1007,10 @@ fn parse_analysis(output_dir: &Path, name: &str, analysis: &Input) -> Result<Cac
                     freq: values.freq,
                     signals: values.signals,
                 }
+            }
+            Input::DcOp(_) => {
+                let values = DcData::from_binary(ast).unwrap_op().signals;
+                CachedData::DcOp(values)
             }
             Input::MonteCarlo(_) => {
                 unreachable!()

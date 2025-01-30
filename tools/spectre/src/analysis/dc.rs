@@ -1,4 +1,4 @@
-//! Spectre AC small-signal analysis options and data structures.
+//! Spectre DC sweeps and operating point analyses.
 
 use crate::{ErrPreset, InstanceTail, SimSignal, Spectre};
 use arcstr::ArcStr;
@@ -19,43 +19,32 @@ use substrate::{
 
 use super::Sweep;
 
-/// An AC analysis.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Ac {
-    /// Start frequency (Hz).
-    ///
-    /// Defaults to 0.
-    pub start: Decimal,
-    /// Stop frequency (Hz).
-    pub stop: Decimal,
-    /// The sweep kind and number of points.
-    pub sweep: Sweep,
-}
+/// A DC operating point analysis.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DcOp;
 
-/// The result of an AC analysis.
+/// The result of a [`DcOp`] analysis.
 #[derive(Debug, Clone)]
-pub struct Output {
-    /// The frequency points of the AC simulation.
-    pub freq: Arc<Vec<f64>>,
-    /// A map from signal name to values.
-    pub raw_values: HashMap<ArcStr, Arc<Vec<Complex64>>>,
+pub struct OpOutput {
+    /// A map from signal name to value.
+    pub raw_values: HashMap<ArcStr, f64>,
     /// A map from a save ID to a raw value identifier.
     pub(crate) saved_values: HashMap<u64, ArcStr>,
 }
 
-/// An identifier for a saved AC voltage.
+/// An identifier for a saved DC voltage.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VoltageSaveKey(pub(crate) u64);
 
-/// An identifier for a saved AC current.
+/// An identifier for a saved DC current.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrentSaveKey(pub(crate) Vec<u64>);
 
-impl Analysis for Ac {
-    type Output = Output;
+impl Analysis for DcOp {
+    type Output = OpOutput;
 }
 
-impl SupportedBy<Spectre> for Ac {
+impl SupportedBy<Spectre> for DcOp {
     fn into_input(self, inputs: &mut Vec<<Spectre as Simulator>::Input>) {
         inputs.push(self.into());
     }
@@ -67,54 +56,35 @@ impl SupportedBy<Spectre> for Ac {
     }
 }
 
-impl Save<Spectre, Ac> for SaveOutput {
+impl Save<Spectre, DcOp> for SaveOutput {
     type SaveKey = ();
-    type Saved = Output;
+    type Saved = OpOutput;
 
     fn save(
         &self,
         _ctx: &SimulationContext<Spectre>,
         _opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as Save<Spectre, Ac>>::SaveKey {
+    ) -> <Self as Save<Spectre, DcOp>>::SaveKey {
     }
 
     fn from_saved(
-        output: &<Ac as Analysis>::Output,
-        _key: &<Self as Save<Spectre, Ac>>::SaveKey,
-    ) -> <Self as Save<Spectre, Ac>>::Saved {
+        output: &<DcOp as Analysis>::Output,
+        _key: &<Self as Save<Spectre, DcOp>>::SaveKey,
+    ) -> <Self as Save<Spectre, DcOp>>::Saved {
         output.clone()
     }
 }
 
-impl Save<Spectre, Ac> for SaveFreq {
-    type SaveKey = ();
-    type Saved = Arc<Vec<f64>>;
-
-    fn save(
-        &self,
-        _ctx: &SimulationContext<Spectre>,
-        _opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as Save<Spectre, Ac>>::SaveKey {
-    }
-
-    fn from_saved(
-        output: &<Ac as Analysis>::Output,
-        _key: &<Self as Save<Spectre, Ac>>::SaveKey,
-    ) -> <Self as Save<Spectre, Ac>>::Saved {
-        output.freq.clone()
-    }
-}
-
-impl Save<Spectre, Ac> for NestedNode {
+impl Save<Spectre, DcOp> for NestedNode {
     type SaveKey = VoltageSaveKey;
-    type Saved = Arc<Vec<Complex64>>;
+    type Saved = f64;
 
     fn save(
         &self,
         ctx: &SimulationContext<Spectre>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as Save<Spectre, Ac>>::SaveKey {
-        opts.save_ac_voltage(SimSignal::ScirVoltage(
+    ) -> <Self as Save<Spectre, DcOp>>::SaveKey {
+        opts.save_dc_voltage(SimSignal::ScirVoltage(
             match ctx.lib.convert_node_path(&self.path()).unwrap() {
                 ConvertedNodePath::Cell(path) => path.clone(),
                 ConvertedNodePath::Primitive {
@@ -125,9 +95,9 @@ impl Save<Spectre, Ac> for NestedNode {
     }
 
     fn from_saved(
-        output: &<Ac as Analysis>::Output,
-        key: &<Self as Save<Spectre, Ac>>::SaveKey,
-    ) -> <Self as Save<Spectre, Ac>>::Saved {
+        output: &<DcOp as Analysis>::Output,
+        key: &<Self as Save<Spectre, DcOp>>::SaveKey,
+    ) -> <Self as Save<Spectre, DcOp>>::Saved {
         output
             .raw_values
             .get(output.saved_values.get(&key.0).unwrap())
@@ -136,26 +106,26 @@ impl Save<Spectre, Ac> for NestedNode {
     }
 }
 
-impl Save<Spectre, Ac> for RawNestedNode {
+impl Save<Spectre, DcOp> for RawNestedNode {
     type SaveKey = VoltageSaveKey;
-    type Saved = Arc<Vec<Complex64>>;
+    type Saved = f64;
 
     fn save(
         &self,
         ctx: &SimulationContext<Spectre>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as Save<Spectre, Ac>>::SaveKey {
+    ) -> <Self as Save<Spectre, DcOp>>::SaveKey {
         let itail = InstanceTail {
             instance: ctx.lib.convert_instance_path(self.instances()).unwrap(),
             tail: self.tail().clone(),
         };
-        opts.save_ac_voltage(itail)
+        opts.save_dc_voltage(itail)
     }
 
     fn from_saved(
-        output: &<Ac as Analysis>::Output,
-        key: &<Self as Save<Spectre, Ac>>::SaveKey,
-    ) -> <Self as Save<Spectre, Ac>>::Saved {
+        output: &<DcOp as Analysis>::Output,
+        key: &<Self as Save<Spectre, DcOp>>::SaveKey,
+    ) -> <Self as Save<Spectre, DcOp>>::Saved {
         output
             .raw_values
             .get(output.saved_values.get(&key.0).unwrap())
@@ -164,15 +134,15 @@ impl Save<Spectre, Ac> for RawNestedNode {
     }
 }
 
-/// Data saved from a nested terminal in an AC simulation.
+/// Data saved from a nested terminal in an [`DcOp`] simulation.
 pub struct NestedTerminalOutput {
     /// The voltage at the terminal.
-    pub v: Arc<Vec<Complex64>>,
+    pub v: f64,
     /// The current flowing through the terminal.
-    pub i: Arc<Vec<Complex64>>,
+    pub i: f64,
 }
 
-impl Save<Spectre, Ac> for NestedTerminal {
+impl Save<Spectre, DcOp> for NestedTerminal {
     type SaveKey = (VoltageSaveKey, CurrentSaveKey);
     type Saved = NestedTerminalOutput;
 
@@ -180,9 +150,9 @@ impl Save<Spectre, Ac> for NestedTerminal {
         &self,
         ctx: &SimulationContext<Spectre>,
         opts: &mut <Spectre as Simulator>::Options,
-    ) -> <Self as Save<Spectre, Ac>>::SaveKey {
+    ) -> <Self as Save<Spectre, DcOp>>::SaveKey {
         (
-            <NestedNode as Save<Spectre, Ac>>::save(self, ctx, opts),
+            <NestedNode as Save<Spectre, DcOp>>::save(self, ctx, opts),
             CurrentSaveKey(
                 ctx.lib
                     .convert_terminal_path(&self.path())
@@ -206,15 +176,15 @@ impl Save<Spectre, Ac> for NestedTerminal {
     }
 
     fn from_saved(
-        output: &<Ac as Analysis>::Output,
-        key: &<Self as Save<Spectre, Ac>>::SaveKey,
-    ) -> <Self as Save<Spectre, Ac>>::Saved {
+        output: &<DcOp as Analysis>::Output,
+        key: &<Self as Save<Spectre, DcOp>>::SaveKey,
+    ) -> <Self as Save<Spectre, DcOp>>::Saved {
         let v = output
             .raw_values
             .get(output.saved_values.get(&key.0 .0).unwrap())
             .unwrap()
             .clone();
-        let currents: Vec<Arc<Vec<Complex64>>> = key
+        let i = key
             .1
              .0
             .iter()
@@ -223,19 +193,9 @@ impl Save<Spectre, Ac> for NestedTerminal {
                     .raw_values
                     .get(output.saved_values.get(key).unwrap())
                     .unwrap()
-                    .clone()
             })
-            .collect();
+            .sum();
 
-        let mut total_current = vec![Complex64::ZERO; output.freq.len()];
-        for tran_current in currents {
-            for (i, current) in tran_current.iter().enumerate() {
-                total_current[i] += *current;
-            }
-        }
-        NestedTerminalOutput {
-            v,
-            i: Arc::new(total_current),
-        }
+        NestedTerminalOutput { v, i }
     }
 }
