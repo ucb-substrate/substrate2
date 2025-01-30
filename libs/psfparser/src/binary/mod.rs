@@ -474,10 +474,7 @@ fn parse_header<'a>(file: &'a [u8], entry: &TocEntry) -> Header<'a> {
     Header { values }
 }
 
-fn parse_point_value<'a, 'b>(
-    data: &'a [u8],
-    types: &'b Types<'a>,
-) -> (&'a [u8], PointValueEntry<'a>) {
+fn parse_point_value<'a>(data: &'a [u8], types: &Types<'_>) -> (&'a [u8], PointValueEntry<'a>) {
     let data = &data[4..];
     let (data, id) = parse_int(data);
     println!("here1");
