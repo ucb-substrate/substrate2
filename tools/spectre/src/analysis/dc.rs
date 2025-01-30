@@ -1,23 +1,18 @@
 //! Spectre DC sweeps and operating point analyses.
 
-use crate::{ErrPreset, InstanceTail, SimSignal, Spectre};
+use crate::{InstanceTail, SimSignal, Spectre};
 use arcstr::ArcStr;
-use num::complex::Complex64;
-use rust_decimal::Decimal;
 use scir::{NamedSliceOne, SliceOnePath};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 use substrate::{
     schematic::conv::ConvertedNodePath,
     simulation::{
-        data::{Save, SaveFreq, SaveOutput},
+        data::{Save, SaveOutput},
         Analysis, SimulationContext, Simulator, SupportedBy,
     },
     types::schematic::{NestedNode, NestedTerminal, RawNestedNode},
 };
-
-use super::Sweep;
 
 /// A DC operating point analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,11 +93,10 @@ impl Save<Spectre, DcOp> for NestedNode {
         output: &<DcOp as Analysis>::Output,
         key: &<Self as Save<Spectre, DcOp>>::SaveKey,
     ) -> <Self as Save<Spectre, DcOp>>::Saved {
-        output
+        *output
             .raw_values
             .get(output.saved_values.get(&key.0).unwrap())
             .unwrap()
-            .clone()
     }
 }
 
@@ -126,11 +120,10 @@ impl Save<Spectre, DcOp> for RawNestedNode {
         output: &<DcOp as Analysis>::Output,
         key: &<Self as Save<Spectre, DcOp>>::SaveKey,
     ) -> <Self as Save<Spectre, DcOp>>::Saved {
-        output
+        *output
             .raw_values
             .get(output.saved_values.get(&key.0).unwrap())
             .unwrap()
-            .clone()
     }
 }
 
@@ -179,11 +172,10 @@ impl Save<Spectre, DcOp> for NestedTerminal {
         output: &<DcOp as Analysis>::Output,
         key: &<Self as Save<Spectre, DcOp>>::SaveKey,
     ) -> <Self as Save<Spectre, DcOp>>::Saved {
-        let v = output
+        let v = *output
             .raw_values
             .get(output.saved_values.get(&key.0 .0).unwrap())
-            .unwrap()
-            .clone();
+            .unwrap();
         let i = key
             .1
              .0

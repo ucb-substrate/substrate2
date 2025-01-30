@@ -1,6 +1,6 @@
 //! Spectre AC small-signal analysis options and data structures.
 
-use crate::{ErrPreset, InstanceTail, SimSignal, Spectre};
+use crate::{InstanceTail, SimSignal, Spectre};
 use arcstr::ArcStr;
 use num::complex::Complex64;
 use rust_decimal::Decimal;
