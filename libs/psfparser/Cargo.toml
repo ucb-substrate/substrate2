@@ -10,11 +10,11 @@ exclude = ["/examples"]
 [dependencies]
 enumify = { version = "0.2.1", path = "../enumify", registry = "substrate" }
 
-anyhow = "1.0.66"
-pest = "2.4.1"
-pest_derive = "2.4.1"
+anyhow = "1"
+pest = "2"
+pest_derive = "2"
 float_eq = "1"
-num = { version = "0.4.1", features = ["serde"] }
+num = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
 approx = "0.5"
