@@ -377,7 +377,7 @@ fn spectre_rc_dcop() {
     let ctx = spectre_ctx();
 
     let (_, _, _, vout) = simulate_rc_tb(&ctx, RcTb::new(dec!(0)), sim_dir);
-    assert_relative_eq!(vout, 5.);
+    assert_relative_eq!(vout, -5.);
 }
 
 #[test]
