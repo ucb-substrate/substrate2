@@ -1,11 +1,9 @@
 [package]
 name = "psfparser"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
-authors = ["Rahul Kumar <rahulkumar@berkeley.edu>"]
 description = "A PSF reader written in Rust"
 readme = "README.md"
-repository = "https://github.com/rahulk29/psfparser"
 license = "BSD-3-Clause"
 exclude = ["/examples"]
 

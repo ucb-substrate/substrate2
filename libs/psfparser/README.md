@@ -11,7 +11,7 @@ Not all PSF features are currently supported.
 To run the tests, run
 
 ```bash
-make test
+cargo test
 ```
 
 from the root of the repository.
