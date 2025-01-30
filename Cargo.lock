@@ -2092,6 +2092,19 @@ dependencies = [
 [[package]]
 name = "psfparser"
 version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "approx",
+ "enumify",
+ "float_eq",
+ "num",
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
+name = "psfparser"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aded49e0746579b54e939471e8b3f40e835cd1a954f257d9af130a31151d1e04"
 dependencies = [
@@ -2585,7 +2598,7 @@ dependencies = [
  "itertools 0.14.0",
  "lazy_static",
  "num",
- "psfparser",
+ "psfparser 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "rust_decimal",
  "rust_decimal_macros",
