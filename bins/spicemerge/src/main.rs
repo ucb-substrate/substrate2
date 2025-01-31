@@ -52,7 +52,7 @@ pub struct Args {
 
 /// Merge the given SPICE files into one netlist.
 pub fn spicemerge(args: Args) -> anyhow::Result<()> {
-    let parsed = Parser::parse_file(Dialect::Cdl, args.input)
+    let parsed = Parser::parse_file(args.dialect, args.input)
         .with_context(|| "Failed to parse input file.")?;
     let lib = parsed
         .to_scir()

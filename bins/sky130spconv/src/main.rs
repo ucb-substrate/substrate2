@@ -102,7 +102,7 @@ impl FromStr for Sky130Schema {
 
 /// Merge the given SPICE file into one netlist, converting to the desired schema.
 pub fn spconv(args: Args) -> anyhow::Result<()> {
-    let parsed = Parser::parse_file(Dialect::Cdl, args.input)
+    let parsed = Parser::parse_file(args.dialect, args.input)
         .with_context(|| "Failed to parse input file.")?;
     let lib = parsed
         .to_scir()
