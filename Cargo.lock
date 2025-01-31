@@ -2631,6 +2631,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "spicemerge"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "arcstr",
+ "clap",
+ "scir",
+ "spice",
+]
+
+[[package]]
 name = "splines"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

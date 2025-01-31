@@ -1,0 +1,12 @@
+[package]
+name = "spicemerge"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+arcstr = "1"
+
+scir = { version = "0.9.1", registry = "substrate", path = "../../libs/scir" }
+spice = { version = "0.9.1", registry = "substrate", path = "../../libs/spice" }

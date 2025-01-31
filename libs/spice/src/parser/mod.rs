@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::iter::FusedIterator;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use crate::parser::conv::convert_str_to_numeric_lit;
 use crate::Spice;
@@ -55,11 +56,38 @@ struct ParserState {
     include_stack: Vec<PathBuf>,
     reader_state: ReaderState,
 }
+
 #[derive(Clone, Default, Eq, PartialEq, Debug)]
 enum ReaderState {
     #[default]
     Top,
     Subckt(Subckt),
+}
+
+/// An error parsing a SPICE dialect from a string.
+#[derive(Copy, Clone, Debug, Error)]
+#[error("error parsing SPICE dialect")]
+pub struct ParseDialectError;
+
+impl Display for Dialect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Spice => write!(f, "spice"),
+            Self::Cdl => write!(f, "cdl"),
+        }
+    }
+}
+
+impl FromStr for Dialect {
+    type Err = ParseDialectError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "spice" | "sp" => Ok(Self::Spice),
+            "cdl" => Ok(Self::Cdl),
+            _ => Err(ParseDialectError),
+        }
+    }
 }
 
 impl Parser {

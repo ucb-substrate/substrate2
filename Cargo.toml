@@ -3,6 +3,7 @@
 resolver = "2"
 members = [
     "bins/cdl2spice",
+    "bins/spicemerge",
     "codegen",
     "config",
     "docs/snippets",
