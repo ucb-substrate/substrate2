@@ -12,13 +12,13 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(ref out) = args.out {
         println!("input file: {:?}", &args.input);
-        println!("dialect: {:?}", &args.dialect);
+        println!("dialect: {}", &args.dialect);
         println!("output: {:?}", &out);
         spicemerge(args)?;
         println!("Netlist writing complete.");
     } else {
         eprintln!("input file: {:?}", &args.input);
-        eprintln!("dialect: {:?}", &args.dialect);
+        eprintln!("dialect: {}", &args.dialect);
         eprintln!("output: stdout");
         spicemerge(args)?;
         eprintln!("Netlist writing complete.");
