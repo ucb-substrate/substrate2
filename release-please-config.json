@@ -10,6 +10,7 @@
   "skip-github-release": true,
   "packages": {
     "bins/cdl2spice": {},
+    "bins/spicemerge": {},
     "codegen": {},
     "config": {},
     "docs/snippets": {},

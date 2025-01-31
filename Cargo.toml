@@ -3,6 +3,7 @@
 resolver = "2"
 members = [
     "bins/cdl2spice",
+    "bins/spicemerge",
     "codegen",
     "config",
     "docs/snippets",
@@ -41,7 +42,7 @@ members = [
     "tools/pegasus",
     "tools/quantus",
     "tools/spectre", 
-    "tools/magic_netgen", "bins/spicemerge",
+    "tools/magic_netgen",
 ]
 
 exclude = ["examples/release"]
