@@ -18,7 +18,10 @@ If you're looking for a deeper dive into how analog design and simulation work i
 
 ## Creating a Substrate project
 
-Substrate is fully integrated with the Rust ecosystem, so all you need to get started is a [recent installation of Rust](https://www.rust-lang.org/tools/install)! Ensure that you have version 1.70.0 or beyond.
+Substrate is fully integrated with the Rust ecosystem, so all you need to get started is a [recent installation of Rust](https://www.rust-lang.org/tools/install)!
+Ensure that you have version 1.80.0 or beyond.
+
+Also ensure that you have the [protocol buffer compiler](https://grpc.io/docs/protoc-installation/) (`protoc`) installed.
 
 { isRelease("{{VERSION}}") ? <div>
 First, add the Substrate registry to your Cargo config:
