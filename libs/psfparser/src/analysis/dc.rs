@@ -106,7 +106,6 @@ impl DcData {
     }
 
     pub fn from_binary(ast: BinaryAst) -> Self {
-        println!("{:#?}", ast);
         match ast.values {
             SignalValues::Point(values) => {
                 let mut signals = HashMap::new();
