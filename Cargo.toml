@@ -41,7 +41,7 @@ members = [
     "tools/pegasus",
     "tools/quantus",
     "tools/spectre", 
-    "tools/magic_netgen",
+    "tools/magic_netgen", "bins/spicemerge",
 ]
 
 exclude = ["examples/release"]
