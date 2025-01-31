@@ -38,9 +38,7 @@ impl<'a> PsfParser<'a> {
 
     pub fn parse(&mut self) {
         self.parse_toc();
-        println!("{:#?}", self.toc);
         self.parse_header();
-        println!("{:#?}", self.ast.header);
         self.parse_types();
         self.parse_sweeps();
         self.parse_traces();
@@ -82,7 +80,6 @@ impl<'a> PsfParser<'a> {
 
     fn num_traces(&self) -> i64 {
         let v = self.ast.header.values.get("PSF traces").unwrap();
-        println!("num traces = {v:?}");
         v.int()
     }
 
@@ -289,11 +286,9 @@ impl<'a> PsfParser<'a> {
 
 fn parse_toc(data: &[u8]) -> Toc {
     let ds = peek_u32(&data[data.len() - 4..]) as usize;
-    println!("ds = {ds:#x}, dlen = {}", data.len());
     let n = (data.len() - ds - 12) / 8;
 
     let toc_ofs = data.len() - 12 - 8 * n;
-    println!("toc_ofs = {toc_ofs:#x}");
     let mut toc = Toc::with_capacity(n);
 
     let mut pkind = None;
@@ -477,9 +472,7 @@ fn parse_header<'a>(file: &'a [u8], entry: &TocEntry) -> Header<'a> {
 fn parse_point_value<'a>(data: &'a [u8], types: &Types<'_>) -> (&'a [u8], PointValueEntry<'a>) {
     let data = &data[4..];
     let (data, id) = parse_int(data);
-    println!("here1");
     let (data, name) = parse_string(data);
-    println!("parsed value for {name}");
     let (data, type_id) = parse_int(data);
     let ty = types.types.get(&TypeId(type_id)).unwrap();
     assert_eq!(ty.data_type, DataType::Real);
