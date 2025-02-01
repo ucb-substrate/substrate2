@@ -118,9 +118,27 @@ impl FromSchema<Spice> for Sky130 {
     fn convert_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
-        match &primitive {
-            spice::Primitive::RawInstance { cell, params, .. } => convert_spice_mos(cell, params),
-            spice::Primitive::Mos { model, params } => convert_spice_mos(model, params),
+        match primitive {
+            spice::Primitive::RawInstance {
+                cell,
+                ports,
+                params,
+            } => {
+                if MosKind::try_from_str(&cell).is_some() {
+                    convert_spice_mos(&cell, &params)
+                } else {
+                    Ok(Primitive::RawInstance {
+                        cell,
+                        ports,
+                        params: params
+                            .clone()
+                            .into_iter()
+                            .map(|(k, v)| (k.into_inner(), v))
+                            .collect(),
+                    })
+                }
+            }
+            spice::Primitive::Mos { model, params } => convert_spice_mos(&model, &params),
             _ => Err(ConvError::UnsupportedPrimitive),
         }
     }
@@ -137,6 +155,11 @@ impl FromSchema<Spice> for Sky130 {
                         let concat = connections.remove(port).unwrap();
                         connections.insert(mapped_port.into(), concat);
                     }
+                }
+            }
+            spice::Primitive::Mos { model, .. } => {
+                if MosKind::try_from_str(model).is_none() {
+                    return Err(ConvError::UnsupportedPrimitive);
                 }
             }
             _ => return Err(ConvError::UnsupportedPrimitive),
