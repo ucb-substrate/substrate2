@@ -1,15 +1,12 @@
 use anyhow::Context;
 use clap::Parser as ClapParser;
 use scir::netlist::ConvertibleNetlister;
-use sky130::{Sky130, Sky130CdsSchema, Sky130OpenSchema, Sky130SrcNdaSchema};
+use sky130::{Sky130, Sky130CdsSchema, Sky130OpenSchema, Sky130Schema, Sky130SrcNdaSchema};
 use spice::netlist::NetlistOptions;
 use spice::parser::{Dialect, Parser};
 use spice::Spice;
-use std::fmt::Display;
 use std::io;
 use std::path::PathBuf;
-use std::str::FromStr;
-use thiserror::Error;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -60,44 +57,6 @@ pub struct Args {
 
     /// The input netlist file.
     input: PathBuf,
-}
-
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-pub enum Sky130Schema {
-    /// Open-source sky130 schema.
-    #[default]
-    Open,
-    /// Cadence sky130 schema.
-    Cds,
-    /// NDA sky130 schema.
-    SrcNda,
-}
-
-impl Display for Sky130Schema {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Open => write!(f, "open"),
-            Self::Cds => write!(f, "cds"),
-            Self::SrcNda => write!(f, "src-nda"),
-        }
-    }
-}
-
-/// Error parsing sky130 schema.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Error)]
-#[error("error parsing sky130 schema")]
-pub struct Sky130SchemaParseErr;
-
-impl FromStr for Sky130Schema {
-    type Err = Sky130SchemaParseErr;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "open" => Ok(Self::Open),
-            "cds" => Ok(Self::Cds),
-            "src-nda" => Ok(Self::SrcNda),
-            _ => Err(Sky130SchemaParseErr),
-        }
-    }
 }
 
 /// Merge the given SPICE file into one netlist, converting to the desired schema.

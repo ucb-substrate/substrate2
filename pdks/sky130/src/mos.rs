@@ -3,7 +3,7 @@
 use std::fmt::Display;
 
 use crate::layers::Sky130Layer;
-use crate::Sky130;
+use crate::{Sky130, Sky130Schema};
 use arcstr::ArcStr;
 use geometry_macros::{TransformMut, TransformRef, TranslateMut, TranslateRef};
 use layir::Shape;
@@ -104,6 +104,18 @@ macro_rules! define_mosfets {
                     )*
                     _ => None,
                 }
+            }
+
+            pub(crate) fn schema(kind: &str) -> Option<Sky130Schema> {
+                match kind {
+                    $(
+                        stringify!($opensubckt) => Some(Sky130Schema::Open),
+                        stringify!($srcndasubckt) => Some(Sky130Schema::SrcNda),
+                        stringify!($cdssubckt) => Some(Sky130Schema::Cds),
+                    )*
+                    _ => None,
+                }
+
             }
         }
         $(
