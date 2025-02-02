@@ -81,6 +81,14 @@ fn convert_spice_mos(
         Sky130Schema::Open | Sky130Schema::SrcNda => dec!(1e3),
         Sky130Schema::Cds => dec!(1e9),
     };
+    let mult = i64::try_from(
+        params
+            .get(&UniCase::new(arcstr::literal!("mult")))
+            .and_then(|expr| expr.get_numeric())
+            .copied()
+            .unwrap_or(dec!(1)),
+    )
+    .map_err(|_| ConvError::InvalidParameter)?;
     Ok(Primitive::Mos {
         kind,
         params: MosParams {
@@ -107,7 +115,8 @@ fn convert_spice_mos(
                     .copied()
                     .unwrap_or(dec!(1)),
             )
-            .map_err(|_| ConvError::InvalidParameter)?,
+            .map_err(|_| ConvError::InvalidParameter)?
+                * mult,
         },
     })
 }
