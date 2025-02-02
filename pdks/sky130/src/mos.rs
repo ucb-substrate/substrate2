@@ -60,7 +60,7 @@ impl Display for MosParams {
 macro_rules! define_mosfets {
     ($({$typ:ident, $name:ident, $doc:literal, $opensubckt:ident, $srcndasubckt:ident, $cdssubckt:ident}),*) => {
         /// An enumeration of Sky 130 MOSFET varieties.
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         pub enum MosKind {
             $(
                 #[doc = $doc]
