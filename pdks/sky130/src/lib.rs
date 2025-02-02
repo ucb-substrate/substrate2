@@ -399,10 +399,10 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
                         Decimal::new(params.l, 3).into(),
                     ),
                     (
-                        UniCase::new(arcstr::literal!("nf")),
+                        // Calibre decks don't support nf, so assign mult=nf instead.
+                        UniCase::new(arcstr::literal!("mult")),
                         Decimal::from(params.nf).into(),
                     ),
-                    (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
                 ]),
             },
         })
