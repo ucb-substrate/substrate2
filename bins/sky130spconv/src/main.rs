@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
 #[command(
     version,
     about,
-    long_about = "Aggregate a SPICE netlist (with potentially many include statements) into one file"
+    long_about = "Aggregate a SPICE netlist (with potentially many include statements) into one file, converting to the desired schema"
 )]
 pub struct Args {
     /// The SPICE dialect.
