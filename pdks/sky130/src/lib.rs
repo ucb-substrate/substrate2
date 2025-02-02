@@ -5,7 +5,9 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::fmt::Display;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use arcstr::ArcStr;
 use derive_builder::Builder;
@@ -14,6 +16,7 @@ use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
+use thiserror::Error;
 use unicase::UniCase;
 
 use crate::mos::{MosKind, MosParams};
@@ -68,58 +71,92 @@ impl scir::schema::Schema for Sky130 {
     type Primitive = Primitive;
 }
 
+fn convert_spice_mos(
+    kind: &str,
+    params: &HashMap<UniCase<ArcStr>, ParamValue>,
+) -> Result<Primitive, ConvError> {
+    let schema = MosKind::schema(kind).ok_or(ConvError::UnsupportedPrimitive)?;
+    let kind = MosKind::try_from_str(kind).ok_or(ConvError::UnsupportedPrimitive)?;
+    let scale = match schema {
+        Sky130Schema::Open | Sky130Schema::SrcNda => dec!(1e3),
+        Sky130Schema::Cds => dec!(1e9),
+    };
+    let mult = i64::try_from(
+        params
+            .get(&UniCase::new(arcstr::literal!("mult")))
+            .and_then(|expr| expr.get_numeric())
+            .copied()
+            .unwrap_or(dec!(1)),
+    )
+    .map_err(|_| ConvError::InvalidParameter)?;
+    let m = i64::try_from(
+        params
+            .get(&UniCase::new(arcstr::literal!("m")))
+            .and_then(|expr| expr.get_numeric())
+            .copied()
+            .unwrap_or(dec!(1)),
+    )
+    .map_err(|_| ConvError::InvalidParameter)?;
+    Ok(Primitive::Mos {
+        kind,
+        params: MosParams {
+            w: i64::try_from(
+                *params
+                    .get(&UniCase::new(arcstr::literal!("w")))
+                    .and_then(|expr| expr.get_numeric())
+                    .ok_or(ConvError::MissingParameter)?
+                    * scale,
+            )
+            .map_err(|_| ConvError::InvalidParameter)?,
+            l: i64::try_from(
+                *params
+                    .get(&UniCase::new(arcstr::literal!("l")))
+                    .and_then(|expr| expr.get_numeric())
+                    .ok_or(ConvError::MissingParameter)?
+                    * scale,
+            )
+            .map_err(|_| ConvError::InvalidParameter)?,
+            nf: i64::try_from(
+                params
+                    .get(&UniCase::new(arcstr::literal!("nf")))
+                    .and_then(|expr| expr.get_numeric())
+                    .copied()
+                    .unwrap_or(dec!(1)),
+            )
+            .map_err(|_| ConvError::InvalidParameter)?
+                * m
+                * mult,
+        },
+    })
+}
+
 impl FromSchema<Spice> for Sky130 {
     type Error = ConvError;
 
     fn convert_primitive(
         primitive: <Spice as scir::schema::Schema>::Primitive,
     ) -> Result<<Self as scir::schema::Schema>::Primitive, Self::Error> {
-        match &primitive {
+        match primitive {
             spice::Primitive::RawInstance {
                 cell,
                 ports,
                 params,
-            } => Ok(if let Some(kind) = MosKind::try_from_str(cell) {
-                Primitive::Mos {
-                    kind,
-                    params: MosParams {
-                        w: i64::try_from(
-                            *params
-                                .get(&UniCase::new(arcstr::literal!("w")))
-                                .and_then(|expr| expr.get_numeric())
-                                .ok_or(ConvError::MissingParameter)?
-                                * dec!(1000),
-                        )
-                        .map_err(|_| ConvError::InvalidParameter)?,
-                        l: i64::try_from(
-                            *params
-                                .get(&UniCase::new(arcstr::literal!("l")))
-                                .and_then(|expr| expr.get_numeric())
-                                .ok_or(ConvError::MissingParameter)?
-                                * dec!(1000),
-                        )
-                        .map_err(|_| ConvError::InvalidParameter)?,
-                        nf: i64::try_from(
-                            params
-                                .get(&UniCase::new(arcstr::literal!("nf")))
-                                .and_then(|expr| expr.get_numeric())
-                                .copied()
-                                .unwrap_or(dec!(1)),
-                        )
-                        .map_err(|_| ConvError::InvalidParameter)?,
-                    },
+            } => {
+                if MosKind::try_from_str(&cell).is_some() {
+                    convert_spice_mos(&cell, &params)
+                } else {
+                    Ok(Primitive::RawInstance {
+                        cell,
+                        ports,
+                        params: params
+                            .clone()
+                            .into_iter()
+                            .map(|(k, v)| (k.into_inner(), v))
+                            .collect(),
+                    })
                 }
-            } else {
-                Primitive::RawInstance {
-                    cell: cell.clone(),
-                    ports: ports.clone(),
-                    params: params
-                        .clone()
-                        .into_iter()
-                        .map(|(k, v)| (k.into_inner(), v))
-                        .collect(),
-                }
-            }),
+            }
+            spice::Primitive::Mos { model, params } => convert_spice_mos(&model, &params),
             _ => Err(ConvError::UnsupportedPrimitive),
         }
     }
@@ -136,6 +173,11 @@ impl FromSchema<Spice> for Sky130 {
                         let concat = connections.remove(port).unwrap();
                         connections.insert(mapped_port.into(), concat);
                     }
+                }
+            }
+            spice::Primitive::Mos { model, .. } => {
+                if MosKind::try_from_str(model).is_none() {
+                    return Err(ConvError::UnsupportedPrimitive);
                 }
             }
             _ => return Err(ConvError::UnsupportedPrimitive),
@@ -357,10 +399,10 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
                         Decimal::new(params.l, 3).into(),
                     ),
                     (
-                        UniCase::new(arcstr::literal!("nf")),
+                        // Calibre decks don't support nf, so assign mult=nf instead.
+                        UniCase::new(arcstr::literal!("mult")),
                         Decimal::from(params.nf).into(),
                     ),
-                    (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
                 ]),
             },
         })
@@ -628,4 +670,43 @@ impl Installation for Sky130 {}
 
 impl substrate::layout::schema::Schema for Sky130 {
     type Layer = Sky130Layer;
+}
+
+/// The available SKY130 schemas.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub enum Sky130Schema {
+    /// Open-source sky130 schema.
+    #[default]
+    Open,
+    /// Cadence sky130 schema.
+    Cds,
+    /// NDA sky130 schema.
+    SrcNda,
+}
+
+impl Display for Sky130Schema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Open => write!(f, "open"),
+            Self::Cds => write!(f, "cds"),
+            Self::SrcNda => write!(f, "src-nda"),
+        }
+    }
+}
+
+/// Error parsing sky130 schema.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Error)]
+#[error("error parsing sky130 schema")]
+pub struct Sky130SchemaParseErr;
+
+impl FromStr for Sky130Schema {
+    type Err = Sky130SchemaParseErr;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "open" => Ok(Self::Open),
+            "cds" => Ok(Self::Cds),
+            "src-nda" => Ok(Self::SrcNda),
+            _ => Err(Sky130SchemaParseErr),
+        }
+    }
 }

@@ -23,6 +23,7 @@ arcstr = { version = "1", features = ["serde"] }
 paste = "1"
 unicase = "2"
 derive_builder = "0.20"
+thiserror = "2"
 
 [dev-dependencies]
 approx = "0.5"

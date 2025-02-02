@@ -11,6 +11,7 @@
   "packages": {
     "bins/cdl2spice": {},
     "bins/spicemerge": {},
+    "bins/sky130spconv": {},
     "codegen": {},
     "config": {},
     "docs/snippets": {},

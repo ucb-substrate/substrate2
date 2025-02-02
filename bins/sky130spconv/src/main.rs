@@ -1,6 +1,7 @@
 use anyhow::Context;
 use clap::Parser as ClapParser;
 use scir::netlist::ConvertibleNetlister;
+use sky130::{Sky130, Sky130CdsSchema, Sky130OpenSchema, Sky130Schema, Sky130SrcNdaSchema};
 use spice::netlist::NetlistOptions;
 use spice::parser::{Dialect, Parser};
 use spice::Spice;
@@ -13,21 +14,23 @@ fn main() -> anyhow::Result<()> {
     if let Some(ref out) = args.out {
         println!("input file: {:?}", &args.input);
         println!("dialect: {}", &args.dialect);
+        println!("schema: {}", &args.schema);
         println!("output: {:?}", &out);
-        spicemerge(args)?;
+        spconv(args)?;
         println!("Netlist writing complete.");
     } else {
         eprintln!("input file: {:?}", &args.input);
         eprintln!("dialect: {}", &args.dialect);
+        eprintln!("schema: {}", &args.schema);
         eprintln!("output: stdout");
-        spicemerge(args)?;
+        spconv(args)?;
         eprintln!("Netlist writing complete.");
     }
 
     Ok(())
 }
 
-/// Arguments to [`spicemerge`].
+/// Arguments to [`spconv`].
 #[derive(ClapParser)]
 #[command(
     version,
@@ -38,6 +41,11 @@ pub struct Args {
     /// The SPICE dialect.
     #[arg(short, long, default_value_t)]
     dialect: Dialect,
+
+    /// The desired output SKY130 schema (open, cds, or src-nda).
+    #[arg(short, long, default_value_t)]
+    schema: Sky130Schema,
+
     /// The path where the output SPICE file should be saved.
     ///
     /// The file and its parent directories will be created if necessary.
@@ -46,17 +54,37 @@ pub struct Args {
     /// If unspecified, the output will be written to stdout.
     #[arg(short, long)]
     out: Option<PathBuf>,
+
     /// The input netlist file.
     input: PathBuf,
 }
 
-/// Merge the given SPICE files into one netlist.
-pub fn spicemerge(args: Args) -> anyhow::Result<()> {
+/// Merge the given SPICE file into one netlist, converting to the desired schema.
+pub fn spconv(args: Args) -> anyhow::Result<()> {
     let parsed = Parser::parse_file(args.dialect, args.input)
         .with_context(|| "Failed to parse input file.")?;
     let lib = parsed
         .to_scir()
         .with_context(|| "Failed to convert input netlist to SCIR.")?;
+    let lib = lib.convert_schema::<Sky130>().unwrap();
+    let lib = lib.build().unwrap();
+    let lib = match args.schema {
+        Sky130Schema::Open => lib
+            .convert_schema::<Sky130OpenSchema>()?
+            .build()?
+            .convert_schema::<Spice>()?
+            .build()?,
+        Sky130Schema::Cds => lib
+            .convert_schema::<Sky130CdsSchema>()?
+            .build()?
+            .convert_schema::<Spice>()?
+            .build()?,
+        Sky130Schema::SrcNda => lib
+            .convert_schema::<Sky130SrcNdaSchema>()?
+            .build()?
+            .convert_schema::<Spice>()?
+            .build()?,
+    };
 
     if let Some(path) = args.out {
         Spice

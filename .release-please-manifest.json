@@ -1,6 +1,7 @@
 {
   "bins/cdl2spice": "0.2.1",
   "bins/spicemerge": "0.0.0",
+  "bins/sky130spconv": "0.0.0",
   "codegen": "0.10.1",
   "config": "0.4.1",
   "docs/snippets": "0.7.0",

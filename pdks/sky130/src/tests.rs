@@ -1,15 +1,17 @@
 use crate::corner::Sky130Corner;
 use crate::layout::to_gds;
-use crate::mos::{MosLength, NmosTile, PmosTile};
+use crate::mos::{MosKind, MosLength, NmosTile, PmosTile};
 use crate::stdcells::{And2, And2Io};
-use crate::{Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
+use crate::{convert_spice_mos, Primitive, Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use scir::ParamValue;
 use spectre::Spectre;
 use std::any::Any;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 use substrate::block::Block;
@@ -19,6 +21,7 @@ use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
 use substrate::simulation::waveform::TimeWaveform;
 use substrate::types::schematic::Terminal;
 use substrate::types::{TestbenchIo, TwoTerminalIo};
+use unicase::UniCase;
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 
@@ -260,4 +263,41 @@ fn pfet_01v8_layout() {
         layout_path,
     )
     .unwrap();
+}
+
+#[test]
+fn test_convert_spice_mos() {
+    let params = HashMap::from_iter([
+        (
+            UniCase::new(arcstr::literal!("w")),
+            ParamValue::Numeric(dec!(2)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("l")),
+            ParamValue::Numeric(dec!(0.15)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("nf")),
+            ParamValue::Numeric(dec!(4)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("mult")),
+            ParamValue::Numeric(dec!(2)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("m")),
+            ParamValue::Numeric(dec!(3)),
+        ),
+    ]);
+    let kind = "nshort";
+    let prim = convert_spice_mos(kind, &params).expect("failed to convert mos");
+    match prim {
+        Primitive::Mos { kind, params } => {
+            assert_eq!(kind, MosKind::Nfet01v8);
+            assert_eq!(params.nf, 24);
+            assert_eq!(params.w, 2_000);
+            assert_eq!(params.l, 150);
+        }
+        _ => panic!("bad primitive"),
+    }
 }
