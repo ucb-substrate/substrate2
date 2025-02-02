@@ -89,6 +89,14 @@ fn convert_spice_mos(
             .unwrap_or(dec!(1)),
     )
     .map_err(|_| ConvError::InvalidParameter)?;
+    let m = i64::try_from(
+        params
+            .get(&UniCase::new(arcstr::literal!("m")))
+            .and_then(|expr| expr.get_numeric())
+            .copied()
+            .unwrap_or(dec!(1)),
+    )
+    .map_err(|_| ConvError::InvalidParameter)?;
     Ok(Primitive::Mos {
         kind,
         params: MosParams {
@@ -116,6 +124,7 @@ fn convert_spice_mos(
                     .unwrap_or(dec!(1)),
             )
             .map_err(|_| ConvError::InvalidParameter)?
+                * m
                 * mult,
         },
     })
