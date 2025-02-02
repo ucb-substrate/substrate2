@@ -19,6 +19,10 @@ Substrate will call into {props.open ? "open source tools (ngspice, magic, and N
 
 ## Setup
 
+### Protocol Buffer Compiler
+
+Ensure that you have the [protocol buffer compiler](https://grpc.io/docs/protoc-installation/) (`protoc`) installed.
+
 ### Rust
 
 Ensure that you have a recent version of Rust installed.
@@ -30,6 +34,7 @@ Add the Substrate registry to your Cargo config:
 You only need to do this the first time you set up Substrate.
 </div> : <div/> }
 
+### Project Setup
 
 Next, create a new Rust project:
 ```bash

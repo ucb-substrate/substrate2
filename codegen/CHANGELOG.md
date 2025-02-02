@@ -24,6 +24,20 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.10.2](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.10.1...codegen-v0.10.2) (2025-02-02)
+
+
+### Bug Fixes
+
+* **deps:** update deps to latest versions ([#562](https://github.com/ucb-substrate/substrate2/issues/562)) ([fe86a45](https://github.com/ucb-substrate/substrate2/commit/fe86a4552ae1238495f26b51443d7729b54398f0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * substrate bumped from <=0.10.1 to <=0.10.2
+
 ## [0.10.1](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.10.0...codegen-v0.10.1) (2025-01-24)
 
 
