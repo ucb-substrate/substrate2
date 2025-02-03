@@ -1,6 +1,6 @@
 [package]
 name = "substrate"
-version = "0.10.1"
+version = "0.10.2"
 edition = "2021"
 
 [dependencies]
@@ -27,7 +27,7 @@ derive-where = "1"
 config = { version = "0.4.1", registry = "substrate", path = "../config" }
 snippets = { version = "0.7.0", registry = "substrate", path = "../docs/snippets" }
 cache = { version = "0.7.1", registry = "substrate", path = "../libs/cache" }
-codegen = { version = "0.10.1", registry = "substrate", path = "../codegen" }
+codegen = { version = "0.10.2", registry = "substrate", path = "../codegen" }
 layir = { version = "0.2.1", registry = "substrate", path = "../libs/layir" }
 geometry = { version = "0.7.1", registry = "substrate", path = "../libs/geometry" }
 gds = { version = "0.4.1", registry = "substrate", path = "../libs/gds" }

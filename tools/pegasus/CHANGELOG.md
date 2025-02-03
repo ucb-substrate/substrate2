@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/pegasus-v0.2.0...pegasus-v0.2.1) (2025-02-02)
+
+
+### Bug Fixes
+
+* **process:** spawn processes with stdin set to null ([#560](https://github.com/ucb-substrate/substrate2/issues/560)) ([a6bc7d1](https://github.com/ucb-substrate/substrate2/commit/a6bc7d12d631494fd0dead3732e3068ec396cc93))
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/pegasus-v0.1.0...pegasus-v0.2.0) (2025-01-23)
 
 

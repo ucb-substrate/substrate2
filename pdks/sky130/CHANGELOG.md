@@ -25,6 +25,23 @@
     * ngspice bumped from 0.3.0 to 0.3.1
     * spice bumped from 0.7.0 to 0.7.1
 
+## [0.10.2](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.1...sky130-v0.10.2) (2025-02-02)
+
+
+### Features
+
+* **sky130spconv:** CLI to convert between sky130 schemas ([#570](https://github.com/ucb-substrate/substrate2/issues/570)) ([a705a71](https://github.com/ucb-substrate/substrate2/commit/a705a71238d61794dd5c322b3b55594d4719886b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.1 to 0.10.2
+    * spectre bumped from 0.11.1 to 0.11.2
+    * ngspice bumped from 0.5.1 to 0.5.2
+    * spice bumped from 0.9.1 to 0.9.2
+
 ## [0.10.1](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.0...sky130-v0.10.1) (2025-01-24)
 
 

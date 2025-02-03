@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * spice bumped from 0.9.1 to 0.9.2
+
 ## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/cdl2spice-v0.2.0...cdl2spice-v0.2.1) (2025-01-24)
 
 

@@ -1,5 +1,11 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.1 to 0.10.2
+    * nutlex bumped from 0.4.1 to 0.4.2
+    * spice bumped from 0.9.1 to 0.9.2
+
 ## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.5.0...ngspice-v0.5.1) (2025-01-24)
 
 
