@@ -8,6 +8,28 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.11.3](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.2...spectre-v0.11.3) (2025-02-04)
+
+
+### Features
+
+* **dcop:** support Spectre dc operating point simulation ([#563](https://github.com/ucb-substrate/substrate2/issues/563)) ([76bf16d](https://github.com/ucb-substrate/substrate2/commit/76bf16d10b4ea43f61049bad499382d8e3582d88))
+* **psfparser:** add psfparser to Substrate ([#561](https://github.com/ucb-substrate/substrate2/issues/561)) ([42ae7fb](https://github.com/ucb-substrate/substrate2/commit/42ae7fbc27744151c6c5282a9b0fd73861138987))
+
+
+### Bug Fixes
+
+* **process:** spawn processes with stdin set to null ([#560](https://github.com/ucb-substrate/substrate2/issues/560)) ([a6bc7d1](https://github.com/ucb-substrate/substrate2/commit/a6bc7d12d631494fd0dead3732e3068ec396cc93))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * psfparser bumped from 0.1.4 to 0.1.5
+    * substrate bumped from 0.10.2 to 0.10.3
+    * spice bumped from 0.9.2 to 0.9.3
+
 ## [0.11.2](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.1...spectre-v0.11.2) (2025-02-02)
 
 

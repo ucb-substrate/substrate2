@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.3](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.2.2...quantus-v0.2.3) (2025-02-04)
+
+
+### Bug Fixes
+
+* **process:** spawn processes with stdin set to null ([#560](https://github.com/ucb-substrate/substrate2/issues/560)) ([a6bc7d1](https://github.com/ucb-substrate/substrate2/commit/a6bc7d12d631494fd0dead3732e3068ec396cc93))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.2 to 0.10.3
+    * spice bumped from 0.9.2 to 0.9.3
+    * pegasus bumped from 0.2.1 to 0.2.2
+
 ## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.2.1...quantus-v0.2.2) (2025-02-02)
 
 

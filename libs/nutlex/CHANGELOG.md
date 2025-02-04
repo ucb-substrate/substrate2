@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.4.2...nutlex-v0.4.3) (2025-02-04)
+
+
+### Bug Fixes
+
+* **deps:** update nom to v8 ([#559](https://github.com/ucb-substrate/substrate2/issues/559)) ([79143c7](https://github.com/ucb-substrate/substrate2/commit/79143c749367067b031bf23546b592b4e2f282a0))
+
 ## [0.4.2](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.4.1...nutlex-v0.4.2) (2025-02-02)
 
 

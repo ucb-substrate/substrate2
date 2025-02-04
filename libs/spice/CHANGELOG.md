@@ -4,6 +4,25 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.9.3](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.2...spice-v0.9.3) (2025-02-04)
+
+
+### Features
+
+* **spicemerge:** add command line tool for aggregating SPICE netlists ([#568](https://github.com/ucb-substrate/substrate2/issues/568)) ([ffd6975](https://github.com/ucb-substrate/substrate2/commit/ffd6975e83bcaaea898ff18b94e48b8a75661096))
+
+
+### Bug Fixes
+
+* **deps:** update nom to v8 ([#559](https://github.com/ucb-substrate/substrate2/issues/559)) ([79143c7](https://github.com/ucb-substrate/substrate2/commit/79143c749367067b031bf23546b592b4e2f282a0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.2 to 0.10.3
+
 ## [0.9.2](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.1...spice-v0.9.2) (2025-02-02)
 
 
