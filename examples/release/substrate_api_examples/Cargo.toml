@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 substrate = { version = "0.10.2", registry = "substrate" }
-scir = { version = "0.9.1", registry = "substrate", path = "../../../libs/scir" }
+scir = { version = "0.9.1", registry = "substrate" }
 
 arcstr = "1"
 rust_decimal = "1"
