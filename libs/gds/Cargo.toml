@@ -7,7 +7,7 @@ edition = "2021"
 byteorder = "1"
 chrono = { version = "0.4", features = ["serde"] }
 derive_builder = "0.20"
-derive_more = { version = "1", features = ["full"] }
+derive_more = { version = "2", features = ["full"] }
 num-derive = "0.4"
 num-traits = "0.2"
 serde = { version = "1", features = ["derive"] }
