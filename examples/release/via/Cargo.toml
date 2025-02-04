@@ -6,4 +6,4 @@ publish = false
 
 [dependencies]
 substrate = { version = "0.10.2", registry = "substrate" }
-layir = { version = "0.2.1", registry = "substrate", path = "../../../libs/layir" }
+layir = { version = "0.2.1", registry = "substrate" }
