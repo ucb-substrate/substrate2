@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * gds bumped from 0.4.1 to 0.4.2
+
 ## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/gdsconv-v0.2.0...gdsconv-v0.2.1) (2025-01-24)
 
 
