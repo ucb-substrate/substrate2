@@ -268,10 +268,26 @@ impl<L> Cell<L> {
         self.try_port(name).unwrap()
     }
 
+    /// Get a mutable reference to a port of this cell by name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided port does not exist.
+    #[inline]
+    pub fn port_mut(&mut self, name: &str) -> &mut Port<L> {
+        self.try_port_mut(name).unwrap()
+    }
+
     /// Get a port of this cell by name.
     #[inline]
     pub fn try_port(&self, name: &str) -> Option<&Port<L>> {
         self.ports.get(name)
+    }
+
+    /// Get a mutable reference to a port of this cell by name.
+    #[inline]
+    pub fn try_port_mut(&mut self, name: &str) -> Option<&mut Port<L>> {
+        self.ports.get_mut(name)
     }
 
     /// Get the instance associated with the given ID.
@@ -360,6 +376,20 @@ impl<L> Port<L> {
 }
 
 impl<L> Element<L> {
+    pub fn layer(&self) -> &L {
+        match self {
+            Self::Shape(s) => s.layer(),
+            Self::Text(t) => t.layer(),
+        }
+    }
+
+    pub fn with_layer<L2>(&self, layer: L2) -> Element<L2> {
+        match self {
+            Self::Shape(s) => Element::Shape(s.with_layer(layer)),
+            Self::Text(t) => Element::Text(t.with_layer(layer)),
+        }
+    }
+
     pub fn map_layer<L2, F>(&self, f: F) -> Element<L2>
     where
         F: FnOnce(&L) -> L2,
@@ -400,6 +430,13 @@ impl<L> Shape<L> {
     #[inline]
     pub fn shape(&self) -> &geometry::shape::Shape {
         &self.shape
+    }
+
+    pub fn with_layer<L2>(&self, layer: L2) -> Shape<L2> {
+        Shape {
+            layer,
+            shape: self.shape().clone(),
+        }
     }
 
     pub fn map_layer<L2>(&self, f: impl FnOnce(&L) -> L2) -> Shape<L2> {
@@ -446,6 +483,14 @@ impl<L> Text<L> {
     #[inline]
     pub fn transformation(&self) -> Transformation {
         self.trans
+    }
+
+    pub fn with_layer<L2>(&self, layer: L2) -> Text<L2> {
+        Text {
+            layer,
+            trans: self.trans,
+            text: self.text.clone(),
+        }
     }
 
     pub fn map_layer<L2>(&self, f: impl FnOnce(&L) -> L2) -> Text<L2> {
