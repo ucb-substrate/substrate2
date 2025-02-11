@@ -399,15 +399,15 @@ pub struct GdsUnits(f64, f64);
 
 impl GdsUnits {
     /// Creates a new [GdsUnits]
-    pub fn new(num1: f64, num2: f64) -> Self {
+    pub const fn new(num1: f64, num2: f64) -> Self {
         Self(num1, num2)
     }
     /// Gets the database-unit size in meters. Used for all spatial data.
-    pub fn db_unit(&self) -> f64 {
+    pub const fn db_unit(&self) -> f64 {
         self.1
     }
     /// Gets the user-unit size in meters. Largely for display/debug.
-    pub fn user_unit(&self) -> f64 {
+    pub const fn user_unit(&self) -> f64 {
         self.0 / self.1
     }
 }

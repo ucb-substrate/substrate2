@@ -2474,6 +2474,7 @@ dependencies = [
  "geometry_macros",
  "indexmap 2.7.1",
  "layir",
+ "lazy_static",
  "ngspice",
  "paste",
  "rust_decimal",

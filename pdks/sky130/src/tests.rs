@@ -1,10 +1,13 @@
 use crate::corner::Sky130Corner;
-use crate::layout::to_gds;
+use crate::layout::{from_gds, to_gds, GDS_UNITS};
 use crate::mos::{MosKind, MosLength, NmosTile, PmosTile};
 use crate::stdcells::{And2, And2Io};
 use crate::{convert_spice_mos, Primitive, Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
+use gds::GdsLibrary;
+use gdsconv::import::GdsImportOpts;
+use layir::Element;
 use ngspice::Ngspice;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -249,6 +252,39 @@ fn nfet_01v8_layout() {
         layout_path,
     )
     .unwrap();
+}
+
+#[test]
+fn import_gds() {
+    let test_name = "import_gds";
+    let ctx = sky130_src_nda_ctx();
+    let layout_path = get_path(test_name, "layout.gds");
+
+    ctx.write_layout(
+        NmosTile::new(1_600, MosLength::L150, 4),
+        to_gds,
+        &layout_path,
+    )
+    .unwrap();
+
+    let rawlib = GdsLibrary::load(layout_path).unwrap();
+    let lib = gdsconv::import::import_gds(
+        &rawlib,
+        GdsImportOpts {
+            units: Some(GDS_UNITS),
+        },
+    )
+    .expect("failed to import to LayIR");
+    let lib = from_gds(&lib);
+    let cell = lib
+        .try_cell_named("nmos_tile_w1600_l150_nf4")
+        .expect("no nmos tile found");
+    for port in ["sd_0", "sd_1", "sd_2", "sd_3", "sd_4", "g_0", "g_1", "b"] {
+        let port = cell.port(port);
+        // Check that the port contains at least one shape and one text.
+        assert!(port.elements().any(|e| matches!(e, Element::Shape(_))));
+        assert!(port.elements().any(|e| matches!(e, Element::Text(_))));
+    }
 }
 
 #[test]
