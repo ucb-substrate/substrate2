@@ -96,10 +96,7 @@ pub fn from_gds(lib: &layir::Library<GdsLayer>) -> layir::Library<Sky130Layer> {
             let port = oport.map_layer(|layer| Sky130Layer::from_gds_layer(layer).unwrap());
             ocell.add_port(name, port);
         }
-        let mut pin_correspondences: HashMap<
-            Sky130Layer,
-            (Vec<Shape<Sky130Layer>>, Vec<Text<Sky130Layer>>),
-        > = HashMap::new();
+        let mut pin_correspondences: HashMap<Sky130Layer, (Vec<_>, Vec<_>)> = HashMap::new();
         for elt in cell.elements() {
             match elt {
                 Element::Shape(s) => {
