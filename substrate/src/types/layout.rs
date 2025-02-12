@@ -83,6 +83,20 @@ impl<L: Send + Sync> super::HasBundleKind for PortGeometry<L> {
     }
 }
 
+impl<L: Clone> TryFrom<layir::Port<L>> for PortGeometry<L> {
+    type Error = LayoutError;
+    fn try_from(port: layir::Port<L>) -> std::result::Result<Self, Self::Error> {
+        let mut shapes = port.elements().filter_map(|elt| elt.get_shape().cloned());
+        let primary = shapes.next().ok_or(LayoutError::EmptyPort)?;
+        let unnamed_shapes = shapes.collect();
+        Ok(PortGeometry {
+            primary,
+            unnamed_shapes,
+            named_shapes: Default::default(),
+        })
+    }
+}
+
 /// A type that can be a bundle of layout ports.
 ///
 /// Must have an associated bundle kind via [`HasBundleKind`](super::HasBundleKind).

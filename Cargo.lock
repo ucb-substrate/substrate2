@@ -1418,6 +1418,7 @@ name = "layir"
 version = "0.2.1"
 dependencies = [
  "arcstr",
+ "enumify",
  "geometry",
  "indexmap 2.7.1",
  "serde",
