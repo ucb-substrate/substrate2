@@ -81,7 +81,11 @@ pub fn from_gds(lib: &layir::Library<GdsLayer>) -> layir::Library<Sky130Layer> {
         let cell = lib.cell(cell);
         let mut ocell = Cell::new(cell.name());
         for elt in cell.elements() {
-            ocell.add_element(elt.map_layer(|layer| Sky130Layer::from_gds_layer(layer).unwrap()));
+            ocell.add_element(elt.map_layer(|layer| {
+                Sky130Layer::from_gds_layer(layer).unwrap_or_else(|| {
+                    panic!("could not convert gds layer {layer:?} to sky130 layer")
+                })
+            }));
         }
         for (_, inst) in cell.instances() {
             let name = lib.cell(inst.child()).name();

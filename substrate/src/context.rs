@@ -20,7 +20,7 @@ use crate::diagnostics::SourceInfo;
 use crate::error::Result;
 use crate::execute::{Executor, LocalExecutor};
 use crate::layout::conv::export_multi_top_layir_lib;
-use crate::layout::element::{NamedPorts, RawCell};
+use crate::layout::element::{Element, NamedPorts, RawCell};
 use crate::layout::error::LayoutError;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::layout::{CellBuilder as LayoutCellBuilder, CellLayer};
@@ -498,16 +498,14 @@ impl Context {
             let cell = lib.cell(id);
             let sid = inner.layout.get_id();
             let mut raw = RawCell::new(sid, cell.name());
-            for elt in cell.elements() {
-                raw.add_element(elt.clone());
-            }
-            for (_, inst) in cell.instances() {
-                let rinst = RawInstance::new(
-                    cells.get(&inst.child()).unwrap().clone(),
+            raw.elements
+                .extend(cell.elements().map(|elt| Element::from(elt.clone())));
+            raw.elements.extend(cell.instances().map(|(_, inst)| {
+                Element::Instance(RawInstance::new(
+                    cells[&inst.child()].clone(),
                     inst.transformation(),
-                );
-                raw.add_element(rinst);
-            }
+                ))
+            }));
             let mut ports = NamedPorts::new();
             for (name, port) in cell.ports() {
                 let mut pg = PortGeometryBuilder::default();

@@ -1,12 +1,17 @@
 //! Standard cell definitions and utilities.
 
+use crate::layout::{from_gds, GDS_UNITS};
 use crate::Sky130;
 use arcstr::ArcStr;
+use gds::GdsLibrary;
+use gdsconv::import::GdsImportOpts;
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use spice::Spice;
 use std::path::PathBuf;
 use substrate::block::Block;
+use substrate::layout::element::RawInstance;
+use substrate::layout::Layout;
 use substrate::schematic::{CellBuilder, Schematic};
 use substrate::types::{InOut, Input, Io, Output, Signal};
 
@@ -109,6 +114,56 @@ paste! {
             Ok(())
         }
     }
+
+    impl Layout for $typ {
+        type Schema = Sky130;
+        type Bundle = [<$typ IoView>]<substrate::types::codegen::PortGeometryBundle<Sky130>>;
+        type Data = ();
+
+        fn layout(
+            &self,
+            cell: &mut substrate::layout::CellBuilder<Self::Schema>,
+        ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
+            let pdk = cell
+                .ctx()
+                .get_installation::<Sky130>()
+                .expect("Requires Sky130 PDK installation");
+
+            let lib = "sky130_fd_sc_hd";
+            let name = stringify!($name);
+            let cell_name = format!("{lib}__{name}_{}", self.strength());
+
+            let layout_path = pdk
+                .stdcell_path(lib, name)
+                .join(format!("{}.gds", cell_name));
+            let rawlib = GdsLibrary::load(layout_path).unwrap();
+            let lib = gdsconv::import::import_gds(
+                &rawlib,
+                GdsImportOpts {
+                    units: Some(GDS_UNITS),
+                },
+            )
+            .expect("failed to import to LayIR");
+            let lib = from_gds(&lib);
+            let cell_id = lib
+                .try_cell_id_named(&cell_name)
+                .expect("stdcell layout cell not found");
+
+            let rc = cell.ctx().import_layir::<Sky130>(lib, cell_id)?;
+            let io = [<$typ IoView>] {
+                pwr: PowerIoView {
+                    vnb: rc.port_named("vnb").unwrap().clone(),
+                    vpb: rc.port_named("vpb").unwrap().clone(),
+                    vgnd: rc.port_named("vgnd").unwrap().clone(),
+                    vpwr: rc.port_named("vpwr").unwrap().clone(),
+                },
+                $($ports_lower: rc.port_named(stringify!($ports_lower)).unwrap().clone(),)*
+            };
+            let inst = RawInstance::new(rc, Default::default());
+            cell.draw(inst)?;
+            Ok((io, ()))
+        }
+    }
 }
     };
 }
@@ -123,6 +178,7 @@ define_stdcell!(
     ["Input A.", "Input B.", "The gate output."],
     [0, 1, 2, 4]
 );
+
 define_stdcell!(
     And3,
     and3,

@@ -1,23 +1,16 @@
 //! Conversions between layout formats.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use layir::Cell;
 use layir::Direction;
 use layir::LibraryBuilder;
 use layir::Port;
 
-use crate::types::layout::PortGeometry;
-
 use super::element::Element;
-use super::element::NamedPorts;
 use super::element::RawCell;
 
 use super::element::CellId as SubCellId;
-use super::element::RawInstance;
-use super::error::LayoutError;
-use super::LayoutContext;
 use layir::CellId as LayCellId;
 
 /// Metadata associated with a conversion from a Substrate schematic to a LayIR library.
@@ -149,32 +142,4 @@ pub(crate) fn export_multi_top_layir_lib<L: Clone>(
         layir: lib_ctx.lib.build().map_err(|_| LayirExportError)?,
         conv: lib_ctx.conv,
     })
-}
-
-impl LayoutContext {
-    pub(crate) fn import_layir<L: Clone>(
-        &mut self,
-        lib: &layir::Library<L>,
-    ) -> Result<HashMap<layir::CellId, Arc<RawCell<L>>>, LayoutError> {
-        let mut cells: HashMap<layir::CellId, Arc<RawCell<L>>> = HashMap::new();
-        for cell_id in lib.topological_order() {
-            let cell = lib.cell(cell_id);
-            let mut rc: RawCell<L> = RawCell::new(self.get_id(), cell.name());
-            rc.elements
-                .extend(cell.elements().map(|elt| Element::from(elt.clone())));
-            rc.elements.extend(cell.instances().map(|(id, inst)| {
-                Element::Instance(RawInstance::new(
-                    cells[&cell_id].clone(),
-                    inst.transformation(),
-                ))
-            }));
-            let mut np = NamedPorts::with_capacity(cell.ports().count());
-            for (name, port) in cell.ports() {
-                np.insert(name.into(), PortGeometry::<L>::try_from(port.clone())?);
-            }
-            cells.insert(cell_id, Arc::new(rc));
-        }
-
-        Ok(cells)
-    }
 }
