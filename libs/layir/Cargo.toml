@@ -8,6 +8,7 @@ arcstr = { version = "1", features = ["serde"] }
 tracing = "0.1"
 serde = "1"
 indexmap = { version = "2", features = ["serde"] }
+thiserror = "2"
 
 enumify = { version = "0.2.1", registry = "substrate", path = "../enumify" }
 uniquify = { version = "0.4.0", registry = "substrate", path = "../uniquify" }

@@ -1026,6 +1026,7 @@ dependencies = [
  "layir",
  "serde",
  "slotmap",
+ "thiserror",
  "tracing",
 ]
 
@@ -1422,6 +1423,7 @@ dependencies = [
  "geometry",
  "indexmap 2.7.1",
  "serde",
+ "thiserror",
  "tracing",
  "uniquify",
 ]

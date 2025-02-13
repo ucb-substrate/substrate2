@@ -20,6 +20,7 @@ use geometry::{
 };
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uniquify::Names;
 
 pub struct Cells;
@@ -222,7 +223,8 @@ impl<L> LibraryBuilder<L> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Error)]
+#[error("error building LayIR library")]
 pub struct BuildError;
 
 impl<L> Deref for Library<L> {

@@ -1,11 +1,13 @@
 use crate::corner::Sky130Corner;
-use crate::layout::{from_gds, to_gds, GDS_UNITS};
+use crate::layers::Sky130Layer;
+use crate::layout::{to_gds, GDS_UNITS};
 use crate::mos::{MosKind, MosLength, NmosTile, PmosTile};
 use crate::stdcells::{And2, And2Io};
 use crate::{convert_spice_mos, Primitive, Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
 use gds::GdsLibrary;
+use gdsconv::conv::from_gds;
 use gdsconv::import::GdsImportOpts;
 use layir::Element;
 use ngspice::Ngspice;
@@ -284,7 +286,8 @@ fn import_gds() {
         },
     )
     .expect("failed to import to LayIR");
-    let lib = from_gds(&lib);
+    let lib =
+        from_gds::<Sky130Layer>(&lib).expect("failed to convert GDS library to sky130 library");
     let cell = lib
         .try_cell_named("nmos_tile_w1600_l150_nf4")
         .expect("no nmos tile found");

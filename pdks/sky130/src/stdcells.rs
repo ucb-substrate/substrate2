@@ -1,9 +1,10 @@
 //! Standard cell definitions and utilities.
 
-use crate::layout::{from_gds, GDS_UNITS};
+use crate::layout::GDS_UNITS;
 use crate::Sky130;
 use arcstr::ArcStr;
 use gds::GdsLibrary;
+use gdsconv::conv::from_gds;
 use gdsconv::import::GdsImportOpts;
 use paste::paste;
 use serde::{Deserialize, Serialize};
@@ -144,7 +145,7 @@ paste! {
                 },
             )
             .expect("failed to import to LayIR");
-            let lib = from_gds(&lib);
+            let lib = from_gds(&lib).expect("failed to convert GDS library to sky130 library");
             let cell_id = lib
                 .try_cell_id_named(&cell_name)
                 .expect("stdcell layout cell not found");
