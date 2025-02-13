@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use gdsconv::GdsLayer;
+use gdsconv::{conv::FromGds, GdsLayer};
 use lazy_static::lazy_static;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -175,16 +175,18 @@ impl Sky130Layer {
     pub fn gds_label_layer(&self) -> Option<GdsLayer> {
         SKY130_TO_GDS_LABEL_LAYER.get(self).copied()
     }
+}
 
-    pub fn from_gds_pin_layer(gds_layer: &GdsLayer) -> Option<Self> {
-        GDS_PIN_LAYER_TO_SKY130.get(gds_layer).copied()
+impl FromGds for Sky130Layer {
+    fn from_gds(layer: GdsLayer) -> Option<Self> {
+        GDS_LAYER_TO_SKY130.get(&layer).copied()
     }
 
-    pub fn from_gds_label_layer(gds_layer: &GdsLayer) -> Option<Self> {
-        GDS_LABEL_LAYER_TO_SKY130.get(gds_layer).copied()
+    fn from_gds_pin(layer: GdsLayer) -> Option<Self> {
+        GDS_PIN_LAYER_TO_SKY130.get(&layer).copied()
     }
 
-    pub fn from_gds_layer(gds_layer: &GdsLayer) -> Option<Self> {
-        GDS_LAYER_TO_SKY130.get(gds_layer).copied()
+    fn from_gds_label(layer: GdsLayer) -> Option<Self> {
+        GDS_LABEL_LAYER_TO_SKY130.get(&layer).copied()
     }
 }

@@ -1,13 +1,11 @@
 //! Layout for sky130.
 
-use std::collections::HashMap;
-
 use arcstr::ArcStr;
 use gds::GdsUnits;
 use gdsconv::GdsLayer;
-use geometry::prelude::{Contains, Transformation};
+use geometry::prelude::Transformation;
 use geometry::{bbox::Bbox, dir::Dir, rect::Rect, span::Span};
-use layir::{Cell, Direction, Element, Instance, LibraryBuilder, Port, Shape, Text};
+use layir::{Cell, Element, Instance, LibraryBuilder, Shape, Text};
 use serde::{Deserialize, Serialize};
 use substrate::types::codegen::PortGeometryBundle;
 use substrate::{
@@ -71,96 +69,6 @@ pub fn to_gds(lib: &layir::Library<Sky130Layer>) -> (layir::Library<GdsLayer>, G
         olib.add_cell(ocell);
     }
     (olib.build().unwrap(), GDS_UNITS)
-}
-
-/// Convert a GDS layout library to a sky130 layout library.
-pub fn from_gds(lib: &layir::Library<GdsLayer>) -> layir::Library<Sky130Layer> {
-    let mut olib = LibraryBuilder::<Sky130Layer>::new();
-    let cells = lib.topological_order();
-    for cell in cells {
-        let cell = lib.cell(cell);
-        let mut ocell = Cell::new(cell.name());
-        for elt in cell.elements() {
-            ocell.add_element(elt.map_layer(|layer| {
-                Sky130Layer::from_gds_layer(layer).unwrap_or_else(|| {
-                    panic!("could not convert gds layer {layer:?} to sky130 layer")
-                })
-            }));
-        }
-        for (_, inst) in cell.instances() {
-            let name = lib.cell(inst.child()).name();
-            let child_id = olib.cell_id_named(name);
-            ocell.add_instance(Instance::with_transformation(
-                child_id,
-                inst.name(),
-                inst.transformation(),
-            ));
-        }
-        for (name, oport) in cell.ports() {
-            let port = oport.map_layer(|layer| Sky130Layer::from_gds_layer(layer).unwrap());
-            ocell.add_port(name, port);
-        }
-        let mut pin_correspondences: HashMap<Sky130Layer, (Vec<_>, Vec<_>)> = HashMap::new();
-        for elt in cell.elements() {
-            match elt {
-                Element::Shape(s) => {
-                    if let Some(layer) = Sky130Layer::from_gds_pin_layer(s.layer()) {
-                        let entry = pin_correspondences.entry(layer).or_default();
-                        entry.0.push(s.with_layer(layer));
-                    }
-                }
-                Element::Text(t) => {
-                    if let Some(layer) = Sky130Layer::from_gds_pin_layer(t.layer())
-                        .or_else(|| Sky130Layer::from_gds_label_layer(t.layer()))
-                    {
-                        let entry = pin_correspondences.entry(layer).or_default();
-                        entry.1.push(t.with_layer(layer));
-                    }
-                }
-            }
-        }
-        for (_, (shapes, texts)) in pin_correspondences {
-            for shape in shapes {
-                let mut name = None;
-                let mut pin_texts = Vec::new();
-                for text in texts.iter() {
-                    if shape
-                        .shape()
-                        .contains(&text.transformation().offset_point())
-                        .intersects()
-                    {
-                        // Identify pin shapes with multiple labels.
-                        if let Some(ref name) = name {
-                            if name != text.text() {
-                                panic!("pin with multiple names");
-                            }
-                        }
-                        name = Some(text.text().clone());
-                        pin_texts.push(text.clone());
-                    }
-                }
-
-                if let Some(name) = name {
-                    if ocell.try_port(&name).is_none() {
-                        ocell.add_port(&name, Port::new(Direction::InOut));
-                    }
-                    let port = ocell.port_mut(&name);
-                    port.add_element(shape);
-                    for text in pin_texts {
-                        // If a text overlaps multiple pin shapes, the imported library will have
-                        // multiple texts: one for each pin shape. We may want to change this
-                        // behavior in the future.
-                        port.add_element(text);
-                    }
-                } else {
-                    panic!("pin shape with no label");
-                }
-            }
-        }
-        olib.add_cell(ocell);
-    }
-
-    olib.build().unwrap()
 }
 
 struct TapTileData {
