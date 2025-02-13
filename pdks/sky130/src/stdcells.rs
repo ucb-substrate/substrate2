@@ -152,10 +152,10 @@ paste! {
             let rc = cell.ctx().import_layir::<Sky130>(lib, cell_id)?;
             let io = [<$typ IoView>] {
                 pwr: PowerIoView {
-                    vnb: rc.port_named("vnb").unwrap().clone(),
-                    vpb: rc.port_named("vpb").unwrap().clone(),
                     vgnd: rc.port_named("vgnd").unwrap().clone(),
                     vpwr: rc.port_named("vpwr").unwrap().clone(),
+                    vnb: rc.port_named("vnb").unwrap().clone(),
+                    vpb: rc.port_named("vpb").unwrap().clone(),
                 },
                 $($ports_lower: rc.port_named(stringify!($ports_lower)).unwrap().clone(),)*
             };
@@ -178,7 +178,6 @@ define_stdcell!(
     ["Input A.", "Input B.", "The gate output."],
     [0, 1, 2, 4]
 );
-
 define_stdcell!(
     And3,
     and3,
