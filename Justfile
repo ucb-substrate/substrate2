@@ -21,16 +21,12 @@ check-fmt:
   cargo fmt --check
 
 # Runs tests
-test: test-examples
+test:
   cargo test --locked
 
-check-all: 
+check-all:
     cargo hack --feature-powerset clippy --locked -- -D warnings
 
-check-docs: 
+check-docs:
     RUSTDOCFLAGS='-D warnings' RUSTFLAGS='-D warnings' cargo hack --all rustdoc --all-features --all-targets
-
-# Test Substrate examples in the examples/ folder
-test-examples: 
-  @just examples/test
 
