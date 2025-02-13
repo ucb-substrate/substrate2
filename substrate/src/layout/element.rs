@@ -75,6 +75,7 @@ impl<L> RawCell<L> {
         &self.ports
     }
 
+    #[allow(dead_code)]
     pub(crate) fn add_element(&mut self, elem: impl Into<Element<L>>) {
         self.elements.push(elem.into());
     }

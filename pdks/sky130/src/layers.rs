@@ -58,6 +58,7 @@ pub enum Sky130Layer {
     AreaIdStandardc,
     AreaIdAnalog,
     Outline,
+    Text,
 }
 
 lazy_static! {
@@ -111,6 +112,7 @@ lazy_static! {
         (Sky130Layer::AreaIdStandardc, GdsLayer(81, 4)),
         (Sky130Layer::AreaIdAnalog, GdsLayer(81, 79)),
         (Sky130Layer::Outline, GdsLayer(236, 0)),
+        (Sky130Layer::Text, GdsLayer(83, 44)),
     ]);
     static ref SKY130_TO_GDS_PIN_LAYER: HashMap<Sky130Layer, GdsLayer> = HashMap::from_iter([
         (Sky130Layer::Pwell, GdsLayer(122, 16)),

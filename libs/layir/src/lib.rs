@@ -9,6 +9,7 @@ use std::{
 
 use crate::id::Id;
 use arcstr::ArcStr;
+use enumify::enumify;
 use geometry::{
     bbox::Bbox,
     point::Point,
@@ -73,6 +74,7 @@ pub enum Direction {
 
 /// A primitive layout element.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[enumify]
 pub enum Element<L> {
     /// A primitive layout shape.
     Shape(Shape<L>),

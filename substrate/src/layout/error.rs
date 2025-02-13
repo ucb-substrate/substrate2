@@ -15,6 +15,9 @@ pub enum LayoutError {
     /// An error with defining the IO of a Substrate layout cell.
     #[error("error specifying layout IO")]
     IoDefinition,
+    /// A port had no geometry.
+    #[error("a port had no geometry")]
+    EmptyPort,
 }
 
 impl From<GdsExportError> for LayoutError {

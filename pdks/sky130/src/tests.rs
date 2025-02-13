@@ -255,6 +255,15 @@ fn nfet_01v8_layout() {
 }
 
 #[test]
+fn stdcell_and2_layout() {
+    let test_name = "stdcell_and2_layout";
+    let ctx = sky130_src_nda_ctx();
+    let layout_path = get_path(test_name, "layout.gds");
+
+    ctx.write_layout(And2::S4, to_gds, layout_path).unwrap();
+}
+
+#[test]
 fn import_gds() {
     let test_name = "import_gds";
     let ctx = sky130_src_nda_ctx();
