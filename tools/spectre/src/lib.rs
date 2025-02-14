@@ -70,6 +70,17 @@ pub enum Primitive {
         /// Parameters associated with the instance.
         params: Vec<(ArcStr, ParamValue)>,
     },
+    /// A raw instance with an associated IBIS model.
+    ///
+    /// Parameters are not supported.
+    IbisInstance {
+        /// The name of the associated component.
+        component: ArcStr,
+        /// The path to the IBIS model.
+        model: PathBuf,
+        /// The ordered ports of the instance.
+        ports: Vec<ArcStr>,
+    },
     /// A raw instance with an associated cell represented in SPF format.
     ///
     /// Parameters are not supported.
@@ -1056,6 +1067,22 @@ impl HasSpiceLikeNetlist for Spectre {
         )?;
         writeln!(out, "global 0\n")?;
 
+        // find all unique IBIS models and include them
+        let ibis = lib
+            .primitives()
+            .filter_map(|p| {
+                if let Primitive::IbisInstance { model, .. } = p.1 {
+                    Some(model.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+        // sort paths before including them to ensure stable output
+        for ibis_path in ibis.iter().sorted() {
+            writeln!(out, "ibis_include {:?}", ibis_path)?;
+        }
+
         // find all unique spf netlists and include them
         let spfs = lib
             .primitives()
@@ -1191,6 +1218,20 @@ impl HasSpiceLikeNetlist for Spectre {
                 let name = Spice.write_primitive_inst(out, name, connections, p)?;
                 writeln!(out, "simulator lang=spectre")?;
                 name
+            }
+            Primitive::IbisInstance {
+                component, ports, ..
+            } => {
+                let connections = ports
+                    .iter()
+                    .flat_map(|port| connections.remove(port).unwrap())
+                    .collect();
+                self.write_instance(
+                    out,
+                    name,
+                    connections,
+                    &arcstr::format!("{}_ibis", component),
+                )?
             }
             Primitive::SpfInstance { cell, ports, .. } => {
                 let connections = ports
