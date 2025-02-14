@@ -1,5 +1,7 @@
 //! Integer coordinate polygons.
 
+use std::cmp::Ordering;
+
 use serde::{Deserialize, Serialize};
 
 use crate::bbox::Bbox;
@@ -7,7 +9,6 @@ use crate::contains::{Containment, Contains};
 use crate::point::Point;
 use crate::rect::Rect;
 use crate::transform::{TransformMut, TransformRef, Transformation, TranslateMut, TranslateRef};
-use num_rational::Ratio;
 
 /// A polygon, with vertex coordinates given
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -136,21 +137,6 @@ impl Bbox for Polygon {
     }
 }
 
-/// Helper function that checks if a point is contained within a triangle
-fn triangle_contains(p: Point, v1: Point, v2: Point, v3: Point) -> bool {
-    let total_area = triangle_area(v1, v2, v3);
-    let sum_area = triangle_area(p, v2, v3) + triangle_area(v1, p, v3) + triangle_area(v1, v2, p);
-    sum_area == total_area
-}
-
-/// Helper function that finds the area of a given triangle
-fn triangle_area(v1: Point, v2: Point, v3: Point) -> Ratio<i64> {
-    Ratio::new(
-        (v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y)).abs(),
-        2,
-    )
-}
-
 impl TranslateRef for Polygon {
     fn translate_ref(&self, p: Point) -> Self {
         Self {
@@ -206,14 +192,66 @@ impl Contains<Point> for Polygon {
     /// assert_eq!(polygon.contains(&p5), Containment::Full);
     /// ```
     fn contains(&self, p: &Point) -> Containment {
-        for (index, _) in self.points.iter().skip(1).enumerate() {
-            let v1 = self.points.first().unwrap();
-            let v2 = self.points.get(index).unwrap();
-            let v3 = self.points.get((index + 1) % self.points.len()).unwrap();
-            if triangle_contains(*p, *v1, *v2, *v3) {
-                return Containment::Full;
+        use std::cmp::{max, min};
+        let mut contains = false;
+        for i in 0..self.points().len() {
+            let p0 = self.points[i];
+            let p1 = self.points[(i + 1) % self.points.len()];
+            // Ensure counter-clockwise ordering.
+            let (p0, p1) = if p0.y < p1.y { (p0, p1) } else { (p1, p0) };
+            if p.y >= min(p0.y, p1.y) && p.y <= max(p0.y, p1.y) {
+                let dy = p1.y - p0.y;
+                let dx = p1.x - p0.x;
+                let test = -(p.x - p0.x) * dy + (p.y - p0.y) * dx;
+                match test.cmp(&0) {
+                    Ordering::Greater => {
+                        contains = !contains;
+                    }
+                    Ordering::Equal => {
+                        if p.x >= min(p0.x, p1.x) && p.x <= max(p0.x, p1.x) {
+                            return Containment::Full;
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
-        Containment::None
+
+        if contains {
+            Containment::Full
+        } else {
+            Containment::None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use geometry::prelude::*;
+
+    #[test]
+    fn point_in_polygon() {
+        let points = vec![
+            Point::new(-10, 0),
+            Point::new(-10, -10),
+            Point::new(10, -10),
+            Point::new(10, 0),
+            Point::new(5, 0),
+            Point::new(5, 5),
+            Point::new(-5, 5),
+            Point::new(-5, 0),
+        ];
+
+        let polygon = Polygon::from_verts(points);
+        println!("here1");
+        assert_eq!(polygon.contains(&Point::new(-10, 5)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(-10, 3)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(0, 5)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(5, 5)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(0, 2)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(-5, -5)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(-10, -10)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(-10, -12)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(12, -10)), Containment::None);
     }
 }
