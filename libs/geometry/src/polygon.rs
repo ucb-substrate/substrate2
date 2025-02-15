@@ -197,17 +197,20 @@ impl Contains<Point> for Polygon {
         for i in 0..self.points().len() {
             let p0 = self.points[i];
             let p1 = self.points[(i + 1) % self.points.len()];
-            println!("check {p0:?} {p1:?}");
             // Ensure counter-clockwise ordering.
             let (p0, p1) = if p0.y < p1.y { (p0, p1) } else { (p1, p0) };
-            if p.y >= min(p0.y, p1.y) && p.y <= max(p0.y, p1.y) {
+            let miny = min(p0.y, p1.y);
+            let maxy = max(p0.y, p1.y);
+            if p.y >= miny && p.y <= maxy {
                 let dy = p1.y - p0.y;
                 let dx = p1.x - p0.x;
                 let test = -(p.x - p0.x) * dy + (p.y - p0.y) * dx;
                 match test.cmp(&0) {
                     Ordering::Greater => {
-                        println!("flip");
-                        contains = !contains;
+                        // Note: this edge cannot be horizontal.
+                        if p.y > miny {
+                            contains = !contains;
+                        }
                     }
                     Ordering::Equal => {
                         if p.x >= min(p0.x, p1.x) && p.x <= max(p0.x, p1.x) {
@@ -246,11 +249,11 @@ mod tests {
         let p4 = Point::new(-2, 4);
         let p5 = Point::new(-2, 2);
         let polygon = Polygon::from_verts(points);
-        assert_eq!(polygon.contains(&p5), Containment::Full);
         assert_eq!(polygon.contains(&p1), Containment::Full);
         assert_eq!(polygon.contains(&p2), Containment::None);
         assert_eq!(polygon.contains(&p3), Containment::None);
         assert_eq!(polygon.contains(&p4), Containment::Full);
+        assert_eq!(polygon.contains(&p5), Containment::Full);
 
         let points = vec![
             Point::new(-10, 0),
@@ -264,7 +267,6 @@ mod tests {
         ];
 
         let polygon = Polygon::from_verts(points);
-        println!("here1");
         assert_eq!(polygon.contains(&Point::new(-10, 5)), Containment::None);
         assert_eq!(polygon.contains(&Point::new(-10, 3)), Containment::None);
         assert_eq!(polygon.contains(&Point::new(0, 5)), Containment::Full);
@@ -276,5 +278,40 @@ mod tests {
         assert_eq!(polygon.contains(&Point::new(12, -10)), Containment::None);
         assert_eq!(polygon.contains(&Point::new(7, 3)), Containment::None);
         assert_eq!(polygon.contains(&Point::new(5, 3)), Containment::Full);
+
+        let points = vec![
+            Point::new(0, 0),
+            Point::new(0, 5),
+            Point::new(10, 5),
+            Point::new(10, 0),
+        ];
+
+        let polygon = Polygon::from_verts(points);
+        assert_eq!(polygon.contains(&Point::new(-1, 0)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(0, 0)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(3, 0)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(10, 0)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(12, 0)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(-1, 5)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(0, 5)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(3, 5)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(10, 5)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(12, 5)), Containment::None);
+
+        let points = vec![Point::new(0, 0), Point::new(10, 10), Point::new(20, 0)];
+
+        let polygon = Polygon::from_verts(points);
+        assert_eq!(polygon.contains(&Point::new(0, 10)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(10, 10)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(20, 10)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(3, 3)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(14, 6)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(2, 1)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(12, 7)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(-2, 0)), Containment::None);
+        assert_eq!(polygon.contains(&Point::new(0, 0)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(10, 0)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(20, 0)), Containment::Full);
+        assert_eq!(polygon.contains(&Point::new(21, 0)), Containment::None);
     }
 }
