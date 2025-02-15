@@ -1047,7 +1047,6 @@ dependencies = [
  "array_map",
  "geometry_macros",
  "impl-trait-for-tuples",
- "num-rational",
  "serde",
 ]
 
