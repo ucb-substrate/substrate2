@@ -117,6 +117,11 @@ pub fn from_gds<L: FromGds + Hash + Eq + Clone>(
                     }
                 }
 
+                // If name is None, no label was found for this shape.
+                // We ignore shapes with missing labels.
+                // In the future, we can perform connectivity analysis
+                // to identify other pins to which this shape is connected,
+                // and then add this shape to the appropriate pin.
                 if let Some(name) = name {
                     if ocell.try_port(&name).is_none() {
                         ocell.add_port(&name, Port::new(Direction::InOut));
@@ -129,10 +134,6 @@ pub fn from_gds<L: FromGds + Hash + Eq + Clone>(
                         // behavior in the future.
                         port.add_element(text);
                     }
-                } else {
-                    return Err(FromGdsError::PinWithNoLabel {
-                        cell: cell.name().clone(),
-                    });
                 }
             }
         }
