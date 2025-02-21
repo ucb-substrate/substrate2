@@ -1,6 +1,4 @@
-use std::cell::Cell;
-
-use crate::Shape;
+use crate::{Cell, Shape};
 
 trait Connectivity: Sized + PartialEq {
     fn connected_layers(&self) -> Vec<Self>;
