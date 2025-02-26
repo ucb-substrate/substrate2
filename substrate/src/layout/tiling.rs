@@ -1,6 +1,6 @@
 //! Tiling structures and helpers.
 
-use std::marker::PhantomData;
+use std::{any::Any, marker::PhantomData};
 
 use downcast_rs::{impl_downcast, Downcast};
 use geometry::{
@@ -47,7 +47,10 @@ pub struct Tile<T> {
     pub rect: Rect,
 }
 
-struct RawTile<S: Schema> {
+/// A raw tile container for a [`Tileable`] object.
+///
+/// Erases the tile type, but can be downcasted to a [`Tile`].
+pub struct RawTile<S: Schema> {
     inner: Box<dyn Tileable<S>>,
     rect: Rect,
 }
@@ -79,6 +82,32 @@ impl<S: Schema, T: Tileable<S>> From<Tile<T>> for RawTile<S> {
             inner: Box::new(value.inner),
             rect: value.rect,
         }
+    }
+}
+
+impl<S: Schema + Any> RawTile<S> {
+    /// Returns a [`Tile`] from a [`RawTile`] if the inner type is `T`. Returns the original [`RawTile`] if it isn’t.
+    pub fn downcast<T: Tileable<S>>(self) -> Result<Tile<T>, RawTile<S>> {
+        self.inner
+            .downcast()
+            .map(|inner| Tile {
+                inner: *inner,
+                rect: self.rect,
+            })
+            .map_err(|inner| RawTile {
+                inner,
+                rect: self.rect,
+            })
+    }
+
+    /// Returns a reference to the inner object if it is of type T, or None if it isn’t.
+    pub fn downcast_inner_ref<T: Tileable<S>>(&self) -> Option<&T> {
+        self.inner.downcast_ref()
+    }
+
+    /// Returns a mutable reference to the inner object if it is of type T, or None if it isn’t.
+    pub fn downcast_inner_mut<T: Tileable<S>>(&mut self) -> Option<&mut T> {
+        self.inner.downcast_mut()
     }
 }
 
@@ -128,6 +157,14 @@ impl<S: Schema + 'static, T: Tileable<S>> std::ops::Index<ArrayTileKey<T>> for A
 
     fn index(&self, index: ArrayTileKey<T>) -> &Self::Output {
         self.get(index).unwrap()
+    }
+}
+
+impl<S: Schema> TranslateMut for ArrayTiler<S> {
+    fn translate_mut(&mut self, p: geometry::prelude::Point) {
+        for tile in &self.array {
+            self.tiles[*tile].translate_mut(p);
+        }
     }
 }
 
