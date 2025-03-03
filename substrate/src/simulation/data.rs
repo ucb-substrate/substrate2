@@ -7,7 +7,10 @@ use codegen::impl_save_tuples;
 use crate::{
     schematic::{HasNestedView, NestedInstance, NestedView, Schematic},
     simulation::{Analysis, SimulationContext, Simulator},
-    types::schematic::{IoTerminalBundle, NestedNode},
+    types::{
+        schematic::{IoTerminalBundle, NestedNode},
+        ArrayBundle, HasBundleKind,
+    },
 };
 
 /// Saves the raw output of a simulation.
@@ -69,6 +72,48 @@ pub trait Save<S: Simulator, A: Analysis> {
 }
 
 impl_save_tuples! {64, NestedNode}
+
+impl<T: Save<S, A>, S: Simulator, A: Analysis> Save<S, A> for Vec<T> {
+    type SaveKey = Vec<SaveKey<T, S, A>>;
+    type Saved = Vec<Saved<T, S, A>>;
+
+    fn save(
+        &self,
+        ctx: &SimulationContext<S>,
+        opts: &mut <S as Simulator>::Options,
+    ) -> <Self as Save<S, A>>::SaveKey {
+        self.iter().map(|x| x.save(ctx, opts)).collect()
+    }
+
+    fn from_saved(
+        output: &<A as Analysis>::Output,
+        key: &<Self as Save<S, A>>::SaveKey,
+    ) -> <Self as Save<S, A>>::Saved {
+        key.iter().map(|k| T::from_saved(output, k)).collect()
+    }
+}
+
+impl<T: HasBundleKind + Save<S, A>, S: Simulator, A: Analysis> Save<S, A> for ArrayBundle<T> {
+    type SaveKey = Vec<SaveKey<T, S, A>>;
+    type Saved = Vec<Saved<T, S, A>>;
+
+    fn save(
+        &self,
+        ctx: &SimulationContext<S>,
+        opts: &mut <S as Simulator>::Options,
+    ) -> <Self as Save<S, A>>::SaveKey {
+        (0..self.num_elems())
+            .map(|i| self[i].save(ctx, opts))
+            .collect()
+    }
+
+    fn from_saved(
+        output: &<A as Analysis>::Output,
+        key: &<Self as Save<S, A>>::SaveKey,
+    ) -> <Self as Save<S, A>>::Saved {
+        <Vec<T>>::from_saved(output, key)
+    }
+}
 
 /// The result of saving a nested instance in a simulation.
 ///
