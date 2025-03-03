@@ -41,7 +41,7 @@ use spice::netlist::{
 };
 use spice::{BlackboxContents, BlackboxElement, Spice};
 use substrate::context::Installation;
-use substrate::execute::Executor;
+use substrate::execute::{ExecOpts, Executor, LogOutput};
 use substrate::schematic::conv::ConvertedNodePath;
 use substrate::schematic::schema::Schema;
 use substrate::simulation::options::ic::InitialCondition;
@@ -412,6 +412,7 @@ struct CachedSimState {
     netlist: PathBuf,
     output_path: PathBuf,
     log: PathBuf,
+    stdout_path: PathBuf,
     run_script: PathBuf,
     work_dir: PathBuf,
     executor: Arc<dyn Executor>,
@@ -501,6 +502,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 input,
                 netlist,
                 output_path,
+                stdout_path,
                 log,
                 run_script,
                 work_dir,
@@ -530,7 +532,13 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 .current_dir(&work_dir)
                 .stdin(Stdio::null());
             executor
-                .execute(command, Default::default())
+                .execute(
+                    command,
+                    ExecOpts {
+                        logs: LogOutput::File(stdout_path),
+                        ..Default::default()
+                    },
+                )
                 .map_err(|_| Error::SpectreError)?;
 
             let mut raw_outputs = Vec::with_capacity(input.len());
@@ -620,6 +628,7 @@ impl Spectre {
 
         let output_path = ctx.work_dir.join("psf");
         let log = ctx.work_dir.join("spectre.log");
+        let stdout_path = ctx.work_dir.join("spectre.out");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
         let executor = ctx.ctx.executor.clone();
@@ -636,6 +645,7 @@ impl Spectre {
                     input,
                     netlist,
                     output_path,
+                    stdout_path,
                     log,
                     run_script,
                     work_dir,
