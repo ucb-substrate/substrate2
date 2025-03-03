@@ -24,7 +24,7 @@ use spice::netlist::{
 };
 use spice::Spice;
 use substrate::context::Installation;
-use substrate::execute::Executor;
+use substrate::execute::{ExecOpts, Executor, LogOutput};
 use substrate::schematic::schema::Schema;
 use substrate::simulation::{SimulationContext, Simulator};
 use templates::{write_run_script, RunScriptContext};
@@ -297,6 +297,7 @@ struct CachedSimState {
     input: Vec<Input>,
     netlist: PathBuf,
     output_file: PathBuf,
+    stdout_path: PathBuf,
     log: PathBuf,
     err_log: PathBuf,
     run_script: PathBuf,
@@ -317,6 +318,7 @@ impl CacheableWithState<CachedSimState> for CachedSim {
                 input,
                 netlist,
                 output_file,
+                stdout_path,
                 log,
                 err_log,
                 run_script,
@@ -343,7 +345,13 @@ impl CacheableWithState<CachedSimState> for CachedSim {
             let mut command = std::process::Command::new("/bin/bash");
             command.arg(&run_script).current_dir(&work_dir);
             executor
-                .execute(command, Default::default())
+                .execute(
+                    command,
+                    ExecOpts {
+                        logs: LogOutput::File(stdout_path),
+                        ..Default::default()
+                    },
+                )
                 .map_err(|_| Error::NgspiceError)?;
 
             let contents = std::fs::read(&output_file)?;
@@ -431,6 +439,7 @@ impl Ngspice {
 
         let output_file = ctx.work_dir.join("data.raw");
         let log = ctx.work_dir.join("ngspice.log");
+        let stdout_path = ctx.work_dir.join("ngspice.out");
         let err_log = ctx.work_dir.join("ngspice.err");
         let run_script = ctx.work_dir.join("simulate.sh");
         let work_dir = ctx.work_dir.clone();
@@ -448,6 +457,7 @@ impl Ngspice {
                     input,
                     netlist,
                     output_file,
+                    stdout_path,
                     log,
                     err_log,
                     run_script,
