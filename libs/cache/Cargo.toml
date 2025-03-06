@@ -17,7 +17,7 @@ tokio-util = "0.7"
 prost = "0.13"
 prost-types = "0.13"
 rusqlite = { version = "0.32", features = ["bundled"] }
-fs4 = { version = "0.12", features = ["tokio"] }
+fs4 = { version = "0.13", features = ["tokio"] }
 thiserror = "2"
 toml = "0.8"
 clap = { version = "4", features = ["derive"] }
