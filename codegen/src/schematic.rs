@@ -432,13 +432,26 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
     all_decls_impls.push(impl_flatten_generic(&view_helper));
 
     let mut hnv_helper = view_helper.clone();
-    let hnv_ty = parse_quote!(SubstrateParent);
+    let hnv_ty: GenericParam = parse_quote!(SubstrateParent);
     hnv_helper.add_generic_type_binding(
         parse_quote!(#view_generic_ty),
         parse_quote!(#substrate::types::codegen::Nested<#hnv_ty>),
     );
 
-    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper, Some(hnv_ty)));
+    all_decls_impls.push(impl_has_nested_view(
+        &helper,
+        &hnv_helper,
+        Some(hnv_ty.clone()),
+    ));
+    let mut hnv_helper = view_helper.clone();
+    hnv_helper.add_generic_type_binding(
+        parse_quote!(#view_generic_ty),
+        parse_quote!(#substrate::types::codegen::Nested),
+    );
+    hnv_helper.push_where_predicate_per_field(
+        |ty, _| parse_quote! { #ty: #substrate::schematic::HasNestedView<NestedView = #ty> + Send + Sync},
+    );
+    all_decls_impls.push(impl_has_nested_view(&hnv_helper, &hnv_helper, None));
     all_decls_impls.push(impl_save_nested_native(&save_helper));
     Ok(quote! {
         #( #all_decls_impls )*
