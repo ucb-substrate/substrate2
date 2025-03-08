@@ -12,7 +12,8 @@ use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
 use crate::tests::{Buffer, BufferN, BufferNxM, Inverter, InverterMos};
-use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, NodeBundle, Terminal};
+use crate::types::codegen::HasNestedContextView;
+use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, Node, NodeBundle, Terminal};
 use crate::types::{Array, Flipped, HasBundleKind, Input, PowerIo};
 use crate::{
     block::Block,
@@ -470,6 +471,11 @@ impl Schematic for BufferN {
             buffers,
         })
     }
+}
+
+#[derive(NestedData)]
+pub struct TestData {
+    pub node: Node,
 }
 
 #[derive(NestedData)]

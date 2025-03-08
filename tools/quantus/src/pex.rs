@@ -9,7 +9,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use substrate::schematic::pex::PexData;
-use substrate::schematic::{HasContextView, HasNestedView, PrimitiveBinding, Schematic};
+use substrate::schematic::{HasContextView, PrimitiveBinding, Schematic};
 use substrate::types::{Flatten, HasBundleKind, HasNameTree};
 use substrate::{
     arcstr::{self, ArcStr},
