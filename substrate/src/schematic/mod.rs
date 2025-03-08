@@ -70,22 +70,33 @@ impl<T: Schematic> Schematic for Arc<T> {
 pub trait NestedData: HasNestedView + Send + Sync {}
 impl<T: HasNestedView + Send + Sync> NestedData for T {}
 
+/// An object that can be nested within a parent context.
+pub trait HasContextView<T> {
+    /// A view of object.
+    type ContextView: Send + Sync;
+    /// Creates a context view of the object given a parent context.
+    fn context_view(&self, parent: &T) -> ContextView<Self, T>;
+}
+
+/// The associated context view of an object.
+pub type ContextView<D, T> = <D as HasContextView<T>>::ContextView;
+
 /// An object that can be nested within a parent transform.
-pub trait HasNestedView<T = InstancePath> {
+pub trait HasNestedView {
     /// A view of the nested object.
     ///
     /// Nesting a nested view should return the same type.
-    type NestedView: Send + Sync;
+    type NestedView: HasNestedView<NestedView = Self::NestedView> + Send + Sync;
     /// Creates a nested view of the object given a parent node.
-    fn nested_view(&self, parent: &T) -> NestedView<Self, T>;
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self>;
 }
 
 /// The associated nested view of an object.
-pub type NestedView<D, T = InstancePath> = <D as HasNestedView<T>>::NestedView;
+pub type NestedView<D> = <D as HasNestedView>::NestedView;
 
-impl<T> HasNestedView<T> for () {
+impl HasNestedView for () {
     type NestedView = ();
-    fn nested_view(&self, _parent: &T) -> NestedView<Self> {}
+    fn nested_view(&self, _parent: &InstancePath) -> NestedView<Self> {}
 }
 
 // TODO: Potentially use lazy evaluation instead of cloning.
@@ -709,11 +720,11 @@ impl<T: Schematic> Cell<T> {
     }
 
     /// Returns the cell's exposed data, nested using the given parent.
-    pub fn custom_data<V>(&self, parent: &V) -> NestedView<T::NestedData, V>
+    pub fn context_data<V>(&self, parent: &V) -> ContextView<T::NestedData, V>
     where
-        T::NestedData: HasNestedView<V>,
+        T::NestedData: HasContextView<V>,
     {
-        self.nodes.nested_view(parent)
+        self.nodes.context_view(parent)
     }
 
     /// Returns this cell's IO.
