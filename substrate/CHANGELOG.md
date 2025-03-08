@@ -28,6 +28,30 @@
   * dependencies
     * codegen bumped from 0.10.1 to 0.10.2
 
+## [0.10.3](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.10.2...substrate-v0.10.3) (2025-03-08)
+
+
+### Features
+
+* **simulation:** blanket implementation for saving ArrayBundles ([#607](https://github.com/ucb-substrate/substrate2/issues/607)) ([41f67ee](https://github.com/ucb-substrate/substrate2/commit/41f67ee509c6f1c21796835398c057edaffe2009))
+* **stdcells:** implement layout for sky130 stdcells ([#586](https://github.com/ucb-substrate/substrate2/issues/586)) ([6e438ec](https://github.com/ucb-substrate/substrate2/commit/6e438ecde6b092231b4f9b6f17e3004663c17f74))
+* **tiling:** expose raw tiles and allow tiling ArrayTilers ([#604](https://github.com/ucb-substrate/substrate2/issues/604)) ([4769a77](https://github.com/ucb-substrate/substrate2/commit/4769a77310606dc4a62b408556cea094da1cd531))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * codegen bumped from 0.10.2 to 0.10.3
+    * layir bumped from 0.2.1 to 0.2.2
+    * geometry bumped from 0.7.1 to 0.7.2
+    * gds bumped from 0.4.1 to 0.4.2
+    * gdsconv bumped from 0.2.1 to 0.2.2
+    * enumify bumped from 0.2.1 to 0.2.2
+    * scir bumped from 0.9.1 to 0.9.2
+  * build-dependencies
+    * examples bumped from 0.2.0 to 0.2.1
+
 ## [0.10.1](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.10.0...substrate-v0.10.1) (2025-01-24)
 
 
