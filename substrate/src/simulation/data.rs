@@ -73,6 +73,26 @@ pub trait Save<S: Simulator, A: Analysis> {
 
 impl_save_tuples! {64, NestedNode}
 
+impl<T: Save<S, A>, S: Simulator, A: Analysis> Save<S, A> for Option<T> {
+    type SaveKey = Option<SaveKey<T, S, A>>;
+    type Saved = Option<Saved<T, S, A>>;
+
+    fn save(
+        &self,
+        ctx: &SimulationContext<S>,
+        opts: &mut <S as Simulator>::Options,
+    ) -> <Self as Save<S, A>>::SaveKey {
+        self.as_ref().map(|x| x.save(ctx, opts))
+    }
+
+    fn from_saved(
+        output: &<A as Analysis>::Output,
+        key: &<Self as Save<S, A>>::SaveKey,
+    ) -> <Self as Save<S, A>>::Saved {
+        key.as_ref().map(|k| T::from_saved(output, k))
+    }
+}
+
 impl<T: Save<S, A>, S: Simulator, A: Analysis> Save<S, A> for Vec<T> {
     type SaveKey = Vec<SaveKey<T, S, A>>;
     type Saved = Vec<Saved<T, S, A>>;
