@@ -222,11 +222,10 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
     let simulator_ty = parse_quote! { SubstrateS };
     let analysis_ty = parse_quote! { SubstrateA };
 
-    let hnv_generic_ty: syn::Ident = parse_quote!(SubstrateT);
-    let hnv_generic: syn::GenericParam = parse_quote!(#hnv_generic_ty);
-
-    let save_key_view = parse_quote! { #substrate::types::codegen::NestedSaveKey<#hnv_generic_ty, #simulator_ty, #analysis_ty> };
-    let saved_view = parse_quote! { #substrate::types::codegen::NestedSaved<#hnv_generic_ty, #simulator_ty, #analysis_ty> };
+    let save_key_view =
+        parse_quote! { #substrate::types::codegen::NestedSaveKey<#simulator_ty, #analysis_ty> };
+    let saved_view =
+        parse_quote! { #substrate::types::codegen::NestedSaved<#simulator_ty, #analysis_ty> };
 
     let mut save_key = view_helper.clone();
     save_key.add_generic_type_binding(parse_quote! { SubstrateV }, save_key_view);
@@ -239,7 +238,7 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
         } else {
             &prev_tys[0]
         };
-        parse_quote! { #ty: #substrate::schematic::HasNestedView<#hnv_generic_ty> }
+        parse_quote! { #ty: #substrate::schematic::HasNestedView }
     });
     view_helper.push_where_predicate_per_field(|ty, prev_tys| {
         let ty = if prev_tys.is_empty() {
@@ -247,12 +246,12 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
         } else {
             &prev_tys[0]
         };
-        parse_quote! {<#ty as #substrate::schematic::HasNestedView<#hnv_generic_ty>>::NestedView: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+        parse_quote! {<#ty as #substrate::schematic::HasNestedView>::NestedView: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
     });
 
     view_helper.add_generic_type_binding(
         parse_quote! { SubstrateV },
-        parse_quote! { #substrate::types::codegen::Nested<#hnv_generic_ty> },
+        parse_quote! { #substrate::types::codegen::Nested },
     );
 
     let save_body = view_helper.map_data(
@@ -295,7 +294,7 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
             parse_quote! { #simulator_ty: #substrate::simulation::Simulator },
             parse_quote! { #analysis_ty: #substrate::simulation::Analysis },
         ],
-        extra_generics: vec![hnv_generic, simulator_ty, analysis_ty],
+        extra_generics: vec![simulator_ty, analysis_ty],
     })
 }
 
@@ -432,17 +431,12 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
     all_decls_impls.push(impl_flatten_generic(&view_helper));
 
     let mut hnv_helper = view_helper.clone();
-    let hnv_ty: GenericParam = parse_quote!(SubstrateParent);
     hnv_helper.add_generic_type_binding(
         parse_quote!(#view_generic_ty),
-        parse_quote!(#substrate::types::codegen::Nested<#hnv_ty>),
+        parse_quote!(#substrate::types::codegen::Nested),
     );
 
-    all_decls_impls.push(impl_has_nested_view(
-        &helper,
-        &hnv_helper,
-        Some(hnv_ty.clone()),
-    ));
+    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper, None));
     let mut hnv_helper = view_helper.clone();
     hnv_helper.add_generic_type_binding(
         parse_quote!(#view_generic_ty),

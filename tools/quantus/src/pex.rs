@@ -9,7 +9,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use substrate::schematic::pex::PexData;
-use substrate::schematic::{HasNestedView, PrimitiveBinding, Schematic};
+use substrate::schematic::{HasContextView, HasNestedView, PrimitiveBinding, Schematic};
 use substrate::types::{Flatten, HasBundleKind, HasNameTree};
 use substrate::{
     arcstr::{self, ArcStr},
@@ -138,7 +138,7 @@ impl<T: Block> Block for Pex<T> {
 
 impl<T: Schematic<Schema = Spice>> Schematic for Pex<T>
 where
-    T::NestedData: HasNestedView<PexContext>,
+    T::NestedData: HasContextView<PexContext>,
 {
     type Schema = Spice;
     type NestedData = PexData<T>;

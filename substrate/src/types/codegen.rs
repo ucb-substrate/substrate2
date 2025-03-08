@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    schematic::{HasNestedView, InstancePath, NestedView},
+    schematic::{ContextView, HasContextView, HasNestedView, InstancePath, NestedView},
     simulation::{data::Save, Analysis, Simulator},
 };
 
@@ -24,14 +24,24 @@ pub trait HasView<V> {
 /// The `V` view of `T`.
 pub type View<T, V> = <T as HasView<V>>::View;
 
-/// Marker struct for nested views.
-pub struct Nested<T = InstancePath>(PhantomData<T>);
+/// Marker struct for context views.
+pub struct Context<T>(PhantomData<T>);
 
-impl<T, D> HasView<Nested<T>> for D
+/// Marker struct for nested views.
+pub struct Nested;
+
+impl<D> HasView<Nested> for D
 where
-    D: HasNestedView<T>,
+    D: HasNestedView,
 {
-    type View = <D as HasNestedView<T>>::NestedView;
+    type View = <D as HasNestedView>::NestedView;
+}
+
+impl<T, D> HasView<(Nested, Context<T>)> for D
+where
+    D: HasNestedView<NestedView: HasContextView<T>>,
+{
+    type View = ContextView<NestedView<D>, T>;
 }
 
 pub struct NodeBundle;
@@ -103,19 +113,34 @@ where
 {
 }
 
-pub struct NestedSaveKey<T, S, A>(PhantomData<(T, S, A)>);
-pub struct NestedSaved<T, S, A>(PhantomData<(T, S, A)>);
+pub struct NestedSaveKey<S, A>(PhantomData<(S, A)>);
+pub struct NestedSaved<S, A>(PhantomData<(S, A)>);
 
-impl<V, S: Simulator, A: Analysis, T: HasNestedView<V, NestedView: Save<S, A>>>
-    HasView<NestedSaveKey<V, S, A>> for T
+impl<S: Simulator, A: Analysis, T: HasNestedView<NestedView: Save<S, A>>>
+    HasView<NestedSaveKey<S, A>> for T
 {
-    type View = crate::simulation::data::SaveKey<NestedView<T, V>, S, A>;
+    type View = crate::simulation::data::SaveKey<NestedView<T>, S, A>;
 }
 
-impl<V, S: Simulator, A: Analysis, T: HasNestedView<V, NestedView: Save<S, A>>>
-    HasView<NestedSaved<V, S, A>> for T
+impl<S: Simulator, A: Analysis, T: HasNestedView<NestedView: Save<S, A>>> HasView<NestedSaved<S, A>>
+    for T
 {
-    type View = crate::simulation::data::Saved<NestedView<T, V>, S, A>;
+    type View = crate::simulation::data::Saved<NestedView<T>, S, A>;
+}
+
+pub struct ContextSaveKey<T, S, A>(PhantomData<(T, S, A)>);
+pub struct ContextSaved<T, S, A>(PhantomData<(T, S, A)>);
+
+impl<V, S: Simulator, A: Analysis, T: HasContextView<V, ContextView: Save<S, A>>>
+    HasView<ContextSaveKey<V, S, A>> for T
+{
+    type View = crate::simulation::data::SaveKey<ContextView<T, V>, S, A>;
+}
+
+impl<V, S: Simulator, A: Analysis, T: HasContextView<V, ContextView: Save<S, A>>>
+    HasView<ContextSaved<V, S, A>> for T
+{
+    type View = crate::simulation::data::Saved<ContextView<T, V>, S, A>;
 }
 
 pub struct NestedNodeSaveKeyView<S, A>(PhantomData<(S, A)>);
