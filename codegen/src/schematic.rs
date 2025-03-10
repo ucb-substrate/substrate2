@@ -343,6 +343,7 @@ pub(crate) fn impl_has_nested_view(
     view_helper: &DeriveInputHelper,
     nested_view_helper: &DeriveInputHelper,
     context_generic: Option<GenericParam>,
+    bound_nested_type: bool,
 ) -> TokenStream {
     let substrate = substrate_ident();
     let mut has_nested_view_helper = view_helper.clone();
@@ -350,11 +351,19 @@ pub(crate) fn impl_has_nested_view(
         has_nested_view_helper.push_where_predicate_per_field(
             |ty, _| parse_quote! { #ty: #substrate::schematic::HasContextView<#hnv_ty> },
         );
+        if bound_nested_type {
+            has_nested_view_helper.push_where_predicate_per_field(
+                |_, prev_ty| {
+                    let ty = prev_ty[0].clone();
+                    parse_quote! { #ty: #substrate::types::codegen::HasView<#substrate::types::codegen::Nested, View = #substrate::schematic::NestedView<#ty>> }
+                }
+            );
+        }
 
         let nested_view_full_ty = nested_view_helper.get_full_type();
 
         let nested_view_body = has_nested_view_helper.map_data(
-        &nested_view_helper.get_type(),
+        &nested_view_helper.get_full_turbofish_type(),
             |MapField { ty, refer, .. }| {
                     quote! { <#ty as #substrate::schematic::HasContextView<#hnv_ty>>::context_view(#refer, __substrate_parent) }
             });
@@ -378,7 +387,7 @@ pub(crate) fn impl_has_nested_view(
         let nested_view_full_ty = nested_view_helper.get_full_type();
 
         let nested_view_body = has_nested_view_helper.map_data(
-        &nested_view_helper.get_type(),
+        &nested_view_helper.get_full_turbofish_type(),
             |MapField { ty, refer, .. }| {
                     quote! { <#ty as #substrate::schematic::HasNestedView>::nested_view(&#refer, __substrate_parent) }
             });
@@ -471,7 +480,7 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
         parse_quote!(#substrate::types::codegen::Nested),
     );
 
-    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper, None));
+    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper, None, false));
 
     let mut ctx_helper = view_helper.clone();
     let ctx_ty: GenericParam = parse_quote!(SubstrateParent);
@@ -483,6 +492,7 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
         &helper,
         &ctx_helper,
         Some(ctx_ty.clone()),
+        false,
     ));
 
     let mut hnv_helper = view_helper.clone();
@@ -493,7 +503,7 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
     hnv_helper.push_where_predicate_per_field(
         |ty, _| parse_quote! { #ty: #substrate::schematic::HasNestedView<NestedView = #ty> + Send + Sync},
     );
-    all_decls_impls.push(impl_has_nested_view(&hnv_helper, &hnv_helper, None));
+    all_decls_impls.push(impl_has_nested_view(&hnv_helper, &hnv_helper, None, false));
 
     let mut ctx_helper = view_helper.clone();
     let ctx_ty = parse_quote!(SubstrateParent);
@@ -501,7 +511,12 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
         parse_quote!(#view_generic_ty),
         parse_quote!((#substrate::types::codegen::Nested, #substrate::types::codegen::Context<#ctx_ty>)),
     );
-    all_decls_impls.push(impl_has_nested_view(&hnv_helper, &ctx_helper, Some(ctx_ty)));
+    all_decls_impls.push(impl_has_nested_view(
+        &hnv_helper,
+        &ctx_helper,
+        Some(ctx_ty),
+        true,
+    ));
     all_decls_impls.push(impl_save_nested_native(
         &save_helper,
         SaveNestedKind::Context,
@@ -608,21 +623,25 @@ pub(crate) fn schematic_bundle_kind(
         &node_bundle_helper,
         &nested_node_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_has_nested_view(
         &terminal_bundle_helper,
         &nested_terminal_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_has_nested_view(
         &nested_node_bundle_helper,
         &nested_node_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_has_nested_view(
         &nested_terminal_bundle_helper,
         &nested_terminal_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_view_as(&node_bundle_helper, true));
     all_decls_impls.push(impl_view_as(&terminal_bundle_helper, false));

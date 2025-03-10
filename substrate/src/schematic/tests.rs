@@ -25,6 +25,7 @@ use crate::{
 pub struct SchematicInstances<T: Schematic> {
     pub instances: Vec<Instance<T>>,
 }
+
 #[derive(NestedData)]
 pub enum EnumInstances<T: Schematic> {
     One { one: Instance<T> },
