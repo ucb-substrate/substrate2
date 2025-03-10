@@ -26,6 +26,16 @@ pub struct PexContext<S: Schema> {
     path: InstancePath,
 }
 
+impl<S: Schema> Clone for PexContext<S> {
+    fn clone(&self) -> Self {
+        Self {
+            lib: self.lib.clone(),
+            conv: self.conv.clone(),
+            path: self.path.clone(),
+        }
+    }
+}
+
 /// A schema that can convert element paths to strings.
 pub trait StringPathSchema: Schema {
     /// Convert a node path to a raw string.
@@ -73,6 +83,16 @@ pub struct PexData<T: Schematic> {
     conv: Arc<NetlistLibConversion>,
 }
 
+impl<T: Schematic> Clone for PexData<T> {
+    fn clone(&self) -> Self {
+        Self {
+            cell: self.cell.clone(),
+            lib: self.lib.clone(),
+            conv: self.conv.clone(),
+        }
+    }
+}
+
 impl<T: Schematic> PexData<T> {
     /// Creates a new [`PexData`].
     pub fn new(
@@ -88,6 +108,15 @@ impl<T: Schematic> PexData<T> {
 pub struct NestedPexData<T: Schematic> {
     cell: Cell<Arc<T>>,
     ctx: PexContext<T::Schema>,
+}
+
+impl<T: Schematic> Clone for NestedPexData<T> {
+    fn clone(&self) -> Self {
+        Self {
+            cell: self.cell.clone(),
+            ctx: self.ctx.clone(),
+        }
+    }
 }
 
 impl<T: Schematic> NestedPexData<T>
