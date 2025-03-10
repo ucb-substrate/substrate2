@@ -9,7 +9,7 @@ syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"
 proc-macro-crate = "3"
-convert_case = "0.7"
+convert_case = "0.8"
 
 snippets = { version = "0.7.0", registry = "substrate", path = "../docs/snippets" }
 macrotools = { version = "0.2.0", registry = "substrate", path = "../libs/macrotools" }
