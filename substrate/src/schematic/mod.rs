@@ -78,14 +78,29 @@ pub trait HasContextView<T> {
     fn context_view(&self, parent: &T) -> ContextView<Self, T>;
 }
 
+/// The associated context view of an object.
+pub type ContextView<D, T> = <D as HasContextView<T>>::ContextView;
+
 impl<T> HasContextView<T> for () {
     type ContextView = ();
 
     fn context_view(&self, _parent: &T) -> ContextView<Self, T> {}
 }
 
-/// The associated context view of an object.
-pub type ContextView<D, T> = <D as HasContextView<T>>::ContextView;
+// TODO: Potentially use lazy evaluation instead of cloning.
+impl<V, T: HasContextView<V>> HasContextView<V> for Vec<T> {
+    type ContextView = Vec<ContextView<T, V>>;
+    fn context_view(&self, parent: &V) -> ContextView<Self, V> {
+        self.iter().map(|elem| elem.context_view(parent)).collect()
+    }
+}
+
+impl<V, T: HasContextView<V>> HasContextView<V> for Option<T> {
+    type ContextView = Option<ContextView<T, V>>;
+    fn context_view(&self, parent: &V) -> ContextView<Self, V> {
+        self.as_ref().map(|inner| inner.context_view(parent))
+    }
+}
 
 /// An object that can be nested within a parent transform.
 pub trait HasNestedView {
