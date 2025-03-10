@@ -78,6 +78,12 @@ pub trait HasContextView<T> {
     fn context_view(&self, parent: &T) -> ContextView<Self, T>;
 }
 
+impl<T> HasContextView<T> for () {
+    type ContextView = ();
+
+    fn context_view(&self, _parent: &T) -> ContextView<Self, T> {}
+}
+
 /// The associated context view of an object.
 pub type ContextView<D, T> = <D as HasContextView<T>>::ContextView;
 

@@ -12,7 +12,6 @@ use super::{Instance, NestedInstance};
 use crate::context::Context;
 use crate::schematic::CellBuilder;
 use crate::tests::{Buffer, BufferN, BufferNxM, Inverter, InverterMos};
-use crate::types::codegen::HasNestedContextView;
 use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, Node, NodeBundle, Terminal};
 use crate::types::{Array, Flipped, HasBundleKind, Input, PowerIo};
 use crate::{
