@@ -216,7 +216,16 @@ pub(crate) fn impl_save_nested_bundle(view_helper: &DeriveInputHelper, nodes: bo
     })
 }
 
-pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenStream {
+pub(crate) enum SaveNestedKind {
+    Context,
+    NestedContext,
+    Nested,
+}
+
+pub(crate) fn impl_save_nested_native(
+    view_helper: &DeriveInputHelper,
+    kind: SaveNestedKind,
+) -> TokenStream {
     let substrate = substrate_ident();
     let mut view_helper = view_helper.clone();
     let simulator_ty = parse_quote! { SubstrateS };
@@ -225,21 +234,40 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
     let hnv_generic_ty: syn::Ident = parse_quote!(SubstrateT);
     let hnv_generic: syn::GenericParam = parse_quote!(#hnv_generic_ty);
 
-    let save_key_view = parse_quote! { #substrate::types::codegen::NestedSaveKey<#hnv_generic_ty, #simulator_ty, #analysis_ty> };
-    let saved_view = parse_quote! { #substrate::types::codegen::NestedSaved<#hnv_generic_ty, #simulator_ty, #analysis_ty> };
+    let (save_key_view, saved_view) = match kind {
+        SaveNestedKind::Context => (
+            parse_quote! { #substrate::types::codegen::ContextSaveKey<#hnv_generic_ty, #simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::ContextSaved<#hnv_generic_ty, #simulator_ty, #analysis_ty> },
+        ),
+        SaveNestedKind::NestedContext => (
+            parse_quote! { #substrate::types::codegen::NestedContextSaveKey<#hnv_generic_ty, #simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::NestedContextSaved<#hnv_generic_ty, #simulator_ty, #analysis_ty> },
+        ),
+        SaveNestedKind::Nested => (
+            parse_quote! { #substrate::types::codegen::NestedSaveKey<#simulator_ty, #analysis_ty> },
+            parse_quote! { #substrate::types::codegen::NestedSaved<#simulator_ty, #analysis_ty> },
+        ),
+    };
 
     let mut save_key = view_helper.clone();
     save_key.add_generic_type_binding(parse_quote! { SubstrateV }, save_key_view);
     let mut saved = view_helper.clone();
     saved.add_generic_type_binding(parse_quote! { SubstrateV }, saved_view);
-
     view_helper.push_where_predicate_per_field(|ty, prev_tys| {
         let ty = if prev_tys.is_empty() {
             ty
         } else {
             &prev_tys[0]
         };
-        parse_quote! { #ty: #substrate::schematic::HasNestedView<#hnv_generic_ty> }
+        match kind {
+            SaveNestedKind::Context => {
+                parse_quote! { #ty: #substrate::schematic::HasContextView<#hnv_generic_ty> }
+            }
+            SaveNestedKind::NestedContext => {
+                parse_quote! { #ty: #substrate::types::codegen::HasNestedContextView<#hnv_generic_ty> }
+            }
+            SaveNestedKind::Nested => parse_quote! { #ty: #substrate::schematic::HasNestedView },
+        }
     });
     view_helper.push_where_predicate_per_field(|ty, prev_tys| {
         let ty = if prev_tys.is_empty() {
@@ -247,12 +275,20 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
         } else {
             &prev_tys[0]
         };
-        parse_quote! {<#ty as #substrate::schematic::HasNestedView<#hnv_generic_ty>>::NestedView: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+        match kind {
+            SaveNestedKind::Context => parse_quote! {<#ty as #substrate::schematic::HasContextView<#hnv_generic_ty>>::ContextView: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> },
+            SaveNestedKind::NestedContext => parse_quote! {<#ty as #substrate::types::codegen::HasNestedContextView<#hnv_generic_ty>>::View: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> },
+            SaveNestedKind::Nested => parse_quote! {<#ty as #substrate::schematic::HasNestedView>::NestedView: #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> }
+        }
     });
 
     view_helper.add_generic_type_binding(
         parse_quote! { SubstrateV },
-        parse_quote! { #substrate::types::codegen::Nested<#hnv_generic_ty> },
+        match kind {
+            SaveNestedKind::Context => parse_quote! { #substrate::types::codegen::Context<#hnv_generic_ty> },
+            SaveNestedKind::NestedContext => parse_quote! { (#substrate::types::codegen::Nested, #substrate::types::codegen::Context<#hnv_generic_ty>) },
+            SaveNestedKind::Nested => parse_quote! { #substrate::types::codegen::Nested }
+        },
     );
 
     let save_body = view_helper.map_data(
@@ -267,10 +303,8 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
             |MapField { ty, refer, .. }| {
                     quote! { <#ty as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::from_saved(__substrate_output, #refer) }
             });
-
     let save_key_full_ty = save_key.get_full_type();
     let saved_full_ty = saved.get_full_type();
-
     view_helper.impl_trait(&ImplTrait {
         trait_name: quote! { #substrate::simulation::data::Save<#simulator_ty, #analysis_ty> },
         trait_body: quote! {
@@ -283,7 +317,6 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
             ) -> <Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::SaveKey {
                 #save_body
             }
-
             fn from_saved(
                 __substrate_output: &<#analysis_ty as #substrate::simulation::Analysis>::Output,
                 __substrate_key: &<Self as #substrate::simulation::data::Save<#simulator_ty, #analysis_ty>>::SaveKey,
@@ -295,41 +328,51 @@ pub(crate) fn impl_save_nested_native(view_helper: &DeriveInputHelper) -> TokenS
             parse_quote! { #simulator_ty: #substrate::simulation::Simulator },
             parse_quote! { #analysis_ty: #substrate::simulation::Analysis },
         ],
-        extra_generics: vec![hnv_generic, simulator_ty, analysis_ty],
+        extra_generics: match kind {
+            SaveNestedKind::Context | SaveNestedKind::NestedContext => vec![hnv_generic, simulator_ty, analysis_ty],
+            SaveNestedKind::Nested => vec![simulator_ty, analysis_ty],
+        },
     })
 }
 
-/// If `generic` is Some(TY), generates an implementation of `HasNestedView<TY>`.
-/// Otherwise, only generates an implementation of `HasNestedView` (i.e. only for
-/// the default TY = InstancePath).
-///
-/// `nested_view_helper` should have its view generic type bound to `Nested<TY>`
-/// or `Nested` if `generic` is None.
+/// If `context_generic` is Some(TY), generates an implementation of `HasContextView<TY>`.
+/// Otherwise, only generates an implementation of `HasNestedView`.
+/// `nested_view_helper` should have its view generic type bound to `Context<TY>`
+/// or `Nested` if `context_generic` is None.
 pub(crate) fn impl_has_nested_view(
     view_helper: &DeriveInputHelper,
     nested_view_helper: &DeriveInputHelper,
-    generic: Option<GenericParam>,
+    context_generic: Option<GenericParam>,
+    bound_nested_type: bool,
 ) -> TokenStream {
     let substrate = substrate_ident();
     let mut has_nested_view_helper = view_helper.clone();
-    if let Some(hnv_ty) = generic {
+    if let Some(hnv_ty) = context_generic {
         has_nested_view_helper.push_where_predicate_per_field(
-            |ty, _| parse_quote! { #ty: #substrate::schematic::HasNestedView<#hnv_ty> },
+            |ty, _| parse_quote! { #ty: #substrate::schematic::HasContextView<#hnv_ty> },
         );
+        if bound_nested_type {
+            has_nested_view_helper.push_where_predicate_per_field(
+                |_, prev_ty| {
+                    let ty = prev_ty[0].clone();
+                    parse_quote! { #ty: #substrate::types::codegen::HasView<#substrate::types::codegen::Nested, View = #substrate::schematic::NestedView<#ty>> }
+                }
+            );
+        }
 
         let nested_view_full_ty = nested_view_helper.get_full_type();
 
         let nested_view_body = has_nested_view_helper.map_data(
-        &nested_view_helper.get_type(),
+        &nested_view_helper.get_full_turbofish_type(),
             |MapField { ty, refer, .. }| {
-                    quote! { <#ty as #substrate::schematic::HasNestedView<#hnv_ty>>::nested_view(#refer, __substrate_parent) }
+                    quote! { <#ty as #substrate::schematic::HasContextView<#hnv_ty>>::context_view(#refer, __substrate_parent) }
             });
         has_nested_view_helper.impl_trait(&ImplTrait {
-            trait_name: quote! { #substrate::schematic::HasNestedView<#hnv_ty> },
+            trait_name: quote! { #substrate::schematic::HasContextView<#hnv_ty> },
             trait_body: quote! {
-                type NestedView = #nested_view_full_ty;
+                type ContextView = #nested_view_full_ty;
 
-                fn nested_view(&self, __substrate_parent: &#hnv_ty) -> #substrate::schematic::NestedView<Self, #hnv_ty> {
+                fn context_view(&self, __substrate_parent: &#hnv_ty) -> #substrate::schematic::ContextView<Self, #hnv_ty> {
                     #nested_view_body
                 }
             },
@@ -344,7 +387,7 @@ pub(crate) fn impl_has_nested_view(
         let nested_view_full_ty = nested_view_helper.get_full_type();
 
         let nested_view_body = has_nested_view_helper.map_data(
-        &nested_view_helper.get_type(),
+        &nested_view_helper.get_full_turbofish_type(),
             |MapField { ty, refer, .. }| {
                     quote! { <#ty as #substrate::schematic::HasNestedView>::nested_view(&#refer, __substrate_parent) }
             });
@@ -428,18 +471,65 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
         );
     }
     all_decls_impls.push(view_helper.decl_data());
+    all_decls_impls.push(impl_clone(&view_helper));
     all_decls_impls.push(impl_flatlen(&view_helper));
     all_decls_impls.push(impl_flatten_generic(&view_helper));
 
     let mut hnv_helper = view_helper.clone();
-    let hnv_ty = parse_quote!(SubstrateParent);
     hnv_helper.add_generic_type_binding(
         parse_quote!(#view_generic_ty),
-        parse_quote!(#substrate::types::codegen::Nested<#hnv_ty>),
+        parse_quote!(#substrate::types::codegen::Nested),
     );
 
-    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper, Some(hnv_ty)));
-    all_decls_impls.push(impl_save_nested_native(&save_helper));
+    all_decls_impls.push(impl_has_nested_view(&helper, &hnv_helper, None, false));
+
+    let mut ctx_helper = view_helper.clone();
+    let ctx_ty: GenericParam = parse_quote!(SubstrateParent);
+    ctx_helper.add_generic_type_binding(
+        parse_quote!(#view_generic_ty),
+        parse_quote!(#substrate::types::codegen::Context<#ctx_ty>),
+    );
+    all_decls_impls.push(impl_has_nested_view(
+        &helper,
+        &ctx_helper,
+        Some(ctx_ty.clone()),
+        false,
+    ));
+
+    let mut hnv_helper = view_helper.clone();
+    hnv_helper.add_generic_type_binding(
+        parse_quote!(#view_generic_ty),
+        parse_quote!(#substrate::types::codegen::Nested),
+    );
+    hnv_helper.push_where_predicate_per_field(
+        |ty, _| parse_quote! { #ty: #substrate::schematic::HasNestedView<NestedView = #ty> + Send + Sync},
+    );
+    all_decls_impls.push(impl_has_nested_view(&hnv_helper, &hnv_helper, None, false));
+
+    let mut ctx_helper = view_helper.clone();
+    let ctx_ty = parse_quote!(SubstrateParent);
+    ctx_helper.add_generic_type_binding(
+        parse_quote!(#view_generic_ty),
+        parse_quote!((#substrate::types::codegen::Nested, #substrate::types::codegen::Context<#ctx_ty>)),
+    );
+    all_decls_impls.push(impl_has_nested_view(
+        &hnv_helper,
+        &ctx_helper,
+        Some(ctx_ty),
+        true,
+    ));
+    all_decls_impls.push(impl_save_nested_native(
+        &save_helper,
+        SaveNestedKind::Context,
+    ));
+    all_decls_impls.push(impl_save_nested_native(
+        &save_helper,
+        SaveNestedKind::NestedContext,
+    ));
+    all_decls_impls.push(impl_save_nested_native(
+        &save_helper,
+        SaveNestedKind::Nested,
+    ));
     Ok(quote! {
         #( #all_decls_impls )*
     })
@@ -534,21 +624,25 @@ pub(crate) fn schematic_bundle_kind(
         &node_bundle_helper,
         &nested_node_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_has_nested_view(
         &terminal_bundle_helper,
         &nested_terminal_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_has_nested_view(
         &nested_node_bundle_helper,
         &nested_node_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_has_nested_view(
         &nested_terminal_bundle_helper,
         &nested_terminal_bundle_helper,
         None,
+        false,
     ));
     all_decls_impls.push(impl_view_as(&node_bundle_helper, true));
     all_decls_impls.push(impl_view_as(&terminal_bundle_helper, false));

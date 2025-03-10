@@ -75,6 +75,7 @@ pub(crate) fn bundle_kind(input: &DeriveInput, io: bool) -> syn::Result<TokenStr
         |ty| parse_quote! { <#ty as #substrate::types::codegen::HasView<#view_generic_ty>>::View },
     );
     all_decls_impls.push(view_helper.decl_data());
+    all_decls_impls.push(impl_clone(&view_helper));
     let mut has_bundle_kind_helper = view_helper.clone();
     has_bundle_kind_helper.push_where_predicate_per_field(|ty, prev_tys| {
         let prev_ty = &prev_tys[0];
