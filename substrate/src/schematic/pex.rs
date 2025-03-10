@@ -52,12 +52,18 @@ impl<S: StringPathSchema> HasContextView<PexContext<S>> for NestedNode {
     }
 }
 
+impl<S: Schema, T: HasContextView<PexContext<S>>> HasContextView<PexContext<S>> for Vec<T> {
+    type ContextView = Vec<ContextView<T, PexContext<S>>>;
+
+    fn context_view(&self, parent: &PexContext<S>) -> ContextView<Self, PexContext<S>> {
+        self.iter().map(|t| t.context_view(parent)).collect()
+    }
+}
+
 impl<S: Schema> HasContextView<PexContext<S>> for () {
     type ContextView = ();
 
-    fn context_view(&self, parent: &PexContext<S>) -> ContextView<Self, PexContext<S>> {
-        ()
-    }
+    fn context_view(&self, parent: &PexContext<S>) -> ContextView<Self, PexContext<S>> {}
 }
 
 /// Nested data exposed by an extracted view of a circuit.
