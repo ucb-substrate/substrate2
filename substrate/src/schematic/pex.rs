@@ -52,6 +52,14 @@ impl<S: StringPathSchema> HasContextView<PexContext<S>> for NestedNode {
     }
 }
 
+impl<S> HasContextView<PexContext<S>> for () {
+    type ContextView = ();
+
+    fn context_view(&self, parent: &PexContext<S>) -> ContextView<Self, PexContext<S>> {
+        ()
+    }
+}
+
 /// Nested data exposed by an extracted view of a circuit.
 pub struct PexData<T: Schematic> {
     cell: Cell<Arc<T>>,
