@@ -471,6 +471,7 @@ pub(crate) fn nested_data(input: &DeriveInput) -> syn::Result<TokenStream> {
         );
     }
     all_decls_impls.push(view_helper.decl_data());
+    all_decls_impls.push(impl_clone(&view_helper));
     all_decls_impls.push(impl_flatlen(&view_helper));
     all_decls_impls.push(impl_flatten_generic(&view_helper));
 
