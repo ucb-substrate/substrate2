@@ -12,7 +12,8 @@ use std::sync::Arc;
 use substrate::context::Context;
 use substrate::schematic::conv::{ConvertedNodePath, RawLib};
 use substrate::schematic::{
-    Cell, HasNestedView, InstancePath, NestedView, PrimitiveBinding, Schematic,
+    Cell, ContextView, HasContextView, HasNestedView, InstancePath, NestedView, PrimitiveBinding,
+    Schematic,
 };
 use substrate::simulation::data::{Save, SaveKey, Saved};
 use substrate::simulation::{Analysis, Simulator};
@@ -60,7 +61,7 @@ impl<T: Block> Block for Pex<T> {
 
 impl<T: Schematic<Schema = Spice>> Schematic for Pex<T>
 where
-    T::NestedData: HasNestedView<PexContext>,
+    T::NestedData: HasContextView<PexContext>,
 {
     type Schema = Spice;
     type NestedData = PexData<T>;
@@ -194,10 +195,10 @@ pub struct PexContext {
     node_map: Arc<HashMap<ArcStr, ArcStr>>,
 }
 
-impl HasNestedView<PexContext> for NestedNode {
-    type NestedView = RawNestedNode;
+impl HasContextView<PexContext> for NestedNode {
+    type ContextView = RawNestedNode;
 
-    fn nested_view(&self, parent: &PexContext) -> NestedView<Self, PexContext> {
+    fn context_view(&self, parent: &PexContext) -> ContextView<Self, PexContext> {
         let n = self;
         let path = parent.lib.convert_node_path(&n.path()).unwrap();
         let path = match path {
@@ -228,16 +229,16 @@ pub struct NestedPexData<T: Schematic> {
 
 impl<T: Schematic> NestedPexData<T>
 where
-    T::NestedData: HasNestedView<PexContext>,
+    T::NestedData: HasContextView<PexContext>,
 {
-    pub fn data(&self) -> NestedView<T::NestedData, PexContext> {
-        self.cell.custom_data(&self.ctx)
+    pub fn data(&self) -> ContextView<T::NestedData, PexContext> {
+        self.cell.context_data(&self.ctx)
     }
 }
 
 impl<T: Schematic> HasNestedView for PexData<T> {
     type NestedView = NestedPexData<T>;
-    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, InstancePath> {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedPexData {
             cell: self.cell.clone(),
             ctx: PexContext {
@@ -252,7 +253,7 @@ impl<T: Schematic> HasNestedView for PexData<T> {
 
 impl<T: Schematic> HasNestedView for NestedPexData<T> {
     type NestedView = NestedPexData<T>;
-    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self, InstancePath> {
+    fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {
         NestedPexData {
             cell: self.cell.clone(),
             ctx: PexContext {
@@ -267,11 +268,11 @@ impl<T: Schematic> HasNestedView for NestedPexData<T> {
 
 impl<S: Simulator, A: Analysis, T: Schematic> Save<S, A> for NestedPexData<T>
 where
-    T::NestedData: HasNestedView<PexContext>,
-    NestedView<T::NestedData, PexContext>: Save<S, A>,
+    T::NestedData: HasContextView<PexContext>,
+    ContextView<T::NestedData, PexContext>: Save<S, A>,
 {
-    type SaveKey = SaveKey<NestedView<T::NestedData, PexContext>, S, A>;
-    type Saved = Saved<NestedView<T::NestedData, PexContext>, S, A>;
+    type SaveKey = SaveKey<ContextView<T::NestedData, PexContext>, S, A>;
+    type Saved = Saved<ContextView<T::NestedData, PexContext>, S, A>;
 
     fn save(
         &self,
@@ -285,7 +286,7 @@ where
         output: &<A as Analysis>::Output,
         key: &<Self as Save<S, A>>::SaveKey,
     ) -> <Self as Save<S, A>>::Saved {
-        <NestedView<T::NestedData, PexContext> as Save<S, A>>::from_saved(output, key)
+        <ContextView<T::NestedData, PexContext> as Save<S, A>>::from_saved(output, key)
     }
 }
 
