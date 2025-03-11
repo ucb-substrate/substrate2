@@ -786,6 +786,8 @@ pub struct DigitalWaveformParams<T> {
     pub vdd: T,
     /// The digital clock period (sec).
     pub period: T,
+    /// The offset of the digital waveform (sec).
+    pub offset: T,
     /// The rise time (sec).
     pub tr: T,
     /// The fall time (sec).
@@ -832,7 +834,7 @@ where
             TransitionState::High => {}
             TransitionState::Low => {
                 self.values.push(TimePoint::new(
-                    cycle * self.params.period + self.params.tr,
+                    cycle * self.params.period + self.params.tr + self.params.offset,
                     self.params.vdd,
                 ));
             }
@@ -843,7 +845,7 @@ where
             }
         }
         self.values.push(TimePoint::new(
-            cycle_next * self.params.period,
+            cycle_next * self.params.period + self.params.offset,
             self.params.vdd,
         ));
 
@@ -862,7 +864,7 @@ where
         match self.state {
             TransitionState::High => {
                 self.values.push(TimePoint::new(
-                    cycle * self.params.period + self.params.tf,
+                    cycle * self.params.period + self.params.tf + self.params.offset,
                     T::from(0),
                 ));
             }
@@ -872,8 +874,10 @@ where
                 self.values.push(TimePoint::new(T::from(0), T::from(0)));
             }
         }
-        self.values
-            .push(TimePoint::new(cycle_next * self.params.period, T::from(0)));
+        self.values.push(TimePoint::new(
+            cycle_next * self.params.period + self.params.offset,
+            T::from(0),
+        ));
 
         self.ctr += 1;
         self.state = TransitionState::Low;
