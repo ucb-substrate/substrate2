@@ -1,5 +1,12 @@
-use crate::{Cell, Shape};
+use geometry::bbox::Bbox;
+use geometry::contains::Containment;
+use geometry::point::Point;
+use geometry::prelude::Contains;
+use geometry::rect::{self, Rect};
+use geometry::union::BoundingUnion;
 
+use crate::{Cell, Shape};
+use crate::Element;
 trait Connectivity: Sized + PartialEq {
     fn connected_layers(&self) -> Vec<Self>;
 
@@ -11,15 +18,23 @@ trait Connectivity: Sized + PartialEq {
         cell: &'a Cell<Self>,
         start: &'b Shape<Self>,
     ) -> Vec<&'a Shape<Self>> {
-        // unimplemented!()
-        let mut ret : Vec<&'a Shape<Self>>;
+        
+        let mut ret : Vec<&'a Shape<Self>> = vec![];
 
-        for shape in cell.elements() {
-            if start.connected(shape) {
-                ret.push(shape);
+        for elem in cell.elements() {
+           
+            if let Element::Shape(shape) = elem {
+                let shape_bbox : Rect = shape.bbox().expect("REASON");
+                let start_bbox : Rect = start.bbox().expect("REASON");
+
+                if shape_bbox.intersection(start_bbox) != None {
+                    ret.push(shape);
+                }
             }
         }
+        
         ret
+
     }
 }
 
