@@ -64,8 +64,15 @@ mod tests {
     #[test]
     fn test_connectivity() {
         let mut cell = Cell::new("test");
-        let m1_shape = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
-        cell.add_element(m1_shape.clone());
-        assert_eq!(Layer::connected_shapes(&cell, &m1_shape), vec![&m1_shape]);
+        let m1_shape1 = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
+        let m1_shape2 = Shape::new(Layer::Met1, Rect::from_sides(10, 10, 100, 100));
+        let m1_shape3 = Shape::new(Layer::Met1, Rect::from_sides(200, 200, 400, 400));
+
+
+        cell.add_element(m1_shape1.clone());
+        cell.add_element(m1_shape2.clone());
+        cell.add_element(m1_shape3.clone());
+
+        assert_eq!(Layer::connected_shapes(&cell, &m1_shape2), vec![&m1_shape1, &m1_shape2]);
     }
 }
