@@ -11,7 +11,15 @@ trait Connectivity: Sized + PartialEq {
         cell: &'a Cell<Self>,
         start: &'b Shape<Self>,
     ) -> Vec<&'a Shape<Self>> {
-        unimplemented!()
+        // unimplemented!()
+        let mut ret : Vec<&'a Shape<Self>>;
+
+        for shape in cell.elements() {
+            if start.connected(shape) {
+                ret.push(shape);
+            }
+        }
+        ret
     }
 }
 
