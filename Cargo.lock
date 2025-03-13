@@ -1136,7 +1136,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -1364,9 +1364,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.7.1"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
+checksum = "3954d50fe15b02142bf25d3b8bdadb634ec3948f103d04ffe3031bc8fe9d7058"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
@@ -1420,7 +1420,7 @@ dependencies = [
  "arcstr",
  "enumify",
  "geometry",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "serde",
  "thiserror",
  "tracing",
@@ -1593,7 +1593,7 @@ dependencies = [
  "approx",
  "arcstr",
  "cache",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "lazy_static",
  "nutlex",
  "rust_decimal",
@@ -1873,7 +1873,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
 dependencies = [
  "fixedbitset",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
 ]
 
 [[package]]
@@ -2139,9 +2139,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.39"
+version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1f1914ce909e1658d9907913b4b91947430c7d9be598b15a1912935b8c04801"
+checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
 ]
@@ -2364,7 +2364,7 @@ dependencies = [
  "arcstr",
  "diagnostics",
  "enumify",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "rust_decimal",
  "serde",
  "test-log",
@@ -2427,7 +2427,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "itoa",
  "ryu",
  "serde",
@@ -2493,7 +2493,7 @@ dependencies = [
  "gdsconv",
  "geometry",
  "geometry_macros",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "layir",
  "lazy_static",
  "ngspice",
@@ -2704,7 +2704,7 @@ dependencies = [
  "gdsconv",
  "geometry",
  "impl-trait-for-tuples",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "layir",
  "lazy_static",
  "num",
@@ -2972,7 +2972,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -2983,7 +2983,7 @@ version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "serde",
  "serde_spanned",
  "toml_datetime",
