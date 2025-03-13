@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.1 to 0.2.2
+
 ## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/scir-v0.9.0...scir-v0.9.1) (2025-01-24)
 
 
