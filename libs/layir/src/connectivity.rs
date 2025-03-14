@@ -14,6 +14,17 @@ trait Connectivity: Sized + PartialEq {
         self.connected_layers().contains(other)
     }
 
+    fn intersect_shapes<'a, 'b>(
+        shape1 : &'a Shape<Self>,
+        shape2 : &'b Shape<Self>,
+    ) -> bool {
+        let shape1_bbox : Rect = shape1.bbox().expect("error");
+        let shape2_bbox : Rect = shape2.bbox().expect("error");
+        shape1_bbox.intersection(shape2_bbox) != None
+    } 
+
+
+
     fn connected_shapes<'a, 'b>(
         cell: &'a Cell<Self>,
         start: &'b Shape<Self>,
@@ -24,10 +35,10 @@ trait Connectivity: Sized + PartialEq {
         for elem in cell.elements() {
            
             if let Element::Shape(shape) = elem {
-                let shape_bbox : Rect = shape.bbox().expect("REASON");
-                let start_bbox : Rect = start.bbox().expect("REASON");
 
-                if shape_bbox.intersection(start_bbox) != None {
+                if start.layer() == shape.layer() && Self::intersect_shapes(start, shape) { //This is the same layer case
+                    ret.push(shape);
+                } else if start.layer().connected(shape.layer()) && Self::intersect_shapes(start, shape)  {//If layers are connected, and they intersect
                     ret.push(shape);
                 }
             }
@@ -65,7 +76,7 @@ mod tests {
     fn test_connectivity() {
         let mut cell = Cell::new("test");
         let m1_shape1 = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
-        let m1_shape2 = Shape::new(Layer::Met1, Rect::from_sides(10, 10, 100, 100));
+        let m1_shape2 = Shape::new(Layer::Met1, Rect::from_sides(100, 50, 200, 100));
         let m1_shape3 = Shape::new(Layer::Met1, Rect::from_sides(200, 200, 400, 400));
 
 
@@ -74,5 +85,24 @@ mod tests {
         cell.add_element(m1_shape3.clone());
 
         assert_eq!(Layer::connected_shapes(&cell, &m1_shape2), vec![&m1_shape1, &m1_shape2]);
+    }
+
+
+    #[test]
+    fn test_connectivity2() {
+        let mut cell = Cell::new("test");
+        let m1_shape = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
+        let v1_shape = Shape::new(Layer::Via1, Rect::from_sides(10, 10, 100, 100));
+        let m2_shape = Shape::new(Layer::Met2, Rect::from_sides(10, 10, 50, 50));
+
+
+        cell.add_element(m1_shape.clone());
+        cell.add_element(v1_shape.clone());
+        cell.add_element(m2_shape.clone());
+
+        assert_eq!(Layer::connected_shapes(&cell, &m1_shape), vec![&m1_shape, &v1_shape]);
+        assert_eq!(Layer::connected_shapes(&cell, &v1_shape), vec![&m1_shape, &v1_shape, &m2_shape]);
+        assert_eq!(Layer::connected_shapes(&cell, &m2_shape), vec![&v1_shape, &m2_shape]);
+
     }
 }
