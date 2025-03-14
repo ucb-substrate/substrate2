@@ -1,9 +1,5 @@
 use geometry::bbox::Bbox;
-use geometry::contains::Containment;
-use geometry::point::Point;
-use geometry::prelude::Contains;
 use geometry::rect::{self, Rect};
-use geometry::union::BoundingUnion;
 
 use crate::{Cell, Shape};
 use crate::Element;
