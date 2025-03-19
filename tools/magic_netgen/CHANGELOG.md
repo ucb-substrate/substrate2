@@ -13,6 +13,22 @@
     * spice bumped from 0.9.1 to 0.9.2
     * netgen bumped from 0.2.0 to 0.2.1
 
+## [0.1.4](https://github.com/ucb-substrate/substrate2/compare/magic_netgen-v0.1.3...magic_netgen-v0.1.4) (2025-03-19)
+
+
+### Bug Fixes
+
+* **schematic:** support accessing nested PEX data even upon additional nesting ([#621](https://github.com/ucb-substrate/substrate2/issues/621)) ([c1a28c3](https://github.com/ucb-substrate/substrate2/commit/c1a28c3dd9c8261218e29d3295f79b55f5eec277))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.2 to 0.10.3
+    * scir bumped from 0.9.1 to 0.9.2
+    * spice bumped from 0.9.2 to 0.9.3
+
 ## [0.1.1](https://github.com/ucb-substrate/substrate2/compare/magic_netgen-v0.1.0...magic_netgen-v0.1.1) (2025-01-23)
 
 
