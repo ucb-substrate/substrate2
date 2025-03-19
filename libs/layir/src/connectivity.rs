@@ -226,6 +226,9 @@ mod tests {
         assert_eq!(Layer::connected_shapes(&big_cell, &m2_shape), vec![&v1_shape, &m2_shape]);
 
         let x = Layer::connected_components(&big_cell, &lib);
+
+        let mut asdf = x[0].1.borrow().borrow().clone();
+        assert_eq!(x[0].1.borrow().borrow().clone(), vec![&m1_shape, &v1_shape, &m2_shape]);
         
     }
 }
