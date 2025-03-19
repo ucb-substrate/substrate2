@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use crate::CellId;
 use crate::Instance;
 
-use crate::{Cell, Library, Shape};
+use crate::{Cell, Library, Shape, LibraryBuilder};
 use crate::Element;
 trait Connectivity: Sized + PartialEq {
     fn connected_layers(&self) -> Vec<Self>;
@@ -48,7 +48,7 @@ trait Connectivity: Sized + PartialEq {
 
     fn get_cells<'a>(
         cell : &'a Cell<Self>,
-        lib : &'a Library<Self>,
+        lib : &'a LibraryBuilder<Self>,
     ) -> Vec<&'a Cell<Self>> {
         let mut ret : Vec<&'a Cell<Self>> = vec![];
 
@@ -62,7 +62,7 @@ trait Connectivity: Sized + PartialEq {
 
     fn flatten_cell<'a>(
         cell: &'a Cell<Self>,
-        lib : &'a Library<Self>,
+        lib : &'a LibraryBuilder<Self>,
     ) -> Vec<&'a Shape<Self>> {
         let mut ret : Vec<&'a Shape<Self>> = vec![];
 
@@ -112,7 +112,7 @@ trait Connectivity: Sized + PartialEq {
 
     fn connected_components<'a>(
         cell : &'a Cell<Self>,
-        lib : &'a Library<Self>,
+        lib : &'a LibraryBuilder<Self>,
     ) -> Vec<(&'a Shape<Self>, Rc<RefCell<Rc<RefCell<Vec<&'a Shape<Self>>>>>>)> {
         let all_shapes = Self::flatten_cell(cell, lib);
         let mut ret_refs: Vec<(&'a Shape<Self>, Rc<RefCell<Rc<RefCell<Vec<&'a Shape<Self>>>>>>)> = vec![];
@@ -130,18 +130,10 @@ trait Connectivity: Sized + PartialEq {
                         let start_vec = &mut *ret_refs[start_index].1.borrow_mut();
                         let part_vec = &mut *ret_refs[part_index].1.borrow_mut();
 
-                        let start_actual_vec = start_vec.borrow();
-                        let part_actual_vec = part_vec.borrow();
+                        let temp_vec : Rc<RefCell<Vec<&Shape<Self>>>> = Rc::new(RefCell::new(Self::vec_union(start_vec.borrow().clone(), part_vec.borrow().clone())));
 
-                        let z = start_actual_vec.clone();
-                        let h = part_actual_vec.clone();
-
-                        let temp_vec : Rc<RefCell<Vec<&Shape<Self>>>> = Rc::new(RefCell::new(Self::vec_union(z, h)));
-
-                        *ret_refs[start_index].1.borrow_mut() = temp_vec.clone();
-                        *ret_refs[part_index].1.borrow_mut() = temp_vec.clone();
-
-
+                        *start_vec = temp_vec.clone();
+                        *part_vec = temp_vec.clone();
            
                     }
                 }
@@ -216,6 +208,11 @@ mod tests {
     #[test]
     fn test_complete() {
         let mut big_cell : Cell<Layer> = Cell::new("test");
+        let mut small_cell : Cell<Layer> = Cell::new("test2");
+        let mut lib : LibraryBuilder<Layer> = LibraryBuilder::new();
+
+        lib.add_cell(big_cell.clone());
+
         let m1_shape = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
         let v1_shape = Shape::new(Layer::Via1, Rect::from_sides(10, 10, 100, 100));
         let m2_shape = Shape::new(Layer::Met2, Rect::from_sides(10, 10, 50, 50));
@@ -227,6 +224,8 @@ mod tests {
         assert_eq!(Layer::connected_shapes(&big_cell, &m1_shape), vec![&m1_shape, &v1_shape]);
         assert_eq!(Layer::connected_shapes(&big_cell, &v1_shape), vec![&m1_shape, &v1_shape, &m2_shape]);
         assert_eq!(Layer::connected_shapes(&big_cell, &m2_shape), vec![&v1_shape, &m2_shape]);
+
+        let x = Layer::connected_components(&big_cell, &lib);
         
     }
 }
