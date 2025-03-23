@@ -218,7 +218,7 @@ impl_direction!(
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
+        output.extend(std::iter::repeat(Direction::Output).take(self.0.len()))
     }
 );
 impl_direction!(
@@ -228,7 +228,7 @@ impl_direction!(
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
+        output.extend(std::iter::repeat(Direction::InOut).take(self.0.len()))
     }
 );
 impl_direction!(
