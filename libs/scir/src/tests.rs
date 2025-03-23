@@ -338,3 +338,49 @@ fn merge_scir_libraries() {
     assert!(new_name.starts_with("vdivider"));
     assert_eq!(lib1.cell(vdivider_id).name(), "vdivider");
 }
+
+#[test]
+fn driver_analysis() {
+    let mut lib = LibraryBuilder::<StringSchema>::new();
+    let id = lib.add_primitive("device".into());
+
+    let mut vcvs = Cell::new("vcvs");
+    let vin = vcvs.add_node("vin");
+    let vout = vcvs.add_node("vout");
+
+    let mut x = Instance::new("x0", id);
+    x.connect("1", vin);
+    x.connect("2", vout);
+    vcvs.add_instance(x);
+
+    vcvs.expose_port(vin, Direction::Input);
+    vcvs.expose_port(vout, Direction::Output);
+    let vcvs = lib.add_cell(vcvs);
+
+    let mut tb = Cell::new("tb");
+    let vin = tb.add_node("vin");
+    let vint = tb.add_node("vint");
+    let vout = tb.add_node("vout");
+
+    let mut x1 = Instance::new("x1", vcvs);
+    x1.connect("vin", vin);
+    x1.connect("vout", vint);
+    tb.add_instance(x1);
+
+    let mut x2 = Instance::new("x2", vcvs);
+    x2.connect("vin", vint);
+    x2.connect("vout", vout);
+    tb.add_instance(x2);
+
+    tb.expose_port(vin, Direction::Input);
+    tb.expose_port(vout, Direction::Output);
+    let tb = lib.add_cell(tb);
+
+    let issues = lib.validate();
+    assert!(!issues.has_error());
+    assert!(!issues.has_warning());
+
+    let issues = lib.validate_drivers();
+    assert!(!issues.has_error());
+    assert!(!issues.has_warning());
+}

@@ -250,20 +250,38 @@ fn analyze_instance<S: Schema + ?Sized>(
     net_states: &mut HashMap<SignalId, Vec<NetState>>,
     inst: &Instance,
 ) {
-    if inst.child().is_primitive() {
-        return;
-    }
-    let cell = lib.cell(inst.child().unwrap_cell());
-    for (port, conn) in inst.connections() {
-        let dir = cell.port(port).direction;
-        for part in conn.parts() {
-            let states = net_states.get_mut(&part.signal()).unwrap();
-            if let Some(range) = part.range() {
-                for idx in range {
-                    update_net_state(&mut states[idx], dir);
+    match inst.child() {
+        ChildId::Cell(id) => {
+            let cell = lib.cell(inst.child().unwrap_cell());
+            for (port, conn) in inst.connections() {
+                let dir = cell.port(port).direction;
+                for part in conn.parts() {
+                    let states = net_states.get_mut(&part.signal()).unwrap();
+                    if let Some(range) = part.range() {
+                        for idx in range {
+                            update_net_state(&mut states[idx], dir);
+                        }
+                    } else {
+                        update_net_state(&mut states[0], dir);
+                    }
                 }
-            } else {
-                update_net_state(&mut states[0], dir);
+            }
+        }
+        ChildId::Primitive(_) => {
+            // Primitives are opaque to SCIR, so we don't know primitive port directions.
+            // We treat all nets connected to primitives as having direction InOut.
+            let dir = Direction::InOut;
+            for conn in inst.connections().values() {
+                for part in conn.parts() {
+                    let states = net_states.get_mut(&part.signal()).unwrap();
+                    if let Some(range) = part.range() {
+                        for idx in range {
+                            update_net_state(&mut states[idx], dir);
+                        }
+                    } else {
+                        update_net_state(&mut states[0], dir);
+                    }
+                }
             }
         }
     }
