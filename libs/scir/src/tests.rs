@@ -374,7 +374,7 @@ fn driver_analysis() {
 
     tb.expose_port(vin, Direction::Input);
     tb.expose_port(vout, Direction::Output);
-    let tb = lib.add_cell(tb);
+    lib.add_cell(tb);
 
     let issues = lib.validate();
     assert!(!issues.has_error());

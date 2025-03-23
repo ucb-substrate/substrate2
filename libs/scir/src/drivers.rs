@@ -252,7 +252,7 @@ fn analyze_instance<S: Schema + ?Sized>(
 ) {
     match inst.child() {
         ChildId::Cell(id) => {
-            let cell = lib.cell(inst.child().unwrap_cell());
+            let cell = lib.cell(id);
             for (port, conn) in inst.connections() {
                 let dir = cell.port(port).direction;
                 for part in conn.parts() {
