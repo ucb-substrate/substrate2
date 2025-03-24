@@ -435,8 +435,8 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                     },
                 },
                 input_d: DiffPairView {
-                    p: input_pair[0].layout.io().d,
-                    n: input_pair[1].layout.io().d,
+                    p: input_pair[1].layout.io().d,
+                    n: input_pair[0].layout.io().d,
                 },
                 tail_d: tail_pair[0].layout.io().d,
             },
