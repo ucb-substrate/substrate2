@@ -29,6 +29,7 @@ pub mod corner;
 pub mod layers;
 pub mod layout;
 pub mod mos;
+pub mod res;
 pub mod stdcells;
 #[cfg(test)]
 mod tests;
