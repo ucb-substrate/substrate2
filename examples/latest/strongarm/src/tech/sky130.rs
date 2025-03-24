@@ -3,7 +3,7 @@
 use crate::tiles::{MosTileParams, TapIo, TapIoView, TapTileParams, TileKind};
 use crate::StrongArmImpl;
 use atoll::route::GreedyRouter;
-use atoll::{Tile, TileBuilder};
+use atoll::{Tile, TileBuilder, TileData};
 use sky130::atoll::{MosLength, NmosTile, PmosTile, Sky130ViaMaker};
 use sky130::Sky130;
 use substrate::arcstr;
@@ -60,12 +60,7 @@ impl Tile for TwoFingerMosTile {
         &self,
         io: &'a substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
-    ) -> substrate::error::Result<(
-        Self::NestedData,
-        Self::LayoutBundle,
-        Self::LayoutData,
-        substrate::geometry::prelude::Rect,
-    )> {
+    ) -> substrate::error::Result<TileData<Self>> {
         cell.flatten();
         let (d, g, s, b) = match self.kind {
             TileKind::P => {
@@ -110,7 +105,12 @@ impl Tile for TwoFingerMosTile {
         cell.set_router(GreedyRouter::new());
         cell.set_via_maker(Sky130ViaMaker);
 
-        Ok(((), MosIoView { d, g, s, b }, (), cell.layout.bbox_rect()))
+        Ok(TileData {
+            nested_data: (),
+            layout_bundle: MosIoView { d, g, s, b },
+            layout_data: (),
+            outline: cell.layout.bbox_rect(),
+        })
     }
 }
 
@@ -154,12 +154,7 @@ impl Tile for TapTile {
         &self,
         io: &'a substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
-    ) -> substrate::error::Result<(
-        Self::NestedData,
-        Self::LayoutBundle,
-        Self::LayoutData,
-        substrate::geometry::prelude::Rect,
-    )> {
+    ) -> substrate::error::Result<atoll::TileData<Self>> {
         cell.flatten();
         let x = match self.0.kind {
             TileKind::N => {
@@ -178,7 +173,12 @@ impl Tile for TapTile {
             }
         };
         cell.set_router(GreedyRouter::new());
-        Ok(((), TapIoView { x }, (), cell.layout.bbox_rect()))
+        Ok(TileData {
+            nested_data: (),
+            layout_bundle: TapIoView { x },
+            layout_data: (),
+            outline: cell.layout.bbox_rect(),
+        })
     }
 }
 

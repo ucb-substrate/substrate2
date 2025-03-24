@@ -14,12 +14,11 @@ use std::marker::PhantomData;
 use substrate::arcstr;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::schematic::schema::{FromSchema, Schema};
-use substrate::schematic::{Cell, CellBuilder, NestedData, NestedView, Schematic};
-use substrate::simulation::data::Save;
+use substrate::schematic::schema::Schema;
+use substrate::schematic::{CellBuilder, NestedData, Schematic};
 use substrate::simulation::options::{SimOption, Temperature};
-use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{Pvt, SimController, SimulationContext, Simulator, Testbench};
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
+use substrate::simulation::{Pvt, SimController};
 use substrate::types::schematic::{Node, NodeBundle};
 use substrate::types::{DiffPair, Signal, TestbenchIo};
 

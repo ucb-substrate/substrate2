@@ -23,7 +23,7 @@ use substrate::layout::tracks::RoundingMode;
 use substrate::layout::{CellBuilder, Layout};
 use substrate::schematic::Schematic;
 use substrate::types::codegen::{PortGeometryBundle, View};
-use substrate::types::layout::{PortGeometry, PortGeometryBuilder};
+use substrate::types::layout::PortGeometry;
 use substrate::types::schematic::NodeBundle;
 use substrate::types::{Array, ArrayBundle, InOut, Input, Io, MosIo, Signal};
 
@@ -300,7 +300,7 @@ impl MosTile {
             })
             .collect::<Vec<_>>();
 
-        for (i, &rect) in tracks.iter().enumerate() {
+        for rect in tracks.iter() {
             let sd_rect = rect.with_vspan(
                 grid.track_span(1, bot_m1)
                     .union(grid.track_span(1, top_m1))

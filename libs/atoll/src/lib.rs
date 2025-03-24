@@ -96,11 +96,10 @@ use substrate::types::schematic::{
 use substrate::types::{Flatten, HasBundleKind, IoKind};
 
 use crate::straps::{Strapper, StrappingParams};
-use layir::{LayerBbox, Shape};
+use layir::Shape;
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::rect::Rect;
 use substrate::layout::{Layout, LayoutData};
-use substrate::schematic::schema::Schema;
 use substrate::schematic::{NestedData, Schematic};
 use substrate::{geometry, layout, schematic};
 
@@ -826,7 +825,7 @@ impl<'a, S: schematic::schema::Schema + layout::schema::Schema> TileBuilder<'a, 
                         &mut layout_cell,
                     );
                     // TODO: handle errors
-                    let (_, _, _, outline) =
+                    let TileData { outline, .. } =
                         <B as Tile>::tile(block, &schematic_io, &mut cell).unwrap();
 
                     cell.split_for_abstract(schematic_io.flatten_vec(), outline)
@@ -931,7 +930,7 @@ impl<'a, S: schematic::schema::Schema + layout::schema::Schema> TileBuilder<'a, 
                     let mut cell =
                         TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
                     // TODO: Handle errors
-                    let (_, _, _, outline) =
+                    let TileData { outline, .. } =
                         <B as Tile>::tile(block, &schematic_io, &mut cell).unwrap();
 
                     cell.split_for_abstract(schematic_io.flatten_vec(), outline)
@@ -1137,20 +1136,43 @@ impl<'a, S: schematic::schema::Schema + layout::schema::Schema> TileBuilder<'a, 
     }
 }
 
+/// An ATOLL primitive.
 pub trait AtollPrimitive:
     Schematic<Schema = <Self as AtollPrimitive>::Schema>
     + Layout<Schema = <Self as AtollPrimitive>::Schema>
     + Sized
 {
+    /// The schema in which this primitive is defined.
     type Schema;
+
+    /// The ATOLL outline of the primitive's layout.
     fn outline(cell: &layout::TransformedCell<Self>) -> Rect;
+}
+
+/// Data returned by [`Tile::tile`].
+pub struct TileData<T: Tile + ?Sized> {
+    /// Schematic nested data.
+    pub nested_data: T::NestedData,
+    /// The layout IO bundle.
+    pub layout_bundle: T::LayoutBundle,
+    /// Layout data.
+    pub layout_data: T::LayoutData,
+    /// The tile's ATOLL outline.
+    pub outline: Rect,
 }
 
 /// A tile that can be instantiated in ATOLL.
 pub trait Tile: Block<Io: HasBundleKind<BundleKind: SchematicBundleKind>> {
+    /// The schema this tile is associated with.
     type Schema: schematic::schema::Schema + layout::schema::Schema;
+    /// Extra schematic data to be stored with the tile's generated cell.
+    ///
+    /// When the tile is instantiated, all contained data will be nested
+    /// within that instance.
     type NestedData: NestedData;
+    /// The bundle representing this tile's layout IO.
     type LayoutBundle: LayoutBundle<Self::Schema> + HasBundleKind<BundleKind = IoKind<Self>>;
+    /// Extra data to be shared with other blocks that instantiate this tile's layout.
     type LayoutData: LayoutData;
 
     /// Builds a block's ATOLL tile.
@@ -1160,7 +1182,7 @@ pub trait Tile: Block<Io: HasBundleKind<BundleKind: SchematicBundleKind>> {
         &self,
         io: &'a IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
-    ) -> substrate::error::Result<(Self::NestedData, Self::LayoutBundle, Self::LayoutData, Rect)>;
+    ) -> substrate::error::Result<TileData<Self>>;
 }
 
 /// A wrapper of a block implementing [`Tile`] that can be instantiated in Substrate
@@ -1208,7 +1230,10 @@ impl<T: Tile> Schematic for TileWrapper<T> {
     ) -> substrate::error::Result<Self::NestedData> {
         let mut layout_cell = layout::CellBuilder::new(cell.ctx().clone());
         let mut cell = TileBuilder::new(io, cell, &mut layout_cell);
-        let (schematic_data, _, _, _) = <T as Tile>::tile(&self.block, io, &mut cell)?;
+        let TileData {
+            nested_data: schematic_data,
+            ..
+        } = <T as Tile>::tile(&self.block, io, &mut cell)?;
         Ok(schematic_data)
     }
 }
@@ -1225,8 +1250,12 @@ impl<T: Tile + Clone> Layout for TileWrapper<T> {
         let (mut schematic_cell, schematic_io) =
             prepare_cell_builder(None, (*cell.ctx()).clone(), self);
         let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, cell);
-        let (_, layout_bundle, layout_data, outline) =
-            <T as Tile>::tile(&self.block, &schematic_io, &mut cell)?;
+        let TileData {
+            layout_bundle,
+            layout_data,
+            outline,
+            ..
+        } = <T as Tile>::tile(&self.block, &schematic_io, &mut cell)?;
 
         let ctx_clone = (*cell.ctx()).clone();
         let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());

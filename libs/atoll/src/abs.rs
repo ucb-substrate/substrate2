@@ -308,11 +308,7 @@ impl Abstract {
             lcm_bounds,
             grid: RoutingGrid::new(
                 LayerStack {
-                    layers: stack
-                        .layers
-                        .iter()
-                        .map(|layer| layer.inner.clone())
-                        .collect(),
+                    layers: stack.layers.iter().map(|layer| layer.inner).collect(),
                     offset_x: stack.offset_x,
                     offset_y: stack.offset_y,
                 },

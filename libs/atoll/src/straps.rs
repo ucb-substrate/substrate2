@@ -2,7 +2,7 @@
 
 /// ATOLL strap routing APIs.
 use crate::abs::GridCoord;
-use crate::grid::{AbstractLayer, AtollLayer, PdkLayer, RoutingState};
+use crate::grid::{AbstractLayer, AtollLayer, RoutingState};
 use crate::route::Path;
 use crate::{NetId, PointState};
 use grid::Grid;

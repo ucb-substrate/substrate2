@@ -1,7 +1,7 @@
 //! Routing interfaces and implementations.
 
 use crate::abs::{GridCoord, TrackCoord};
-use crate::grid::{AbstractLayer, AtollLayer, PdkLayer, RoutingState};
+use crate::grid::{AbstractLayer, RoutingState};
 use crate::{NetId, PointState};
 use indexmap::{map::Entry, IndexMap};
 use layir::Shape;
@@ -157,7 +157,7 @@ where
             cost: Zero::zero(),
             index: i,
         });
-        parents.insert(node.clone(), (usize::max_value(), Zero::zero()));
+        parents.insert(node.clone(), (usize::MAX, Zero::zero()));
     }
     let mut target_reached = None;
     while let Some(SmallestHolder { cost, index }) = to_see.pop() {

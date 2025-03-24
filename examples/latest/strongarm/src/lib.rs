@@ -2,7 +2,7 @@
 
 use crate::tiles::{MosKind, MosTileParams, TapIo, TapTileParams, TileKind};
 use atoll::route::{GreedyRouter, ViaMaker};
-use atoll::{Orientation, Tile, TileBuilder};
+use atoll::{Orientation, Tile, TileBuilder, TileData};
 use std::any::Any;
 use std::marker::PhantomData;
 use substrate::arcstr::ArcStr;
@@ -145,12 +145,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         &self,
         io: &'a substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
-    ) -> substrate::error::Result<(
-        Self::NestedData,
-        Self::LayoutBundle,
-        Self::LayoutData,
-        substrate::geometry::prelude::Rect,
-    )> {
+    ) -> substrate::error::Result<atoll::TileData<Self>> {
         let (
             input_kind,
             precharge_kind,
@@ -418,9 +413,9 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         cell.set_router(GreedyRouter::new());
         cell.set_via_maker(T::via_maker());
 
-        Ok((
-            (),
-            StrongArmHalfIoView {
+        Ok(TileData {
+            nested_data: (),
+            layout_bundle: StrongArmHalfIoView {
                 top_io: ClockedDiffComparatorIoView {
                     vdd: ntap.layout.io().x,
                     vss: ptap.layout.io().x,
@@ -440,9 +435,9 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 },
                 tail_d: tail_pair[0].layout.io().d,
             },
-            (),
-            cell.layout.bbox_rect(),
-        ))
+            layout_data: (),
+            outline: cell.layout.bbox_rect(),
+        })
     }
 }
 
@@ -481,12 +476,7 @@ impl<T: StrongArmImpl> Tile for StrongArm<T> {
         &self,
         io: &'a substrate::types::schematic::IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
-    ) -> substrate::error::Result<(
-        Self::NestedData,
-        Self::LayoutBundle,
-        Self::LayoutData,
-        substrate::geometry::prelude::Rect,
-    )> {
+    ) -> substrate::error::Result<TileData<Self>> {
         let tail_d = cell.signal("tail_d", Signal::new());
         let input_d = cell.signal("input_d", DiffPair::default());
         let mut vdd = PortGeometryBuilder::new();
@@ -534,9 +524,9 @@ impl<T: StrongArmImpl> Tile for StrongArm<T> {
 
         T::post_layout_hooks(cell)?;
 
-        Ok((
-            (),
-            ClockedDiffComparatorIoView {
+        Ok(TileData {
+            nested_data: (),
+            layout_bundle: ClockedDiffComparatorIoView {
                 input: DiffPairView {
                     p: input_p.build()?,
                     n: input_n.build()?,
@@ -549,8 +539,8 @@ impl<T: StrongArmImpl> Tile for StrongArm<T> {
                 vdd: vdd.build()?,
                 vss: vss.build()?,
             },
-            (),
-            cell.layout.bbox_rect(),
-        ))
+            layout_data: (),
+            outline: cell.layout.bbox_rect(),
+        })
     }
 }
