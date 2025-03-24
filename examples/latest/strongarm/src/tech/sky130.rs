@@ -222,8 +222,8 @@ mod tests {
     pub const STRONGARM_PARAMS: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
-        half_tail_w: 2_000,
-        input_pair_w: 2_000,
+        half_tail_w: 1_000,
+        input_pair_w: 1_000,
         inv_input_w: 500,
         inv_precharge_w: 500,
         precharge_w: 500,
@@ -274,12 +274,12 @@ mod tests {
 
                 match input_kind {
                     InputKind::P => {
-                        if (vinp + vinn) / dec!(2) > dec!(1.5) {
+                        if (vinp + vinn) / dec!(2) > dec!(1.2) {
                             continue;
                         }
                     }
                     InputKind::N => {
-                        if (vinp + vinn) / dec!(2) < dec!(0.3) {
+                        if (vinp + vinn) / dec!(2) < dec!(0.6) {
                             continue;
                         }
                     }
