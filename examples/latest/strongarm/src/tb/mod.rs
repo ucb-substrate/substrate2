@@ -1,6 +1,6 @@
 //! StrongARM testbenches.
 
-use approx::abs_diff_eq;
+use approx::relative_eq;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -198,9 +198,13 @@ where
         let vop = wav.vop.last().unwrap().x();
 
         let vdd = self.pvt.voltage.to_f64().unwrap();
-        if abs_diff_eq!(von, 0.0, epsilon = 1e-4) && abs_diff_eq!(vop, vdd, epsilon = 1e-4) {
+        if relative_eq!(von, 0.0, max_relative = 0.05)
+            && relative_eq!(vop, vdd, max_relative = 0.05)
+        {
             Some(ComparatorDecision::Pos)
-        } else if abs_diff_eq!(von, vdd, epsilon = 1e-4) && abs_diff_eq!(vop, 0.0, epsilon = 1e-4) {
+        } else if relative_eq!(von, vdd, max_relative = 0.05)
+            && relative_eq!(vop, 0.0, max_relative = 0.05)
+        {
             Some(ComparatorDecision::Neg)
         } else {
             None
