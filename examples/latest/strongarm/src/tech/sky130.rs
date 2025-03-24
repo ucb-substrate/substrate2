@@ -219,6 +219,17 @@ mod tests {
     pub const SKY130_TECHNOLOGY_DIR: &str =
         concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
 
+    pub const STRONGARM_PARAMS = StrongArmParams {
+            nmos_kind: MosKind::Nom,
+            pmos_kind: MosKind::Nom,
+            half_tail_w: 2_000,
+            input_pair_w: 2_000,
+            inv_input_w: 500,
+            inv_precharge_w: 500,
+            precharge_w: 500,
+            input_kind: InputKind::P,
+        };
+
     pub fn sky130_cds_ctx() -> Context {
         let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
             .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
@@ -235,16 +246,7 @@ mod tests {
     fn test_strongarm(work_dir: impl AsRef<Path>, extracted: bool) {
         let work_dir = work_dir.as_ref();
         let input_kind = InputKind::P;
-        let dut = TileWrapper::new(StrongArm::<Sky130Impl>::new(StrongArmParams {
-            nmos_kind: MosKind::Nom,
-            pmos_kind: MosKind::Nom,
-            half_tail_w: 1_000,
-            input_pair_w: 2_000,
-            inv_input_w: 1_000,
-            inv_precharge_w: 1_000,
-            precharge_w: 1_000,
-            input_kind,
-        }));
+        let dut = TileWrapper::new(StrongArm::<Sky130Impl>::new(STRONGARM_PARAMS));
         let pvt = Pvt {
             corner: Sky130Corner::Tt,
             voltage: dec!(1.8),
@@ -366,16 +368,7 @@ mod tests {
         let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_cds_ctx();
 
-        let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(StrongArmParams {
-            nmos_kind: MosKind::Nom,
-            pmos_kind: MosKind::Nom,
-            half_tail_w: 1_000,
-            input_pair_w: 1_000,
-            inv_input_w: 1_000,
-            inv_precharge_w: 1_000,
-            precharge_w: 1_000,
-            input_kind: InputKind::P,
-        }));
+        let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(STRONGARM_PARAMS));
 
         let scir = ctx
             .export_scir(block)
