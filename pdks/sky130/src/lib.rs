@@ -25,6 +25,7 @@ use scir::{Instance, ParamValue};
 use spice::Spice;
 use substrate::context::Installation;
 
+pub mod atoll;
 pub mod corner;
 pub mod layers;
 pub mod layout;
@@ -666,7 +667,11 @@ impl Sky130 {
     }
 }
 
-impl Installation for Sky130 {}
+impl Installation for Sky130 {
+    fn post_install(&self, ctx: &mut substrate::context::ContextBuilder) {
+        ctx.install(Sky130::atoll_layer_stack());
+    }
+}
 
 impl substrate::layout::schema::Schema for Sky130 {
     type Layer = Sky130Layer;
