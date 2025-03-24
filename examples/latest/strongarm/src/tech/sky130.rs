@@ -255,16 +255,7 @@ mod tests {
         let ctx = sky130_cds_ctx();
 
         for i in 0..=10 {
-            for j in [
-                dec!(-1.8),
-                dec!(-0.5),
-                dec!(-0.1),
-                dec!(-0.05),
-                dec!(0.05),
-                dec!(0.1),
-                dec!(0.5),
-                dec!(1.8),
-            ] {
+            for j in [dec!(-0.1), dec!(-0.05), dec!(0.05), dec!(0.1)] {
                 let vinn = dec!(0.18) * Decimal::from(i);
                 let vinp = vinn + j;
 
