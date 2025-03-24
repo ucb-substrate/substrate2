@@ -199,6 +199,7 @@ where
 
         let vdd = self.pvt.voltage.to_f64().unwrap();
         let epsilon = vdd * 0.05;
+        println!("{i} {j} {von} {vop}, {vdd}, {epsilon}");
         if abs_diff_eq!(von, 0.0, epsilon = epsilon) && abs_diff_eq!(vop, vdd, epsilon = epsilon) {
             Some(ComparatorDecision::Pos)
         } else if abs_diff_eq!(von, vdd, epsilon = epsilon)
