@@ -239,7 +239,7 @@ mod tests {
             nmos_kind: MosKind::Nom,
             pmos_kind: MosKind::Nom,
             half_tail_w: 1_000,
-            input_pair_w: 1_000,
+            input_pair_w: 2_000,
             inv_input_w: 1_000,
             inv_precharge_w: 1_000,
             precharge_w: 1_000,
