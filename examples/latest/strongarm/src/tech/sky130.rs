@@ -195,13 +195,15 @@ mod tests {
         lvs::LvsStatus,
         RuleCheck,
     };
+    use quantus::pex::Pex;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
     use scir::netlist::ConvertibleNetlister;
     use sky130::corner::Sky130Corner;
     use sky130::{layout::to_gds, Sky130, Sky130CdsSchema};
     use spice::{netlist::NetlistOptions, Spice};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
     use substrate::context::Context;
     use substrate::simulation::Pvt;
     use substrate::{block::Block, schematic::ConvertSchema};
@@ -230,9 +232,8 @@ mod tests {
         !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
     }
 
-    #[test]
-    fn sky130_strongarm_sim() {
-        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/build/strongarm_sim");
+    fn test_strongarm(work_dir: impl AsRef<Path>, extracted: bool) {
+        let work_dir = work_dir.as_ref();
         let input_kind = InputKind::P;
         let dut = TileWrapper::new(StrongArm::<Sky130Impl>::new(StrongArmParams {
             nmos_kind: MosKind::Nom,
@@ -277,18 +278,48 @@ mod tests {
                         }
                     }
                 }
-
-                let tb = StrongArmTranTb::new(
-                    ConvertSchema::<_, Sky130CdsSchema>::new(dut),
-                    vinp,
-                    vinn,
-                    input_kind.is_p(),
-                    pvt,
-                );
-                let sim = ctx
-                    .get_sim_controller(tb.clone(), work_dir)
-                    .expect("failed to get sim controller");
-                let decision = tb.run(sim).expect("comparator output did not rail");
+                let work_dir = work_dir.join(format!("ofs_{j}"));
+                let decision = if extracted {
+                    let layout_path = work_dir.join("layout.gds");
+                    ctx.write_layout(dut, to_gds, &layout_path)
+                        .expect("failed to write layout");
+                    let tb = StrongArmTranTb::new(
+                        Pex {
+                            schematic: Arc::new(ConvertSchema::new(ConvertSchema::<
+                                _,
+                                Sky130CdsSchema,
+                            >::new(
+                                dut
+                            ))),
+                            gds_path: work_dir.join("layout.gds"),
+                            layout_cell_name: dut.name(),
+                            work_dir: work_dir.clone(),
+                            lvs_rules_dir: PathBuf::from(SKY130_LVS),
+                            lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
+                            technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                        },
+                        vinp,
+                        vinn,
+                        input_kind.is_p(),
+                        pvt,
+                    );
+                    let sim = ctx
+                        .get_sim_controller(tb.clone(), work_dir)
+                        .expect("failed to get sim controller");
+                    tb.run(sim).expect("comparator output did not rail")
+                } else {
+                    let tb = StrongArmTranTb::new(
+                        ConvertSchema::<_, Sky130CdsSchema>::new(dut),
+                        vinp,
+                        vinn,
+                        input_kind.is_p(),
+                        pvt,
+                    );
+                    let sim = ctx
+                        .get_sim_controller(tb.clone(), work_dir)
+                        .expect("failed to get sim controller");
+                    tb.run(sim).expect("comparator output did not rail")
+                };
                 assert_eq!(
                     decision,
                     if j > dec!(0) {
@@ -303,8 +334,29 @@ mod tests {
     }
 
     #[test]
+    fn sky130_strongarm_schematic_sim() {
+        let work_dir = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/build/sky130_strongarm_schematic_sim"
+        );
+        test_strongarm(work_dir, false);
+    }
+
+    #[test]
+    fn sky130_strongarm_extracted_sim() {
+        let work_dir = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/build/sky130_strongarm_extracted_sim"
+        );
+        test_strongarm(work_dir, true);
+    }
+
+    #[test]
     fn sky130_strongarm_lvs() {
-        let work_dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/build/strongarm_lvs"));
+        let work_dir = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/build/sky130_strongarm_lvs"
+        ));
         let gds_path = work_dir.join("layout.gds");
         let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_cds_ctx();
