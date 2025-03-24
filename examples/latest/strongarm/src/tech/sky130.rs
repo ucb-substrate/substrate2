@@ -184,7 +184,7 @@ impl Tile for TapTile {
 
 #[cfg(test)]
 mod tests {
-    // use crate::tb::{ComparatorDecision, StrongArmTranTb};
+    use crate::tb::{ComparatorDecision, StrongArmTranTb};
     use crate::tech::sky130::Sky130Impl;
     use crate::tiles::MosKind;
     use crate::{InputKind, StrongArm, StrongArmParams};
@@ -230,71 +230,77 @@ mod tests {
         !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
     }
 
-    // #[test]
-    // fn sky130_strongarm_sim() {
-    //     let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/build/strongarm_sim");
-    //     let input_kind = InputKind::P;
-    //     let dut = TileWrapper::new(StrongArm::<Sky130Impl>::new(StrongArmParams {
-    //         nmos_kind: MosKind::Nom,
-    //         pmos_kind: MosKind::Nom,
-    //         half_tail_w: 1_000,
-    //         input_pair_w: 1_000,
-    //         inv_input_w: 1_000,
-    //         inv_precharge_w: 1_000,
-    //         precharge_w: 1_000,
-    //         input_kind,
-    //     }));
-    //     let pvt = Pvt {
-    //         corner: Sky130Corner::Tt,
-    //         voltage: dec!(1.8),
-    //         temp: dec!(25.0),
-    //     };
-    //     let ctx = sky130_cds_ctx();
+    #[test]
+    fn sky130_strongarm_sim() {
+        let work_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/build/strongarm_sim");
+        let input_kind = InputKind::P;
+        let dut = TileWrapper::new(StrongArm::<Sky130Impl>::new(StrongArmParams {
+            nmos_kind: MosKind::Nom,
+            pmos_kind: MosKind::Nom,
+            half_tail_w: 1_000,
+            input_pair_w: 1_000,
+            inv_input_w: 1_000,
+            inv_precharge_w: 1_000,
+            precharge_w: 1_000,
+            input_kind,
+        }));
+        let pvt = Pvt {
+            corner: Sky130Corner::Tt,
+            voltage: dec!(1.8),
+            temp: dec!(25.0),
+        };
+        let ctx = sky130_cds_ctx();
 
-    //     for i in 0..=10 {
-    //         for j in [
-    //             dec!(-1.8),
-    //             dec!(-0.5),
-    //             dec!(-0.1),
-    //             dec!(-0.05),
-    //             dec!(0.05),
-    //             dec!(0.1),
-    //             dec!(0.5),
-    //             dec!(1.8),
-    //         ] {
-    //             let vinn = dec!(0.18) * Decimal::from(i);
-    //             let vinp = vinn + j;
+        for i in 0..=10 {
+            for j in [
+                dec!(-1.8),
+                dec!(-0.5),
+                dec!(-0.1),
+                dec!(-0.05),
+                dec!(0.05),
+                dec!(0.1),
+                dec!(0.5),
+                dec!(1.8),
+            ] {
+                let vinn = dec!(0.18) * Decimal::from(i);
+                let vinp = vinn + j;
 
-    //             match input_kind {
-    //                 InputKind::P => {
-    //                     if (vinp + vinn) / dec!(2) > dec!(1.5) {
-    //                         continue;
-    //                     }
-    //                 }
-    //                 InputKind::N => {
-    //                     if (vinp + vinn) / dec!(2) < dec!(0.3) {
-    //                         continue;
-    //                     }
-    //                 }
-    //             }
+                match input_kind {
+                    InputKind::P => {
+                        if (vinp + vinn) / dec!(2) > dec!(1.5) {
+                            continue;
+                        }
+                    }
+                    InputKind::N => {
+                        if (vinp + vinn) / dec!(2) < dec!(0.3) {
+                            continue;
+                        }
+                    }
+                }
 
-    //             let tb = StrongArmTranTb::new(dut, vinp, vinn, input_kind.is_p(), pvt);
-    //             let decision = ctx
-    //                 .simulate(tb, work_dir)
-    //                 .expect("failed to run simulation")
-    //                 .expect("comparator output did not rail");
-    //             assert_eq!(
-    //                 decision,
-    //                 if j > dec!(0) {
-    //                     ComparatorDecision::Pos
-    //                 } else {
-    //                     ComparatorDecision::Neg
-    //                 },
-    //                 "comparator produced incorrect decision"
-    //             );
-    //         }
-    //     }
-    // }
+                let tb = StrongArmTranTb::new(
+                    ConvertSchema::<_, Sky130CdsSchema>::new(dut),
+                    vinp,
+                    vinn,
+                    input_kind.is_p(),
+                    pvt,
+                );
+                let sim = ctx
+                    .get_sim_controller(tb.clone(), work_dir)
+                    .expect("failed to get sim controller");
+                let decision = tb.run(sim).expect("comparator output did not rail");
+                assert_eq!(
+                    decision,
+                    if j > dec!(0) {
+                        ComparatorDecision::Pos
+                    } else {
+                        ComparatorDecision::Neg
+                    },
+                    "comparator produced incorrect decision"
+                );
+            }
+        }
+    }
 
     #[test]
     fn sky130_strongarm_lvs() {

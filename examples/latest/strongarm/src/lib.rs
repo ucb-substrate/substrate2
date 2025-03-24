@@ -16,7 +16,7 @@ use substrate::types::schematic::NodeBundle;
 use substrate::types::{DiffPair, DiffPairView, InOut, Input, Io, MosIo, Output, Signal};
 use substrate::{layout, schematic};
 
-// pub mod tb;
+pub mod tb;
 pub mod tech;
 pub mod tiles;
 

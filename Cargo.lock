@@ -2762,15 +2762,13 @@ dependencies = [
 name = "strongarm"
 version = "0.0.0"
 dependencies = [
+ "approx",
  "arcstr",
  "atoll",
  "derive-where",
  "gds",
  "gdsconv",
  "layir",
- "magic",
- "magic_netgen",
- "ngspice",
  "pegasus",
  "quantus",
  "rust_decimal",

@@ -1,14 +1,9 @@
-pub mod cds;
-pub mod open;
-
 //! StrongARM testbenches.
 
 use approx::abs_diff_eq;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
 use spectre::{ErrPreset, Spectre};
@@ -19,23 +14,20 @@ use std::marker::PhantomData;
 use substrate::arcstr;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::io::schematic::{Bundle, HardwareType, Node};
-use substrate::io::{DiffPair, Signal, TestbenchIo};
-use substrate::pdk::corner::Pvt;
-use substrate::schematic::schema::Schema;
-use substrate::schematic::{Cell, CellBuilder, ExportsNestedData, NestedData, Schematic};
-use substrate::scir::schema::FromSchema;
-use substrate::simulation::data::{tran, FromSaved, Save, SaveTb};
+use substrate::schematic::schema::{FromSchema, Schema};
+use substrate::schematic::{Cell, CellBuilder, NestedData, NestedView, Schematic};
+use substrate::simulation::data::Save;
 use substrate::simulation::options::{SimOption, Temperature};
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform, WaveformRef};
-use substrate::simulation::{SimController, SimulationContext, Simulator, Testbench};
+use substrate::simulation::{Pvt, SimController, SimulationContext, Simulator, Testbench};
+use substrate::types::schematic::{Node, NodeBundle};
+use substrate::types::{DiffPair, Signal, TestbenchIo};
 
-use crate::strongarm::ClockedDiffComparatorIo;
+use crate::ClockedDiffComparatorIo;
 
 /// A transient testbench that provides a differential input voltage and
 /// measures the output waveform.
 #[derive_where::derive_where(Copy, Clone, Debug, Hash, PartialEq, Eq; T, C)]
-#[derive(Serialize, Deserialize)]
 pub struct StrongArmTranTb<T, PDK, C> {
     /// The device-under-test.
     pub dut: T,
@@ -56,7 +48,6 @@ pub struct StrongArmTranTb<T, PDK, C> {
     /// The PVT corner.
     pub pvt: Pvt<C>,
 
-    #[serde(bound(deserialize = ""))]
     phantom: PhantomData<fn() -> PDK>,
 }
 
@@ -74,27 +65,10 @@ impl<T, PDK, C> StrongArmTranTb<T, PDK, C> {
     }
 }
 
-impl<
-        T: Block,
-        PDK: Any,
-        C: Serialize
-            + DeserializeOwned
-            + Copy
-            + Clone
-            + Debug
-            + Hash
-            + PartialEq
-            + Eq
-            + Send
-            + Sync
-            + Any,
-    > Block for StrongArmTranTb<T, PDK, C>
+impl<T: Block, PDK: Any, C: Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Any> Block
+    for StrongArmTranTb<T, PDK, C>
 {
     type Io = TestbenchIo;
-
-    fn id() -> ArcStr {
-        arcstr::literal!("strong_arm_tran_tb")
-    }
 
     fn name(&self) -> ArcStr {
         arcstr::literal!("strong_arm_tran_tb")
@@ -115,25 +89,21 @@ pub struct StrongArmTranTbNodes {
     clk: Node,
 }
 
-impl<T, PDK, C> ExportsNestedData for StrongArmTranTb<T, PDK, C>
+impl<T, S, C> Schematic for StrongArmTranTb<T, S, C>
 where
-    StrongArmTranTb<T, PDK, C>: Block,
+    Spectre: scir::schema::FromSchema<S>,
+    S: Schema,
+    StrongArmTranTb<T, S, C>: Block<Io = TestbenchIo>,
+    T: Block<Io = ClockedDiffComparatorIo> + Schematic<Schema = S> + Clone,
 {
+    type Schema = Spectre;
     type NestedData = StrongArmTranTbNodes;
-}
-
-impl<T: Block<Io = ClockedDiffComparatorIo> + Schematic<PDK> + Clone, PDK: Schema, C>
-    Schematic<Spectre> for StrongArmTranTb<T, PDK, C>
-where
-    StrongArmTranTb<T, PDK, C>: Block<Io = TestbenchIo>,
-    Spectre: FromSchema<PDK>,
-{
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
-        let dut = cell.sub_builder::<PDK>().instantiate(self.dut.clone());
+        let dut = cell.sub_builder::<S>().instantiate(self.dut.clone());
 
         let vinp = cell.signal("vinp", Signal);
         let vinn = cell.signal("vinn", Signal);
@@ -170,8 +140,8 @@ where
         let output = cell.signal("output", DiffPair::default());
 
         cell.connect(
-            Bundle::<ClockedDiffComparatorIo> {
-                input: Bundle::<DiffPair> { p: vinp, n: vinn },
+            NodeBundle::<ClockedDiffComparatorIo> {
+                input: NodeBundle::<DiffPair> { p: vinp, n: vinn },
                 output: output.clone(),
                 clock: clk,
                 vdd,
@@ -190,19 +160,8 @@ where
     }
 }
 
-/// The resulting waveforms of a [`StrongArmTranTb`].
-#[derive(Debug, Clone, Serialize, Deserialize, FromSaved)]
-pub struct ComparatorSim {
-    t: tran::Time,
-    vop: tran::Voltage,
-    von: tran::Voltage,
-    vinn: tran::Voltage,
-    vinp: tran::Voltage,
-    clk: tran::Voltage,
-}
-
 /// The decision made by a comparator.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum ComparatorDecision {
     /// Negative.
     ///
@@ -214,37 +173,16 @@ pub enum ComparatorDecision {
     Pos,
 }
 
-impl<T, PDK, C> SaveTb<Spectre, Tran, ComparatorSim> for StrongArmTranTb<T, PDK, C>
+impl<T, S, C: SimOption<Spectre> + Copy> StrongArmTranTb<T, S, C>
 where
-    StrongArmTranTb<T, PDK, C>: Block<Io = TestbenchIo>,
+    StrongArmTranTb<T, S, C>:
+        Block<Io = TestbenchIo> + Schematic<Schema = Spectre, NestedData = StrongArmTranTbNodes>,
 {
-    fn save_tb(
-        ctx: &SimulationContext<Spectre>,
-        cell: &Cell<Self>,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> <ComparatorSim as FromSaved<Spectre, Tran>>::SavedKey {
-        ComparatorSimSavedKey {
-            t: tran::Time::save(ctx, (), opts),
-            vop: tran::Voltage::save(ctx, cell.data().vop, opts),
-            von: tran::Voltage::save(ctx, cell.data().von, opts),
-            vinn: tran::Voltage::save(ctx, cell.data().vinn, opts),
-            vinp: tran::Voltage::save(ctx, cell.data().vinp, opts),
-            clk: tran::Voltage::save(ctx, cell.data().clk, opts),
-        }
-    }
-}
-
-impl<T, PDK, C: SimOption<Spectre> + Copy> Testbench<Spectre> for StrongArmTranTb<T, PDK, C>
-where
-    StrongArmTranTb<T, PDK, C>: Block<Io = TestbenchIo> + Schematic<Spectre>,
-{
-    type Output = Option<ComparatorDecision>;
-
-    fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
+    pub fn run(&self, sim: SimController<Spectre, Self>) -> Option<ComparatorDecision> {
         let mut opts = spectre::Options::default();
         sim.set_option(self.pvt.corner, &mut opts);
         sim.set_option(Temperature::from(self.pvt.temp), &mut opts);
-        let wav: ComparatorSim = sim
+        let wav = sim
             .simulate(
                 opts,
                 Tran {
@@ -256,8 +194,8 @@ where
             )
             .expect("failed to run simulation");
 
-        let von = *wav.von.last().unwrap();
-        let vop = *wav.vop.last().unwrap();
+        let von = wav.von.last().unwrap().x();
+        let vop = wav.vop.last().unwrap().x();
 
         let vdd = self.pvt.voltage.to_f64().unwrap();
         if abs_diff_eq!(von, 0.0, epsilon = 1e-4) && abs_diff_eq!(vop, vdd, epsilon = 1e-4) {
@@ -271,7 +209,7 @@ where
 }
 
 /// Parameters for [`StrongArmHighSpeedTb`].
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StrongArmHighSpeedTbParams<T, C> {
     /// The device-under-test.
     pub dut: T,
@@ -316,11 +254,8 @@ pub struct StrongArmHighSpeedTbParams<T, C> {
 /// Applies an alternating sequence of 0s and 1s,
 /// and checks that the output rails correctly.
 #[derive_where::derive_where(Copy, Clone, Debug, Hash, PartialEq, Eq; T, C)]
-#[derive(Serialize, Deserialize)]
 pub struct StrongArmHighSpeedTb<T, PDK, C> {
     params: StrongArmHighSpeedTbParams<T, C>,
-
-    #[serde(bound(deserialize = ""))]
     phantom: PhantomData<fn() -> PDK>,
 }
 
@@ -334,27 +269,10 @@ impl<T, PDK, C> StrongArmHighSpeedTb<T, PDK, C> {
     }
 }
 
-impl<
-        T: Block,
-        PDK: Any,
-        C: Serialize
-            + DeserializeOwned
-            + Copy
-            + Clone
-            + Debug
-            + Hash
-            + PartialEq
-            + Eq
-            + Send
-            + Sync
-            + Any,
-    > Block for StrongArmHighSpeedTb<T, PDK, C>
+impl<T: Block, PDK: Any, C: Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Any> Block
+    for StrongArmHighSpeedTb<T, PDK, C>
 {
     type Io = TestbenchIo;
-
-    fn id() -> ArcStr {
-        arcstr::literal!("strong_arm_high_speed_tb")
-    }
 
     fn name(&self) -> ArcStr {
         arcstr::literal!("strong_arm_high_speed_tb")
@@ -365,27 +283,21 @@ impl<
     }
 }
 
-impl<T, PDK, C> ExportsNestedData for StrongArmHighSpeedTb<T, PDK, C>
+impl<T: Block<Io = ClockedDiffComparatorIo> + Schematic<Schema = S> + Clone, S: Schema, C> Schematic
+    for StrongArmHighSpeedTb<T, S, C>
 where
-    StrongArmHighSpeedTb<T, PDK, C>: Block,
+    Spectre: scir::schema::FromSchema<S>,
+    StrongArmHighSpeedTb<T, S, C>: Block<Io = TestbenchIo>,
 {
+    type Schema = Spectre;
     type NestedData = StrongArmTranTbNodes;
-}
 
-impl<T: Block<Io = ClockedDiffComparatorIo> + Schematic<PDK> + Clone, PDK: Schema, C>
-    Schematic<Spectre> for StrongArmHighSpeedTb<T, PDK, C>
-where
-    StrongArmHighSpeedTb<T, PDK, C>: Block<Io = TestbenchIo>,
-    Spectre: FromSchema<PDK>,
-{
     fn schematic(
         &self,
-        io: &<<Self as Block>::Io as HardwareType>::Bundle,
-        cell: &mut CellBuilder<Spectre>,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut CellBuilder<<Self as Schematic>::Schema>,
     ) -> substrate::error::Result<Self::NestedData> {
-        let dut = cell
-            .sub_builder::<PDK>()
-            .instantiate(self.params.dut.clone());
+        let dut = cell.sub_builder::<S>().instantiate(self.params.dut.clone());
 
         let vinp = cell.signal("vinp", Signal);
         let vinn = cell.signal("vinn", Signal);
@@ -439,8 +351,8 @@ where
         let output = cell.signal("output", DiffPair::default());
 
         cell.connect(
-            Bundle::<ClockedDiffComparatorIo> {
-                input: Bundle::<DiffPair> { p: vinp, n: vinn },
+            NodeBundle::<ClockedDiffComparatorIo> {
+                input: NodeBundle::<DiffPair> { p: vinp, n: vinn },
                 output: output.clone(),
                 clock: clk,
                 vdd,
@@ -459,28 +371,8 @@ where
     }
 }
 
-impl<T, PDK, C> SaveTb<Spectre, Tran, ComparatorSim> for StrongArmHighSpeedTb<T, PDK, C>
-where
-    StrongArmHighSpeedTb<T, PDK, C>: Block<Io = TestbenchIo>,
-{
-    fn save_tb(
-        ctx: &SimulationContext<Spectre>,
-        cell: &Cell<Self>,
-        opts: &mut <Spectre as Simulator>::Options,
-    ) -> <ComparatorSim as FromSaved<Spectre, Tran>>::SavedKey {
-        ComparatorSimSavedKey {
-            t: tran::Time::save(ctx, (), opts),
-            vop: tran::Voltage::save(ctx, cell.data().vop, opts),
-            von: tran::Voltage::save(ctx, cell.data().von, opts),
-            vinn: tran::Voltage::save(ctx, cell.data().vinn, opts),
-            vinp: tran::Voltage::save(ctx, cell.data().vinp, opts),
-            clk: tran::Voltage::save(ctx, cell.data().clk, opts),
-        }
-    }
-}
-
 /// The output of the [`StrongArmHighSpeedTb`].
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct StrongArmHighSpeedTbOutput {
     /// Whether the testbench used an inverted clock.
     inverted_clk: bool,
@@ -488,16 +380,15 @@ pub struct StrongArmHighSpeedTbOutput {
     pub decisions: Vec<Option<ComparatorDecision>>,
 }
 
-impl<T, PDK, C: SimOption<Spectre> + Copy> Testbench<Spectre> for StrongArmHighSpeedTb<T, PDK, C>
+impl<T, S, C: SimOption<Spectre> + Copy> StrongArmHighSpeedTb<T, S, C>
 where
-    StrongArmHighSpeedTb<T, PDK, C>: Block<Io = TestbenchIo> + Schematic<Spectre>,
+    StrongArmHighSpeedTb<T, S, C>:
+        Block<Io = TestbenchIo> + Schematic<Schema = Spectre, NestedData = StrongArmTranTbNodes>,
 {
-    type Output = StrongArmHighSpeedTbOutput;
-
-    fn run(&self, sim: SimController<Spectre, Self>) -> Self::Output {
+    pub fn run(&self, sim: SimController<Spectre, Self>) -> StrongArmHighSpeedTbOutput {
         let mut opts = spectre::Options::default();
         sim.set_option(self.params.pvt.corner, &mut opts);
-        let wav: ComparatorSim = sim
+        let wav = sim
             .simulate(
                 opts,
                 Tran {
@@ -509,9 +400,9 @@ where
             )
             .expect("failed to run simulation");
 
-        let von = WaveformRef::new(&wav.t, &wav.von);
-        let vop = WaveformRef::new(&wav.t, &wav.vop);
-        let clk = WaveformRef::new(&wav.t, &wav.clk);
+        let von = wav.von.as_ref();
+        let vop = wav.vop.as_ref();
+        let clk = wav.clk.as_ref();
         let vdd = self.params.pvt.voltage.to_f64().unwrap();
         let (clk_thresh, edge_dir) = if self.params.inverted_clk {
             (0.2, EdgeDir::Rising)
