@@ -283,6 +283,7 @@ mod tests {
                     }
                 }
                 let work_dir = work_dir.join(format!("ofs_{i}_{j}"));
+                println!("{i} {j}");
                 let decision = if extracted {
                     let layout_path = work_dir.join("layout.gds");
                     ctx.write_layout(dut, to_gds, &layout_path)
