@@ -219,16 +219,16 @@ mod tests {
     pub const SKY130_TECHNOLOGY_DIR: &str =
         concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
 
-    pub const STRONGARM_PARAMS = StrongArmParams {
-            nmos_kind: MosKind::Nom,
-            pmos_kind: MosKind::Nom,
-            half_tail_w: 2_000,
-            input_pair_w: 2_000,
-            inv_input_w: 500,
-            inv_precharge_w: 500,
-            precharge_w: 500,
-            input_kind: InputKind::P,
-        };
+    pub const STRONGARM_PARAMS: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 2_000,
+        input_pair_w: 2_000,
+        inv_input_w: 500,
+        inv_precharge_w: 500,
+        precharge_w: 500,
+        input_kind: InputKind::P,
+    };
 
     pub fn sky130_cds_ctx() -> Context {
         let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
