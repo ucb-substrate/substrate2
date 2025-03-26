@@ -11,7 +11,7 @@ pub trait Schema:
     /// A primitive used for storing arbitrary data that is opaque to SCIR.
     type Primitive: Primitive;
 }
-impl<T: scir::schema::Schema<Primitive = impl Primitive> + Send + Sync + Any> Schema for T {
+impl<T: scir::schema::Schema<Primitive: Primitive> + Send + Sync + Any> Schema for T {
     type Primitive = <T as scir::schema::Schema>::Primitive;
 }
 

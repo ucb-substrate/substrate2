@@ -33,7 +33,7 @@ use crate::schematic::{
 };
 use crate::simulation::{SimController, SimulationContext, Simulator, Testbench};
 use crate::types::layout::PortGeometryBuilder;
-use crate::types::schematic::{IoNodeBundle, NodeContext, NodePriority, Port};
+use crate::types::schematic::{IoNodeBundle, NodeContext, NodePriority, Port, SchematicBundleKind};
 use crate::types::{FlatLen, Flatten, Flipped, HasBundleKind, HasNameTree, NameBuf};
 
 // begin-code-snippet context
@@ -579,11 +579,14 @@ fn retrieve_installation<I: Any + Send + Sync>(
 /// If the `id` argument is Some, the cell will use the given ID.
 /// Otherwise, a new [`CellId`] will be allocated by calling [`Context::alloc_cell_id`].
 #[doc(hidden)]
-pub fn prepare_cell_builder<T: Schematic>(
+pub fn prepare_cell_builder<
+    T: Block<Io: HasBundleKind<BundleKind: SchematicBundleKind>>,
+    S: substrate::schematic::schema::Schema,
+>(
     id: Option<CellId>,
     context: Context,
     block: &T,
-) -> (CellBuilder<T::Schema>, IoNodeBundle<T>) {
+) -> (CellBuilder<S>, IoNodeBundle<T>) {
     let id = id.unwrap_or_else(|| context.alloc_cell_id());
     let mut node_ctx = NodeContext::new();
     // outward-facing IO (to other enclosing blocks)
