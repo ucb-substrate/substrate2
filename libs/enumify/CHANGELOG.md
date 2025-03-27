@@ -8,6 +8,10 @@
   * dependencies
     * enumify_macros bumped from 0.3.0 to 0.3.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify_macros bumped from 0.3.1 to 0.3.2
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/enumify-v0.1.1...enumify-v0.2.0) (2025-01-23)
 
 

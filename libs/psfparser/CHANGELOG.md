@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.1 to 0.2.2
+
 ## [0.1.4](https://github.com/ucb-substrate/substrate2/compare/psfparser-v0.1.3...psfparser-v0.1.4) (2025-02-02)
 
 
