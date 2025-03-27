@@ -50,7 +50,7 @@ trait Connectivity: Sized + PartialEq {
     /// Returns a vector of all sub-cells in a given cell.
     fn get_cells<'a>(
         cell : &'a Cell<Self>,
-        lib : &'a LibraryBuilder<Self>,
+        lib : &'a Library<Self>,
     ) -> Vec<&'a Cell<Self>> {
         let mut ret : Vec<&'a Cell<Self>> = vec![];
 
@@ -65,7 +65,7 @@ trait Connectivity: Sized + PartialEq {
     /// Returns a recursively generated 1-d vector of sub-shapes in a given parent cell.
     fn flatten_cell<'a>(
         cell: &'a Cell<Self>,
-        lib : &'a LibraryBuilder<Self>,
+        lib : &'a Library<Self>,
     ) -> Vec<&'a Shape<Self>> {
         let mut ret : Vec<&'a Shape<Self>> = vec![];
 
@@ -103,7 +103,7 @@ trait Connectivity: Sized + PartialEq {
     /// Returns a vector containing vectors of shapes connected to each sub-shape in a given cell
     fn connected_components<'a>(
         cell : &'a Cell<Self>,
-        lib : &'a LibraryBuilder<Self>,
+        lib : &'a Library<Self>,
     ) -> (Vec<&'a Shape<Self>>, Vec<Vec<&'a Shape<Self>>>) {
         
         let all_shapes = Self::flatten_cell(cell, lib); // all sub-shapes contained in given cell
@@ -148,7 +148,7 @@ mod tests {
 
     use geometry::rect::Rect;
 
-    use crate::LibraryBuilder;
+    use crate::Library;
 
     use super::*;
 
@@ -235,10 +235,11 @@ mod tests {
 
         
 
-        let asdf = Layer::get_cells(&big_cell, &lib);
+        let binding = lib.clone().build().unwrap();
+        let asdf = Layer::get_cells(&big_cell, &binding);
         //assert_eq!(asdf, vec![&small_cell]);
 
-        let x = Layer::connected_components(&big_cell, &lib);
+        let x = Layer::connected_components(&big_cell, &binding);
 
         assert_eq!(x.0, vec![&m1_shape, &v1_shape, &m2_shape, &m3_shape, &m4_shape]);
         assert_eq!(x.1[0], vec![&m1_shape, &v1_shape, &m2_shape, &m4_shape]);
