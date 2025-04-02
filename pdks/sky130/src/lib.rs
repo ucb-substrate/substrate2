@@ -13,6 +13,7 @@ use arcstr::ArcStr;
 use derive_builder::Builder;
 use layers::Sky130Layer;
 use ngspice::Ngspice;
+use res::PrecisionResistor;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
@@ -66,6 +67,7 @@ pub enum Primitive {
         /// The MOSFET parameters.
         params: MosParams,
     },
+    PrecisionResistor(PrecisionResistor),
 }
 
 /// An error converting to/from the [`Sky130`] schema.
