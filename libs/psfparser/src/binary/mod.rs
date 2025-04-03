@@ -78,6 +78,11 @@ impl<'a> PsfParser<'a> {
         v.int()
     }
 
+    fn num_groups(&self) -> i64 {
+        let v = self.ast.header.values.get("PSF groups").unwrap();
+        v.int()
+    }
+
     fn num_traces(&self) -> i64 {
         let v = self.ast.header.values.get("PSF traces").unwrap();
         v.int()
@@ -186,8 +191,29 @@ impl<'a> PsfParser<'a> {
             }
         } else {
             let sweep_points = self.sweep_points();
+            if self.num_groups() > 0 {
+                assert_eq!(
+                    self.num_groups(),
+                    self.num_traces(),
+                    "number of PSF groups does not match number of PSF traces"
+                );
+            }
 
             let mut data = data;
+            let mut grp_to_trace = HashMap::new();
+            for group in self.ast.traces.iter() {
+                let group_id = match group {
+                    Trace::Group(g) => g.id,
+                    Trace::Signal(s) => GroupId(s.id.0),
+                };
+                for sig in group.signals() {
+                    assert!(
+                        grp_to_trace.insert(group_id, sig).is_none(),
+                        "each PSF group must have at most one signal"
+                    );
+                }
+            }
+
             for _ in 0..sweep_points {
                 data = parse_int(data).0;
                 data = parse_int(data).0; // parameter type
@@ -201,36 +227,37 @@ impl<'a> PsfParser<'a> {
                 let swp_vec = swp_vec.real_mut();
                 swp_vec.push(v);
 
-                for group in self.ast.traces.iter() {
-                    for sig in group.signals() {
-                        // Discard 8 bytes of data.
-                        // Not sure what the PSF format uses this field for.
-                        let _ = read_f64(&mut data);
-                        let data_type = self.ast.types.types[&sig.type_id].data_type;
+                for _ in 0..self.num_traces() {
+                    let block_t = read_u32(&mut data);
+                    assert!(block_t == 17 || block_t == 16);
+                    let group_id = GroupId(read_u32(&mut data));
+                    let sig = grp_to_trace
+                        .get(&group_id)
+                        .expect("no trace found for PSF group");
+                    let data_type = self.ast.types.types[&sig.type_id].data_type;
 
-                        assert_ne!(swp_name, sig.name);
+                    assert_ne!(swp_name, sig.name);
 
-                        match data_type {
-                            DataType::Real => {
-                                let values =
-                                    values.values.entry(sig.id).or_insert(Values::Real(vec![]));
-                                let values = values.real_mut();
-                                let v = read_f64(&mut data);
-                                values.push(v);
-                            }
-                            DataType::Complex => {
-                                let values = values
-                                    .values
-                                    .entry(sig.id)
-                                    .or_insert(Values::Complex(vec![]));
-                                let values = values.complex_mut();
-                                let real = read_f64(&mut data);
-                                let imag = read_f64(&mut data);
-                                values.push(Complex64::new(real, imag));
-                            }
-                            _ => panic!("Unsupported data type: {data_type:?}"),
-                        };
-                    }
+                    match data_type {
+                        DataType::Real => {
+                            let values =
+                                values.values.entry(sig.id).or_insert(Values::Real(vec![]));
+                            let values = values.real_mut();
+                            let v = read_f64(&mut data);
+                            values.push(v);
+                        }
+                        DataType::Complex => {
+                            let values = values
+                                .values
+                                .entry(sig.id)
+                                .or_insert(Values::Complex(vec![]));
+                            let values = values.complex_mut();
+                            let real = read_f64(&mut data);
+                            let imag = read_f64(&mut data);
+                            values.push(Complex64::new(real, imag));
+                        }
+                        _ => panic!("Unsupported data type: {data_type:?}"),
+                    };
                 }
             }
         }
