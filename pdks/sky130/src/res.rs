@@ -144,6 +144,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Cadence PDK does not yet support resistors"]
     fn precision_resistor_lvs_cds() {
         let work_dir = PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
