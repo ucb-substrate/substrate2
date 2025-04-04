@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.5](https://github.com/ucb-substrate/substrate2/compare/psfparser-v0.1.4...psfparser-v0.1.5) (2025-04-04)
+
+
+### Bug Fixes
+
+* **psfparser:** read signal IDs in sweep value section ([#647](https://github.com/ucb-substrate/substrate2/issues/647)) ([3cc0c54](https://github.com/ucb-substrate/substrate2/commit/3cc0c540788c4e96999261c8c1f27acca5a031c9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.1 to 0.2.2
+
 ## [0.1.4](https://github.com/ucb-substrate/substrate2/compare/psfparser-v0.1.3...psfparser-v0.1.4) (2025-02-02)
 
 

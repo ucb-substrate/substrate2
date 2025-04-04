@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/ucb-substrate/substrate2/compare/enumify_macros-v0.3.1...enumify_macros-v0.3.2) (2025-04-04)
+
+
+### Bug Fixes
+
+* **deps:** update deps to latest versions ([#617](https://github.com/ucb-substrate/substrate2/issues/617)) ([ce3d243](https://github.com/ucb-substrate/substrate2/commit/ce3d243cbc10d64086939e44963e3cef591d6bda))
+
 ## [0.3.1](https://github.com/ucb-substrate/substrate2/compare/enumify_macros-v0.3.0...enumify_macros-v0.3.1) (2025-01-24)
 
 
