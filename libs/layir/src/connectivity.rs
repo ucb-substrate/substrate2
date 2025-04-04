@@ -4,7 +4,7 @@ use aph_disjoint_set::DisjointSet;
 use crate::CellId;
 use crate::Instance;
 
-use crate::{Cell, Library, Shape, LibraryBuilder};
+use crate::{Cell, Library, Shape, LibraryBuilder, Transformation, TransformMut, TransformRef};
 use crate::Element;
 trait Connectivity: Sized + PartialEq {
     fn connected_layers(&self) -> Vec<Self>;
@@ -61,6 +61,52 @@ trait Connectivity: Sized + PartialEq {
         }
         ret
     }
+    
+    //when we get an instance, it is a cell and a transformation
+    //
+    //there is a function called transform_mut that a shape calls and takes a transformation 
+    //
+    //the basic pseudocode is that after you obtain all the elements of a cell you apply the
+    //transformations to those cells
+    //
+    //You do this recusively until you get a bunch of shapes that are all in their correct
+    //positions
+    fn flatten_instance<'a>(
+        inst: &'a Instance,
+        lib: &'a Library<Self>,
+    ) -> Vec<&'a Shape<Self>> {
+        let mut ret : Vec<&'a Shape<Self>> = vec![];
+        
+
+        let cellid : CellId = inst.child();
+        let transform : Transformation = inst.transformation();
+        
+        let cell_ref : &Cell<Self> = lib.cell(cellid).clone();
+        for elem in cell_ref.elements() {
+
+            if let Element::Shape(shape) = elem {
+                ret.push(shape.clone());
+            }
+            
+        }
+
+        for instance in cell_ref.instances() {
+            ret.append(&mut Self::flatten_instance(instance.1, lib));
+        }
+        
+        //let mut ret2 : Vec<&'a Shape<Self>> = vec![];
+
+        for sh in ret.clone().into_iter() {
+            let mut shap : &Shape<Self> = sh.clone();
+            //let mut thing : Shape<Self> = shap.clone();
+            shap.transform_mut(transform);
+            //ret.push(&thing);
+        }
+
+        ret
+
+    }
+
 
     /// Returns a recursively generated 1-d vector of sub-shapes in a given parent cell.
     fn flatten_cell<'a>(
@@ -74,14 +120,19 @@ trait Connectivity: Sized + PartialEq {
                 ret.push(shape);
             }
         }
-
-        let list_of_cells = Self::get_cells(cell, lib);
-
-        for inst in list_of_cells.into_iter() {
-            for thing in Self::flatten_cell(inst, lib).into_iter() {
+       
+        for inst in cell.instances() {
+            for thing in Self::flatten_instance(inst.1, lib) {
                 ret.push(thing);
             }
         }
+        //let list_of_cells = Self::get_cells(cell, lib);
+
+        //for inst in list_of_cells.into_iter() {
+        //    for thing in Self::flatten_cell(inst, lib).into_iter() {
+        //        ret.push(thing);
+        //    }
+        //}
 
         ret
     }
