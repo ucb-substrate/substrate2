@@ -4,6 +4,7 @@ version = "0.10.2"
 edition = "2021"
 
 [dependencies]
+atoll = { version = "0.1.3", registry = "substrate", path = "../../libs/atoll" }
 substrate = { version = "0.10.2", registry = "substrate", path = "../../substrate" }
 scir = { version = "0.9.1", registry = "substrate", path = "../../libs/scir" }
 layir = { version = "0.2.1", registry = "substrate", path = "../../libs/layir" }

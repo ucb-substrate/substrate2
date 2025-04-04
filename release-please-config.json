@@ -21,6 +21,7 @@
     "examples/latest/vdivider": {},
     "examples/latest/via": {},
     "examples/latest/substrate_api_examples": {},
+    "libs/atoll": {},
     "libs/cache": {},
     "libs/diagnostics": {},
     "libs/enumify": {},
