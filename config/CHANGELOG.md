@@ -16,6 +16,10 @@
   * dependencies
     * cache bumped from 0.4.0 to 0.5.0
 
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.7.1 to 0.7.2
+
 ## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/config-v0.4.0...config-v0.4.1) (2025-01-24)
 
 
