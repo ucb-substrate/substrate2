@@ -2553,6 +2553,8 @@ dependencies = [
  "lazy_static",
  "ngspice",
  "paste",
+ "pegasus",
+ "quantus",
  "rust_decimal",
  "rust_decimal_macros",
  "scir",

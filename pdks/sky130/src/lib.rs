@@ -13,6 +13,7 @@ use arcstr::ArcStr;
 use derive_builder::Builder;
 use layers::Sky130Layer;
 use ngspice::Ngspice;
+use res::PrecisionResistor;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use spectre::Spectre;
@@ -30,9 +31,23 @@ pub mod corner;
 pub mod layers;
 pub mod layout;
 pub mod mos;
+pub mod res;
 pub mod stdcells;
 #[cfg(test)]
 mod tests;
+
+pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
+pub const SKY130_LVS_RULES_PATH: &str =
+    concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl");
+pub const SKY130_TECHNOLOGY_DIR: &str =
+    concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
+pub const SKY130_CDS_TT_MODEL_PATH: &str =
+    concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
+pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
+pub const SKY130_DRC_RULES_PATH: &str = concat!(
+    env!("SKY130_CDS_PDK_ROOT"),
+    "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
+);
 
 /// A primitive of the Sky 130 PDK.
 #[derive(Debug, Clone)]
@@ -53,6 +68,7 @@ pub enum Primitive {
         /// The MOSFET parameters.
         params: MosParams,
     },
+    PrecisionResistor(PrecisionResistor),
 }
 
 /// An error converting to/from the [`Sky130`] schema.
