@@ -183,7 +183,7 @@ dependencies = [
  "cache",
  "ena",
  "grid",
- "indexmap 2.8.0",
+ "indexmap",
  "layir",
  "num",
  "pathfinding",
@@ -1823,7 +1823,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59ac35caa284c08f3721fb33c2741b5f763decaf42d080c8a6a722154347017e"
 dependencies = [
  "deprecate-until",
- "indexmap 2.8.0",
+ "indexmap",
  "integer-sqrt",
  "num-traits",
  "rustc-hash 2.1.1",

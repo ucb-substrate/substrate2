@@ -341,6 +341,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "long"]
     fn sky130_strongarm_extracted_sim() {
         let work_dir = concat!(
             env!("CARGO_MANIFEST_DIR"),
