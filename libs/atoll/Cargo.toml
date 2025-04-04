@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 [dependencies]
 substrate = { version = "0.10.2", registry = "substrate", path = "../../substrate" }
 layir = { version = "0.2.1", registry = "substrate", path = "../layir" }
-grid = { version = "0.13.0", features = ["serde"] }
+grid = { version = "0.16.0", features = ["serde"] }
 ena = "0.14"
 tracing = "0.1"
 num = "0.4.1"
