@@ -261,7 +261,7 @@ impl<L: AtollLayer> LayerStack<L> {
 }
 
 impl<L: Eq> LayerStack<PdkLayer<L>> {
-    /// Returns the index corresponding to the given [`LayerId`].
+    /// Returns the index corresponding to the given layer.
     pub fn layer_idx(&self, layer: L) -> Option<usize> {
         for (i, l) in self.layers.iter().enumerate() {
             if l.layer == layer {
