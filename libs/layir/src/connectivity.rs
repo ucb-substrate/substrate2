@@ -100,6 +100,7 @@ trait Connectivity: Sized + PartialEq {
         lib : &'a LibraryBuilder<Self>,
     ) -> (Vec<&'a Shape<Self>>, Vec<Vec<&'a Shape<Self>>>) {
         
+    
         let all_shapes = Self::flatten_cell(cell, lib);
 
         let mut djs  = DisjointSet::new(all_shapes.len());
