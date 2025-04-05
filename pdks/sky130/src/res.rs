@@ -1,11 +1,19 @@
 //! Resistors.
 
-use geometry::rect::Rect;
+use atoll::{
+    grid::{LayerStack, PdkLayer, RoutingGrid},
+    AtollPrimitive,
+};
+use geometry::{
+    bbox::Bbox, dir::Dir, prelude::Transformation, rect::Rect, transform::TransformMut,
+};
+use geometry_macros::{TransformRef, TranslateRef};
 use layir::Shape;
 use serde::{Deserialize, Serialize};
 use substrate::{
     block::Block,
-    layout::Layout,
+    layout::{Container, Layout},
+    schematic::Schematic,
     types::{layout::PortGeometry, TwoTerminalIo, TwoTerminalIoView},
 };
 
@@ -66,20 +74,81 @@ impl PrecisionResistorWidth {
     }
 }
 
-impl Layout for PrecisionResistor {
+/// A precision p+ poly resistor.
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, Serialize, Deserialize, Block)]
+#[substrate(io = "TwoTerminalIo")]
+pub struct PrecisionResistorCell {
+    /// The resistor device.
+    resistor: PrecisionResistor,
+    /// The orientation of the resistor.
+    dir: Dir,
+}
+
+/// Precision resistor tile geometry.
+#[derive(TranslateRef, TransformRef)]
+pub struct PrecisionResistorData {
+    pub lcm_bbox: Rect,
+}
+
+impl Schematic for PrecisionResistor {
     type Schema = Sky130;
-    type Data = ();
+    type NestedData = ();
+    fn schematic(
+        &self,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        let mut prim =
+            substrate::schematic::PrimitiveBinding::new(crate::Primitive::PrecisionResistor(*self));
+        prim.connect("P", io.p);
+        prim.connect("N", io.n);
+        cell.set_primitive(prim);
+        Ok(())
+    }
+}
+
+impl AtollPrimitive for PrecisionResistorCell {
+    type Schema = Sky130;
+    fn outline(cell: &substrate::layout::TransformedCell<Self>) -> Rect {
+        cell.data().lcm_bbox
+    }
+}
+
+impl Schematic for PrecisionResistorCell {
+    type Schema = Sky130;
+    type NestedData = ();
+    fn schematic(
+        &self,
+        io: &substrate::types::schematic::IoNodeBundle<Self>,
+        cell: &mut substrate::schematic::CellBuilder<<Self as Schematic>::Schema>,
+    ) -> substrate::error::Result<Self::NestedData> {
+        cell.flatten();
+        cell.instantiate_connected(self.resistor, io);
+        Ok(())
+    }
+}
+
+impl Layout for PrecisionResistorCell {
+    type Schema = Sky130;
+    type Data = PrecisionResistorData;
     type Bundle = TwoTerminalIoView<substrate::types::codegen::PortGeometryBundle<Sky130>>;
     fn layout(
         &self,
         cell: &mut substrate::layout::CellBuilder<Self::Schema>,
     ) -> substrate::error::Result<(Self::Bundle, Self::Data)> {
-        let poly_w = 2 * (80 + SLOTTED_LICON_L) + self.length;
-        let poly_h = self.width.dbu();
-        let poly = Rect::from_sides(0, 0, poly_w, poly_h);
-        cell.draw(Shape::new(Sky130Layer::Poly, poly))?;
+        let stack = cell
+            .ctx
+            .get_installation::<LayerStack<PdkLayer<Sky130Layer>>>()
+            .unwrap();
 
-        let n_licon = self.width.num_licons() as i64;
+        let mut container = Container::new();
+
+        let poly_w = 2 * (80 + SLOTTED_LICON_L) + self.resistor.length;
+        let poly_h = self.resistor.width.dbu();
+        let poly = Rect::from_sides(0, 0, poly_w, poly_h);
+        container.draw(Shape::new(Sky130Layer::Poly, poly))?;
+
+        let n_licon = self.resistor.width.num_licons() as i64;
         assert!(n_licon > 0);
         let licon_y0 =
             (poly_h - (SLOTTED_LICON_W * n_licon + SLOTTED_LICON_SPACING * (n_licon - 1))) / 2;
@@ -89,38 +158,48 @@ impl Layout for PrecisionResistor {
         for i in 0..n_licon {
             let y0 = licon_y0 + i * (SLOTTED_LICON_W + SLOTTED_LICON_SPACING);
             let licon_left = Rect::from_sides(80, y0, poly_res_x0, y0 + SLOTTED_LICON_W);
-            cell.draw(Shape::new(Sky130Layer::Licon1, licon_left))?;
+            container.draw(Shape::new(Sky130Layer::Licon1, licon_left))?;
             let licon_right = Rect::from_sides(poly_res_x1, y0, poly_w - 80, y0 + SLOTTED_LICON_W);
-            cell.draw(Shape::new(Sky130Layer::Licon1, licon_right))?;
+            container.draw(Shape::new(Sky130Layer::Licon1, licon_right))?;
         }
 
         let li1_left = Rect::from_sides(0, licon_y0 - 80, 80 + SLOTTED_LICON_L + 80, licon_y1 + 80);
         let li1_left = Shape::new(Sky130Layer::Li1, li1_left);
-        cell.draw(li1_left.clone())?;
+        container.draw(li1_left.clone())?;
         let li1_right = Rect::from_sides(poly_res_x1 - 80, licon_y0 - 80, poly_w, licon_y1 + 80);
         let li1_right = Shape::new(Sky130Layer::Li1, li1_right);
-        cell.draw(li1_right.clone())?;
+        container.draw(li1_right.clone())?;
 
-        cell.draw(Shape::new(Sky130Layer::Npc, poly.expand_all(95)))?;
-        cell.draw(Shape::new(Sky130Layer::Psdm, poly.expand_all(110)))?;
-        cell.draw(Shape::new(Sky130Layer::Urpm, poly.expand_all(200)))?;
-        cell.draw(Shape::new(
+        container.draw(Shape::new(Sky130Layer::Npc, poly.expand_all(95)))?;
+        container.draw(Shape::new(Sky130Layer::Psdm, poly.expand_all(110)))?;
+        container.draw(Shape::new(Sky130Layer::Urpm, poly.expand_all(200)))?;
+        container.draw(Shape::new(
             Sky130Layer::PolyRes,
             Rect::from_sides(poly_res_x0, 0, poly_res_x1, poly_h),
         ))?;
 
         let cx = poly_w / 2;
-        cell.draw(Shape::new(
+        container.draw(Shape::new(
             Sky130Layer::PolyCut,
             Rect::from_sides(cx, 0, cx + 5, poly_h),
         ))?;
+
+        if self.dir == Dir::Vert {
+            container.transform_mut(Transformation::rotate(geometry::transform::Rotation::R90));
+        }
+
+        cell.draw(container)?;
+
+        let slice = stack.slice(0..2);
+        let bbox = cell.bbox().unwrap();
+        let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
 
         Ok((
             TwoTerminalIoView {
                 p: PortGeometry::new(li1_left),
                 n: PortGeometry::new(li1_right),
             },
-            (),
+            PrecisionResistorData { lcm_bbox },
         ))
     }
 }
@@ -153,9 +232,12 @@ mod tests {
         let layout_path = work_dir.join("layout.gds");
         let ctx = sky130_cds_ctx();
 
-        let dut = PrecisionResistor {
-            width: PrecisionResistorWidth::W285,
-            length: 6_000,
+        let dut = PrecisionResistorCell {
+            resistor: PrecisionResistor {
+                width: PrecisionResistorWidth::W285,
+                length: 6_000,
+            },
+            dir: Dir::Horiz,
         };
 
         ctx.write_layout(dut, to_gds, &layout_path).unwrap();

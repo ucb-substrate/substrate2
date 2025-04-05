@@ -281,6 +281,7 @@ impl FromSchema<Sky130OpenSchema> for Spice {
                     ),
                 ]),
             },
+            _ => unimplemented!("unsupported primitive"),
         })
     }
     fn convert_instance(
@@ -334,6 +335,7 @@ impl FromSchema<Sky130OpenSchema> for Spectre {
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ],
             },
+            _ => unimplemented!("unsupported primitive"),
         })
     }
     fn convert_instance(
@@ -422,6 +424,19 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
                     ),
                 ]),
             },
+            Primitive::PrecisionResistor(res) => spice::Primitive::Res2 {
+                value: spice::ComponentValue::Model("mrp".into()),
+                params: HashMap::from_iter([
+                    (
+                        UniCase::new(arcstr::literal!("w")),
+                        Decimal::new(res.width.dbu(), 3).into(),
+                    ),
+                    (
+                        UniCase::new(arcstr::literal!("l")),
+                        Decimal::new(res.length, 3).into(),
+                    ),
+                ]),
+            },
         })
     }
     fn convert_instance(
@@ -454,6 +469,17 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
                     (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                ],
+            },
+            Primitive::PrecisionResistor(res) => spectre::Primitive::RawInstance {
+                cell: "mrp".into(),
+                ports: vec!["P".into(), "N".into()],
+                params: vec![
+                    (
+                        arcstr::literal!("w"),
+                        Decimal::new(res.width.dbu(), 3).into(),
+                    ),
+                    (arcstr::literal!("l"), Decimal::new(res.length, 3).into()),
                 ],
             },
         })
@@ -544,6 +570,7 @@ impl FromSchema<Sky130CdsSchema> for Spice {
                     (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
                 ]),
             },
+            _ => unimplemented!("unsupported primitive"),
         })
     }
     fn convert_instance(
@@ -578,6 +605,7 @@ impl FromSchema<Sky130CdsSchema> for Spectre {
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ],
             },
+            _ => unimplemented!("unsupported primitive"),
         })
     }
     fn convert_instance(
