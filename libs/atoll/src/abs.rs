@@ -102,11 +102,11 @@ pub struct Abstract {
     /// The state of each layer, up to and including `top_layer`.
     ///
     /// Ports on layers not supported by ATOLL are ignored.
-    layers: Vec<LayerAbstract>,
+    pub(crate) layers: Vec<LayerAbstract>,
     /// A list of port net IDs.
     ///
     /// The order of net IDs matches that provided by [`layout::Cell::ports`].
-    ports: Vec<NetId>,
+    pub(crate) ports: Vec<NetId>,
     /// The routing grid used to produce this abstract view.
     pub(crate) grid: RoutingGrid<AbstractLayer>,
 }
