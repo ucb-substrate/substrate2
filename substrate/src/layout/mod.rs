@@ -684,11 +684,11 @@ impl<S: Schema> Draw<S> for DrawReceiver<S> {
 }
 
 impl<S: Schema> Bbox for DrawReceiver<S> {
-    // TODO: process containers?
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.get_instances()
             .bbox()
             .bounding_union(&self.elements.bbox())
+            .bounding_union(&self.containers.bbox())
     }
 }
 

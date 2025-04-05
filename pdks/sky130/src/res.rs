@@ -5,7 +5,11 @@ use atoll::{
     AtollPrimitive,
 };
 use geometry::{
-    bbox::Bbox, dir::Dir, prelude::Transformation, rect::Rect, transform::TransformMut,
+    bbox::Bbox,
+    dir::Dir,
+    prelude::{Transform, Transformation},
+    rect::Rect,
+    transform::TransformMut,
 };
 use geometry_macros::{TransformRef, TranslateRef};
 use layir::Shape;
@@ -79,9 +83,9 @@ impl PrecisionResistorWidth {
 #[substrate(io = "TwoTerminalIo")]
 pub struct PrecisionResistorCell {
     /// The resistor device.
-    resistor: PrecisionResistor,
+    pub resistor: PrecisionResistor,
     /// The orientation of the resistor.
-    dir: Dir,
+    pub dir: Dir,
 }
 
 /// Precision resistor tile geometry.
@@ -184,9 +188,13 @@ impl Layout for PrecisionResistorCell {
             Rect::from_sides(cx, 0, cx + 5, poly_h),
         ))?;
 
-        if self.dir == Dir::Vert {
-            container.transform_mut(Transformation::rotate(geometry::transform::Rotation::R90));
-        }
+        let (li1p, li1n) = if self.dir == Dir::Vert {
+            let xform = Transformation::rotate(geometry::transform::Rotation::R270);
+            container.transform_mut(xform);
+            (li1_left.transform(xform), li1_right.transform(xform))
+        } else {
+            (li1_left, li1_right)
+        };
 
         cell.draw(container)?;
 
@@ -196,8 +204,8 @@ impl Layout for PrecisionResistorCell {
 
         Ok((
             TwoTerminalIoView {
-                p: PortGeometry::new(li1_left),
-                n: PortGeometry::new(li1_right),
+                p: PortGeometry::new(li1p),
+                n: PortGeometry::new(li1n),
             },
             PrecisionResistorData { lcm_bbox },
         ))

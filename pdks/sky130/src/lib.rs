@@ -440,9 +440,19 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
         })
     }
     fn convert_instance(
-        _instance: &mut Instance,
-        _primitive: &<Sky130 as scir::schema::Schema>::Primitive,
+        instance: &mut Instance,
+        primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
+        match primitive {
+            Primitive::PrecisionResistor(_) => {
+                instance.map_connections(|n| match n.as_str() {
+                    "P" => arcstr::literal!("1"),
+                    "N" => arcstr::literal!("2"),
+                    _ => panic!("unknown precision resistor port `{n}`"),
+                });
+            }
+            _ => (),
+        }
         Ok(())
     }
 }
@@ -473,7 +483,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
             },
             Primitive::PrecisionResistor(res) => spectre::Primitive::RawInstance {
                 cell: "mrp".into(),
-                ports: vec!["P".into(), "N".into()],
+                ports: vec!["1".into(), "2".into()],
                 params: vec![
                     (
                         arcstr::literal!("w"),
