@@ -1,3 +1,4 @@
+use atoll::fold::Foldable;
 use atoll::{Tile, TileData, route::GreedyRouter};
 use sky130::{
     Sky130,
@@ -31,6 +32,13 @@ pub struct TerminationSlice {
     pub n: NmosTile,
     pub res: PrecisionResistorCell,
     pub tap: PtapTile,
+}
+
+impl Foldable for TerminationSlice {
+    type ViaMaker = Sky130ViaMaker;
+    fn via_maker() -> Self::ViaMaker {
+        Sky130ViaMaker
+    }
 }
 
 impl Tile for TerminationSlice {
@@ -104,6 +112,7 @@ mod tests {
     use super::*;
 
     use atoll::TileWrapper;
+    use atoll::fold::{FoldedArray, PinConfig};
     use scir::netlist::ConvertibleNetlister;
     use sky130::Sky130SrcNdaSchema;
     use sky130::atoll::MosLength;
@@ -160,6 +169,41 @@ mod tests {
         Spice
             .write_scir_netlist_to_file(&scir, &netlist_path, NetlistOptions::default())
             .expect("failed to write netlist");
+
+        ctx.write_layout(block, to_gds, &gds_path)
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn termination_bank() {
+        let work_dir = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/build/termination_bank"
+        ));
+        let gds_path = work_dir.join("layout.gds");
+        let netlist_path = work_dir.join("netlist.sp");
+        let ctx = sky130_src_nda_ctx();
+
+        let block = TileWrapper::new(FoldedArray {
+            rows: 2,
+            cols: 32,
+            pins: vec![
+                PinConfig::Parallel { layer: 1 },
+                PinConfig::Ignore,
+                PinConfig::Ignore,
+            ],
+            tile: TerminationSlice {
+                tap: PtapTile::new(7, 4),
+                res: PrecisionResistorCell {
+                    resistor: PrecisionResistor {
+                        width: PrecisionResistorWidth::W285,
+                        length: 4_000,
+                    },
+                    dir: Dir::Vert,
+                },
+                n: NmosTile::new(2_000, MosLength::L150, 6),
+            },
+        });
 
         ctx.write_layout(block, to_gds, &gds_path)
             .expect("failed to write layout");
