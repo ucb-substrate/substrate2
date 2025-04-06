@@ -8,6 +8,7 @@ license = "BSD-3-Clause"
 [dependencies]
 substrate = { version = "0.10.2", registry = "substrate", path = "../../substrate" }
 layir = { version = "0.2.1", registry = "substrate", path = "../layir" }
+enumify = { version = "0.2.1", registry = "substrate", path = "../enumify" }
 grid = { version = "0.13.0", features = ["serde"] }
 ena = "0.14"
 tracing = "0.1"
@@ -19,3 +20,4 @@ indexmap = "2"
 rustc-hash = "1"
 cache = { version = "0.7.1", registry = "substrate", path = "../cache" }
 arcstr = { version = "1.2.0", features = ["serde"] }
+itertools = "0.14.0"
