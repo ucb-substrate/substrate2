@@ -66,6 +66,7 @@
 
 pub mod abs;
 pub mod grid;
+pub mod resizing;
 pub mod route;
 pub mod straps;
 
