@@ -56,14 +56,16 @@ impl MosTileParams {
 pub struct TapTileParams {
     /// The kind of tap.
     pub kind: TileKind,
-    /// Number of layer 1 tracks this tap must span.
+    /// Number of layer 0 tracks this tap must span.
     pub hspan: i64,
+    /// Number of layer 1 tracks this tap must span.
+    pub vspan: i64,
 }
 
 impl TapTileParams {
     /// Creates a new [`TapTileParams`].
-    pub fn new(kind: TileKind, hspan: i64) -> Self {
-        Self { kind, hspan }
+    pub fn new(kind: TileKind, hspan: i64, vspan: i64) -> Self {
+        Self { kind, hspan, vspan }
     }
 }
 

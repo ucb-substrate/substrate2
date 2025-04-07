@@ -242,15 +242,19 @@ impl Tile for TapTile {
         cell.flatten();
         let x = match self.0.kind {
             TileKind::N => {
-                let inst =
-                    cell.generate_primitive(sky130::atoll::NtapTile::new(self.0.hspan - 1, 2));
+                let inst = cell.generate_primitive(sky130::atoll::NtapTile::new(
+                    self.0.hspan - 1,
+                    self.0.vspan,
+                ));
                 cell.connect(io.x, inst.io().vpb);
                 let inst = cell.draw(inst)?;
                 inst.layout.io().vpb
             }
             TileKind::P => {
-                let inst =
-                    cell.generate_primitive(sky130::atoll::PtapTile::new(self.0.hspan - 1, 2));
+                let inst = cell.generate_primitive(sky130::atoll::PtapTile::new(
+                    self.0.hspan - 1,
+                    self.0.vspan,
+                ));
                 cell.connect(io.x, inst.io().vnb);
                 let inst = cell.draw(inst)?;
                 inst.layout.io().vnb
@@ -289,6 +293,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use substrate::context::Context;
+    use substrate::geometry::dir::Dir;
     use substrate::simulation::Pvt;
     use substrate::{block::Block, schematic::ConvertSchema};
 
@@ -313,6 +318,7 @@ mod tests {
         precharge_w: 500,
         input_kind: InputKind::P,
         h_max: 10_000,
+        dir: Dir::Vert,
     };
 
     pub const STRONGARM_PARAMS_1: StrongArmParams = StrongArmParams {
@@ -325,6 +331,7 @@ mod tests {
         precharge_w: 2_048,
         input_kind: InputKind::P,
         h_max: 40_000,
+        dir: Dir::Vert,
     };
 
     pub const STRONGARM_PARAMS_2: StrongArmParams = StrongArmParams {
@@ -337,6 +344,7 @@ mod tests {
         precharge_w: 2_048,
         input_kind: InputKind::P,
         h_max: 20_000,
+        dir: Dir::Vert,
     };
 
     pub const STRONGARM_PARAMS_3: StrongArmParams = StrongArmParams {
@@ -349,6 +357,33 @@ mod tests {
         precharge_w: 2_048,
         input_kind: InputKind::P,
         h_max: 15_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_4: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Lvt,
+        pmos_kind: MosKind::Lvt,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 20_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_5: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Lvt,
+        pmos_kind: MosKind::Lvt,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 20_000,
+        dir: Dir::Horiz,
     };
 
     pub fn sky130_cds_ctx() -> Context {
@@ -550,5 +585,13 @@ mod tests {
     #[test]
     fn sky130_strongarm_lvs_resizing_3() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_3", STRONGARM_PARAMS_3);
+    }
+    #[test]
+    fn sky130_strongarm_lvs_resizing_4() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_4", STRONGARM_PARAMS_4);
+    }
+    #[test]
+    fn sky130_strongarm_lvs_resizing_5() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_5", STRONGARM_PARAMS_5);
     }
 }
