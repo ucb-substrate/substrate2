@@ -122,6 +122,7 @@ mod tests {
     use std::path::PathBuf;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;
+    use substrate::geometry::side::Side;
 
     pub fn sky130_src_nda_ctx() -> Context {
         // Open PDK needed for standard cells.
@@ -189,7 +190,10 @@ mod tests {
             cols: 32,
             pins: vec![
                 PinConfig::Parallel { layer: 1 },
-                PinConfig::Ignore,
+                PinConfig::Escape {
+                    layer: 0,
+                    side: Side::Top,
+                },
                 PinConfig::Ignore,
             ],
             tile: TerminationSlice {

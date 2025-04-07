@@ -18,6 +18,7 @@ use std::hash::Hash;
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::rect::Rect;
+use substrate::layout::tracks::RoundingMode;
 use substrate::layout::CellBuilder;
 use substrate::types::schematic::IoNodeBundle;
 use substrate::{
@@ -125,6 +126,13 @@ struct EscapeMapping {
     p2: Vec<usize>,
 }
 
+struct EscapePinData {
+    coordl: usize,
+    dir: Dir,
+    coord_gdl_min: usize,
+    coord_gdl_max: usize,
+}
+
 impl<T: Tile + Clone + Foldable> FoldedArray<T> {
     fn analyze(
         &self,
@@ -147,6 +155,11 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                 PinConfig::Parallel { layer, .. } => {
                     assert!(layer + 1 < stack.len());
                     chk_layers.insert(layer + 1);
+                }
+                PinConfig::Escape { layer, .. } => {
+                    assert!(layer + 2 < stack.len());
+                    chk_layers.insert(layer + 1);
+                    chk_layers.insert(layer + 2);
                 }
                 PinConfig::Ignore => (),
                 _ => unimplemented!(),
@@ -183,6 +196,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         // create pin matching problem instance
         let mut match_input = Vec::new();
         let mut match_mapping = HashMap::new();
+        let mut escape_pin_data = HashMap::new();
 
         for (net, cfg) in abs.ports.iter().zip(self.pins.iter()) {
             match *cfg {
@@ -202,10 +216,10 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     // number of tracks needed on layer + 2
                     let num_p2 = if dir == Dir::Horiz {
                         assert!(side == Side::Left || side == Side::Right);
-                        self.cols - 1
+                        self.cols
                     } else {
                         assert!(side == Side::Top || side == Side::Bot);
-                        self.rows - 1
+                        self.rows
                     };
 
                     // get track coordinate `coordl` of max width on layer
@@ -214,7 +228,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     let mut p1trks = Vec::new();
                     let coordl =
                         max_extent_track(&state, layer, dir, *net).expect("pin not present");
-                    if dir == Dir::Horiz {
+                    let (coord_gdl_min, coord_gdl_max) = if dir == Dir::Horiz {
                         let (coord_gdl_min, coord_gdl_max) = state
                             .layer(layer)
                             .iter_col(coordl)
@@ -254,6 +268,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                                 });
                             }
                         }
+                        (coord_gdl_min, coord_gdl_max)
                     } else {
                         let (coord_gdl_min, coord_gdl_max) = state
                             .layer(layer)
@@ -278,7 +293,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             })
                             .y;
                         let layer1 = layer + 1;
-                        for p1trk in 0..state.layer(layer1).rows() {
+                        for p1trk in 0..state.layer(layer1).cols() {
                             let trky = abs
                                 .grid_to_physical(GridCoord {
                                     layer: layer1,
@@ -286,7 +301,8 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                                     y: p1trk,
                                 })
                                 .y;
-                            if trky > min && trky < max && free_tracks[&layer1].contains(&p1trk) {
+                            println!("{min} <= {trky} <= {max}?");
+                            if trky >= min && trky <= max && free_tracks[&layer1].contains(&p1trk) {
                                 // p1trk is a candidate track
                                 p1trks.push(LayerTrack {
                                     layer: layer1,
@@ -294,7 +310,8 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                                 });
                             }
                         }
-                    }
+                        (coord_gdl_min, coord_gdl_max)
+                    };
 
                     let mapping = EscapeMapping {
                         p1: match_input.len(),
@@ -312,11 +329,22 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                         match_input.push(tracks);
                     }
                     match_mapping.insert(net, MatchMapping::Escape(mapping));
+                    escape_pin_data.insert(
+                        net,
+                        EscapePinData {
+                            coordl,
+                            dir,
+                            coord_gdl_min,
+                            coord_gdl_max,
+                        },
+                    );
                 }
                 PinConfig::Ignore => (),
                 _ => unimplemented!(),
             }
         }
+
+        println!("{:#?}", match_input);
 
         // match pins to tracks
         let match_output =
@@ -325,16 +353,16 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         let bbox = cell.layout.bbox_rect();
         // strap parallel pins on matched track
         let grid = RoutingGrid::new((*stack).clone(), 0..(abs.top_layer + 1));
+        let track_idx = |dir, base, i, delta| {
+            if dir == Dir::Horiz {
+                base as i64 - ((i + 1) * delta) as i64
+            } else {
+                base as i64 + (i * delta) as i64
+            }
+        };
         for (net, cfg) in abs.ports.iter().zip(self.pins.iter()) {
-            match cfg {
+            match *cfg {
                 PinConfig::Parallel { layer } => {
-                    let track_idx = |dir, base, i, delta| {
-                        if dir == Dir::Horiz {
-                            base as i64 - ((i + 1) * delta) as i64
-                        } else {
-                            base as i64 + (i * delta) as i64
-                        }
-                    };
                     let track = match_output.pair[*match_mapping[net].as_ref().unwrap_parallel()];
                     let dir = abs.grid.stack.layer(track.layer).dir.track_dir();
                     let layer_grid = state.layer(track.layer);
@@ -352,8 +380,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     }
 
                     let dir = !dir;
-                    let layer = *layer;
-                    let lower_track = max_extent_track(&state, layer, dir, *net)
+                    let lower_track = max_extent_full_track(&state, layer, dir, *net)
                         .expect("pin not present on specified layer");
                     let layer_grid = state.layer(layer);
                     let (countl, deltal) = if dir == Dir::Vert {
@@ -386,6 +413,97 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             };
                             for shape in via_maker.draw_via(ctx.clone(), coord) {
                                 cell.layout.draw(shape)?;
+                            }
+                        }
+                    }
+                }
+                PinConfig::Escape { layer, side } => {
+                    let data = &escape_pin_data[net];
+                    let mapping = match_mapping[net].as_ref().unwrap_escape();
+                    let dir = data.dir;
+                    let p1trk = match_output.pair[mapping.p1];
+                    if dir == Dir::Horiz {
+                        for r in 0..self.rows {
+                            for c in 0..self.cols {
+                                // route on p1trk to p2trks[c]
+                                let p2trk = match_output.pair[mapping.p2[c]];
+                                let layer_grid = state.layer(p2trk.layer);
+                                let delta2 = layer_grid.cols();
+                                let idx2 = track_idx(dir, p2trk.track, c, delta2);
+                                let span = grid.tracks(p2trk.layer).get(idx2);
+                                let rect = Rect::from_dir_spans(dir, bbox.span(dir), span);
+                                let layer = stack.layer(p2trk.layer).layer.clone();
+                                cell.layout.draw(Shape::new(layer, rect))?;
+                            }
+                        }
+                    } else {
+                        for r in 0..self.rows {
+                            for c in 0..self.cols {
+                                let p2trk = match_output.pair[mapping.p2[r]];
+                                let pt = abs.grid_to_physical(GridCoord {
+                                    layer: p2trk.layer,
+                                    x: p2trk.track,
+                                    y: p1trk.track,
+                                });
+                                let trkcoords = grid.point_to_grid(
+                                    pt,
+                                    p1trk.layer,
+                                    RoundingMode::Nearest,
+                                    RoundingMode::Nearest,
+                                );
+                                let dstx = abs
+                                    .track_to_grid(TrackCoord {
+                                        layer: p1trk.layer,
+                                        x: trkcoords.x,
+                                        y: trkcoords.y,
+                                    })
+                                    .x;
+                                // route on p1trk to p2trks[r]
+                                // coordl to round(p2trks[r])
+                                let layer_grid = state.layer(p1trk.layer);
+                                let delta1 = layer_grid.cols();
+                                let delta1gdl =
+                                    state.layer(grid.grid_defining_layer(p1trk.layer)).rows();
+                                let min = std::cmp::min(data.coordl, dstx);
+                                let max = std::cmp::max(data.coordl, dstx);
+                                let idx1 = track_idx(!dir, p1trk.track, r, delta1);
+                                let min_idx1gdl = track_idx(dir, min, c, delta1gdl);
+                                let max_idx1gdl = track_idx(dir, max, c, delta1gdl);
+                                let coordl_shifted = track_idx(dir, max, c, delta1gdl);
+                                let rect = grid.track(p1trk.layer, idx1, min_idx1gdl, max_idx1gdl);
+                                let layer = stack.layer(p1trk.layer).layer.clone();
+                                let via_maker = T::via_maker();
+                                for shape in via_maker.draw_via(
+                                    ctx.clone(),
+                                    TrackCoord {
+                                        layer: p1trk.layer,
+                                        x: coordl_shifted,
+                                        y: idx1,
+                                    },
+                                ) {
+                                    cell.layout.draw(shape)?;
+                                }
+                                cell.layout.draw(Shape::new(layer, rect))?;
+
+                                // route on p2trks[r] to edge of cell
+                                let p2trk = match_output.pair[mapping.p2[r]];
+                                let layer_grid = state.layer(p2trk.layer);
+                                let delta2 = layer_grid.rows();
+                                let idx2 = track_idx(dir, p2trk.track, c, delta2);
+                                let span = grid.tracks(p2trk.layer).get(idx2);
+                                let rect = Rect::from_dir_spans(dir, bbox.span(dir), span);
+                                let layer = stack.layer(p2trk.layer).layer.clone();
+                                for shape in via_maker.draw_via(
+                                    ctx.clone(),
+                                    TrackCoord {
+                                        layer: p2trk.layer,
+                                        x: idx2,
+                                        y: idx1,
+                                    },
+                                ) {
+                                    cell.layout.draw(shape)?;
+                                }
+                                cell.layout.draw(Shape::new(layer, rect))?;
                             }
                         }
                     }
@@ -429,7 +547,7 @@ fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutpu
     Some(MatchOutput { pair })
 }
 
-fn max_extent_track(
+fn max_extent_full_track(
     state: &RoutingState<AbstractLayer>,
     layer: usize,
     dir: Dir,
@@ -459,6 +577,43 @@ fn max_extent_track(
                         .filter_map(|elt| elt.is_routed_for_net(net).then_some(1))
                         .sum();
                     (col.all(|elt| elt.is_available_for_net(net)) && (sum > 0)).then_some((i, sum))
+                })
+                .max_by_key(|x| x.1),
+        }?
+        .0,
+    )
+}
+
+fn max_extent_track(
+    state: &RoutingState<AbstractLayer>,
+    layer: usize,
+    dir: Dir,
+    net: NetId,
+) -> Option<usize> {
+    Some(
+        match dir {
+            Dir::Horiz => state
+                .layer(layer)
+                .iter_cols()
+                .enumerate()
+                .filter_map(|(i, mut row)| {
+                    let sum: usize = row
+                        .clone()
+                        .filter_map(|elt| elt.is_routed_for_net(net).then_some(1))
+                        .sum();
+                    (sum > 0).then_some((i, sum))
+                })
+                .max_by_key(|x| x.1),
+            Dir::Vert => state
+                .layer(layer)
+                .iter_rows()
+                .enumerate()
+                .filter_map(|(i, mut col)| {
+                    let sum: usize = col
+                        .clone()
+                        .filter_map(|elt| elt.is_routed_for_net(net).then_some(1))
+                        .sum();
+                    (sum > 0).then_some((i, sum))
                 })
                 .max_by_key(|x| x.1),
         }?
