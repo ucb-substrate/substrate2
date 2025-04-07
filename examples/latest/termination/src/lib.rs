@@ -74,7 +74,7 @@ impl Tile for TerminationSlice {
         cell.connect(res.io().p, x);
         cell.connect(res.io().n, io.vss);
         let nbbox = n.lcm_bounds();
-        res.align_rect_mut(nbbox, AlignMode::Left, 0);
+        res.align_rect_mut(nbbox, AlignMode::CenterHorizontal, 0);
         res.align_rect_mut(nbbox, AlignMode::Beneath, 0);
         let resbbox = res.lcm_bounds();
         tap.align_rect_mut(nbbox, AlignMode::Left, 0);
@@ -200,7 +200,7 @@ mod tests {
                 tap: PtapTile::new(7, 4),
                 res: PrecisionResistorCell {
                     resistor: PrecisionResistor {
-                        width: PrecisionResistorWidth::W285,
+                        width: PrecisionResistorWidth::W141,
                         length: 4_000,
                     },
                     dir: Dir::Vert,
