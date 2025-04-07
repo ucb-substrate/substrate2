@@ -5,6 +5,7 @@ use crate::StrongArmImpl;
 use atoll::resizing::ResizableInstance;
 use atoll::route::GreedyRouter;
 use atoll::{Tile, TileBuilder, TileData};
+use layir::Shape;
 use sky130::atoll::{MosLength, NmosTile, PmosTile, Sky130ViaMaker};
 use sky130::Sky130;
 use substrate::arcstr;
@@ -186,6 +187,11 @@ impl Tile for MosTile {
         cell.set_top_layer(1);
         cell.set_router(GreedyRouter::new());
         cell.set_via_maker(Sky130ViaMaker);
+
+        cell.layout.draw(Shape::new(
+            sky130::layers::Sky130Layer::AreaIdLowTapDensity,
+            cell.layout.bbox_rect(),
+        ))?;
 
         Ok(TileData {
             nested_data: (),
