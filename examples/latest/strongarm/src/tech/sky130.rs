@@ -374,15 +374,28 @@ mod tests {
     };
 
     pub const STRONGARM_PARAMS_5: StrongArmParams = StrongArmParams {
-        nmos_kind: MosKind::Lvt,
-        pmos_kind: MosKind::Lvt,
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
         half_tail_w: 8_192,
-        input_pair_w: 8_192,
+        input_pair_w: 2_048,
         inv_input_w: 8_192,
-        inv_precharge_w: 2_048,
+        inv_precharge_w: 4096,
         precharge_w: 2_048,
-        input_kind: InputKind::N,
-        h_max: 20_000,
+        input_kind: InputKind::P,
+        h_max: 15_000,
+        dir: Dir::Horiz,
+    };
+
+    pub const STRONGARM_PARAMS_6: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 40_000,
         dir: Dir::Horiz,
     };
 
@@ -593,5 +606,9 @@ mod tests {
     #[test]
     fn sky130_strongarm_lvs_resizing_5() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_5", STRONGARM_PARAMS_5);
+    }
+    #[test]
+    fn sky130_strongarm_lvs_resizing_6() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_6", STRONGARM_PARAMS_6);
     }
 }

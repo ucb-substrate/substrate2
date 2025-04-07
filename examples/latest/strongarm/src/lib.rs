@@ -299,7 +299,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         .max()
         .unwrap();
         let (hspan, vspan) = match self.0.dir {
-            Dir::Horiz => (2, max_hspan * 2 - 1),
+            Dir::Horiz => (2, max_hspan + 8),
             Dir::Vert => (max_hspan, 2),
         };
         let mut ptap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
