@@ -304,6 +304,18 @@ mod tests {
     pub const STRONGARM_PARAMS: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
+        half_tail_w: 1_000,
+        input_pair_w: 1_000,
+        inv_input_w: 500,
+        inv_precharge_w: 500,
+        precharge_w: 500,
+        input_kind: InputKind::P,
+        h_max: 10_000,
+    };
+
+    pub const STRONGARM_PARAMS_1: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
         half_tail_w: 8_192,
         input_pair_w: 2_048,
         inv_input_w: 8_192,
@@ -311,6 +323,30 @@ mod tests {
         precharge_w: 2_048,
         input_kind: InputKind::P,
         h_max: 40_000,
+    };
+
+    pub const STRONGARM_PARAMS_2: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 20_000,
+    };
+
+    pub const STRONGARM_PARAMS_3: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 15_000,
     };
 
     pub fn sky130_cds_ctx() -> Context {
@@ -432,17 +468,13 @@ mod tests {
         test_strongarm(work_dir, true);
     }
 
-    #[test]
-    fn sky130_strongarm_lvs() {
-        let work_dir = PathBuf::from(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/build/sky130_strongarm_lvs"
-        ));
+    fn test_sky130_strongarm_lvs(test_name: &'static str, params: StrongArmParams) {
+        let work_dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/build")).join(test_name);
         let gds_path = work_dir.join("layout.gds");
         let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_cds_ctx();
 
-        let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(STRONGARM_PARAMS));
+        let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(params));
         let scir = ctx
             .export_scir(block)
             .unwrap()
@@ -498,5 +530,17 @@ mod tests {
             LvsStatus::Correct,
             "layout does not match netlist"
         );
+    }
+
+    #[test]
+    fn sky130_strongarm_lvs() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs", STRONGARM_PARAMS);
+    }
+
+    #[test]
+    fn sky130_strongarm_lvs_resizing() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_1", STRONGARM_PARAMS_1);
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_2", STRONGARM_PARAMS_2);
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_3", STRONGARM_PARAMS_3);
     }
 }
