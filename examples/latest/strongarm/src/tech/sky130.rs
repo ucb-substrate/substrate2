@@ -21,6 +21,7 @@ use substrate::types::{FlatLen, MosIo, MosIoView};
 pub struct Sky130Impl;
 
 impl StrongArmImpl for Sky130Impl {
+    const TAP_FREQ: i64 = 12_000;
     type Schema = Sky130;
     type MosTile = ResizeableMosTile;
     type TapTile = TapTile;
@@ -187,11 +188,6 @@ impl Tile for MosTile {
         cell.set_top_layer(1);
         cell.set_router(GreedyRouter::new());
         cell.set_via_maker(Sky130ViaMaker);
-
-        cell.layout.draw(Shape::new(
-            sky130::layers::Sky130Layer::AreaIdLowTapDensity,
-            cell.layout.bbox_rect(),
-        ))?;
 
         Ok(TileData {
             nested_data: (),
