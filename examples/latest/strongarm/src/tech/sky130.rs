@@ -540,9 +540,15 @@ mod tests {
     }
 
     #[test]
-    fn sky130_strongarm_lvs_resizing() {
+    fn sky130_strongarm_lvs_resizing_1() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_1", STRONGARM_PARAMS_1);
+    }
+    #[test]
+    fn sky130_strongarm_lvs_resizing_2() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_2", STRONGARM_PARAMS_2);
+    }
+    #[test]
+    fn sky130_strongarm_lvs_resizing_3() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_3", STRONGARM_PARAMS_3);
     }
 }

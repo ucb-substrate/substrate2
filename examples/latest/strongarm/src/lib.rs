@@ -3,6 +3,7 @@
 use crate::tiles::{MosKind, MosTileParams, TapIo, TapTileParams, TileKind};
 use atoll::resizing::{ResizableGrid, ResizableInstance};
 use atoll::route::{GreedyRouter, ViaMaker};
+use atoll::straps::{GreedyStrapper, LayerStrappingParams, StrappingParams};
 use atoll::{Orientation, Tile, TileBuilder, TileData};
 use itertools::Itertools;
 use std::any::Any;
@@ -443,18 +444,10 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
 
         let mut height = 0;
         for (dummy, mos_pair) in &mut rows[0..3] {
-            mos_pair[1].align_rect_mut(prev, AlignMode::Beneath, 0);
-            mos_pair[1].align_rect_mut(prev, AlignMode::Right, 0);
-            prev = mos_pair[1].lcm_bounds();
-            mos_pair[0].align_rect_mut(prev, AlignMode::Bottom, 0);
-            mos_pair[0].align_rect_mut(prev, AlignMode::ToTheLeft, 0);
-            let left_rect = mos_pair[0].lcm_bounds();
-            dummy.align_rect_mut(left_rect, AlignMode::Bottom, 0);
-            dummy.align_rect_mut(left_rect, AlignMode::ToTheLeft, 0);
             let curr_height = cell
                 .layer_stack
                 .slice(0..2)
-                .lcm_to_physical_rect(prev)
+                .lcm_to_physical_rect(mos_pair[1].lcm_bounds())
                 .height();
             if height + curr_height > T::TAP_FREQ {
                 let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, max_hspan)));
@@ -463,15 +456,9 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 prev = tap.lcm_bounds();
                 cell.connect(tap.io().x, io.top_io.vdd);
                 cell.draw(tap)?;
+                height = 0;
             }
             height += curr_height;
-        }
-
-        ptap.align_rect_mut(prev, AlignMode::Right, 0);
-        ptap.align_rect_mut(prev, AlignMode::Beneath, 0);
-        prev = ptap.lcm_bounds();
-
-        for (dummy, mos_pair) in &mut rows[3..6] {
             mos_pair[1].align_rect_mut(prev, AlignMode::Beneath, 0);
             mos_pair[1].align_rect_mut(prev, AlignMode::Right, 0);
             prev = mos_pair[1].lcm_bounds();
@@ -480,10 +467,27 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             let left_rect = mos_pair[0].lcm_bounds();
             dummy.align_rect_mut(left_rect, AlignMode::Bottom, 0);
             dummy.align_rect_mut(left_rect, AlignMode::ToTheLeft, 0);
+        }
+        if height > T::TAP_FREQ {
+            let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, max_hspan)));
+            tap.align_rect_mut(prev, AlignMode::Right, 0);
+            tap.align_rect_mut(prev, AlignMode::Beneath, 0);
+            prev = tap.lcm_bounds();
+            cell.connect(tap.io().x, io.top_io.vdd);
+            cell.draw(tap)?;
+            height = 0;
+        }
+
+        ptap.align_rect_mut(prev, AlignMode::Right, 0);
+        ptap.align_rect_mut(prev, AlignMode::Beneath, 0);
+        prev = ptap.lcm_bounds();
+
+        height = 0;
+        for (dummy, mos_pair) in &mut rows[3..6] {
             let curr_height = cell
                 .layer_stack
                 .slice(0..2)
-                .lcm_to_physical_rect(prev)
+                .lcm_to_physical_rect(mos_pair[1].lcm_bounds())
                 .height();
             if height + curr_height > T::TAP_FREQ {
                 let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, max_hspan)));
@@ -495,6 +499,23 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 height = 0;
             }
             height += curr_height;
+            mos_pair[1].align_rect_mut(prev, AlignMode::Beneath, 0);
+            mos_pair[1].align_rect_mut(prev, AlignMode::Right, 0);
+            prev = mos_pair[1].lcm_bounds();
+            mos_pair[0].align_rect_mut(prev, AlignMode::Bottom, 0);
+            mos_pair[0].align_rect_mut(prev, AlignMode::ToTheLeft, 0);
+            let left_rect = mos_pair[0].lcm_bounds();
+            dummy.align_rect_mut(left_rect, AlignMode::Bottom, 0);
+            dummy.align_rect_mut(left_rect, AlignMode::ToTheLeft, 0);
+        }
+        if height > T::TAP_FREQ {
+            let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, max_hspan)));
+            tap.align_rect_mut(prev, AlignMode::Right, 0);
+            tap.align_rect_mut(prev, AlignMode::Beneath, 0);
+            prev = tap.lcm_bounds();
+            cell.connect(tap.io().x, io.top_io.vss);
+            cell.draw(tap)?;
+            height = 0;
         }
 
         let ptap = cell.draw(ptap)?;
@@ -642,6 +663,35 @@ impl<T: StrongArmImpl> Tile for StrongArm<T> {
         output_p.merge(right_half.layout.io().top_io.output.p);
         output_n.merge(left_half.layout.io().top_io.output.n);
         output_n.merge(right_half.layout.io().top_io.output.n);
+
+        cell.set_strapping(
+            io.vss,
+            StrappingParams::new(
+                1,
+                vec![
+                    LayerStrappingParams::ViaDown { min_period: 2 },
+                    LayerStrappingParams::OffsetPeriod {
+                        offset: 0,
+                        period: 4,
+                    },
+                ],
+            ),
+        );
+        cell.set_strapping(
+            io.vdd,
+            StrappingParams::new(
+                1,
+                vec![
+                    LayerStrappingParams::ViaDown { min_period: 2 },
+                    LayerStrappingParams::OffsetPeriod {
+                        offset: 1,
+                        period: 4,
+                    },
+                ],
+            ),
+        );
+
+        cell.set_strapper(GreedyStrapper);
 
         T::post_layout_hooks(cell)?;
 
