@@ -480,7 +480,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 .lcm_to_physical_rect(mos_pair[1].lcm_bounds())
                 .span(self.0.dir)
                 .length();
-            if height + curr_height > T::TAP_FREQ {
+            if height > T::TAP_FREQ || height + curr_height > 2 * T::TAP_FREQ {
                 let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
                 tap.align_rect_mut(prev, align_next_a, 0);
                 tap.align_rect_mut(prev, align_next_b, 0);
@@ -521,7 +521,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 .lcm_to_physical_rect(mos_pair[1].lcm_bounds())
                 .span(self.0.dir)
                 .length();
-            if height + curr_height > T::TAP_FREQ {
+            if height > T::TAP_FREQ || height + curr_height > 2 * T::TAP_FREQ {
                 let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
                 tap.align_rect_mut(prev, align_next_a, 0);
                 tap.align_rect_mut(prev, align_next_b, 0);

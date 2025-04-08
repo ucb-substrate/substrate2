@@ -21,7 +21,7 @@ use substrate::types::{FlatLen, MosIo, MosIoView};
 pub struct Sky130Impl;
 
 impl StrongArmImpl for Sky130Impl {
-    const TAP_FREQ: i64 = 12_000;
+    const TAP_FREQ: i64 = 6_000;
     type Schema = Sky130;
     type MosTile = ResizeableMosTile;
     type TapTile = TapTile;
@@ -399,6 +399,19 @@ mod tests {
         dir: Dir::Horiz,
     };
 
+    pub const STRONGARM_PARAMS_7: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 8_192,
+        precharge_w: 8_192,
+        input_kind: InputKind::N,
+        h_max: 8_000,
+        dir: Dir::Vert,
+    };
+
     pub fn sky130_cds_ctx() -> Context {
         let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
             .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
@@ -610,5 +623,9 @@ mod tests {
     #[test]
     fn sky130_strongarm_lvs_resizing_6() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_6", STRONGARM_PARAMS_6);
+    }
+    #[test]
+    fn sky130_strongarm_lvs_resizing_7() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_7", STRONGARM_PARAMS_7);
     }
 }
