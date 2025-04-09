@@ -1045,7 +1045,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
-    ///Keeps only the cells in `roots` and their dependencies.
+    /// Keeps only the cells in `roots` and their dependencies.
     pub fn retain_cells(&mut self, roots: impl IntoIterator<Item = CellId>) {
         let keep = self.cells_used_by(roots);
         // Remove names from name map
