@@ -1045,10 +1045,32 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
+    ///Keeps only the cells in `roots` and their dependencies.
+    pub fn retain_cells(&mut self, roots: impl IntoIterator<Item = CellId>) {
+        let keep = self.cells_used_by(roots);
+        // Remove names from name map
+        self.name_map.retain(|_, cell| keep.contains(cell));
+        for (id, _) in self.cells.iter() {
+            if !keep.contains(id) {
+                // Remove names from `self.names`.
+                self.names.unassign(id);
+            }
+        }
+        // Remove cells from HashMap.
+        self.cells.retain(|id, _| keep.contains(id));
+
+        // Clear top cell if top cell was deleted.
+        if let Some(top) = self.top_cell() {
+            if !keep.contains(&top) {
+                self.top = None;
+            }
+        }
+    }
+
     /// The list of cell IDs instantiated by the given root cells.
     ///
     /// The list returned will include the root cell IDs.
-    pub(crate) fn cells_used_by(&self, roots: impl IntoIterator<Item = CellId>) -> Vec<CellId> {
+    pub(crate) fn cells_used_by(&self, roots: impl IntoIterator<Item = CellId>) -> HashSet<CellId> {
         let mut stack = VecDeque::new();
         let mut visited = HashSet::new();
         for root in roots {
@@ -1068,7 +1090,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
             }
         }
 
-        visited.drain().collect()
+        visited
     }
 
     /// Gets the primitive with the given ID.
