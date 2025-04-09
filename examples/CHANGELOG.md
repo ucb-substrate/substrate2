@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/examples-v0.2.0...examples-v0.2.1) (2025-04-09)
+
+
+### Features
+
+* **atoll:** port ATOLL to Substrate 2.1 ([#639](https://github.com/ucb-substrate/substrate2/issues/639)) ([dc2d4f2](https://github.com/ucb-substrate/substrate2/commit/dc2d4f2340e1dac822beb499b6d3dbec27002ec5))
+
+
+### Bug Fixes
+
+* **examples:** fix release example compilation ([#576](https://github.com/ucb-substrate/substrate2/issues/576)) ([1e3d89f](https://github.com/ucb-substrate/substrate2/commit/1e3d89f3dd8c152640ec0408fefc9e32e4d7ddba))
+* **justfile:** remove extra targets from justfile, fix formatting ([#588](https://github.com/ucb-substrate/substrate2/issues/588)) ([efc3591](https://github.com/ucb-substrate/substrate2/commit/efc35916dcfc4fe04ef59cffe9155f5069916d07))
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.1.0...examples-v0.2.0) (2025-01-23)
 
 
