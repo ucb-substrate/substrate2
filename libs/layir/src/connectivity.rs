@@ -85,7 +85,8 @@ trait Connectivity: Sized + PartialEq {
         for elem in cell_ref.elements() {
 
             if let Element::Shape(shape) = elem {
-                ret.push(shape.clone());
+                
+                ret.push(shape);
             }
             
         }
@@ -97,9 +98,9 @@ trait Connectivity: Sized + PartialEq {
         //let mut ret2 : Vec<&'a Shape<Self>> = vec![];
 
         for sh in ret.clone().into_iter() {
-            let mut shap : &Shape<Self> = sh.clone();
+            let shap = sh.clone();
             //let mut thing : Shape<Self> = shap.clone();
-            shap.transform_mut(transform);
+            shap.transform_ref(transform);
             //ret.push(&thing);
         }
 
@@ -123,7 +124,7 @@ trait Connectivity: Sized + PartialEq {
        
         for inst in cell.instances() {
             for thing in Self::flatten_instance(inst.1, lib) {
-                ret.push(thing);
+                ret.push(&thing);
             }
         }
         //let list_of_cells = Self::get_cells(cell, lib);
