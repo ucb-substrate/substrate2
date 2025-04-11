@@ -86,7 +86,7 @@ pub enum Element<L> {
 
 /// A primitive layout shape consisting of a layer and a geometric shape.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Shape<L> {
+pub struct Shape<L> where Self: Clone {
     layer: L,
     shape: geometry::shape::Shape,
 }
