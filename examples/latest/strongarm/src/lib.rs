@@ -506,7 +506,6 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             prev = tap.lcm_bounds();
             cell.connect(tap.io().x, io.top_io.vdd);
             cell.draw(tap)?;
-            height = 0;
         }
 
         ptap.align_rect_mut(prev, align_next_a, 0);
@@ -544,10 +543,8 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
             tap.align_rect_mut(prev, align_next_a, 0);
             tap.align_rect_mut(prev, align_next_b, 0);
-            prev = tap.lcm_bounds();
             cell.connect(tap.io().x, io.top_io.vss);
             cell.draw(tap)?;
-            height = 0;
         }
 
         let ptap = cell.draw(ptap)?;

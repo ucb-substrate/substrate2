@@ -1,15 +1,10 @@
-use std::{any::Any, collections::VecDeque, iter::repeat, marker::PhantomData, sync::Arc};
+//! Utilities for resizing tiles given width or height constraints.
+
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 use downcast_rs::{impl_downcast, Downcast};
-use itertools::Itertools;
-use pathfinding::matrix::directions::W;
 use slotmap::{new_key_type, SecondaryMap, SlotMap};
-use substrate::{
-    geometry::{dims::Dims, dir::Dir, point::Point, rect::Rect, transform::Translate},
-    layout, schematic,
-};
-
-use crate::TileBuilder;
+use substrate::geometry::{dims::Dims, point::Point, rect::Rect, transform::Translate};
 
 /// A resizable instance.
 pub trait ResizableInstance {
@@ -68,9 +63,6 @@ trait DowncastableResizableInstance: Downcast {
     /// Parametrization of this tile with the desired strength, width, and height;
     fn tile(&self, dims: Dims) -> Arc<dyn Any>;
 
-    /// The maximum width that [`ResizeableTile::min_width`] can return.
-    fn max_min_width(&self) -> i64;
-
     /// Minimum height of this tile required to achieve the desired strength
     /// while fitting in the given width constraint.
     ///
@@ -93,10 +85,6 @@ impl<T: ResizableInstance + Any> DowncastableResizableInstance for T {
 
     fn tile(&self, dims: Dims) -> Arc<dyn Any> {
         Arc::new(ResizableInstance::tile(self, dims))
-    }
-
-    fn max_min_width(&self) -> i64 {
-        ResizableInstance::max_min_width(self)
     }
 
     fn min_height(&self, w_max: i64) -> Option<i64> {
@@ -122,8 +110,8 @@ pub struct InstKey<T> {
     phantom: PhantomData<T>,
 }
 
+/// A resizable grid.
 pub struct ResizableGrid {
-    wh_increments: Dims,
     tiles: SlotMap<RawInstKey, RawInst>,
     columns: Vec<Vec<RawInstKey>>,
     transpose: bool,
@@ -132,7 +120,6 @@ pub struct ResizableGrid {
 impl Default for ResizableGrid {
     fn default() -> Self {
         Self {
-            wh_increments: Dims::new(1, 1),
             tiles: SlotMap::with_key(),
             columns: vec![vec![]],
             transpose: false,
@@ -146,22 +133,16 @@ impl ResizableGrid {
         Self::default()
     }
 
+    /// Transposes the grid such that it is composed of rows instead of columns.
     pub fn transpose(&mut self) {
         self.transpose = true;
-    }
-
-    fn first_col(&self) -> &Vec<RawInstKey> {
-        self.columns.first().unwrap()
-    }
-
-    fn last_col(&self) -> &Vec<RawInstKey> {
-        self.columns.last().unwrap()
     }
 
     fn last_col_mut(&mut self) -> &mut Vec<RawInstKey> {
         self.columns.last_mut().unwrap()
     }
 
+    /// Pushes a tile to the current column or row.
     pub fn push_tile<T: ResizableInstance + Any>(&mut self, tile: T) -> InstKey<T> {
         let raw_tile = Arc::new(tile);
         let key = self.tiles.insert(raw_tile);
@@ -172,6 +153,7 @@ impl ResizableGrid {
         }
     }
 
+    /// Ends the current column (or row if the grid has been transposed).
     pub fn end_column(&mut self) {
         self.columns.push(Vec::new());
     }
@@ -182,8 +164,7 @@ impl ResizableGrid {
             .map(|key| {
                 let inst = &self.tiles[*key];
                 if self.transpose {
-                    let w = inst.min_width(w_max);
-                    w
+                    inst.min_width(w_max)
                 } else {
                     inst.min_height(w_max)
                 }
@@ -269,11 +250,6 @@ impl ResizableGrid {
         }
 
         // Allocate bboxes.
-        let w_dir = if self.transpose {
-            Dir::Vert
-        } else {
-            Dir::Horiz
-        };
         let mut bboxes = Vec::new();
         let mut col_heights = Vec::new();
         let mut ll = Point::zero();
@@ -281,7 +257,7 @@ impl ResizableGrid {
         for (i, column) in self.columns.iter().enumerate() {
             let mut col_bboxes = Vec::new();
             let w = best_sizing.widths[i];
-            for (j, key) in column.iter().enumerate() {
+            for key in column {
                 let tile = &self.tiles[*key];
                 let (h, dims) = if self.transpose {
                     let h = tile.min_width(w).unwrap();
@@ -333,7 +309,10 @@ impl ResizableGrid {
     }
 }
 
+/// A sized grid.
 pub struct SizedGrid {
+    // Necessary for secondary map to work?
+    #[allow(dead_code)]
     tiles: SlotMap<RawInstKey, RawInst>,
     sized_tiles: SecondaryMap<RawInstKey, SizedRawInst>,
 }
@@ -344,6 +323,7 @@ struct SizedRawInst {
 }
 
 impl SizedGrid {
+    /// Retrieves the sizing and bounding box of a certain resizable tile.
     pub fn get_tile<T: ResizableInstance + Any>(&self, key: InstKey<T>) -> (&T::Tile, Rect) {
         let sized_tile = &self.sized_tiles[key.key];
         (
@@ -364,7 +344,7 @@ mod tests {
             Dims::new(1, 1)
         }
 
-        fn tile(&self, dims: Dims) -> Self::Tile {}
+        fn tile(&self, _dims: Dims) -> Self::Tile {}
 
         fn max_min_width(&self) -> i64 {
             50 * self

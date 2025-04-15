@@ -5,7 +5,6 @@ use crate::StrongArmImpl;
 use atoll::resizing::ResizableInstance;
 use atoll::route::GreedyRouter;
 use atoll::{Tile, TileBuilder, TileData};
-use layir::Shape;
 use sky130::atoll::{MosLength, NmosTile, PmosTile, Sky130ViaMaker};
 use sky130::Sky130;
 use substrate::arcstr;
@@ -48,6 +47,7 @@ fn max_nf(w_max: i64) -> i64 {
     (w_max - 860) / 430
 }
 
+#[allow(dead_code)]
 fn max_w(h_max: i64) -> i64 {
     (h_max / 540 - 1) * 540 - 20
 }
