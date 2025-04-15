@@ -19,7 +19,7 @@ pub trait ResizableInstance {
     /// Panics if dimensions are invalid.
     fn tile(&self, dims: Dims) -> Self::Tile;
 
-    /// The maximum width that [`ResizableGrid::min_width`] can return.
+    /// The maximum width that [`ResizableInstance::min_width`] can return.
     fn max_min_width(&self) -> i64;
 
     /// Minimum height of this tile required to achieve the desired strength
