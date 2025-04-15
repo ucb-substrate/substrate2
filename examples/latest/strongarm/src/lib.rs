@@ -298,12 +298,14 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         })
         .max()
         .unwrap();
-        let (hspan, vspan) = match self.0.dir {
-            Dir::Horiz => (2, max_hspan + 8),
-            Dir::Vert => (max_hspan, 2),
+        let span = match self.0.dir {
+            Dir::Horiz => max_hspan + 8,
+            Dir::Vert => max_hspan,
         };
-        let mut ptap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
-        let ntap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
+        let ptap_params = T::tap(TapTileParams::new(TileKind::P, !self.0.dir, span));
+        let ntap_params = T::tap(TapTileParams::new(TileKind::N, !self.0.dir, span));
+        let mut ptap = cell.generate(ptap_params.clone());
+        let ntap = cell.generate(ntap_params.clone());
         cell.connect(ptap.io().x, io.top_io.vss);
         cell.connect(ntap.io().x, io.top_io.vdd);
 
@@ -481,7 +483,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 .span(self.0.dir)
                 .length();
             if height > T::TAP_FREQ || height + curr_height > 2 * T::TAP_FREQ {
-                let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
+                let mut tap = cell.generate(ntap_params.clone());
                 tap.align_rect_mut(prev, align_next_a, 0);
                 tap.align_rect_mut(prev, align_next_b, 0);
                 prev = tap.lcm_bounds();
@@ -500,7 +502,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             dummy.align_rect_mut(left_rect, align_row_b, 0);
         }
         if height > T::TAP_FREQ {
-            let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
+            let mut tap = cell.generate(ntap_params.clone());
             tap.align_rect_mut(prev, align_next_a, 0);
             tap.align_rect_mut(prev, align_next_b, 0);
             prev = tap.lcm_bounds();
@@ -521,7 +523,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
                 .span(self.0.dir)
                 .length();
             if height > T::TAP_FREQ || height + curr_height > 2 * T::TAP_FREQ {
-                let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
+                let mut tap = cell.generate(ptap_params.clone());
                 tap.align_rect_mut(prev, align_next_a, 0);
                 tap.align_rect_mut(prev, align_next_b, 0);
                 prev = tap.lcm_bounds();
@@ -540,7 +542,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             dummy.align_rect_mut(left_rect, align_row_b, 0);
         }
         if height > T::TAP_FREQ {
-            let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
+            let mut tap = cell.generate(ptap_params.clone());
             tap.align_rect_mut(prev, align_next_a, 0);
             tap.align_rect_mut(prev, align_next_b, 0);
             cell.connect(tap.io().x, io.top_io.vss);

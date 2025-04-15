@@ -12,6 +12,7 @@ use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dims::Dims;
+use substrate::geometry::dir::Dir;
 use substrate::types::codegen::{PortGeometryBundle, View};
 use substrate::types::layout::PortGeometryBuilder;
 use substrate::types::{FlatLen, MosIo, MosIoView};
@@ -240,21 +241,19 @@ impl Tile for TapTile {
         cell: &mut TileBuilder<'a, Self::Schema>,
     ) -> substrate::error::Result<atoll::TileData<Self>> {
         cell.flatten();
+        let (hspan, vspan) = match self.0.dir {
+            Dir::Horiz => (self.0.span, 2),
+            Dir::Vert => (2, self.0.span),
+        };
         let x = match self.0.kind {
             TileKind::N => {
-                let inst = cell.generate_primitive(sky130::atoll::NtapTile::new(
-                    self.0.hspan - 1,
-                    self.0.vspan,
-                ));
+                let inst = cell.generate_primitive(sky130::atoll::NtapTile::new(hspan - 1, vspan));
                 cell.connect(io.x, inst.io().vpb);
                 let inst = cell.draw(inst)?;
                 inst.layout.io().vpb
             }
             TileKind::P => {
-                let inst = cell.generate_primitive(sky130::atoll::PtapTile::new(
-                    self.0.hspan - 1,
-                    self.0.vspan,
-                ));
+                let inst = cell.generate_primitive(sky130::atoll::PtapTile::new(hspan - 1, vspan));
                 cell.connect(io.x, inst.io().vnb);
                 let inst = cell.draw(inst)?;
                 inst.layout.io().vnb
