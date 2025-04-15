@@ -2,6 +2,7 @@
 
 use crate::tiles::{MosTileParams, TapIo, TapIoView, TapTileParams, TileKind};
 use crate::StrongArmImpl;
+use atoll::resizing::ResizableInstance;
 use atoll::route::GreedyRouter;
 use atoll::{Tile, TileBuilder, TileData};
 use sky130::atoll::{MosLength, NmosTile, PmosTile, Sky130ViaMaker};
@@ -10,21 +11,23 @@ use substrate::arcstr;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::geometry::bbox::Bbox;
+use substrate::geometry::dims::Dims;
 use substrate::types::codegen::{PortGeometryBundle, View};
 use substrate::types::layout::PortGeometryBuilder;
-use substrate::types::{MosIo, MosIoView};
+use substrate::types::{FlatLen, MosIo, MosIoView};
 
 /// A SKY130 implementation.
 pub struct Sky130Impl;
 
 impl StrongArmImpl for Sky130Impl {
+    const TAP_FREQ: i64 = 6_000;
     type Schema = Sky130;
-    type MosTile = TwoFingerMosTile;
+    type MosTile = ResizeableMosTile;
     type TapTile = TapTile;
     type ViaMaker = Sky130ViaMaker;
 
     fn mos(params: MosTileParams) -> Self::MosTile {
-        TwoFingerMosTile::new(params.w, MosLength::L150, params.tile_kind)
+        ResizeableMosTile::new(params.w, MosLength::L150, params.tile_kind)
     }
     fn tap(params: TapTileParams) -> Self::TapTile {
         TapTile::new(params)
@@ -34,23 +37,92 @@ impl StrongArmImpl for Sky130Impl {
     }
 }
 
-/// A two-finger MOS tile.
-#[derive(Block, Copy, Clone, Debug, Hash, PartialEq, Eq)]
-#[substrate(io = "MosIo")]
-pub struct TwoFingerMosTile {
-    w: i64,
+pub struct ResizeableMosTile {
+    wxnf: i64,
     l: MosLength,
     kind: TileKind,
 }
 
-impl TwoFingerMosTile {
-    /// Creates a new [`TwoFingerMosTile`].
-    pub fn new(w: i64, l: MosLength, kind: TileKind) -> Self {
-        Self { w, l, kind }
+fn max_nf(w_max: i64) -> i64 {
+    (w_max - 860) / 430
+}
+
+#[allow(dead_code)]
+fn max_w(h_max: i64) -> i64 {
+    (h_max / 540 - 1) * 540 - 20
+}
+
+impl ResizeableMosTile {
+    fn new(wxnf: i64, l: MosLength, kind: TileKind) -> Self {
+        Self { wxnf, l, kind }
+    }
+    fn max_nf(&self, w_max: i64) -> Option<i64> {
+        let mut nf = max_nf(w_max);
+        if nf > 0 {
+            loop {
+                if self.wxnf % nf == 0 {
+                    break Some(nf);
+                }
+                nf -= 1;
+            }
+        } else {
+            None
+        }
     }
 }
 
-impl Tile for TwoFingerMosTile {
+impl ResizableInstance for ResizeableMosTile {
+    type Tile = MosTile;
+
+    fn wh_increments(&self) -> substrate::geometry::prelude::Dims {
+        Dims::new(430, 540)
+    }
+
+    fn tile(&self, dims: substrate::geometry::prelude::Dims) -> Self::Tile {
+        let nf = self.max_nf(dims.w()).unwrap();
+        let w = self.wxnf / nf;
+        MosTile::new(w, nf, self.l, self.kind)
+    }
+
+    fn max_min_width(&self) -> i64 {
+        (self.wxnf / 420 + 1) * 430 + 860
+    }
+
+    fn min_height(&self, w_max: i64) -> Option<i64> {
+        let mut nf = max_nf(w_max);
+        if nf > 0 {
+            let nf = loop {
+                if self.wxnf % nf == 0 {
+                    break nf;
+                }
+                nf -= 1;
+            };
+            let w = self.wxnf / nf;
+            Some(((w + 20 - 1) / 540 + 2) * 540)
+        } else {
+            None
+        }
+    }
+}
+
+/// A MOS tile.
+#[derive(Block, Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[substrate(io = "MosIo")]
+pub struct MosTile {
+    w: i64,
+    nf: i64,
+    l: MosLength,
+    kind: TileKind,
+}
+
+impl MosTile {
+    /// Creates a new [`MosTile`].
+    pub fn new(w: i64, nf: i64, l: MosLength, kind: TileKind) -> Self {
+        Self { w, nf, l, kind }
+    }
+}
+
+impl Tile for MosTile {
     type Schema = Sky130;
     type NestedData = ();
     type LayoutBundle = View<MosIo, PortGeometryBundle<Sky130>>;
@@ -64,40 +136,52 @@ impl Tile for TwoFingerMosTile {
         cell.flatten();
         let (d, g, s, b) = match self.kind {
             TileKind::P => {
-                let pmos = cell.generate_primitive(PmosTile::new(self.w, self.l, 2));
-                cell.connect(pmos.io().g[0], io.g);
-                cell.connect(pmos.io().b, io.b);
-                cell.connect(pmos.io().sd[0], io.s);
-                cell.connect(pmos.io().sd[1], io.d);
-                cell.connect(pmos.io().sd[2], io.s);
+                let pmos = cell.generate_primitive(PmosTile::new(self.w, self.l, self.nf));
                 let pmos = cell.draw(pmos)?;
+                cell.connect(pmos.schematic.io().b, io.b);
+                let mut d = PortGeometryBuilder::new();
+                let mut g = PortGeometryBuilder::new();
                 let mut s = PortGeometryBuilder::new();
-                s.merge(pmos.layout.io().sd[0].clone());
-                s.merge(pmos.layout.io().sd[2].clone());
-                (
-                    pmos.layout.io().sd[1].clone(),
-                    pmos.layout.io().g[0].clone(),
-                    s.build()?,
-                    pmos.layout.io().b,
-                )
+                for i in 0..pmos.schematic.io().g.len() {
+                    cell.connect(pmos.schematic.io().g[i], io.g);
+                    g.merge(pmos.layout.io().g[i].clone());
+                }
+                for i in 0..pmos.schematic.io().sd.len() {
+                    cell.connect(
+                        pmos.schematic.io().sd[i],
+                        if i % 2 == 0 { io.s } else { io.d },
+                    );
+                    if i % 2 == 0 {
+                        s.merge(pmos.layout.io().sd[i].clone());
+                    } else {
+                        d.merge(pmos.layout.io().sd[i].clone());
+                    }
+                }
+                (d.build()?, g.build()?, s.build()?, pmos.layout.io().b)
             }
             TileKind::N => {
-                let nmos = cell.generate_primitive(NmosTile::new(self.w, self.l, 2));
-                cell.connect(nmos.io().g[0], io.g);
-                cell.connect(nmos.io().b, io.b);
-                cell.connect(nmos.io().sd[0], io.s);
-                cell.connect(nmos.io().sd[1], io.d);
-                cell.connect(nmos.io().sd[2], io.s);
+                let nmos = cell.generate_primitive(NmosTile::new(self.w, self.l, self.nf));
                 let nmos = cell.draw(nmos)?;
+                cell.connect(nmos.schematic.io().b, io.b);
+                let mut d = PortGeometryBuilder::new();
+                let mut g = PortGeometryBuilder::new();
                 let mut s = PortGeometryBuilder::new();
-                s.merge(nmos.layout.io().sd[0].clone());
-                s.merge(nmos.layout.io().sd[2].clone());
-                (
-                    nmos.layout.io().sd[1].clone(),
-                    nmos.layout.io().g[0].clone(),
-                    s.build()?,
-                    nmos.layout.io().b,
-                )
+                for i in 0..nmos.schematic.io().g.len() {
+                    cell.connect(nmos.schematic.io().g[i], io.g);
+                    g.merge(nmos.layout.io().g[i].clone());
+                }
+                for i in 0..nmos.schematic.io().sd.len() {
+                    cell.connect(
+                        nmos.schematic.io().sd[i],
+                        if i % 2 == 0 { io.s } else { io.d },
+                    );
+                    if i % 2 == 0 {
+                        s.merge(nmos.layout.io().sd[i].clone());
+                    } else {
+                        d.merge(nmos.layout.io().sd[i].clone());
+                    }
+                }
+                (d.build()?, g.build()?, s.build()?, nmos.layout.io().b)
             }
         };
 
@@ -158,15 +242,19 @@ impl Tile for TapTile {
         cell.flatten();
         let x = match self.0.kind {
             TileKind::N => {
-                let inst = cell
-                    .generate_primitive(sky130::atoll::NtapTile::new(4 * self.0.mos_span - 1, 2));
+                let inst = cell.generate_primitive(sky130::atoll::NtapTile::new(
+                    self.0.hspan - 1,
+                    self.0.vspan,
+                ));
                 cell.connect(io.x, inst.io().vpb);
                 let inst = cell.draw(inst)?;
                 inst.layout.io().vpb
             }
             TileKind::P => {
-                let inst = cell
-                    .generate_primitive(sky130::atoll::PtapTile::new(4 * self.0.mos_span - 1, 2));
+                let inst = cell.generate_primitive(sky130::atoll::PtapTile::new(
+                    self.0.hspan - 1,
+                    self.0.vspan,
+                ));
                 cell.connect(io.x, inst.io().vnb);
                 let inst = cell.draw(inst)?;
                 inst.layout.io().vnb
@@ -205,6 +293,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use substrate::context::Context;
+    use substrate::geometry::dir::Dir;
     use substrate::simulation::Pvt;
     use substrate::{block::Block, schematic::ConvertSchema};
 
@@ -228,6 +317,99 @@ mod tests {
         inv_precharge_w: 500,
         precharge_w: 500,
         input_kind: InputKind::P,
+        h_max: 10_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_1: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 40_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_2: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 20_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_3: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 15_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_4: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Lvt,
+        pmos_kind: MosKind::Lvt,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 20_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_5: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 15_000,
+        dir: Dir::Horiz,
+    };
+
+    pub const STRONGARM_PARAMS_6: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 2_048,
+        inv_input_w: 8_192,
+        inv_precharge_w: 4096,
+        precharge_w: 2_048,
+        input_kind: InputKind::P,
+        h_max: 40_000,
+        dir: Dir::Horiz,
+    };
+
+    pub const STRONGARM_PARAMS_7: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 8_192,
+        precharge_w: 8_192,
+        input_kind: InputKind::N,
+        h_max: 8_000,
+        dir: Dir::Vert,
     };
 
     pub fn sky130_cds_ctx() -> Context {
@@ -276,7 +458,6 @@ mod tests {
                     }
                 }
                 let work_dir = work_dir.join(format!("ofs_{i}_{j}"));
-                println!("{i} {j}");
                 let decision = if extracted {
                     let layout_path = work_dir.join("layout.gds");
                     ctx.write_layout(dut, to_gds, &layout_path)
@@ -350,18 +531,13 @@ mod tests {
         test_strongarm(work_dir, true);
     }
 
-    #[test]
-    fn sky130_strongarm_lvs() {
-        let work_dir = PathBuf::from(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/build/sky130_strongarm_lvs"
-        ));
+    fn test_sky130_strongarm_lvs(test_name: &'static str, params: StrongArmParams) {
+        let work_dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/build")).join(test_name);
         let gds_path = work_dir.join("layout.gds");
         let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_cds_ctx();
 
-        let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(STRONGARM_PARAMS));
-
+        let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(params));
         let scir = ctx
             .export_scir(block)
             .unwrap()
@@ -417,5 +593,46 @@ mod tests {
             LvsStatus::Correct,
             "layout does not match netlist"
         );
+    }
+
+    #[test]
+    fn sky130_strongarm_lvs() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs", STRONGARM_PARAMS);
+    }
+
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_1() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_1", STRONGARM_PARAMS_1);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_2() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_2", STRONGARM_PARAMS_2);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_3() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_3", STRONGARM_PARAMS_3);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_4() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_4", STRONGARM_PARAMS_4);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_5() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_5", STRONGARM_PARAMS_5);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_6() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_6", STRONGARM_PARAMS_6);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_7() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_7", STRONGARM_PARAMS_7);
     }
 }

@@ -20,7 +20,7 @@ use substrate::{
 use crate::{layers::Sky130Layer, Sky130};
 
 /// The units used for importing/exporting GDS libraries.
-pub const GDS_UNITS: GdsUnits = GdsUnits::new(1., 1e-9);
+pub const GDS_UNITS: GdsUnits = GdsUnits::new(1e-3, 1e-9);
 
 /// Convert a sky130 layout library to a GDS layout library.
 // TODO: cell IDs are not preserved

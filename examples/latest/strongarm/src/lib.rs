@@ -1,8 +1,12 @@
 //! StrongARM latch layout generators.
 
 use crate::tiles::{MosKind, MosTileParams, TapIo, TapTileParams, TileKind};
+use atoll::grid::AtollLayer;
+use atoll::resizing::{ResizableGrid, ResizableInstance};
 use atoll::route::{GreedyRouter, ViaMaker};
+use atoll::straps::{GreedyStrapper, LayerStrappingParams, StrappingParams};
 use atoll::{Orientation, Tile, TileBuilder, TileData};
+use itertools::Itertools;
 use std::any::Any;
 use std::marker::PhantomData;
 use substrate::arcstr::ArcStr;
@@ -10,6 +14,7 @@ use substrate::block::Block;
 use substrate::error::Result;
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::bbox::Bbox;
+use substrate::geometry::dir::Dir;
 use substrate::types::codegen::{PortGeometryBundle, View};
 use substrate::types::layout::PortGeometryBuilder;
 use substrate::types::schematic::NodeBundle;
@@ -75,15 +80,24 @@ pub struct StrongArmParams {
     pub precharge_w: i64,
     /// The kind of the input pair MOS devices.
     pub input_kind: InputKind,
+    /// The maximum height of the StrongARM in direction `self.dir`.
+    pub h_max: i64,
+    /// The direction of the StrongARM.
+    pub dir: Dir,
 }
 
 /// A StrongARM latch implementation.
 pub trait StrongArmImpl: Any {
+    const TAP_FREQ: i64;
     type Schema: layout::schema::Schema + schematic::schema::Schema;
     /// The MOS tile.
-    type MosTile: Tile<Schema = Self::Schema, LayoutBundle = View<MosIo, PortGeometryBundle<Self::Schema>>>
-        + Block<Io = MosIo>
-        + Clone;
+    type MosTile: ResizableInstance<
+        Tile: Tile<
+            Schema = Self::Schema,
+            LayoutBundle = View<MosIo, PortGeometryBundle<Self::Schema>>,
+        > + Block<Io = MosIo>
+                  + Clone,
+    >;
     /// The tap tile.
     type TapTile: Tile<Schema = Self::Schema, LayoutBundle = View<TapIo, PortGeometryBundle<Self::Schema>>>
         + Block<Io = TapIo>
@@ -183,8 +197,62 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         let intn = io.input_d.n;
         let intp = cell.signal("intp", Signal);
 
+        let mut grid = ResizableGrid::new();
+        if self.0.dir == Dir::Vert {
+            grid.transpose();
+        }
+        let half_tail = (0..3)
+            .map(|_| grid.push_tile(T::mos(half_tail_params)))
+            .collect_vec();
+        grid.end_column();
+        let input_pair = (0..3)
+            .map(|_| grid.push_tile(T::mos(input_pair_params)))
+            .collect_vec();
+        grid.end_column();
+        let inv_input = (0..3)
+            .map(|_| grid.push_tile(T::mos(inv_input_params)))
+            .collect_vec();
+        grid.end_column();
+        let inv_precharge = (0..3)
+            .map(|_| grid.push_tile(T::mos(inv_precharge_params)))
+            .collect_vec();
+        grid.end_column();
+        let precharge_a = (0..3)
+            .map(|_| grid.push_tile(T::mos(precharge_params)))
+            .collect_vec();
+        grid.end_column();
+        let precharge_b = (0..3)
+            .map(|_| grid.push_tile(T::mos(precharge_params)))
+            .collect_vec();
+        let grid = grid.size(self.0.h_max);
+
+        let half_tail_params = half_tail
+            .into_iter()
+            .map(|key| grid.get_tile(key))
+            .collect_vec();
+        let input_pair_params = input_pair
+            .into_iter()
+            .map(|key| grid.get_tile(key))
+            .collect_vec();
+        let inv_input_params = inv_input
+            .into_iter()
+            .map(|key| grid.get_tile(key))
+            .collect_vec();
+        let inv_precharge_params = inv_precharge
+            .into_iter()
+            .map(|key| grid.get_tile(key))
+            .collect_vec();
+        let precharge_a_params = precharge_a
+            .into_iter()
+            .map(|key| grid.get_tile(key))
+            .collect_vec();
+        let precharge_b_params = precharge_b
+            .into_iter()
+            .map(|key| grid.get_tile(key))
+            .collect_vec();
+
         let mut tail_dummy = cell.generate_connected(
-            T::mos(half_tail_params),
+            half_tail_params[0].0.clone(),
             NodeBundle::<MosIo> {
                 d: input_rail,
                 g: input_rail,
@@ -193,9 +261,9 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             },
         );
         let mut tail_pair = (0..2)
-            .map(|_| {
+            .map(|i| {
                 cell.generate_connected(
-                    T::mos(half_tail_params),
+                    half_tail_params[i + 1].0.clone(),
                     NodeBundle::<MosIo> {
                         d: tail,
                         g: io.top_io.clock,
@@ -206,15 +274,43 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             })
             .collect::<Vec<_>>();
 
-        let mut ptap = cell.generate(T::tap(TapTileParams::new(TileKind::P, 3)));
-        let ntap = cell.generate(T::tap(TapTileParams::new(TileKind::N, 3)));
+        let max_hspan = [
+            &half_tail_params,
+            &input_pair_params,
+            &inv_input_params,
+            &inv_precharge_params,
+            &precharge_a_params,
+            &precharge_b_params,
+        ]
+        .iter()
+        .map(|params| {
+            params
+                .iter()
+                .map(|(_, rect)| {
+                    rect.span(!self.0.dir).length()
+                        / match self.0.dir {
+                            Dir::Horiz => cell.layer_stack.layer(1).pitch(),
+                            Dir::Vert => cell.layer_stack.layer(0).pitch(),
+                        }
+                })
+                .reduce(|a, b| a + b)
+                .unwrap()
+        })
+        .max()
+        .unwrap();
+        let (hspan, vspan) = match self.0.dir {
+            Dir::Horiz => (2, max_hspan + 8),
+            Dir::Vert => (max_hspan, 2),
+        };
+        let mut ptap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
+        let ntap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
         cell.connect(ptap.io().x, io.top_io.vss);
         cell.connect(ntap.io().x, io.top_io.vdd);
 
         let mut input_pair = (0..2)
             .map(|i| {
                 cell.generate_connected(
-                    T::mos(input_pair_params),
+                    input_pair_params[i + 1].0.clone(),
                     NodeBundle::<MosIo> {
                         d: if i == 0 { intn } else { intp },
                         g: if i == 0 {
@@ -229,7 +325,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             })
             .collect::<Vec<_>>();
         let mut input_dummy = cell.generate_connected(
-            T::mos(input_pair_params),
+            input_pair_params[0].0.clone(),
             NodeBundle::<MosIo> {
                 d: input_rail,
                 g: input_rail,
@@ -240,7 +336,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         let mut inv_input_pair = (0..2)
             .map(|i| {
                 cell.generate_connected(
-                    T::mos(inv_input_params),
+                    inv_input_params[i + 1].0.clone(),
                     if i == 0 {
                         NodeBundle::<MosIo> {
                             d: io.top_io.output.n,
@@ -260,7 +356,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             })
             .collect::<Vec<_>>();
         let mut inv_input_dummy = cell.generate_connected(
-            T::mos(inv_input_params),
+            inv_input_params[0].0.clone(),
             NodeBundle::<MosIo> {
                 d: input_rail,
                 g: input_rail,
@@ -271,7 +367,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         let mut inv_precharge_pair = (0..2)
             .map(|i| {
                 cell.generate_connected(
-                    T::mos(inv_precharge_params),
+                    inv_precharge_params[i + 1].0.clone(),
                     NodeBundle::<MosIo> {
                         d: if i == 0 {
                             io.top_io.output.n
@@ -290,7 +386,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             })
             .collect::<Vec<_>>();
         let mut inv_precharge_dummy = cell.generate_connected(
-            T::mos(inv_precharge_params),
+            inv_precharge_params[0].0.clone(),
             NodeBundle::<MosIo> {
                 d: precharge_rail,
                 g: precharge_rail,
@@ -301,7 +397,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         let mut precharge_pair_a = (0..2)
             .map(|i| {
                 cell.generate_connected(
-                    T::mos(precharge_params),
+                    precharge_a_params[i + 1].0.clone(),
                     NodeBundle::<MosIo> {
                         d: if i == 0 {
                             io.top_io.output.n
@@ -316,7 +412,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             })
             .collect::<Vec<_>>();
         let mut precharge_pair_a_dummy = cell.generate_connected(
-            T::mos(precharge_params),
+            precharge_a_params[0].0.clone(),
             NodeBundle::<MosIo> {
                 d: precharge_rail,
                 g: precharge_rail,
@@ -327,7 +423,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
         let mut precharge_pair_b = (0..2)
             .map(|i| {
                 cell.generate_connected(
-                    T::mos(precharge_params),
+                    precharge_b_params[i + 1].0.clone(),
                     NodeBundle::<MosIo> {
                         d: if i == 0 { intn } else { intp },
                         g: io.top_io.clock,
@@ -338,7 +434,7 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             })
             .collect::<Vec<_>>();
         let mut precharge_pair_b_dummy = cell.generate_connected(
-            T::mos(precharge_params),
+            precharge_b_params[0].0.clone(),
             NodeBundle::<MosIo> {
                 d: precharge_rail,
                 g: precharge_rail,
@@ -362,19 +458,94 @@ impl<T: StrongArmImpl> Tile for StrongArmHalf<T> {
             rows.reverse();
         }
 
-        for (dummy, mos_pair) in rows {
-            dummy.align_rect_mut(prev, AlignMode::Left, 0);
-            dummy.align_rect_mut(prev, AlignMode::Beneath, 0);
-            prev = dummy.lcm_bounds();
-            mos_pair[0].align_rect_mut(prev, AlignMode::Bottom, 0);
-            mos_pair[0].align_rect_mut(prev, AlignMode::ToTheRight, 0);
+        let (align_row_a, align_row_b, align_next_a, align_next_b) = match self.0.dir {
+            Dir::Vert => (
+                AlignMode::Bottom,
+                AlignMode::ToTheLeft,
+                AlignMode::Right,
+                AlignMode::Beneath,
+            ),
+            Dir::Horiz => (
+                AlignMode::Left,
+                AlignMode::Beneath,
+                AlignMode::Top,
+                AlignMode::ToTheLeft,
+            ),
+        };
+        let mut height = 0;
+        for (dummy, mos_pair) in &mut rows[0..3] {
+            let curr_height = cell
+                .layer_stack
+                .slice(0..2)
+                .lcm_to_physical_rect(mos_pair[1].lcm_bounds())
+                .span(self.0.dir)
+                .length();
+            if height > T::TAP_FREQ || height + curr_height > 2 * T::TAP_FREQ {
+                let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
+                tap.align_rect_mut(prev, align_next_a, 0);
+                tap.align_rect_mut(prev, align_next_b, 0);
+                prev = tap.lcm_bounds();
+                cell.connect(tap.io().x, io.top_io.vdd);
+                cell.draw(tap)?;
+                height = 0;
+            }
+            height += curr_height;
+            mos_pair[1].align_rect_mut(prev, align_next_a, 0);
+            mos_pair[1].align_rect_mut(prev, align_next_b, 0);
+            prev = mos_pair[1].lcm_bounds();
+            mos_pair[0].align_rect_mut(prev, align_row_a, 0);
+            mos_pair[0].align_rect_mut(prev, align_row_b, 0);
             let left_rect = mos_pair[0].lcm_bounds();
-            mos_pair[1].align_rect_mut(left_rect, AlignMode::Bottom, 0);
-            mos_pair[1].align_rect_mut(left_rect, AlignMode::ToTheRight, 0);
+            dummy.align_rect_mut(left_rect, align_row_a, 0);
+            dummy.align_rect_mut(left_rect, align_row_b, 0);
+        }
+        if height > T::TAP_FREQ {
+            let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::N, hspan, vspan)));
+            tap.align_rect_mut(prev, align_next_a, 0);
+            tap.align_rect_mut(prev, align_next_b, 0);
+            prev = tap.lcm_bounds();
+            cell.connect(tap.io().x, io.top_io.vdd);
+            cell.draw(tap)?;
         }
 
-        ptap.align_rect_mut(prev, AlignMode::Left, 0);
-        ptap.align_rect_mut(prev, AlignMode::Beneath, 0);
+        ptap.align_rect_mut(prev, align_next_a, 0);
+        ptap.align_rect_mut(prev, align_next_b, 0);
+        prev = ptap.lcm_bounds();
+
+        height = 0;
+        for (dummy, mos_pair) in &mut rows[3..6] {
+            let curr_height = cell
+                .layer_stack
+                .slice(0..2)
+                .lcm_to_physical_rect(mos_pair[1].lcm_bounds())
+                .span(self.0.dir)
+                .length();
+            if height > T::TAP_FREQ || height + curr_height > 2 * T::TAP_FREQ {
+                let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
+                tap.align_rect_mut(prev, align_next_a, 0);
+                tap.align_rect_mut(prev, align_next_b, 0);
+                prev = tap.lcm_bounds();
+                cell.connect(tap.io().x, io.top_io.vss);
+                cell.draw(tap)?;
+                height = 0;
+            }
+            height += curr_height;
+            mos_pair[1].align_rect_mut(prev, align_next_a, 0);
+            mos_pair[1].align_rect_mut(prev, align_next_b, 0);
+            prev = mos_pair[1].lcm_bounds();
+            mos_pair[0].align_rect_mut(prev, align_row_a, 0);
+            mos_pair[0].align_rect_mut(prev, align_row_b, 0);
+            let left_rect = mos_pair[0].lcm_bounds();
+            dummy.align_rect_mut(left_rect, align_row_a, 0);
+            dummy.align_rect_mut(left_rect, align_row_b, 0);
+        }
+        if height > T::TAP_FREQ {
+            let mut tap = cell.generate(T::tap(TapTileParams::new(TileKind::P, hspan, vspan)));
+            tap.align_rect_mut(prev, align_next_a, 0);
+            tap.align_rect_mut(prev, align_next_b, 0);
+            cell.connect(tap.io().x, io.top_io.vss);
+            cell.draw(tap)?;
+        }
 
         let ptap = cell.draw(ptap)?;
         let ntap = cell.draw(ntap)?;
@@ -496,8 +667,18 @@ impl<T: StrongArmImpl> Tile for StrongArm<T> {
 
         let right_half = cell
             .generate_connected(StrongArmHalf::<T>::new(self.0), conn)
-            .orient(Orientation::ReflectHoriz)
-            .align(&left_half, AlignMode::ToTheRight, 0);
+            .orient(match self.0.dir {
+                Dir::Horiz => Orientation::ReflectVert,
+                Dir::Vert => Orientation::ReflectHoriz,
+            })
+            .align(
+                &left_half,
+                match self.0.dir {
+                    Dir::Horiz => AlignMode::Above,
+                    Dir::Vert => AlignMode::ToTheRight,
+                },
+                0,
+            );
 
         let left_half = cell.draw(left_half)?;
         let right_half = cell.draw(right_half)?;
@@ -521,6 +702,35 @@ impl<T: StrongArmImpl> Tile for StrongArm<T> {
         output_p.merge(right_half.layout.io().top_io.output.p);
         output_n.merge(left_half.layout.io().top_io.output.n);
         output_n.merge(right_half.layout.io().top_io.output.n);
+
+        cell.set_strapping(
+            io.vss,
+            StrappingParams::new(
+                1,
+                vec![
+                    LayerStrappingParams::ViaDown { min_period: 2 },
+                    LayerStrappingParams::OffsetPeriod {
+                        offset: 0,
+                        period: 4,
+                    },
+                ],
+            ),
+        );
+        cell.set_strapping(
+            io.vdd,
+            StrappingParams::new(
+                1,
+                vec![
+                    LayerStrappingParams::ViaDown { min_period: 2 },
+                    LayerStrappingParams::OffsetPeriod {
+                        offset: 1,
+                        period: 4,
+                    },
+                ],
+            ),
+        );
+
+        cell.set_strapper(GreedyStrapper);
 
         T::post_layout_hooks(cell)?;
 
