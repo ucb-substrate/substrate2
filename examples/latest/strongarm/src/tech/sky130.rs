@@ -116,7 +116,7 @@ pub struct MosTile {
 }
 
 impl MosTile {
-    /// Creates a new [`TwoFingerMosTile`].
+    /// Creates a new [`MosTile`].
     pub fn new(w: i64, nf: i64, l: MosLength, kind: TileKind) -> Self {
         Self { w, nf, l, kind }
     }
