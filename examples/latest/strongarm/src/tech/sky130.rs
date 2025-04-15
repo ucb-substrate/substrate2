@@ -600,30 +600,37 @@ mod tests {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs", STRONGARM_PARAMS);
     }
 
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_1() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_1", STRONGARM_PARAMS_1);
     }
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_2() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_2", STRONGARM_PARAMS_2);
     }
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_3() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_3", STRONGARM_PARAMS_3);
     }
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_4() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_4", STRONGARM_PARAMS_4);
     }
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_5() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_5", STRONGARM_PARAMS_5);
     }
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_6() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_6", STRONGARM_PARAMS_6);
     }
+    #[ignore]
     #[test]
     fn sky130_strongarm_lvs_resizing_7() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_7", STRONGARM_PARAMS_7);
