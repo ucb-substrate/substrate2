@@ -19,7 +19,7 @@ pub trait ResizableInstance {
     /// Panics if dimensions are invalid.
     fn tile(&self, dims: Dims) -> Self::Tile;
 
-    /// The maximum width that [`ResizeableTile::min_width`] can return.
+    /// The maximum width that [`ResizableGrid::min_width`] can return.
     fn max_min_width(&self) -> i64;
 
     /// Minimum height of this tile required to achieve the desired strength
@@ -128,7 +128,7 @@ impl Default for ResizableGrid {
 }
 
 impl ResizableGrid {
-    /// Creates a new [`ResizeableGrid`].
+    /// Creates a new [`ResizableGrid`].
     pub fn new() -> Self {
         Self::default()
     }
@@ -179,7 +179,7 @@ impl ResizableGrid {
             .unwrap()
     }
 
-    /// Instantiates the grid in a [`TileBuilder`].
+    /// Sizes the grid.
     pub fn size(self, w_max: i64) -> SizedGrid {
         // TODO: Merge unconstrained rows.
         let nc = self.columns.len();
