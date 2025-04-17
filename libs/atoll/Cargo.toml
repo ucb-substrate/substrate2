@@ -16,7 +16,7 @@ rand = "0.8.5"
 serde = { version = "1.0.192", features = ["derive"] }
 pathfinding = "4.8.0"
 indexmap = "2"
-rustc-hash = "1"
+rustc-hash = "2"
 cache = { version = "0.7.1", registry = "substrate", path = "../cache" }
 downcast-rs = "2"
 slotmap = "1"
