@@ -19,7 +19,6 @@ use substrate::geometry::align::AlignMode;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::rect::Rect;
 use substrate::layout::tracks::RoundingMode;
-use substrate::layout::CellBuilder;
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::Flatten;
 use substrate::{
@@ -40,6 +39,7 @@ pub struct FoldedArray<T> {
     pub cols: usize,
     /// Pin configuration.
     pub pins: Vec<PinConfig>,
+    /// The top layer of the array.
     pub top_layer: usize,
 }
 
@@ -150,12 +150,9 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         let zero = Rect::default();
         let mut prev_nodes = vec![];
         let mut series_partners = HashSet::new();
-        for (i, pin) in self.pins.iter().enumerate() {
-            match *pin {
-                PinConfig::Series { partner, .. } => {
-                    series_partners.insert(partner);
-                }
-                _ => {}
+        for pin in self.pins.iter() {
+            if let PinConfig::Series { partner, .. } = *pin {
+                series_partners.insert(partner);
             }
         }
         for _row in 0..self.rows {

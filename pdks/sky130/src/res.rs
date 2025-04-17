@@ -225,7 +225,7 @@ mod tests {
     };
     use substrate::block::Block;
 
-    use crate::{SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH};
+    use crate::{SKY130_DRC, SKY130_DRC_RULES_PATH};
 
     fn test_check_filter(check: &RuleCheck) -> bool {
         !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
