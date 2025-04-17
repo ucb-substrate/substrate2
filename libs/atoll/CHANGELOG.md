@@ -12,6 +12,28 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.1.4](https://github.com/ucb-substrate/substrate2/compare/atoll-v0.1.3...atoll-v0.1.4) (2025-04-17)
+
+
+### Features
+
+* **atoll:** port ATOLL to Substrate 2.1 ([#639](https://github.com/ucb-substrate/substrate2/issues/639)) ([dc2d4f2](https://github.com/ucb-substrate/substrate2/commit/dc2d4f2340e1dac822beb499b6d3dbec27002ec5))
+* **atoll:** tile resizing ([#655](https://github.com/ucb-substrate/substrate2/issues/655)) ([b9b65f0](https://github.com/ucb-substrate/substrate2/commit/b9b65f0f065f11f4ceb7499f7bf7f0f088c67480))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate grid to 0.16.0 ([#649](https://github.com/ucb-substrate/substrate2/issues/649)) ([3875ea7](https://github.com/ucb-substrate/substrate2/commit/3875ea750229196998a8b7505971c36b5be64f62))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.2 to 0.10.3
+    * layir bumped from 0.2.1 to 0.2.2
+    * cache bumped from 0.7.1 to 0.7.2
+
 ## 0.1.0 (2023-11-02)
 
 
