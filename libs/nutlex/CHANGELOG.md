@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * enumify bumped from 0.2.1 to 0.2.2
+
 ## [0.4.2](https://github.com/ucb-substrate/substrate2/compare/nutlex-v0.4.1...nutlex-v0.4.2) (2025-02-02)
 
 

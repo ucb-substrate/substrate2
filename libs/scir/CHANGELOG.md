@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.2](https://github.com/ucb-substrate/substrate2/compare/scir-v0.9.1...scir-v0.9.2) (2025-04-17)
+
+
+### Features
+
+* **scir:** driver analysis handles opaque SCIR primitives correctly ([#636](https://github.com/ucb-substrate/substrate2/issues/636)) ([7dccba4](https://github.com/ucb-substrate/substrate2/commit/7dccba4da427b4b07b93b92d13ad9ecb1aef8512))
+* **scir:** remove unused primitives when pruning SCIR libraries ([#658](https://github.com/ucb-substrate/substrate2/issues/658)) ([7536255](https://github.com/ucb-substrate/substrate2/commit/753625570bb6edce9e7637ca30d2d7f0225a7d21))
+* **scir:** support removing cells from `LibraryBuilder` ([#657](https://github.com/ucb-substrate/substrate2/issues/657)) ([eb57369](https://github.com/ucb-substrate/substrate2/commit/eb573691672c6109c41942811a9cdd1ffe75087b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * uniquify bumped from 0.4.0 to 0.4.1
+    * enumify bumped from 0.2.1 to 0.2.2
+
 ## [0.9.1](https://github.com/ucb-substrate/substrate2/compare/scir-v0.9.0...scir-v0.9.1) (2025-01-24)
 
 
