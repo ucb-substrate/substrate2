@@ -6,6 +6,7 @@ members = [
   "colbuf",
   "sky130_inverter",
   "spice_vdivider",
+  "strongarm",
   "substrate_api_examples",
   "vdivider",
   "via"
