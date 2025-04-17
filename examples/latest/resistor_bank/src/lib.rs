@@ -1,22 +1,18 @@
 use atoll::fold::Foldable;
-use atoll::{Tile, TileData, route::GreedyRouter};
+use atoll::{route::GreedyRouter, Tile, TileData};
 use sky130::{
-    Sky130,
-    atoll::{NmosTile, PmosTile, PtapTile, Sky130ViaMaker},
+    atoll::{NmosTile, PtapTile, Sky130ViaMaker},
     res::PrecisionResistorCell,
+    Sky130,
 };
 use substrate::{
     block::Block,
     geometry::bbox::Bbox,
-    types::{FlatLen, InOut, Input, Io, Output, Signal, layout::PortGeometryBuilder},
+    types::{layout::PortGeometryBuilder, FlatLen, InOut, Input, Io, Signal},
 };
 use substrate::{
     geometry::align::AlignMode,
-    types::{
-        MosIo,
-        codegen::{PortGeometryBundle, View},
-        schematic::NodeBundle,
-    },
+    types::codegen::{PortGeometryBundle, View},
 };
 
 #[derive(Debug, Default, Clone, Io)]
@@ -111,14 +107,14 @@ impl Tile for TerminationSlice {
 mod tests {
     use super::*;
 
-    use atoll::TileWrapper;
     use atoll::fold::{FoldedArray, PinConfig};
+    use atoll::TileWrapper;
     use scir::netlist::ConvertibleNetlister;
-    use sky130::Sky130SrcNdaSchema;
     use sky130::atoll::MosLength;
     use sky130::res::{PrecisionResistor, PrecisionResistorWidth};
-    use sky130::{Sky130, Sky130CdsSchema, layout::to_gds};
-    use spice::{Spice, netlist::NetlistOptions};
+    use sky130::Sky130SrcNdaSchema;
+    use sky130::{layout::to_gds, Sky130, Sky130CdsSchema};
+    use spice::{netlist::NetlistOptions, Spice};
     use std::path::PathBuf;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;

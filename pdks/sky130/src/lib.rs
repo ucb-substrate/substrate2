@@ -36,14 +36,20 @@ pub mod stdcells;
 #[cfg(test)]
 mod tests;
 
+/// SKY130 Pegasus LVS directory.
 pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
+/// SKY130 Pegasus LVS rules.
 pub const SKY130_LVS_RULES_PATH: &str =
     concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl");
+/// SKY130 Quantus technology files.
 pub const SKY130_TECHNOLOGY_DIR: &str =
     concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
+/// SKY130 Quantus technology files.
 pub const SKY130_CDS_TT_MODEL_PATH: &str =
     concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
+/// SKY130 Pegasus DRC directory.
 pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
+/// SKY130 Pegasus DRC rules.
 pub const SKY130_DRC_RULES_PATH: &str = concat!(
     env!("SKY130_CDS_PDK_ROOT"),
     "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
@@ -68,6 +74,7 @@ pub enum Primitive {
         /// The MOSFET parameters.
         params: MosParams,
     },
+    /// A precision resistor.
     PrecisionResistor(PrecisionResistor),
 }
 
@@ -443,15 +450,12 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
         instance: &mut Instance,
         primitive: &<Sky130 as scir::schema::Schema>::Primitive,
     ) -> Result<(), Self::Error> {
-        match primitive {
-            Primitive::PrecisionResistor(_) => {
-                instance.map_connections(|n| match n.as_str() {
-                    "P" => arcstr::literal!("1"),
-                    "N" => arcstr::literal!("2"),
-                    _ => panic!("unknown precision resistor port `{n}`"),
-                });
-            }
-            _ => (),
+        if let Primitive::PrecisionResistor(_) = primitive {
+            instance.map_connections(|n| match n.as_str() {
+                "P" => arcstr::literal!("1"),
+                "N" => arcstr::literal!("2"),
+                _ => panic!("unknown precision resistor port `{n}`"),
+            });
         }
         Ok(())
     }

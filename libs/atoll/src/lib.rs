@@ -67,6 +67,7 @@
 pub mod abs;
 pub mod fold;
 pub mod grid;
+pub mod resizing;
 pub mod route;
 pub mod straps;
 
@@ -74,7 +75,6 @@ use crate::abs::{Abstract, InstanceAbstract, TrackCoord};
 use crate::grid::{AtollLayer, LayerStack, PdkLayer};
 use crate::route::{Path, Router, ViaMaker};
 use ena::unify::UnifyKey;
-use fold::FoldedArray;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
@@ -1366,24 +1366,11 @@ pub(crate) fn get_abstract<T: Tile>(
     let (mut schematic_cell, schematic_io) = prepare_cell_builder(None, ctx.clone(), &tile);
     let mut layout_cell = layout::CellBuilder::new(ctx.clone());
     let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
-    let TileData {
-        layout_bundle,
-        layout_data,
-        outline,
-        ..
-    } = <T as Tile>::tile(&tile, &schematic_io, &mut cell)?;
+    let TileData { outline, .. } = <T as Tile>::tile(&tile, &schematic_io, &mut cell)?;
 
     let ctx_clone = (*cell.ctx()).clone();
     let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());
-    let (
-        cell,
-        TileBuilderUnused {
-            layout,
-            via_maker,
-            layer_stack,
-            ..
-        },
-    ) = cell.split_for_abstract(schematic_io.flatten_vec(), outline);
+    let (cell, _) = cell.split_for_abstract(schematic_io.flatten_vec(), outline);
     let abs_path = atoll_ctx
         .0
         .write()

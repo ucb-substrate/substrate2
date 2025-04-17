@@ -192,9 +192,13 @@ impl CellShortManager {
     }
 
     fn connect(&mut self, node1: &Node, node2: &Node) {
-        let k1 = self.node_to_key[node1];
-        let k2 = self.node_to_key[node2];
-        self.uf.union(k1, k2);
+        let Some(k1) = self.node_to_key.get(node1) else {
+            return;
+        };
+        let Some(k2) = self.node_to_key.get(node2) else {
+            return;
+        };
+        self.uf.union(*k1, *k2);
     }
 
     /// The node to which the given node is shorted.
