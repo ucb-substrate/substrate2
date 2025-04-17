@@ -1,7 +1,7 @@
 //! Resistors.
 
 use atoll::{
-    grid::{LayerStack, PdkLayer, RoutingGrid},
+    grid::{LayerStack, PdkLayer},
     AtollPrimitive,
 };
 use geometry::{
@@ -91,6 +91,7 @@ pub struct PrecisionResistorCell {
 /// Precision resistor tile geometry.
 #[derive(TranslateRef, TransformRef)]
 pub struct PrecisionResistorData {
+    /// The LCM bounding box.
     pub lcm_bbox: Rect,
 }
 

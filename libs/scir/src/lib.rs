@@ -1045,10 +1045,70 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
         self.cells.iter().map(|(id, cell)| (*id, cell))
     }
 
+    /// Keeps only the cells in `roots` and their dependencies.
+    pub fn retain_cells(&mut self, roots: impl IntoIterator<Item = CellId>) {
+        let (cells, primitives) = self.cells_and_primitives_used_by(roots);
+        // Remove names from name map
+        self.name_map.retain(|_, cell| cells.contains(cell));
+        for (id, _) in self.cells.iter() {
+            if !cells.contains(id) {
+                // Remove names from `self.names`.
+                self.names.unassign(id);
+            }
+        }
+        // Remove cells from HashMap.
+        self.cells.retain(|id, _| cells.contains(id));
+
+        // Clear top cell if top cell was deleted.
+        if let Some(top) = self.top_cell() {
+            if !cells.contains(&top) {
+                self.top = None;
+            }
+        }
+
+        // Remove primitives.
+        self.primitives.retain(|id, _| primitives.contains(id));
+    }
+
+    /// The list of cell IDs and primitive IDs instantiated by the given root cells.
+    ///
+    /// The cell list returned will include the root cell IDs.
+    pub(crate) fn cells_and_primitives_used_by(
+        &self,
+        roots: impl IntoIterator<Item = CellId>,
+    ) -> (HashSet<CellId>, HashSet<PrimitiveId>) {
+        let mut stack = VecDeque::new();
+        let mut visited = HashSet::new();
+        let mut primitives = HashSet::new();
+        for root in roots {
+            stack.push_back(root);
+        }
+
+        while let Some(id) = stack.pop_front() {
+            if visited.contains(&id) {
+                continue;
+            }
+            visited.insert(id);
+            let cell = self.cell(id);
+            for (_, inst) in cell.instances() {
+                match inst.child {
+                    ChildId::Cell(c) => {
+                        stack.push_back(c);
+                    }
+                    ChildId::Primitive(p) => {
+                        primitives.insert(p);
+                    }
+                }
+            }
+        }
+
+        (visited, primitives)
+    }
+
     /// The list of cell IDs instantiated by the given root cells.
     ///
     /// The list returned will include the root cell IDs.
-    pub(crate) fn cells_used_by(&self, roots: impl IntoIterator<Item = CellId>) -> Vec<CellId> {
+    pub(crate) fn cells_used_by(&self, roots: impl IntoIterator<Item = CellId>) -> HashSet<CellId> {
         let mut stack = VecDeque::new();
         let mut visited = HashSet::new();
         for root in roots {
@@ -1068,7 +1128,7 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
             }
         }
 
-        visited.drain().collect()
+        visited
     }
 
     /// Gets the primitive with the given ID.

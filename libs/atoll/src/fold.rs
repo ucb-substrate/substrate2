@@ -3,12 +3,12 @@
 use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{AbstractLayer, RoutingGrid, RoutingState};
 use crate::route::ViaMaker;
+use crate::Tile;
 use crate::{
     get_abstract,
     grid::{LayerStack, PdkLayer},
     NetId, PointState, TileBuilder, TileData,
 };
-use crate::{AtollContext, Tile};
 use arcstr::ArcStr;
 use itertools::Itertools;
 use layir::Shape;
@@ -27,14 +27,18 @@ use substrate::{
     context::Context,
     geometry::{dir::Dir, side::Side},
     layout,
-    layout::Layout,
 };
 
+/// Folded array of an ATOLL tile.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct FoldedArray<T> {
+    /// Tile being folded.
     pub tile: T,
+    /// Number of rows.
     pub rows: usize,
+    /// Number of cols.
     pub cols: usize,
+    /// Pin configuration.
     pub pins: Vec<PinConfig>,
     pub top_layer: usize,
 }
@@ -44,12 +48,24 @@ pub struct FoldedArray<T> {
 pub enum PinConfig {
     /// Series connection.
     ///
-    /// The index specifies the index of the other pin.
-    Series { partner: usize, dir: Dir },
+    Series {
+        /// Index of the other pin.
+        partner: usize,
+        /// Pin direction.
+        dir: Dir,
+    },
     /// Parallel connection.
-    Parallel { layer: usize },
+    Parallel {
+        /// Pin layer.
+        layer: usize,
+    },
     /// Escape to a boundary.
-    Escape { side: Side, layer: usize },
+    Escape {
+        /// Escape side.
+        side: Side,
+        /// Pin layer.
+        layer: usize,
+    },
     /// Ignore the pin.
     Ignore,
 }
@@ -61,9 +77,7 @@ impl<T: Block> Block for FoldedArray<T> {
         arcstr::format!("folded_{}_{}x{}", self.tile.name(), self.rows, self.cols)
     }
 
-    fn io(&self) -> Self::Io {
-        ()
-    }
+    fn io(&self) -> Self::Io {}
 }
 
 impl<T: Tile + Clone + Foldable> Tile for FoldedArray<T> {
@@ -74,7 +88,7 @@ impl<T: Tile + Clone + Foldable> Tile for FoldedArray<T> {
 
     fn tile<'a>(
         &self,
-        io: &'a IoNodeBundle<Self>,
+        _io: &'a IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
     ) -> substrate::error::Result<TileData<Self>> {
         self.analyze(cell.ctx().clone(), cell)?;
@@ -91,13 +105,16 @@ impl<T: Tile + Clone + Foldable> Tile for FoldedArray<T> {
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 struct LayerTrack {
-    pub layer: usize,
-    pub track: usize,
+    layer: usize,
+    track: usize,
 }
 
+/// A foldable tile.
 pub trait Foldable: Tile {
+    /// The via maker to be used for the tile.
     type ViaMaker: ViaMaker<<Self::Schema as layout::schema::Schema>::Layer>;
 
+    /// The via maker to be used for the tile.
     fn via_maker() -> Self::ViaMaker;
 }
 
@@ -117,7 +134,9 @@ struct EscapeMapping {
 struct EscapePinData {
     coordl: usize,
     dir: Dir,
+    #[allow(dead_code)]
     coord_gdl_min: usize,
+    #[allow(dead_code)]
     coord_gdl_max: usize,
 }
 
@@ -139,7 +158,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                 _ => {}
             }
         }
-        for row in 0..self.rows {
+        for _row in 0..self.rows {
             for col in 0..self.cols {
                 let mut inst = cell.generate(self.tile.clone());
                 if col == 0 {
@@ -184,7 +203,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                 PdkLayer<<<T as Tile>::Schema as substrate::layout::schema::Schema>::Layer>,
             >>()
             .expect("must install ATOLL layer stack");
-        let (abs, paths) = get_abstract(self.tile.clone(), ctx.clone())?;
+        let (abs, _paths) = get_abstract(self.tile.clone(), ctx.clone())?;
         // identify layers to analyze: parallel pins + 1, escape pins + 0/1/2
         let mut chk_layers = HashSet::new();
         for cfg in self.pins.iter() {
@@ -454,13 +473,13 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                         }
                     }
                 }
-                PinConfig::Escape { layer, side } => {
+                PinConfig::Escape { .. } => {
                     let data = &escape_pin_data[net];
                     let mapping = match_mapping[net].as_ref().unwrap_escape();
                     let dir = data.dir;
                     let p1trk = match_output.pair[mapping.p1];
                     if dir == Dir::Horiz {
-                        for r in 0..self.rows {
+                        for _r in 0..self.rows {
                             for c in 0..self.cols {
                                 // route on p1trk to p2trks[c]
                                 let p2trk = match_output.pair[mapping.p2[c]];
@@ -633,7 +652,7 @@ fn max_extent_track(
                 .layer(layer)
                 .iter_cols()
                 .enumerate()
-                .filter_map(|(i, mut row)| {
+                .filter_map(|(i, row)| {
                     let sum: usize = row
                         .clone()
                         .filter_map(|elt| elt.is_routed_for_net(net).then_some(1))
@@ -645,7 +664,7 @@ fn max_extent_track(
                 .layer(layer)
                 .iter_rows()
                 .enumerate()
-                .filter_map(|(i, mut col)| {
+                .filter_map(|(i, col)| {
                     let sum: usize = col
                         .clone()
                         .filter_map(|elt| elt.is_routed_for_net(net).then_some(1))

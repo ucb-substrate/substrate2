@@ -81,4 +81,17 @@ impl<K: Hash + Eq> Names<K> {
         self.assignments.insert(id, name.clone());
         name
     }
+
+    /// Unassigns the name associated to `id`.
+    ///
+    /// Returns true if `id` was unbound.
+    /// Returns false if `id` did not have an assigned name to unbind.
+    pub fn unassign(&mut self, id: &K) -> bool {
+        if let Some(name) = self.assignments.remove(id) {
+            self.names.remove(&name);
+            true
+        } else {
+            false
+        }
+    }
 }

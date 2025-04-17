@@ -740,6 +740,7 @@ impl<S: Schema, T: Draw<S> + ?Sized> Draw<S> for Box<T> {
     }
 }
 
+/// A container for drawn objects.
 pub struct Container<S: Schema> {
     recvs: Vec<DrawReceiver<S>>,
     trans: Transformation,

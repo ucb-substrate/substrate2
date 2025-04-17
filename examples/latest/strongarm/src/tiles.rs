@@ -1,6 +1,9 @@
 //! Tile definitions.
 
-use substrate::types::{InOut, Io, Signal};
+use substrate::{
+    geometry::dir::Dir,
+    types::{InOut, Io, Signal},
+};
 
 /// MOS device kind.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -56,14 +59,16 @@ impl MosTileParams {
 pub struct TapTileParams {
     /// The kind of tap.
     pub kind: TileKind,
-    /// Number of MOS devices this tap must span.
-    pub mos_span: i64,
+    /// The direction in which this tap extends.
+    pub dir: Dir,
+    /// Number of layer 0/1 tracks this horizontal/vertical tap must span.
+    pub span: i64,
 }
 
 impl TapTileParams {
     /// Creates a new [`TapTileParams`].
-    pub fn new(kind: TileKind, mos_span: i64) -> Self {
-        Self { kind, mos_span }
+    pub fn new(kind: TileKind, dir: Dir, span: i64) -> Self {
+        Self { kind, dir, span }
     }
 }
 

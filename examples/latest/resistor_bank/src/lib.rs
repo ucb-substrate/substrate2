@@ -7,18 +7,12 @@ use sky130::{
     res::PrecisionResistorCell,
     Sky130,
 };
+use substrate::types::codegen::{PortGeometryBundle, View};
 use substrate::{
     block::Block,
-    geometry::bbox::Bbox,
-    types::{layout::PortGeometryBuilder, FlatLen, InOut, Input, Io, Output, Signal},
-};
-use substrate::{
     geometry::align::AlignMode,
-    types::{
-        codegen::{PortGeometryBundle, View},
-        schematic::NodeBundle,
-        MosIo,
-    },
+    geometry::bbox::Bbox,
+    types::{layout::PortGeometryBuilder, FlatLen, InOut, Input, Io, Signal},
 };
 
 #[derive(Debug, Default, Clone, Io)]
