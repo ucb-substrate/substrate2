@@ -1,14 +1,14 @@
 use atoll::fold::Foldable;
-use atoll::{route::GreedyRouter, Tile, TileData};
+use atoll::{Tile, TileData, route::GreedyRouter};
 use sky130::{
+    Sky130,
     atoll::{NmosTile, PtapTile, Sky130ViaMaker},
     res::PrecisionResistorCell,
-    Sky130,
 };
 use substrate::{
     block::Block,
     geometry::bbox::Bbox,
-    types::{layout::PortGeometryBuilder, FlatLen, InOut, Input, Io, Signal},
+    types::{FlatLen, InOut, Input, Io, Signal, layout::PortGeometryBuilder},
 };
 use substrate::{
     geometry::align::AlignMode,
@@ -107,14 +107,14 @@ impl Tile for TerminationSlice {
 mod tests {
     use super::*;
 
-    use atoll::fold::{FoldedArray, PinConfig};
     use atoll::TileWrapper;
+    use atoll::fold::{FoldedArray, PinConfig};
     use scir::netlist::ConvertibleNetlister;
+    use sky130::Sky130SrcNdaSchema;
     use sky130::atoll::MosLength;
     use sky130::res::{PrecisionResistor, PrecisionResistorWidth};
-    use sky130::Sky130SrcNdaSchema;
-    use sky130::{layout::to_gds, Sky130, Sky130CdsSchema};
-    use spice::{netlist::NetlistOptions, Spice};
+    use sky130::{Sky130, Sky130CdsSchema, layout::to_gds};
+    use spice::{Spice, netlist::NetlistOptions};
     use std::path::PathBuf;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;
