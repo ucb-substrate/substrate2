@@ -20,7 +20,8 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::rect::Rect;
 use substrate::layout::tracks::RoundingMode;
 use substrate::layout::CellBuilder;
-use substrate::types::schematic::IoNodeBundle;
+use substrate::types::schematic::{IoNodeBundle, Node};
+use substrate::types::Flatten;
 use substrate::{
     block::Block,
     context::Context,
@@ -35,6 +36,7 @@ pub struct FoldedArray<T> {
     pub rows: usize,
     pub cols: usize,
     pub pins: Vec<PinConfig>,
+    pub top_layer: usize,
 }
 
 /// Segment folding pin configuration.
@@ -75,23 +77,9 @@ impl<T: Tile + Clone + Foldable> Tile for FoldedArray<T> {
         io: &'a IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
     ) -> substrate::error::Result<TileData<Self>> {
-        let mut prev = Rect::default();
-        let zero = Rect::default();
-        for row in 0..self.rows {
-            for col in 0..self.cols {
-                let mut inst = cell.generate(self.tile.clone());
-                if col == 0 {
-                    inst.align_rect_mut(zero, AlignMode::Left, 0);
-                    inst.align_rect_mut(prev, AlignMode::Beneath, 0);
-                } else {
-                    inst.align_rect_mut(prev, AlignMode::ToTheRight, 0);
-                    inst.align_rect_mut(prev, AlignMode::Bottom, 0);
-                }
-                prev = inst.lcm_bounds();
-                cell.draw(inst)?;
-            }
-        }
         self.analyze(cell.ctx().clone(), cell)?;
+        cell.set_top_layer(self.top_layer);
+
         Ok(TileData {
             nested_data: (),
             layout_bundle: (),
@@ -139,6 +127,55 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         ctx: Context,
         cell: &mut TileBuilder<'_, <Self as Tile>::Schema>,
     ) -> substrate::error::Result<()> {
+        let mut prev = Rect::default();
+        let zero = Rect::default();
+        let mut prev_nodes = vec![];
+        let mut series_partners = HashSet::new();
+        for (i, pin) in self.pins.iter().enumerate() {
+            match *pin {
+                PinConfig::Series { partner, .. } => {
+                    series_partners.insert(partner);
+                }
+                _ => {}
+            }
+        }
+        for row in 0..self.rows {
+            for col in 0..self.cols {
+                let mut inst = cell.generate(self.tile.clone());
+                if col == 0 {
+                    inst.align_rect_mut(zero, AlignMode::Left, 0);
+                    inst.align_rect_mut(prev, AlignMode::Beneath, 0);
+                } else {
+                    inst.align_rect_mut(prev, AlignMode::ToTheRight, 0);
+                    inst.align_rect_mut(prev, AlignMode::Bottom, 0);
+                }
+                // TODO only works for horizontal series pins
+                prev = inst.lcm_bounds();
+                let nodes: Vec<Node> = inst.io().flatten_vec();
+                for (i, (node, cfg)) in nodes.iter().zip(self.pins.iter()).enumerate() {
+                    match *cfg {
+                        PinConfig::Series { partner, .. } => {
+                            if !prev_nodes.is_empty() {
+                                cell.connect(node, prev_nodes[partner]);
+                            }
+                        }
+                        PinConfig::Parallel { .. } => {
+                            if !prev_nodes.is_empty() {
+                                cell.connect(node, prev_nodes[i]);
+                            }
+                            cell.skip_routing(*node);
+                        }
+                        _ => {
+                            if !series_partners.contains(&i) {
+                                cell.skip_routing(*node);
+                            }
+                        }
+                    }
+                }
+                prev_nodes = nodes;
+                cell.draw(inst)?;
+            }
+        }
         assert!(self.rows >= 1);
         assert!(self.cols >= 1);
 

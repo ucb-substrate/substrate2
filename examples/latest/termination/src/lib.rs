@@ -1,21 +1,23 @@
 use atoll::fold::Foldable;
-use atoll::{Tile, TileData, route::GreedyRouter};
+use atoll::{route::GreedyRouter, Tile, TileData};
+use layir::Shape;
+use sky130::layers::Sky130Layer;
 use sky130::{
-    Sky130,
     atoll::{NmosTile, PmosTile, PtapTile, Sky130ViaMaker},
     res::PrecisionResistorCell,
+    Sky130,
 };
 use substrate::{
     block::Block,
     geometry::bbox::Bbox,
-    types::{FlatLen, InOut, Input, Io, Output, Signal, layout::PortGeometryBuilder},
+    types::{layout::PortGeometryBuilder, FlatLen, InOut, Input, Io, Output, Signal},
 };
 use substrate::{
     geometry::align::AlignMode,
     types::{
-        MosIo,
         codegen::{PortGeometryBundle, View},
         schematic::NodeBundle,
+        MosIo,
     },
 };
 
@@ -84,6 +86,10 @@ impl Tile for TerminationSlice {
         let res = cell.draw(res)?;
         let tap = cell.draw(tap)?;
 
+        let vss_rect = tap.layout.io().vnb.primary.bbox_rect();
+        cell.layout.draw(Shape::new(Sky130Layer::Met1, vss_rect))?;
+        cell.assign_grid_points(Some(*tap.schematic.io().vnb), 1, vss_rect);
+
         en.merge(n.layout.io().g[0].clone());
         din.merge(n.layout.io().sd[1].clone());
         vss.merge(n.layout.io().b);
@@ -111,14 +117,14 @@ impl Tile for TerminationSlice {
 mod tests {
     use super::*;
 
-    use atoll::TileWrapper;
     use atoll::fold::{FoldedArray, PinConfig};
+    use atoll::TileWrapper;
     use scir::netlist::ConvertibleNetlister;
-    use sky130::Sky130SrcNdaSchema;
     use sky130::atoll::MosLength;
     use sky130::res::{PrecisionResistor, PrecisionResistorWidth};
-    use sky130::{Sky130, Sky130CdsSchema, layout::to_gds};
-    use spice::{Spice, netlist::NetlistOptions};
+    use sky130::Sky130SrcNdaSchema;
+    use sky130::{layout::to_gds, Sky130, Sky130CdsSchema};
+    use spice::{netlist::NetlistOptions, Spice};
     use std::path::PathBuf;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;
@@ -207,8 +213,22 @@ mod tests {
                 },
                 n: NmosTile::new(2_000, MosLength::L150, 6),
             },
+            top_layer: 3,
         });
 
+        let scir = ctx
+            .export_scir(block.clone())
+            .unwrap()
+            .scir
+            .convert_schema::<Sky130SrcNdaSchema>()
+            .unwrap()
+            .convert_schema::<Spice>()
+            .unwrap()
+            .build()
+            .unwrap();
+        Spice
+            .write_scir_netlist_to_file(&scir, &netlist_path, NetlistOptions::default())
+            .expect("failed to write netlist");
         ctx.write_layout(block, to_gds, &gds_path)
             .expect("failed to write layout");
     }
