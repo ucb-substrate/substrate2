@@ -1,6 +1,6 @@
 //! SKY130-specific implementations.
 
-use crate::tiles::{MosTileParams, TapIo, TapIoView, TapTileParams, TileKind};
+use crate::tiles::{MosKind, MosTileParams, TapIo, TapIoView, TapTileParams, TileKind};
 use crate::StrongArmImpl;
 use atoll::resizing::ResizableInstance;
 use atoll::route::GreedyRouter;
@@ -28,6 +28,10 @@ impl StrongArmImpl for Sky130Impl {
     type ViaMaker = Sky130ViaMaker;
 
     fn mos(params: MosTileParams) -> Self::MosTile {
+        match params.mos_kind {
+            MosKind::Nom => {}
+            _ => unimplemented!(),
+        }
         ResizeableMosTile::new(params.w, MosLength::L150, params.tile_kind)
     }
     fn tap(params: TapTileParams) -> Self::TapTile {
@@ -360,19 +364,6 @@ mod tests {
     };
 
     pub const STRONGARM_PARAMS_4: StrongArmParams = StrongArmParams {
-        nmos_kind: MosKind::Lvt,
-        pmos_kind: MosKind::Lvt,
-        half_tail_w: 8_192,
-        input_pair_w: 8_192,
-        inv_input_w: 8_192,
-        inv_precharge_w: 2_048,
-        precharge_w: 2_048,
-        input_kind: InputKind::N,
-        h_max: 20_000,
-        dir: Dir::Vert,
-    };
-
-    pub const STRONGARM_PARAMS_5: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
         half_tail_w: 8_192,
@@ -385,7 +376,7 @@ mod tests {
         dir: Dir::Horiz,
     };
 
-    pub const STRONGARM_PARAMS_6: StrongArmParams = StrongArmParams {
+    pub const STRONGARM_PARAMS_5: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
         half_tail_w: 8_192,
@@ -398,7 +389,7 @@ mod tests {
         dir: Dir::Horiz,
     };
 
-    pub const STRONGARM_PARAMS_7: StrongArmParams = StrongArmParams {
+    pub const STRONGARM_PARAMS_6: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
         half_tail_w: 8_192,
@@ -409,6 +400,71 @@ mod tests {
         input_kind: InputKind::N,
         h_max: 8_000,
         dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_7: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 40_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_8: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 20_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_9: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 15_000,
+        dir: Dir::Vert,
+    };
+
+    pub const STRONGARM_PARAMS_10: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 15_000,
+        dir: Dir::Horiz,
+    };
+
+    pub const STRONGARM_PARAMS_11: StrongArmParams = StrongArmParams {
+        nmos_kind: MosKind::Nom,
+        pmos_kind: MosKind::Nom,
+        half_tail_w: 8_192,
+        input_pair_w: 8_192,
+        inv_input_w: 8_192,
+        inv_precharge_w: 2_048,
+        precharge_w: 2_048,
+        input_kind: InputKind::N,
+        h_max: 40_000,
+        dir: Dir::Horiz,
     };
 
     pub fn sky130_cds_ctx() -> Context {
@@ -633,5 +689,25 @@ mod tests {
     #[test]
     fn sky130_strongarm_lvs_resizing_7() {
         test_sky130_strongarm_lvs("sky130_strongarm_lvs_7", STRONGARM_PARAMS_7);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_8() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_8", STRONGARM_PARAMS_8);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_9() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_9", STRONGARM_PARAMS_9);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_10() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_10", STRONGARM_PARAMS_10);
+    }
+    #[ignore]
+    #[test]
+    fn sky130_strongarm_lvs_resizing_11() {
+        test_sky130_strongarm_lvs("sky130_strongarm_lvs_11", STRONGARM_PARAMS_11);
     }
 }
