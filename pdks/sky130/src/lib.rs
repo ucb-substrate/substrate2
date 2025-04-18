@@ -432,7 +432,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
                 ]),
             },
             Primitive::PrecisionResistor(res) => spice::Primitive::Res2 {
-                value: spice::ComponentValue::Model("mrp".into()),
+                value: spice::ComponentValue::Model("xuhrpoly_1p41".into()),
                 params: HashMap::from_iter([
                     (
                         UniCase::new(arcstr::literal!("w")),
@@ -486,7 +486,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
                 ],
             },
             Primitive::PrecisionResistor(res) => spectre::Primitive::RawInstance {
-                cell: "mrp".into(),
+                cell: "xuhrpoly_1p41".into(),
                 ports: vec!["1".into(), "2".into()],
                 params: vec![
                     (
