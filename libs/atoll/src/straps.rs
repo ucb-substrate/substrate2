@@ -335,7 +335,7 @@ impl<'a, L: AtollLayer + Clone> GreedyStrapperState<'a, L> {
                             .step_by(*period)
                             .collect()
                     }
-                    LayerStrappingParams::ViaDown { .. } => (outer_start + 1..outer_end).collect(),
+                    LayerStrappingParams::ViaDown { .. } => (outer_start..outer_end).collect(),
                 };
 
                 for i in tracks {
