@@ -93,7 +93,7 @@ impl Tile for ResistorBankSlice {
         cell.set_strapper(GreedyStrapper);
         cell.set_strapping(
             io.vss,
-            StrappingParams::new(1, vec![LayerStrappingParams::ViaDown { min_period: 5 }]),
+            StrappingParams::new(1, vec![LayerStrappingParams::ViaDown { min_period: 30 }]),
         );
 
         Ok(TileData {
@@ -186,7 +186,7 @@ mod tests {
 
         let block = TileWrapper::new(FoldedArray {
             rows: 2,
-            cols: 32,
+            cols: 20,
             pins: vec![
                 PinConfig::Parallel { layer: 1 },
                 PinConfig::Escape {
@@ -200,7 +200,7 @@ mod tests {
                 res: PrecisionResistorCell {
                     resistor: PrecisionResistor {
                         width: PrecisionResistorWidth::W141,
-                        length: 4_000,
+                        length: 2_000,
                     },
                     dir: Dir::Vert,
                 },
