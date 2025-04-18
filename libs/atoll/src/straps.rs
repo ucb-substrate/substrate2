@@ -335,7 +335,7 @@ impl<'a, L: AtollLayer + Clone> GreedyStrapperState<'a, L> {
                             .step_by(*period)
                             .collect()
                     }
-                    LayerStrappingParams::ViaDown { .. } => (outer_start..outer_end).collect(),
+                    LayerStrappingParams::ViaDown { .. } => (outer_start + 1..outer_end).collect(),
                 };
 
                 for i in tracks {
@@ -379,7 +379,7 @@ impl<'a, L: AtollLayer + Clone> GreedyStrapperState<'a, L> {
                         }
                     }
                     if let Some(start) = start {
-                        let stop = inner_end.checked_sub(via_space);
+                        let stop = Some(inner_end); // Used to be inner_end.checked_sub(via_space).
                         if let Some(stop) = stop {
                             self.push_strap_if_valid(
                                 Strap {
