@@ -1135,9 +1135,9 @@ dependencies = [
 
 [[package]]
 name = "grid"
-version = "0.16.1"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb6ae361963ea5fe52038156ea1729f3b4e4ccc0711c362ab2b2d2c0a259e7c3"
+checksum = "969d090eea77fac1be33f853ffc4b6b60cc6f312ddf4fd28b311a730e1dd8ebe"
 dependencies = [
  "serde",
 ]
