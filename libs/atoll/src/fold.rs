@@ -20,7 +20,7 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::rect::Rect;
 use substrate::layout::tracks::RoundingMode;
 use substrate::types::schematic::{IoNodeBundle, Node};
-use substrate::types::Flatten;
+use substrate::types::{Array, ArrayBundle, Flatten, HasBundleKind};
 use substrate::{
     block::Block,
     context::Context,
@@ -71,32 +71,34 @@ pub enum PinConfig {
 }
 
 impl<T: Block> Block for FoldedArray<T> {
-    type Io = ();
+    type Io = Array<Array<<T as Block>::Io>>;
 
     fn name(&self) -> ArcStr {
         arcstr::format!("folded_{}_{}x{}", self.tile.name(), self.rows, self.cols)
     }
 
-    fn io(&self) -> Self::Io {}
+    fn io(&self) -> Self::Io {
+        Array::new(self.rows, Array::new(self.cols, self.tile.io()))
+    }
 }
 
 impl<T: Tile + Clone + Foldable> Tile for FoldedArray<T> {
     type Schema = T::Schema;
-    type LayoutBundle = ();
+    type LayoutBundle = ArrayBundle<ArrayBundle<<T as Tile>::LayoutBundle>>;
     type LayoutData = ();
     type NestedData = ();
 
     fn tile<'a>(
         &self,
-        _io: &'a IoNodeBundle<Self>,
+        io: &'a IoNodeBundle<Self>,
         cell: &mut TileBuilder<'a, Self::Schema>,
     ) -> substrate::error::Result<TileData<Self>> {
-        self.analyze(cell.ctx().clone(), cell)?;
+        let bundle = self.analyze(cell.ctx().clone(), io, cell)?;
         cell.set_top_layer(self.top_layer);
 
         Ok(TileData {
             nested_data: (),
-            layout_bundle: (),
+            layout_bundle: bundle,
             layout_data: (),
             outline: cell.layout.bbox_rect(),
         })
@@ -144,8 +146,9 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
     fn analyze(
         &self,
         ctx: Context,
+        io: &IoNodeBundle<Self>,
         cell: &mut TileBuilder<'_, <Self as Tile>::Schema>,
-    ) -> substrate::error::Result<()> {
+    ) -> substrate::error::Result<<Self as Tile>::LayoutBundle> {
         let mut prev = Rect::default();
         let zero = Rect::default();
         let mut prev_nodes = vec![];
@@ -155,9 +158,11 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                 series_partners.insert(partner);
             }
         }
-        for _row in 0..self.rows {
+        let mut bundle = Vec::new();
+        for row in 0..self.rows {
+            let mut col_bundle = Vec::new();
             for col in 0..self.cols {
-                let mut inst = cell.generate(self.tile.clone());
+                let mut inst = cell.generate_connected(self.tile.clone(), &io[row][col]);
                 if col == 0 {
                     inst.align_rect_mut(zero, AlignMode::Left, 0);
                     inst.align_rect_mut(prev, AlignMode::Beneath, 0);
@@ -189,8 +194,10 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     }
                 }
                 prev_nodes = nodes;
-                cell.draw(inst)?;
+                let inst = cell.draw(inst)?;
+                col_bundle.push(inst.layout.io());
             }
+            bundle.push(ArrayBundle::new(col_bundle[0].kind(), col_bundle));
         }
         assert!(self.rows >= 1);
         assert!(self.cols >= 1);
@@ -566,7 +573,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
             }
         }
         // route escape pins on pin, pin+1 OR pin+1, pin+0/2
-        Ok(())
+        Ok(ArrayBundle::new(bundle[0].kind(), bundle))
     }
 }
 
