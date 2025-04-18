@@ -6,7 +6,7 @@ use crate::Instance;
 
 use crate::{Cell, Library, Shape, LibraryBuilder, Transformation, TransformMut, TransformRef};
 use crate::Element;
-trait Connectivity: Sized + PartialEq {
+trait Connectivity: Sized + PartialEq + Clone{
     fn connected_layers(&self) -> Vec<Self>;
 
     /// Returns a vector of layers connected to a given layer.
@@ -16,7 +16,7 @@ trait Connectivity: Sized + PartialEq {
 
     /// Returns true if two shapes overlap on a flat plane, and false otherwise.
     fn intersect_shapes<'a, 'b>(
-        shape1 : &'a Shape<Self>,
+        shape1 : &'b Shape<Self>,
         shape2 : &'b Shape<Self>,
     ) -> bool {
         let shape1_bbox : Rect = shape1.bbox().expect("error");
@@ -71,27 +71,33 @@ trait Connectivity: Sized + PartialEq {
     //
     //You do this recusively until you get a bunch of shapes that are all in their correct
     //positions
-    fn flatten_instance<'a>(
-        inst: &'a Instance,
-        lib: &'a Library<Self>,
+    fn flatten_instance<'b : 'a, 'a>(
+        inst: &'b Instance,
+        lib: &'b Library<Self>,
     ) -> Vec<&'a Shape<Self>> {
+
         let mut ret : Vec<&'a Shape<Self>> = vec![];
         
 
         let cellid : CellId = inst.child();
         let transform : Transformation = inst.transformation();
         
-        let cell_ref : &Cell<Self> = lib.cell(cellid).clone();
-        for elem in cell_ref.elements() {
+        let cell_ref_temp : Vec<_>= lib.cell(cellid).elements().collect();
+
+        //let elements : Vec<&Element<Self>>= cell_ref.elements().collect();
+
+        for elem in cell_ref_temp {
 
             if let Element::Shape(shape) = elem {
                 
-                ret.push(shape);
+                ret.push(&shape);
             }
             
         }
 
-        for instance in cell_ref.instances() {
+        let new_cell_ref_temp : Vec<_> = lib.cell(cellid).instances().collect();;
+
+        for instance in new_cell_ref_temp {
             ret.append(&mut Self::flatten_instance(instance.1, lib));
         }
         
