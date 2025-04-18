@@ -1,46 +1,47 @@
 use atoll::fold::Foldable;
-use atoll::{Tile, TileData, route::GreedyRouter};
+use atoll::straps::{GreedyStrapper, LayerStrappingParams, StrappingParams};
+use atoll::{route::GreedyRouter, Tile, TileData};
 use layir::Shape;
 use sky130::layers::Sky130Layer;
 use sky130::{
-    Sky130,
     atoll::{NmosTile, PtapTile, Sky130ViaMaker},
     res::PrecisionResistorCell,
+    Sky130,
 };
 use substrate::types::codegen::{PortGeometryBundle, View};
 use substrate::{
     block::Block,
     geometry::align::AlignMode,
     geometry::bbox::Bbox,
-    types::{FlatLen, InOut, Input, Io, Signal, layout::PortGeometryBuilder},
+    types::{layout::PortGeometryBuilder, FlatLen, InOut, Input, Io, Signal},
 };
 
 #[derive(Debug, Default, Clone, Io)]
-pub struct TerminationSliceIo {
+pub struct ResistorBankSliceIo {
     pub din: Input<Signal>,
     pub en: Input<Signal>,
     pub vss: InOut<Signal>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Block)]
-#[substrate(io = "TerminationSliceIo")]
-pub struct TerminationSlice {
+#[substrate(io = "ResistorBankSliceIo")]
+pub struct ResistorBankSlice {
     pub n: NmosTile,
     pub res: PrecisionResistorCell,
     pub tap: PtapTile,
 }
 
-impl Foldable for TerminationSlice {
+impl Foldable for ResistorBankSlice {
     type ViaMaker = Sky130ViaMaker;
     fn via_maker() -> Self::ViaMaker {
         Sky130ViaMaker
     }
 }
 
-impl Tile for TerminationSlice {
+impl Tile for ResistorBankSlice {
     type Schema = Sky130;
     type NestedData = ();
-    type LayoutBundle = View<TerminationSliceIo, PortGeometryBundle<Self::Schema>>;
+    type LayoutBundle = View<ResistorBankSliceIo, PortGeometryBundle<Self::Schema>>;
     type LayoutData = ();
 
     fn tile<'a>(
@@ -80,10 +81,6 @@ impl Tile for TerminationSlice {
         let res = cell.draw(res)?;
         let tap = cell.draw(tap)?;
 
-        let vss_rect = tap.layout.io().vnb.primary.bbox_rect();
-        cell.layout.draw(Shape::new(Sky130Layer::Met1, vss_rect))?;
-        cell.assign_grid_points(Some(*tap.schematic.io().vnb), 1, vss_rect);
-
         en.merge(n.layout.io().g[0].clone());
         din.merge(n.layout.io().sd[1].clone());
         vss.merge(n.layout.io().b);
@@ -93,10 +90,15 @@ impl Tile for TerminationSlice {
         cell.set_top_layer(2);
         cell.set_router(GreedyRouter::new());
         cell.set_via_maker(Sky130ViaMaker);
+        cell.set_strapper(GreedyStrapper);
+        cell.set_strapping(
+            io.vss,
+            StrappingParams::new(1, vec![LayerStrappingParams::ViaDown { min_period: 5 }]),
+        );
 
         Ok(TileData {
             nested_data: (),
-            layout_bundle: TerminationSliceIoView {
+            layout_bundle: ResistorBankSliceIoView {
                 din: din.build()?,
                 en: en.build()?,
                 vss: vss.build()?,
@@ -111,14 +113,14 @@ impl Tile for TerminationSlice {
 mod tests {
     use super::*;
 
-    use atoll::TileWrapper;
     use atoll::fold::{FoldedArray, PinConfig};
+    use atoll::TileWrapper;
     use scir::netlist::ConvertibleNetlister;
-    use sky130::Sky130SrcNdaSchema;
     use sky130::atoll::MosLength;
     use sky130::res::{PrecisionResistor, PrecisionResistorWidth};
-    use sky130::{Sky130, layout::to_gds};
-    use spice::{Spice, netlist::NetlistOptions};
+    use sky130::Sky130SrcNdaSchema;
+    use sky130::{layout::to_gds, Sky130};
+    use spice::{netlist::NetlistOptions, Spice};
     use std::path::PathBuf;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;
@@ -136,16 +138,16 @@ mod tests {
     }
 
     #[test]
-    fn termination_slice_lvs() {
+    fn resistor_bank_slice_lvs() {
         let work_dir = PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/build/termination_slice_lvs"
+            "/build/resistor_bank_slice_lvs"
         ));
         let gds_path = work_dir.join("layout.gds");
         let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_src_nda_ctx();
 
-        let block = TileWrapper::new(TerminationSlice {
+        let block = TileWrapper::new(ResistorBankSlice {
             tap: PtapTile::new(7, 4),
             res: PrecisionResistorCell {
                 resistor: PrecisionResistor {
@@ -176,11 +178,8 @@ mod tests {
     }
 
     #[test]
-    fn termination_bank() {
-        let work_dir = PathBuf::from(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/build/termination_bank"
-        ));
+    fn resistor_bank() {
+        let work_dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/build/resistor_bank"));
         let gds_path = work_dir.join("layout.gds");
         let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_src_nda_ctx();
@@ -194,9 +193,9 @@ mod tests {
                     layer: 0,
                     side: Side::Top,
                 },
-                PinConfig::Ignore,
+                PinConfig::Parallel { layer: 1 },
             ],
-            tile: TerminationSlice {
+            tile: ResistorBankSlice {
                 tap: PtapTile::new(7, 4),
                 res: PrecisionResistorCell {
                     resistor: PrecisionResistor {
