@@ -1,6 +1,6 @@
 //! ATOLL Segment Folding.
 
-use crate::abs::{GridCoord, TrackCoord};
+use crate::abs::{Abstract, GridCoord, TrackCoord};
 use crate::grid::{AbstractLayer, RoutingGrid, RoutingState};
 use crate::route::ViaMaker;
 use crate::Tile;
@@ -41,6 +41,8 @@ pub struct FoldedArray<T> {
     pub pins: Vec<PinConfig>,
     /// The top layer of the array.
     pub top_layer: usize,
+    /// The direction in which series/parallel pins of the tile abut.
+    pub dir: Dir,
 }
 
 /// Segment folding pin configuration.
@@ -51,8 +53,8 @@ pub enum PinConfig {
     Series {
         /// Index of the other pin.
         partner: usize,
-        /// Pin direction.
-        dir: Dir,
+        /// Pin layer.
+        layer: usize,
     },
     /// Parallel connection.
     Parallel {
@@ -150,11 +152,13 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         let zero = Rect::default();
         let mut prev_nodes = vec![];
         let mut series_partners = HashSet::new();
+        // Identify series pin pairs.
         for pin in self.pins.iter() {
             if let PinConfig::Series { partner, .. } = *pin {
                 series_partners.insert(partner);
             }
         }
+        // Tile the array.
         for _row in 0..self.rows {
             for col in 0..self.cols {
                 let mut inst = cell.generate(self.tile.clone());
@@ -393,7 +397,28 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     );
                 }
                 PinConfig::Ignore => (),
-                _ => unimplemented!(),
+                PinConfig::Series { partner, layer } => {
+                    let output_net = *net;
+                    let dir = abs.grid.stack.layer(layer).dir.track_dir();
+                    let input_net = abs.ports[partner];
+                    let dir_width = if dir == Dir::Horiz {
+                        state.layer(layer).cols()
+                    } else {
+                        state.layer(layer).rows()
+                    };
+                    let coord_output =
+                        max_extent_track(&state, layer, dir, output_net).expect("pin not present");
+                    let coord_input =
+                        max_extent_track(&state, layer, dir, input_net).expect("pin not present");
+                    let (igdl_min, igdl_max) =
+                        max_gdl_extent_on_track(&state, layer, dir, coord_input, input_net)
+                            .unwrap();
+                    let (ogdl_min, ogdl_max) =
+                        max_gdl_extent_on_track(&state, layer, dir, coord_output, output_net)
+                            .unwrap();
+                    // reflect
+                    let (ogdl_min, ogdl_max) = (dir_width - ogdl_max, dir_width - ogdl_min);
+                }
             }
         }
 
@@ -635,6 +660,32 @@ fn max_extent_full_track(
         }?
         .0,
     )
+}
+
+fn max_gdl_extent_on_track(
+    state: &RoutingState<AbstractLayer>,
+    layer: usize,
+    dir: Dir,
+    track: usize,
+    net: NetId,
+) -> Option<(usize, usize)> {
+    if dir == Dir::Horiz {
+        state
+            .layer(layer)
+            .iter_col(track)
+            .enumerate()
+            .filter_map(|(i, elt)| elt.is_routed_for_net(net).then_some(i))
+            .minmax()
+            .into_option()
+    } else {
+        state
+            .layer(layer)
+            .iter_row(track)
+            .enumerate()
+            .filter_map(|(i, elt)| elt.is_routed_for_net(net).then_some(i))
+            .minmax()
+            .into_option()
+    }
 }
 
 fn max_extent_track(
