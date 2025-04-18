@@ -379,7 +379,7 @@ impl<'a, L: AtollLayer + Clone> GreedyStrapperState<'a, L> {
                         }
                     }
                     if let Some(start) = start {
-                        let stop = Some(inner_end); // Used to be inner_end.checked_sub(via_space).
+                        let stop = (inner_end + 1).checked_sub(via_space);
                         if let Some(stop) = stop {
                             self.push_strap_if_valid(
                                 Strap {
