@@ -1,4 +1,4 @@
-use atoll::{route::GreedyRouter, Orientation, Tile, TileData};
+use atoll::{fold::Foldable, route::GreedyRouter, Orientation, Tile, TileData};
 use layir::Shape;
 use sky130::{
     atoll::{GateDir, MosLength, NmosTile, NtapTile, PmosTile, PtapTile, Sky130ViaMaker},
@@ -122,6 +122,14 @@ impl Tile for Inverter {
     }
 }
 
+impl Foldable for Inverter {
+    type ViaMaker = Sky130ViaMaker;
+
+    fn via_maker() -> Self::ViaMaker {
+        Sky130ViaMaker
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::sky130_cds_ctx;
@@ -221,55 +229,92 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn inverter_chain_layout_atoll() {
-    //     let work_dir = PathBuf::from(concat!(
-    //         env!("CARGO_MANIFEST_DIR"),
-    //         "/build/inverter_chain_layout"
-    //     ));
-    //     let gds_path = work_dir.join("layout.gds");
-    //     let netlist_path = work_dir.join("netlist.sp");
-    //     let ctx = sky130_cds_ctx();
+    #[test]
+    fn inverter_chain_layout_atoll() {
+        let work_dir = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/build/inverter_chain_layout_atoll"
+        ));
+        let layout_path = work_dir.join("layout.gds");
+        let netlist_path = work_dir.join("netlist.sp");
+        let ctx = sky130_cds_ctx();
 
-    //     let block = TileWrapper::new(FoldedArray {
-    //         rows: 2,
-    //         cols: 20,
-    //         pins: vec![
-    //             PinConfig::Parallel { layer: 1 },
-    //             PinConfig::Escape {
-    //                 layer: 0,
-    //                 side: Side::Top,
-    //             },
-    //             PinConfig::Parallel { layer: 1 },
-    //         ],
-    //         tile: Inverter {
-    //             tap: PtapTile::new(7, 4),
-    //             res: PrecisionResistorCell {
-    //                 resistor: PrecisionResistor {
-    //                     width: PrecisionResistorWidth::W141,
-    //                     length: 2_000,
-    //                 },
-    //                 dir: Dir::Vert,
-    //             },
-    //             n: NmosTile::new(2_000, MosLength::L150, 6),
-    //         },
-    //         top_layer: 3,
-    //     });
+        let block = TileWrapper::new(FoldedArray {
+            tile: Inverter {
+                nw: 1_200,
+                pw: 2_400,
+            },
+            rows: 5,
+            cols: 5,
+            pins: vec![
+                PinConfig::Ignore,
+                PinConfig::Ignore,
+                PinConfig::Series {
+                    partner: 3,
+                    layer: 1,
+                },
+                PinConfig::Series {
+                    partner: 2,
+                    layer: 1,
+                },
+            ],
+            top_layer: 2,
+            dir: Dir::Horiz,
+        });
 
-    //     let scir = ctx
-    //         .export_scir(block.clone())
-    //         .unwrap()
-    //         .scir
-    //         .convert_schema::<Sky130SrcNdaSchema>()
-    //         .unwrap()
-    //         .convert_schema::<Spice>()
-    //         .unwrap()
-    //         .build()
-    //         .unwrap();
-    //     Spice
-    //         .write_scir_netlist_to_file(&scir, &netlist_path, NetlistOptions::default())
-    //         .expect("failed to write netlist");
-    //     ctx.write_layout(block, to_gds, &gds_path)
-    //         .expect("failed to write layout");
-    // }
+        ctx.write_layout(block.clone(), to_gds, &layout_path)
+            .unwrap();
+
+        // Run DRC.
+        let drc_dir = work_dir.join("drc");
+        let data = run_drc(&DrcParams {
+            work_dir: &drc_dir,
+            layout_path: &layout_path,
+            cell_name: &block.name(),
+            rules_dir: &PathBuf::from(SKY130_DRC),
+            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+        })
+        .expect("failed to run drc");
+
+        assert_eq!(
+            data.rule_checks
+                .into_iter()
+                .filter(test_check_filter)
+                .count(),
+            0,
+            "layout was not DRC clean"
+        );
+
+        // Run LVS.
+        let lvs_dir = work_dir.join("lvs");
+        let source_path = work_dir.join("schematic.spice");
+        let rawlib = ctx
+            .export_scir(ConvertSchema::<_, Spice>::new(ConvertSchema::<
+                _,
+                Sky130CdsSchema,
+            >::new(
+                block.clone()
+            )))
+            .unwrap();
+
+        Spice
+            .write_scir_netlist_to_file(&rawlib.scir, &source_path, NetlistOptions::default())
+            .expect("failed to write netlist");
+        let output = pegasus::lvs::run_lvs(&LvsParams {
+            work_dir: &lvs_dir,
+            layout_path: &layout_path,
+            layout_cell_name: &block.name(),
+            source_paths: &[source_path],
+            source_cell_name: &block.name(),
+            rules_dir: &PathBuf::from(SKY130_LVS),
+            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+        })
+        .expect("failed to run lvs");
+
+        assert_eq!(
+            output.status,
+            LvsStatus::Correct,
+            "layout does not match netlist"
+        );
+    }
 }
