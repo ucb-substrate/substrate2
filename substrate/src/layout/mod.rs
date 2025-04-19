@@ -684,11 +684,11 @@ impl<S: Schema> Draw<S> for DrawReceiver<S> {
 }
 
 impl<S: Schema> Bbox for DrawReceiver<S> {
-    // TODO: process containers?
     fn bbox(&self) -> Option<geometry::rect::Rect> {
         self.get_instances()
             .bbox()
             .bounding_union(&self.elements.bbox())
+            .bounding_union(&self.containers.bbox())
     }
 }
 
@@ -740,8 +740,8 @@ impl<S: Schema, T: Draw<S> + ?Sized> Draw<S> for Box<T> {
     }
 }
 
-/// TODO: Temporarily private until we decide whether it is worth exposing.
-pub(crate) struct Container<S: Schema> {
+/// A container for drawn objects.
+pub struct Container<S: Schema> {
     recvs: Vec<DrawReceiver<S>>,
     trans: Transformation,
 }
@@ -780,6 +780,7 @@ impl<S: Schema> Default for Container<S> {
 }
 
 impl<S: Schema> Container<S> {
+    /// Creates a new container.
     pub fn new() -> Self {
         Self::default()
     }
@@ -794,9 +795,7 @@ impl<S: Schema> Container<S> {
     pub(crate) fn recv_mut(&mut self) -> &mut DrawReceiver<S> {
         self.recvs.last_mut().unwrap()
     }
-}
 
-impl<S: Schema> Container<S> {
     /// Draw layout object `obj`.
     ///
     /// For instances, a new thread is spawned to add the instance once the underlying cell has

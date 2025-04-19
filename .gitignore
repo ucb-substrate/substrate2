@@ -1,6 +1,8 @@
 # Created by https://www.toptal.com/developers/gitignore/api/rust,vim,macos,windows,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=rust,vim,macos,windows,linux
 
+target
+build
 ### Linux ###
 *~
 

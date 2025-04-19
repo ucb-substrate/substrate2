@@ -74,6 +74,21 @@ pub fn sky130_src_nda_ctx() -> Context {
         .build()
 }
 
+/// Create a new Substrate context for the SKY130 CDS PDK.
+///
+/// # Panics
+///
+/// Panics if the `SKY130_CDS_PDK_ROOT` environment variable is not set,
+/// or if its value is not a valid UTF-8 string.
+pub fn sky130_cds_ctx() -> Context {
+    let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
+        .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
+    Context::builder()
+        .install(spectre::Spectre::default())
+        .install(Sky130::cds_only(pdk_root))
+        .build()
+}
+
 #[derive_where(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct And2Tb<S> {
     schema: PhantomData<fn() -> S>,
