@@ -639,15 +639,60 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     let track = match_output.pair[*match_mapping[net].as_ref().unwrap_series()];
                     let dir = !self.dir;
                     let layer_grid = state.layer(track.layer);
-                    let (counth, deltah) = if self.dir == Dir::Vert {
-                        (self.cols, layer_grid.rows())
+                    let (n_perp, n_par, deltah, delta_gdl) = if self.dir == Dir::Vert {
+                        (self.cols, self.rows, layer_grid.rows(), layer_grid.cols())
                     } else {
-                        (self.rows, layer_grid.cols())
+                        (self.rows, self.cols, layer_grid.cols(), layer_grid.rows())
                     };
                     let data = &series_pin_data[net];
-                    for i in 0..counth - 1 {
-                        // TODO(rahulk29): connect output of row/col i to input i+1
-                        data.coord_output
+                    let pdk_layer = stack.layer(track.layer).layer.clone();
+                    for i in 0..n_perp - 1 {
+                        let tidx = if i % 2 == 0 {
+                            (n_par * deltah + track.track) as i64
+                        } else {
+                            -(track.track as i64)
+                        };
+                        let delta = if dir == Dir::Vert {
+                            -((i * delta_gdl) as i64)
+                        } else {
+                            -((i * delta_gdl) as i64)
+                        };
+                        let gdl_min = std::cmp::min(data.coord_input, data.coord_output) as i64
+                            - (i * delta_gdl) as i64;
+                        let gdl_max = std::cmp::max(data.coord_input, data.coord_output) as i64
+                            - (i * delta_gdl) as i64;
+                        let recth = grid.track(track.layer, tidx, gdl_min, gdl_max);
+                        cell.layout.draw(Shape::new(pdk_layer.clone(), recth))?;
+
+                        // TODO transform these
+                        let coord_input = data.coord_input as i64;
+                        let coord_output = data.coord_output as i64;
+                        let r_input = grid.track(
+                            layer,
+                            coord_input,
+                            data.igdl_min as i64,
+                            data.igdl_max as i64,
+                        );
+                        let r_input = Rect::from_dir_spans(
+                            self.dir,
+                            r_input.span(self.dir).union(recth.span(self.dir)),
+                            r_input.span(!self.dir),
+                        );
+                        let pdk_layer = stack.layer(layer).layer.clone();
+                        cell.layout.draw(Shape::new(pdk_layer.clone(), r_input));
+                        let r_output = grid.track(
+                            layer,
+                            coord_output,
+                            data.igdl_min as i64,
+                            data.igdl_max as i64,
+                        );
+                        let r_output = Rect::from_dir_spans(
+                            self.dir,
+                            r_output.span(self.dir).union(recth.span(self.dir)),
+                            r_output.span(!self.dir),
+                        );
+                        let pdk_layer = stack.layer(layer).layer.clone();
+                        cell.layout.draw(Shape::new(pdk_layer.clone(), r_output));
                     }
                 }
                 PinConfig::Ignore => (),
