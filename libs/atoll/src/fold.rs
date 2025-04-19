@@ -647,7 +647,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     let data = &series_pin_data[net];
                     for i in 0..counth - 1 {
                         // TODO(rahulk29): connect output of row/col i to input i+1
-                        data.coord_output
                     }
                 }
                 PinConfig::Ignore => (),
