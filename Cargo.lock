@@ -2595,6 +2595,7 @@ name = "sky130_inverter"
 version = "0.0.0"
 dependencies = [
  "arcstr",
+ "atoll",
  "gds",
  "gdsconv",
  "layir",
