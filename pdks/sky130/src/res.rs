@@ -1,7 +1,7 @@
 //! Resistors.
 
 use atoll::{
-    grid::{LayerStack, PdkLayer},
+    grid::{AtollLayer, LayerStack, PdkLayer},
     AtollPrimitive,
 };
 use geometry::{
@@ -200,6 +200,22 @@ impl Layout for PrecisionResistorCell {
         cell.draw(container)?;
 
         let slice = stack.slice(0..2);
+        let (li1p, li1n) = (
+            Shape::new(
+                Sky130Layer::Li1,
+                slice
+                    .lcm_to_physical_rect(slice.expand_to_lcm_units(li1p.bbox_rect()))
+                    .expand_all(slice.layer(0).line() / 2),
+            ),
+            Shape::new(
+                Sky130Layer::Li1,
+                slice
+                    .lcm_to_physical_rect(slice.expand_to_lcm_units(li1n.bbox_rect()))
+                    .expand_all(slice.layer(0).line() / 2),
+            ),
+        );
+        cell.draw(li1p.clone())?;
+        cell.draw(li1n.clone())?;
         let bbox = cell.bbox().unwrap();
         let lcm_bbox = slice.lcm_to_physical_rect(slice.expand_to_lcm_units(bbox));
 
