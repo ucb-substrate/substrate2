@@ -3,12 +3,12 @@
 use crate::abs::{Abstract, GridCoord, TrackCoord};
 use crate::grid::{AbstractLayer, RoutingGrid, RoutingState};
 use crate::route::ViaMaker;
-use crate::Tile;
 use crate::{
     get_abstract,
     grid::{LayerStack, PdkLayer},
     NetId, PointState, TileBuilder, TileData,
 };
+use crate::{Orientation, Tile};
 use arcstr::ArcStr;
 use itertools::Itertools;
 use layir::Shape;
@@ -124,6 +124,7 @@ pub trait Foldable: Tile {
 #[enumify::enumify]
 enum MatchMapping {
     Parallel(usize),
+    Series(usize),
     Escape(EscapeMapping),
 }
 
@@ -142,6 +143,16 @@ struct EscapePinData {
     coord_gdl_max: usize,
 }
 
+#[derive(Debug, Clone)]
+struct SeriesPinData {
+    coord_output: usize,
+    coord_input: usize,
+    igdl_min: usize,
+    igdl_max: usize,
+    ogdl_min_refl: usize,
+    ogdl_max_refl: usize,
+}
+
 impl<T: Tile + Clone + Foldable> FoldedArray<T> {
     fn analyze(
         &self,
@@ -152,19 +163,36 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         let zero = Rect::default();
         let mut prev_nodes = vec![];
         let mut series_partners = HashSet::new();
+        let mut n_series_pairs = 0;
         // Identify series pin pairs.
         for pin in self.pins.iter() {
             if let PinConfig::Series { partner, .. } = *pin {
                 series_partners.insert(partner);
+                n_series_pairs += 1;
             }
         }
+        // make variable immutable
+        let n_series_pairs = n_series_pairs;
         // Tile the array.
-        for _row in 0..self.rows {
+        // TODO(rohanku): reflect alternating rows/cols
+        for row in 0..self.rows {
             for col in 0..self.cols {
                 let mut inst = cell.generate(self.tile.clone());
+                match self.dir {
+                    Dir::Horiz => {
+                        if row % 2 == 1 {
+                            inst.orient_mut(Orientation::ReflectHoriz);
+                        }
+                    }
+                    Dir::Vert => {
+                        if col % 2 == 1 {
+                            inst.orient_mut(Orientation::ReflectVert);
+                        }
+                    }
+                }
                 if col == 0 {
                     inst.align_rect_mut(zero, AlignMode::Left, 0);
-                    inst.align_rect_mut(prev, AlignMode::Beneath, 0);
+                    inst.align_rect_mut(zero, AlignMode::Beneath, 0);
                 } else {
                     inst.align_rect_mut(prev, AlignMode::ToTheRight, 0);
                     inst.align_rect_mut(prev, AlignMode::Bottom, 0);
@@ -254,6 +282,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         let mut match_input = Vec::new();
         let mut match_mapping = HashMap::new();
         let mut escape_pin_data = HashMap::new();
+        let mut series_pin_data = HashMap::new();
 
         for (net, cfg) in abs.ports.iter().zip(self.pins.iter()) {
             match *cfg {
@@ -418,6 +447,26 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             .unwrap();
                     // reflect
                     let (ogdl_min, ogdl_max) = (dir_width - ogdl_max, dir_width - ogdl_min);
+                    match_mapping.insert(net, MatchMapping::Series(match_input.len()));
+                    // TODO: iteratively decide how many extra tracks to add
+                    let tracks = (0..n_series_pairs)
+                        .map(|i| LayerTrack {
+                            layer: layer + 1,
+                            track: dir_width + i,
+                        })
+                        .collect();
+                    match_input.push(tracks);
+                    series_pin_data.insert(
+                        net,
+                        SeriesPinData {
+                            coord_output,
+                            coord_input,
+                            igdl_min,
+                            igdl_max,
+                            ogdl_min_refl: ogdl_min,
+                            ogdl_max_refl: ogdl_max,
+                        },
+                    );
                 }
             }
         }
@@ -586,11 +635,25 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                         }
                     }
                 }
+                PinConfig::Series { partner, layer } => {
+                    let track = match_output.pair[*match_mapping[net].as_ref().unwrap_series()];
+                    let dir = !self.dir;
+                    let layer_grid = state.layer(track.layer);
+                    let (counth, deltah) = if self.dir == Dir::Vert {
+                        (self.cols, layer_grid.rows())
+                    } else {
+                        (self.rows, layer_grid.cols())
+                    };
+                    let data = &series_pin_data[net];
+                    for i in 0..counth - 1 {
+                        // TODO(rahulk29): connect output of row/col i to input i+1
+                        data.coord_output
+                    }
+                }
                 PinConfig::Ignore => (),
                 _ => unimplemented!(),
             }
         }
-        // route escape pins on pin, pin+1 OR pin+1, pin+0/2
         Ok(())
     }
 }
