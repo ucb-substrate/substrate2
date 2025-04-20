@@ -105,7 +105,7 @@ impl Tile for Inverter {
         );
 
         cell.set_router(GreedyRouter::new());
-        cell.set_top_layer(1);
+        cell.set_top_layer(2);
         cell.set_via_maker(Sky130ViaMaker);
 
         Ok(TileData {
@@ -249,10 +249,7 @@ mod tests {
             pins: vec![
                 PinConfig::Ignore,
                 PinConfig::Ignore,
-                PinConfig::Series {
-                    partner: 3,
-                    layer: 1,
-                },
+                PinConfig::Ignore,
                 PinConfig::Series {
                     partner: 2,
                     layer: 1,

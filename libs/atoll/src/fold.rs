@@ -149,8 +149,12 @@ struct SeriesPinData {
     coord_input: usize,
     igdl_min: usize,
     igdl_max: usize,
-    ogdl_min_refl: usize,
-    ogdl_max_refl: usize,
+    ogdl_min: usize,
+    ogdl_max: usize,
+    /// width of tile on layer
+    dir_width: usize,
+    /// width of tile on layer + 1
+    dir_width_h: usize,
 }
 
 impl<T: Tile + Clone + Foldable> FoldedArray<T> {
@@ -174,7 +178,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
         // make variable immutable
         let n_series_pairs = n_series_pairs;
         // Tile the array.
-        // TODO(rohanku): reflect alternating rows/cols
         for row in 0..self.rows {
             for col in 0..self.cols {
                 let mut inst = cell.generate(self.tile.clone());
@@ -192,7 +195,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                 }
                 if col == 0 {
                     inst.align_rect_mut(zero, AlignMode::Left, 0);
-                    inst.align_rect_mut(zero, AlignMode::Beneath, 0);
+                    inst.align_rect_mut(prev, AlignMode::Beneath, 0);
                 } else {
                     inst.align_rect_mut(prev, AlignMode::ToTheRight, 0);
                     inst.align_rect_mut(prev, AlignMode::Bottom, 0);
@@ -245,6 +248,10 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     assert!(layer + 2 < stack.len());
                     chk_layers.insert(layer + 1);
                     chk_layers.insert(layer + 2);
+                }
+                PinConfig::Series { layer, .. } => {
+                    assert!(layer + 1 < stack.len());
+                    chk_layers.insert(layer + 1);
                 }
                 PinConfig::Ignore => (),
                 _ => unimplemented!(),
@@ -435,6 +442,12 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     } else {
                         state.layer(layer).rows()
                     };
+                    let dir_width_h = if !dir == Dir::Horiz {
+                        state.layer(layer + 1).cols()
+                    } else {
+                        state.layer(layer + 1).rows()
+                    };
+                    println!("dir width = {dir_width}");
                     let coord_output =
                         max_extent_track(&state, layer, dir, output_net).expect("pin not present");
                     let coord_input =
@@ -445,14 +458,11 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     let (ogdl_min, ogdl_max) =
                         max_gdl_extent_on_track(&state, layer, dir, coord_output, output_net)
                             .unwrap();
-                    // reflect
-                    let (ogdl_min, ogdl_max) = (dir_width - ogdl_max, dir_width - ogdl_min);
                     match_mapping.insert(net, MatchMapping::Series(match_input.len()));
-                    // TODO: iteratively decide how many extra tracks to add
                     let tracks = (0..n_series_pairs)
                         .map(|i| LayerTrack {
                             layer: layer + 1,
-                            track: dir_width + i,
+                            track: dir_width_h + i,
                         })
                         .collect();
                     match_input.push(tracks);
@@ -463,8 +473,10 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             coord_input,
                             igdl_min,
                             igdl_max,
-                            ogdl_min_refl: ogdl_min,
-                            ogdl_max_refl: ogdl_max,
+                            ogdl_min,
+                            ogdl_max,
+                            dir_width,
+                            dir_width_h,
                         },
                     );
                 }
@@ -479,7 +491,8 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
 
         let bbox = cell.layout.bbox_rect();
         // strap parallel pins on matched track
-        let grid = RoutingGrid::new((*stack).clone(), 0..(abs.top_layer + 1));
+        println!("top layer = {}", self.top_layer);
+        let grid = RoutingGrid::new((*stack).clone(), 0..(self.top_layer + 1));
         let track_idx = |dir, base, i, delta| {
             if dir == Dir::Horiz {
                 base as i64 - ((i + 1) * delta) as i64
@@ -639,60 +652,103 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     let track = match_output.pair[*match_mapping[net].as_ref().unwrap_series()];
                     let dir = !self.dir;
                     let layer_grid = state.layer(track.layer);
+                    let bot_grid = state.layer(layer);
                     let (n_perp, n_par, deltah, delta_gdl) = if self.dir == Dir::Vert {
-                        (self.cols, self.rows, layer_grid.rows(), layer_grid.cols())
+                        (self.cols, self.rows, layer_grid.cols(), bot_grid.cols())
                     } else {
-                        (self.rows, self.cols, layer_grid.cols(), layer_grid.rows())
+                        (self.rows, self.cols, layer_grid.rows(), bot_grid.rows())
                     };
+                    println!("deltah = {deltah}");
                     let data = &series_pin_data[net];
                     let pdk_layer = stack.layer(track.layer).layer.clone();
                     for i in 0..n_perp - 1 {
                         let tidx = if i % 2 == 0 {
-                            (n_par * deltah + track.track) as i64
+                            ((n_par - 1) * deltah + track.track) as i64
                         } else {
-                            -(track.track as i64)
+                            -((track.track - deltah) as i64)
                         };
                         let delta = if dir == Dir::Vert {
                             -((i * delta_gdl) as i64)
                         } else {
                             -((i * delta_gdl) as i64)
                         };
-                        let gdl_min = std::cmp::min(data.coord_input, data.coord_output) as i64
-                            - (i * delta_gdl) as i64;
-                        let gdl_max = std::cmp::max(data.coord_input, data.coord_output) as i64
-                            - (i * delta_gdl) as i64;
+                        // TODO: this only works if dir is horizontal
+                        let coord_output =
+                            data.coord_output as i64 - (data.dir_width * (i + 1)) as i64;
+                        let coord_input =
+                            data.coord_input as i64 - (data.dir_width * (i + 2)) as i64;
+                        let gdl_min = std::cmp::min(coord_input, coord_output);
+                        let gdl_max = std::cmp::max(coord_input, coord_output);
+                        println!("tidx = {tidx}");
                         let recth = grid.track(track.layer, tidx, gdl_min, gdl_max);
                         cell.layout.draw(Shape::new(pdk_layer.clone(), recth))?;
 
-                        // TODO transform these
-                        let coord_input = data.coord_input as i64;
-                        let coord_output = data.coord_output as i64;
-                        let r_input = grid.track(
-                            layer,
-                            coord_input,
-                            data.igdl_min as i64,
-                            data.igdl_max as i64,
-                        );
+                        let (igdl_min, igdl_max, ogdl_min, ogdl_max) = if i % 2 == 0 {
+                            (
+                                delta_gdl - data.igdl_min + delta_gdl * (n_perp - 1),
+                                delta_gdl - data.igdl_max + delta_gdl * (n_perp - 1),
+                                data.ogdl_min + delta_gdl * (n_perp - 1),
+                                data.ogdl_max + delta_gdl * (n_perp - 1),
+                            )
+                        } else {
+                            (
+                                data.igdl_min,
+                                data.igdl_max,
+                                delta_gdl - data.ogdl_min,
+                                delta_gdl - data.ogdl_max,
+                            )
+                        };
+                        let r_input =
+                            grid.track(layer, coord_input, igdl_min as i64, igdl_max as i64);
                         let r_input = Rect::from_dir_spans(
                             self.dir,
                             r_input.span(self.dir).union(recth.span(self.dir)),
                             r_input.span(!self.dir),
                         );
                         let pdk_layer = stack.layer(layer).layer.clone();
-                        cell.layout.draw(Shape::new(pdk_layer.clone(), r_input));
-                        let r_output = grid.track(
-                            layer,
-                            coord_output,
-                            data.igdl_min as i64,
-                            data.igdl_max as i64,
-                        );
+                        cell.layout.draw(Shape::new(pdk_layer.clone(), r_input))?;
+                        let via_maker = T::via_maker();
+                        let track_coord = if self.dir == Dir::Horiz {
+                            TrackCoord {
+                                layer: track.layer,
+                                x: tidx,
+                                y: coord_input,
+                            }
+                        } else {
+                            TrackCoord {
+                                layer: track.layer,
+                                x: coord_input,
+                                y: tidx,
+                            }
+                        };
+                        for shape in via_maker.draw_via(ctx.clone(), track_coord) {
+                            cell.layout.draw(shape)?;
+                        }
+
+                        let r_output =
+                            grid.track(layer, coord_output, ogdl_min as i64, ogdl_max as i64);
                         let r_output = Rect::from_dir_spans(
                             self.dir,
                             r_output.span(self.dir).union(recth.span(self.dir)),
                             r_output.span(!self.dir),
                         );
-                        let pdk_layer = stack.layer(layer).layer.clone();
-                        cell.layout.draw(Shape::new(pdk_layer.clone(), r_output));
+                        cell.layout.draw(Shape::new(pdk_layer.clone(), r_output))?;
+                        let track_coord = if self.dir == Dir::Horiz {
+                            TrackCoord {
+                                layer: track.layer,
+                                x: tidx,
+                                y: coord_output,
+                            }
+                        } else {
+                            TrackCoord {
+                                layer: track.layer,
+                                x: coord_output,
+                                y: tidx,
+                            }
+                        };
+                        for shape in via_maker.draw_via(ctx.clone(), track_coord) {
+                            cell.layout.draw(shape)?;
+                        }
                     }
                 }
                 PinConfig::Ignore => (),
