@@ -648,7 +648,7 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                         }
                     }
                 }
-                PinConfig::Series { partner, layer } => {
+                PinConfig::Series { layer, .. } => {
                     let track = match_output.pair[*match_mapping[net].as_ref().unwrap_series()];
                     let dir = !self.dir;
                     let layer_grid = state.layer(track.layer);
@@ -658,7 +658,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     } else {
                         (self.rows, self.cols, layer_grid.rows(), bot_grid.rows())
                     };
-                    println!("deltah = {deltah}");
                     let data = &series_pin_data[net];
                     let pdk_layer = stack.layer(track.layer).layer.clone();
                     for i in 0..n_perp - 1 {
@@ -666,11 +665,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             ((n_par - 1) * deltah + track.track) as i64
                         } else {
                             -((track.track - deltah) as i64)
-                        };
-                        let delta = if dir == Dir::Vert {
-                            -((i * delta_gdl) as i64)
-                        } else {
-                            -((i * delta_gdl) as i64)
                         };
                         // TODO: this only works if dir is horizontal
                         let coord_output =
@@ -748,6 +742,32 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                         };
                         for shape in via_maker.draw_via(ctx.clone(), track_coord) {
                             cell.layout.draw(shape)?;
+                        }
+                    }
+                    for i in 0..n_perp {
+                        for j in 0..n_par - 1 {
+                            assert_eq!(
+                                data.coord_input, data.coord_output,
+                                "series input/output pins must be aligned"
+                            );
+                            let coord_output =
+                                data.coord_output as i64 - (data.dir_width * (i + 1)) as i64;
+                            let (a, b) = if i % 2 == 0 {
+                                (
+                                    data.ogdl_min + delta_gdl * j,
+                                    data.igdl_max + delta_gdl * (j + 1),
+                                )
+                            } else {
+                                (
+                                    delta_gdl - data.ogdl_min + delta_gdl * (j + 1),
+                                    delta_gdl - data.igdl_max + delta_gdl * j,
+                                )
+                            };
+                            let min = std::cmp::min(a, b);
+                            let max = std::cmp::max(a, b);
+                            let rect = grid.track(layer, coord_output, min as i64, max as i64);
+                            let pdk_layer = stack.layer(layer).layer.clone();
+                            cell.layout.draw(Shape::new(pdk_layer.clone(), rect))?;
                         }
                     }
                 }
