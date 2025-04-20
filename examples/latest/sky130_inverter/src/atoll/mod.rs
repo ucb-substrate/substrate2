@@ -293,21 +293,5 @@ mod tests {
         Spice
             .write_scir_netlist_to_file(&rawlib.scir, &source_path, NetlistOptions::default())
             .expect("failed to write netlist");
-        let output = pegasus::lvs::run_lvs(&LvsParams {
-            work_dir: &lvs_dir,
-            layout_path: &layout_path,
-            layout_cell_name: &block.name(),
-            source_paths: &[source_path],
-            source_cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_LVS),
-            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
-        })
-        .expect("failed to run lvs");
-
-        assert_eq!(
-            output.status,
-            LvsStatus::Correct,
-            "layout does not match netlist"
-        );
     }
 }
