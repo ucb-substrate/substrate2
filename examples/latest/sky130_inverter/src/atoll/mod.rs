@@ -142,19 +142,17 @@ mod tests {
     use pegasus::lvs::{LvsParams, LvsStatus};
     use pegasus::RuleCheck;
     use scir::netlist::ConvertibleNetlister;
-    use sky130::atoll::MosLength;
-    use sky130::res::{PrecisionResistor, PrecisionResistorWidth};
-    use sky130::{layout::to_gds, Sky130};
+
+    use sky130::layout::to_gds;
     use sky130::{
-        Sky130CdsSchema, Sky130SrcNdaSchema, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
-        SKY130_LVS_RULES_PATH,
+        Sky130CdsSchema, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
     };
     use spice::{netlist::NetlistOptions, Spice};
     use std::path::PathBuf;
     use substrate::block::Block;
-    use substrate::context::Context;
+
     use substrate::geometry::dir::Dir;
-    use substrate::geometry::side::Side;
+
     use substrate::schematic::ConvertSchema;
 
     fn test_check_filter(check: &RuleCheck) -> bool {
@@ -168,7 +166,6 @@ mod tests {
             "/build/inverter_layout_atoll"
         ));
         let layout_path = work_dir.join("layout.gds");
-        let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_cds_ctx();
 
         let block = TileWrapper::new(Inverter {
@@ -236,7 +233,6 @@ mod tests {
             "/build/inverter_chain_layout_atoll"
         ));
         let layout_path = work_dir.join("layout.gds");
-        let netlist_path = work_dir.join("netlist.sp");
         let ctx = sky130_cds_ctx();
 
         let block = TileWrapper::new(FoldedArray {

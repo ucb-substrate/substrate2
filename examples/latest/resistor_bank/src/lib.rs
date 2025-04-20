@@ -1,8 +1,6 @@
 use atoll::fold::Foldable;
 use atoll::straps::{GreedyStrapper, LayerStrappingParams, StrappingParams};
 use atoll::{Tile, TileData, route::GreedyRouter};
-use layir::Shape;
-use sky130::layers::Sky130Layer;
 use sky130::{
     Sky130,
     atoll::{NmosTile, PtapTile, Sky130ViaMaker},
@@ -207,6 +205,7 @@ mod tests {
                 n: NmosTile::new(2_000, MosLength::L150, 6),
             },
             top_layer: 3,
+            dir: Dir::Horiz,
         });
 
         let scir = ctx

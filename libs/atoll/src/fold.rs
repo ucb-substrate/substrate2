@@ -1,6 +1,6 @@
 //! ATOLL Segment Folding.
 
-use crate::abs::{Abstract, GridCoord, TrackCoord};
+use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{AbstractLayer, RoutingGrid, RoutingState};
 use crate::route::ViaMaker;
 use crate::{
@@ -153,8 +153,6 @@ struct SeriesPinData {
     ogdl_max: usize,
     /// width of tile on layer
     dir_width: usize,
-    /// width of tile on layer + 1
-    dir_width_h: usize,
 }
 
 impl<T: Tile + Clone + Foldable> FoldedArray<T> {
@@ -254,7 +252,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     chk_layers.insert(layer + 1);
                 }
                 PinConfig::Ignore => (),
-                _ => unimplemented!(),
             }
         }
         // analyze layers for passthrough tracks
@@ -476,7 +473,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             ogdl_min,
                             ogdl_max,
                             dir_width,
-                            dir_width_h,
                         },
                     );
                 }
@@ -650,7 +646,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                 }
                 PinConfig::Series { layer, .. } => {
                     let track = match_output.pair[*match_mapping[net].as_ref().unwrap_series()];
-                    let dir = !self.dir;
                     let layer_grid = state.layer(track.layer);
                     let bot_grid = state.layer(layer);
                     let (n_perp, n_par, deltah, delta_gdl) = if self.dir == Dir::Vert {
@@ -772,7 +767,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     }
                 }
                 PinConfig::Ignore => (),
-                _ => unimplemented!(),
             }
         }
         Ok(())
