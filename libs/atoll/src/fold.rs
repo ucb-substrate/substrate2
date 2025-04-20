@@ -13,7 +13,7 @@ use arcstr::ArcStr;
 use itertools::Itertools;
 use layir::Shape;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use substrate::geometry::align::AlignMode;
 use substrate::geometry::bbox::Bbox;
@@ -776,23 +776,87 @@ struct MatchOutput<T> {
 }
 
 fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutput<T>> {
-    let mut assigned = HashSet::new();
-    let mut pair = Vec::new();
-    for item in input.items {
-        let mut found = false;
-        for candidate in item {
-            if !assigned.contains(&candidate) {
-                pair.push(candidate.clone());
-                assigned.insert(candidate);
-                found = true;
-                break;
+    let mut pair_u = HashMap::new();
+    let mut pair_v = HashMap::new();
+    let mut dist_u = HashMap::new();
+    let mut d_max;
+    let u: HashSet<usize> = HashSet::from_iter(0..input.items.len());
+    fn dfs<'a, T: Hash + Eq + Clone>(
+        u: usize,
+        d_max: u64,
+        input: &'a MatchInput<T>,
+        pair_u: &mut HashMap<usize, &'a T>,
+        pair_v: &mut HashMap<&'a T, usize>,
+        dist_u: &mut HashMap<usize, u64>,
+    ) -> bool {
+        for v in input.items[u].iter() {
+            if let Some(&upair) = pair_v.get(v) {
+                if let Some(&upair_dist) = dist_u.get(&upair) {
+                    if let Some(&udist) = dist_u.get(&u) {
+                        if upair_dist == udist.checked_add(1).unwrap()
+                            && dfs(upair, d_max, input, pair_u, pair_v, dist_u)
+                        {
+                            pair_v.insert(v, u);
+                            pair_u.insert(u, v);
+                            return true;
+                        }
+                    }
+                }
+            } else if let Some(&udist) = dist_u.get(&u) {
+                if d_max == udist.checked_add(1).unwrap() {
+                    pair_v.insert(v, u);
+                    pair_u.insert(u, v);
+                    return true;
+                }
             }
         }
-        if !found {
-            return None;
+        dist_u.remove(&u);
+        false
+    }
+
+    while {
+        let mut bfsq = VecDeque::new();
+        for u in u.iter().copied() {
+            if !pair_u.contains_key(&u) {
+                dist_u.insert(u, 0);
+                bfsq.push_back(u);
+            } else {
+                dist_u.remove(&u);
+            }
+        }
+        d_max = u64::MAX;
+        while let Some(u) = bfsq.pop_front() {
+            if let Some(&du) = dist_u.get(&u) {
+                if du < d_max {
+                    for v in input.items[u].iter() {
+                        if let Some(&upair) = pair_v.get(v) {
+                            #[allow(clippy::map_entry)]
+                            if !dist_u.contains_key(&upair) {
+                                dist_u.insert(upair, du.checked_add(1).unwrap());
+                                bfsq.push_back(upair);
+                            }
+                        } else if d_max == u64::MAX {
+                            d_max = du.checked_add(1).unwrap();
+                        }
+                    }
+                }
+            }
+        }
+        d_max != u64::MAX
+    } {
+        for u in u.iter().copied() {
+            if !pair_u.contains_key(&u) {
+                dfs(u, d_max, &input, &mut pair_u, &mut pair_v, &mut dist_u);
+            }
         }
     }
-    Some(MatchOutput { pair })
+
+    let output: Option<Vec<T>> = (0..input.items.len())
+        .map(|u| pair_u.get(&u).map(|v| T::clone(v)))
+        .clone()
+        .collect();
+
+    Some(MatchOutput { pair: output? })
 }
 
 fn max_extent_full_track(
