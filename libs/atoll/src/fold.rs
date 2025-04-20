@@ -198,7 +198,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     inst.align_rect_mut(prev, AlignMode::ToTheRight, 0);
                     inst.align_rect_mut(prev, AlignMode::Bottom, 0);
                 }
-                // TODO only works for horizontal series pins
                 prev = inst.lcm_bounds();
                 let nodes: Vec<Node> = inst.io().flatten_vec();
                 for (i, (node, cfg)) in nodes.iter().zip(self.pins.iter()).enumerate() {
@@ -661,7 +660,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                         } else {
                             -((track.track - deltah) as i64)
                         };
-                        // TODO: this only works if dir is horizontal
                         let coord_output =
                             data.coord_output as i64 - (data.dir_width * (i + 1)) as i64;
                         let coord_input =
