@@ -65,6 +65,7 @@
 #![warn(missing_docs)]
 
 pub mod abs;
+pub mod fold;
 pub mod grid;
 pub mod resizing;
 pub mod route;
@@ -1356,4 +1357,27 @@ impl<T: Tile + Clone> Layout for TileWrapper<T> {
 
         Ok((layout_bundle, layout_data))
     }
+}
+
+pub(crate) fn get_abstract<T: Tile>(
+    tile: T,
+    ctx: Context,
+) -> substrate::error::Result<(Abstract, Vec<Path>)> {
+    let (mut schematic_cell, schematic_io) = prepare_cell_builder(None, ctx.clone(), &tile);
+    let mut layout_cell = layout::CellBuilder::new(ctx.clone());
+    let mut cell = TileBuilder::new(&schematic_io, &mut schematic_cell, &mut layout_cell);
+    let TileData { outline, .. } = <T as Tile>::tile(&tile, &schematic_io, &mut cell)?;
+
+    let ctx_clone = (*cell.ctx()).clone();
+    let atoll_ctx = ctx_clone.get_or_install(AtollContext::default());
+    let (cell, _) = cell.split_for_abstract(schematic_io.flatten_vec(), outline);
+    let abs_path = atoll_ctx
+        .0
+        .write()
+        .unwrap()
+        .cell_cache
+        .generate(tile, move |_tile| cell.finalize_abstract());
+
+    let (abs, paths) = abs_path.get().clone();
+    Ok((abs, paths))
 }

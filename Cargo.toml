@@ -15,6 +15,7 @@ members = [
     "examples/latest/colbuf",
     "examples/latest/vdivider",
     "examples/latest/via",
+    "examples/latest/resistor_bank",
     "examples/latest/substrate_api_examples",
     "libs/atoll",
     "libs/cache",
