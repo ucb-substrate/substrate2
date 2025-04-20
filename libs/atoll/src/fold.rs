@@ -390,7 +390,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                                     y: p1trk,
                                 })
                                 .y;
-                            println!("{min} <= {trky} <= {max}?");
                             if trky >= min && trky <= max && free_tracks[&layer1].contains(&p1trk) {
                                 // p1trk is a candidate track
                                 p1trks.push(LayerTrack {
@@ -443,7 +442,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                     } else {
                         state.layer(layer + 1).rows()
                     };
-                    println!("dir width = {dir_width}");
                     let coord_output =
                         max_extent_track(&state, layer, dir, output_net).expect("pin not present");
                     let coord_input =
@@ -478,15 +476,12 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
             }
         }
 
-        println!("{:#?}", match_input);
-
         // match pins to tracks
         let match_output =
             create_match(MatchInput { items: match_input }).expect("failed to create matching");
 
         let bbox = cell.layout.bbox_rect();
         // strap parallel pins on matched track
-        println!("top layer = {}", self.top_layer);
         let grid = RoutingGrid::new((*stack).clone(), 0..(self.top_layer + 1));
         let track_idx = |dir, base, i, delta| {
             if dir == Dir::Horiz {
@@ -666,7 +661,6 @@ impl<T: Tile + Clone + Foldable> FoldedArray<T> {
                             data.coord_input as i64 - (data.dir_width * (i + 2)) as i64;
                         let gdl_min = std::cmp::min(coord_input, coord_output);
                         let gdl_max = std::cmp::max(coord_input, coord_output);
-                        println!("tidx = {tidx}");
                         let recth = grid.track(track.layer, tidx, gdl_min, gdl_max);
                         cell.layout.draw(Shape::new(pdk_layer.clone(), recth))?;
 
