@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/ucb-substrate/substrate2/compare/cache-v0.7.1...cache-v0.7.2) (2025-04-25)
+
+
+### Bug Fixes
+
+* **deps:** update tonic monorepo to 0.13 ([#642](https://github.com/ucb-substrate/substrate2/issues/642)) ([2b34382](https://github.com/ucb-substrate/substrate2/commit/2b34382d065141ef05f0c8998cd8de39bc4c6154))
+
 ## [0.7.1](https://github.com/ucb-substrate/substrate2/compare/cache-v0.7.0...cache-v0.7.1) (2025-01-24)
 
 
