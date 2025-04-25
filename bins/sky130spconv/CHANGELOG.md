@@ -1,5 +1,11 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.9.1 to 0.9.2
+    * spice bumped from 0.9.2 to 0.9.3
+    * sky130 bumped from 0.10.2 to 0.10.3
+
 ## 0.1.0 (2025-02-02)
 
 

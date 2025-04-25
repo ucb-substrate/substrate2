@@ -6,6 +6,24 @@
     * nutlex bumped from 0.4.1 to 0.4.2
     * spice bumped from 0.9.1 to 0.9.2
 
+## [0.5.3](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.5.2...ngspice-v0.5.3) (2025-04-25)
+
+
+### Features
+
+* **ngspice:** save stdout and stderr to file ngspice.out ([#616](https://github.com/ucb-substrate/substrate2/issues/616)) ([dc8a6fd](https://github.com/ucb-substrate/substrate2/commit/dc8a6fd6234efa6c9bbb6ee735aa15b35d484300))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.7.1 to 0.7.2
+    * scir bumped from 0.9.1 to 0.9.2
+    * substrate bumped from 0.10.2 to 0.10.3
+    * nutlex bumped from 0.4.2 to 0.4.3
+    * spice bumped from 0.9.2 to 0.9.3
+
 ## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.5.0...ngspice-v0.5.1) (2025-01-24)
 
 
