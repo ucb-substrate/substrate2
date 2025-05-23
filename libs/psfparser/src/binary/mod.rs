@@ -226,8 +226,6 @@ impl<'a> PsfParser<'a> {
                     .or_insert(Values::Real(vec![]));
                 let swp_vec = swp_vec.real_mut();
                 swp_vec.push(v);
-                println!("sweep sig id = {:?}", swp_sig.id);
-                println!("begin iter");
 
                 let mut seen = HashSet::with_capacity(self.num_traces() as usize);
 
@@ -312,7 +310,6 @@ impl<'a> PsfParser<'a> {
 
                     seen.insert(sig.id);
                 }
-                println!("end iter");
             }
         }
 
