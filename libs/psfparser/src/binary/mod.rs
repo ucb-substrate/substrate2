@@ -1,5 +1,5 @@
 use num::complex::Complex64;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use self::ast::*;
 
@@ -226,11 +226,62 @@ impl<'a> PsfParser<'a> {
                     .or_insert(Values::Real(vec![]));
                 let swp_vec = swp_vec.real_mut();
                 swp_vec.push(v);
+                println!("sweep sig id = {:?}", swp_sig.id);
+                println!("begin iter");
+
+                let mut seen = HashSet::with_capacity(self.num_traces() as usize);
 
                 for _ in 0..self.num_traces() {
-                    let block_t = read_u32(&mut data);
-                    assert!(block_t == 17 || block_t == 16);
-                    let group_id = GroupId(read_u32(&mut data));
+                    let (data1, block_t) = parse_int(data);
+                    assert!(
+                        block_t == 17 || block_t == 16,
+                        "expected block type ID 16 or 17; got {block_t}"
+                    );
+                    let (data2, id) = parse_int(data1);
+                    if id == swp_sig.id.0 {
+                        // We've seen the start of the next sweep point.
+                        // Assume all unseen signals have the same value
+                        // as the previous sweep point.
+                        for group in self.ast.traces.iter() {
+                            let group_id = match group {
+                                Trace::Group(g) => g.id,
+                                Trace::Signal(s) => GroupId(s.id.0),
+                            };
+                            let sig = grp_to_trace
+                                .get(&group_id)
+                                .expect("no trace found for PSF group");
+                            if seen.contains(&sig.id) {
+                                continue;
+                            }
+                            let data_type = self.ast.types.types[&sig.type_id].data_type;
+
+                            assert_ne!(swp_name, sig.name);
+
+                            match data_type {
+                                DataType::Real => {
+                                    let values =
+                                        values.values.entry(sig.id).or_insert(Values::Real(vec![]));
+                                    let values = values.real_mut();
+                                    let v = *values.last().unwrap();
+                                    values.push(v);
+                                }
+                                DataType::Complex => {
+                                    let values = values
+                                        .values
+                                        .entry(sig.id)
+                                        .or_insert(Values::Complex(vec![]));
+                                    let values = values.complex_mut();
+                                    let v = *values.last().unwrap();
+                                    values.push(v);
+                                }
+                                _ => panic!("Unsupported data type: {data_type:?}"),
+                            };
+                        }
+                        break;
+                    } else {
+                        data = data2;
+                    }
+                    let group_id = GroupId(id);
                     let sig = grp_to_trace
                         .get(&group_id)
                         .expect("no trace found for PSF group");
@@ -258,7 +309,10 @@ impl<'a> PsfParser<'a> {
                         }
                         _ => panic!("Unsupported data type: {data_type:?}"),
                     };
+
+                    seen.insert(sig.id);
                 }
+                println!("end iter");
             }
         }
 
