@@ -4,8 +4,10 @@ resolver = "2"
 
 members = [
   "colbuf",
+  "resistor_bank",
   "sky130_inverter",
   "spice_vdivider",
+  "strongarm",
   "substrate_api_examples",
   "vdivider",
   "via"

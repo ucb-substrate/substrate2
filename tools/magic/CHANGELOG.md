@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/magic-v0.2.1...magic-v0.2.2) (2025-05-23)
+
+
+### Bug Fixes
+
+* **schematic:** fix bug in direction wrapper type flattening ([#637](https://github.com/ucb-substrate/substrate2/issues/637)) ([04b373e](https://github.com/ucb-substrate/substrate2/commit/04b373e7acae179f9a77aad880df8b44b7d23a68))
+
 ## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/magic-v0.2.0...magic-v0.2.1) (2025-01-24)
 
 
