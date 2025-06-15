@@ -24,29 +24,6 @@ trait Connectivity: Sized + PartialEq + Clone{
         shape1_bbox.intersection(shape2_bbox) != None
     }
 
-    /// Returns a vector of connected shapes in neighoring layers to a given shape (unused).
-    fn connected_shapes<'a, 'b>(
-        cell: &'a Cell<Self>,
-        start: &'b Shape<Self>,
-    ) -> Vec<&'a Shape<Self>> {
-        
-        let mut ret : Vec<&'a Shape<Self>> = vec![];
-
-        for elem in cell.elements() {
-           
-            if let Element::Shape(shape) = elem {
-
-                if start.layer() == shape.layer() && Self::intersect_shapes(start, shape) { //This is the same layer case
-                    ret.push(shape);
-                } else if start.layer().connected(shape.layer()) && Self::intersect_shapes(start, shape)  {//If layers are connected, and they intersect
-                    ret.push(shape);
-                }
-            }
-        }
-        
-        ret
-    }
-
     /// Returns a vector of all sub-cells in a given cell.
     fn get_cells<'a>(
         cell : &'a Cell<Self>,
@@ -61,38 +38,24 @@ trait Connectivity: Sized + PartialEq + Clone{
         }
         ret
     }
-    
-    //when we get an instance, it is a cell and a transformation
-    //
-    //there is a function called transform_mut that a shape calls and takes a transformation 
-    //
-    //the basic pseudocode is that after you obtain all the elements of a cell you apply the
-    //transformations to those cells
-    //
-    //You do this recusively until you get a bunch of shapes that are all in their correct
-    //positions
+
+    /// Return a vector of pointers to all transformed sub-elements/shapes from a single root shape.
     fn flatten_instance<'b : 'a, 'a>(
         inst: &'b Instance,
         lib: &'b Library<Self>,
     ) -> Vec<&'a Shape<Self>> {
 
         let mut ret : Vec<&'a Shape<Self>> = vec![];
-        
 
         let cellid : CellId = inst.child();
         let transform : Transformation = inst.transformation();
         
         let cell_ref_temp : Vec<_>= lib.cell(cellid).elements().collect();
 
-        //let elements : Vec<&Element<Self>>= cell_ref.elements().collect();
-
         for elem in cell_ref_temp {
-
             if let Element::Shape(shape) = elem {
-                
                 ret.push(&shape);
-            }
-            
+            }  
         }
 
         let new_cell_ref_temp : Vec<_> = lib.cell(cellid).instances().collect();;
@@ -101,17 +64,13 @@ trait Connectivity: Sized + PartialEq + Clone{
             ret.append(&mut Self::flatten_instance(instance.1, lib));
         }
         
-        //let mut ret2 : Vec<&'a Shape<Self>> = vec![];
 
         for sh in ret.clone().into_iter() {
             let shap = sh.clone();
-            //let mut thing : Shape<Self> = shap.clone();
             shap.transform_ref(transform);
-            //ret.push(&thing);
         }
 
         ret
-
     }
 
 
@@ -133,13 +92,6 @@ trait Connectivity: Sized + PartialEq + Clone{
                 ret.push(&thing);
             }
         }
-        //let list_of_cells = Self::get_cells(cell, lib);
-
-        //for inst in list_of_cells.into_iter() {
-        //    for thing in Self::flatten_cell(inst, lib).into_iter() {
-        //        ret.push(thing);
-        //    }
-        //}
 
         ret
     }
@@ -163,7 +115,6 @@ trait Connectivity: Sized + PartialEq + Clone{
         cell : &'a Cell<Self>,
         lib : &'a Library<Self>,
     ) -> (Vec<&'a Shape<Self>>, Vec<Vec<&'a Shape<Self>>>) {
-        
     
         let all_shapes = Self::flatten_cell(cell, lib); // all sub-shapes contained in given cell
 
@@ -180,9 +131,10 @@ trait Connectivity: Sized + PartialEq + Clone{
             }
         }
 
-        let mut ret : Vec<Vec<&Shape<Self>>> = vec![vec![]; all_shapes.clone().len()]; // ret is a vector of vectors of shapes connected to the shapes in all_shapes
+        let mut ret : Vec<Vec<&Shape<Self>>> = vec![vec![]; all_shapes.clone().len()]; 
+        // ret is a vector of vectors of shapes connected to the shapes in all_shapes
         
-        // build vectors of connectd shapes to return
+        // build vectors of connected shapes to return
         for (start_index, start_shape) in all_shapes.clone().into_iter().enumerate() {
             for (other_index, other_shape) in all_shapes.clone().into_iter().enumerate() {
                 if djs.is_united(start_index, other_index) {
@@ -229,40 +181,6 @@ mod tests {
     }
 
     #[test]
-    fn test_connectivity() {
-        let mut cell = Cell::new("test");
-        let m1_shape1 = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
-        let m1_shape2 = Shape::new(Layer::Met1, Rect::from_sides(100, 50, 200, 100));
-        let m1_shape3 = Shape::new(Layer::Met1, Rect::from_sides(200, 200, 400, 400));
-
-
-        cell.add_element(m1_shape1.clone());
-        cell.add_element(m1_shape2.clone());
-        cell.add_element(m1_shape3.clone());
-
-        assert_eq!(Layer::connected_shapes(&cell, &m1_shape2), vec![&m1_shape1, &m1_shape2]);
-    }
-
-
-    #[test]
-    fn test_connectivity2() {
-        let mut cell = Cell::new("test");
-        let m1_shape = Shape::new(Layer::Met1, Rect::from_sides(0, 0, 100, 100));
-        let v1_shape = Shape::new(Layer::Via1, Rect::from_sides(10, 10, 100, 100));
-        let m2_shape = Shape::new(Layer::Met2, Rect::from_sides(10, 10, 50, 50));
-
-
-        cell.add_element(m1_shape.clone());
-        cell.add_element(v1_shape.clone());
-        cell.add_element(m2_shape.clone());
-
-        assert_eq!(Layer::connected_shapes(&cell, &m1_shape), vec![&m1_shape, &v1_shape]);
-        assert_eq!(Layer::connected_shapes(&cell, &v1_shape), vec![&m1_shape, &v1_shape, &m2_shape]);
-        assert_eq!(Layer::connected_shapes(&cell, &m2_shape), vec![&v1_shape, &m2_shape]);
-
-    }
-
-    #[test]
     fn test_complete() {
         let mut big_cell : Cell<Layer> = Cell::new("big cell test");
         let mut small_cell : Cell<Layer> = Cell::new("small cell test");
@@ -292,11 +210,8 @@ mod tests {
         big_cell.add_element(m2_shape.clone());
         big_cell.add_element(m3_shape.clone());
 
-        
-
         let binding = lib.clone().build().unwrap();
-        let asdf = Layer::get_cells(&big_cell, &binding);
-        //assert_eq!(asdf, vec![&small_cell]);
+        let big_cell_cells = Layer::get_cells(&big_cell, &binding);
 
         let x = Layer::connected_components(&big_cell, &binding);
 
