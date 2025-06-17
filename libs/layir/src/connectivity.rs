@@ -10,30 +10,30 @@ use crate::Element;
 use crate::{Cell, Library, LibraryBuilder, Shape, TransformMut, TransformRef, Transformation};
 
 /// Returns true if two shapes overlap on a flat plane, and false otherwise.
-fn intersect_shapes<'a, 'b, T: Clone>(shape1: &'b Shape<T>, shape2: &'b Shape<T>) -> bool {
+fn intersect_shapes<T>(shape1: &Shape<T>, shape2: &Shape<T>) -> bool {
     let shape1_bbox: Rect = shape1.bbox_rect();
     let shape2_bbox: Rect = shape2.bbox_rect();
     shape1_bbox.intersection(shape2_bbox) != None
 }
 
 /// Returns a vector of all sub-cells in a given cell.
-fn get_cells<'a, T: Clone>(cell: &'a Cell<T>, lib: &'a Library<T>) -> Vec<&'a Cell<T>> {
-    let mut ret: Vec<&'a Cell<T>> = vec![];
+fn get_cells<T>(cell: &Cell<T>, lib: &Library<T>) -> Vec<Cell<T>> {
+    let mut ret: Vec<Cell<T>> = vec![];
 
     for inst_pair in cell.instances() {
         let inst: &Instance = inst_pair.1;
         let cellid: CellId = inst.child();
-        ret.push(lib.cell(cellid));
+        ret.push(*lib.cell(cellid));
     }
     ret
 }
 
-/// Return a vector of pointers to all transformed sub-elements/shapes from a single root shape.
-fn flatten_instance<'b: 'a, 'a, T>(inst: &'b Instance, lib: &'b Library<T>) -> Vec<&'a Shape<T>>
+/// Return a vector of  all transformed sub-elements/shapes from a single root shape.
+fn flatten_instance<T>(inst: &Instance, lib: &Library<T>) -> Vec<Shape<T>>
 where
     T: Connectivity,
 {
-    let mut ret: Vec<&'a Shape<T>> = vec![];
+    let mut ret: Vec<Shape<T>> = vec![];
 
     let cellid: CellId = inst.child();
     let transform: Transformation = inst.transformation();
@@ -42,7 +42,7 @@ where
 
     for elem in cell_ref_temp {
         if let Element::Shape(shape) = elem {
-            ret.push(&shape);
+            ret.push(*shape);
         }
     }
 
@@ -61,11 +61,11 @@ where
 }
 
 /// Returns a recursively generated 1-d vector of sub-shapes in a given parent cell.
-fn flatten_cell<'a, T>(cell: &'a Cell<T>, lib: &'a Library<T>) -> Vec<&'a Shape<T>>
+fn flatten_cell<T>(cell: &Cell<T>, lib: &Library<T>) -> Vec<Shape<T>>
 where
     T: Connectivity,
 {
-    let mut ret: Vec<&'a Shape<T>> = vec![];
+    let mut ret: Vec<Shape<T>> = vec![];
 
     for elem in cell.elements() {
         if let Element::Shape(shape) = elem {
@@ -75,7 +75,7 @@ where
 
     for inst in cell.instances() {
         for thing in flatten_instance::<T>(inst.1, lib) {
-            ret.push(&thing);
+            ret.push(thing);
         }
     }
 
@@ -94,7 +94,7 @@ pub trait Connectivity: Sized + PartialEq + Clone + Hash {
     fn connected_components<'a>(
         cell: &'a Cell<Self>,
         lib: &'a Library<Self>,
-    ) -> (Vec<HashSet<&'a Shape<Self>>>) {
+    ) -> Vec<HashSet<&'a Shape<Self>>> {
         // All sub-shapes contained in given cell
         let all_shapes = flatten_cell::<Self>(cell, lib);
         let mut djs = DisjointSet::new(all_shapes.len());
@@ -183,7 +183,7 @@ mod tests {
         big_cell.add_element(m2_shape3.clone());
 
         let binding = lib.clone().build().unwrap();
-        let big_cell_cells = get_cells(&big_cell, &binding);
+        let big_cell_cells = Layer::get_cells(&big_cell, &binding);
 
         let x = Layer::connected_components(&big_cell, &binding);
 
