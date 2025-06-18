@@ -16,18 +16,6 @@ fn intersect_shapes<L>(shape1: &Shape<L>, shape2: &Shape<L>) -> bool {
     shape1_bbox.intersection(shape2_bbox) != None
 }
 
-/// Returns a vector of references to all direct child cells instances of a given cell.
-fn get_child_cells<'a, L>(cell: &'a Cell<L>, lib: &'a Library<L>) -> Vec<&'a Cell<L>> {
-    let mut ret: Vec<&Cell<L>> = vec![];
-
-    for inst_pair in cell.instances() {
-        let inst: &Instance = inst_pair.1;
-        let cellid: CellId = inst.child();
-        ret.push(lib.cell(cellid));
-    }
-    ret
-}
-
 /// Returns a vector of all shapes from transformed child instances from a single cell instance.
 fn flatten_instance<L>(inst: &Instance, lib: &Library<L>) -> Vec<Shape<L>>
 where
