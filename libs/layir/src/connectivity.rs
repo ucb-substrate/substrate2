@@ -16,7 +16,7 @@ fn intersect_shapes<L>(shape1: &Shape<L>, shape2: &Shape<L>) -> bool {
     shape1_bbox.intersection(shape2_bbox) != None
 }
 
-/// Returns a vector of all direct child cells in a given cell.
+/// Returns a vector of references to all direct child cells instances of a given cell.
 fn get_child_cells<'a, L>(cell: &'a Cell<L>, lib: &'a Library<L>) -> Vec<&'a Cell<L>> {
     let mut ret: Vec<&Cell<L>> = vec![];
 
@@ -28,7 +28,7 @@ fn get_child_cells<'a, L>(cell: &'a Cell<L>, lib: &'a Library<L>) -> Vec<&'a Cel
     ret
 }
 
-/// Returns a vector of references to all shapes from transformed child instances from a single cell instance.
+/// Returns a vector of all shapes from transformed child instances from a single cell instance.
 fn flatten_instance<L>(inst: &Instance, lib: &Library<L>) -> Vec<Shape<L>>
 where
     L: Connectivity + Clone,
@@ -46,7 +46,7 @@ where
         }
     }
 
-    for instance in lib.cell(cellid).instances(){
+    for instance in lib.cell(cellid).instances() {
         // Recursively flatten child instances
         let mut flattened_shapes = flatten_instance::<L>(instance.1, lib);
         // And apply transformations after all flattening
