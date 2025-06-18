@@ -59,22 +59,23 @@ where
     ret
 }
 
-/// Returns a recursively generated 1-d vector of sub-shapes in a given parent cell.
-fn flatten_cell<T>(cell: &Cell<T>, lib: &Library<T>) -> Vec<Shape<T>>
+/// Returns a vector of all shapes from a single cell's transformed child instances and itself.
+fn flatten_cell<L>(cell: &Cell<L>, lib: &Library<L>) -> Vec<Shape<L>>
 where
-    T: Connectivity,
+    L: Connectivity + Clone,
 {
-    let mut ret: Vec<Shape<T>> = vec![];
+    let mut ret: Vec<Shape<L>> = vec![];
 
+    // No transformation needed
     for elem in cell.elements() {
         if let Element::Shape(shape) = elem {
-            ret.push(shape);
+            ret.push(shape.clone());
         }
     }
 
     for inst in cell.instances() {
-        for thing in flatten_instance::<T>(inst.1, lib) {
-            ret.push(thing);
+        for flattened_shape in flatten_instance::<L>(inst.1, lib) {
+            ret.push(flattened_shape);
         }
     }
 
