@@ -16,14 +16,14 @@ fn intersect_shapes<T>(shape1: &Shape<T>, shape2: &Shape<T>) -> bool {
     shape1_bbox.intersection(shape2_bbox) != None
 }
 
-/// Returns a vector of all sub-cells in a given cell.
-fn get_cells<T>(cell: &Cell<T>, lib: &Library<T>) -> Vec<Cell<T>> {
-    let mut ret: Vec<Cell<T>> = vec![];
+/// Returns a vector of all direct child cells in a given cell.
+fn get_child_cells<'a, L>(cell: &'a Cell<L>, lib: &'a Library<L>) -> Vec<&'a Cell<L>> {
+    let mut ret: Vec<&Cell<L>> = vec![];
 
     for inst_pair in cell.instances() {
         let inst: &Instance = inst_pair.1;
         let cellid: CellId = inst.child();
-        ret.push(*lib.cell(cellid));
+        ret.push(lib.cell(cellid));
     }
     ret
 }
@@ -58,7 +58,7 @@ where
     }
 
     ret
-}
+} 
 
 /// Returns a recursively generated 1-d vector of sub-shapes in a given parent cell.
 fn flatten_cell<T>(cell: &Cell<T>, lib: &Library<T>) -> Vec<Shape<T>>
@@ -183,7 +183,7 @@ mod tests {
         big_cell.add_element(m2_shape3.clone());
 
         let binding = lib.clone().build().unwrap();
-        let big_cell_cells = Layer::get_cells(&big_cell, &binding);
+        let big_cell_cells = Layer::get_child_cells(&big_cell, &binding);
 
         let x = Layer::connected_components(&big_cell, &binding);
 
