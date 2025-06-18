@@ -3,7 +3,7 @@ use crate::Instance;
 use aph_disjoint_set::DisjointSet;
 use geometry::bbox::Bbox;
 use geometry::rect::{self, Rect};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 use crate::Element;
@@ -82,7 +82,7 @@ where
     ret
 }
 
-pub trait Connectivity: Sized + PartialEq + Clone + Hash {
+pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
     fn connected_layers(&self) -> Vec<Self>;
 
     /// Returns a vector of layers connected to a given layer.
@@ -90,20 +90,23 @@ pub trait Connectivity: Sized + PartialEq + Clone + Hash {
         self.connected_layers().contains(other)
     }
 
-    /// Returns a vector containing hashsets of shapes connected to each sub-shape in a given cell.
-    fn connected_components<'a>(
-        cell: &'a Cell<Self>,
-        lib: &'a Library<Self>,
-    ) -> Vec<HashSet<&'a Shape<Self>>> {
+    /// Returns a vector containing unique hashsets of shapes connected to each sub-shape in a given cell.
+    fn connected_components<>(
+        cell: & Cell<Self>,
+        lib: & Library<Self>,
+    ) -> Vec<HashSet<Shape<Self>>> 
+    where 
+        Self: Clone
+    {
         // All sub-shapes contained in given cell
         let all_shapes = flatten_cell::<Self>(cell, lib);
         let mut djs = DisjointSet::new(all_shapes.len());
 
-        // Build disjoint sets
+        // Build disjoint sets based on overlap and layer connectivity
         for (start_index, start_shape) in all_shapes.clone().into_iter().enumerate() {
             for (other_index, other_shape) in all_shapes.clone().into_iter().enumerate() {
                 if start_index != other_index {
-                    if intersect_shapes::<Self>(start_shape, other_shape)
+                    if intersect_shapes::<Self>(&start_shape, &other_shape)
                         && start_shape.layer().connected(other_shape.layer())
                     {
                         djs.union(start_index, other_index);
@@ -111,20 +114,15 @@ pub trait Connectivity: Sized + PartialEq + Clone + Hash {
                 }
             }
         }
-        // Ret is a vector of hashsets of shapes connected to the shapes in the referenced cell
-        //let mut ret: Vec<HashSet<&Shape<Self>>> = vec![HashSet![]; all_shapes.clone().len()];
-        let mut ret: Vec<HashSet<&Shape<Self>>> =
-            (0..all_shapes.len()).map(|_| HashSet::new()).collect();
-        // Build hashsets of connected shapes to return
-        for (start_index, start_shape) in all_shapes.clone().into_iter().enumerate() {
-            for (other_index, other_shape) in all_shapes.clone().into_iter().enumerate() {
-                if djs.is_united(start_index, other_index) {
-                    ret[start_index].insert(other_shape);
-                    ret[other_index].insert(start_shape);
-                }
-            }
+
+        let mut component_map: HashMap<usize, HashSet<Shape<Self>>> = HashMap::new();
+
+        for (start_index, start_shape) in all_shapes.into_iter().enumerate() {
+            let root: usize = djs.get_root(start_index).into_inner();
+            component_map.entry(root).or_insert_with(HashSet::new).insert(start_shape);
         }
-        ret
+
+        component_map.into_values().collect()
     }
 }
 
