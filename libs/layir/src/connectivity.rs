@@ -16,7 +16,8 @@ fn intersect_shapes<L>(shape1: &Shape<L>, shape2: &Shape<L>) -> bool {
     shape1_bbox.intersection(shape2_bbox) != None
 }
 
-/// Returns a vector of all shapes from transformed child instances from a single cell instance.
+/// Returns a vector of all shapes from a given cell instance and its children
+/// with their coordinates transformed into the coordinate system of the instance's parent.
 fn flatten_instance<L>(inst: &Instance, lib: &Library<L>) -> Vec<Shape<L>>
 where
     L: Connectivity + Clone,
@@ -26,7 +27,7 @@ where
     let cellid: CellId = inst.child();
     let transform: Transformation = inst.transformation();
 
-    // Add all Shape Elements (filter out Text Elements)
+    // Add all shape elements directly from child cell after applying the instances transformation
     for elem in lib.cell(cellid).elements() {
         if let Element::Shape(shape) = elem {
             let transformed_shape = shape.transform_ref(transform);
@@ -34,10 +35,9 @@ where
         }
     }
 
+    // Recursively flatten child instances and apply cumulative transformations
     for instance in lib.cell(cellid).instances() {
-        // Recursively flatten child instances
         let mut flattened_shapes = flatten_instance::<L>(instance.1, lib);
-        // And apply transformations after all flattening
         for flattened_shape in &mut flattened_shapes {
             *flattened_shape = flattened_shape.transform_ref(transform);
         }
@@ -78,7 +78,7 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
         self.connected_layers().contains(other)
     }
 
-    /// Returns a vector containing unique hashsets of shapes connected to each sub-shape in a given cell.
+    /// Returns a vector of unique hashsets of all connected groups of connected child shapes in a given cell.
     fn connected_components(cell: &Cell<Self>, lib: &Library<Self>) -> Vec<HashSet<Shape<Self>>>
     where
         Self: Clone,
@@ -217,7 +217,7 @@ mod tests {
 
         let component_lookup = ComponentLookup::new(components_vec.clone());
 
-        // Expected connections 
+        // Expected connections
         assert!(
             component_lookup.are_connected(&m1_shape, &v1_shape),
             "m1_shape should be connected to v1_shape"
