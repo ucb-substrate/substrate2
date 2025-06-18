@@ -10,7 +10,7 @@ use crate::Element;
 use crate::{Cell, Library, LibraryBuilder, Shape, TransformMut, TransformRef, Transformation};
 
 /// Returns true if two shapes overlap on a flat plane, and false otherwise.
-fn intersect_shapes<T>(shape1: &Shape<T>, shape2: &Shape<T>) -> bool {
+fn intersect_shapes<L>(shape1: &Shape<L>, shape2: &Shape<L>) -> bool {
     let shape1_bbox: Rect = shape1.bbox_rect();
     let shape2_bbox: Rect = shape2.bbox_rect();
     shape1_bbox.intersection(shape2_bbox) != None
@@ -28,37 +28,36 @@ fn get_child_cells<'a, L>(cell: &'a Cell<L>, lib: &'a Library<L>) -> Vec<&'a Cel
     ret
 }
 
-/// Return a vector of  all transformed sub-elements/shapes from a single root shape.
-fn flatten_instance<T>(inst: &Instance, lib: &Library<T>) -> Vec<Shape<T>>
+/// Returns a vector of references to all shapes from transformed child instances from a single cell instance.
+fn flatten_instance<L>(inst: &Instance, lib: &Library<L>) -> Vec<Shape<L>>
 where
-    T: Connectivity,
+    L: Connectivity + Clone,
 {
-    let mut ret: Vec<Shape<T>> = vec![];
+    let mut ret: Vec<Shape<L>> = vec![];
 
     let cellid: CellId = inst.child();
     let transform: Transformation = inst.transformation();
 
-    let cell_ref_temp: Vec<_> = lib.cell(cellid).elements().collect();
-
-    for elem in cell_ref_temp {
+    // Add all Shape Elements (filter out Text Elements)
+    for elem in lib.cell(cellid).elements() {
         if let Element::Shape(shape) = elem {
-            ret.push(*shape);
+            let transformed_shape = shape.transform_ref(transform);
+            ret.push(transformed_shape);
         }
     }
 
-    let new_cell_ref_temp: Vec<_> = lib.cell(cellid).instances().collect();
-
-    for instance in new_cell_ref_temp {
-        ret.append(&mut flatten_instance::<T>(instance.1, lib));
-    }
-
-    for sh in ret.clone().into_iter() {
-        let shap = sh.clone();
-        shap.transform_ref(transform);
+    for instance in lib.cell(cellid).instances(){
+        // Recursively flatten child instances
+        let mut flattened_shapes = flatten_instance::<L>(instance.1, lib);
+        // And apply transformations after all flattening
+        for flattened_shape in &mut flattened_shapes {
+            *flattened_shape = flattened_shape.transform_ref(transform);
+        }
+        ret.append(&mut flattened_shapes);
     }
 
     ret
-} 
+}
 
 /// Returns a recursively generated 1-d vector of sub-shapes in a given parent cell.
 fn flatten_cell<T>(cell: &Cell<T>, lib: &Library<T>) -> Vec<Shape<T>>
