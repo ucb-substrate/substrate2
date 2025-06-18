@@ -2,7 +2,7 @@ use crate::CellId;
 use crate::Instance;
 use aph_disjoint_set::DisjointSet;
 use geometry::bbox::Bbox;
-use geometry::rect::{Rect};
+use geometry::rect::Rect;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -90,7 +90,10 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
         // Build disjoint sets based on overlap and layer connectivity
         for (start_index, start_shape) in all_shapes.clone().into_iter().enumerate() {
             for (other_index, other_shape) in all_shapes.clone().into_iter().enumerate() {
-                if start_index != other_index && intersect_shapes::<Self>(&start_shape, &other_shape) && start_shape.layer().connected(other_shape.layer()) {
+                if start_index != other_index 
+                    && intersect_shapes::<Self>(&start_shape, &other_shape) 
+                    && start_shape.layer().connected(other_shape.layer()) 
+                {
                     djs.union(start_index, other_index);
                 }
             }
@@ -100,10 +103,7 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
 
         for (start_index, start_shape) in all_shapes.into_iter().enumerate() {
             let root: usize = djs.get_root(start_index).into_inner();
-            component_map
-                .entry(root)
-                .or_default()
-                .insert(start_shape);
+            component_map.entry(root).or_default().insert(start_shape);
         }
 
         component_map.into_values().collect()
