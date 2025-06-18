@@ -2,18 +2,18 @@ use crate::CellId;
 use crate::Instance;
 use aph_disjoint_set::DisjointSet;
 use geometry::bbox::Bbox;
-use geometry::rect::{self, Rect};
+use geometry::rect::{Rect};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 use crate::Element;
-use crate::{Cell, Library, LibraryBuilder, Shape, TransformMut, TransformRef, Transformation};
+use crate::{Cell, Library, Shape, TransformRef, Transformation};
 
 /// Returns true if two shapes overlap on a flat plane, and false otherwise.
 fn intersect_shapes<L>(shape1: &Shape<L>, shape2: &Shape<L>) -> bool {
     let shape1_bbox: Rect = shape1.bbox_rect();
     let shape2_bbox: Rect = shape2.bbox_rect();
-    shape1_bbox.intersection(shape2_bbox) != None
+    shape1_bbox.intersection(shape2_bbox).is_some()
 }
 
 /// Returns a vector of all shapes from a given cell instance and its children
@@ -90,12 +90,8 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
         // Build disjoint sets based on overlap and layer connectivity
         for (start_index, start_shape) in all_shapes.clone().into_iter().enumerate() {
             for (other_index, other_shape) in all_shapes.clone().into_iter().enumerate() {
-                if start_index != other_index {
-                    if intersect_shapes::<Self>(&start_shape, &other_shape)
-                        && start_shape.layer().connected(other_shape.layer())
-                    {
-                        djs.union(start_index, other_index);
-                    }
+                if start_index != other_index && intersect_shapes::<Self>(&start_shape, &other_shape) && start_shape.layer().connected(other_shape.layer()) {
+                    djs.union(start_index, other_index);
                 }
             }
         }
@@ -106,7 +102,7 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
             let root: usize = djs.get_root(start_index).into_inner();
             component_map
                 .entry(root)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(start_shape);
         }
 
