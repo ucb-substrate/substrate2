@@ -8,7 +8,7 @@ publish = false
 arcstr = { version = "1", features = ["serde"] }
 rust_decimal = "1"
 rust_decimal_macros = "1"
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 substrate = { version = "0.10.2", registry = "substrate", path = "../../../substrate" }
 spectre = { version = "0.11.2", registry = "substrate", path = "../../../tools/spectre" }
 

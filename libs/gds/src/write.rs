@@ -482,7 +482,7 @@ trait Encode {
     fn encode_strans(&mut self, strans: &GdsStrans) -> GdsResult<()> {
         self.encode_record(GdsRecord::Strans(
             (strans.reflected as u8) << 7,
-            (strans.abs_mag as u8) << 2 | (strans.abs_angle as u8) << 1,
+            ((strans.abs_mag as u8) << 2) | ((strans.abs_angle as u8) << 1),
         ))?;
         if let Some(ref e) = strans.mag {
             self.encode_record(GdsRecord::Mag(*e))?;

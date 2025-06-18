@@ -9,6 +9,7 @@ use substrate::types::schematic::IoNodeBundle;
 use substrate::types::{InOut, Input, Io, Output, Signal};
 // end-code-snippet imports
 
+pub mod atoll;
 pub mod layout;
 pub mod tb;
 
