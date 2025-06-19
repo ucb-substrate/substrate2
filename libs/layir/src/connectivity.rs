@@ -118,10 +118,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     // This struct helps check if two shapes are connected after connected_components has been run
-    struct ComponentLookup<L>
-    where
-        L: Connectivity + Clone,
-    {
+    struct ComponentLookup<L> {
         shape_to_component_id: HashMap<Shape<L>, usize>,
     }
 
