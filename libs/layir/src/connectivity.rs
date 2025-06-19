@@ -90,9 +90,9 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
         // Build disjoint sets based on overlap and layer connectivity
         for (start_index, start_shape) in all_shapes.clone().into_iter().enumerate() {
             for (other_index, other_shape) in all_shapes.clone().into_iter().enumerate() {
-                if start_index != other_index 
-                    && intersect_shapes::<Self>(&start_shape, &other_shape) 
-                    && start_shape.layer().connected(other_shape.layer()) 
+                if start_index != other_index
+                    && intersect_shapes::<Self>(&start_shape, &other_shape)
+                    && start_shape.layer().connected(other_shape.layer())
                 {
                     djs.union(start_index, other_index);
                 }
