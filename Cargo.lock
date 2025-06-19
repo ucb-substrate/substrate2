@@ -121,6 +121,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
+name = "aph_disjoint_set"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec916e7c5883e65b44aead1b3b77c144e518686472524896868cb00366937c08"
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1438,6 +1444,7 @@ dependencies = [
 name = "layir"
 version = "0.2.1"
 dependencies = [
+ "aph_disjoint_set",
  "arcstr",
  "enumify",
  "geometry",
