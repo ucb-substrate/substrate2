@@ -113,7 +113,7 @@ pub trait Connectivity: Sized + PartialEq + Eq + Clone + Hash {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Cell, Instance, Library, LibraryBuilder, Shape};
+    use crate::{Cell, Instance, LibraryBuilder, Shape};
     use geometry::rect::Rect;
     use std::collections::{HashMap, HashSet};
 
