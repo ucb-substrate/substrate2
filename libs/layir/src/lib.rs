@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+pub mod connectivity;
 pub mod id;
 
 use std::{
