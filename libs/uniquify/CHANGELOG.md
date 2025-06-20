@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.4.0...uniquify-v0.4.1) (2025-06-20)
+
+
+### Features
+
+* **scir:** support removing cells from `LibraryBuilder` ([#657](https://github.com/ucb-substrate/substrate2/issues/657)) ([eb57369](https://github.com/ucb-substrate/substrate2/commit/eb573691672c6109c41942811a9cdd1ffe75087b))
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.3.0...uniquify-v0.4.0) (2025-01-23)
 
 
