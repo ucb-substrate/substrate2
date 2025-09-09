@@ -24,3 +24,6 @@ itertools = "0.14"
 spectre = { version = "0.11.2", registry = "substrate", path = "../../../tools/spectre" }
 quantus = { version = "0.2.2", registry = "substrate", path = "../../../tools/quantus" }
 pegasus = { version = "0.2.1", registry = "substrate", path = "../../../tools/pegasus" }
+
+[dev-dependencies]
+plotters = "0.3"

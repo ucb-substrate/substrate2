@@ -171,12 +171,16 @@ impl Save<Spectre, Tran> for RawNestedNode {
         output: &<Tran as Analysis>::Output,
         key: &<Self as Save<Spectre, Tran>>::SaveKey,
     ) -> <Self as Save<Spectre, Tran>>::Saved {
+        let name = output
+            .saved_values
+            .get(&key.0)
+            .expect("failed to retrieve name corresponding to saved key");
         OutputWaveform {
             t: output.time.clone(),
             x: output
                 .raw_values
-                .get(output.saved_values.get(&key.0).unwrap())
-                .unwrap()
+                .get(name.as_str())
+                .expect(&format!("no value for {name} found"))
                 .clone(),
         }
     }

@@ -275,7 +275,7 @@ impl Tile for TapTile {
 
 #[cfg(test)]
 mod tests {
-    use crate::tb::{ComparatorDecision, StrongArmTranTb};
+    use crate::tb::{ComparatorDecision, StrongArmTranTb, StrongArmTranTbOutput};
     use crate::tech::sky130::Sky130Impl;
     use crate::tiles::MosKind;
     use crate::{InputKind, StrongArm, StrongArmParams};
@@ -297,6 +297,7 @@ mod tests {
     use std::sync::Arc;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;
+    use substrate::simulation::waveform::TimeWaveform;
     use substrate::simulation::Pvt;
     use substrate::{block::Block, schematic::ConvertSchema};
 
@@ -328,39 +329,23 @@ mod tests {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
         half_tail_w: 8_192,
-        input_pair_w: 2_048,
-        inv_input_w: 8_192,
-        inv_precharge_w: 4096,
-        precharge_w: 2_048,
+        input_pair_w: 8_192,
+        inv_input_w: 2_048,
+        inv_precharge_w: 1_024,
+        precharge_w: 1_024,
         input_kind: InputKind::P,
         h_max: 40_000,
         dir: Dir::Vert,
     };
 
     pub const STRONGARM_PARAMS_2: StrongArmParams = StrongArmParams {
-        nmos_kind: MosKind::Nom,
-        pmos_kind: MosKind::Nom,
-        half_tail_w: 8_192,
-        input_pair_w: 2_048,
-        inv_input_w: 8_192,
-        inv_precharge_w: 4096,
-        precharge_w: 2_048,
-        input_kind: InputKind::P,
         h_max: 20_000,
-        dir: Dir::Vert,
+        ..STRONGARM_PARAMS_1
     };
 
     pub const STRONGARM_PARAMS_3: StrongArmParams = StrongArmParams {
-        nmos_kind: MosKind::Nom,
-        pmos_kind: MosKind::Nom,
-        half_tail_w: 8_192,
-        input_pair_w: 2_048,
-        inv_input_w: 8_192,
-        inv_precharge_w: 4096,
-        precharge_w: 2_048,
-        input_kind: InputKind::P,
-        h_max: 15_000,
-        dir: Dir::Vert,
+        h_max: 10_000,
+        ..STRONGARM_PARAMS_1
     };
 
     pub const STRONGARM_PARAMS_4: StrongArmParams = StrongArmParams {
@@ -389,6 +374,7 @@ mod tests {
         dir: Dir::Horiz,
     };
 
+    /// This does not work in extracted simulation.
     pub const STRONGARM_PARAMS_6: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
         pmos_kind: MosKind::Nom,
@@ -540,7 +526,9 @@ mod tests {
                     let sim = ctx
                         .get_sim_controller(tb.clone(), work_dir)
                         .expect("failed to get sim controller");
-                    tb.run(sim).expect("comparator output did not rail")
+                    tb.run(sim)
+                        .decision
+                        .expect("comparator output did not rail")
                 } else {
                     let tb = StrongArmTranTb::new(
                         ConvertSchema::<_, Sky130CdsSchema>::new(dut),
@@ -552,7 +540,9 @@ mod tests {
                     let sim = ctx
                         .get_sim_controller(tb.clone(), work_dir)
                         .expect("failed to get sim controller");
-                    tb.run(sim).expect("comparator output did not rail")
+                    tb.run(sim)
+                        .decision
+                        .expect("comparator output did not rail")
                 };
                 assert_eq!(
                     decision,
@@ -565,6 +555,75 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Tests the StrongARM for a single pair of (vinp, vinn) voltages.
+    fn test_strongarm_single(
+        work_dir: impl AsRef<Path>,
+        extracted: bool,
+        params: StrongArmParams,
+        corner: Sky130Corner,
+        vinp: Decimal,
+        vinn: Decimal,
+    ) -> StrongArmTranTbOutput {
+        let work_dir = work_dir.as_ref();
+        let dut = TileWrapper::new(StrongArm::<Sky130Impl>::new(params));
+        let pvt = Pvt {
+            corner,
+            voltage: dec!(1.8),
+            temp: dec!(25.0),
+        };
+        let ctx = sky130_cds_ctx();
+
+        let output = if extracted {
+            let layout_path = work_dir.join("layout.gds");
+            ctx.write_layout(dut, to_gds, &layout_path)
+                .expect("failed to write layout");
+            let tb = StrongArmTranTb::new(
+                Pex {
+                    schematic: Arc::new(ConvertSchema::new(
+                        ConvertSchema::<_, Sky130CdsSchema>::new(dut),
+                    )),
+                    gds_path: work_dir.join("layout.gds"),
+                    layout_cell_name: dut.name(),
+                    work_dir: work_dir.join("pex"),
+                    lvs_rules_dir: PathBuf::from(SKY130_LVS),
+                    lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
+                    technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                },
+                vinp,
+                vinn,
+                params.input_kind.is_p(),
+                pvt,
+            );
+            let sim = ctx
+                .get_sim_controller(tb.clone(), work_dir)
+                .expect("failed to get sim controller");
+            tb.run(sim)
+        } else {
+            let tb = StrongArmTranTb::new(
+                ConvertSchema::<_, Sky130CdsSchema>::new(dut),
+                vinp,
+                vinn,
+                params.input_kind.is_p(),
+                pvt,
+            );
+            let sim = ctx
+                .get_sim_controller(tb.clone(), work_dir)
+                .expect("failed to get sim controller");
+            tb.run(sim)
+        };
+        let decision = output.decision.expect("comparator output did not rail");
+        assert_eq!(
+            decision,
+            if vinp > vinn {
+                ComparatorDecision::Pos
+            } else {
+                ComparatorDecision::Neg
+            },
+            "comparator produced incorrect decision"
+        );
+        output
     }
 
     #[test]
@@ -584,6 +643,103 @@ mod tests {
             "/build/sky130_strongarm_extracted_sim"
         );
         test_strongarm(work_dir, true);
+    }
+
+    #[test]
+    #[ignore = "long"]
+    fn sky130_strongarm_extracted_sizing_sweep() {
+        use plotters::prelude::*;
+        let work_dir = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/build/sky130_strongarm_extracted_sizing_sweep"
+        ));
+        let plot_file = work_dir.join("plot.png");
+        let root = BitMapBackend::new(&plot_file, (1280, 960)).into_drawing_area();
+        root.fill(&WHITE).unwrap();
+        let mut chart = ChartBuilder::on(&root)
+            .margin(50)
+            .build_cartesian_2d(-0f32..2.5e-9f32, -0.2f32..2f32)
+            .unwrap();
+
+        chart
+            .configure_mesh()
+            .x_desc("Time (ns)")
+            .x_label_style(("sans-serif", 32).into_font())
+            .x_label_formatter(&|x| format!("{:.1}", x * 1e9f32))
+            .y_desc("Output Voltage (V)")
+            .y_label_style(("sans-serif", 32).into_font())
+            .draw()
+            .unwrap();
+
+        let colors = [
+            full_palette::RED_500,
+            full_palette::PURPLE_500,
+            full_palette::BLUE_500,
+            full_palette::GREEN_500,
+            full_palette::ORANGE_500,
+            full_palette::BROWN_500,
+            full_palette::BLUEGREY_500,
+        ];
+        let duts = [
+            STRONGARM_PARAMS_3,
+            STRONGARM_PARAMS_2,
+            STRONGARM_PARAMS_1,
+            STRONGARM_PARAMS_11,
+            STRONGARM_PARAMS_10,
+            // STRONGARM_PARAMS_5,
+        ];
+        for (i, dut) in duts.iter().enumerate() {
+            println!("evaluating dut {i}");
+            let color = colors[i % colors.len()];
+            let data = test_strongarm_single(
+                work_dir.join(format!("dut{i}_tt")),
+                true,
+                *dut,
+                Sky130Corner::Tt,
+                dec!(0.92),
+                dec!(0.88),
+            );
+            if i < 5 {
+                chart
+                    .draw_series(LineSeries::new(
+                        data.vop
+                            .values()
+                            .zip(data.von.values())
+                            .map(|(p, n)| (p.t() as f32, (p.x() - n.x()) as f32)),
+                        ShapeStyle {
+                            color: color.into(),
+                            filled: true,
+                            stroke_width: 5,
+                        },
+                    ))
+                    .unwrap()
+                    .label(format!("Design {}", i + 1))
+                    .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color));
+            }
+            // for extra_corner in [
+            //     Sky130Corner::Ss,
+            //     Sky130Corner::Ff,
+            //     Sky130Corner::Sf,
+            //     Sky130Corner::Fs,
+            // ] {
+            //     test_strongarm_single(
+            //         work_dir.join(format!("dut{i}_{}", extra_corner.name())),
+            //         true,
+            //         *dut,
+            //         extra_corner,
+            //         dec!(0.92),
+            //         dec!(0.88),
+            //     );
+            // }
+        }
+        chart
+            .configure_series_labels()
+            .background_style(&WHITE.mix(0.8))
+            .border_style(&BLACK)
+            .draw()
+            .unwrap();
+
+        root.present().unwrap();
     }
 
     fn test_sky130_strongarm_lvs(test_name: &'static str, params: StrongArmParams) {
