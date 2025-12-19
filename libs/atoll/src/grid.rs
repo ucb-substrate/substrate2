@@ -206,12 +206,12 @@ impl<L> LayerStack<L> {
     }
 
     /// A slice containing all layers in this stack.
-    pub fn all(&self) -> LayerSlice<L> {
+    pub fn all(&self) -> LayerSlice<'_, L> {
         self.slice(0..self.layers.len())
     }
 
     /// A slice containing the specified set of layers.
-    pub fn slice(&self, range: Range<usize>) -> LayerSlice<L> {
+    pub fn slice(&self, range: Range<usize>) -> LayerSlice<'_, L> {
         LayerSlice {
             stack: self,
             start: range.start,
@@ -399,11 +399,7 @@ impl<L: AtollLayer> RoutingGrid<L> {
     pub(crate) fn grid_defining_layer(&self, layer: usize) -> usize {
         // The grid for layer N is formed by the tracks for layer N and the tracks for layer N-1,
         // except for N=0. For layer 0, the grid is formed by layers 0 and 1.
-        if layer == 0 {
-            1
-        } else {
-            layer - 1
-        }
+        if layer == 0 { 1 } else { layer - 1 }
     }
 
     /// Calculates the span of a particular track on the given layer.
@@ -635,11 +631,7 @@ impl<R: AsRef<S::Layer> + AtollLayer, S: substrate::layout::schema::Schema> Draw
 }
 
 fn sorted2<T: PartialOrd>(a: T, b: T) -> (T, T) {
-    if a <= b {
-        (a, b)
-    } else {
-        (b, a)
-    }
+    if a <= b { (a, b) } else { (b, a) }
 }
 
 /// A fixed-size routing grid.

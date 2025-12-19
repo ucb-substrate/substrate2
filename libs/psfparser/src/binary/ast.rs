@@ -167,14 +167,14 @@ pub enum Trace<'a> {
 }
 
 impl<'a> Trace<'a> {
-    pub fn group(&self) -> &TraceGroup {
+    pub fn group(&self) -> &TraceGroup<'_> {
         match self {
             Self::Group(g) => g,
             _ => panic!("Cannot unwrap signal as group"),
         }
     }
 
-    pub fn signal(&self) -> &SignalRef {
+    pub fn signal(&self) -> &SignalRef<'_> {
         match self {
             Self::Signal(s) => s,
             _ => panic!("Cannot unwrap group trace as signal"),

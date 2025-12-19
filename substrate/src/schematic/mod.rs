@@ -7,8 +7,8 @@ pub mod schema;
 #[cfg(test)]
 mod tests;
 
-use cache::mem::TypeCache;
 use cache::CacheHandle;
+use cache::mem::TypeCache;
 pub use codegen::NestedData;
 use pathtree::PathTree;
 use serde::{Deserialize, Serialize};
@@ -495,7 +495,7 @@ impl<S: Schema + ?Sized> CellBuilder<S> {
     }
 
     /// Creates a [`SubCellBuilder`] for instantiating blocks from schema `S2`.
-    pub fn sub_builder<S2: Schema + ?Sized>(&mut self) -> SubCellBuilder<S, S2>
+    pub fn sub_builder<S2: Schema + ?Sized>(&mut self) -> SubCellBuilder<'_, S, S2>
     where
         S: FromSchema<S2>,
     {

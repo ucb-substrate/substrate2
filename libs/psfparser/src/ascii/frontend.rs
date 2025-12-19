@@ -1,11 +1,11 @@
 use num::complex::Complex64;
-use pest::iterators::Pair;
 use pest::Parser;
+use pest::iterators::Pair;
 
+use crate::Result;
 use crate::ascii::ast::{
     Header, Kind, NamedValue, Prop, PsfAst, SignalValues, Sweep, Trace, TypeDef, Value,
 };
-use crate::Result;
 
 use super::ast::Values;
 
@@ -13,14 +13,14 @@ use super::ast::Values;
 #[grammar = "ascii/psf_ascii.pest"]
 pub struct PsfAsciiParser;
 
-pub fn parse(input: &str) -> Result<PsfAst> {
+pub fn parse(input: &str) -> Result<PsfAst<'_>> {
     let input = PsfAsciiParser::parse(Rule::psf_ascii, input)?
         .next()
         .unwrap();
     parse_psf_inner(input)
 }
 
-fn parse_psf_inner(input: Pair<Rule>) -> Result<PsfAst> {
+fn parse_psf_inner(input: Pair<'_, Rule>) -> Result<PsfAst<'_>> {
     debug_assert_eq!(input.as_rule(), Rule::psf_ascii_inner);
     let mut pairs = input.into_inner();
     let header = parse_header(pairs.next().unwrap())?;
@@ -55,7 +55,7 @@ fn parse_psf_inner(input: Pair<Rule>) -> Result<PsfAst> {
     })
 }
 
-fn parse_header(input: Pair<Rule>) -> Result<Header> {
+fn parse_header(input: Pair<'_, Rule>) -> Result<Header> {
     debug_assert_eq!(input.as_rule(), Rule::header_section);
     let mut pairs = input.into_inner();
     let named_values = pairs.next().unwrap();
