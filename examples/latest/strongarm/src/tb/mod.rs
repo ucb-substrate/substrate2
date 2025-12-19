@@ -172,8 +172,14 @@ pub enum ComparatorDecision {
     Pos,
 }
 
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+pub struct ComparatorDecisionInfo {
+    pub decision: ComparatorDecision,
+    pub tclkq: f64,
+}
+
 pub struct StrongArmTranTbOutput {
-    pub decision: Option<ComparatorDecision>,
+    pub decision: Option<ComparatorDecisionInfo>,
     pub vop: OutputWaveform,
     pub von: OutputWaveform,
 }
@@ -204,6 +210,12 @@ where
 
         let vdd = self.pvt.voltage.to_f64().unwrap();
         let epsilon = vdd * 0.05;
+
+        let transition = wav
+            .von
+            .transitions(0.2 * vdd, 0.8 * vdd)
+            .next()
+            .or_else(|| wav.vop.transitions(0.2 * vdd, 0.8 * vdd).next());
         let decision = if abs_diff_eq!(von, 0.0, epsilon = epsilon)
             && abs_diff_eq!(vop, vdd, epsilon = epsilon)
         {
@@ -214,7 +226,14 @@ where
             Some(ComparatorDecision::Neg)
         } else {
             None
-        };
+        }
+        .and_then(|decision| {
+            let transition = transition?;
+            Some(ComparatorDecisionInfo {
+                decision,
+                tclkq: transition.center_time(),
+            })
+        });
 
         StrongArmTranTbOutput {
             decision,

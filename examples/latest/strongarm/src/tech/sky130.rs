@@ -545,7 +545,7 @@ mod tests {
                         .expect("comparator output did not rail")
                 };
                 assert_eq!(
-                    decision,
+                    decision.decision,
                     if j > dec!(0) {
                         ComparatorDecision::Pos
                     } else {
@@ -615,7 +615,7 @@ mod tests {
         };
         let decision = output.decision.expect("comparator output did not rail");
         assert_eq!(
-            decision,
+            decision.decision,
             if vinp > vinn {
                 ComparatorDecision::Pos
             } else {
@@ -671,6 +671,8 @@ mod tests {
             .draw()
             .unwrap();
 
+        let mut max_tclkq = 0.;
+
         let colors = [
             full_palette::RED_500,
             full_palette::PURPLE_500,
@@ -699,6 +701,11 @@ mod tests {
                 dec!(0.92),
                 dec!(0.88),
             );
+            if let Some(decision) = data.decision
+                && decision.tclkq > max_tclkq
+            {
+                max_tclkq = decision.tclkq;
+            }
             if i < 5 {
                 chart
                     .draw_series(LineSeries::new(
@@ -716,21 +723,26 @@ mod tests {
                     .label(format!("Design {}", i + 1))
                     .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color));
             }
-            // for extra_corner in [
-            //     Sky130Corner::Ss,
-            //     Sky130Corner::Ff,
-            //     Sky130Corner::Sf,
-            //     Sky130Corner::Fs,
-            // ] {
-            //     test_strongarm_single(
-            //         work_dir.join(format!("dut{i}_{}", extra_corner.name())),
-            //         true,
-            //         *dut,
-            //         extra_corner,
-            //         dec!(0.92),
-            //         dec!(0.88),
-            //     );
-            // }
+            for extra_corner in [
+                Sky130Corner::Ss,
+                Sky130Corner::Ff,
+                Sky130Corner::Sf,
+                Sky130Corner::Fs,
+            ] {
+                let output = test_strongarm_single(
+                    work_dir.join(format!("dut{i}_{}", extra_corner.name())),
+                    true,
+                    *dut,
+                    extra_corner,
+                    dec!(0.92),
+                    dec!(0.88),
+                );
+                if let Some(decision) = output.decision
+                    && decision.tclkq > max_tclkq
+                {
+                    max_tclkq = decision.tclkq;
+                }
+            }
         }
         chart
             .configure_series_labels()

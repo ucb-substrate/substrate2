@@ -1,7 +1,7 @@
 [package]
 name = "quantus"
 version = "0.2.2"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 tera = "1"

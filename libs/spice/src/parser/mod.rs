@@ -13,11 +13,11 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use crate::parser::conv::convert_str_to_numeric_lit;
 use crate::Spice;
+use crate::parser::conv::convert_str_to_numeric_lit;
 use arcstr::ArcStr;
-use nom::bytes::complete::{take_till, take_while};
 use nom::Input;
+use nom::bytes::complete::{take_till, take_while};
 use thiserror::Error;
 
 use self::conv::ScirConverter;
@@ -186,13 +186,13 @@ impl Parser {
                     };
                     self.parse_file_inner(resolved_path)?;
                 }
-                (ReaderState::Subckt(ref mut subckt), Line::Component(c)) => {
+                (ReaderState::Subckt(subckt), Line::Component(c)) => {
                     subckt.components.push(c);
                 }
-                (ReaderState::Subckt(ref mut subckt), Line::Connect { node1, node2 }) => {
+                (ReaderState::Subckt(subckt), Line::Connect { node1, node2 }) => {
                     subckt.connects.push((node1, node2));
                 }
-                (ReaderState::Subckt(ref mut subckt), Line::EndSubckt) => {
+                (ReaderState::Subckt(subckt), Line::EndSubckt) => {
                     let subckt = std::mem::take(subckt);
                     self.ast.elems.push(Elem::Subckt(subckt));
                     self.state.reader_state = ReaderState::Top;

@@ -1,6 +1,6 @@
 //! Short propagation analysis.
 
-use crate::parser::conv::{map_subckts, SubcktName};
+use crate::parser::conv::{SubcktName, map_subckts};
 use crate::parser::{Ast, Component, Node, Subckt};
 use std::collections::{HashMap, HashSet};
 
@@ -241,7 +241,7 @@ fn dfs_postorder_inner(
         Some(&s) => s,
     };
     for c in subckt.components.iter() {
-        if let Component::Instance(ref inst) = c {
+        if let Component::Instance(inst) = c {
             dfs_postorder_inner(&inst.child, subckts, blackbox, visited, out);
         }
     }

@@ -1,7 +1,7 @@
 [package]
 name = "sky130_inverter"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 publish = false
 
 # begin-code-snippet dependencies

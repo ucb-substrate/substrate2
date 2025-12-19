@@ -1,7 +1,7 @@
 [package]
 name = "cdl2spice"
 version = "0.2.2"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 anyhow = "1"

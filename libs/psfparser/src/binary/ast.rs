@@ -270,28 +270,28 @@ impl Values {
 
     pub fn real(&self) -> &Vec<f64> {
         match self {
-            Self::Real(ref v) => v,
+            Self::Real(v) => v,
             _ => panic!("not a real value vector"),
         }
     }
 
     pub fn complex(&self) -> &Vec<Complex64> {
         match self {
-            Self::Complex(ref v) => v,
+            Self::Complex(v) => v,
             _ => panic!("not a complex value vector"),
         }
     }
 
     pub fn real_mut(&mut self) -> &mut Vec<f64> {
         match self {
-            Self::Real(ref mut v) => v,
+            Self::Real(v) => v,
             _ => panic!("not a real value vector"),
         }
     }
 
     pub fn complex_mut(&mut self) -> &mut Vec<Complex64> {
         match self {
-            Self::Complex(ref mut v) => v,
+            Self::Complex(v) => v,
             _ => panic!("not a complex value vector"),
         }
     }

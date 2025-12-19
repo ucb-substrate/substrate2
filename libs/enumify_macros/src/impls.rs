@@ -10,7 +10,7 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 
-use macrotools::{field_tokens_with_referent, tuple_ident, FieldTokens};
+use macrotools::{FieldTokens, field_tokens_with_referent, tuple_ident};
 use syn::{DeriveInput, Generics};
 
 macro_rules! handle_error {
@@ -213,11 +213,7 @@ fn mut_generics(generics: &Generics) -> TokenStream {
 }
 
 fn variant_match_arm(xident: &syn::Ident, variant: &EnumifyVariant) -> TokenStream {
-    let EnumifyVariant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
+    let EnumifyVariant { ident, fields, .. } = variant;
     let destructure = fields
         .iter()
         .enumerate()
@@ -239,10 +235,7 @@ fn variant_match_arm(xident: &syn::Ident, variant: &EnumifyVariant) -> TokenStre
 
 fn field_assign(as_enum: bool, style: Style, idx: usize, field: &EnumifyField) -> TokenStream {
     let EnumifyField {
-        ref ident,
-        ref vis,
-        ref attrs,
-        ..
+        ident, vis, attrs, ..
     } = field;
     let FieldTokens {
         refer,
@@ -392,10 +385,8 @@ impl Enumify {
 
     pub(crate) fn expand_enum(&self, tokens: &mut TokenStream, variants: &[EnumifyVariant]) {
         let EnumifyInputReceiver {
-            ref ident,
-            ref generics,
-            ..
-        } = self.input;
+            ident, generics, ..
+        } = &self.input;
         let (imp, ty, wher) = generics.split_for_impl();
 
         let ref_ident = self.ref_enum_ident();
@@ -466,12 +457,12 @@ impl Enumify {
     }
 
     pub(crate) fn expand(&self, tokens: &mut TokenStream) {
-        let EnumifyInputReceiver { ref data, .. } = self.input;
+        let EnumifyInputReceiver { data, .. } = &self.input;
         match data {
-            ast::Data::Struct(ref _fields) => {
+            ast::Data::Struct(_) => {
                 panic!("enumify does not support structs");
             }
-            ast::Data::Enum(ref variants) => {
+            ast::Data::Enum(variants) => {
                 self.expand_enum(tokens, variants);
             }
         };

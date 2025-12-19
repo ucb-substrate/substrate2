@@ -130,7 +130,7 @@ impl Rect {
     /// The caller must ensure that `left <= right` and that `bot <= top`.
     #[inline]
     pub const unsafe fn from_sides_unchecked(left: i64, bot: i64, right: i64, top: i64) -> Self {
-        Self::new_unchecked(Point::new(left, bot), Point::new(right, top))
+        unsafe { Self::new_unchecked(Point::new(left, bot), Point::new(right, top)) }
     }
 
     /// Creates a rectangle from a lower left and upper right corner point,

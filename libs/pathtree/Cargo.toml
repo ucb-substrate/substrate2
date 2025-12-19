@@ -1,7 +1,7 @@
 [package]
 name = "pathtree"
 version = "0.3.0"
-edition = "2021"
+edition = "2024"
 description = "An immutable tree data structure for fast path operations"
 license = "BSD-3-Clause"
 
