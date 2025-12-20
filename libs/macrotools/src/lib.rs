@@ -1066,10 +1066,10 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
     add_trait_bounds(&mut generics, quote!(#trait_));
     let (imp, ty, wher) = generics.split_for_impl();
 
-    let (receiver, declare_receiver) = match receiver {
-        Receiver::Ref => (quote! { & }, quote! {}),
-        Receiver::MutRef => (quote! { &mut }, quote! {}),
-        Receiver::Owned => (quote! {}, quote! {}),
+    let receiver = match receiver {
+        Receiver::Ref => quote! { & },
+        Receiver::MutRef => quote! { &mut },
+        Receiver::Owned => quote! {},
     };
 
     let match_clause: TokenStream = match &input.data {
@@ -1107,7 +1107,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                         let declare = fields.named.iter().map(|f| {
                             let name = f.ident.as_ref().unwrap();
                             quote_spanned! { f.span() =>
-                                #declare_receiver #name,
+                                #name,
                             }
                         });
                         quote! {
@@ -1124,7 +1124,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                         let declare = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ident = format_ident!("field{i}");
                             quote_spanned! { f.span() =>
-                                #declare_receiver #ident,
+                                #ident,
                             }
                         });
                         quote! {
