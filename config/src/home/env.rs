@@ -76,7 +76,7 @@ pub(crate) fn substrate_home_with_cwd_env(env: &dyn Env, cwd: &Path) -> io::Resu
         _ => home_dir_with_env(env)
             .map(|p| p.join(".substrate"))
             .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, "could not find Substrate home dir")
+                io::Error::other("could not find Substrate home dir")
             }),
     }
 }

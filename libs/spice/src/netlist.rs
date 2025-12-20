@@ -281,13 +281,12 @@ impl<S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'_, S, W> {
         rename_ground: &Option<(ArcStr, ArcStr)>,
     ) -> Result<ArcStr> {
         let sig_info = cell.signal(slice.signal());
-        if let Some((signal, replace_with)) = rename_ground {
-            if signal == &sig_info.name && slice.range().is_none() {
+        if let Some((signal, replace_with)) = rename_ground
+            && signal == &sig_info.name && slice.range().is_none() {
                 // Ground renaming cannot apply to buses.
                 // TODO assert that the ground port has width 1.
                 return Ok(replace_with.clone());
             }
-        }
         let mut buf = Vec::new();
         self.schema.write_slice(&mut buf, slice, sig_info)?;
         Ok(ArcStr::from(std::str::from_utf8(&buf).expect(

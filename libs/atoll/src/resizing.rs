@@ -215,8 +215,8 @@ impl ResizableGrid {
                 } else {
                     for w_col in 0..w {
                         let w_col_phys = increment * w_col as i64;
-                        if let Some(prev_h) = &h[w - w_col][i - 1] {
-                            if let Some(h_min) = self.col_min_height(i, w_col_phys) {
+                        if let Some(prev_h) = &h[w - w_col][i - 1]
+                            && let Some(h_min) = self.col_min_height(i, w_col_phys) {
                                 let tot_height = std::cmp::max(prev_h.min_height, h_min);
                                 if h[w][i]
                                     .as_ref()
@@ -231,7 +231,6 @@ impl ResizableGrid {
                                     });
                                 }
                             }
-                        }
                     }
                 }
             }

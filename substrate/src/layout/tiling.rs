@@ -486,8 +486,8 @@ impl<S: Schema> GridTiler<S> {
             let mut blockage_idx = 0;
             let mut col_idx = 0;
             for key in row {
-                if let Some(blockage) = blockages.get(blockage_idx) {
-                    if col_idx == blockage.start_col {
+                if let Some(blockage) = blockages.get(blockage_idx)
+                    && col_idx == blockage.start_col {
                         if i == blockage.end_row {
                             blockages.remove(blockage_idx);
                         } else {
@@ -495,7 +495,6 @@ impl<S: Schema> GridTiler<S> {
                             blockage_idx += 1;
                         }
                     }
-                }
                 let tile = &self.tiles[*key];
                 if tile.rowspan > 1 {
                     blockages.push(ColBlockage {

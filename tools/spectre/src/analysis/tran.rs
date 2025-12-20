@@ -180,7 +180,7 @@ impl Save<Spectre, Tran> for RawNestedNode {
             x: output
                 .raw_values
                 .get(name.as_str())
-                .expect(&format!("no value for {name} found"))
+                .unwrap_or_else(|| panic!("no value for {name} found"))
                 .clone(),
         }
     }

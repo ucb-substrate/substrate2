@@ -55,7 +55,7 @@ fn parse_psf_inner(input: Pair<'_, Rule>) -> Result<PsfAst<'_>> {
     })
 }
 
-fn parse_header(input: Pair<'_, Rule>) -> Result<Header> {
+fn parse_header(input: Pair<'_, Rule>) -> Result<Header<'_>> {
     debug_assert_eq!(input.as_rule(), Rule::header_section);
     let mut pairs = input.into_inner();
     let named_values = pairs.next().unwrap();
@@ -89,7 +89,7 @@ fn parse_value(input: Pair<Rule>) -> Result<Value> {
     })
 }
 
-fn parse_string(input: Pair<Rule>) -> Result<&str> {
+fn parse_string(input: Pair<'_, Rule>) -> Result<&str> {
     debug_assert_eq!(input.as_rule(), Rule::string);
     Ok(input.into_inner().next().unwrap().as_str())
 }

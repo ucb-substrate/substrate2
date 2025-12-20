@@ -791,24 +791,21 @@ fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutpu
     ) -> bool {
         for v in input.items[u].iter() {
             if let Some(&upair) = pair_v.get(v) {
-                if let Some(&upair_dist) = dist_u.get(&upair) {
-                    if let Some(&udist) = dist_u.get(&u) {
-                        if upair_dist == udist.checked_add(1).unwrap()
+                if let Some(&upair_dist) = dist_u.get(&upair)
+                    && let Some(&udist) = dist_u.get(&u)
+                        && upair_dist == udist.checked_add(1).unwrap()
                             && dfs(upair, d_max, input, pair_u, pair_v, dist_u)
                         {
                             pair_v.insert(v, u);
                             pair_u.insert(u, v);
                             return true;
                         }
-                    }
-                }
-            } else if let Some(&udist) = dist_u.get(&u) {
-                if d_max == udist.checked_add(1).unwrap() {
+            } else if let Some(&udist) = dist_u.get(&u)
+                && d_max == udist.checked_add(1).unwrap() {
                     pair_v.insert(v, u);
                     pair_u.insert(u, v);
                     return true;
                 }
-            }
         }
         dist_u.remove(&u);
         false
@@ -826,8 +823,8 @@ fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutpu
         }
         d_max = u64::MAX;
         while let Some(u) = bfsq.pop_front() {
-            if let Some(&du) = dist_u.get(&u) {
-                if du < d_max {
+            if let Some(&du) = dist_u.get(&u)
+                && du < d_max {
                     for v in input.items[u].iter() {
                         if let Some(&upair) = pair_v.get(v) {
                             #[allow(clippy::map_entry)]
@@ -840,7 +837,6 @@ fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutpu
                         }
                     }
                 }
-            }
         }
         d_max != u64::MAX
     } {

@@ -760,11 +760,10 @@ impl<L: AtollLayer + Clone> RoutingState<L> {
             let (nx, ny) = layer.size();
             for x in 0..nx {
                 for y in 0..ny {
-                    if let PointState::Routed { net, has_via } = layer[(x, y)] {
-                        if net == old {
+                    if let PointState::Routed { net, has_via } = layer[(x, y)]
+                        && net == old {
                             layer[(x, y)] = PointState::Routed { net: new, has_via };
                         }
-                    }
                 }
             }
         }

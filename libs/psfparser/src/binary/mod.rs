@@ -614,7 +614,7 @@ fn parse_named_value(data: &[u8]) -> (&[u8], NamedValue<'_>) {
 fn parse_string(mut data: &[u8]) -> (&[u8], &str) {
     let len = read_u32(&mut data) as usize;
     let s = std::str::from_utf8(&data[..len]).unwrap();
-    if len % 4 == 0 {
+    if len.is_multiple_of(4) {
         (&data[len..], s)
     } else {
         (&data[len + 4 - (len % 4)..], s)

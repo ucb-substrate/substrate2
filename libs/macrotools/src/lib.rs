@@ -1181,41 +1181,31 @@ fn apply_generic_type_binding(pred: &mut WherePredicate, ident: Ident, ty: Type)
             for seg in p.path.segments.iter_mut() {
                 if let PathArguments::AngleBracketed(args) = &mut seg.arguments {
                     for arg in args.args.iter_mut() {
-                        if let GenericArgument::Type(t) = arg {
-                            if let Type::Path(p) = t {
-                                if p.path.segments.len() == 1 {
-                                    if let Some(last) = p.path.segments.last_mut() {
-                                        if last.ident == ident {
+                        if let GenericArgument::Type(t) = arg
+                            && let Type::Path(p) = t
+                                && p.path.segments.len() == 1
+                                    && let Some(last) = p.path.segments.last_mut()
+                                        && last.ident == ident {
                                             *t = ty.clone();
                                         }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
         for bound in pred.bounds.iter_mut() {
-            if let TypeParamBound::Trait(tb) = bound {
-                if let Some(last) = tb.path.segments.last_mut() {
-                    if let PathArguments::AngleBracketed(args) = &mut last.arguments {
+            if let TypeParamBound::Trait(tb) = bound
+                && let Some(last) = tb.path.segments.last_mut()
+                    && let PathArguments::AngleBracketed(args) = &mut last.arguments {
                         for arg in args.args.iter_mut() {
-                            if let GenericArgument::Type(t) = arg {
-                                if let Type::Path(p) = t {
-                                    if p.path.segments.len() == 1 {
-                                        if let Some(last) = p.path.segments.last_mut() {
-                                            if last.ident == ident {
+                            if let GenericArgument::Type(t) = arg
+                                && let Type::Path(p) = t
+                                    && p.path.segments.len() == 1
+                                        && let Some(last) = p.path.segments.last_mut()
+                                            && last.ident == ident {
                                                 *t = ty.clone();
                                             }
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
-                }
-            }
         }
     }
 }
@@ -1225,17 +1215,13 @@ fn apply_generic_type_binding_ty(typ: &mut Type, ident: Ident, ty: Type) {
         for seg in p.path.segments.iter_mut() {
             if let PathArguments::AngleBracketed(ref mut args) = seg.arguments {
                 for arg in args.args.iter_mut() {
-                    if let GenericArgument::Type(t) = arg {
-                        if let Type::Path(p) = t {
-                            if p.path.segments.len() == 1 {
-                                if let Some(last) = p.path.segments.last_mut() {
-                                    if last.ident == ident {
+                    if let GenericArgument::Type(t) = arg
+                        && let Type::Path(p) = t
+                            && p.path.segments.len() == 1
+                                && let Some(last) = p.path.segments.last_mut()
+                                    && last.ident == ident {
                                         *t = ty.clone();
                                     }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

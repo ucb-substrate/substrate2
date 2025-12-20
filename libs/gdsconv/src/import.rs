@@ -106,11 +106,10 @@ impl<'a> GdsImporter<'a> {
     fn check_units(&mut self, units: &gds::GdsUnits) -> Result<()> {
         let gdsunit = units.db_unit();
 
-        if let Some(expected_units) = &self.opts.units {
-            if (gdsunit - expected_units.db_unit()).abs() / expected_units.db_unit() > 1e-3 {
+        if let Some(expected_units) = &self.opts.units
+            && (gdsunit - expected_units.db_unit()).abs() / expected_units.db_unit() > 1e-3 {
                 return Err(GdsImportError);
             }
-        }
         Ok(())
     }
     /// Imports and adds a cell if not already defined

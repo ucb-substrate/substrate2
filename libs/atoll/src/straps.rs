@@ -218,13 +218,12 @@ impl<'a, L: AtollLayer + Clone> GreedyStrapperState<'a, L> {
                         }
                     }
                 }
-                if let Some((from, _)) = vias.last() {
-                    if from.coord(track_dir) + strap_via_spacing > track_coord
+                if let Some((from, _)) = vias.last()
+                    && from.coord(track_dir) + strap_via_spacing > track_coord
                         && from.coord(track_dir) < track_coord + strap_via_spacing
                     {
                         has_via = true;
                     }
-                }
                 if !has_via
                     && (self.routing_state.is_routed_for_net(ilt.to, strap.net)
                         || self
