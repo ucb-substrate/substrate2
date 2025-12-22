@@ -31,7 +31,7 @@ pub enum Error {
     Flexbuffers(#[from] flexbuffers::DeserializationError),
     #[allow(missing_docs)]
     #[error(transparent)]
-    Rpc(#[from] tonic::Status),
+    Rpc(#[from] Box<tonic::Status>),
     #[allow(missing_docs)]
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),

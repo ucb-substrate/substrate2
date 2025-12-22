@@ -13,8 +13,8 @@ use substrate::geometry::bbox::Bbox;
 use substrate::geometry::dir::Dir;
 use substrate::geometry::rect::Rect;
 use substrate::geometry::span::Span;
-use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::layout::Layout;
+use substrate::layout::tracks::{RoundingMode, Tracks, UniformTracks};
 use substrate::schematic::CellBuilder;
 use substrate::types::codegen::PortGeometryBundle;
 use substrate::types::layout::PortGeometry;
@@ -435,8 +435,8 @@ impl MosTile {
                 _ => i + 1,
             }];
 
-            let gate_idx = |idx| match self.gate_dir {
-                GateDir::Left => (idx + 1) / 2,
+            let gate_idx = |idx: usize| match self.gate_dir {
+                GateDir::Left => idx.div_ceil(2),
                 GateDir::Right => idx / 2,
             };
             let poly_li = Rect::from_spans(li_track.hspan(), gate_vspan);

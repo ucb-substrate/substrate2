@@ -1,12 +1,12 @@
 //! SKY130-specific implementations.
 
-use crate::tiles::{MosKind, MosTileParams, TapIo, TapIoView, TapTileParams, TileKind};
 use crate::StrongArmImpl;
+use crate::tiles::{MosKind, MosTileParams, TapIo, TapIoView, TapTileParams, TileKind};
 use atoll::resizing::ResizableInstance;
 use atoll::route::GreedyRouter;
 use atoll::{Tile, TileBuilder, TileData};
-use sky130::atoll::{MosLength, NmosTile, PmosTile, Sky130ViaMaker};
 use sky130::Sky130;
+use sky130::atoll::{MosLength, NmosTile, PmosTile, Sky130ViaMaker};
 use substrate::arcstr;
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
@@ -282,23 +282,23 @@ mod tests {
     use atoll::TileWrapper;
     use pegasus::lvs::LvsParams;
     use pegasus::{
-        drc::{run_drc, DrcParams},
-        lvs::LvsStatus,
         RuleCheck,
+        drc::{DrcParams, run_drc},
+        lvs::LvsStatus,
     };
     use quantus::pex::Pex;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
     use scir::netlist::ConvertibleNetlister;
     use sky130::corner::Sky130Corner;
-    use sky130::{layout::to_gds, Sky130, Sky130CdsSchema};
-    use spice::{netlist::NetlistOptions, Spice};
+    use sky130::{Sky130, Sky130CdsSchema, layout::to_gds};
+    use spice::{Spice, netlist::NetlistOptions};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use substrate::context::Context;
     use substrate::geometry::dir::Dir;
-    use substrate::simulation::waveform::TimeWaveform;
     use substrate::simulation::Pvt;
+    use substrate::simulation::waveform::TimeWaveform;
     use substrate::{block::Block, schematic::ConvertSchema};
 
     pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
@@ -746,8 +746,8 @@ mod tests {
         }
         chart
             .configure_series_labels()
-            .background_style(&WHITE.mix(0.8))
-            .border_style(&BLACK)
+            .background_style(WHITE.mix(0.8))
+            .border_style(BLACK)
             .draw()
             .unwrap();
 

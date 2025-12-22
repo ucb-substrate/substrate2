@@ -1,8 +1,8 @@
 //! SKY130 primitives for [ATOLL](atoll).
 
+use crate::Sky130;
 use crate::layers::Sky130Layer;
 use crate::mos::{MosParams, Nfet01v8, Pfet01v8};
-use crate::Sky130;
 use arcstr::ArcStr;
 use atoll::abs::TrackCoord;
 use atoll::grid::{AbstractLayer, LayerStack, PdkLayer, RoutingGrid, TrackOffset};
@@ -331,8 +331,8 @@ impl MosTile {
                 _ => i + 1,
             }];
 
-            let gate_idx = |idx| match self.gate_dir {
-                GateDir::Left => (idx + 1) / 2,
+            let gate_idx = |idx: usize| match self.gate_dir {
+                GateDir::Left => idx.div_ceil(2),
                 GateDir::Right => idx / 2,
             };
             let poly_li = Rect::from_spans(li_track.hspan(), gate_vspan);
@@ -470,7 +470,7 @@ impl Schematic for NmosTile {
                 NodeBundle::<MosIo> {
                     d: io.sd[i],
                     g: io.g[match self.tile.gate_dir {
-                        GateDir::Left => (i + 1) / 2,
+                        GateDir::Left => i.div_ceil(2),
                         GateDir::Right => i / 2,
                     }],
                     s: io.sd[i + 1],
@@ -579,7 +579,7 @@ impl Schematic for PmosTile {
                 NodeBundle::<MosIo> {
                     d: io.sd[i],
                     g: io.g[match self.tile.gate_dir {
-                        GateDir::Left => (i + 1) / 2,
+                        GateDir::Left => i.div_ceil(2),
                         GateDir::Right => i / 2,
                     }],
                     s: io.sd[i + 1],
