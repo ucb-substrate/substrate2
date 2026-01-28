@@ -1,6 +1,6 @@
 // begin-code-snippet imports
-use sky130::mos::{Nfet01v8, Pfet01v8};
 use sky130::Sky130;
+use sky130::mos::{Nfet01v8, Pfet01v8};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;

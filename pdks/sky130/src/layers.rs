@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use gdsconv::{conv::FromGds, GdsLayer};
+use gdsconv::{GdsLayer, conv::FromGds};
 use lazy_static::lazy_static;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

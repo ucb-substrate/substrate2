@@ -1,7 +1,7 @@
 //! A persistent cache gRPC server.
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,6 +18,7 @@ use tokio::time::Instant;
 use tokio_rusqlite::Connection;
 use tonic::Response;
 
+use crate::Namespace;
 use crate::error::Result;
 use crate::rpc::local::{
     self,
@@ -27,7 +28,6 @@ use crate::rpc::remote::{
     self,
     remote_cache_server::{RemoteCache, RemoteCacheServer},
 };
-use crate::Namespace;
 
 /// The name of the config manifest TOML file.
 pub const CONFIG_MANIFEST_NAME: &str = "Cache.toml";
@@ -602,7 +602,9 @@ impl CacheImpl {
                         if Instant::now().duration_since(data.last_heartbeat)
                             > self.heartbeat_timeout
                         {
-                            tracing::debug!("assigned worker has not sent a heartbeat recently, entry is no longer loading");
+                            tracing::debug!(
+                                "assigned worker has not sent a heartbeat recently, entry is no longer loading"
+                            );
                             if assign {
                                 loading.remove(id);
                                 next_assignment_id.increment();

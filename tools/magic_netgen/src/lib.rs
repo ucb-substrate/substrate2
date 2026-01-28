@@ -1,11 +1,11 @@
-use magic::extract::{run_extract, ExtractParams};
-use magic::pex::{run_pex, PexParams};
+use magic::extract::{ExtractParams, run_extract};
+use magic::pex::{PexParams, run_pex};
 use netgen::compare::{CompareOutput, CompareParams};
-use scir::netlist::ConvertibleNetlister;
 use scir::NetlistLibConversion;
+use scir::netlist::ConvertibleNetlister;
 use scir::{NamedSliceOne, SliceOnePath};
-use spice::netlist::NetlistOptions;
 use spice::Spice;
+use spice::netlist::NetlistOptions;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;

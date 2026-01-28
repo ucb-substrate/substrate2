@@ -3,18 +3,18 @@
 use std::{
     any::Any,
     sync::{
-        mpsc::{channel, Receiver, Sender},
         Arc,
+        mpsc::{Receiver, Sender, channel},
     },
 };
 
 use crate::{
-    error::ArcResult, mem::NamespaceCache, persistent::client::Client, run_generator, CacheHandle,
-    CacheHandleInner, CacheValueHolder, Cacheable, CacheableWithState, GenerateFn,
-    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
+    CacheHandle, CacheHandleInner, CacheValueHolder, Cacheable, CacheableWithState, GenerateFn,
+    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace, error::ArcResult,
+    mem::NamespaceCache, persistent::client::Client, run_generator,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// A cache with multiple providers.
 ///
@@ -57,18 +57,18 @@ trait MultiGenerateFn<C, K, V, R>:
 {
 }
 impl<
-        C,
-        K,
-        V,
-        R,
-        T: Fn(
-            &mut C,
-            Namespace,
-            Arc<K>,
-            Sender<Option<CacheHandleInner<V>>>,
-            Receiver<R>,
-        ) -> CacheHandleInner<V>,
-    > MultiGenerateFn<C, K, V, R> for T
+    C,
+    K,
+    V,
+    R,
+    T: Fn(
+        &mut C,
+        Namespace,
+        Arc<K>,
+        Sender<Option<CacheHandleInner<V>>>,
+        Receiver<R>,
+    ) -> CacheHandleInner<V>,
+> MultiGenerateFn<C, K, V, R> for T
 {
 }
 

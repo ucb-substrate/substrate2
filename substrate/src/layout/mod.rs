@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use std::{marker::PhantomData, sync::Arc, thread};
 
 use arcstr::ArcStr;
-use cache::{error::TryInnerError, mem::TypeCache, CacheHandle};
+use cache::{CacheHandle, error::TryInnerError, mem::TypeCache};
 use geometry::prelude::Rect;
 use geometry::transform::{TransformRef, TranslateRef};
 use geometry::{

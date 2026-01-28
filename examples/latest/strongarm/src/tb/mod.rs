@@ -1,8 +1,8 @@
 //! StrongARM testbenches.
 
 use approx::abs_diff_eq;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use spectre::analysis::tran::{OutputWaveform, Tran};
 use spectre::blocks::{Pulse, Vsource};

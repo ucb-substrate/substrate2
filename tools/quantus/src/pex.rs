@@ -1,10 +1,10 @@
 use crate::utils::execute_run_script;
-use crate::{error::Error, TEMPLATES};
-use pegasus::lvs::{run_lvs, LvsParams, LvsStatus};
+use crate::{TEMPLATES, error::Error};
+use pegasus::lvs::{LvsParams, LvsStatus, run_lvs};
 use scir::netlist::ConvertibleNetlister;
 use serde::Serialize;
-use spice::netlist::NetlistOptions;
 use spice::Spice;
+use spice::netlist::NetlistOptions;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -243,9 +243,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use pegasus::lvs::{run_lvs, LvsParams, LvsStatus};
+    use pegasus::lvs::{LvsParams, LvsStatus, run_lvs};
 
-    use crate::pex::{run_pex, write_pex_run_file, PexParams};
+    use crate::pex::{PexParams, run_pex, write_pex_run_file};
     use crate::tests::{
         COLBUF_LAYOUT_PATH, EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
         SKY130_TECHNOLOGY_DIR, TEST_BUILD_PATH,

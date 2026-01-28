@@ -5,18 +5,18 @@ use std::{
     time::Duration,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use test_log::test;
 use tokio::runtime::Handle;
 
 use crate::{
+    CacheHandle,
     error::{Error, Result},
     persistent::client::{
-        create_runtime, create_server_and_clients, setup_test, ServerKind,
-        TEST_SERVER_HEARTBEAT_TIMEOUT,
+        ServerKind, TEST_SERVER_HEARTBEAT_TIMEOUT, create_runtime, create_server_and_clients,
+        setup_test,
     },
     tests::Key,
-    CacheHandle,
 };
 
 use crate::persistent::client::{Client, ClientKind};

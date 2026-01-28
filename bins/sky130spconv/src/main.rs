@@ -2,9 +2,9 @@ use anyhow::Context;
 use clap::Parser as ClapParser;
 use scir::netlist::ConvertibleNetlister;
 use sky130::{Sky130, Sky130CdsSchema, Sky130OpenSchema, Sky130Schema, Sky130SrcNdaSchema};
+use spice::Spice;
 use spice::netlist::NetlistOptions;
 use spice::parser::{Dialect, Parser};
-use spice::Spice;
 use std::io;
 use std::path::PathBuf;
 

@@ -890,11 +890,7 @@ where
     /// If `bit` is `false`, this is equivalent to calling [`DigitalWaveformBuilder::add_lo`].
     #[inline]
     pub fn add(&mut self, bit: bool) -> &mut Self {
-        if bit {
-            self.add_hi()
-        } else {
-            self.add_lo()
-        }
+        if bit { self.add_hi() } else { self.add_lo() }
     }
 
     /// Consumes the builder, producing a [`Waveform`].

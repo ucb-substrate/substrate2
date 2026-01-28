@@ -86,7 +86,7 @@ use indexmap::{IndexMap, IndexSet};
 use std::sync::{Arc, RwLock};
 use substrate::arcstr::ArcStr;
 use substrate::block::Block;
-use substrate::context::{prepare_cell_builder, Context, PrivateInstallation};
+use substrate::context::{Context, PrivateInstallation, prepare_cell_builder};
 use substrate::geometry::corner::Corner;
 use substrate::geometry::prelude::{Dir, Point};
 use substrate::geometry::transform::{

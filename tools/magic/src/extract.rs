@@ -1,5 +1,5 @@
 use crate::utils::execute_run_script;
-use crate::{error::Error, TEMPLATES};
+use crate::{TEMPLATES, error::Error};
 use anyhow::anyhow;
 use serde::Serialize;
 use std::fs;

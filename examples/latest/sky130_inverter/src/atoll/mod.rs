@@ -1,9 +1,9 @@
-use atoll::{fold::Foldable, route::GreedyRouter, Orientation, Tile, TileData};
+use atoll::{Orientation, Tile, TileData, fold::Foldable, route::GreedyRouter};
 use layir::Shape;
 use sky130::{
+    Sky130,
     atoll::{GateDir, MosLength, NmosTile, NtapTile, PmosTile, PtapTile, Sky130ViaMaker},
     layers::Sky130Layer,
-    Sky130,
 };
 use substrate::{
     geometry::{align::AlignMode, bbox::Bbox, rect::Rect},
@@ -136,18 +136,18 @@ mod tests {
 
     use super::*;
 
-    use atoll::fold::{FoldedArray, PinConfig};
     use atoll::TileWrapper;
-    use pegasus::drc::{run_drc, DrcParams};
-    use pegasus::lvs::{LvsParams, LvsStatus};
+    use atoll::fold::{FoldedArray, PinConfig};
     use pegasus::RuleCheck;
+    use pegasus::drc::{DrcParams, run_drc};
+    use pegasus::lvs::{LvsParams, LvsStatus};
     use scir::netlist::ConvertibleNetlister;
 
     use sky130::layout::to_gds;
     use sky130::{
-        Sky130CdsSchema, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
+        SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, Sky130CdsSchema,
     };
-    use spice::{netlist::NetlistOptions, Spice};
+    use spice::{Spice, netlist::NetlistOptions};
     use std::path::PathBuf;
     use substrate::block::Block;
 

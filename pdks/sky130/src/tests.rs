@@ -1,9 +1,9 @@
 use crate::corner::Sky130Corner;
 use crate::layers::Sky130Layer;
-use crate::layout::{to_gds, GDS_UNITS};
+use crate::layout::{GDS_UNITS, to_gds};
 use crate::mos::{MosKind, MosLength, NmosTile, PmosTile};
 use crate::stdcells::{And2, And2Io};
-use crate::{convert_spice_mos, Primitive, Sky130, Sky130OpenSchema, Sky130SrcNdaSchema};
+use crate::{Primitive, Sky130, Sky130OpenSchema, Sky130SrcNdaSchema, convert_spice_mos};
 use approx::assert_abs_diff_eq;
 use derive_where::derive_where;
 use gds::GdsLibrary;

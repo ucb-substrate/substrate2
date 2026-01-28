@@ -6,16 +6,16 @@ use scir::{Library, NamedSliceOne, NetlistLibConversion, SliceOnePath};
 
 use crate::{
     simulation::{
-        data::{Save, SaveKey, Saved},
         Analysis, Simulator,
+        data::{Save, SaveKey, Saved},
     },
     types::schematic::{NestedNode, RawNestedNode},
 };
 
 use super::{
+    Cell, ContextView, HasContextView, HasNestedView, InstancePath, NestedView, Schematic,
     conv::{ConvertedNodePath, RawLib},
     schema::Schema,
-    Cell, ContextView, HasContextView, HasNestedView, InstancePath, NestedView, Schematic,
 };
 
 /// Captures information for mapping nodes/elements between schematic and extracted netlists.

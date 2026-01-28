@@ -104,13 +104,14 @@ pub fn from_gds<L: FromGds + Hash + Eq + Clone>(
                     {
                         // Identify pin shapes with multiple labels.
                         if let Some(ref name) = name
-                            && name != text.text() {
-                                return Err(FromGdsError::PinWithMultipleLabels {
-                                    cell: cell.name().clone(),
-                                    label1: name.clone(),
-                                    label2: text.text().clone(),
-                                });
-                            }
+                            && name != text.text()
+                        {
+                            return Err(FromGdsError::PinWithMultipleLabels {
+                                cell: cell.name().clone(),
+                                label1: name.clone(),
+                                label2: text.text().clone(),
+                            });
+                        }
                         name = Some(text.text().clone());
                         pin_texts.push(text.clone());
                     }

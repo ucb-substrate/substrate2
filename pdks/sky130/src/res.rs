@@ -1,8 +1,8 @@
 //! Resistors.
 
 use atoll::{
-    grid::{AtollLayer, LayerStack, PdkLayer},
     AtollPrimitive,
+    grid::{AtollLayer, LayerStack, PdkLayer},
 };
 use geometry::{
     bbox::Bbox,
@@ -18,10 +18,10 @@ use substrate::{
     block::Block,
     layout::{Container, Layout},
     schematic::Schematic,
-    types::{layout::PortGeometry, TwoTerminalIo, TwoTerminalIoView},
+    types::{TwoTerminalIo, TwoTerminalIoView, layout::PortGeometry},
 };
 
-use crate::{layers::Sky130Layer, Sky130};
+use crate::{Sky130, layers::Sky130Layer};
 
 const SLOTTED_LICON_W: i64 = 190;
 const SLOTTED_LICON_L: i64 = 2_000;
@@ -236,8 +236,8 @@ mod tests {
     use super::*;
     use crate::{layout::to_gds, tests::sky130_cds_ctx};
     use pegasus::{
-        drc::{run_drc, DrcParams},
         RuleCheck,
+        drc::{DrcParams, run_drc},
     };
     use substrate::block::Block;
 

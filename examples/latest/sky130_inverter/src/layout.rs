@@ -1,10 +1,10 @@
 // begin-code-snippet imports
 use layir::Shape;
 use sky130::{
+    Sky130,
     layers::Sky130Layer,
     layout::{NtapTile, PtapTile},
     mos::{GateDir, MosLength, NmosTile, PmosTile},
-    Sky130,
 };
 use substrate::{
     error::Result,
@@ -128,11 +128,11 @@ mod open {
     mod tests {
         use std::{path::PathBuf, sync::Arc};
 
-        use magic::drc::{run_drc, DrcParams};
-        use sky130::{layout::to_gds, Sky130OpenSchema};
+        use magic::drc::{DrcParams, run_drc};
+        use sky130::{Sky130OpenSchema, layout::to_gds};
         use substrate::{block::Block, schematic::ConvertSchema};
 
-        use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
+        use crate::{Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE, sky130_open_ctx};
 
         #[test]
         fn inverter_layout_open() {
@@ -193,17 +193,17 @@ mod cds {
         use std::path::PathBuf;
 
         use pegasus::{
-            drc::{run_drc, DrcParams},
-            lvs::LvsStatus,
             RuleCheck,
+            drc::{DrcParams, run_drc},
+            lvs::LvsStatus,
         };
-        use sky130::{layout::to_gds, Sky130CdsSchema};
-        use spice::{netlist::NetlistOptions, Spice};
+        use sky130::{Sky130CdsSchema, layout::to_gds};
+        use spice::{Spice, netlist::NetlistOptions};
         use substrate::{block::Block, schematic::ConvertSchema};
 
         use crate::{
-            sky130_cds_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
-            SKY130_LVS_RULES_PATH,
+            Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
+            sky130_cds_ctx,
         };
 
         fn test_check_filter(check: &RuleCheck) -> bool {

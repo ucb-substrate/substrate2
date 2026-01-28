@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 
 use serde::Serialize;
 
-use crate::{error::Error, TEMPLATES};
+use crate::{TEMPLATES, error::Error};
 
 #[derive(Serialize)]
 struct SourceTemplateContext<'a> {

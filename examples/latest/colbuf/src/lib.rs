@@ -1,7 +1,7 @@
 use ngspice::Ngspice;
 use rust_decimal_macros::dec;
-use spectre::blocks::Vsource;
 use spectre::Spectre;
+use spectre::blocks::Vsource;
 use spice::Spice;
 use substrate::arcstr;
 use substrate::block::Block;
@@ -263,10 +263,10 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use approx::assert_relative_eq;
-    use spectre::{analysis::tran::Tran, ErrPreset, Options};
+    use spectre::{ErrPreset, Options, analysis::tran::Tran};
     use substrate::{
         context::Context,
-        simulation::{waveform::TimeWaveform, SimController},
+        simulation::{SimController, waveform::TimeWaveform},
     };
 
     use super::*;

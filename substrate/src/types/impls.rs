@@ -360,9 +360,9 @@ impl<S, T: HasBundleKind + Unflatten<<T as HasBundleKind>::BundleKind, S>>
 }
 
 impl<
-        T: HasBundleKind
-            + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
-    > HasNestedView for ArrayBundle<T>
+    T: HasBundleKind
+        + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
+> HasNestedView for ArrayBundle<T>
 {
     type NestedView = ArrayBundle<NestedView<T>>;
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {

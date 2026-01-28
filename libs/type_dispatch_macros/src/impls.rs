@@ -3,11 +3,11 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use syn::{
-    braced,
+    GenericParam, ItemImpl, Result, Token, Type, braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    token, GenericParam, ItemImpl, Result, Token, Type,
+    token,
 };
 
 use crate::type_dispatch_ident;

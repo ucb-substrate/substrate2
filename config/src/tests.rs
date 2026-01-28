@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::Result;
 use cache::persistent::client::ClientKind;
 
-use crate::{raw::RawConfig, CacheProviderConfig, Config};
+use crate::{CacheProviderConfig, Config, raw::RawConfig};
 
 const CONFIG_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),

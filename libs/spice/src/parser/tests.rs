@@ -1,7 +1,7 @@
 use super::*;
 
-use crate::netlist::NetlistOptions;
 use crate::Primitive;
+use crate::netlist::NetlistOptions;
 use scir::netlist::ConvertibleNetlister;
 use std::path::PathBuf;
 

@@ -1,5 +1,5 @@
 use crate::utils::execute_run_script;
-use crate::{error::Error, RuleCheck, TEMPLATES};
+use crate::{RuleCheck, TEMPLATES, error::Error};
 use regex::Regex;
 use serde::Serialize;
 use std::fs;
@@ -163,9 +163,9 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::drc::{parse_pegasus_drc_results, run_drc, write_drc_files, DrcParams};
-    use crate::tests::{EXAMPLES_PATH, SKY130_DRC, SKY130_DRC_RULES_PATH, TEST_BUILD_PATH};
     use crate::RuleCheck;
+    use crate::drc::{DrcParams, parse_pegasus_drc_results, run_drc, write_drc_files};
+    use crate::tests::{EXAMPLES_PATH, SKY130_DRC, SKY130_DRC_RULES_PATH, TEST_BUILD_PATH};
     use std::collections::HashMap;
     use std::path::PathBuf;
 
@@ -195,12 +195,9 @@ mod tests {
         for rule_check in data.rule_checks {
             if let Some(expected_num_results) = test_rules.get(&rule_check.name) {
                 assert_eq!(
-                    *expected_num_results,
-                    rule_check.num_results,
+                    *expected_num_results, rule_check.num_results,
                     "Incorrectly parsed DRC report, expected {} results for rule check {} but found {}",
-                    expected_num_results,
-                    &rule_check.name,
-                    rule_check.num_results
+                    expected_num_results, &rule_check.name, rule_check.num_results
                 );
             }
         }

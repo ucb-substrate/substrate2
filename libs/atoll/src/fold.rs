@@ -4,9 +4,8 @@ use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{AbstractLayer, RoutingGrid, RoutingState};
 use crate::route::ViaMaker;
 use crate::{
-    get_abstract,
+    NetId, PointState, TileBuilder, TileData, get_abstract,
     grid::{LayerStack, PdkLayer},
-    NetId, PointState, TileBuilder, TileData,
 };
 use crate::{Orientation, Tile};
 use arcstr::ArcStr;
@@ -19,8 +18,8 @@ use substrate::geometry::align::AlignMode;
 use substrate::geometry::bbox::Bbox;
 use substrate::geometry::rect::Rect;
 use substrate::layout::tracks::RoundingMode;
-use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::Flatten;
+use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::{
     block::Block,
     context::Context,
@@ -793,19 +792,20 @@ fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutpu
             if let Some(&upair) = pair_v.get(v) {
                 if let Some(&upair_dist) = dist_u.get(&upair)
                     && let Some(&udist) = dist_u.get(&u)
-                        && upair_dist == udist.checked_add(1).unwrap()
-                            && dfs(upair, d_max, input, pair_u, pair_v, dist_u)
-                        {
-                            pair_v.insert(v, u);
-                            pair_u.insert(u, v);
-                            return true;
-                        }
-            } else if let Some(&udist) = dist_u.get(&u)
-                && d_max == udist.checked_add(1).unwrap() {
+                    && upair_dist == udist.checked_add(1).unwrap()
+                    && dfs(upair, d_max, input, pair_u, pair_v, dist_u)
+                {
                     pair_v.insert(v, u);
                     pair_u.insert(u, v);
                     return true;
                 }
+            } else if let Some(&udist) = dist_u.get(&u)
+                && d_max == udist.checked_add(1).unwrap()
+            {
+                pair_v.insert(v, u);
+                pair_u.insert(u, v);
+                return true;
+            }
         }
         dist_u.remove(&u);
         false
@@ -824,19 +824,20 @@ fn create_match<T: Hash + Eq + Clone>(input: MatchInput<T>) -> Option<MatchOutpu
         d_max = u64::MAX;
         while let Some(u) = bfsq.pop_front() {
             if let Some(&du) = dist_u.get(&u)
-                && du < d_max {
-                    for v in input.items[u].iter() {
-                        if let Some(&upair) = pair_v.get(v) {
-                            #[allow(clippy::map_entry)]
-                            if !dist_u.contains_key(&upair) {
-                                dist_u.insert(upair, du.checked_add(1).unwrap());
-                                bfsq.push_back(upair);
-                            }
-                        } else if d_max == u64::MAX {
-                            d_max = du.checked_add(1).unwrap();
+                && du < d_max
+            {
+                for v in input.items[u].iter() {
+                    if let Some(&upair) = pair_v.get(v) {
+                        #[allow(clippy::map_entry)]
+                        if !dist_u.contains_key(&upair) {
+                            dist_u.insert(upair, du.checked_add(1).unwrap());
+                            bfsq.push_back(upair);
                         }
+                    } else if d_max == u64::MAX {
+                        d_max = du.checked_add(1).unwrap();
                     }
                 }
+            }
         }
         d_max != u64::MAX
     } {

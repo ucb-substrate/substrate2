@@ -5,9 +5,9 @@ use geometry::{prelude::Transformation, rect::Rect, shape::Shape as GShape};
 use layir::{Cell, Element, Instance, Library, LibraryBuilder, Shape, Text};
 
 use crate::{
-    export::{export_gds, GdsExportOpts},
-    import::{import_gds, GdsImportOpts},
     GdsLayer,
+    export::{GdsExportOpts, export_gds},
+    import::{GdsImportOpts, import_gds},
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
@@ -127,11 +127,13 @@ fn test_gds_import() {
     for elem in b_elems {
         match elem {
             Element::Shape(s) => {
-                assert!([
-                    Shape::new(GdsLayer(67, 20), Rect::from_sides(0, 0, 3000, 3000)),
-                    Shape::new(GdsLayer(67, 16), Rect::from_sides(0, 0, 1000, 1000))
-                ]
-                .contains(s));
+                assert!(
+                    [
+                        Shape::new(GdsLayer(67, 20), Rect::from_sides(0, 0, 3000, 3000)),
+                        Shape::new(GdsLayer(67, 16), Rect::from_sides(0, 0, 1000, 1000))
+                    ]
+                    .contains(s)
+                );
             }
             Element::Text(t) => {
                 assert_eq!(

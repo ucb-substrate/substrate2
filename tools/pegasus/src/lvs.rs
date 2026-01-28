@@ -1,5 +1,5 @@
 use crate::utils::{aggregate_sources, execute_run_script};
-use crate::{error::Error, RuleCheck, TEMPLATES};
+use crate::{RuleCheck, TEMPLATES, error::Error};
 use regex::Regex;
 use serde::Serialize;
 use std::fs;
@@ -208,7 +208,7 @@ pub fn run_lvs(params: &LvsParams) -> Result<LvsData, Error> {
 #[cfg(test)]
 mod tests {
     use crate::lvs::{
-        parse_pegasus_lvs_results, run_lvs, write_lvs_run_file, LvsParams, LvsStatus,
+        LvsParams, LvsStatus, parse_pegasus_lvs_results, run_lvs, write_lvs_run_file,
     };
     use crate::tests::{
         COLBUF_LAYOUT_PATH, EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, TEST_BUILD_PATH,

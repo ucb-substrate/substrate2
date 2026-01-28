@@ -5,13 +5,13 @@ use crate::SKY130_MAGIC_TECH_FILE;
 use crate::SKY130_NETGEN_SETUP_FILE;
 
 use magic_netgen::Pex;
-use ngspice::blocks::{Pulse, Vsource};
 use ngspice::Ngspice;
+use ngspice::blocks::{Pulse, Vsource};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use sky130::Sky130OpenSchema;
 use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
-use sky130::Sky130OpenSchema;
 use spice::Spice;
 use std::path::Path;
 use std::path::PathBuf;
@@ -20,8 +20,8 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
 use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
-use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::simulation::Pvt;
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
 // end-code-snippet imports

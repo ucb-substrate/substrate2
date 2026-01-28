@@ -2,8 +2,8 @@ use arcstr::ArcStr;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use spectre::blocks::{Iprobe, Resistor, Vsource};
 use spectre::Spectre;
+use spectre::blocks::{Iprobe, Resistor, Vsource};
 use substrate::block::Block;
 use substrate::schematic::{CellBuilder, Instance, NestedData, Schematic};
 use substrate::types::{Array, InOut, Io, Output, PowerIo, Signal, TestbenchIo};
@@ -169,7 +169,7 @@ impl Schematic for VdividerTb {
 mod tests {
     use approx::relative_eq;
     use rust_decimal_macros::dec;
-    use spectre::{analysis::tran::Tran, ErrPreset};
+    use spectre::{ErrPreset, analysis::tran::Tran};
     use substrate::{context::Context, simulation::waveform::TimeWaveform};
 
     use super::*;

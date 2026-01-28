@@ -1,7 +1,7 @@
 //! Run design rule checking (DRC) using Magic.
 
-use crate::utils::{execute_run_script, OutputFiles};
-use crate::{error::Error, TEMPLATES};
+use crate::utils::{OutputFiles, execute_run_script};
+use crate::{TEMPLATES, error::Error};
 use anyhow::anyhow;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

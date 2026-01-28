@@ -1,12 +1,12 @@
 use layir::Shape;
+use substrate::types::ArrayBundle;
 use substrate::types::codegen::PortGeometryBundle;
 use substrate::types::layout::PortGeometry;
-use substrate::types::ArrayBundle;
 use substrate::{
     block::Block,
     geometry::rect::Rect,
-    layout::{schema::Schema, Layout},
-    types::{layout::PortGeometryBuilder, Array, InOut, Io, Signal},
+    layout::{Layout, schema::Schema},
+    types::{Array, InOut, Io, Signal, layout::PortGeometryBuilder},
 };
 
 #[derive(Clone, Debug, Default, Io)]
@@ -153,11 +153,12 @@ mod tests {
     #[test]
     fn export_rects_layout_mismatched_io_length() {
         let ctx = Context::builder().build();
-        assert!(ctx
-            .export_layir(Rects {
+        assert!(
+            ctx.export_layir(Rects {
                 n_io: 12,
                 n_drawn: 16,
             })
-            .is_err());
+            .is_err()
+        );
     }
 }

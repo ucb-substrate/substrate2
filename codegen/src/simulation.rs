@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse::Parse, parse_quote, Generics, Index, LitInt, Token, Type};
+use syn::{Generics, Index, LitInt, Token, Type, parse::Parse, parse_quote};
 
 use crate::substrate_ident;
 

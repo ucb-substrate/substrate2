@@ -2,7 +2,7 @@ use macrotools::{DeriveInputHelper, ImplTrait, MapField};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::GenericParam;
-use syn::{parse_quote, DeriveInput};
+use syn::{DeriveInput, parse_quote};
 
 use crate::common::*;
 use crate::substrate_ident;
