@@ -13,7 +13,6 @@ use sky130::layout::to_gds;
 use sky130::Sky130OpenSchema;
 use spice::Spice;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use substrate::block::Block;
 use substrate::context::Context;
