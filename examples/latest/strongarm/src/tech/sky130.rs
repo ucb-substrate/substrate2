@@ -293,7 +293,7 @@ mod tests {
     use sky130::corner::Sky130Corner;
     use sky130::{Sky130, Sky130CdsSchema, layout::to_gds};
     use sky130::{
-        sky130_cds_pdk_root, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path,
+        sky130_cds_pdk_root, sky130_drc, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path,
         sky130_technology_dir,
     };
     use spice::{Spice, netlist::NetlistOptions};

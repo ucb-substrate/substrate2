@@ -164,7 +164,7 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::drc::{DrcParams, parse_pegasus_drc_results, write_drc_files};
+    use crate::drc::{DrcParams, parse_pegasus_drc_results, run_drc, write_drc_files};
     use crate::tests::TEST_BUILD_PATH;
     use crate::{RuleCheck, tests::EXAMPLES_PATH};
 

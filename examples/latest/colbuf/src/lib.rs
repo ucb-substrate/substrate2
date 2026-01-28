@@ -264,8 +264,8 @@ mod tests {
 
     use approx::assert_relative_eq;
     use sky130::{
-        sky130_cds_tt_model_path, sky130_magic_tech_file, sky130_netgen_setup_file,
-        sky130_ngspice_model_path,
+        sky130_cds_tt_model_path, sky130_lvs, sky130_lvs_rules_path, sky130_magic_tech_file,
+        sky130_netgen_setup_file, sky130_ngspice_model_path, sky130_technology_dir,
     };
     use spectre::{ErrPreset, Options, analysis::tran::Tran};
     use substrate::{

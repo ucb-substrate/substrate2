@@ -308,14 +308,6 @@ mod tests {
                 .expect("SKY130_CDS_PDK_ROOT environment variable must be defined"),
         )
     }
-    /// SKY130 Pegasus DRC directory.
-    pub fn sky130_drc() -> PathBuf {
-        sky130_cds_pdk_root().join("Sky130_DRC")
-    }
-    /// SKY130 Pegasus DRC rules.
-    pub fn sky130_drc_rules_path() -> PathBuf {
-        sky130_drc().join("sky130_rev_0.0_1.0.drc.pvl")
-    }
     /// SKY130 Pegasus LVS directory.
     pub fn sky130_lvs() -> PathBuf {
         sky130_cds_pdk_root().join("Sky130_LVS")

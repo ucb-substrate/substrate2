@@ -129,10 +129,12 @@ mod open {
         use std::{path::PathBuf, sync::Arc};
 
         use magic::drc::{DrcParams, run_drc};
-        use sky130::{Sky130OpenSchema, layout::to_gds};
+        use sky130::{
+            Sky130OpenSchema, layout::to_gds, sky130_magic_tech_file, sky130_netgen_setup_file,
+        };
         use substrate::{block::Block, schematic::ConvertSchema};
 
-        use crate::{Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE, sky130_open_ctx};
+        use crate::{Inverter, sky130_open_ctx};
 
         #[test]
         fn inverter_layout_open() {
@@ -158,7 +160,7 @@ mod open {
                 work_dir: &drc_dir,
                 gds_path: &layout_path,
                 cell_name: &dut.name(),
-                tech_file_path: &PathBuf::from(SKY130_MAGIC_TECH_FILE),
+                tech_file_path: &sky130_magic_tech_file(),
                 drc_report_path: &drc_report_path,
             })
             .expect("failed to run drc");
@@ -175,8 +177,8 @@ mod open {
                 gds_path: layout_path,
                 work_dir: lvs_dir,
                 layout_cell_name: dut.name(),
-                magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
-                netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
+                magic_tech_file_path: sky130_magic_tech_file(),
+                netgen_setup_file_path: sky130_netgen_setup_file(),
             })
             .expect("failed to run lvs");
 
@@ -197,14 +199,14 @@ mod cds {
             drc::{DrcParams, run_drc},
             lvs::LvsStatus,
         };
-        use sky130::{Sky130CdsSchema, layout::to_gds};
+        use sky130::{
+            Sky130CdsSchema, layout::to_gds, sky130_drc, sky130_drc_rules_path, sky130_lvs,
+            sky130_lvs_rules_path,
+        };
         use spice::{Spice, netlist::NetlistOptions};
         use substrate::{block::Block, schematic::ConvertSchema};
 
-        use crate::{
-            Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
-            sky130_cds_ctx,
-        };
+        use crate::{Inverter, sky130_cds_ctx};
 
         fn test_check_filter(check: &RuleCheck) -> bool {
             !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
@@ -235,8 +237,8 @@ mod cds {
                 work_dir: &drc_dir,
                 layout_path: &layout_path,
                 cell_name: &dut.name(),
-                rules_dir: &PathBuf::from(SKY130_DRC),
-                rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+                rules_dir: &sky130_drc(),
+                rules_path: &sky130_drc_rules_path(),
             })
             .expect("failed to run drc");
 
@@ -268,8 +270,8 @@ mod cds {
                 layout_cell_name: &dut.name(),
                 source_paths: &[source_path],
                 source_cell_name: &dut.name(),
-                rules_dir: &PathBuf::from(SKY130_LVS),
-                rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+                rules_dir: &sky130_lvs(),
+                rules_path: &sky130_lvs_rules_path(),
             })
             .expect("failed to run lvs");
 

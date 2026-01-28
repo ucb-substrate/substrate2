@@ -132,7 +132,7 @@ mod open {
         use sky130::{layout::to_gds, Sky130OpenSchema};
         use substrate::{block::Block, schematic::ConvertSchema};
 
-        use crate::{sky130_open_ctx, Inverter, SKY130_MAGIC_TECH_FILE, SKY130_NETGEN_SETUP_FILE};
+        use crate::{sky130_magic_tech_file, sky130_netgen_setup_file, sky130_open_ctx, Inverter};
 
         #[test]
         fn inverter_layout_open() {
@@ -158,7 +158,7 @@ mod open {
                 work_dir: &drc_dir,
                 gds_path: &layout_path,
                 cell_name: &dut.name(),
-                tech_file_path: &PathBuf::from(SKY130_MAGIC_TECH_FILE),
+                tech_file_path: &sky130_magic_tech_file(),
                 drc_report_path: &drc_report_path,
             })
             .expect("failed to run drc");
@@ -175,8 +175,8 @@ mod open {
                 gds_path: layout_path,
                 work_dir: lvs_dir,
                 layout_cell_name: dut.name(),
-                magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
-                netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
+                magic_tech_file_path: sky130_magic_tech_file(),
+                netgen_setup_file_path: sky130_netgen_setup_file(),
             })
             .expect("failed to run lvs");
 
@@ -202,8 +202,8 @@ mod cds {
         use substrate::{block::Block, schematic::ConvertSchema};
 
         use crate::{
-            sky130_cds_ctx, Inverter, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS,
-            SKY130_LVS_RULES_PATH,
+            sky130_cds_ctx, sky130_drc, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path,
+            Inverter,
         };
 
         fn test_check_filter(check: &RuleCheck) -> bool {
@@ -235,8 +235,8 @@ mod cds {
                 work_dir: &drc_dir,
                 layout_path: &layout_path,
                 cell_name: &dut.name(),
-                rules_dir: &PathBuf::from(SKY130_DRC),
-                rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+                rules_dir: &sky130_drc(),
+                rules_path: &sky130_drc_rules_path(),
             })
             .expect("failed to run drc");
 
@@ -268,8 +268,8 @@ mod cds {
                 layout_cell_name: &dut.name(),
                 source_paths: &[source_path],
                 source_cell_name: &dut.name(),
-                rules_dir: &PathBuf::from(SKY130_LVS),
-                rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+                rules_dir: &sky130_lvs(),
+                rules_path: &sky130_lvs_rules_path(),
             })
             .expect("failed to run lvs");
 

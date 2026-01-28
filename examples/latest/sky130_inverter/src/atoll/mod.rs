@@ -145,7 +145,7 @@ mod tests {
 
     use sky130::layout::to_gds;
     use sky130::{
-        SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, Sky130CdsSchema,
+        sky130_drc, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path, Sky130CdsSchema,
     };
     use spice::{Spice, netlist::NetlistOptions};
     use std::path::PathBuf;
@@ -181,8 +181,8 @@ mod tests {
             work_dir: &drc_dir,
             layout_path: &layout_path,
             cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })
         .expect("failed to run drc");
 
@@ -214,8 +214,8 @@ mod tests {
             layout_cell_name: &block.name(),
             source_paths: &[source_path],
             source_cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_LVS),
-            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+            rules_dir: &sky130_lvs(),
+            rules_path: &sky130_lvs_rules_path(),
         })
         .expect("failed to run lvs");
 
@@ -264,8 +264,8 @@ mod tests {
             work_dir: &drc_dir,
             layout_path: &layout_path,
             cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })
         .expect("failed to run drc");
 

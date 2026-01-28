@@ -248,7 +248,7 @@ mod tests {
 
     use crate::pex::{PexParams, run_pex, write_pex_run_file};
     use crate::tests::{COLBUF_LAYOUT_PATH, EXAMPLES_PATH, TEST_BUILD_PATH};
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     #[test]
     fn test_write_pex_run_file() -> anyhow::Result<()> {

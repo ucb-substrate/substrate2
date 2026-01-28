@@ -11,3 +11,6 @@ anyhow = "1"
 regex = "1"
 itertools = "0.14.0"
 thiserror = "2.0.12"
+
+[dev-dependencies]
+sky130 = { version = "0.10.2", registry = "substrate", path = "../../pdks/sky130" }

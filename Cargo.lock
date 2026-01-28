@@ -1732,6 +1732,7 @@ dependencies = [
  "lazy_static",
  "regex",
  "serde",
+ "sky130",
  "tera",
  "thiserror",
 ]
