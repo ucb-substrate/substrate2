@@ -60,7 +60,6 @@ jobs:
         uses: arduino/setup-protoc@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install Rust
       - name: Clone `cargo-workspaces`
         uses: actions/checkout@v4
         with:
