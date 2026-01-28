@@ -139,9 +139,7 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
 #[cfg(test)]
 mod tests {
     use crate::drc::*;
-    use crate::tests::{
-        COLBUF_LAYOUT_PATH, INVERTER_LICON8_LAYOUT_PATH, TEST_BUILD_PATH,
-    };
+    use crate::tests::{COLBUF_LAYOUT_PATH, INVERTER_LICON8_LAYOUT_PATH, TEST_BUILD_PATH};
 
     use std::path::PathBuf;
 

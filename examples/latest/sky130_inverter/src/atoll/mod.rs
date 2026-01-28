@@ -145,7 +145,7 @@ mod tests {
 
     use sky130::layout::to_gds;
     use sky130::{
-        sky130_drc, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path, Sky130CdsSchema,
+        Sky130CdsSchema, sky130_drc, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path,
     };
     use spice::{Spice, netlist::NetlistOptions};
     use std::path::PathBuf;
