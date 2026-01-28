@@ -1,8 +1,8 @@
 //! Resistors.
 
 use atoll::{
-    grid::{AtollLayer, LayerStack, PdkLayer},
     AtollPrimitive,
+    grid::{AtollLayer, LayerStack, PdkLayer},
 };
 use geometry::{
     bbox::Bbox,
@@ -18,10 +18,10 @@ use substrate::{
     block::Block,
     layout::{Container, Layout},
     schematic::Schematic,
-    types::{layout::PortGeometry, TwoTerminalIo, TwoTerminalIoView},
+    types::{TwoTerminalIo, TwoTerminalIoView, layout::PortGeometry},
 };
 
-use crate::{layers::Sky130Layer, Sky130};
+use crate::{Sky130, layers::Sky130Layer};
 
 const SLOTTED_LICON_W: i64 = 190;
 const SLOTTED_LICON_L: i64 = 2_000;
@@ -236,12 +236,12 @@ mod tests {
     use super::*;
     use crate::{layout::to_gds, tests::sky130_cds_ctx};
     use pegasus::{
-        drc::{run_drc, DrcParams},
         RuleCheck,
+        drc::{DrcParams, run_drc},
     };
     use substrate::block::Block;
 
-    use crate::{SKY130_DRC, SKY130_DRC_RULES_PATH};
+    use crate::{sky130_drc, sky130_drc_rules_path};
 
     fn test_check_filter(check: &RuleCheck) -> bool {
         !["licon.12", "hvnwell.8"].contains(&check.name.as_ref())
@@ -273,8 +273,8 @@ mod tests {
             work_dir: &drc_dir,
             layout_path: &layout_path,
             cell_name: &dut.name(),
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })
         .expect("failed to run drc");
 
@@ -306,8 +306,8 @@ mod tests {
         //     layout_cell_name: &dut.name(),
         //     source_paths: &[source_path],
         //     source_cell_name: &dut.name(),
-        //     rules_dir: &PathBuf::from(SKY130_LVS),
-        //     rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+        //     rules_dir: &sky130_lvs,
+        //     rules_path: &sky130_lvs_rules_path,
         // })
         // .expect("failed to run lvs");
 

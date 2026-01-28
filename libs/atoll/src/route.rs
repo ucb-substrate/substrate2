@@ -3,12 +3,12 @@
 use crate::abs::{GridCoord, TrackCoord};
 use crate::grid::{AbstractLayer, RoutingState};
 use crate::{NetId, PointState};
-use indexmap::{map::Entry, IndexMap};
+use indexmap::{IndexMap, map::Entry};
 use layir::Shape;
 use num::Zero;
+use rand::SeedableRng;
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
-use rand::SeedableRng;
 use rustc_hash::FxHasher;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashSet};
@@ -133,7 +133,7 @@ where
     reached.map(|target| {
         (
             reverse_path(&parents, |&(p, _)| p, target),
-            parents.get_index(target).unwrap().1 .1,
+            parents.get_index(target).unwrap().1.1,
         )
     })
 }

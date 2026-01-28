@@ -11,8 +11,8 @@ use std::sync::Arc;
 use substrate::{
     schematic::conv::ConvertedNodePath,
     simulation::{
-        data::{Save, SaveFreq, SaveOutput},
         Analysis, SimulationContext, Simulator, SupportedBy,
+        data::{Save, SaveFreq, SaveOutput},
     },
     types::schematic::{NestedNode, NestedTerminal, RawNestedNode},
 };
@@ -211,12 +211,12 @@ impl Save<Spectre, Ac> for NestedTerminal {
     ) -> <Self as Save<Spectre, Ac>>::Saved {
         let v = output
             .raw_values
-            .get(output.saved_values.get(&key.0 .0).unwrap())
+            .get(output.saved_values.get(&key.0.0).unwrap())
             .unwrap()
             .clone();
         let currents: Vec<Arc<Vec<Complex64>>> = key
             .1
-             .0
+            .0
             .iter()
             .map(|key| {
                 output

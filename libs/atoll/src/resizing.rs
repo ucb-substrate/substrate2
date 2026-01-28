@@ -2,8 +2,8 @@
 
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
-use downcast_rs::{impl_downcast, Downcast};
-use slotmap::{new_key_type, SecondaryMap, SlotMap};
+use downcast_rs::{Downcast, impl_downcast};
+use slotmap::{SecondaryMap, SlotMap, new_key_type};
 use substrate::geometry::{dims::Dims, point::Point, rect::Rect, transform::Translate};
 
 /// A resizable instance.
@@ -215,21 +215,21 @@ impl ResizableGrid {
                 } else {
                     for w_col in 0..w {
                         let w_col_phys = increment * w_col as i64;
-                        if let Some(prev_h) = &h[w - w_col][i - 1] {
-                            if let Some(h_min) = self.col_min_height(i, w_col_phys) {
-                                let tot_height = std::cmp::max(prev_h.min_height, h_min);
-                                if h[w][i]
-                                    .as_ref()
-                                    .map(|curr| tot_height < curr.min_height)
-                                    .unwrap_or(true)
-                                {
-                                    let mut widths = prev_h.widths.clone();
-                                    widths.push(w_col_phys);
-                                    h[w][i] = Some(DpValue {
-                                        min_height: tot_height,
-                                        widths,
-                                    });
-                                }
+                        if let Some(prev_h) = &h[w - w_col][i - 1]
+                            && let Some(h_min) = self.col_min_height(i, w_col_phys)
+                        {
+                            let tot_height = std::cmp::max(prev_h.min_height, h_min);
+                            if h[w][i]
+                                .as_ref()
+                                .map(|curr| tot_height < curr.min_height)
+                                .unwrap_or(true)
+                            {
+                                let mut widths = prev_h.widths.clone();
+                                widths.push(w_col_phys);
+                                h[w][i] = Some(DpValue {
+                                    min_height: tot_height,
+                                    widths,
+                                });
                             }
                         }
                     }

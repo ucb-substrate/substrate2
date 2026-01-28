@@ -208,7 +208,11 @@ impl Display for Cause {
                 "duplicate cell names: found two or more cells named `{}`",
                 name
             ),
-            Self::DuplicateInstanceNames { inst_name, cell_name, .. } => write!(
+            Self::DuplicateInstanceNames {
+                inst_name,
+                cell_name,
+                ..
+            } => write!(
                 f,
                 "duplicate instance names: found two or more instances named `{}` in cell `{}`",
                 inst_name, cell_name,
@@ -220,88 +224,102 @@ impl Display for Cause {
                 "duplicate signal names: found two or more signals named `{}` in cell `{}`",
                 name, cell_name
             ),
-            Self::ShortedPorts { name, cell_name, .. } =>
-                write!(
-                    f,
-                    "shorted ports: port `{}` in cell `{}` is connected to a signal already used by another port",
-                    name,
-                    cell_name
-                ),
+            Self::ShortedPorts {
+                name, cell_name, ..
+            } => write!(
+                f,
+                "shorted ports: port `{}` in cell `{}` is connected to a signal already used by another port",
+                name, cell_name
+            ),
 
-            Self::MissingSignal { id, cell_name, .. } =>
-                write!(
-                    f,
-                    "invalid signal ID {} in cell `{}`",
-                    id,
-                    cell_name
-                ),
+            Self::MissingSignal { id, cell_name, .. } => {
+                write!(f, "invalid signal ID {} in cell `{}`", id, cell_name)
+            }
 
-            Self::MissingChild { child_id, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "missing child cell: instance `{}` in cell `{}` references cell ID `{}`, but no cell with this ID was found in the library",
-                    instance_name,
-                    parent_cell_name,
-                    child_id
-                ),
+            Self::MissingChild {
+                child_id,
+                parent_cell_name,
+                instance_name,
+                ..
+            } => write!(
+                f,
+                "missing child cell: instance `{}` in cell `{}` references cell ID `{}`, but no cell with this ID was found in the library",
+                instance_name, parent_cell_name, child_id
+            ),
 
-            Self::UnconnectedPort { child_cell_name, port, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "unconnected port: instance `{}` in cell `{}` does not specify a connection for port `{}` of cell `{}`",
-                    instance_name,
-                    parent_cell_name,
-                    port,
-                    child_cell_name
-                ),
+            Self::UnconnectedPort {
+                child_cell_name,
+                port,
+                parent_cell_name,
+                instance_name,
+                ..
+            } => write!(
+                f,
+                "unconnected port: instance `{}` in cell `{}` does not specify a connection for port `{}` of cell `{}`",
+                instance_name, parent_cell_name, port, child_cell_name
+            ),
 
-            Self::ExtraPort { child_cell_name, port, parent_cell_name, instance_name, .. } =>
-                write!(
-                    f,
-                    "extra port: instance `{}` in cell `{}` specifies a connection for port `{}` of cell `{}`, but this cell has no such port",
-                    instance_name,
-                    parent_cell_name,
-                    port,
-                    child_cell_name
-                ),
+            Self::ExtraPort {
+                child_cell_name,
+                port,
+                parent_cell_name,
+                instance_name,
+                ..
+            } => write!(
+                f,
+                "extra port: instance `{}` in cell `{}` specifies a connection for port `{}` of cell `{}`, but this cell has no such port",
+                instance_name, parent_cell_name, port, child_cell_name
+            ),
 
-            Self::IndexOutOfBounds {idx, width, cell_name, .. } =>
-                write!(
-                    f,
-                    "index out of bounds: attempted to access index {} of signal with width {} in cell `{}`",
-                    idx,
-                    width,
-                    cell_name
-                ),
+            Self::IndexOutOfBounds {
+                idx,
+                width,
+                cell_name,
+                ..
+            } => write!(
+                f,
+                "index out of bounds: attempted to access index {} of signal with width {} in cell `{}`",
+                idx, width, cell_name
+            ),
 
-            Self::MissingIndex { signal_name, cell_name, .. } =>
-                write!(
-                    f,
-                    "missing index on use of bus signal `{}` in cell `{}`",
-                    signal_name,
-                    cell_name
-                ),
+            Self::MissingIndex {
+                signal_name,
+                cell_name,
+                ..
+            } => write!(
+                f,
+                "missing index on use of bus signal `{}` in cell `{}`",
+                signal_name, cell_name
+            ),
 
-            Self::IndexedWire { signal_name, cell_name, .. } =>
-                write!(
-                    f,
-                    "attempted to index a single-bit wire: signal `{}` in cell `{}`",
-                    signal_name,
-                    cell_name
-                ),
+            Self::IndexedWire {
+                signal_name,
+                cell_name,
+                ..
+            } => write!(
+                f,
+                "attempted to index a single-bit wire: signal `{}` in cell `{}`",
+                signal_name, cell_name
+            ),
 
-            Self::PortWidthMismatch { expected_width, actual_width, instance_name, port, parent_cell_name, child_cell_name, .. } =>
-                write!(
-                    f,
-                    "mismatched port width: instance `{}` in cell `{}` specifies a connection to port `{}` of cell `{}` of width {}, but the expected width is {}",
-                    instance_name,
-                    parent_cell_name,
-                    port,
-                    child_cell_name,
-                    actual_width,
-                    expected_width
-                ),
-
+            Self::PortWidthMismatch {
+                expected_width,
+                actual_width,
+                instance_name,
+                port,
+                parent_cell_name,
+                child_cell_name,
+                ..
+            } => write!(
+                f,
+                "mismatched port width: instance `{}` in cell `{}` specifies a connection to port `{}` of cell `{}` of width {}, but the expected width is {}",
+                instance_name,
+                parent_cell_name,
+                port,
+                child_cell_name,
+                actual_width,
+                expected_width
+            ),
         }
     }
 }

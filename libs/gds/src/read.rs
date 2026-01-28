@@ -46,7 +46,7 @@ impl GdsReader {
             Ok(num) => num, // The normal case
         };
         let len = len - 4; // Strip out the four header-bytes
-                           // Read and decode its RecordType
+        // Read and decode its RecordType
         let record_type = self.file.read_u8()?;
         let record_type: GdsRecordType =
             FromPrimitive::from_u8(record_type).ok_or(GdsError::InvalidRecordType(record_type))?;
@@ -77,7 +77,7 @@ impl GdsReader {
 
     fn read_record_content(&mut self, header: &GdsRecordHeader) -> GdsResult<GdsRecord> {
         // Based on that header-data, decode to a [GdsRecord]
-        use GdsDataType::{BitArray, NoData, Str, F64, I16, I32};
+        use GdsDataType::{BitArray, F64, I16, I32, NoData, Str};
         let len = header.len;
         let record: GdsRecord = match (header.rtype, header.dtype, len) {
             // Library-Level Records
@@ -509,7 +509,7 @@ impl GdsParser {
                 | GdsRecord::AttrTable(_)
                 | GdsRecord::Generations(_)
                 | GdsRecord::Format(_) => {
-                    return Err(GdsError::Unsupported(Some(r), Some(GdsContext::Library)))
+                    return Err(GdsError::Unsupported(Some(r), Some(GdsContext::Library)));
                 }
                 // Invalid
                 _ => return self.invalid(r),

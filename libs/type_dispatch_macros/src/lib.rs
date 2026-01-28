@@ -4,8 +4,8 @@
 
 use crate::types::{dispatch_const_impl, dispatch_fn_impl, dispatch_type_impl};
 use proc_macro::{TokenStream, TokenTree};
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 
 use crate::impls::impl_dispatch_impl;

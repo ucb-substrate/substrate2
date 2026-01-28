@@ -11,7 +11,7 @@ use geometry::{
 };
 use layir::{Cell, CellId, Instance, Library, LibraryBuilder, Shape, Text};
 use slotmap::new_key_type;
-use tracing::{span, Level};
+use tracing::{Level, span};
 
 use crate::GdsLayer;
 
@@ -106,10 +106,10 @@ impl<'a> GdsImporter<'a> {
     fn check_units(&mut self, units: &gds::GdsUnits) -> Result<()> {
         let gdsunit = units.db_unit();
 
-        if let Some(expected_units) = &self.opts.units {
-            if (gdsunit - expected_units.db_unit()).abs() / expected_units.db_unit() > 1e-3 {
-                return Err(GdsImportError);
-            }
+        if let Some(expected_units) = &self.opts.units
+            && (gdsunit - expected_units.db_unit()).abs() / expected_units.db_unit() > 1e-3
+        {
+            return Err(GdsImportError);
         }
         Ok(())
     }
@@ -144,24 +144,24 @@ impl<'a> GdsImporter<'a> {
         for elem in &strukt.elems {
             use gds::GdsElement::*;
             match elem {
-                GdsBoundary(ref x) => cell.add_element(self.import_boundary(x)?),
-                GdsPath(ref x) => cell.add_element(self.import_path(x)?),
-                GdsBox(ref x) => cell.add_element(self.import_box(x)?),
-                GdsArrayRef(ref x) => {
+                GdsBoundary(x) => cell.add_element(self.import_boundary(x)?),
+                GdsPath(x) => cell.add_element(self.import_path(x)?),
+                GdsBox(x) => cell.add_element(self.import_box(x)?),
+                GdsArrayRef(x) => {
                     let elems = self.import_instance_array(x)?;
                     for elem in elems {
                         cell.add_instance(elem);
                     }
                 }
-                GdsStructRef(ref x) => {
+                GdsStructRef(x) => {
                     cell.add_instance(self.import_instance(x)?);
                 }
-                GdsTextElem(ref x) => {
+                GdsTextElem(x) => {
                     cell.add_element(self.import_text_elem(x)?);
                 }
                 // GDSII "Node" elements are fairly rare, and are not supported.
                 // (Maybe some day we'll even learn what they are.)
-                GdsNode(ref elem) => {
+                GdsNode(elem) => {
                     tracing::warn!(?elem, "ignoring unsupported GDS Node element");
                 }
             };
@@ -493,8 +493,8 @@ impl<'a> GdsDepOrder<'a> {
             for elem in &strukt.elems {
                 use gds::GdsElement::*;
                 match elem {
-                    GdsStructRef(ref x) => self.push(self.strukts.get(&x.name).unwrap()),
-                    GdsArrayRef(ref x) => self.push(self.strukts.get(&x.name).unwrap()),
+                    GdsStructRef(x) => self.push(self.strukts.get(&x.name).unwrap()),
+                    GdsArrayRef(x) => self.push(self.strukts.get(&x.name).unwrap()),
                     _ => (),
                 };
             }

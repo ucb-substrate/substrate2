@@ -2,7 +2,7 @@ use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
 use macrotools::add_trait_bounds;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 
 use crate::substrate_ident;
 

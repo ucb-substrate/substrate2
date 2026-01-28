@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use substrate::{
     schematic::conv::ConvertedNodePath,
     simulation::{
-        data::{Save, SaveOutput},
         Analysis, SimulationContext, Simulator, SupportedBy,
+        data::{Save, SaveOutput},
     },
     types::schematic::{NestedNode, NestedTerminal, RawNestedNode},
 };
@@ -174,11 +174,11 @@ impl Save<Spectre, DcOp> for NestedTerminal {
     ) -> <Self as Save<Spectre, DcOp>>::Saved {
         let v = *output
             .raw_values
-            .get(output.saved_values.get(&key.0 .0).unwrap())
+            .get(output.saved_values.get(&key.0.0).unwrap())
             .unwrap();
         let i = key
             .1
-             .0
+            .0
             .iter()
             .map(|key| {
                 output

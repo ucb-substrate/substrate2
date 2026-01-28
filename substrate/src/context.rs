@@ -8,11 +8,11 @@ use std::sync::{Arc, RwLock};
 
 use config::Config;
 use gds::GdsUnits;
-use gdsconv::export::GdsExportOpts;
 use gdsconv::GdsLayer;
+use gdsconv::export::GdsExportOpts;
 use indexmap::IndexMap;
 use substrate::schematic::{CellBuilder, ConvCacheKey, RawCellContentsBuilder};
-use tracing::{span, Level};
+use tracing::{Level, span};
 
 use crate::block::Block;
 use crate::cache::Cache;
@@ -25,7 +25,7 @@ use crate::layout::error::LayoutError;
 use crate::layout::{Cell as LayoutCell, CellHandle as LayoutCellHandle};
 use crate::layout::{CellBuilder as LayoutCellBuilder, CellLayer};
 use crate::layout::{Layout, LayoutContext};
-use crate::schematic::conv::{export_multi_top_scir_lib, ConvError, RawLib};
+use crate::schematic::conv::{ConvError, RawLib, export_multi_top_scir_lib};
 use crate::schematic::schema::{FromSchema, Schema};
 use crate::schematic::{
     Cell as SchematicCell, CellCacheKey, CellHandle as SchematicCellHandle, CellId, CellMetadata,

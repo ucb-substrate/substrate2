@@ -1,7 +1,7 @@
 [package]
 name = "type_dispatch"
 version = "0.5.1"
-edition = "2021"
+edition = "2024"
 description = "Utilities for dispatching functions, constants, and trait implementations based on types."
 license = "BSD-3-Clause"
 

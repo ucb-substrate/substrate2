@@ -1,7 +1,7 @@
 //! Run design rule checking (DRC) using Magic.
 
-use crate::utils::{execute_run_script, OutputFiles};
-use crate::{error::Error, TEMPLATES};
+use crate::utils::{OutputFiles, execute_run_script};
+use crate::{TEMPLATES, error::Error};
 use anyhow::anyhow;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -139,10 +139,11 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
 #[cfg(test)]
 mod tests {
     use crate::drc::*;
-    use crate::tests::{
-        COLBUF_LAYOUT_PATH, INVERTER_LICON8_LAYOUT_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH,
-    };
+    use crate::tests::{COLBUF_LAYOUT_PATH, INVERTER_LICON8_LAYOUT_PATH, TEST_BUILD_PATH};
+
     use std::path::PathBuf;
+
+    use sky130::sky130_magic_tech_file;
 
     #[test]
     fn test_run_magic_drc_clean() -> anyhow::Result<()> {
@@ -156,7 +157,7 @@ mod tests {
             work_dir: &work_dir,
             gds_path: &gds_path,
             cell_name: "test_col_inv_array",
-            tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
+            tech_file_path: &sky130_magic_tech_file(),
             drc_report_path: &drc_report_path,
         })?;
         assert!(drc_report_path.exists());
@@ -180,7 +181,7 @@ mod tests {
             work_dir: &work_dir,
             gds_path: &gds_path,
             cell_name: "inverter",
-            tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
+            tech_file_path: &sky130_magic_tech_file(),
             drc_report_path: &drc_report_path,
         })?;
         assert!(drc_report_path.exists());

@@ -1,29 +1,28 @@
 // begin-code-snippet imports
 use crate::Inverter;
 use crate::InverterIoKind;
-use crate::SKY130_LVS;
-use crate::SKY130_LVS_RULES_PATH;
-use crate::SKY130_TECHNOLOGY_DIR;
 
 use quantus::pex::Pex;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use sky130::Sky130CdsSchema;
 use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
-use sky130::Sky130CdsSchema;
+use sky130::sky130_lvs;
+use sky130::sky130_lvs_rules_path;
+use sky130::sky130_technology_dir;
+use spectre::Spectre;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
-use spectre::Spectre;
 use spice::Spice;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
 use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
-use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::simulation::Pvt;
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
 // end-code-snippet imports
@@ -295,9 +294,9 @@ impl InverterDesign {
                     gds_path: work_dir.join("layout.gds"),
                     layout_cell_name: dut.name(),
                     work_dir,
-                    lvs_rules_dir: PathBuf::from(SKY130_LVS),
-                    lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
-                    technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                    lvs_rules_dir: sky130_lvs(),
+                    lvs_rules_path: sky130_lvs_rules_path(),
+                    technology_dir: sky130_technology_dir(),
                 })
             } else {
                 InverterDut::Schematic(dut)

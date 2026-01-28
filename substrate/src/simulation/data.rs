@@ -8,8 +8,8 @@ use crate::{
     schematic::{HasNestedView, NestedInstance, NestedView, Schematic},
     simulation::{Analysis, SimulationContext, Simulator},
     types::{
-        schematic::{IoTerminalBundle, NestedNode},
         ArrayBundle, HasBundleKind,
+        schematic::{IoTerminalBundle, NestedNode},
     },
 };
 

@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{braced, parse_macro_input, Expr, Token, Type};
+use syn::{Expr, Token, Type, braced, parse_macro_input};
 
 struct Arm {
     types: Vec<Type>,

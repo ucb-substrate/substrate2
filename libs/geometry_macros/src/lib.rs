@@ -2,13 +2,13 @@
 #![warn(missing_docs)]
 
 use macrotools::{
-    derive_trait, handle_syn_error, DeriveInputHelper, DeriveTrait, ImplTrait, MapField, Receiver,
+    DeriveInputHelper, DeriveTrait, ImplTrait, MapField, Receiver, derive_trait, handle_syn_error,
 };
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Ident};
+use syn::{DeriveInput, Ident, parse_macro_input, parse_quote};
 
 pub(crate) fn geometry_ident() -> TokenStream2 {
     match crate_name("geometry") {

@@ -6,7 +6,7 @@ use scir::NetlistLibConversion;
 
 use crate::context::Context;
 
-use super::{conv::RawLib, schema::Schema, Schematic};
+use super::{Schematic, conv::RawLib, schema::Schema};
 
 /// A netlister that tracks how cells and instances are translated between SCIR and the output netlist format.
 pub trait ConvertibleNetlister<S: Schema + ?Sized>:

@@ -69,9 +69,11 @@ fn severity_is_error() {
 
 #[test]
 fn default_help_is_none() {
-    assert!(TestIssue {
-        severity: Severity::Warning,
-    }
-    .help()
-    .is_none());
+    assert!(
+        TestIssue {
+            severity: Severity::Warning,
+        }
+        .help()
+        .is_none()
+    );
 }

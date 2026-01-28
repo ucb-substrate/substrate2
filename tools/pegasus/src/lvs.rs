@@ -1,5 +1,5 @@
 use crate::utils::{aggregate_sources, execute_run_script};
-use crate::{error::Error, RuleCheck, TEMPLATES};
+use crate::{RuleCheck, TEMPLATES, error::Error};
 use regex::Regex;
 use serde::Serialize;
 use std::fs;
@@ -208,12 +208,13 @@ pub fn run_lvs(params: &LvsParams) -> Result<LvsData, Error> {
 #[cfg(test)]
 mod tests {
     use crate::lvs::{
-        parse_pegasus_lvs_results, run_lvs, write_lvs_run_file, LvsParams, LvsStatus,
+        LvsParams, LvsStatus, parse_pegasus_lvs_results, run_lvs, write_lvs_run_file,
     };
-    use crate::tests::{
-        COLBUF_LAYOUT_PATH, EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH, TEST_BUILD_PATH,
-    };
+    use crate::tests::{COLBUF_LAYOUT_PATH, EXAMPLES_PATH, TEST_BUILD_PATH};
+
     use std::path::PathBuf;
+
+    use sky130::{sky130_lvs, sky130_lvs_rules_path};
 
     #[test]
     fn test_write_lvs_run_file() -> anyhow::Result<()> {
@@ -227,8 +228,8 @@ mod tests {
             layout_cell_name: "test_col_inv_array",
             source_paths: &[source_path],
             source_cell_name: "col_inv_array",
-            rules_dir: &PathBuf::from(SKY130_LVS),
-            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+            rules_dir: &sky130_lvs(),
+            rules_path: &sky130_lvs_rules_path(),
         })?;
         Ok(())
     }
@@ -268,8 +269,8 @@ mod tests {
                     layout_cell_name: "test_col_inv_array",
                     source_paths: &[source_path],
                     source_cell_name: "col_inv_array",
-                    rules_dir: &PathBuf::from(SKY130_LVS),
-                    rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+                    rules_dir: &sky130_lvs(),
+                    rules_path: &sky130_lvs_rules_path(),
                 })?
                 .status,
                 LvsStatus::Correct
@@ -293,8 +294,8 @@ mod tests {
                     layout_cell_name: "test_col_inv_array",
                     source_paths: &[source_path],
                     source_cell_name: "col_inv_array",
-                    rules_dir: &PathBuf::from(SKY130_LVS),
-                    rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+                    rules_dir: &sky130_lvs(),
+                    rules_path: &sky130_lvs_rules_path(),
                 })?
                 .status,
                 LvsStatus::Incorrect,

@@ -12,20 +12,35 @@ on:
 
 env:
     CARGO_TERM_COLOR: always
-    DOCS_NAME: ${{ inputs.name || github.ref.name }}
-    PUBLIC_DOCS_DIR: /tools/C/rahulkumar/substrate_docs_public
 
 jobs:
   deploy-api-docs:
     name: Deploy API documentation
-    runs-on: bwrc
+    runs-on: ubuntu-latest
     environment: docs
     steps:
       - uses: actions/checkout@v4
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: |
+            ${{ inputs.workspace_path }}
+          cache-on-failure: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
         with:
           version: 0.3.66
-      - run: ./deploy.sh ${{ env.PUBLIC_DOCS_DIR }} ${{ inputs.name || github.ref_name }}
+      - run: ./build.sh . ${{ inputs.name || github.ref_name }}
+        working-directory: docs/api
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/release
+      - run: ./build.sh . release
+        working-directory: docs/api
+      - run: flyctl deploy --remote-only --detach
         working-directory: docs/api
         env:
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}

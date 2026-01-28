@@ -4,13 +4,13 @@ use std::marker::PhantomData;
 
 use crate::{
     schematic::{ContextView, HasContextView, HasNestedView, NestedView},
-    simulation::{data::Save, Analysis, Simulator},
+    simulation::{Analysis, Simulator, data::Save},
 };
 
 use super::{
+    Array, ArrayBundle, HasBundleKind, Signal,
     layout::{LayoutBundle, PortGeometry},
     schematic::{HasNodeBundle, HasTerminalBundle, SchematicBundleKind},
-    Array, ArrayBundle, HasBundleKind, Signal,
 };
 
 /// A type with an associated `V` view.
@@ -94,12 +94,12 @@ pub trait HasSchematicBundleKindViews:
 }
 
 impl<
-        T: HasBundleKind<BundleKind: SchematicBundleKind>
-            + HasView<NodeBundle, View = super::schematic::NodeBundle<T>>
-            + HasView<TerminalBundle, View = super::schematic::TerminalBundle<T>>
-            + HasView<NestedNodeBundle, View = NestedView<super::schematic::NodeBundle<Self>>>
-            + HasView<NestedTerminalBundle, View = NestedView<super::schematic::TerminalBundle<Self>>>,
-    > HasSchematicBundleKindViews for T
+    T: HasBundleKind<BundleKind: SchematicBundleKind>
+        + HasView<NodeBundle, View = super::schematic::NodeBundle<T>>
+        + HasView<TerminalBundle, View = super::schematic::TerminalBundle<T>>
+        + HasView<NestedNodeBundle, View = NestedView<super::schematic::NodeBundle<Self>>>
+        + HasView<NestedTerminalBundle, View = NestedView<super::schematic::TerminalBundle<Self>>>,
+> HasSchematicBundleKindViews for T
 {
 }
 

@@ -301,7 +301,7 @@ impl GdsFloat64 {
         let mantissa: f64 = mantissa as f64 / 2f64.powi(8 * 7);
         // Combine everything into our overall value
         if neg {
-            -1.0 * mantissa * 16f64.powi(exp)
+            -mantissa * 16f64.powi(exp)
         } else {
             mantissa * 16f64.powi(exp)
         }
@@ -458,7 +458,7 @@ impl GdsPoint {
 
     /// Converts an n-element vector if `i32` into an n/2-element vector of [GdsPoint]s.
     fn parse_vec(from: &[i32]) -> GdsResult<Vec<GdsPoint>> {
-        if from.len() % 2 != 0 {
+        if !from.len().is_multiple_of(2) {
             return Err(GdsError::Str(
                 "GdsPoint coordinate vector: Invalid number of elements".into(),
             ));

@@ -11,13 +11,13 @@ use substrate::types::codegen::PortGeometryBundle;
 use substrate::{
     block::Block,
     layout::{
-        tracks::{Tracks, UniformTracks},
         CellBuilder, Layout,
+        tracks::{Tracks, UniformTracks},
     },
-    types::{layout::PortGeometry, InOut, Io, Signal},
+    types::{InOut, Io, Signal, layout::PortGeometry},
 };
 
-use crate::{layers::Sky130Layer, Sky130};
+use crate::{Sky130, layers::Sky130Layer};
 
 /// The units used for importing/exporting GDS libraries.
 pub const GDS_UNITS: GdsUnits = GdsUnits::new(1e-3, 1e-9);

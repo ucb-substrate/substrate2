@@ -1,9 +1,9 @@
-use atoll::{fold::Foldable, route::GreedyRouter, Orientation, Tile, TileData};
+use atoll::{Orientation, Tile, TileData, fold::Foldable, route::GreedyRouter};
 use layir::Shape;
 use sky130::{
+    Sky130,
     atoll::{GateDir, MosLength, NmosTile, NtapTile, PmosTile, PtapTile, Sky130ViaMaker},
     layers::Sky130Layer,
-    Sky130,
 };
 use substrate::{
     geometry::{align::AlignMode, bbox::Bbox, rect::Rect},
@@ -136,18 +136,18 @@ mod tests {
 
     use super::*;
 
-    use atoll::fold::{FoldedArray, PinConfig};
     use atoll::TileWrapper;
-    use pegasus::drc::{run_drc, DrcParams};
-    use pegasus::lvs::{LvsParams, LvsStatus};
+    use atoll::fold::{FoldedArray, PinConfig};
     use pegasus::RuleCheck;
+    use pegasus::drc::{DrcParams, run_drc};
+    use pegasus::lvs::{LvsParams, LvsStatus};
     use scir::netlist::ConvertibleNetlister;
 
     use sky130::layout::to_gds;
     use sky130::{
-        Sky130CdsSchema, SKY130_DRC, SKY130_DRC_RULES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
+        Sky130CdsSchema, sky130_drc, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path,
     };
-    use spice::{netlist::NetlistOptions, Spice};
+    use spice::{Spice, netlist::NetlistOptions};
     use std::path::PathBuf;
     use substrate::block::Block;
 
@@ -181,8 +181,8 @@ mod tests {
             work_dir: &drc_dir,
             layout_path: &layout_path,
             cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })
         .expect("failed to run drc");
 
@@ -214,8 +214,8 @@ mod tests {
             layout_cell_name: &block.name(),
             source_paths: &[source_path],
             source_cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_LVS),
-            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+            rules_dir: &sky130_lvs(),
+            rules_path: &sky130_lvs_rules_path(),
         })
         .expect("failed to run lvs");
 
@@ -264,8 +264,8 @@ mod tests {
             work_dir: &drc_dir,
             layout_path: &layout_path,
             cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })
         .expect("failed to run drc");
 

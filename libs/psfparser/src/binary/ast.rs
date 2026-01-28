@@ -167,14 +167,14 @@ pub enum Trace<'a> {
 }
 
 impl<'a> Trace<'a> {
-    pub fn group(&self) -> &TraceGroup {
+    pub fn group(&self) -> &TraceGroup<'_> {
         match self {
             Self::Group(g) => g,
             _ => panic!("Cannot unwrap signal as group"),
         }
     }
 
-    pub fn signal(&self) -> &SignalRef {
+    pub fn signal(&self) -> &SignalRef<'_> {
         match self {
             Self::Signal(s) => s,
             _ => panic!("Cannot unwrap group trace as signal"),
@@ -270,28 +270,28 @@ impl Values {
 
     pub fn real(&self) -> &Vec<f64> {
         match self {
-            Self::Real(ref v) => v,
+            Self::Real(v) => v,
             _ => panic!("not a real value vector"),
         }
     }
 
     pub fn complex(&self) -> &Vec<Complex64> {
         match self {
-            Self::Complex(ref v) => v,
+            Self::Complex(v) => v,
             _ => panic!("not a complex value vector"),
         }
     }
 
     pub fn real_mut(&mut self) -> &mut Vec<f64> {
         match self {
-            Self::Real(ref mut v) => v,
+            Self::Real(v) => v,
             _ => panic!("not a real value vector"),
         }
     }
 
     pub fn complex_mut(&mut self) -> &mut Vec<Complex64> {
         match self {
-            Self::Complex(ref mut v) => v,
+            Self::Complex(v) => v,
             _ => panic!("not a complex value vector"),
         }
     }

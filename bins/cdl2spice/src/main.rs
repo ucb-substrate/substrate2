@@ -2,10 +2,10 @@ use anyhow::Context;
 use arcstr::ArcStr;
 use clap::Parser as ClapParser;
 use scir::netlist::ConvertibleNetlister;
+use spice::Spice;
 use spice::netlist::NetlistOptions;
 use spice::parser::conv::ScirConverter;
 use spice::parser::{Dialect, Parser};
-use spice::Spice;
 use std::io;
 use std::path::PathBuf;
 

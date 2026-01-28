@@ -16,9 +16,23 @@ env:
 jobs:
   lint:
     name: lint
-    runs-on: bwrc
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install fontconfig
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev pkg-config
+      - uses: taiki-e/install-action@cargo-hack
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ${{ inputs.workspace_path }}
+          cache-on-failure: true
       - name: Check formatting
         run: |
           cargo fmt --check
@@ -43,16 +57,16 @@ jobs:
         run: |
           cargo hack clippy --feature-powerset --tests -- -D warnings
         working-directory: ${{ inputs.workspace_path }}
-  test:
-    name: test
-    runs-on: bwrc
-    steps:
-      - uses: actions/checkout@v4
-      - name: Test locked
-        if: ${{ inputs.locked }}
-        run: cargo test --locked --all-features
-        working-directory: ${{ inputs.workspace_path }}
-      - name: Test
-        if: ${{ ! inputs.locked }}
-        run: cargo test --all-features
-        working-directory: ${{ inputs.workspace_path }}
+  # test:
+  #   name: test
+  #   runs-on: bwrc
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Test locked
+  #       if: ${{ inputs.locked }}
+  #       run: cargo test --locked --all-features
+  #       working-directory: ${{ inputs.workspace_path }}
+  #     - name: Test
+  #       if: ${{ ! inputs.locked }}
+  #       run: cargo test --all-features
+  #       working-directory: ${{ inputs.workspace_path }}

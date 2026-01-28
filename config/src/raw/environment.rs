@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 
 /// Generate `case_insensitive_env` and `normalized_env` from the `env`.
 fn make_case_insensitive_and_normalized_env(

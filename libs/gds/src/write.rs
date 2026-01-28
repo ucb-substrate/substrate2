@@ -50,7 +50,7 @@ impl<'wr> GdsWriter<'wr> {
         // A quick closure for GDS's "even-lengths-only allowed" strings
         let gds_strlen = |s: &str| -> usize { s.len() + s.len() % 2 };
         // First grab the header info: RecordType, DataType, and length
-        use GdsDataType::{BitArray, NoData, Str, F64, I16, I32};
+        use GdsDataType::{BitArray, F64, I16, I32, NoData, Str};
         let (rtype, dtype, len) = match record {
             // Library-Level Records
             GdsRecord::Header { .. } => (GdsRecordType::Header, I16, 2),
@@ -490,29 +490,6 @@ trait Encode {
         if let Some(ref e) = strans.angle {
             self.encode_record(GdsRecord::Angle(*e))?;
         }
-        Ok(())
-    }
-}
-
-/// A list of GDS records.
-///
-/// A largely for-testing implementer of the [Encode] trait,
-/// which collects the generated records into a vector.
-#[derive(Default, Debug, Deserialize, Serialize)]
-pub struct GdsRecordList {
-    pub records: Vec<GdsRecord>,
-}
-
-impl Encode for GdsRecordList {
-    /// Adds a [GdsRecord] to the list.
-    fn encode_record(&mut self, record: GdsRecord) -> GdsResult<()> {
-        self.records.push(record);
-        Ok(())
-    }
-
-    /// Adds an array of [GdsRecord]s to the list.
-    fn encode_records(&mut self, records: &[GdsRecord]) -> GdsResult<()> {
-        self.records.extend(records.to_vec());
         Ok(())
     }
 }

@@ -22,8 +22,15 @@ lazy_static! {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
     pub const EXAMPLES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
-    pub const SKY130_SETUP_FILE: &str =
-        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
+    pub fn sky130_setup_file() -> PathBuf {
+        PathBuf::from(
+            std::env::var("OPEN_PDKS_ROOT")
+                .expect("OPEN_PDKS_ROOT environment variable must be defined"),
+        )
+        .join("sky130/netgen/sky130_setup.tcl")
+    }
 }

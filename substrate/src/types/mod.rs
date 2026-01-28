@@ -58,7 +58,13 @@ pub trait Flatten<T>: FlatLen {
         let len = self.len();
         let mut vec = Vec::with_capacity(len);
         self.flatten(&mut vec);
-        assert_eq!(vec.len(), len, "Flatten::flatten_vec produced a Vec with an incorrect length: expected {} from FlatLen::len, got {}", len, vec.len());
+        assert_eq!(
+            vec.len(),
+            len,
+            "Flatten::flatten_vec produced a Vec with an incorrect length: expected {} from FlatLen::len, got {}",
+            len,
+            vec.len()
+        );
         vec
     }
 }
@@ -106,9 +112,8 @@ pub trait BundleKind:
     FlatLen + HasNameTree + HasBundleKind<BundleKind = Self> + Debug + Clone + Eq + Send + Sync
 {
 }
-impl<
-        T: FlatLen + HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync,
-    > BundleKind for T
+impl<T: FlatLen + HasNameTree + HasBundleKind<BundleKind = T> + Debug + Clone + Eq + Send + Sync>
+    BundleKind for T
 {
 }
 

@@ -5,8 +5,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use cache::{mem::TypeCache, multi::MultiCache, CacheHandle, Cacheable, CacheableWithState};
-use serde::{de::DeserializeOwned, Serialize};
+use cache::{CacheHandle, Cacheable, CacheableWithState, mem::TypeCache, multi::MultiCache};
+use serde::{Serialize, de::DeserializeOwned};
 
 #[cfg(test)]
 mod tests;

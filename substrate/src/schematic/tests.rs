@@ -16,7 +16,7 @@ use crate::types::schematic::{DataView, IoNodeBundle, NestedTerminal, Node, Node
 use crate::types::{Array, Flipped, HasBundleKind, Input, PowerIo};
 use crate::{
     block::Block,
-    schematic::{conv::RawLib, NestedData, PrimitiveBinding, Schematic},
+    schematic::{NestedData, PrimitiveBinding, Schematic, conv::RawLib},
     types::{HasNameTree, InOut, NameTree, Output, Signal},
 };
 

@@ -62,7 +62,7 @@ use anyhow::Result;
 
 use self::ConfigValue as CV;
 use crate::paths;
-use anyhow::{anyhow, bail, Context as _};
+use anyhow::{Context as _, anyhow, bail};
 use lazycell::LazyCell;
 use serde::Deserialize;
 
@@ -1018,11 +1018,3 @@ impl StringList {
         &self.0
     }
 }
-
-/// StringList automatically merges config values with environment values,
-/// this instead follows the precedence rules, so that eg. a string list found
-/// in the environment will be used instead of one in a config file.
-///
-/// This is currently only used by `PathAndArgs`
-#[derive(Debug, Deserialize)]
-pub(crate) struct UnmergedStringList(Vec<String>);

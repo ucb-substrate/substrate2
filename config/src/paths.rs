@@ -41,10 +41,10 @@ impl<'a> Iterator for PathAncestors<'a> {
         if let Some(path) = self.current {
             self.current = path.parent();
 
-            if let Some(ref stop_at) = self.stop_at {
-                if path == stop_at {
-                    self.current = None;
-                }
+            if let Some(ref stop_at) = self.stop_at
+                && path == stop_at
+            {
+                self.current = None;
             }
 
             Some(path)

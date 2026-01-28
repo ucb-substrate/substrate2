@@ -24,18 +24,18 @@ use substrate::{
     schematic::{CellBuilder, NestedData, PrimitiveBinding, Schematic},
     simulation::SimController,
     types::{
-        schematic::{IoNodeBundle, Node},
         InOut, Io, Signal, TestbenchIo, TwoTerminalIo,
+        schematic::{IoNodeBundle, Node},
     },
 };
 
+use crate::analysis::Sweep;
 use crate::analysis::ac::Ac;
 use crate::analysis::dc::DcOp;
 use crate::analysis::tran::Tran;
-use crate::analysis::Sweep;
 use crate::{
-    blocks::{AcSource, Capacitor, Isource, RawInstance, Resistor, Vsource},
     ErrPreset, Options, Primitive, Spectre,
+    blocks::{AcSource, Capacitor, Isource, RawInstance, Resistor, Vsource},
 };
 
 const BUILD_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
@@ -256,10 +256,12 @@ fn spectre_can_save_paths_with_flattened_instances() {
         )
         .expect("failed to run simulation");
 
-    assert!(output
-        .i
-        .values()
-        .all(|val| relative_eq!(val.x(), 1.8 * (1. / 100. + 1. / 200. + 1. / 300.))));
+    assert!(
+        output
+            .i
+            .values()
+            .all(|val| relative_eq!(val.x(), 1.8 * (1. / 100. + 1. / 200. + 1. / 300.)))
+    );
 }
 
 /// An RC testbench.

@@ -13,7 +13,7 @@ use error::{ArcResult, Error, TryInnerError};
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 use regex::Regex;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 
 pub mod error;
@@ -391,7 +391,7 @@ impl<V, E> CacheHandle<std::result::Result<V, E>> {
     ///
     /// Returns an error if the generator panicked or threw an error, or if the cache threw an
     /// error.
-    pub fn try_inner(&self) -> std::result::Result<&V, TryInnerError<E>> {
+    pub fn try_inner(&self) -> std::result::Result<&V, TryInnerError<'_, E>> {
         Ok(self
             .try_get()
             .map_err(|e| TryInnerError::CacheError(e))?

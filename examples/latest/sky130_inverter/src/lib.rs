@@ -1,6 +1,6 @@
 // begin-code-snippet imports
 use sky130::mos::{Nfet01v8, Pfet01v8};
-use sky130::Sky130;
+use sky130::{Sky130, sky130_cds_pdk_root, sky130_open_pdk_root};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
@@ -60,26 +60,6 @@ impl Schematic for Inverter {
 }
 // end-code-snippet inverter-schematic
 
-// begin-code-snippet open-constants
-pub const SKY130_MAGIC_TECH_FILE: &str =
-    concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
-pub const SKY130_NETGEN_SETUP_FILE: &str =
-    concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
-// end-code-snippet open-constants
-
-// begin-code-snippet cds-constants
-pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
-pub const SKY130_DRC_RULES_PATH: &str = concat!(
-    env!("SKY130_CDS_PDK_ROOT"),
-    "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
-);
-pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-pub const SKY130_LVS_RULES_PATH: &str =
-    concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);
-pub const SKY130_TECHNOLOGY_DIR: &str =
-    concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
-// end-code-snippet cds-constants
-
 // begin-code-snippet sky130-open-ctx
 /// Create a new Substrate context for the SKY130 open PDK.
 ///
@@ -91,11 +71,9 @@ pub const SKY130_TECHNOLOGY_DIR: &str =
 /// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
 pub fn sky130_open_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
-        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(ngspice::Ngspice::default())
-        .install(Sky130::open(pdk_root))
+        .install(Sky130::open(sky130_open_pdk_root()))
         .build()
 }
 // end-code-snippet sky130-open-ctx
@@ -111,8 +89,7 @@ pub fn sky130_open_ctx() -> Context {
 /// Panics if the `SKY130_CDS_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
 pub fn sky130_cds_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
-        .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
+    let pdk_root = sky130_cds_pdk_root();
     Context::builder()
         .install(spectre::Spectre::default())
         .install(Sky130::cds_only(pdk_root))

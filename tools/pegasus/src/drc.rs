@@ -1,5 +1,6 @@
+use crate::TEMPLATES;
 use crate::utils::execute_run_script;
-use crate::{error::Error, RuleCheck, TEMPLATES};
+use crate::{RuleCheck, error::Error};
 use regex::Regex;
 use serde::Serialize;
 use std::fs;
@@ -163,11 +164,14 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::drc::{parse_pegasus_drc_results, run_drc, write_drc_files, DrcParams};
-    use crate::tests::{EXAMPLES_PATH, SKY130_DRC, SKY130_DRC_RULES_PATH, TEST_BUILD_PATH};
-    use crate::RuleCheck;
+    use crate::drc::{DrcParams, parse_pegasus_drc_results, run_drc, write_drc_files};
+    use crate::tests::TEST_BUILD_PATH;
+    use crate::{RuleCheck, tests::EXAMPLES_PATH};
+
     use std::collections::HashMap;
     use std::path::PathBuf;
+
+    use sky130::{sky130_drc, sky130_drc_rules_path};
 
     #[test]
     fn test_write_drc_run_file() -> anyhow::Result<()> {
@@ -178,8 +182,8 @@ mod tests {
             work_dir: &work_dir,
             layout_path: &layout_path,
             cell_name: "sky130_and3",
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })?;
         Ok(())
     }
@@ -195,12 +199,9 @@ mod tests {
         for rule_check in data.rule_checks {
             if let Some(expected_num_results) = test_rules.get(&rule_check.name) {
                 assert_eq!(
-                    *expected_num_results,
-                    rule_check.num_results,
+                    *expected_num_results, rule_check.num_results,
                     "Incorrectly parsed DRC report, expected {} results for rule check {} but found {}",
-                    expected_num_results,
-                    &rule_check.name,
-                    rule_check.num_results
+                    expected_num_results, &rule_check.name, rule_check.num_results
                 );
             }
         }
@@ -221,8 +222,8 @@ mod tests {
             work_dir: &work_dir,
             layout_path: &layout_path,
             cell_name: "col_peripherals",
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })?;
 
         assert_eq!(
@@ -246,8 +247,8 @@ mod tests {
                 work_dir: &work_dir,
                 layout_path: &layout_path,
                 cell_name: "sky130_fd_bd_sram__sram_sp_cell",
-                rules_dir: &PathBuf::from(SKY130_DRC),
-                rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+                rules_dir: &sky130_drc(),
+                rules_path: &sky130_drc_rules_path(),
             })?
             .rule_checks
             .into_iter()

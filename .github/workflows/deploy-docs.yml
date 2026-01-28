@@ -18,14 +18,17 @@ env:
 jobs:
   deploy-docs:
     name: Deploy documentation
-    runs-on: bwrc
-    environment: docs
+    runs-on: ubuntu-latest
+    environment: main
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
         with:
           version: 0.3.66
-      - run: ./deploy.sh ${{ env.PUBLIC_DOCS_DIR }} ${{ inputs.name || github.ref_name }}
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 23.x
+      - run: ./deploy.sh . ${{ inputs.name || github.ref_name }}
         working-directory: docs/docusaurus
         env:
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_API_TOKEN_DOCS }}

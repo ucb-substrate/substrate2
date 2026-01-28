@@ -25,14 +25,21 @@ jobs:
       workspace_path: examples/release
   check-docs:
     name: check-docs
-    runs-on: bwrc
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/install-action@cargo-hack
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Check docs
         run: |
-          cargo hack --all rustdoc --all-features
+          cargo d --no-deps --workspace --all-features --exclude tests --exclude examples
         env:
-          RUSTFLAGS: '-D warnings'
           RUSTDOCFLAGS: '-D warnings'
   check-docs-site:
     name: check-docs-site

@@ -34,7 +34,7 @@ use drivers::DriverIssue;
 use indexmap::IndexMap;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use tracing::{span, Level};
+use tracing::{Level, span};
 use uniquify::Names;
 
 use crate::schema::{FromSchema, NoSchema, NoSchemaError, Schema};
@@ -1060,10 +1060,10 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
         self.cells.retain(|id, _| cells.contains(id));
 
         // Clear top cell if top cell was deleted.
-        if let Some(top) = self.top_cell() {
-            if !cells.contains(&top) {
-                self.top = None;
-            }
+        if let Some(top) = self.top_cell()
+            && !cells.contains(&top)
+        {
+            self.top = None;
         }
 
         // Remove primitives.
@@ -1473,10 +1473,10 @@ impl<S: Schema + ?Sized> LibraryBuilder<S> {
 
         for (_, cell) in cells.iter_mut() {
             for (_, instance) in cell.instances.iter_mut() {
-                if let ChildId::Primitive(p) = instance.child {
-                    if let Some(primitive) = primitives.get(&p) {
-                        convert_instance(instance, primitive)?;
-                    }
+                if let ChildId::Primitive(p) = instance.child
+                    && let Some(primitive) = primitives.get(&p)
+                {
+                    convert_instance(instance, primitive)?;
                 }
             }
         }

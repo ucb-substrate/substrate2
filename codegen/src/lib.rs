@@ -13,13 +13,13 @@ use crate::schematic::nested_data;
 use darling::FromDeriveInput;
 use macrotools::{handle_darling_error, handle_syn_error};
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use simulation::{save_tuples, SaveTuplesInput};
+use simulation::{SaveTuplesInput, save_tuples};
 use snippets::include_snippet;
 use syn::Ident;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 /// Derives `Io` for a struct.
 ///

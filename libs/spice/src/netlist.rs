@@ -281,12 +281,13 @@ impl<S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'_, S, W> {
         rename_ground: &Option<(ArcStr, ArcStr)>,
     ) -> Result<ArcStr> {
         let sig_info = cell.signal(slice.signal());
-        if let Some((signal, replace_with)) = rename_ground {
-            if signal == &sig_info.name && slice.range().is_none() {
-                // Ground renaming cannot apply to buses.
-                // TODO assert that the ground port has width 1.
-                return Ok(replace_with.clone());
-            }
+        if let Some((signal, replace_with)) = rename_ground
+            && signal == &sig_info.name
+            && slice.range().is_none()
+        {
+            // Ground renaming cannot apply to buses.
+            // TODO assert that the ground port has width 1.
+            return Ok(replace_with.clone());
         }
         let mut buf = Vec::new();
         self.schema.write_slice(&mut buf, slice, sig_info)?;
@@ -299,7 +300,10 @@ impl<S: HasSpiceLikeNetlist, W: Write> NetlisterInstance<'_, S, W> {
 impl HasSpiceLikeNetlist for Spice {
     fn write_prelude<W: Write>(&self, out: &mut W, lib: &Library<Self>) -> std::io::Result<()> {
         writeln!(out, "* Substrate SPICE library")?;
-        writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
+        writeln!(
+            out,
+            "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n"
+        )?;
 
         for (_, p) in lib.primitives() {
             if let Primitive::RawInstanceWithCell {

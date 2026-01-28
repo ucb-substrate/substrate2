@@ -7,26 +7,27 @@ use std::{
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{
-        mpsc::{channel, Receiver, RecvTimeoutError, Sender},
         Arc, Mutex,
+        mpsc::{Receiver, RecvTimeoutError, Sender, channel},
     },
     thread,
     time::Duration,
 };
 
 use backoff::ExponentialBackoff;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::runtime::{Handle, Runtime};
 use tonic::transport::{Channel, Endpoint};
 
 use crate::{
+    CacheHandle, CacheHandleInner, Cacheable, CacheableWithState, GenerateFn, GenerateResultFn,
+    GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
     error::{ArcResult, Error, Result},
     rpc::{
         local::{self, local_cache_client},
         remote::{self, remote_cache_client},
     },
-    run_generator, CacheHandle, CacheHandleInner, Cacheable, CacheableWithState, GenerateFn,
-    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace,
+    run_generator,
 };
 
 use super::server::Server;
@@ -825,7 +826,8 @@ impl Client {
                     key,
                     assign,
                 })
-                .await?
+                .await
+                .map_err(Box::new)?
                 .into_inner())
         });
         Ok(out?.entry_status.unwrap())
@@ -835,7 +837,10 @@ impl Client {
     fn heartbeat_rpc_local(&self, id: u64) -> Result<()> {
         self.inner.handle.block_on(async {
             let mut client = self.connect_local().await?;
-            client.heartbeat(local::HeartbeatRequest { id }).await?;
+            client
+                .heartbeat(local::HeartbeatRequest { id })
+                .await
+                .map_err(Box::new)?;
             Ok(())
         })
     }
@@ -844,7 +849,10 @@ impl Client {
     fn done_rpc_local(&self, id: u64) -> Result<()> {
         self.inner.handle.block_on(async {
             let mut client = self.connect_local().await?;
-            client.done(local::DoneRequest { id }).await?;
+            client
+                .done(local::DoneRequest { id })
+                .await
+                .map_err(Box::new)?;
             Ok(())
         })
     }
@@ -853,7 +861,10 @@ impl Client {
     fn drop_rpc_local(&self, id: u64) -> Result<()> {
         self.inner.handle.block_on(async {
             let mut client = self.connect_local().await?;
-            client.drop(local::DropRequest { id }).await?;
+            client
+                .drop(local::DropRequest { id })
+                .await
+                .map_err(Box::new)?;
             Ok(())
         })
     }
@@ -1025,7 +1036,8 @@ impl Client {
                     key,
                     assign,
                 })
-                .await?
+                .await
+                .map_err(Box::new)?
                 .into_inner())
         });
         Ok(out?.entry_status.unwrap())
@@ -1035,7 +1047,10 @@ impl Client {
     fn heartbeat_rpc_remote(&self, id: u64) -> Result<()> {
         self.inner.handle.block_on(async {
             let mut client = self.connect_remote().await?;
-            client.heartbeat(remote::HeartbeatRequest { id }).await?;
+            client
+                .heartbeat(remote::HeartbeatRequest { id })
+                .await
+                .map_err(Box::new)?;
             Ok(())
         })
     }
@@ -1044,7 +1059,10 @@ impl Client {
     fn set_rpc_remote(&self, id: u64, value: Vec<u8>) -> Result<()> {
         self.inner.handle.block_on(async {
             let mut client = self.connect_remote().await?;
-            client.set(remote::SetRequest { id, value }).await?;
+            client
+                .set(remote::SetRequest { id, value })
+                .await
+                .map_err(Box::new)?;
             Ok(())
         })
     }

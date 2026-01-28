@@ -12,22 +12,22 @@ use crate::blocks::Vsource;
 use crate::tran::Tran;
 use arcstr::ArcStr;
 use blocks::Isource;
-use cache::error::TryInnerError;
 use cache::CacheableWithState;
+use cache::error::TryInnerError;
 use error::*;
 use nutlex::parser::Data;
 use scir::schema::{FromSchema, NoSchema, NoSchemaError};
 use scir::{ChildId, Library, NetlistLibConversion, SignalInfo, SignalPathTail, SliceOnePath};
 use serde::{Deserialize, Serialize};
+use spice::Spice;
 use spice::netlist::{
     HasSpiceLikeNetlist, Include, NetlistKind, NetlistOptions, NetlisterInstance, RenameGround,
 };
-use spice::Spice;
 use substrate::context::Installation;
 use substrate::execute::{ExecOpts, Executor, LogOutput};
 use substrate::schematic::schema::Schema;
 use substrate::simulation::{SimulationContext, Simulator};
-use templates::{write_run_script, RunScriptContext};
+use templates::{RunScriptContext, write_run_script};
 
 pub mod blocks;
 pub mod error;
@@ -701,7 +701,10 @@ impl Tran {
 impl HasSpiceLikeNetlist for Ngspice {
     fn write_prelude<W: Write>(&self, out: &mut W, _lib: &Library<Self>) -> std::io::Result<()> {
         writeln!(out, "* Substrate SPICE library")?;
-        writeln!(out, "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n")?;
+        writeln!(
+            out,
+            "* This is a generated file. Be careful when editing manually: this file may be overwritten.\n"
+        )?;
         Ok(())
     }
 

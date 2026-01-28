@@ -2,19 +2,19 @@
 
 use std::{
     any::{Any, TypeId},
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Debug,
     hash::Hash,
     sync::Arc,
     thread,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
-    error::ArcResult, run_generator, CacheHandle, CacheHandleInner, CacheValueHolder, Cacheable,
-    CacheableWithState, GenerateFn, GenerateResultFn, GenerateResultWithStateFn,
-    GenerateWithStateFn, Namespace,
+    CacheHandle, CacheHandleInner, CacheValueHolder, Cacheable, CacheableWithState, GenerateFn,
+    GenerateResultFn, GenerateResultWithStateFn, GenerateWithStateFn, Namespace, error::ArcResult,
+    run_generator,
 };
 
 #[derive(Debug)]

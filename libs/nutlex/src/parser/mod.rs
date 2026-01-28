@@ -136,7 +136,7 @@ fn parse_f64(input: &[u8]) -> Result<f64, Err<Error<&[u8]>>> {
     Ok(value)
 }
 
-fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
+fn variable(input: &[u8]) -> IResult<&[u8], Variable<'_>> {
     // In AC analysis, may have a `grid=X` declaration
     let kwargs = opt(take_till1(is_newline));
     let (input, (_, idx, _, name, _, unit, _, _, _, _)) = (
@@ -158,7 +158,7 @@ fn variable(input: &[u8]) -> IResult<&[u8], Variable> {
     Ok((input, Variable { idx, name, unit }))
 }
 
-fn variables(input: &[u8]) -> IResult<&[u8], Vec<Variable>> {
+fn variables(input: &[u8]) -> IResult<&[u8], Vec<Variable<'_>>> {
     let (input, _) = (tag_no_case("Variables:"), space0, opt(line_ending), space0).parse(input)?;
     let (input, vars) = many0(variable).parse(input)?;
     Ok((input, vars))
@@ -292,7 +292,7 @@ fn complex_data(
     .parse(input)
 }
 
-fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
+fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis<'_>> {
     move |input: &[u8]| -> IResult<&[u8], Analysis> {
         let (input, _) = take_while(is_space_or_line)(input)?;
         let (input, title) = opt(header("Title:")).parse(input)?;
@@ -329,6 +329,6 @@ fn analysis(opts: Options) -> impl Fn(&[u8]) -> IResult<&[u8], Analysis> {
     }
 }
 
-pub(crate) fn analyses(input: &[u8], opts: Options) -> IResult<&[u8], Vec<Analysis>> {
+pub(crate) fn analyses(input: &[u8], opts: Options) -> IResult<&[u8], Vec<Analysis<'_>>> {
     many0(analysis(opts)).parse(input)
 }

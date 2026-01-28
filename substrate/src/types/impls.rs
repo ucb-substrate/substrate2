@@ -208,7 +208,7 @@ impl_direction!(
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::Input).take(self.0.len()))
+        output.extend(std::iter::repeat_n(Direction::Input, self.0.len()))
     }
 );
 impl_direction!(
@@ -218,7 +218,7 @@ impl_direction!(
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::Output).take(self.0.len()))
+        output.extend(std::iter::repeat_n(Direction::Output, self.0.len()))
     }
 );
 impl_direction!(
@@ -228,7 +228,7 @@ impl_direction!(
     where
         E: Extend<Direction>,
     {
-        output.extend(std::iter::repeat(Direction::InOut).take(self.0.len()))
+        output.extend(std::iter::repeat_n(Direction::InOut, self.0.len()))
     }
 );
 impl_direction!(
@@ -360,9 +360,9 @@ impl<S, T: HasBundleKind + Unflatten<<T as HasBundleKind>::BundleKind, S>>
 }
 
 impl<
-        T: HasBundleKind
-            + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
-    > HasNestedView for ArrayBundle<T>
+    T: HasBundleKind
+        + HasNestedView<NestedView: HasBundleKind<BundleKind = <T as HasBundleKind>::BundleKind>>,
+> HasNestedView for ArrayBundle<T>
 {
     type NestedView = ArrayBundle<NestedView<T>>;
     fn nested_view(&self, parent: &InstancePath) -> NestedView<Self> {

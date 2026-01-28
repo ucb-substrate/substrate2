@@ -11,7 +11,7 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 
 use windows_sys::Win32::Foundation::{MAX_PATH, S_OK};
-use windows_sys::Win32::UI::Shell::{SHGetFolderPathW, CSIDL_PROFILE};
+use windows_sys::Win32::UI::Shell::{CSIDL_PROFILE, SHGetFolderPathW};
 
 pub(crate) fn home_dir_inner() -> Option<PathBuf> {
     env::var_os("USERPROFILE")

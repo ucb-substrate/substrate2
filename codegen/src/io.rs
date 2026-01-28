@@ -1,7 +1,7 @@
 use macrotools::DeriveInputHelper;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_quote, DeriveInput};
+use syn::{DeriveInput, parse_quote};
 
 use crate::common::*;
 use crate::layout::*;

@@ -687,7 +687,7 @@ impl NodeContext {
             .drivers
             .iter()
             .flat_map(|e1| n2_connections_data.drivers.iter().map(move |e2| [e1, e2]))
-            .filter(|[(&k1, _), (&k2, _)]| !k1.is_compatible_with(k2))
+            .filter(|[(k1, _), (k2, _)]| !k1.is_compatible_with(**k2))
             .collect();
         if !incompatible_drivers.is_empty() {
             // If drivers are not compatible, return an error but connect them

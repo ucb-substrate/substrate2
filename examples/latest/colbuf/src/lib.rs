@@ -1,7 +1,7 @@
 use ngspice::Ngspice;
 use rust_decimal_macros::dec;
-use spectre::blocks::Vsource;
 use spectre::Spectre;
+use spectre::blocks::Vsource;
 use spice::Spice;
 use substrate::arcstr;
 use substrate::block::Block;
@@ -263,38 +263,26 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use approx::assert_relative_eq;
-    use spectre::{analysis::tran::Tran, ErrPreset, Options};
+    use sky130::{
+        sky130_cds_tt_model_path, sky130_lvs, sky130_lvs_rules_path, sky130_magic_tech_file,
+        sky130_netgen_setup_file, sky130_ngspice_model_path, sky130_technology_dir,
+    };
+    use spectre::{ErrPreset, Options, analysis::tran::Tran};
     use substrate::{
         context::Context,
-        simulation::{waveform::TimeWaveform, SimController},
+        simulation::{SimController, waveform::TimeWaveform},
     };
 
     use super::*;
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    // TODO move these to sky130 crate
-    pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-    pub const SKY130_LVS_RULES_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl");
-    pub const SKY130_TECHNOLOGY_DIR: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
-    pub const SKY130_CDS_TT_MODEL_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
     pub const COLBUF_LAYOUT_PATH: &str =
         concat!(env!("CARGO_MANIFEST_DIR"), "/test_col_buffer_array.gds");
-    pub const SKY130_MAGIC_TECH_FILE: &str =
-        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
-    pub const SKY130_NETGEN_SETUP_FILE: &str =
-        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
-    pub const SKY130_NGSPICE_MODEL_PATH: &str = concat!(
-        env!("SKY130_OPEN_PDK_ROOT"),
-        "/libraries/sky130_fd_pr/latest/models/sky130.lib.spice"
-    );
 
     #[test]
     fn test_sim_cadence_pex() {
         fn run(sim: SimController<Spectre, CdsPexTb>) -> f64 {
             let mut opts = Options::default();
-            opts.include(PathBuf::from(SKY130_CDS_TT_MODEL_PATH));
+            opts.include(sky130_cds_tt_model_path());
             let out = sim
                 .simulate(
                     opts,
@@ -324,9 +312,9 @@ mod tests {
                         gds_path: layout_path,
                         layout_cell_name: "test_col_buffer_array".into(),
                         work_dir,
-                        lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
-                        lvs_rules_dir: PathBuf::from(SKY130_LVS),
-                        technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                        lvs_rules_path: sky130_lvs_rules_path(),
+                        lvs_rules_dir: sky130_lvs(),
+                        technology_dir: sky130_technology_dir(),
                     },
                 },
                 &sim_dir,
@@ -340,7 +328,7 @@ mod tests {
     fn test_sim_open_pex() {
         fn run(sim: SimController<Ngspice, OpenPexTb>) -> f64 {
             let mut opts = ngspice::Options::default();
-            opts.include_section(PathBuf::from(SKY130_NGSPICE_MODEL_PATH), "tt");
+            opts.include_section(sky130_ngspice_model_path(), "tt");
             let out = sim
                 .simulate(
                     opts,
@@ -370,8 +358,8 @@ mod tests {
                         gds_path: layout_path,
                         layout_cell_name: "test_col_buffer_array".into(),
                         work_dir,
-                        magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
-                        netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
+                        magic_tech_file_path: sky130_magic_tech_file(),
+                        netgen_setup_file_path: sky130_netgen_setup_file(),
                     },
                 },
                 &sim_dir,

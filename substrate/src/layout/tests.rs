@@ -13,18 +13,18 @@ use layir::{Cell, LibraryBuilder, Shape};
 use crate::{
     block::Block,
     context::Context,
-    tests::{get_path, Buffer, BufferIo, BufferIoView, BufferN, BufferNxM, BufferNxMIo, Inverter},
+    tests::{Buffer, BufferIo, BufferIoView, BufferN, BufferNxM, BufferNxMIo, Inverter, get_path},
     types::{
+        ArrayBundle, Signal,
         codegen::{PortGeometryBundle, View},
         layout::{PortGeometry, PortGeometryBuilder},
-        ArrayBundle, Signal,
     },
 };
 
 use super::{
+    CellBundle, Instance, Layout,
     schema::Schema,
     tiling::{ArrayTiler, GridTile, GridTiler, Tile, TileAlignMode},
-    CellBundle, Instance, Layout,
 };
 
 fn gds_units() -> GdsUnits {

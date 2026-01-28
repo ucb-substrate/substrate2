@@ -10,7 +10,7 @@ pub(crate) mod tests;
 
 use crate::Result;
 
-pub fn parse(input: &[u8]) -> Result<PsfAst> {
+pub fn parse(input: &[u8]) -> Result<PsfAst<'_>> {
     let mut parser = PsfParser::new(input);
     parser.parse();
     Ok(parser.into_inner())
@@ -332,10 +332,12 @@ impl<'a> PsfParser<'a> {
         for _ in 0..self.num_traces() {
             let entry;
             (data, entry) = parse_point_value(data, &self.ast.types);
-            assert!(values
-                .values
-                .insert(entry.name.to_string(), entry)
-                .is_none());
+            assert!(
+                values
+                    .values
+                    .insert(entry.name.to_string(), entry)
+                    .is_none()
+            );
         }
 
         self.ast.values = Some(SignalValues::Point(values));
@@ -567,7 +569,7 @@ fn parse_point_value<'a>(data: &'a [u8], types: &Types<'_>) -> (&'a [u8], PointV
     )
 }
 
-fn parse_properties(data: &[u8]) -> (&[u8], Properties) {
+fn parse_properties(data: &[u8]) -> (&[u8], Properties<'_>) {
     let mut data = data;
 
     let mut values = Vec::new();
@@ -586,7 +588,7 @@ fn parse_properties(data: &[u8]) -> (&[u8], Properties) {
     (data, Properties { values })
 }
 
-fn parse_named_value(data: &[u8]) -> (&[u8], NamedValue) {
+fn parse_named_value(data: &[u8]) -> (&[u8], NamedValue<'_>) {
     let (data, block_t) = parse_int(data);
     let (data, name) = parse_string(data);
 
@@ -612,7 +614,7 @@ fn parse_named_value(data: &[u8]) -> (&[u8], NamedValue) {
 fn parse_string(mut data: &[u8]) -> (&[u8], &str) {
     let len = read_u32(&mut data) as usize;
     let s = std::str::from_utf8(&data[..len]).unwrap();
-    if len % 4 == 0 {
+    if len.is_multiple_of(4) {
         (&data[len..], s)
     } else {
         (&data[len + 4 - (len % 4)..], s)

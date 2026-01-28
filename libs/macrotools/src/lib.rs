@@ -4,12 +4,12 @@ use std::collections::HashMap;
 
 use darling::ast::Style;
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{
-    parse_quote, Attribute, Data, DeriveInput, Field, Fields, GenericArgument, GenericParam,
-    Generics, Ident, Index, PathArguments, Token, Type, TypeParamBound, Variant, Visibility,
-    WherePredicate,
+    Attribute, Data, DeriveInput, Field, Fields, GenericArgument, GenericParam, Generics, Ident,
+    Index, PathArguments, Token, Type, TypeParamBound, Variant, Visibility, WherePredicate,
+    parse_quote,
 };
 
 #[macro_export]
@@ -39,7 +39,7 @@ macro_rules! handle_darling_error {
 /// Add a bound `T: trait_` to every type parameter T.
 pub fn add_trait_bounds(generics: &mut Generics, trait_: TokenStream) {
     for param in &mut generics.params {
-        if let GenericParam::Type(ref mut type_param) = *param {
+        if let GenericParam::Type(type_param) = &mut *param {
             type_param.bounds.push(syn::parse_quote!(#trait_));
         }
     }
@@ -131,10 +131,10 @@ pub fn field_tokens(
 
 pub fn field_decl(field: &Field) -> TokenStream {
     let Field {
-        ref ident,
-        ref vis,
-        ref ty,
-        ref attrs,
+        ident,
+        vis,
+        ty,
+        attrs,
         ..
     } = field;
 
@@ -199,9 +199,7 @@ pub fn field_assign(
     prev_tys: Vec<Type>,
     val: impl FnOnce(&MapField) -> TokenStream,
 ) -> TokenStream {
-    let Field {
-        ref ident, ref ty, ..
-    } = field;
+    let Field { ident, ty, .. } = field;
 
     let pretty = pretty_ident(idx, ident);
     let refer = field_referent(prefix, idx, field);
@@ -220,11 +218,7 @@ pub fn field_assign(
 }
 
 pub fn variant_decl(variant: &Variant) -> TokenStream {
-    let Variant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
+    let Variant { ident, fields, .. } = variant;
     let decls = fields.iter().map(field_decl);
     match fields {
         Fields::Unit => quote!(#ident,),
@@ -234,11 +228,7 @@ pub fn variant_decl(variant: &Variant) -> TokenStream {
 }
 
 pub fn variant_map_arm(input_type: &Type, variant: &Variant, body: &TokenStream) -> TokenStream {
-    let Variant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
+    let Variant { ident, fields, .. } = variant;
     let destructure = fields
         .iter()
         .enumerate()
@@ -259,11 +249,7 @@ pub fn double_variant_map_arm(
     variant: &Variant,
     body: &TokenStream,
 ) -> TokenStream {
-    let Variant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
+    let Variant { ident, fields, .. } = variant;
     let destructure0 = fields.iter().enumerate().map(|(i, f)| {
         f.ident
             .as_ref()
@@ -306,11 +292,7 @@ pub fn variant_assign_arm(
     prev_tys: &[Vec<Type>],
     val: impl Fn(&MapField) -> TokenStream,
 ) -> TokenStream {
-    let Variant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
+    let Variant { ident, fields, .. } = variant;
     let assign = fields
         .iter()
         .enumerate()
@@ -337,15 +319,9 @@ pub fn double_variant_assign_arm(
     prev_tys: &[Vec<Type>],
     val: impl Fn(&MapField, &MapField) -> TokenStream,
 ) -> TokenStream {
-    let Variant {
-        ref ident,
-        ref fields,
-        ..
-    } = variant;
+    let Variant { ident, fields, .. } = variant;
     let assign = fields.iter().enumerate().map(|(i, f)| {
-        let Field {
-            ref ident, ref ty, ..
-        } = f;
+        let Field { ident, ty, .. } = f;
 
         let pretty = pretty_ident(i, ident);
         let (refer0, refer1) = double_enum_field_referent(None, i, f);
@@ -518,13 +494,13 @@ impl DeriveInputHelper {
 
     pub fn add_generic_type_binding(&mut self, ident: Ident, ty: Type) {
         self.generic_type_bindings.insert(ident.clone(), ty.clone());
-        match self.input.data {
-            Data::Struct(ref mut s) => {
+        match &mut self.input.data {
+            Data::Struct(s) => {
                 for f in s.fields.iter_mut() {
                     apply_generic_type_binding_ty(&mut f.ty, ident.clone(), ty.clone());
                 }
             }
-            Data::Enum(ref mut e) => {
+            Data::Enum(e) => {
                 for variant in e.variants.iter_mut() {
                     for f in variant.fields.iter_mut() {
                         apply_generic_type_binding_ty(&mut f.ty, ident.clone(), ty.clone());
@@ -801,9 +777,7 @@ impl DeriveInputHelper {
         match &self.input.data {
             Data::Struct(s) => {
                 let assignments = s.fields.iter().enumerate().map(|(i, f)| {
-                    let Field {
-                        ref ident, ref ty, ..
-                    } = f;
+                    let Field { ident, ty, .. } = f;
 
                     let pretty = pretty_ident(i, ident);
                     let refer0 = field_referent(Some(referents.0), i, f);
@@ -1092,14 +1066,14 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
     add_trait_bounds(&mut generics, quote!(#trait_));
     let (imp, ty, wher) = generics.split_for_impl();
 
-    let (receiver, declare_receiver) = match receiver {
-        Receiver::Ref => (quote! { & }, quote! { ref }),
-        Receiver::MutRef => (quote! { &mut }, quote! { ref mut }),
-        Receiver::Owned => (quote! {}, quote! {}),
+    let receiver = match receiver {
+        Receiver::Ref => quote! { & },
+        Receiver::MutRef => quote! { &mut },
+        Receiver::Owned => quote! {},
     };
 
     let match_clause: TokenStream = match &input.data {
-        Data::Struct(ref s) => match &s.fields {
+        Data::Struct(s) => match &s.fields {
             Fields::Unnamed(fields) => {
                 let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let idx = Index::from(i);
@@ -1120,10 +1094,10 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
             }
             Fields::Unit => quote!(),
         },
-        Data::Enum(ref data) => {
+        Data::Enum(data) => {
             let clauses = data.variants.iter().map(|v| {
-                let inner = match v.fields {
-                    syn::Fields::Named(ref fields) => {
+                let inner = match &v.fields {
+                    syn::Fields::Named(fields) => {
                         let recurse = fields.named.iter().map(|f| {
                             let name = f.ident.as_ref().unwrap();
                             quote_spanned! { f.span() =>
@@ -1133,14 +1107,14 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                         let declare = fields.named.iter().map(|f| {
                             let name = f.ident.as_ref().unwrap();
                             quote_spanned! { f.span() =>
-                                #declare_receiver #name,
+                                #name,
                             }
                         });
                         quote! {
                             { #(#declare)* } => { #(#recurse)* },
                         }
                     }
-                    syn::Fields::Unnamed(ref fields) => {
+                    syn::Fields::Unnamed(fields) => {
                         let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ident = format_ident!("field{i}");
                             quote_spanned! { f.span() =>
@@ -1150,7 +1124,7 @@ pub fn derive_trait(config: &DeriveTrait, input: &DeriveInput) -> proc_macro2::T
                         let declare = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ident = format_ident!("field{i}");
                             quote_spanned! { f.span() =>
-                                #declare_receiver #ident,
+                                #ident,
                             }
                         });
                         quote! {
@@ -1205,40 +1179,33 @@ fn apply_generic_type_binding(pred: &mut WherePredicate, ident: Ident, ty: Type)
         let t = &mut pred.bounded_ty;
         if let Type::Path(p) = t {
             for seg in p.path.segments.iter_mut() {
-                if let PathArguments::AngleBracketed(ref mut args) = seg.arguments {
+                if let PathArguments::AngleBracketed(args) = &mut seg.arguments {
                     for arg in args.args.iter_mut() {
-                        if let GenericArgument::Type(t) = arg {
-                            if let Type::Path(p) = t {
-                                if p.path.segments.len() == 1 {
-                                    if let Some(last) = p.path.segments.last_mut() {
-                                        if last.ident == ident {
-                                            *t = ty.clone();
-                                        }
-                                    }
-                                }
-                            }
+                        if let GenericArgument::Type(t) = arg
+                            && let Type::Path(p) = t
+                            && p.path.segments.len() == 1
+                            && let Some(last) = p.path.segments.last_mut()
+                            && last.ident == ident
+                        {
+                            *t = ty.clone();
                         }
                     }
                 }
             }
         }
         for bound in pred.bounds.iter_mut() {
-            if let TypeParamBound::Trait(ref mut tb) = bound {
-                if let Some(last) = tb.path.segments.last_mut() {
-                    if let PathArguments::AngleBracketed(ref mut args) = last.arguments {
-                        for arg in args.args.iter_mut() {
-                            if let GenericArgument::Type(t) = arg {
-                                if let Type::Path(p) = t {
-                                    if p.path.segments.len() == 1 {
-                                        if let Some(last) = p.path.segments.last_mut() {
-                                            if last.ident == ident {
-                                                *t = ty.clone();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+            if let TypeParamBound::Trait(tb) = bound
+                && let Some(last) = tb.path.segments.last_mut()
+                && let PathArguments::AngleBracketed(args) = &mut last.arguments
+            {
+                for arg in args.args.iter_mut() {
+                    if let GenericArgument::Type(t) = arg
+                        && let Type::Path(p) = t
+                        && p.path.segments.len() == 1
+                        && let Some(last) = p.path.segments.last_mut()
+                        && last.ident == ident
+                    {
+                        *t = ty.clone();
                     }
                 }
             }
@@ -1251,16 +1218,13 @@ fn apply_generic_type_binding_ty(typ: &mut Type, ident: Ident, ty: Type) {
         for seg in p.path.segments.iter_mut() {
             if let PathArguments::AngleBracketed(ref mut args) = seg.arguments {
                 for arg in args.args.iter_mut() {
-                    if let GenericArgument::Type(t) = arg {
-                        if let Type::Path(p) = t {
-                            if p.path.segments.len() == 1 {
-                                if let Some(last) = p.path.segments.last_mut() {
-                                    if last.ident == ident {
-                                        *t = ty.clone();
-                                    }
-                                }
-                            }
-                        }
+                    if let GenericArgument::Type(t) = arg
+                        && let Type::Path(p) = t
+                        && p.path.segments.len() == 1
+                        && let Some(last) = p.path.segments.last_mut()
+                        && last.ident == ident
+                    {
+                        *t = ty.clone();
                     }
                 }
             }

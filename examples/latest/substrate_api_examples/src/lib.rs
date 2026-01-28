@@ -626,8 +626,8 @@ mod scir_examples {
     use scir::{Cell, Direction, Instance, LibraryBuilder};
     use substrate::block::Block;
     use substrate::schematic::{CellBuilder, PrimitiveBinding, Schematic, ScirBinding};
-    use substrate::types::schematic::IoNodeBundle;
     use substrate::types::TwoTerminalIo;
+    use substrate::types::schematic::IoNodeBundle;
 
     // begin-code-snippet scir-schema
     pub struct MySchema;

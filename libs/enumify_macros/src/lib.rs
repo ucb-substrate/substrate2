@@ -6,7 +6,7 @@ use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
 
 use crate::impls::Enumify;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 pub(crate) mod impls;
 

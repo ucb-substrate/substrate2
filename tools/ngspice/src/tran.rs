@@ -213,13 +213,13 @@ impl Save<Ngspice, Tran> for NestedTerminal {
             t: output.time.clone(),
             x: output
                 .raw_values
-                .get(output.saved_values.get(&key.0 .0).unwrap())
+                .get(output.saved_values.get(&key.0.0).unwrap())
                 .unwrap()
                 .clone(),
         };
         let currents: Vec<Arc<Vec<f64>>> = key
             .1
-             .0
+            .0
             .iter()
             .map(|key| {
                 output

@@ -60,11 +60,6 @@ jobs:
         uses: arduino/setup-protoc@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        id: toolchain
-        with:
-          toolchain: stable
       - name: Clone `cargo-workspaces`
         uses: actions/checkout@v4
         with:
@@ -76,8 +71,9 @@ jobs:
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: |
-            ./substrate -> target
-            ./cargo-workspaces/cargo-workspaces -> target
+            ./substrate
+            ./cargo-workspaces/cargo-workspaces
+          cache-on-failure: true
       - name: Build `cargo-workspaces`
         working-directory: cargo-workspaces/cargo-workspaces
         run: cargo build

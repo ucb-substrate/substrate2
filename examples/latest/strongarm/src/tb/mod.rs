@@ -1,10 +1,10 @@
 //! StrongARM testbenches.
 
 use approx::abs_diff_eq;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
-use spectre::analysis::tran::Tran;
+use spectre::analysis::tran::{OutputWaveform, Tran};
 use spectre::blocks::{Pulse, Vsource};
 use spectre::{ErrPreset, Spectre};
 use std::any::Any;
@@ -122,7 +122,7 @@ where
             val1,
             period: Some(dec!(1000)),
             width: Some(dec!(100)),
-            delay: Some(dec!(10e-9)),
+            delay: Some(dec!(1e-12)),
             rise: Some(dec!(100e-12)),
             fall: Some(dec!(100e-12)),
         }));
@@ -172,12 +172,24 @@ pub enum ComparatorDecision {
     Pos,
 }
 
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+pub struct ComparatorDecisionInfo {
+    pub decision: ComparatorDecision,
+    pub tclkq: f64,
+}
+
+pub struct StrongArmTranTbOutput {
+    pub decision: Option<ComparatorDecisionInfo>,
+    pub vop: OutputWaveform,
+    pub von: OutputWaveform,
+}
+
 impl<T, S, C: SimOption<Spectre> + Copy> StrongArmTranTb<T, S, C>
 where
     StrongArmTranTb<T, S, C>:
         Block<Io = TestbenchIo> + Schematic<Schema = Spectre, NestedData = StrongArmTranTbNodes>,
 {
-    pub fn run(&self, sim: SimController<Spectre, Self>) -> Option<ComparatorDecision> {
+    pub fn run(&self, sim: SimController<Spectre, Self>) -> StrongArmTranTbOutput {
         let mut opts = spectre::Options::default();
         sim.set_option(self.pvt.corner, &mut opts);
         sim.set_option(Temperature::from(self.pvt.temp), &mut opts);
@@ -198,7 +210,15 @@ where
 
         let vdd = self.pvt.voltage.to_f64().unwrap();
         let epsilon = vdd * 0.05;
-        if abs_diff_eq!(von, 0.0, epsilon = epsilon) && abs_diff_eq!(vop, vdd, epsilon = epsilon) {
+
+        let transition = wav
+            .von
+            .transitions(0.2 * vdd, 0.8 * vdd)
+            .next()
+            .or_else(|| wav.vop.transitions(0.2 * vdd, 0.8 * vdd).next());
+        let decision = if abs_diff_eq!(von, 0.0, epsilon = epsilon)
+            && abs_diff_eq!(vop, vdd, epsilon = epsilon)
+        {
             Some(ComparatorDecision::Pos)
         } else if abs_diff_eq!(von, vdd, epsilon = epsilon)
             && abs_diff_eq!(vop, 0.0, epsilon = epsilon)
@@ -206,6 +226,19 @@ where
             Some(ComparatorDecision::Neg)
         } else {
             None
+        }
+        .and_then(|decision| {
+            let transition = transition?;
+            Some(ComparatorDecisionInfo {
+                decision,
+                tclkq: transition.center_time(),
+            })
+        });
+
+        StrongArmTranTbOutput {
+            decision,
+            vop: wav.vop,
+            von: wav.von,
         }
     }
 }

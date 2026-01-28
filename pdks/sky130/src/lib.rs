@@ -36,24 +36,64 @@ pub mod stdcells;
 #[cfg(test)]
 mod tests;
 
-/// SKY130 Pegasus LVS directory.
-pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-/// SKY130 Pegasus LVS rules.
-pub const SKY130_LVS_RULES_PATH: &str =
-    concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl");
-/// SKY130 Quantus technology files.
-pub const SKY130_TECHNOLOGY_DIR: &str =
-    concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
-/// SKY130 Quantus technology files.
-pub const SKY130_CDS_TT_MODEL_PATH: &str =
-    concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
+/// Root of the open-source Sky130 PDK.
+pub fn sky130_open_pdk_root() -> PathBuf {
+    PathBuf::from(
+        std::env::var("SKY130_OPEN_PDK_ROOT")
+            .expect("SKY130_OPEN_PDK_ROOT environment variable must be defined"),
+    )
+}
+/// Root of the Open-PDKs repo.
+pub fn open_pdks_root() -> PathBuf {
+    PathBuf::from(
+        std::env::var("OPEN_PDKS_ROOT")
+            .expect("OPEN_PDKS_ROOT environment variable must be defined"),
+    )
+}
+/// SKY130 magic techfile.
+pub fn sky130_magic_tech_file() -> PathBuf {
+    open_pdks_root().join("sky130/magic/sky130.tech")
+}
+/// SKY130 netgen setup file.
+pub fn sky130_netgen_setup_file() -> PathBuf {
+    open_pdks_root().join("sky130/netgen/sky130_setup.tcl")
+}
+/// SKY130 ngspice models.
+pub fn sky130_ngspice_model_path() -> PathBuf {
+    sky130_open_pdk_root().join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice")
+}
+
+/// Root of Cadence SKY130 PDK.
+pub fn sky130_cds_pdk_root() -> PathBuf {
+    PathBuf::from(
+        std::env::var("SKY130_CDS_PDK_ROOT")
+            .expect("SKY130_CDS_PDK_ROOT environment variable must be defined"),
+    )
+}
 /// SKY130 Pegasus DRC directory.
-pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
+pub fn sky130_drc() -> PathBuf {
+    sky130_cds_pdk_root().join("Sky130_DRC")
+}
 /// SKY130 Pegasus DRC rules.
-pub const SKY130_DRC_RULES_PATH: &str = concat!(
-    env!("SKY130_CDS_PDK_ROOT"),
-    "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
-);
+pub fn sky130_drc_rules_path() -> PathBuf {
+    sky130_drc().join("sky130_rev_0.0_1.0.drc.pvl")
+}
+/// SKY130 Pegasus LVS directory.
+pub fn sky130_lvs() -> PathBuf {
+    sky130_cds_pdk_root().join("Sky130_LVS")
+}
+/// SKY130 Pegasus LVS rules.
+pub fn sky130_lvs_rules_path() -> PathBuf {
+    sky130_lvs().join("sky130.lvs.pvl")
+}
+/// SKY130 Quantus technology files.
+pub fn sky130_technology_dir() -> PathBuf {
+    sky130_cds_pdk_root().join("quantus/extraction/typical")
+}
+/// SKY130 TT model path.
+pub fn sky130_cds_tt_model_path() -> PathBuf {
+    sky130_cds_pdk_root().join("models/corners/tt.spice")
+}
 
 /// A primitive of the Sky 130 PDK.
 #[derive(Debug, Clone)]

@@ -2,7 +2,7 @@
 
 use std::{any::Any, marker::PhantomData};
 
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use geometry::{
     align::AlignRectMut,
     prelude::{AlignMode, Bbox},
@@ -11,9 +11,9 @@ use geometry::{
     transform::TranslateMut,
 };
 use serde::{Deserialize, Serialize};
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 
-use super::{schema::Schema, Draw, DrawReceiver};
+use super::{Draw, DrawReceiver, schema::Schema};
 
 /// A tileable layout object.
 pub trait Tileable<S: Schema>: Draw<S> + AlignRectMut + Downcast {}
@@ -486,14 +486,14 @@ impl<S: Schema> GridTiler<S> {
             let mut blockage_idx = 0;
             let mut col_idx = 0;
             for key in row {
-                if let Some(blockage) = blockages.get(blockage_idx) {
-                    if col_idx == blockage.start_col {
-                        if i == blockage.end_row {
-                            blockages.remove(blockage_idx);
-                        } else {
-                            col_idx = blockage.end_col;
-                            blockage_idx += 1;
-                        }
+                if let Some(blockage) = blockages.get(blockage_idx)
+                    && col_idx == blockage.start_col
+                {
+                    if i == blockage.end_row {
+                        blockages.remove(blockage_idx);
+                    } else {
+                        col_idx = blockage.end_col;
+                        blockage_idx += 1;
                     }
                 }
                 let tile = &self.tiles[*key];

@@ -23,7 +23,7 @@ use crate::{
     types::NameBuf,
 };
 
-use super::{schema::Schema, Draw, DrawReceiver, Instance, Layout};
+use super::{Draw, DrawReceiver, Instance, Layout, schema::Schema};
 
 /// A context-wide unique identifier for a cell.
 #[derive(

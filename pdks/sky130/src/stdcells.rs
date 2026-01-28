@@ -1,7 +1,7 @@
 //! Standard cell definitions and utilities.
 
-use crate::layout::GDS_UNITS;
 use crate::Sky130;
+use crate::layout::GDS_UNITS;
 use arcstr::ArcStr;
 use gds::GdsLibrary;
 use gdsconv::conv::from_gds;
@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use spice::Spice;
 use std::path::PathBuf;
 use substrate::block::Block;
-use substrate::layout::element::RawInstance;
 use substrate::layout::Layout;
+use substrate::layout::element::RawInstance;
 use substrate::schematic::{CellBuilder, Schematic};
 use substrate::types::{InOut, Input, Io, Output, Signal};
 

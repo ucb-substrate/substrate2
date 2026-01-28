@@ -12,8 +12,8 @@ use arcstr::ArcStr;
 use lazy_static::lazy_static;
 use num_traits::Pow;
 use regex::Regex;
-use rust_decimal::prelude::One;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::One;
 use scir::ParamValue;
 
 use thiserror::Error;
@@ -34,7 +34,9 @@ pub enum ConvError {
     #[error("an instance of subcircuit `{0}` exists, but no definition was provided")]
     MissingSubckt(Substr),
     /// Incorrect (missing/extra) connections for an instance.
-    #[error("incorrect (missing/extra) connections for instance {inst} of cell `{child}` (in cell `{parent}`)")]
+    #[error(
+        "incorrect (missing/extra) connections for instance {inst} of cell `{child}` (in cell `{parent}`)"
+    )]
     IncorrectConnections {
         /// The name of the instance.
         inst: Substr,
@@ -55,7 +57,9 @@ pub enum ConvError {
     /// A non-blackbox cell was instantiated with parameters.
     ///
     /// Substrate does not support SPICE-like parameters on non-blackbox cells.
-    #[error("parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{child}` was not blackboxed")]
+    #[error(
+        "parameters for instance {inst} of cell `{child}` (in cell `{parent}`) are not allowed because `{child}` was not blackboxed"
+    )]
     UnsupportedParams {
         /// The name of the instance.
         inst: Substr,

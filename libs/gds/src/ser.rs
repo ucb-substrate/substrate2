@@ -7,8 +7,8 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 // Crates.io Imports
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use textwrap::dedent;
 
 /// An enumeration of first-class supported serialization formats.
