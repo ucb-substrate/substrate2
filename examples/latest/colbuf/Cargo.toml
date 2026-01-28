@@ -15,4 +15,5 @@ rust_decimal = "1.37.1"
 rust_decimal_macros = "1.37.1"
 
 [dev-dependencies]
+sky130 = { version = "0.10.2", registry = "substrate", path = "../../../pdks/sky130" }
 approx = "0.5"

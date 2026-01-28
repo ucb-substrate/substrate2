@@ -35,12 +35,4 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../../examples/latest/colbuf/test_col_buffer_array.gds"
     );
-    pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
-    pub const SKY130_DRC_RULES_PATH: &str = concat!(
-        env!("SKY130_CDS_PDK_ROOT"),
-        "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
-    );
-    pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-    pub const SKY130_LVS_RULES_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);
 }

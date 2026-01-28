@@ -54,10 +54,6 @@ Replace the content of `src/lib.rs` with the following:
 
 <CodeSnippet language="rust" title="src/lib.rs" snippet="imports">{inverterMod}</CodeSnippet>
 
-Also, add the following constants:
-
-<CodeSnippet language="rust" title="src/lib.rs" snippet={ props.open ? "open-constants" : "cds-constants" }>{inverterMod}</CodeSnippet>
-
 ### EDA Tools
 
 { props.open ? <OpenTools/> : <CdsTools/> }

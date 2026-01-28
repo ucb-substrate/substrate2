@@ -155,7 +155,7 @@ fn process_netgen_node_name(node: &str) -> ArcStr {
 #[cfg(test)]
 mod tests {
     use crate::compare::*;
-    use crate::tests::{EXAMPLES_PATH, SKY130_SETUP_FILE, TEST_BUILD_PATH};
+    use crate::tests::{EXAMPLES_PATH, TEST_BUILD_PATH, sky130_setup_file};
     use std::path::PathBuf;
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         let netlist1_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.spice");
         let netlist2_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.layout.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_compare_with_node_matching");
-        let setup_file_path = PathBuf::from(SKY130_SETUP_FILE);
+        let setup_file_path = sky130_setup_file();
         let nodes = [
             "din_1", "din_b_2", "din_24", "din_21", "din_b_21", "vdd", "vss",
         ];
@@ -190,7 +190,7 @@ mod tests {
         let netlist1_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.spice");
         let netlist2_path = PathBuf::from(EXAMPLES_PATH).join("col_inv_array.bad.spice");
         let work_dir = PathBuf::from(TEST_BUILD_PATH).join("test_compare_mismatched");
-        let setup_file_path = PathBuf::from(SKY130_SETUP_FILE);
+        let setup_file_path = sky130_setup_file();
 
         let params = CompareParams {
             netlist1_path: &netlist1_path,

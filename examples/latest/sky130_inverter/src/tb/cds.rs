@@ -1,9 +1,6 @@
 // begin-code-snippet imports
 use crate::Inverter;
 use crate::InverterIoKind;
-use crate::sky130_lvs;
-use crate::sky130_lvs_rules_path;
-use crate::sky130_technology_dir;
 
 use quantus::pex::Pex;
 use rust_decimal::prelude::ToPrimitive;
@@ -11,6 +8,9 @@ use rust_decimal_macros::dec;
 use sky130::Sky130CdsSchema;
 use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
+use sky130::sky130_lvs;
+use sky130::sky130_lvs_rules_path;
+use sky130::sky130_technology_dir;
 use spectre::Spectre;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};

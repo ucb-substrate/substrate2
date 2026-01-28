@@ -34,11 +34,4 @@ pub mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../../examples/latest/colbuf/test_col_buffer_array.gds"
     );
-    pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-    pub const SKY130_LVS_RULES_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);
-    pub const SKY130_TECHNOLOGY_DIR: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
-    pub const SKY130_TT_MODEL_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice",);
 }

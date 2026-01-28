@@ -292,6 +292,10 @@ mod tests {
     use scir::netlist::ConvertibleNetlister;
     use sky130::corner::Sky130Corner;
     use sky130::{Sky130, Sky130CdsSchema, layout::to_gds};
+    use sky130::{
+        sky130_cds_pdk_root, sky130_drc_rules_path, sky130_lvs, sky130_lvs_rules_path,
+        sky130_technology_dir,
+    };
     use spice::{Spice, netlist::NetlistOptions};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -300,17 +304,6 @@ mod tests {
     use substrate::simulation::Pvt;
     use substrate::simulation::waveform::TimeWaveform;
     use substrate::{block::Block, schematic::ConvertSchema};
-
-    pub const SKY130_DRC: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_DRC");
-    pub const SKY130_DRC_RULES_PATH: &str = concat!(
-        env!("SKY130_CDS_PDK_ROOT"),
-        "/Sky130_DRC/sky130_rev_0.0_1.0.drc.pvl",
-    );
-    pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-    pub const SKY130_LVS_RULES_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl",);
-    pub const SKY130_TECHNOLOGY_DIR: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical",);
 
     pub const STRONGARM_PARAMS: StrongArmParams = StrongArmParams {
         nmos_kind: MosKind::Nom,
@@ -454,8 +447,7 @@ mod tests {
     };
 
     pub fn sky130_cds_ctx() -> Context {
-        let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
-            .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
+        let pdk_root = sky130_cds_pdk_root();
         Context::builder()
             .install(spectre::Spectre::default())
             .install(Sky130::cds_only(pdk_root))
@@ -514,9 +506,9 @@ mod tests {
                             gds_path: work_dir.join("layout.gds"),
                             layout_cell_name: dut.name(),
                             work_dir: work_dir.clone(),
-                            lvs_rules_dir: PathBuf::from(SKY130_LVS),
-                            lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
-                            technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                            lvs_rules_dir: sky130_lvs(),
+                            lvs_rules_path: sky130_lvs_rules_path(),
+                            technology_dir: sky130_technology_dir(),
                         },
                         vinp,
                         vinn,
@@ -587,9 +579,9 @@ mod tests {
                     gds_path: work_dir.join("layout.gds"),
                     layout_cell_name: dut.name(),
                     work_dir: work_dir.join("pex"),
-                    lvs_rules_dir: PathBuf::from(SKY130_LVS),
-                    lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
-                    technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                    lvs_rules_dir: sky130_lvs(),
+                    lvs_rules_path: sky130_lvs_rules_path(),
+                    technology_dir: sky130_technology_dir(),
                 },
                 vinp,
                 vinn,
@@ -784,8 +776,8 @@ mod tests {
             work_dir: &drc_dir,
             layout_path: &gds_path,
             cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })
         .expect("failed to run drc");
 
@@ -806,8 +798,8 @@ mod tests {
             layout_cell_name: &block.name(),
             source_paths: &[netlist_path],
             source_cell_name: &block.name(),
-            rules_dir: &PathBuf::from(SKY130_LVS),
-            rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+            rules_dir: &sky130_lvs(),
+            rules_path: &sky130_lvs_rules_path(),
         })
         .expect("failed to run lvs");
 

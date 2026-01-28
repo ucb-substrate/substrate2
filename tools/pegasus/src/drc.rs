@@ -1,5 +1,6 @@
+use crate::TEMPLATES;
 use crate::utils::execute_run_script;
-use crate::{RuleCheck, TEMPLATES, error::Error};
+use crate::{RuleCheck, error::Error};
 use regex::Regex;
 use serde::Serialize;
 use std::fs;
@@ -163,11 +164,14 @@ pub fn run_drc(params: &DrcParams) -> Result<DrcData, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::RuleCheck;
-    use crate::drc::{DrcParams, parse_pegasus_drc_results, run_drc, write_drc_files};
-    use crate::tests::{EXAMPLES_PATH, SKY130_DRC, SKY130_DRC_RULES_PATH, TEST_BUILD_PATH};
+    use crate::drc::{DrcParams, parse_pegasus_drc_results, write_drc_files};
+    use crate::tests::TEST_BUILD_PATH;
+    use crate::{RuleCheck, tests::EXAMPLES_PATH};
+
     use std::collections::HashMap;
     use std::path::PathBuf;
+
+    use sky130::{sky130_drc, sky130_drc_rules_path};
 
     #[test]
     fn test_write_drc_run_file() -> anyhow::Result<()> {
@@ -178,8 +182,8 @@ mod tests {
             work_dir: &work_dir,
             layout_path: &layout_path,
             cell_name: "sky130_and3",
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })?;
         Ok(())
     }
@@ -218,8 +222,8 @@ mod tests {
             work_dir: &work_dir,
             layout_path: &layout_path,
             cell_name: "col_peripherals",
-            rules_dir: &PathBuf::from(SKY130_DRC),
-            rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+            rules_dir: &sky130_drc(),
+            rules_path: &sky130_drc_rules_path(),
         })?;
 
         assert_eq!(
@@ -243,8 +247,8 @@ mod tests {
                 work_dir: &work_dir,
                 layout_path: &layout_path,
                 cell_name: "sky130_fd_bd_sram__sram_sp_cell",
-                rules_dir: &PathBuf::from(SKY130_DRC),
-                rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+                rules_dir: &sky130_drc(),
+                rules_path: &sky130_drc_rules_path(),
             })?
             .rule_checks
             .into_iter()

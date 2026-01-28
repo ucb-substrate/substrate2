@@ -271,30 +271,73 @@ mod tests {
 
     use super::*;
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-    // TODO move these to sky130 crate
-    pub const SKY130_LVS: &str = concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS");
-    pub const SKY130_LVS_RULES_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/Sky130_LVS/sky130.lvs.pvl");
-    pub const SKY130_TECHNOLOGY_DIR: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/quantus/extraction/typical");
-    pub const SKY130_CDS_TT_MODEL_PATH: &str =
-        concat!(env!("SKY130_CDS_PDK_ROOT"), "/models/corners/tt.spice");
     pub const COLBUF_LAYOUT_PATH: &str =
         concat!(env!("CARGO_MANIFEST_DIR"), "/test_col_buffer_array.gds");
-    pub const SKY130_MAGIC_TECH_FILE: &str =
-        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/magic/sky130.tech");
-    pub const SKY130_NETGEN_SETUP_FILE: &str =
-        concat!(env!("OPEN_PDKS_ROOT"), "/sky130/netgen/sky130_setup.tcl");
-    pub const SKY130_NGSPICE_MODEL_PATH: &str = concat!(
-        env!("SKY130_OPEN_PDK_ROOT"),
-        "/libraries/sky130_fd_pr/latest/models/sky130.lib.spice"
-    );
+
+    /// Root of the open-source Sky130 PDK.
+    pub fn sky130_open_pdk_root() -> PathBuf {
+        PathBuf::from(
+            std::env::var("SKY130_OPEN_PDK_ROOT")
+                .expect("SKY130_OPEN_PDK_ROOT environment variable must be defined"),
+        )
+    }
+    /// Root of the Open-PDKs repo.
+    pub fn open_pdks_root() -> PathBuf {
+        PathBuf::from(
+            std::env::var("OPEN_PDKS_ROOT")
+                .expect("OPEN_PDKS_ROOT environment variable must be defined"),
+        )
+    }
+    /// SKY130 magic techfile.
+    pub fn sky130_magic_tech_file() -> PathBuf {
+        open_pdks_root().join("sky130/magic/sky130.tech")
+    }
+    /// SKY130 netgen setup file.
+    pub fn sky130_netgen_setup_file() -> PathBuf {
+        open_pdks_root().join("sky130/netgen/sky130_setup.tcl")
+    }
+    /// SKY130 ngspice models.
+    pub fn sky130_ngspice_model_path() -> PathBuf {
+        sky130_open_pdk_root().join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice")
+    }
+
+    /// Root of Cadence SKY130 PDK.
+    pub fn sky130_cds_pdk_root() -> PathBuf {
+        PathBuf::from(
+            std::env::var("SKY130_CDS_PDK_ROOT")
+                .expect("SKY130_CDS_PDK_ROOT environment variable must be defined"),
+        )
+    }
+    /// SKY130 Pegasus DRC directory.
+    pub fn sky130_drc() -> PathBuf {
+        sky130_cds_pdk_root().join("Sky130_DRC")
+    }
+    /// SKY130 Pegasus DRC rules.
+    pub fn sky130_drc_rules_path() -> PathBuf {
+        sky130_drc().join("sky130_rev_0.0_1.0.drc.pvl")
+    }
+    /// SKY130 Pegasus LVS directory.
+    pub fn sky130_lvs() -> PathBuf {
+        sky130_cds_pdk_root().join("Sky130_LVS")
+    }
+    /// SKY130 Pegasus LVS rules.
+    pub fn sky130_lvs_rules_path() -> PathBuf {
+        sky130_lvs().join("sky130.lvs.pvl")
+    }
+    /// SKY130 Quantus technology files.
+    pub fn sky130_technology_dir() -> PathBuf {
+        sky130_cds_pdk_root().join("quantus/extraction/typical")
+    }
+    /// SKY130 TT model path.
+    pub fn sky130_cds_tt_model_path() -> PathBuf {
+        sky130_cds_pdk_root().join("models/corners/tt.spice")
+    }
 
     #[test]
     fn test_sim_cadence_pex() {
         fn run(sim: SimController<Spectre, CdsPexTb>) -> f64 {
             let mut opts = Options::default();
-            opts.include(PathBuf::from(SKY130_CDS_TT_MODEL_PATH));
+            opts.include(sky130_cds_tt_model_path());
             let out = sim
                 .simulate(
                     opts,
@@ -324,9 +367,9 @@ mod tests {
                         gds_path: layout_path,
                         layout_cell_name: "test_col_buffer_array".into(),
                         work_dir,
-                        lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
-                        lvs_rules_dir: PathBuf::from(SKY130_LVS),
-                        technology_dir: PathBuf::from(SKY130_TECHNOLOGY_DIR),
+                        lvs_rules_path: sky130_lvs_rules_path(),
+                        lvs_rules_dir: sky130_lvs(),
+                        technology_dir: sky130_technology_dir(),
                     },
                 },
                 &sim_dir,
@@ -340,7 +383,7 @@ mod tests {
     fn test_sim_open_pex() {
         fn run(sim: SimController<Ngspice, OpenPexTb>) -> f64 {
             let mut opts = ngspice::Options::default();
-            opts.include_section(PathBuf::from(SKY130_NGSPICE_MODEL_PATH), "tt");
+            opts.include_section(sky130_ngspice_model_path(), "tt");
             let out = sim
                 .simulate(
                     opts,
@@ -370,8 +413,8 @@ mod tests {
                         gds_path: layout_path,
                         layout_cell_name: "test_col_buffer_array".into(),
                         work_dir,
-                        magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
-                        netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
+                        magic_tech_file_path: sky130_magic_tech_file(),
+                        netgen_setup_file_path: sky130_netgen_setup_file(),
                     },
                 },
                 &sim_dir,

@@ -244,12 +244,10 @@ where
 #[cfg(test)]
 mod tests {
     use pegasus::lvs::{LvsParams, LvsStatus, run_lvs};
+    use sky130::{sky130_lvs, sky130_lvs_rules_path, sky130_technology_dir};
 
     use crate::pex::{PexParams, run_pex, write_pex_run_file};
-    use crate::tests::{
-        COLBUF_LAYOUT_PATH, EXAMPLES_PATH, SKY130_LVS, SKY130_LVS_RULES_PATH,
-        SKY130_TECHNOLOGY_DIR, TEST_BUILD_PATH,
-    };
+    use crate::tests::{COLBUF_LAYOUT_PATH, EXAMPLES_PATH, TEST_BUILD_PATH};
     use std::path::{Path, PathBuf};
 
     #[test]
@@ -263,7 +261,7 @@ mod tests {
             work_dir: &pex_work_dir,
             lvs_work_dir: &lvs_work_dir,
             lvs_run_name: "test_col_inv_array",
-            technology_dir: Path::new(SKY130_TECHNOLOGY_DIR),
+            technology_dir: &sky130_technology_dir(),
             pex_netlist_path: &pex_path,
         })?;
         Ok(())
@@ -286,8 +284,8 @@ mod tests {
                     layout_cell_name: "test_col_inv_array",
                     source_paths: &[source_path],
                     source_cell_name: "col_inv_array",
-                    rules_dir: &PathBuf::from(SKY130_LVS),
-                    rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+                    rules_dir: &sky130_lvs(),
+                    rules_path: &sky130_lvs_rules_path(),
                 })?
                 .status,
                 LvsStatus::Correct
@@ -299,7 +297,7 @@ mod tests {
             work_dir: &pex_dir,
             lvs_work_dir: &lvs_dir,
             lvs_run_name: "test_col_inv_array",
-            technology_dir: Path::new(SKY130_TECHNOLOGY_DIR),
+            technology_dir: &sky130_technology_dir(),
             pex_netlist_path: &pex_path,
         })?;
         Ok(())

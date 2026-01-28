@@ -547,6 +547,7 @@ dependencies = [
  "quantus",
  "rust_decimal",
  "rust_decimal_macros",
+ "sky130",
  "spectre",
  "spice",
  "substrate",
@@ -2053,6 +2054,7 @@ dependencies = [
  "lazy_static",
  "regex",
  "serde",
+ "sky130",
  "tera",
 ]
 
@@ -2429,6 +2431,7 @@ dependencies = [
  "rust_decimal",
  "scir",
  "serde",
+ "sky130",
  "spice",
  "substrate",
  "tera",
