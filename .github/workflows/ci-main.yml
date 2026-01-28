@@ -69,7 +69,6 @@ jobs:
       - name: Cache workspace
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: |
             ./substrate
             ./cargo-workspaces/cargo-workspaces
