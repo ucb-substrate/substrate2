@@ -34,7 +34,7 @@ jobs:
           key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: |
             ${{ inputs.workspace_path }}
-          cache_on_failure: "true"
+          cache_on_failure: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
         with:
           version: 0.3.66

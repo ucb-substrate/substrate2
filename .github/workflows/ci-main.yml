@@ -78,7 +78,7 @@ jobs:
           workspaces: |
             ./substrate
             ./cargo-workspaces/cargo-workspaces
-          cache_on_failure: "true"
+          cache_on_failure: true
       - name: Build `cargo-workspaces`
         working-directory: cargo-workspaces/cargo-workspaces
         run: cargo build
