@@ -19,11 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        id: toolchain
-        with:
-          toolchain: stable
+      - uses: dtolnay/install@cargo-hack
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
