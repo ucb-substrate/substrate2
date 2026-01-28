@@ -43,6 +43,10 @@ jobs:
         working-directory: main/docs/api
       - run: ../../../main/docs/api/build.sh ../../../main/docs/api release
         working-directory: release/docs/api
+        env:
+          # For backwards compatibility with compile-time environment variables.
+          OPEN_PDKS_ROOT: ""
+          SKY130_CDS_PDK_ROOT: ""
       - run: flyctl deploy --remote-only --detach
         working-directory: main/docs/api
         env:
