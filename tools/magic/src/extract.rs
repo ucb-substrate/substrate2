@@ -92,7 +92,7 @@ pub fn run_extract(params: &ExtractParams) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use crate::extract::*;
-    use crate::tests::{COLBUF_LAYOUT_PATH, SKY130_TECH_FILE, TEST_BUILD_PATH};
+    use crate::tests::{COLBUF_LAYOUT_PATH, TEST_BUILD_PATH, sky130_tech_file};
     use std::path::PathBuf;
 
     #[test]
@@ -107,7 +107,7 @@ mod tests {
             work_dir: &work_dir,
             gds_path: &gds_path,
             cell_name: "test_col_inv_array",
-            tech_file_path: &PathBuf::from(SKY130_TECH_FILE),
+            tech_file_path: &sky130_tech_file(),
             netlist_path: &netlist_path,
         })?;
 

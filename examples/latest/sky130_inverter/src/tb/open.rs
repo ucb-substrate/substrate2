@@ -1,8 +1,7 @@
 // begin-code-snippet imports
 use crate::Inverter;
 use crate::InverterIoKind;
-use crate::SKY130_MAGIC_TECH_FILE;
-use crate::SKY130_NETGEN_SETUP_FILE;
+use crate::{sky130_magic_tech_file, sky130_netgen_setup_file};
 
 use magic_netgen::Pex;
 use ngspice::Ngspice;
@@ -14,7 +13,6 @@ use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
 use spice::Spice;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use substrate::block::Block;
 use substrate::context::Context;
@@ -293,8 +291,8 @@ impl InverterDesign {
                     gds_path: work_dir.join("layout.gds"),
                     layout_cell_name: dut.name(),
                     work_dir,
-                    magic_tech_file_path: PathBuf::from(SKY130_MAGIC_TECH_FILE),
-                    netgen_setup_file_path: PathBuf::from(SKY130_NETGEN_SETUP_FILE),
+                    magic_tech_file_path: sky130_magic_tech_file(),
+                    netgen_setup_file_path: sky130_netgen_setup_file(),
                 })
             } else {
                 InverterDut::Schematic(dut)
