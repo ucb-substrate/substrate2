@@ -51,3 +51,15 @@ members = [
 
 exclude = ["examples/release"]
 
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+arcstr = { version = "1", features = ["serde"] }
+rust_decimal = "1"
+rust_decimal_macros = "1"
+tera = "1"
+lazy_static = "1"
+tracing = "0.1"
+indexmap = { version = "2", features = ["serde"] }
+unicase = "2"
+approx = "0.5"
+thiserror = "2"

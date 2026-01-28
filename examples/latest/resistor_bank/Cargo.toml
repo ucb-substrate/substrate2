@@ -17,5 +17,4 @@ arcstr = "1"
 rust_decimal = "1"
 rust_decimal_macros = "1"
 derive-where = "1"
-approx = "0.5"
 

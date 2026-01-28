@@ -17,9 +17,9 @@ macrotools = { version = "0.2.0", registry = "substrate", path = "../libs/macrot
 [dev-dependencies]
 substrate = { version = "<=0.10.2", registry = "substrate", path = "../substrate" }
 scir = { version = "<=0.9.1", registry = "substrate", path = "../libs/scir" }
-arcstr = "1"
-rust_decimal = "1"
-rust_decimal_macros = "1"
+arcstr = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
 
 [build-dependencies]
 snippets = { version = "0.7.0", registry = "substrate", path = "../docs/snippets" }

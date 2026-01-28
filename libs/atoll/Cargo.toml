@@ -15,7 +15,6 @@ tracing = "0.1"
 num = "0.4.1"
 rand = "0.8.5"
 serde = { version = "1.0.192", features = ["derive"] }
-pathfinding = "4.8.0"
 indexmap = "2"
 rustc-hash = "1"
 cache = { version = "0.7.1", registry = "substrate", path = "../cache" }
