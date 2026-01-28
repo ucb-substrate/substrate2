@@ -19,7 +19,7 @@ jobs:
   deploy-docs:
     name: Deploy documentation
     runs-on: ubuntu-latest
-    environment: docs
+    environment: main
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master

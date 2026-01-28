@@ -6,7 +6,9 @@ on:
     branches: [main]
 
 jobs:
-  deploy-api-docs:
+  tag-release:
+    name: Tag Release
+    runs-on: ubuntu-latest
     if: "${{ github.event.label.name == 'autorelease: merged' }}"
     steps:
       - uses: actions/github-script@v5
