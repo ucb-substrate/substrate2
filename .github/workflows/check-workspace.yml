@@ -28,7 +28,7 @@ jobs:
         with:
           workspaces: |
             ${{ inputs.workspace_path }}
-          cache_on_failure: true
+          cache-on-failure: true
       - name: Check formatting
         run: |
           cargo fmt --check

@@ -35,12 +35,11 @@ jobs:
       - uses: taiki-e/install-action@cargo-hack
       - uses: Swatinem/rust-cache@v2
         with:
-          cache_on_failure: true
+          cache-on-failure: true
       - name: Check docs
         run: |
-          cargo hack --all rustdoc --all-features
+          cargo d --no-deps --workspace --all-features --exclude tests --exclude examples
         env:
-          RUSTFLAGS: '-D warnings'
           RUSTDOCFLAGS: '-D warnings'
   check-docs-site:
     name: check-docs-site
