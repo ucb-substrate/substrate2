@@ -1,0 +1,19 @@
+name: tag-release
+
+on:
+  pull_request_target:
+    types: [labeled]
+    branches: [main]
+
+jobs:
+  deploy-api-docs:
+    if: "${{ github.event.label.name == 'autorelease: merged' }}"
+    uses: actions/github-script@v5
+    with:
+      script: |
+        github.rest.git.updateRef({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          ref: 'refs/tags/release',
+          sha: context.sha
+        })

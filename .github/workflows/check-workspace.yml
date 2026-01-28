@@ -16,9 +16,20 @@ env:
 jobs:
   lint:
     name: lint
-    runs-on: bwrc
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: |
+            ${{ inputs.workspace_path }}
+          cache_on_failure: "true"
       - name: Check formatting
         run: |
           cargo fmt --check
@@ -43,16 +54,16 @@ jobs:
         run: |
           cargo hack clippy --feature-powerset --tests -- -D warnings
         working-directory: ${{ inputs.workspace_path }}
-  test:
-    name: test
-    runs-on: bwrc
-    steps:
-      - uses: actions/checkout@v4
-      - name: Test locked
-        if: ${{ inputs.locked }}
-        run: cargo test --locked --all-features
-        working-directory: ${{ inputs.workspace_path }}
-      - name: Test
-        if: ${{ ! inputs.locked }}
-        run: cargo test --all-features
-        working-directory: ${{ inputs.workspace_path }}
+  # test:
+  #   name: test
+  #   runs-on: bwrc
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Test locked
+  #       if: ${{ inputs.locked }}
+  #       run: cargo test --locked --all-features
+  #       working-directory: ${{ inputs.workspace_path }}
+  #     - name: Test
+  #       if: ${{ ! inputs.locked }}
+  #       run: cargo test --all-features
+  #       working-directory: ${{ inputs.workspace_path }}

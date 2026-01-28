@@ -25,7 +25,7 @@ jobs:
       workspace_path: examples/release
   check-docs:
     name: check-docs
-    runs-on: bwrc
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Check docs
