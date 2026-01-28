@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/install@cargo-hack
+      - uses: taiki-e/install-action@cargo-hack
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
