@@ -16,7 +16,7 @@ num = "0.4.1"
 rand = "0.8.5"
 serde = { version = "1.0.192", features = ["derive"] }
 indexmap = "2"
-rustc-hash = "1"
+rustc-hash = "2"
 cache = { version = "0.7.1", registry = "substrate", path = "../cache" }
 arcstr = { version = "1.2.0", features = ["serde"] }
 itertools = "0.14.0"
