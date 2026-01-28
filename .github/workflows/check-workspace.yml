@@ -23,6 +23,10 @@ jobs:
         uses: arduino/setup-protoc@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install fontconfig
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fontconfig
       - uses: taiki-e/install-action@cargo-hack
       - uses: Swatinem/rust-cache@v2
         with:
