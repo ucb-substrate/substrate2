@@ -1,2 +1,2 @@
 FROM pierrezemb/gostatic
-COPY ./static /srv/http/
+COPY ./static/ /srv/http/

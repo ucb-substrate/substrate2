@@ -47,6 +47,8 @@ jobs:
           # For backwards compatibility with compile-time environment variables.
           OPEN_PDKS_ROOT: ""
           SKY130_CDS_PDK_ROOT: ""
+      - run: echo "<meta http-equiv=\"refresh\" content=\"0; url=release/substrate\">" > ./static/index.html
+        working-directory: main/docs/api
       - run: flyctl deploy --remote-only --detach
         working-directory: main/docs/api
         env:
