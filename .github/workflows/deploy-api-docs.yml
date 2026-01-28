@@ -17,30 +17,39 @@ jobs:
   deploy-api-docs:
     name: Deploy API documentation
     runs-on: ubuntu-latest
-    environment: docs
+    environment: main
     steps:
-      - uses: actions/checkout@v4
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          path: main
+      - uses: actions/checkout@v4
+        with:
+          path: release
+          ref: refs/tags/release
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ steps.toolchain.outputs.cachekey }}
           workspaces: |
-            ${{ inputs.workspace_path }}
+            main
+            release
           cache-on-failure: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
         with:
-          version: 0.3.66
+          version: 0.4.6
       - run: ./build.sh . ${{ inputs.name || github.ref_name }}
-        working-directory: docs/api
-      - uses: actions/checkout@v4
-        with:
-          ref: refs/tags/release
-      - run: ./build.sh . release
-        working-directory: docs/api
+        working-directory: main/docs/api
+      - run: ../../../main/docs/api/build.sh ../../../main/docs/api release
+        working-directory: release/docs/api
+        env:
+          # For backwards compatibility with compile-time environment variables.
+          OPEN_PDKS_ROOT: ""
+          SKY130_CDS_PDK_ROOT: ""
+      - run: echo "<meta http-equiv=\"refresh\" content=\"0; url=release/substrate\">" > ./static/index.html
+        working-directory: main/docs/api
       - run: flyctl deploy --remote-only --detach
-        working-directory: docs/api
+        working-directory: main/docs/api
         env:
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}

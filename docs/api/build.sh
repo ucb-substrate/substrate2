@@ -16,7 +16,7 @@ REF_NAME=$2
 
 cargo d --no-deps --workspace --all-features --target-dir ./target --exclude tests --exclude examples
 echo "<meta http-equiv=\"refresh\" content=\"0; url=substrate\">" > ./target/doc/index.html
-rm -rf $PUBLIC_DOCS_DIR/api/static/$REF_NAME
-mkdir -p $PUBLIC_DOCS_DIR/api/static/$REF_NAME
-cp -r ./target/doc/. $PUBLIC_DOCS_DIR/api/static/$REF_NAME
-cd $PUBLIC_DOCS_DIR/api
+rm -rf $PUBLIC_DOCS_DIR/static/$REF_NAME
+mkdir -p $PUBLIC_DOCS_DIR/static/$REF_NAME
+cp -r ./target/doc/. $PUBLIC_DOCS_DIR/static/$REF_NAME
+cd $PUBLIC_DOCS_DIR

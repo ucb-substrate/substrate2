@@ -22,14 +22,14 @@ cat << EOF > ./site-config.json
 EOF
 yarn install --frozen-lockfile
 yarn build
-if [ $REF_NAME = "main" ]; then
-    find $PUBLIC_DOCS_DIR/docusaurus/static -maxdepth 1 -mindepth 1 -not -name "branch" -exec rm -r {} +
-    mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static
-    cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static
-else
-    rm -rf $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
-    mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
-    cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
-fi
-cd $PUBLIC_DOCS_DIR/docusaurus
+# if [ $REF_NAME = "main" ]; then
+#     find $PUBLIC_DOCS_DIR/docusaurus/static -maxdepth 1 -mindepth 1 -not -name "branch" -exec rm -r {} +
+#     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static
+#     cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static
+# else
+#     rm -rf $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+#     mkdir -p $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+#     cp -r ./build/. $PUBLIC_DOCS_DIR/docusaurus/static/branch/$REF_NAME
+# fi
+# cd $PUBLIC_DOCS_DIR/docusaurus
 flyctl deploy --remote-only --detach
