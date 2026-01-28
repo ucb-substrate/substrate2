@@ -130,7 +130,7 @@ macro_rules! define_mosfets {
         }
 
         impl $typ {
-            /// Creates a new [`$typ`].
+            #[doc = concat!("Creates a new [`", stringify!($typ), "`].")]
             #[inline]
             pub fn new(params: impl Into<MosParams>) -> Self {
                 Self {
