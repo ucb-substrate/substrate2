@@ -38,7 +38,7 @@ jobs:
           cache-on-failure: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
         with:
-          version: 0.3.66
+          version: 0.4.6
       - run: ./build.sh . ${{ inputs.name || github.ref_name }}
         working-directory: main/docs/api
       - run: ../../../main/docs/api/build.sh ../../../main/docs/api release
