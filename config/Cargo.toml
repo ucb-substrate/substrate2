@@ -9,7 +9,7 @@ lazycell = "1"
 serde = { version = "1", features = ["derive"] }
 toml_edit = "0.22"
 log = "0.4"
-toml = "0.8"
+toml = "0.9"
 
 cache = { version = "0.7.1", registry = "substrate", path = "../libs/cache" }
 
