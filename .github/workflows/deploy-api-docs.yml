@@ -23,10 +23,10 @@ jobs:
         uses: arduino/setup-protoc@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: main
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: release
           ref: refs/tags/release
