@@ -6,7 +6,7 @@ description = "Macros for the enumify crate"
 license = "BSD-3-Clause"
 
 [dependencies]
-darling = "0.20"
+darling = "0.23"
 syn = { version = "2" }
 quote = "1"
 proc-macro2 = "1"

@@ -5,7 +5,7 @@ edition = "2024"
 description = "Utilities for implementing proc macros quickly"
 
 [dependencies]
-darling = "0.20"
+darling = "0.23"
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
