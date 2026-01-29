@@ -18,11 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: main
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: substrate
       - name: Clone `release-please`
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: rohanku/release-please
           path: release-please
@@ -53,7 +53,7 @@ jobs:
     environment: main
     needs: [ release-please, check-repo ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: substrate
       - name: Install Protoc
@@ -61,7 +61,7 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clone `cargo-workspaces`
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: rohanku/cargo-workspaces
           path: cargo-workspaces
