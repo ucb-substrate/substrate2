@@ -22,6 +22,6 @@ jobs:
             github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/release',
+              ref: 'tags/release',
               sha: context.sha
             })
