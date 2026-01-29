@@ -28,7 +28,6 @@ const config: Config = {
   projectName: "substrate", // Usually your repo name.
 
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "throw",
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -93,8 +92,10 @@ const config: Config = {
 
   markdown: {
     format: "mdx",
+    hooks: {
+        onBrokenMarkdownLinks: "throw",
+    },
     preprocessor: ({ filePath, fileContent }) => {
-      console.log("Injecting global variables into " + filePath);
       let version;
       let match = /versioned_docs\/version-([a-zA-Z0-9_-]*)\//.exec(filePath);
       if (match) {

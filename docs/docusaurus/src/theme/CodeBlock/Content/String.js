@@ -6,12 +6,14 @@ import {
   parseLanguage,
   parseLines,
   containsLineNumbers,
+  CodeBlockContextProvider,
+  createCodeBlockMetadata,
   useCodeWordWrap,
 } from "@docusaurus/theme-common/internal";
 import { Highlight } from "prism-react-renderer";
 import Line from "@theme/CodeBlock/Line";
-import CopyButton from "@theme/CodeBlock/CopyButton";
-import WordWrapButton from "@theme/CodeBlock/WordWrapButton";
+import CopyButton from "@theme/CodeBlock/Buttons/CopyButton";
+import WordWrapButton from "@theme/CodeBlock/Buttons/WordWrapButton";
 import Container from "@theme/CodeBlock/Container";
 import styles from "./styles.module.css";
 // Prism languages are always lowercase
@@ -20,15 +22,29 @@ import styles from "./styles.module.css";
 function normalizeLanguage(language) {
   return language?.toLowerCase();
 }
-export default function CodeBlockString({
-  children,
-  className: blockClassName = "",
-  copy,
-  metastring,
-  title: titleProp,
-  showLineNumbers: showLineNumbersProp,
-  language: languageProp,
-}) {
+function useCodeBlockMetadata(props) {
+  const {prism} = useThemeConfig();
+  return createCodeBlockMetadata({
+    code: props.children,
+    className: props.className,
+    metastring: props.metastring,
+    magicComments: prism.magicComments,
+    defaultLanguage: prism.defaultLanguage,
+    language: props.language,
+    title: props.title,
+    showLineNumbers: props.showLineNumbers,
+  });
+}
+export default function CodeBlockString(props) {
+  const {
+    children,
+    className: blockClassName = "",
+    copy,
+    metastring,
+    title: titleProp,
+    showLineNumbers: showLineNumbersProp,
+    language: languageProp,
+  } = props
   const {
     prism: { defaultLanguage, magicComments },
   } = useThemeConfig();
@@ -36,6 +52,7 @@ export default function CodeBlockString({
     languageProp ?? parseLanguage(blockClassName) ?? defaultLanguage,
   );
   const prismTheme = usePrismTheme();
+  const metadata = useCodeBlockMetadata(props);
   const wordWrap = useCodeWordWrap();
   // We still parse the metastring in case we want to support more syntax in the
   // future. Note that MDX doesn't strip quotes when parsing metastring:
@@ -49,6 +66,7 @@ export default function CodeBlockString({
   const showLineNumbers =
     showLineNumbersProp ?? containsLineNumbers(metastring);
   return (
+    <CodeBlockContextProvider metadata={metadata} wordWrap={wordWrap}>
     <Container
       as="div"
       className={clsx(
@@ -101,5 +119,6 @@ export default function CodeBlockString({
         </div>
       </div>
     </Container>
+    </CodeBlockContextProvider>
   );
 }

@@ -22,7 +22,10 @@ pub enum Error {
     Transport(#[from] tonic::transport::Error),
     #[allow(missing_docs)]
     #[error(transparent)]
-    Rusqlite(#[from] tokio_rusqlite::Error),
+    TokioRusqlite(#[from] tokio_rusqlite::Error),
+    #[allow(missing_docs)]
+    #[error(transparent)]
+    Rusqlite(#[from] rusqlite::Error),
     #[allow(missing_docs)]
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
