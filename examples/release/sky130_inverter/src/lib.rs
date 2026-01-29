@@ -1,8 +1,6 @@
-use std::path::PathBuf;
-
 // begin-code-snippet imports
 use sky130::mos::{Nfet01v8, Pfet01v8};
-use sky130::Sky130;
+use sky130::{Sky130, sky130_cds_pdk_root, sky130_open_pdk_root};
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
@@ -11,6 +9,7 @@ use substrate::types::schematic::IoNodeBundle;
 use substrate::types::{InOut, Input, Io, Output, Signal};
 // end-code-snippet imports
 
+pub mod atoll;
 pub mod layout;
 pub mod tb;
 
@@ -61,45 +60,6 @@ impl Schematic for Inverter {
 }
 // end-code-snippet inverter-schematic
 
-// begin-code-snippet open-constants
-pub fn open_pdks_root() -> PathBuf {
-    PathBuf::from(
-        std::env::var("OPEN_PDKS_ROOT")
-            .expect("OPEN_PDKS_ROOT environment variable must be defined"),
-    )
-}
-pub fn sky130_magic_tech_file() -> PathBuf {
-    open_pdks_root().join("sky130/magic/sky130.tech")
-}
-pub fn sky130_netgen_setup_file() -> PathBuf {
-    open_pdks_root().join("sky130/netgen/sky130_setup.tcl")
-}
-// end-code-snippet open-constants
-
-// begin-code-snippet cds-constants
-pub fn sky130_cds_pdk_root() -> PathBuf {
-    PathBuf::from(
-        std::env::var("SKY130_CDS_PDK_ROOT")
-            .expect("SKY130_CDS_PDK_ROOT environment variable must be defined"),
-    )
-}
-pub fn sky130_drc() -> PathBuf {
-    sky130_cds_pdk_root().join("Sky130_DRC")
-}
-pub fn sky130_drc_rules_path() -> PathBuf {
-    sky130_drc().join("sky130_rev_0.0_1.0.drc.pvl")
-}
-pub fn sky130_lvs() -> PathBuf {
-    sky130_cds_pdk_root().join("Sky130_LVS")
-}
-pub fn sky130_lvs_rules_path() -> PathBuf {
-    sky130_lvs().join("sky130.lvs.pvl")
-}
-pub fn sky130_technology_dir() -> PathBuf {
-    sky130_cds_pdk_root().join("quantus/extraction/typical")
-}
-// end-code-snippet cds-constants
-
 // begin-code-snippet sky130-open-ctx
 /// Create a new Substrate context for the SKY130 open PDK.
 ///
@@ -111,11 +71,9 @@ pub fn sky130_technology_dir() -> PathBuf {
 /// Panics if the `SKY130_OPEN_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
 pub fn sky130_open_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT")
-        .expect("the SKY130_OPEN_PDK_ROOT environment variable must be set");
     Context::builder()
         .install(ngspice::Ngspice::default())
-        .install(Sky130::open(pdk_root))
+        .install(Sky130::open(sky130_open_pdk_root()))
         .build()
 }
 // end-code-snippet sky130-open-ctx
@@ -131,8 +89,7 @@ pub fn sky130_open_ctx() -> Context {
 /// Panics if the `SKY130_CDS_PDK_ROOT` environment variable is not set,
 /// or if the value of that variable is not a valid UTF-8 string.
 pub fn sky130_cds_ctx() -> Context {
-    let pdk_root = std::env::var("SKY130_CDS_PDK_ROOT")
-        .expect("the SKY130_CDS_PDK_ROOT environment variable must be set");
+    let pdk_root = sky130_cds_pdk_root();
     Context::builder()
         .install(spectre::Spectre::default())
         .install(Sky130::cds_only(pdk_root))

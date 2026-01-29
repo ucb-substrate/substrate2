@@ -1,7 +1,7 @@
 use ngspice::Ngspice;
 use rust_decimal_macros::dec;
-use spectre::blocks::Vsource;
 use spectre::Spectre;
+use spectre::blocks::Vsource;
 use spice::Spice;
 use substrate::arcstr;
 use substrate::block::Block;
@@ -263,67 +263,20 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use approx::assert_relative_eq;
-    use spectre::{analysis::tran::Tran, ErrPreset, Options};
+    use sky130::{
+        sky130_cds_tt_model_path, sky130_lvs, sky130_lvs_rules_path, sky130_magic_tech_file,
+        sky130_netgen_setup_file, sky130_ngspice_model_path, sky130_technology_dir,
+    };
+    use spectre::{ErrPreset, Options, analysis::tran::Tran};
     use substrate::{
         context::Context,
-        simulation::{waveform::TimeWaveform, SimController},
+        simulation::{SimController, waveform::TimeWaveform},
     };
 
     use super::*;
     pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
     pub const COLBUF_LAYOUT_PATH: &str =
         concat!(env!("CARGO_MANIFEST_DIR"), "/test_col_buffer_array.gds");
-
-    /// Root of the open-source Sky130 PDK.
-    pub fn sky130_open_pdk_root() -> PathBuf {
-        PathBuf::from(
-            std::env::var("SKY130_OPEN_PDK_ROOT")
-                .expect("SKY130_OPEN_PDK_ROOT environment variable must be defined"),
-        )
-    }
-    /// Root of the Open-PDKs repo.
-    pub fn open_pdks_root() -> PathBuf {
-        PathBuf::from(
-            std::env::var("OPEN_PDKS_ROOT")
-                .expect("OPEN_PDKS_ROOT environment variable must be defined"),
-        )
-    }
-    /// SKY130 magic techfile.
-    pub fn sky130_magic_tech_file() -> PathBuf {
-        open_pdks_root().join("sky130/magic/sky130.tech")
-    }
-    /// SKY130 netgen setup file.
-    pub fn sky130_netgen_setup_file() -> PathBuf {
-        open_pdks_root().join("sky130/netgen/sky130_setup.tcl")
-    }
-    /// SKY130 ngspice models.
-    pub fn sky130_ngspice_model_path() -> PathBuf {
-        sky130_open_pdk_root().join("libraries/sky130_fd_pr/latest/models/sky130.lib.spice")
-    }
-
-    /// Root of Cadence SKY130 PDK.
-    pub fn sky130_cds_pdk_root() -> PathBuf {
-        PathBuf::from(
-            std::env::var("SKY130_CDS_PDK_ROOT")
-                .expect("SKY130_CDS_PDK_ROOT environment variable must be defined"),
-        )
-    }
-    /// SKY130 Pegasus LVS directory.
-    pub fn sky130_lvs() -> PathBuf {
-        sky130_cds_pdk_root().join("Sky130_LVS")
-    }
-    /// SKY130 Pegasus LVS rules.
-    pub fn sky130_lvs_rules_path() -> PathBuf {
-        sky130_lvs().join("sky130.lvs.pvl")
-    }
-    /// SKY130 Quantus technology files.
-    pub fn sky130_technology_dir() -> PathBuf {
-        sky130_cds_pdk_root().join("quantus/extraction/typical")
-    }
-    /// SKY130 TT model path.
-    pub fn sky130_cds_tt_model_path() -> PathBuf {
-        sky130_cds_pdk_root().join("models/corners/tt.spice")
-    }
 
     #[test]
     fn test_sim_cadence_pex() {

@@ -1,11 +1,11 @@
 [package]
-name = "sky130_inverter"
+name = "strongarm"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
-# begin-code-snippet dependencies
 [dependencies]
+atoll = { version = "0.1.4", registry = "substrate" }
 substrate = { version = "0.10.3", registry = "substrate" }
 sky130 = { version = "0.10.3", registry = "substrate" }
 layir = { version = "0.2.2", registry = "substrate" }
@@ -17,18 +17,13 @@ spice = { version = "0.9.3", registry = "substrate" }
 arcstr = "1"
 rust_decimal = "1"
 rust_decimal_macros = "1"
-# end-code-snippet dependencies
+derive-where = "1"
+approx = "0.5"
+itertools = "0.14"
 
-# begin-code-snippet open-dependencies
-ngspice = { version = "0.5.3", registry = "substrate" }
-magic_netgen = { version = "0.1.4", registry = "substrate" }
-magic = { version = "0.2.2", registry = "substrate" }
-# end-code-snippet open-dependencies
-
-# begin-code-snippet cds-dependencies
 spectre = { version = "0.11.3", registry = "substrate" }
 quantus = { version = "0.2.3", registry = "substrate" }
 pegasus = { version = "0.2.2", registry = "substrate" }
-# end-code-snippet cds-dependencies
 
-atoll = { version = "0.1.4", registry = "substrate" }
+[dev-dependencies]
+plotters = "0.3"

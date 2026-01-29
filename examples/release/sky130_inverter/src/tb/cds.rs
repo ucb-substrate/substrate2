@@ -1,19 +1,19 @@
 // begin-code-snippet imports
-use crate::sky130_lvs;
-use crate::sky130_lvs_rules_path;
-use crate::sky130_technology_dir;
 use crate::Inverter;
 use crate::InverterIoKind;
 
 use quantus::pex::Pex;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use sky130::Sky130CdsSchema;
 use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
-use sky130::Sky130CdsSchema;
+use sky130::sky130_lvs;
+use sky130::sky130_lvs_rules_path;
+use sky130::sky130_technology_dir;
+use spectre::Spectre;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
-use spectre::Spectre;
 use spice::Spice;
 use std::path::Path;
 use std::sync::Arc;
@@ -21,8 +21,8 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
 use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
-use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::simulation::Pvt;
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
 // end-code-snippet imports
