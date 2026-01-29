@@ -14,8 +14,8 @@ futures-util = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
-prost = "0.13"
-prost-types = "0.13"
+prost = "0.14"
+prost-types = "0.14"
 rusqlite = { version = "0.37", features = ["bundled"] }
 fs4 = { version = "0.12", features = ["tokio"] }
 thiserror = "2"
