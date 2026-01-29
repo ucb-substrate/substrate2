@@ -4,6 +4,23 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.9.3](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.2...spice-v0.9.3) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **scir:** support removing cells from `LibraryBuilder` ([#657](https://github.com/ucb-substrate/substrate2/issues/657)) ([eb57369](https://github.com/ucb-substrate/substrate2/commit/eb573691672c6109c41942811a9cdd1ffe75087b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.9.1 to 0.9.2
+    * substrate bumped from 0.10.2 to 0.10.3
+    * enumify bumped from 0.2.1 to 0.2.2
+
 ## [0.9.2](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.1...spice-v0.9.2) (2025-02-02)
 
 

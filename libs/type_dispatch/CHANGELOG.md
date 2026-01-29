@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.2](https://github.com/ucb-substrate/substrate2/compare/type_dispatch-v0.5.1...type_dispatch-v0.5.2) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * type_dispatch_macros bumped from 0.4.1 to 0.4.2
+
 ## [0.5.1](https://github.com/ucb-substrate/substrate2/compare/type_dispatch-v0.5.0...type_dispatch-v0.5.1) (2025-01-24)
 
 

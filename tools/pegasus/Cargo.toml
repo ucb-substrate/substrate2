@@ -1,6 +1,6 @@
 [package]
 name = "pegasus"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 
 [dependencies]
@@ -11,4 +11,4 @@ anyhow = "1"
 regex = "1"
 
 [dev-dependencies]
-sky130 = { version = "0.10.2", registry = "substrate", path = "../../pdks/sky130" }
+sky130 = { version = "<=0.10.3", registry = "substrate", path = "../../pdks/sky130" }

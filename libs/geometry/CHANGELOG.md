@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.2](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.7.1...geometry-v0.7.2) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
+
+### Bug Fixes
+
+* **polygon:** fix implementation of `Contains&lt;Point&gt;` for `Polygon` ([#592](https://github.com/ucb-substrate/substrate2/issues/592)) ([585f4e3](https://github.com/ucb-substrate/substrate2/commit/585f4e37a35d18e30348b86da598cb31710de19e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * geometry_macros bumped from 0.1.1 to 0.1.2
+
 ## [0.7.1](https://github.com/ucb-substrate/substrate2/compare/geometry-v0.7.0...geometry-v0.7.1) (2025-01-24)
 
 

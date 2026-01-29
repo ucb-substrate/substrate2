@@ -28,6 +28,47 @@
   * dependencies
     * codegen bumped from 0.10.1 to 0.10.2
 
+## [0.10.3](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.10.2...substrate-v0.10.3) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **atoll:** port ATOLL to Substrate 2.1 ([#639](https://github.com/ucb-substrate/substrate2/issues/639)) ([dc2d4f2](https://github.com/ucb-substrate/substrate2/commit/dc2d4f2340e1dac822beb499b6d3dbec27002ec5))
+* **examples:** ATOLL segment folder and sky130 examples ([#648](https://github.com/ucb-substrate/substrate2/issues/648)) ([cc809ae](https://github.com/ucb-substrate/substrate2/commit/cc809ae10e1b25f224f503e5a125a38e3e202be4))
+* **simulation:** blanket implementation for saving ArrayBundles ([#607](https://github.com/ucb-substrate/substrate2/issues/607)) ([41f67ee](https://github.com/ucb-substrate/substrate2/commit/41f67ee509c6f1c21796835398c057edaffe2009))
+* **stdcells:** implement layout for sky130 stdcells ([#586](https://github.com/ucb-substrate/substrate2/issues/586)) ([6e438ec](https://github.com/ucb-substrate/substrate2/commit/6e438ecde6b092231b4f9b6f17e3004663c17f74))
+* **tiling:** expose raw tiles and allow tiling ArrayTilers ([#604](https://github.com/ucb-substrate/substrate2/issues/604)) ([4769a77](https://github.com/ucb-substrate/substrate2/commit/4769a77310606dc4a62b408556cea094da1cd531))
+* **waveform:** add offset parameter to `DigitalWaveformParams` ([#628](https://github.com/ucb-substrate/substrate2/issues/628)) ([3b590ca](https://github.com/ucb-substrate/substrate2/commit/3b590ca33936198b6729cbd4ba154ef766c6149a))
+
+
+### Bug Fixes
+
+* **schematic:** fix bug in direction wrapper type flattening ([#637](https://github.com/ucb-substrate/substrate2/issues/637)) ([04b373e](https://github.com/ucb-substrate/substrate2/commit/04b373e7acae179f9a77aad880df8b44b7d23a68))
+* **schematic:** support accessing nested PEX data even upon additional nesting ([#621](https://github.com/ucb-substrate/substrate2/issues/621)) ([c1a28c3](https://github.com/ucb-substrate/substrate2/commit/c1a28c3dd9c8261218e29d3295f79b55f5eec277))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * config bumped from 0.4.1 to 0.4.2
+    * snippets bumped from 0.7.0 to 0.7.1
+    * cache bumped from 0.7.1 to 0.7.2
+    * codegen bumped from 0.10.2 to 0.10.3
+    * layir bumped from 0.2.1 to 0.2.2
+    * geometry bumped from 0.7.1 to 0.7.2
+    * gds bumped from 0.4.1 to 0.4.2
+    * gdsconv bumped from 0.2.1 to 0.2.2
+    * enumify bumped from 0.2.1 to 0.2.2
+    * scir bumped from 0.9.1 to 0.9.2
+    * pathtree bumped from 0.3.0 to 0.3.1
+    * type_dispatch bumped from 0.5.1 to 0.5.2
+    * uniquify bumped from 0.4.0 to 0.4.1
+  * build-dependencies
+    * snippets bumped from 0.7.0 to 0.7.1
+    * examples bumped from 0.2.0 to 0.2.1
+
 ## [0.10.1](https://github.com/ucb-substrate/substrate2/compare/substrate-v0.10.0...substrate-v0.10.1) (2025-01-24)
 
 

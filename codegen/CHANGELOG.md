@@ -24,6 +24,33 @@
     * spectre bumped from <=0.9.0 to <=0.9.1
     * spice bumped from <=0.7.0 to <=0.7.1
 
+## [0.10.3](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.10.2...codegen-v0.10.3) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
+
+### Bug Fixes
+
+* **deps:** update deps to latest versions ([#617](https://github.com/ucb-substrate/substrate2/issues/617)) ([ce3d243](https://github.com/ucb-substrate/substrate2/commit/ce3d243cbc10d64086939e44963e3cef591d6bda))
+* **schematic:** support accessing nested PEX data even upon additional nesting ([#621](https://github.com/ucb-substrate/substrate2/issues/621)) ([c1a28c3](https://github.com/ucb-substrate/substrate2/commit/c1a28c3dd9c8261218e29d3295f79b55f5eec277))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * snippets bumped from 0.7.0 to 0.7.1
+    * macrotools bumped from 0.2.0 to 0.2.1
+  * dev-dependencies
+    * substrate bumped from <=0.10.2 to <=0.10.3
+    * scir bumped from <=0.9.1 to <=0.9.2
+  * build-dependencies
+    * snippets bumped from 0.7.0 to 0.7.1
+    * examples bumped from 0.2.0 to 0.2.1
+
 ## [0.10.2](https://github.com/ucb-substrate/substrate2/compare/codegen-v0.10.1...codegen-v0.10.2) (2025-02-02)
 
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.2](https://github.com/ucb-substrate/substrate2/compare/enumify_macros-v0.3.1...enumify_macros-v0.3.2) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
+
+### Bug Fixes
+
+* **deps:** update deps to latest versions ([#617](https://github.com/ucb-substrate/substrate2/issues/617)) ([ce3d243](https://github.com/ucb-substrate/substrate2/commit/ce3d243cbc10d64086939e44963e3cef591d6bda))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * macrotools bumped from 0.2.0 to 0.2.1
+
 ## [0.3.1](https://github.com/ucb-substrate/substrate2/compare/enumify_macros-v0.3.0...enumify_macros-v0.3.1) (2025-01-24)
 
 

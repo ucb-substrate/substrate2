@@ -8,6 +8,31 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.11.3](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.2...spectre-v0.11.3) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **spectre:** add support for IBIS model includes ([#591](https://github.com/ucb-substrate/substrate2/issues/591)) ([8ec582f](https://github.com/ucb-substrate/substrate2/commit/8ec582f7088c3c863fba1db2ed899dd1a25bab54))
+
+
+### Bug Fixes
+
+* **spectre:** save spectre stdin and stderr to spectre.out ([#615](https://github.com/ucb-substrate/substrate2/issues/615)) ([9ca3cf9](https://github.com/ucb-substrate/substrate2/commit/9ca3cf9975e170f20645d2e6a9de47cc7f19b37e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * cache bumped from 0.7.1 to 0.7.2
+    * psfparser bumped from 0.1.4 to 0.1.5
+    * scir bumped from 0.9.1 to 0.9.2
+    * substrate bumped from 0.10.2 to 0.10.3
+    * spice bumped from 0.9.2 to 0.9.3
+    * type_dispatch bumped from 0.5.1 to 0.5.2
+
 ## [0.11.2](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.1...spectre-v0.11.2) (2025-02-02)
 
 
