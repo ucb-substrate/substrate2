@@ -4,8 +4,6 @@ on:
   pull_request_target:
     types: [labeled]
     branches: [main]
-  workflow_call:
-  pull_request:
 
 permissions:
   contents: write
