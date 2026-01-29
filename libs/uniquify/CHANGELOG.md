@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.4.0...uniquify-v0.4.1) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **scir:** support removing cells from `LibraryBuilder` ([#657](https://github.com/ucb-substrate/substrate2/issues/657)) ([eb57369](https://github.com/ucb-substrate/substrate2/commit/eb573691672c6109c41942811a9cdd1ffe75087b))
+
 ## [0.4.0](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.3.0...uniquify-v0.4.0) (2025-01-23)
 
 

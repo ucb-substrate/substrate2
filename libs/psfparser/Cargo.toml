@@ -1,6 +1,6 @@
 [package]
 name = "psfparser"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 description = "A PSF reader written in Rust"
 readme = "README.md"
@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 exclude = ["/examples"]
 
 [dependencies]
-enumify = { version = "0.2.1", path = "../enumify", registry = "substrate" }
+enumify = { version = "0.2.2", path = "../enumify", registry = "substrate" }
 
 anyhow = "1"
 pest = "2"

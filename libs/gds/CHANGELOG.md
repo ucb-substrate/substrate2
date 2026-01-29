@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.2](https://github.com/ucb-substrate/substrate2/compare/gds-v0.4.1...gds-v0.4.2) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **gds:** support importing GDS libraries into sky130 ([#583](https://github.com/ucb-substrate/substrate2/issues/583)) ([5e3181b](https://github.com/ucb-substrate/substrate2/commit/5e3181b1307e32a017126028fc15a13255129195))
+* **scir:** driver analysis handles opaque SCIR primitives correctly ([#636](https://github.com/ucb-substrate/substrate2/issues/636)) ([7dccba4](https://github.com/ucb-substrate/substrate2/commit/7dccba4da427b4b07b93b92d13ad9ecb1aef8512))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate derive_more to v2 ([#573](https://github.com/ucb-substrate/substrate2/issues/573)) ([46be12c](https://github.com/ucb-substrate/substrate2/commit/46be12cd68038469f7986c10db6a2ad1beab3b05))
+
 ## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/gds-v0.4.0...gds-v0.4.1) (2025-01-24)
 
 

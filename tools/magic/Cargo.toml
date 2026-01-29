@@ -1,6 +1,6 @@
 [package]
 name = "magic"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 
 [dependencies]
@@ -13,4 +13,4 @@ itertools = "0.14.0"
 thiserror = "2.0.12"
 
 [dev-dependencies]
-sky130 = { version = "0.10.2", registry = "substrate", path = "../../pdks/sky130" }
+sky130 = { version = "<=0.10.3", registry = "substrate", path = "../../pdks/sky130" }

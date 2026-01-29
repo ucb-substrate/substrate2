@@ -1,6 +1,6 @@
 [package]
 name = "type_dispatch"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 description = "Utilities for dispatching functions, constants, and trait implementations based on types."
 license = "BSD-3-Clause"
@@ -8,5 +8,5 @@ license = "BSD-3-Clause"
 [dependencies]
 duplicate = "2"
 
-type_dispatch_macros = { version = "0.4.1", registry = "substrate", path = "../type_dispatch_macros" }
+type_dispatch_macros = { version = "0.4.2", registry = "substrate", path = "../type_dispatch_macros" }
 

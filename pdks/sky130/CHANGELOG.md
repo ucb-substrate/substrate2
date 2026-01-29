@@ -25,6 +25,37 @@
     * ngspice bumped from 0.3.0 to 0.3.1
     * spice bumped from 0.7.0 to 0.7.1
 
+## [0.10.3](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.2...sky130-v0.10.3) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **atoll:** port ATOLL to Substrate 2.1 ([#639](https://github.com/ucb-substrate/substrate2/issues/639)) ([dc2d4f2](https://github.com/ucb-substrate/substrate2/commit/dc2d4f2340e1dac822beb499b6d3dbec27002ec5))
+* **atoll:** tile resizing ([#655](https://github.com/ucb-substrate/substrate2/issues/655)) ([b9b65f0](https://github.com/ucb-substrate/substrate2/commit/b9b65f0f065f11f4ceb7499f7bf7f0f088c67480))
+* **examples:** ATOLL segment folder and sky130 examples ([#648](https://github.com/ucb-substrate/substrate2/issues/648)) ([cc809ae](https://github.com/ucb-substrate/substrate2/commit/cc809ae10e1b25f224f503e5a125a38e3e202be4))
+* **gds:** convert GDS to generic layer type via FromGds trait ([#590](https://github.com/ucb-substrate/substrate2/issues/590)) ([1b98f28](https://github.com/ucb-substrate/substrate2/commit/1b98f289b4cd5b94f4248691b35bad8ec73b83c5))
+* **gds:** support importing GDS libraries into sky130 ([#583](https://github.com/ucb-substrate/substrate2/issues/583)) ([5e3181b](https://github.com/ucb-substrate/substrate2/commit/5e3181b1307e32a017126028fc15a13255129195))
+* **stdcells:** implement layout for sky130 stdcells ([#586](https://github.com/ucb-substrate/substrate2/issues/586)) ([6e438ec](https://github.com/ucb-substrate/substrate2/commit/6e438ecde6b092231b4f9b6f17e3004663c17f74))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * atoll bumped from 0.1.3 to 0.1.4
+    * substrate bumped from 0.10.2 to 0.10.3
+    * scir bumped from 0.9.1 to 0.9.2
+    * layir bumped from 0.2.1 to 0.2.2
+    * gdsconv bumped from 0.2.1 to 0.2.2
+    * gds bumped from 0.4.1 to 0.4.2
+    * spectre bumped from 0.11.2 to 0.11.3
+    * ngspice bumped from 0.5.2 to 0.5.3
+    * pegasus bumped from 0.2.1 to 0.2.2
+    * spice bumped from 0.9.2 to 0.9.3
+    * geometry_macros bumped from 0.1.1 to 0.1.2
+    * geometry bumped from 0.7.1 to 0.7.2
+
 ## [0.10.2](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.1...sky130-v0.10.2) (2025-02-02)
 
 

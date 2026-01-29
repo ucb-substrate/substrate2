@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/examples-v0.2.0...examples-v0.2.1) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+* **atoll:** port ATOLL to Substrate 2.1 ([#639](https://github.com/ucb-substrate/substrate2/issues/639)) ([dc2d4f2](https://github.com/ucb-substrate/substrate2/commit/dc2d4f2340e1dac822beb499b6d3dbec27002ec5))
+* **atoll:** tile resizing ([#655](https://github.com/ucb-substrate/substrate2/issues/655)) ([b9b65f0](https://github.com/ucb-substrate/substrate2/commit/b9b65f0f065f11f4ceb7499f7bf7f0f088c67480))
+* **examples:** ATOLL segment folder and sky130 examples ([#648](https://github.com/ucb-substrate/substrate2/issues/648)) ([cc809ae](https://github.com/ucb-substrate/substrate2/commit/cc809ae10e1b25f224f503e5a125a38e3e202be4))
+* **strongarm:** additional strongarm parametrizations ([#663](https://github.com/ucb-substrate/substrate2/issues/663)) ([0773b4f](https://github.com/ucb-substrate/substrate2/commit/0773b4f8dd55afd1b46cb481178194822e5cfe2d))
+* **strongarm:** specify tap direction to allow PDKs to set span in other direction ([#661](https://github.com/ucb-substrate/substrate2/issues/661)) ([6917044](https://github.com/ucb-substrate/substrate2/commit/69170440e54f5848c3097b3eaee235bf440c5ce6))
+
+
+### Bug Fixes
+
+* **examples:** fix release example compilation ([#576](https://github.com/ucb-substrate/substrate2/issues/576)) ([1e3d89f](https://github.com/ucb-substrate/substrate2/commit/1e3d89f3dd8c152640ec0408fefc9e32e4d7ddba))
+* **justfile:** remove extra targets from justfile, fix formatting ([#588](https://github.com/ucb-substrate/substrate2/issues/588)) ([efc3591](https://github.com/ucb-substrate/substrate2/commit/efc35916dcfc4fe04ef59cffe9155f5069916d07))
+
 ## [0.2.0](https://github.com/ucb-substrate/substrate2/compare/examples-v0.1.0...examples-v0.2.0) (2025-01-23)
 
 

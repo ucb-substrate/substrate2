@@ -5,7 +5,7 @@ use substrate::{
     block::Block,
     error::Result,
     schematic::{CellBuilder, Schematic},
-    types::{schematic::IoNodeBundle, InOut, Io, Output, Signal},
+    types::{InOut, Io, Output, Signal, schematic::IoNodeBundle},
 };
 // end-code-snippet imports
 

@@ -1,6 +1,6 @@
 [package]
 name = "type_dispatch_macros"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 description = "Macros for the `type_dispatch` crate."
 license = "BSD-3-Clause"
@@ -13,7 +13,7 @@ proc-macro-crate = { workspace = true }
 itertools = { workspace = true }
 
 [dev-dependencies]
-type_dispatch = { version = "<=0.5.1", registry = "substrate", path = "../type_dispatch" }
+type_dispatch = { version = "<=0.5.2", registry = "substrate", path = "../type_dispatch" }
 
 [lib]
 proc-macro = true

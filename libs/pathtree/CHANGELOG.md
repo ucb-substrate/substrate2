@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/ucb-substrate/substrate2/compare/pathtree-v0.3.0...pathtree-v0.3.1) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
 ## [0.3.0](https://github.com/ucb-substrate/substrate2/compare/pathtree-v0.2.0...pathtree-v0.3.0) (2025-01-23)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.2](https://github.com/ucb-substrate/substrate2/compare/cache-v0.7.1...cache-v0.7.2) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
+
+### Bug Fixes
+
+* **deps:** update tonic monorepo to 0.13 ([#642](https://github.com/ucb-substrate/substrate2/issues/642)) ([2b34382](https://github.com/ucb-substrate/substrate2/commit/2b34382d065141ef05f0c8998cd8de39bc4c6154))
+
 ## [0.7.1](https://github.com/ucb-substrate/substrate2/compare/cache-v0.7.0...cache-v0.7.1) (2025-01-24)
 
 

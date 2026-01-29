@@ -1,0 +1,20 @@
+[package]
+name = "resistor_bank"
+version = "0.1.1"
+edition = "2024"
+
+[dependencies]
+atoll = { version = "0.1.4", registry = "substrate" }
+substrate = { version = "0.10.3", registry = "substrate" }
+sky130 = { version = "0.10.3", registry = "substrate" }
+layir = { version = "0.2.2", registry = "substrate" }
+gdsconv = { version = "0.2.2", registry = "substrate" }
+gds = { version = "0.4.2", registry = "substrate" }
+scir = { version = "0.9.2", registry = "substrate" }
+spice = { version = "0.9.3", registry = "substrate" }
+
+arcstr = "1"
+rust_decimal = "1"
+rust_decimal_macros = "1"
+derive-where = "1"
+

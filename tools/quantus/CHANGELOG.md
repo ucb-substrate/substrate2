@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.3](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.2.2...quantus-v0.2.3) (2026-01-29)
+
+
+### Features
+
+* ATOLL improvements, improved StrongARM examples, version bumps, cleanup ([#683](https://github.com/ucb-substrate/substrate2/issues/683)) ([c4c02bb](https://github.com/ucb-substrate/substrate2/commit/c4c02bba9b27a65d6527eba04b92d0e3519e724a))
+
+
+### Bug Fixes
+
+* **schematic:** support accessing nested PEX data even upon additional nesting ([#621](https://github.com/ucb-substrate/substrate2/issues/621)) ([c1a28c3](https://github.com/ucb-substrate/substrate2/commit/c1a28c3dd9c8261218e29d3295f79b55f5eec277))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.2 to 0.10.3
+    * scir bumped from 0.9.1 to 0.9.2
+    * spice bumped from 0.9.2 to 0.9.3
+    * pegasus bumped from 0.2.1 to 0.2.2
+  * dev-dependencies
+    * sky130 bumped from 0.10.2 to <=0.10.3
+
 ## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.2.1...quantus-v0.2.2) (2025-02-02)
 
 

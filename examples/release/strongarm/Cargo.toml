@@ -1,0 +1,29 @@
+[package]
+name = "strongarm"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+atoll = { version = "0.1.4", registry = "substrate" }
+substrate = { version = "0.10.3", registry = "substrate" }
+sky130 = { version = "0.10.3", registry = "substrate" }
+layir = { version = "0.2.2", registry = "substrate" }
+gdsconv = { version = "0.2.2", registry = "substrate" }
+gds = { version = "0.4.2", registry = "substrate" }
+scir = { version = "0.9.2", registry = "substrate" }
+spice = { version = "0.9.3", registry = "substrate" }
+
+arcstr = "1"
+rust_decimal = "1"
+rust_decimal_macros = "1"
+derive-where = "1"
+approx = "0.5"
+itertools = "0.14"
+
+spectre = { version = "0.11.3", registry = "substrate" }
+quantus = { version = "0.2.3", registry = "substrate" }
+pegasus = { version = "0.2.2", registry = "substrate" }
+
+[dev-dependencies]
+plotters = "0.3"

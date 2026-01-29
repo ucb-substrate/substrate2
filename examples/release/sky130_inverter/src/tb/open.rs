@@ -1,16 +1,17 @@
 // begin-code-snippet imports
 use crate::Inverter;
 use crate::InverterIoKind;
-use crate::{sky130_magic_tech_file, sky130_netgen_setup_file};
 
 use magic_netgen::Pex;
-use ngspice::blocks::{Pulse, Vsource};
 use ngspice::Ngspice;
+use ngspice::blocks::{Pulse, Vsource};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use sky130::Sky130OpenSchema;
 use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
-use sky130::Sky130OpenSchema;
+use sky130::sky130_magic_tech_file;
+use sky130::sky130_netgen_setup_file;
 use spice::Spice;
 use std::path::Path;
 use std::sync::Arc;
@@ -18,8 +19,8 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
 use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
-use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::simulation::Pvt;
+use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
 // end-code-snippet imports
