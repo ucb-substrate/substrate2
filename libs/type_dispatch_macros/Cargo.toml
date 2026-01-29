@@ -6,11 +6,11 @@ description = "Macros for the `type_dispatch` crate."
 license = "BSD-3-Clause"
 
 [dependencies]
-syn = { version = "2", features = ["full", "extra-traits"] }
-quote = "1"
-proc-macro2 = "1"
-proc-macro-crate = "3"
-itertools = "0.14"
+syn = { workspace = true, features = ["full", "extra-traits"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+proc-macro-crate = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 type_dispatch = { version = "<=0.5.1", registry = "substrate", path = "../type_dispatch" }

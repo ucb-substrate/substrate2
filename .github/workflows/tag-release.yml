@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{ github.event.label.name == 'autorelease: merged' }}"
     steps:
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v8
         with:
           script: |
             github.rest.git.updateRef({

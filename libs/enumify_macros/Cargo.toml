@@ -6,12 +6,12 @@ description = "Macros for the enumify crate"
 license = "BSD-3-Clause"
 
 [dependencies]
-darling = "0.20"
-syn = { version = "2" }
-quote = "1"
-proc-macro2 = "1"
-proc-macro-error = "1"
-convert_case = "0.8"
+darling = { workspace = true }
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+proc-macro-error = { workspace = true }
+convert_case = { workspace = true }
 
 macrotools = { version = "0.2.0", registry = "substrate", path = "../macrotools" }
 
