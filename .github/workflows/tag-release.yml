@@ -5,11 +5,14 @@ on:
     types: [labeled]
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   tag-release:
     name: Tag Release
     runs-on: ubuntu-latest
-    if: "${{ github.event.label.name == 'autorelease: merged' }}"
+    # if: "${{ github.event.label.name == 'autorelease: merged' }}"
     steps:
       - uses: actions/github-script@v8
         with:
@@ -17,6 +20,6 @@ jobs:
             github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/release',
+              ref: 'tags/release',
               sha: context.sha
             })
