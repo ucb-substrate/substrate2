@@ -52,14 +52,26 @@ members = [
 exclude = ["examples/release"]
 
 [workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
-arcstr = { version = "1", features = ["serde"] }
+serde = "1"
+arcstr = "1"
 rust_decimal = "1"
 rust_decimal_macros = "1"
 tera = "1"
 lazy_static = "1"
 tracing = "0.1"
-indexmap = { version = "2", features = ["serde"] }
+indexmap = "2"
 unicase = "2"
 approx = "0.5"
 thiserror = "2"
+toml = "0.9"
+toml_edit = "0.24"
+darling = "0.23"
+syn = "2"
+convert_case = "0.10"
+quote = "1"
+proc-macro2 = "1"
+proc-macro-error = "1"
+proc-macro-crate = "3"
+itertools = "0.14"
+clap = "4"
+anyhow = "1"

@@ -10,13 +10,13 @@ derive_builder = "0.20"
 derive_more = { version = "2", features = ["full"] }
 num-derive = "0.4"
 num-traits = "0.2"
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 serde_derive = "1"
 serde_json = "1"
 serde_yaml = "0.9"
-toml = "0.8"
+toml = { workspace = true }
 tempfile = { version = "3", optional = true }
-arcstr = { version = "1", features = ["serde"] }
+arcstr = { workspace = true, features = ["serde"] }
 textwrap = "0.16"
 
 [dev-dependencies]

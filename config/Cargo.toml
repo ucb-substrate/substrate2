@@ -7,14 +7,14 @@ edition = "2024"
 anyhow = "1"
 lazycell = "1"
 serde = { version = "1", features = ["derive"] }
-toml_edit = "0.22"
+toml_edit = { workspace = true }
 log = "0.4"
-toml = "0.8"
+toml = { workspace = true }
 
 cache = { version = "0.7.1", registry = "substrate", path = "../libs/cache" }
 
 [target.'cfg(windows)'.dependencies.windows-sys]
-version = "0.59"
+version = "0.61"
 features = [
   "Win32_Foundation",
   "Win32_UI_Shell",
