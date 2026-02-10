@@ -14,7 +14,7 @@ ena = "0.14"
 tracing = "0.1"
 num = "0.4"
 rand = "0.9"
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 indexmap = "2"
 rustc-hash = "2"
 cache = { version = "0.7.2", registry = "substrate", path = "../cache" }

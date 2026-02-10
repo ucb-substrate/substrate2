@@ -746,6 +746,26 @@ mod tests {
         root.present().unwrap();
     }
 
+    #[ignore]
+    #[test]
+    fn test_sky130_strongarm_animation() {
+        let ctx = sky130_cds_ctx();
+        let work_dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/build"))
+            .join("test_sky130_strongarm_animation");
+        let n_iter = 1000;
+        for i in 0..n_iter {
+            let gds_path = work_dir.join(format!("layout{i}.gds"));
+            let h_max = 10_000 + (30_000 * i) / (n_iter - 1);
+            let block = TileWrapper::new(StrongArm::<Sky130Impl>::new(StrongArmParams {
+                h_max,
+                ..STRONGARM_PARAMS_1
+            }));
+
+            ctx.write_layout(block, to_gds, &gds_path)
+                .expect("failed to write layout");
+        }
+    }
+
     fn test_sky130_strongarm_lvs(test_name: &'static str, params: StrongArmParams) {
         let work_dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/build")).join(test_name);
         let gds_path = work_dir.join("layout.gds");
