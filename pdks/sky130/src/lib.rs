@@ -522,7 +522,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
                 params: vec![
                     (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
                     (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
-                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                    (arcstr::literal!("mult"), Decimal::from(params.nf).into()),
                 ],
             },
             Primitive::PrecisionResistor(res) => spectre::Primitive::RawInstance {
@@ -618,7 +618,7 @@ impl FromSchema<Sky130CdsSchema> for Spice {
                         Decimal::new(params.l, 9).into(),
                     ),
                     (
-                        UniCase::new(arcstr::literal!("nf")),
+                        UniCase::new(arcstr::literal!("m")),
                         Decimal::from(params.nf).into(),
                     ),
                     (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
@@ -656,7 +656,7 @@ impl FromSchema<Sky130CdsSchema> for Spectre {
                 params: vec![
                     (arcstr::literal!("w"), Decimal::new(params.w, 9).into()),
                     (arcstr::literal!("l"), Decimal::new(params.l, 9).into()),
-                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                    (arcstr::literal!("m"), Decimal::from(params.nf).into()),
                 ],
             },
             _ => unimplemented!("unsupported primitive"),
