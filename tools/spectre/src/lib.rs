@@ -1,7 +1,7 @@
 //! Spectre plugin for Substrate.
 #![warn(missing_docs)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
 #[cfg(any(unix, target_os = "redox"))]
@@ -22,6 +22,7 @@ use arcstr::ArcStr;
 use cache::CacheableWithState;
 use cache::error::TryInnerError;
 use error::*;
+use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use num::complex::Complex64;
@@ -194,9 +195,9 @@ pub struct Spectre {}
 /// A single simulation contains zero or more analyses.
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    includes: HashSet<Include>,
-    saves: HashMap<SimSignal, u64>,
-    ics: HashMap<SimSignal, Decimal>,
+    includes: IndexSet<Include>,
+    saves: IndexMap<SimSignal, u64>,
+    ics: IndexMap<SimSignal, Decimal>,
     next_save_key: u64,
     /// The simulation temperature.
     temp: Option<Decimal>,
@@ -438,7 +439,7 @@ impl CachedData {
         self,
         ctx: &SimulationContext<Spectre>,
         conv: &NetlistLibConversion,
-        saves: &HashMap<SimSignal, u64>,
+        saves: &IndexMap<SimSignal, u64>,
     ) -> Output {
         match self {
             CachedData::Tran(mut raw_values) => tran::Output {
@@ -582,19 +583,13 @@ impl Spectre {
         let mut f = std::fs::File::create(&netlist)?;
         let mut w = Vec::new();
 
-        let mut includes = options.includes.into_iter().collect::<Vec<_>>();
-        let mut saves = options.saves.keys().cloned().collect::<Vec<_>>();
-        let mut ics = options
+        let includes = options.includes.into_iter().collect::<Vec<_>>();
+        let saves = options.saves.keys().cloned().collect::<Vec<_>>();
+        let ics = options
             .ics
             .iter()
             .map(|(k, v)| (k.clone(), *v))
             .collect::<Vec<_>>();
-        // Sorting the include list makes repeated netlist invocations
-        // produce the same output. If we were to iterate over the HashSet directly,
-        // the order of includes may change even if the contents of the set did not change.
-        includes.sort();
-        saves.sort();
-        ics.sort();
 
         let conv = self.write_scir_netlist(
             &ctx.lib.scir,
@@ -1087,9 +1082,8 @@ impl HasSpiceLikeNetlist for Spectre {
                     None
                 }
             })
-            .collect::<HashSet<_>>();
-        // sort paths before including them to ensure stable output
-        for ibis_path in ibis.iter().sorted() {
+            .collect::<IndexSet<_>>();
+        for ibis_path in ibis.iter() {
             writeln!(out, "ibis_include {:?}", ibis_path)?;
         }
 
@@ -1103,9 +1097,8 @@ impl HasSpiceLikeNetlist for Spectre {
                     None
                 }
             })
-            .collect::<HashSet<_>>();
-        // sort paths before including them to ensure stable output
-        for spf_path in spfs.iter().sorted() {
+            .collect::<IndexSet<_>>();
+        for spf_path in spfs.iter() {
             writeln!(out, "dspf_include {:?}", spf_path)?;
         }
 
@@ -1122,9 +1115,8 @@ impl HasSpiceLikeNetlist for Spectre {
                     None
                 }
             })
-            .collect::<HashSet<_>>();
-        // sort paths before including them to ensure stable output
-        for include in includes.iter().sorted() {
+            .collect::<IndexSet<_>>();
+        for include in includes.iter() {
             writeln!(out, "include {:?}", include)?;
         }
 
