@@ -355,7 +355,7 @@ impl<'a> ScirConverter<'a> {
 
 lazy_static! {
     static ref NUMERIC_LITERAL_REGEX: Regex =
-        Regex::new(r"^(-?[0-9]+\.?[0-9]*)((t|g|x|meg|k|m|u|n|p|f)|(e(-?[0-9]+\.?[0-9]*)))?$")
+        Regex::new(r"^(-?[0-9]+\.?[0-9]*)((t|g|x|meg|k|m|u|n|p|f|a)|(e(-?[0-9]+\.?[0-9]*)))?$")
             .expect("failed to compile numeric literal regex");
 }
 
