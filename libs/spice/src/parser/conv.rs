@@ -375,6 +375,7 @@ pub(crate) fn convert_str_to_numeric_lit(s: &str) -> Option<Decimal> {
                 "n" => "1e-9",
                 "p" => "1e-12",
                 "f" => "1e-15",
+                "a" => "1e-18",
                 _ => "1e0",
             })
             .ok()
