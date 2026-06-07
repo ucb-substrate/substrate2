@@ -11,16 +11,16 @@ User documentation, including installation instructions, tutorials, and API docu
 
 ## Installation/Usage
 
-To use Substrate, [install Rust](https://www.rust-lang.org/tools/install) and add the Substrate registry to your Cargo config:
+To use Substrate, [install Rust](https://www.rust-lang.org/tools/install) and add the Substrate registry to your Cargo config (`~/.cargo/config.toml`):
 
-```toml title="~/.cargo/config.toml"
+```toml
 [registries]
 substrate = { index = "https://github.com/substrate-labs/crates-index" }
 ```
 
 Then, add `substrate` as a dependency in your project's Cargo.toml:
 
-```toml title="Cargo.toml"
+```toml
 [dependencies]
 substrate = { git = "https://github.com/substrate-labs/substrate2", branch = "main" }
 ```
