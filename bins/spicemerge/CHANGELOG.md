@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * spice bumped from 0.9.3 to 0.9.4
+
 ## [0.1.1](https://github.com/ucb-substrate/substrate2/compare/spicemerge-v0.1.0...spicemerge-v0.1.1) (2026-01-29)
 
 

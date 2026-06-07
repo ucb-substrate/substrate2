@@ -13,6 +13,11 @@
     * spice bumped from 0.9.1 to 0.9.2
     * netgen bumped from 0.2.0 to 0.2.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * spice bumped from 0.9.3 to 0.9.4
+    * magic bumped from 0.2.2 to 0.2.3
+
 ## [0.1.4](https://github.com/ucb-substrate/substrate2/compare/magic_netgen-v0.1.3...magic_netgen-v0.1.4) (2026-01-29)
 
 
