@@ -8,6 +8,20 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.11.4](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.3...spectre-v0.11.4) (2026-06-07)
+
+
+### Features
+
+* **spectre:** use indexmap for stable ordering ([#728](https://github.com/ucb-substrate/substrate2/issues/728)) ([20db2f7](https://github.com/ucb-substrate/substrate2/commit/20db2f7b8ecba737a4b5ab01241e4e41708f833d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * spice bumped from 0.9.3 to 0.9.4
+
 ## [0.11.3](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.2...spectre-v0.11.3) (2026-01-29)
 
 

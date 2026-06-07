@@ -6,14 +6,14 @@ publish = false
 
 [dependencies]
 substrate = { version = "0.10.3", registry = "substrate" }
-spice = { version = "0.9.3", registry = "substrate" }
-spectre = { version = "0.11.3", registry = "substrate" }
-ngspice = { version = "0.5.3", registry = "substrate" }
-quantus = { version = "0.2.3", registry = "substrate" }
-magic_netgen = { version = "0.1.4", registry = "substrate" }
-rust_decimal = "1.37.1"
-rust_decimal_macros = "1.37.1"
+spice = { version = "0.9.4", registry = "substrate" }
+spectre = { version = "0.11.4", registry = "substrate" }
+ngspice = { version = "0.5.4", registry = "substrate" }
+quantus = { version = "0.2.4", registry = "substrate" }
+magic_netgen = { version = "0.1.5", registry = "substrate" }
+rust_decimal = "1.40.0"
+rust_decimal_macros = "1.40.0"
 
 [dev-dependencies]
-sky130 = { version = "<=0.10.3", registry = "substrate" }
+sky130 = { version = "<=0.10.4", registry = "substrate" }
 approx = "0.5"

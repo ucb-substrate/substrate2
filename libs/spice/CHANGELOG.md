@@ -4,6 +4,13 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+## [0.9.4](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.3...spice-v0.9.4) (2026-06-07)
+
+
+### Bug Fixes
+
+* **spice:** add atto suffix to regex ([#730](https://github.com/ucb-substrate/substrate2/issues/730)) ([d13fb2d](https://github.com/ucb-substrate/substrate2/commit/d13fb2d0b9df55cf73aa30f5ea890e8aaaae787d))
+
 ## [0.9.3](https://github.com/ucb-substrate/substrate2/compare/spice-v0.9.2...spice-v0.9.3) (2026-01-29)
 
 

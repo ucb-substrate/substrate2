@@ -23,11 +23,14 @@ Ensure that you have version 1.80.0 or beyond.
 
 Also ensure that you have the [protocol buffer compiler](https://grpc.io/docs/protoc-installation/) (`protoc`) installed.
 
-Then, add the Substrate registry to your Cargo config:
+{ isRelease("{{VERSION}}") ? <div>
+First, add the Substrate registry to your Cargo config:
 
 <SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
+
+</div> : <div/> }
 
 Next, create a new Rust project:
 
