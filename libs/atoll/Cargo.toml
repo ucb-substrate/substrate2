@@ -1,12 +1,12 @@
 [package]
 name = "atoll"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 description = "Automatic transformation of logical layout"
 license = "BSD-3-Clause"
 
 [dependencies]
-substrate = { version = "0.10.3", registry = "substrate", path = "../../substrate" }
+substrate = { version = "0.10.4", registry = "substrate", path = "../../substrate" }
 layir = { version = "0.2.2", registry = "substrate", path = "../layir" }
 enumify = { version = "0.2.2", registry = "substrate", path = "../enumify" }
 grid = { version = "1.0", features = ["serde"] }

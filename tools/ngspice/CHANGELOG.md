@@ -6,6 +6,11 @@
     * nutlex bumped from 0.4.1 to 0.4.2
     * spice bumped from 0.9.1 to 0.9.2
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.3 to 0.10.4
+    * spice bumped from 0.9.3 to 0.9.4
+
 ## [0.5.3](https://github.com/ucb-substrate/substrate2/compare/ngspice-v0.5.2...ngspice-v0.5.3) (2026-01-29)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/examples-v0.2.1...examples-v0.2.2) (2026-06-28)
+
+
+### Bug Fixes
+
+* **docs:** fix documentation and examples ([#735](https://github.com/ucb-substrate/substrate2/issues/735)) ([28e4047](https://github.com/ucb-substrate/substrate2/commit/28e404709b5f0793d030dad985d48c36ff2111f7))
+
 ## [0.2.1](https://github.com/ucb-substrate/substrate2/compare/examples-v0.2.0...examples-v0.2.1) (2026-01-29)
 
 
