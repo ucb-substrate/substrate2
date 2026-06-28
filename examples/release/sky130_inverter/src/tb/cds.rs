@@ -29,8 +29,6 @@ use substrate::types::{Signal, TestbenchIo};
 
 #[allow(dead_code)]
 mod schematic_only_tb {
-    use sky130::Sky130CdsSchema;
-
     use super::*;
 
     // begin-code-snippet schematic-tb
