@@ -5,5 +5,5 @@ edition = "2024"
 publish = false
 
 [dependencies]
-substrate = { version = "0.10.3", registry = "substrate" }
+substrate = { version = "0.10.4", registry = "substrate" }
 layir = { version = "0.2.2", registry = "substrate" }

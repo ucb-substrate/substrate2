@@ -1,5 +1,13 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.3 to 0.10.4
+    * spice bumped from 0.9.3 to 0.9.4
+    * pegasus bumped from 0.2.2 to 0.2.3
+  * dev-dependencies
+    * sky130 bumped from <=0.10.3 to <=0.10.4
+
 ## [0.2.3](https://github.com/ucb-substrate/substrate2/compare/quantus-v0.2.2...quantus-v0.2.3) (2026-01-29)
 
 

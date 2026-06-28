@@ -12,6 +12,10 @@
   * dependencies
     * substrate bumped from 0.8.0 to 0.8.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * substrate bumped from 0.10.3 to 0.10.4
+
 ## [0.1.4](https://github.com/ucb-substrate/substrate2/compare/atoll-v0.1.3...atoll-v0.1.4) (2026-01-29)
 
 

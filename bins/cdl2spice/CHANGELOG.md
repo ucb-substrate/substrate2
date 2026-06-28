@@ -4,6 +4,10 @@
   * dependencies
     * spice bumped from 0.9.1 to 0.9.2
 
+* The following workspace dependencies were updated
+  * dependencies
+    * spice bumped from 0.9.3 to 0.9.4
+
 ## [0.2.3](https://github.com/ucb-substrate/substrate2/compare/cdl2spice-v0.2.2...cdl2spice-v0.2.3) (2026-01-29)
 
 
