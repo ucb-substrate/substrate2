@@ -5,15 +5,15 @@ use crate::InverterIoKind;
 use quantus::pex::Pex;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
-use sky130::Sky130CdsSchema;
 use sky130::corner::Sky130Corner;
 use sky130::layout::to_gds;
 use sky130::sky130_lvs;
 use sky130::sky130_lvs_rules_path;
 use sky130::sky130_technology_dir;
-use spectre::Spectre;
+use sky130::Sky130CdsSchema;
 use spectre::analysis::tran::Tran;
 use spectre::blocks::{Pulse, Vsource};
+use spectre::Spectre;
 use spice::Spice;
 use std::path::Path;
 use std::sync::Arc;
@@ -21,16 +21,14 @@ use substrate::block::Block;
 use substrate::context::Context;
 use substrate::error::Result;
 use substrate::schematic::{CellBuilder, ConvertSchema, Schematic};
-use substrate::simulation::Pvt;
 use substrate::simulation::waveform::{EdgeDir, TimeWaveform};
+use substrate::simulation::Pvt;
 use substrate::types::schematic::{IoNodeBundle, Node};
 use substrate::types::{Signal, TestbenchIo};
 // end-code-snippet imports
 
 #[allow(dead_code)]
 mod schematic_only_tb {
-    use sky130::Sky130CdsSchema;
-
     use super::*;
 
     // begin-code-snippet schematic-tb

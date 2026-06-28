@@ -26,13 +26,11 @@ Ensure that you have the [protocol buffer compiler](https://grpc.io/docs/protoc-
 ### Rust
 
 Ensure that you have a recent version of Rust installed.
-{ isRelease("{{VERSION}}") ? <div>
 Add the Substrate registry to your Cargo config: 
 
 <SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
-</div> : <div/> }
 
 ### Project Setup
 

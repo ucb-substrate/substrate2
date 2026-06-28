@@ -67,7 +67,7 @@ We now define the schematic of the voltage divider.
 
 We can now write a Rust unit test to write the netlist to a file.
 
-<CodeSnippet language="rust" title="lib/tb.rs" snippet="tests">{vdividerMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="tests">{vdividerMod}</CodeSnippet>
 
 To run the test, run
 

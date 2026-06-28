@@ -23,14 +23,11 @@ Ensure that you have version 1.80.0 or beyond.
 
 Also ensure that you have the [protocol buffer compiler](https://grpc.io/docs/protoc-installation/) (`protoc`) installed.
 
-{ isRelease("{{VERSION}}") ? <div>
-First, add the Substrate registry to your Cargo config:
+Then, add the Substrate registry to your Cargo config:
 
 <SubstrateRegistryConfig/>
 
 You only need to do this the first time you set up Substrate.
-
-</div> : <div/> }
 
 Next, create a new Rust project:
 
@@ -70,7 +67,7 @@ We now define the schematic of the voltage divider.
 
 We can now write a Rust unit test to write the netlist to a file.
 
-<CodeSnippet language="rust" title="lib/tb.rs" snippet="tests">{vdividerMod}</CodeSnippet>
+<CodeSnippet language="rust" title="src/lib.rs" snippet="tests">{vdividerMod}</CodeSnippet>
 
 To run the test, run
 
