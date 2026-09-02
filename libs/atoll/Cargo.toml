@@ -13,7 +13,7 @@ grid = { version = "1.0", features = ["serde"] }
 ena = "0.14"
 tracing = "0.1"
 num = "0.4"
-rand = "0.9"
+rand = "0.10"
 serde = { version = "1.0.228", features = ["derive"] }
 indexmap = "2"
 rustc-hash = "2"
