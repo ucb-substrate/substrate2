@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.4.1...uniquify-v0.4.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **gds:** fix GDS export performance ([#737](https://github.com/ucb-substrate/substrate2/issues/737)) ([01d9600](https://github.com/ucb-substrate/substrate2/commit/01d9600f946437d3bc18806a6517e35001b68251))
+
 ## [0.4.1](https://github.com/ucb-substrate/substrate2/compare/uniquify-v0.4.0...uniquify-v0.4.1) (2026-01-29)
 
 

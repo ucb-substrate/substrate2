@@ -1,6 +1,6 @@
 [package]
 name = "scir"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2024"
 
 [dependencies]
@@ -12,7 +12,7 @@ indexmap = { version = "2", features = ["serde"] }
 thiserror = "2"
 
 diagnostics = { version = "0.4.1", path = "../diagnostics", registry = "substrate" }
-uniquify = { version = "0.4.1", path = "../uniquify", registry = "substrate" }
+uniquify = { version = "0.4.2", path = "../uniquify", registry = "substrate" }
 enumify = { version = "0.2.2", path = "../enumify", registry = "substrate" }
 
 [dev-dependencies]
