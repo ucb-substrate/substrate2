@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * uniquify bumped from 0.4.1 to 0.4.2
+
 ## [0.9.2](https://github.com/ucb-substrate/substrate2/compare/scir-v0.9.1...scir-v0.9.2) (2026-01-29)
 
 

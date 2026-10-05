@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dev-dependencies
+    * sky130 bumped from <=0.10.3 to <=0.10.4
+
 ## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/magic-v0.2.1...magic-v0.2.2) (2026-01-29)
 
 
