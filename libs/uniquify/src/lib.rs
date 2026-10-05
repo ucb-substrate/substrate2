@@ -9,10 +9,17 @@ use serde::{Deserialize, Serialize};
 /// A set of unique names.
 ///
 /// Each key of type `K` is assigned a unique name.
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Names<K: Hash + Eq> {
     names: HashSet<ArcStr>,
     assignments: HashMap<K, ArcStr>,
+    /// The suffix at which [`Names::assign_name`] starts searching for a free name,
+    /// per base name.
+    ///
+    /// Every lower suffix is in use. This only speeds up the search, so it is
+    /// neither serialized nor compared.
+    #[serde(skip)]
+    next_suffix: HashMap<ArcStr, usize>,
 }
 
 impl<K: Hash + Eq> Default for Names<K> {
@@ -20,9 +27,18 @@ impl<K: Hash + Eq> Default for Names<K> {
         Self {
             names: HashSet::new(),
             assignments: HashMap::new(),
+            next_suffix: HashMap::new(),
         }
     }
 }
+
+impl<K: Hash + Eq> PartialEq for Names<K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.names == other.names && self.assignments == other.assignments
+    }
+}
+
+impl<K: Hash + Eq> Eq for Names<K> {}
 
 impl<K: Hash + Eq> Names<K> {
     /// Creates a new, empty name set.
@@ -37,6 +53,7 @@ impl<K: Hash + Eq> Names<K> {
         Self {
             names: HashSet::with_capacity(capacity),
             assignments: HashMap::with_capacity(capacity),
+            next_suffix: HashMap::new(),
         }
     }
 
@@ -65,13 +82,15 @@ impl<K: Hash + Eq> Names<K> {
     /// The name will be based on the given `base_name`.
     pub fn assign_name(&mut self, id: K, base_name: &str) -> ArcStr {
         let name = if self.names.contains(base_name) {
-            let mut i = 1;
+            // Resume where the previous search for this base name stopped. Scanning from 1
+            // every time is quadratic in the number of keys sharing a base name.
+            let i = self.next_suffix.entry(base_name.into()).or_insert(1);
             loop {
                 let new_name = arcstr::format!("{}_{}", base_name, i);
+                *i += 1;
                 if !self.names.contains(&new_name) {
                     break new_name;
                 }
-                i += 1;
             }
         } else {
             base_name.into()
@@ -89,9 +108,33 @@ impl<K: Hash + Eq> Names<K> {
     pub fn unassign(&mut self, id: &K) -> bool {
         if let Some(name) = self.assignments.remove(id) {
             self.names.remove(&name);
+            // If `name` has the form `{base}_{i}`, suffix `i` is free again for `base`.
+            if let Some((base, suffix)) = name.rsplit_once('_')
+                && let (Some(next), Ok(i)) = (self.next_suffix.get_mut(base), suffix.parse())
+            {
+                *next = std::cmp::min(*next, i);
+            }
             true
         } else {
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assign_name_reuses_unassigned_suffixes() {
+        let mut names = Names::new();
+        assert_eq!(names.assign_name(0, "a"), "a");
+        assert_eq!(names.assign_name(1, "a"), "a_1");
+        assert_eq!(names.assign_name(2, "a"), "a_2");
+        assert!(names.reserve_name(3, "a_3"));
+        assert_eq!(names.assign_name(4, "a"), "a_4");
+        assert!(names.unassign(&1));
+        assert_eq!(names.assign_name(5, "a"), "a_1");
+        assert_eq!(names.assign_name(6, "a"), "a_5");
     }
 }
