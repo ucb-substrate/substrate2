@@ -113,6 +113,13 @@ pub enum Primitive {
         kind: MosKind,
         /// The MOSFET parameters.
         params: MosParams,
+        /// Device parameters that Substrate does not model, preserved verbatim.
+        ///
+        /// Populated when a MOSFET is imported from a SPICE netlist that sets parameters
+        /// beyond `w`, `l` and `nf` (junction areas and perimeters, stress parameters,
+        /// multiplicity, ...). Keys are lowercased, since SPICE parameter names are
+        /// case insensitive. Empty for MOSFETs that Substrate generates itself.
+        extra: HashMap<ArcStr, ParamValue>,
     },
     /// A precision resistor.
     PrecisionResistor(PrecisionResistor),
@@ -135,6 +142,10 @@ impl scir::schema::Schema for Sky130 {
     type Primitive = Primitive;
 }
 
+/// Parameters that [`MosParams`] models, and that therefore must not be duplicated in
+/// [`Primitive::Mos::extra`].
+const MOS_SIZING_PARAMS: [&str; 3] = ["w", "l", "nf"];
+
 fn convert_spice_mos(
     kind: &str,
     params: &HashMap<UniCase<ArcStr>, ParamValue>,
@@ -145,53 +156,56 @@ fn convert_spice_mos(
         Sky130Schema::Open | Sky130Schema::SrcNda => dec!(1e3),
         Sky130Schema::Cds => dec!(1e9),
     };
-    let mult = i64::try_from(
+    let numeric = |name: &'static str| {
         params
-            .get(&UniCase::new(arcstr::literal!("mult")))
+            .get(&UniCase::new(ArcStr::from(name)))
             .and_then(|expr| expr.get_numeric())
             .copied()
-            .unwrap_or(dec!(1)),
-    )
-    .map_err(|_| ConvError::InvalidParameter)?;
-    let m = i64::try_from(
-        params
-            .get(&UniCase::new(arcstr::literal!("m")))
-            .and_then(|expr| expr.get_numeric())
-            .copied()
-            .unwrap_or(dec!(1)),
-    )
-    .map_err(|_| ConvError::InvalidParameter)?;
+    };
+    // `m` and `mult` are deliberately not folded into `nf`: the SKY130 models treat all
+    // three differently, so collapsing them changes the device. They are preserved in
+    // `extra` instead, which round-trips them back into the exported netlist.
+    let extra = params
+        .iter()
+        .filter(|(k, _)| !MOS_SIZING_PARAMS.contains(&k.to_lowercase().as_str()))
+        .map(|(k, v)| (ArcStr::from(k.to_lowercase()), v.clone()))
+        .collect();
     Ok(Primitive::Mos {
         kind,
         params: MosParams {
-            w: i64::try_from(
-                *params
-                    .get(&UniCase::new(arcstr::literal!("w")))
-                    .and_then(|expr| expr.get_numeric())
-                    .ok_or(ConvError::MissingParameter)?
-                    * scale,
-            )
-            .map_err(|_| ConvError::InvalidParameter)?,
-            l: i64::try_from(
-                *params
-                    .get(&UniCase::new(arcstr::literal!("l")))
-                    .and_then(|expr| expr.get_numeric())
-                    .ok_or(ConvError::MissingParameter)?
-                    * scale,
-            )
-            .map_err(|_| ConvError::InvalidParameter)?,
-            nf: i64::try_from(
-                params
-                    .get(&UniCase::new(arcstr::literal!("nf")))
-                    .and_then(|expr| expr.get_numeric())
-                    .copied()
-                    .unwrap_or(dec!(1)),
-            )
-            .map_err(|_| ConvError::InvalidParameter)?
-                * m
-                * mult,
+            w: i64::try_from(numeric("w").ok_or(ConvError::MissingParameter)? * scale)
+                .map_err(|_| ConvError::InvalidParameter)?,
+            l: i64::try_from(numeric("l").ok_or(ConvError::MissingParameter)? * scale)
+                .map_err(|_| ConvError::InvalidParameter)?,
+            nf: i64::try_from(numeric("nf").unwrap_or(dec!(1)))
+                .map_err(|_| ConvError::InvalidParameter)?,
         },
+        extra,
     })
+}
+
+/// Combines the parameters Substrate derives from [`MosParams`] with those preserved
+/// verbatim in [`Primitive::Mos::extra`].
+///
+/// A key present in both is multiplied rather than overwritten. Every key a schema derives
+/// from [`MosParams`] that can also appear in `extra` (`mult` for the SRC NDA schema, `m`
+/// and `mult` for the CDS schema) is a device multiplier, so the total is the product.
+/// Parameters are returned sorted by name to keep netlists stable.
+fn merge_mos_params(
+    sizing: impl IntoIterator<Item = (ArcStr, ParamValue)>,
+    extra: HashMap<ArcStr, ParamValue>,
+) -> Vec<(ArcStr, ParamValue)> {
+    let mut merged: HashMap<ArcStr, ParamValue> = extra;
+    for (key, value) in sizing {
+        let combined = match (merged.get(&key).and_then(|v| v.get_numeric()), &value) {
+            (Some(existing), ParamValue::Numeric(derived)) => (existing * derived).into(),
+            _ => value,
+        };
+        merged.insert(key, combined);
+    }
+    let mut merged: Vec<_> = merged.into_iter().collect();
+    merged.sort_by(|(a, _), (b, _)| a.cmp(b));
+    merged
 }
 
 impl FromSchema<Spice> for Sky130 {
@@ -310,23 +324,24 @@ impl FromSchema<Sky130OpenSchema> for Spice {
                     .map(|(k, v)| (UniCase::new(k), v))
                     .collect(),
             },
-            Primitive::Mos { kind, params } => spice::Primitive::RawInstance {
+            Primitive::Mos {
+                kind,
+                params,
+                extra,
+            } => spice::Primitive::RawInstance {
                 cell: kind.open_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                params: HashMap::from_iter([
-                    (
-                        UniCase::new(arcstr::literal!("w")),
-                        Decimal::new(params.w, 3).into(),
-                    ),
-                    (
-                        UniCase::new(arcstr::literal!("l")),
-                        Decimal::new(params.l, 3).into(),
-                    ),
-                    (
-                        UniCase::new(arcstr::literal!("nf")),
-                        Decimal::from(params.nf).into(),
-                    ),
-                ]),
+                params: merge_mos_params(
+                    [
+                        (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                        (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
+                        (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                    ],
+                    extra,
+                )
+                .into_iter()
+                .map(|(k, v)| (UniCase::new(k), v))
+                .collect(),
             },
             _ => unimplemented!("unsupported primitive"),
         })
@@ -373,14 +388,21 @@ impl FromSchema<Sky130OpenSchema> for Spectre {
                 ports,
                 params: params.into_iter().collect(),
             },
-            Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
+            Primitive::Mos {
+                kind,
+                params,
+                extra,
+            } => spectre::Primitive::RawInstance {
                 cell: kind.open_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                params: vec![
-                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
-                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
-                    (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
-                ],
+                params: merge_mos_params(
+                    [
+                        (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                        (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
+                        (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
+                    ],
+                    extra,
+                ),
             },
             _ => unimplemented!("unsupported primitive"),
         })
@@ -453,23 +475,24 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
                     .map(|(k, v)| (UniCase::new(k), v))
                     .collect(),
             },
-            Primitive::Mos { kind, params } => spice::Primitive::Mos {
+            Primitive::Mos {
+                kind,
+                params,
+                extra,
+            } => spice::Primitive::Mos {
                 model: kind.src_nda_subckt(),
-                params: HashMap::from_iter([
-                    (
-                        UniCase::new(arcstr::literal!("w")),
-                        Decimal::new(params.w, 3).into(),
-                    ),
-                    (
-                        UniCase::new(arcstr::literal!("l")),
-                        Decimal::new(params.l, 3).into(),
-                    ),
-                    (
+                params: merge_mos_params(
+                    [
+                        (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                        (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                         // Calibre decks don't support nf, so assign mult=nf instead.
-                        UniCase::new(arcstr::literal!("mult")),
-                        Decimal::from(params.nf).into(),
-                    ),
-                ]),
+                        (arcstr::literal!("mult"), Decimal::from(params.nf).into()),
+                    ],
+                    extra,
+                )
+                .into_iter()
+                .map(|(k, v)| (UniCase::new(k), v))
+                .collect(),
             },
             Primitive::PrecisionResistor(res) => spice::Primitive::Res2 {
                 value: spice::ComponentValue::Model("mrp".into()),
@@ -516,14 +539,21 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
                 ports,
                 params: params.into_iter().collect(),
             },
-            Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
+            Primitive::Mos {
+                kind,
+                params,
+                extra,
+            } => spectre::Primitive::RawInstance {
                 cell: kind.src_nda_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                params: vec![
-                    (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
-                    (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
-                    (arcstr::literal!("mult"), Decimal::from(params.nf).into()),
-                ],
+                params: merge_mos_params(
+                    [
+                        (arcstr::literal!("w"), Decimal::new(params.w, 3).into()),
+                        (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
+                        (arcstr::literal!("mult"), Decimal::from(params.nf).into()),
+                    ],
+                    extra,
+                ),
             },
             Primitive::PrecisionResistor(res) => spectre::Primitive::RawInstance {
                 cell: "mrp".into(),
@@ -606,23 +636,24 @@ impl FromSchema<Sky130CdsSchema> for Spice {
                     .map(|(k, v)| (UniCase::new(k), v))
                     .collect(),
             },
-            Primitive::Mos { kind, params } => spice::Primitive::Mos {
+            Primitive::Mos {
+                kind,
+                params,
+                extra,
+            } => spice::Primitive::Mos {
                 model: kind.cds_subckt(),
-                params: HashMap::from_iter([
-                    (
-                        UniCase::new(arcstr::literal!("w")),
-                        Decimal::new(params.w, 9).into(),
-                    ),
-                    (
-                        UniCase::new(arcstr::literal!("l")),
-                        Decimal::new(params.l, 9).into(),
-                    ),
-                    (
-                        UniCase::new(arcstr::literal!("m")),
-                        Decimal::from(params.nf).into(),
-                    ),
-                    (UniCase::new(arcstr::literal!("mult")), dec!(1).into()),
-                ]),
+                params: merge_mos_params(
+                    [
+                        (arcstr::literal!("w"), Decimal::new(params.w, 9).into()),
+                        (arcstr::literal!("l"), Decimal::new(params.l, 9).into()),
+                        (arcstr::literal!("m"), Decimal::from(params.nf).into()),
+                        (arcstr::literal!("mult"), dec!(1).into()),
+                    ],
+                    extra,
+                )
+                .into_iter()
+                .map(|(k, v)| (UniCase::new(k), v))
+                .collect(),
             },
             _ => unimplemented!("unsupported primitive"),
         })
@@ -650,14 +681,21 @@ impl FromSchema<Sky130CdsSchema> for Spectre {
                 ports,
                 params: params.into_iter().collect(),
             },
-            Primitive::Mos { kind, params } => spectre::Primitive::RawInstance {
+            Primitive::Mos {
+                kind,
+                params,
+                extra,
+            } => spectre::Primitive::RawInstance {
                 cell: kind.cds_subckt(),
                 ports: vec!["D".into(), "G".into(), "S".into(), "B".into()],
-                params: vec![
-                    (arcstr::literal!("w"), Decimal::new(params.w, 9).into()),
-                    (arcstr::literal!("l"), Decimal::new(params.l, 9).into()),
-                    (arcstr::literal!("m"), Decimal::from(params.nf).into()),
-                ],
+                params: merge_mos_params(
+                    [
+                        (arcstr::literal!("w"), Decimal::new(params.w, 9).into()),
+                        (arcstr::literal!("l"), Decimal::new(params.l, 9).into()),
+                        (arcstr::literal!("m"), Decimal::from(params.nf).into()),
+                    ],
+                    extra,
+                ),
             },
             _ => unimplemented!("unsupported primitive"),
         })
