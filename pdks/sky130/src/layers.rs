@@ -39,6 +39,10 @@ pub enum Sky130Layer {
     Met4,
     Via4,
     Met5,
+    /// MIM capacitor (`cap_mim_m3_1`) top plate, between met3 and met4.
+    Capm,
+    /// MIM capacitor (`cap_mim_m3_2`) top plate, between met4 and met5.
+    Cap2m,
     Pad,
     Rpm,
     Urpm,
@@ -95,6 +99,8 @@ lazy_static! {
         (Sky130Layer::Met4, GdsLayer(71, 20)),
         (Sky130Layer::Via4, GdsLayer(71, 44)),
         (Sky130Layer::Met5, GdsLayer(72, 20)),
+        (Sky130Layer::Capm, GdsLayer(89, 44)),
+        (Sky130Layer::Cap2m, GdsLayer(97, 44)),
         (Sky130Layer::Pad, GdsLayer(76, 20)),
         (Sky130Layer::Rpm, GdsLayer(86, 20)),
         (Sky130Layer::Urpm, GdsLayer(79, 20)),

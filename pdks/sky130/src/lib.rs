@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use arcstr::ArcStr;
+use cap::MimCap;
 use derive_builder::Builder;
 use layers::Sky130Layer;
 use ngspice::Ngspice;
@@ -27,6 +28,7 @@ use spice::Spice;
 use substrate::context::Installation;
 
 pub mod atoll;
+pub mod cap;
 pub mod corner;
 pub mod layers;
 pub mod layout;
@@ -116,6 +118,8 @@ pub enum Primitive {
     },
     /// A precision resistor.
     PrecisionResistor(PrecisionResistor),
+    /// A MIM capacitor with ports "P" (top plate) and "N" (bottom plate).
+    MimCap(MimCap),
 }
 
 /// An error converting to/from the [`Sky130`] schema.
@@ -328,6 +332,15 @@ impl FromSchema<Sky130OpenSchema> for Spice {
                     ),
                 ]),
             },
+            Primitive::MimCap(cap) => spice::Primitive::RawInstance {
+                cell: cap.kind.open_subckt(),
+                ports: vec!["P".into(), "N".into()],
+                params: cap
+                    .params()
+                    .into_iter()
+                    .map(|(k, v)| (UniCase::new(k), v))
+                    .collect(),
+            },
             _ => unimplemented!("unsupported primitive"),
         })
     }
@@ -381,6 +394,11 @@ impl FromSchema<Sky130OpenSchema> for Spectre {
                     (arcstr::literal!("l"), Decimal::new(params.l, 3).into()),
                     (arcstr::literal!("nf"), Decimal::from(params.nf).into()),
                 ],
+            },
+            Primitive::MimCap(cap) => spectre::Primitive::RawInstance {
+                cell: cap.kind.open_subckt(),
+                ports: vec!["P".into(), "N".into()],
+                params: cap.params().into(),
             },
             _ => unimplemented!("unsupported primitive"),
         })
@@ -484,6 +502,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spice {
                     ),
                 ]),
             },
+            Primitive::MimCap(_) => unimplemented!("unsupported primitive"),
         })
     }
     fn convert_instance(
@@ -536,6 +555,7 @@ impl FromSchema<Sky130SrcNdaSchema> for Spectre {
                     (arcstr::literal!("l"), Decimal::new(res.length, 3).into()),
                 ],
             },
+            Primitive::MimCap(_) => unimplemented!("unsupported primitive"),
         })
     }
     fn convert_instance(
