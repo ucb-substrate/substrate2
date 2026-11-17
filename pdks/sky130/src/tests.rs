@@ -15,10 +15,12 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use scir::ParamValue;
 use spectre::Spectre;
+use spice::Spice;
 use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::PathBuf;
+use substrate::arcstr::ArcStr;
 use substrate::block::Block;
 use substrate::context::Context;
 use substrate::schematic::schema::Schema;
@@ -355,12 +357,123 @@ fn test_convert_spice_mos() {
     let kind = "nshort";
     let prim = convert_spice_mos(kind, &params).expect("failed to convert mos");
     match prim {
-        Primitive::Mos { kind, params } => {
+        Primitive::Mos {
+            kind,
+            params,
+            extra,
+        } => {
             assert_eq!(kind, MosKind::Nfet01v8);
-            assert_eq!(params.nf, 24);
             assert_eq!(params.w, 2_000);
             assert_eq!(params.l, 150);
+            // `m` and `mult` are not folded into `nf`; the models treat all three
+            // differently, so they are preserved separately.
+            assert_eq!(params.nf, 4);
+            assert_eq!(
+                extra.get(&arcstr::literal!("mult")),
+                Some(&ParamValue::Numeric(dec!(2)))
+            );
+            assert_eq!(
+                extra.get(&arcstr::literal!("m")),
+                Some(&ParamValue::Numeric(dec!(3)))
+            );
         }
         _ => panic!("bad primitive"),
     }
+}
+
+/// Parameters SKY130 models but Substrate does not, such as the junction areas and
+/// perimeters carried by the foundry SRAM bitcell netlists, must survive a round trip
+/// through the [`Sky130`] schema. Losing them silently zeroes the junction capacitance.
+#[test]
+fn test_convert_spice_mos_preserves_unmodelled_params() {
+    let params = HashMap::from_iter([
+        (
+            UniCase::new(arcstr::literal!("w")),
+            ParamValue::Numeric(dec!(0.14)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("l")),
+            ParamValue::Numeric(dec!(0.15)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("ad")),
+            ParamValue::Numeric(dec!(0.04375)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("pd")),
+            ParamValue::Numeric(dec!(0.92)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("as")),
+            ParamValue::Numeric(dec!(0.0168)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("ps")),
+            ParamValue::Numeric(dec!(0.52)),
+        ),
+    ]);
+    let prim = convert_spice_mos("sky130_fd_pr__nfet_01v8", &params).expect("failed to convert");
+    let exported = <Spice as scir::schema::FromSchema<Sky130OpenSchema>>::convert_primitive(prim)
+        .expect("failed to convert back to SPICE");
+    let spice::Primitive::RawInstance {
+        cell, params: out, ..
+    } = exported
+    else {
+        panic!("expected a raw subcircuit instance");
+    };
+    assert_eq!(cell, "sky130_fd_pr__nfet_01v8");
+    for (key, value) in [
+        ("w", dec!(0.14)),
+        ("l", dec!(0.15)),
+        ("nf", dec!(1)),
+        ("ad", dec!(0.04375)),
+        ("pd", dec!(0.92)),
+        ("as", dec!(0.0168)),
+        ("ps", dec!(0.52)),
+    ] {
+        let actual = out
+            .get(&UniCase::new(ArcStr::from(key)))
+            .unwrap_or_else(|| panic!("missing parameter `{key}`"))
+            .get_numeric()
+            .copied()
+            .unwrap_or_else(|| panic!("parameter `{key}` is not numeric"));
+        assert_eq!(actual, value, "parameter `{key}`");
+    }
+    assert_eq!(out.len(), 7, "unexpected parameters: {out:?}");
+}
+
+/// The SRC NDA schema exports `nf` as `mult`, so an imported `mult` must compose with it
+/// rather than being dropped or duplicated.
+#[test]
+fn test_src_nda_mos_export_composes_multiplicity() {
+    let params = HashMap::from_iter([
+        (
+            UniCase::new(arcstr::literal!("w")),
+            ParamValue::Numeric(dec!(1)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("l")),
+            ParamValue::Numeric(dec!(0.15)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("nf")),
+            ParamValue::Numeric(dec!(3)),
+        ),
+        (
+            UniCase::new(arcstr::literal!("mult")),
+            ParamValue::Numeric(dec!(2)),
+        ),
+    ]);
+    let prim = convert_spice_mos("nshort", &params).expect("failed to convert");
+    let exported = <Spice as scir::schema::FromSchema<Sky130SrcNdaSchema>>::convert_primitive(prim)
+        .expect("failed to convert back to SPICE");
+    let spice::Primitive::Mos { params: out, .. } = exported else {
+        panic!("expected a MOSFET");
+    };
+    assert_eq!(
+        out.get(&UniCase::new(arcstr::literal!("mult")))
+            .and_then(|v| v.get_numeric())
+            .copied(),
+        Some(dec!(6))
+    );
 }
