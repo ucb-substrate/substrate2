@@ -25,6 +25,39 @@
     * ngspice bumped from 0.3.0 to 0.3.1
     * spice bumped from 0.7.0 to 0.7.1
 
+## [0.11.0](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.3...sky130-v0.11.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sky130:** preserve geometry-based MOS parameters in SKY130 ([#736](https://github.com/ucb-substrate/substrate2/issues/736))
+
+### Features
+
+* **pdks:** support MIM cap drawing in sky130 ([#738](https://github.com/ucb-substrate/substrate2/issues/738)) ([c88780d](https://github.com/ucb-substrate/substrate2/commit/c88780d5b87df8ee96723da73691d94e9f26bb74))
+* **sky130:** preserve geometry-based MOS parameters in SKY130 ([#736](https://github.com/ucb-substrate/substrate2/issues/736)) ([0ffdd4b](https://github.com/ucb-substrate/substrate2/commit/0ffdd4b284af6a56f18b630e6c51ae3c1c4e9067))
+
+
+### Bug Fixes
+
+* **sky130:** fix simulation of multi-finger transistors in SKY 130 ([#726](https://github.com/ucb-substrate/substrate2/issues/726)) ([be08e1b](https://github.com/ucb-substrate/substrate2/commit/be08e1b9721e7b17312c7b864bdb84102f69c62a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * atoll bumped from 0.1.4 to 0.1.5
+    * substrate bumped from 0.10.3 to 0.10.4
+    * scir bumped from 0.9.2 to 0.9.3
+    * layir bumped from 0.2.2 to 0.2.3
+    * gdsconv bumped from 0.2.2 to 0.2.3
+    * gds bumped from 0.4.2 to 0.4.3
+    * spectre bumped from 0.11.3 to 0.12.0
+    * ngspice bumped from 0.5.3 to 0.5.4
+    * pegasus bumped from 0.2.2 to 0.2.3
+    * spice bumped from 0.9.3 to 0.9.4
+
 ## [0.10.3](https://github.com/ucb-substrate/substrate2/compare/sky130-v0.10.2...sky130-v0.10.3) (2026-01-29)
 
 

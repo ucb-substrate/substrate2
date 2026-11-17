@@ -1,5 +1,9 @@
 # Changelog
 
+* The following workspace dependencies were updated
+  * dependencies
+    * uniquify bumped from 0.4.1 to 0.4.2
+
 ## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/layir-v0.2.1...layir-v0.2.2) (2026-01-29)
 
 
