@@ -4,6 +4,10 @@
   * dependencies
     * scir bumped from 0.9.0 to 0.9.1
 
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.9.2 to 0.9.3
+
 ## [0.2.2](https://github.com/ucb-substrate/substrate2/compare/verilog-v0.2.1...verilog-v0.2.2) (2026-01-29)
 
 

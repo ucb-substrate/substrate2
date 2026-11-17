@@ -8,6 +8,27 @@
   * dependencies
     * substrate bumped from 0.6.0 to 0.6.1
 
+## [0.12.0](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.3...spectre-v0.12.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sky130:** preserve geometry-based MOS parameters in SKY130 ([#736](https://github.com/ucb-substrate/substrate2/issues/736))
+
+### Features
+
+* **sky130:** preserve geometry-based MOS parameters in SKY130 ([#736](https://github.com/ucb-substrate/substrate2/issues/736)) ([0ffdd4b](https://github.com/ucb-substrate/substrate2/commit/0ffdd4b284af6a56f18b630e6c51ae3c1c4e9067))
+* **spectre:** use indexmap for stable ordering ([#728](https://github.com/ucb-substrate/substrate2/issues/728)) ([20db2f7](https://github.com/ucb-substrate/substrate2/commit/20db2f7b8ecba737a4b5ab01241e4e41708f833d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * scir bumped from 0.9.2 to 0.9.3
+    * substrate bumped from 0.10.3 to 0.10.4
+    * spice bumped from 0.9.3 to 0.9.4
+
 ## [0.11.3](https://github.com/ucb-substrate/substrate2/compare/spectre-v0.11.2...spectre-v0.11.3) (2026-01-29)
 
 

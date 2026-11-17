@@ -19,10 +19,6 @@ Substrate will call into {props.open ? "open source tools (ngspice, magic, and N
 
 ## Setup
 
-### Protocol Buffer Compiler
-
-Ensure that you have the [protocol buffer compiler](https://grpc.io/docs/protoc-installation/) (`protoc`) installed.
-
 ### Rust
 
 Ensure that you have a recent version of Rust installed.
