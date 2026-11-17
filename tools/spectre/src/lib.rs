@@ -57,6 +57,34 @@ pub mod blocks;
 pub mod error;
 pub(crate) mod templates;
 #[cfg(test)]
+mod escape_tests {
+    use super::Spectre;
+
+    #[test]
+    fn escape_path_preserves_structure_and_escapes_the_rest() {
+        // `.` and `:` give a path its structure and must survive.
+        assert_eq!(
+            Spectre::escape_path("Xdut.X0.Xbitcell_array.Xcell_0_0.Q"),
+            "Xdut.X0.Xbitcell_array.Xcell_0_0.Q"
+        );
+        assert_eq!(Spectre::escape_path("Xdut.Xinst:p"), "Xdut.Xinst:p");
+        // Bus indices and layout-extracted names are not bare identifiers.
+        assert_eq!(Spectre::escape_path("din[0]"), "din\\[0\\]");
+        assert_eq!(
+            Spectre::escape_path("Xdut.X0.Xdff_6.a_1800_291#"),
+            "Xdut.X0.Xdff_6.a_1800_291\\#"
+        );
+        // `save` accepts wildcards, so they must not be escaped either.
+        assert_eq!(Spectre::escape_path("wl_b[*]"), "wl_b\\[*\\]");
+        // Escaping an already escaped path is a no-op.
+        assert_eq!(
+            Spectre::escape_path(&Spectre::escape_path("din[0]")),
+            Spectre::escape_path("din[0]")
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests;
 
 /// Spectre primitives.
@@ -167,6 +195,23 @@ impl SimSignal {
     /// Creates a new [`SimSignal`].
     pub fn new(path: impl Into<ArcStr>) -> Self {
         Self::from(path)
+    }
+
+    /// Renders this signal for a `save` or `ic` statement.
+    ///
+    /// [`SimSignal::Raw`] is a caller-supplied path that has not been escaped; the other
+    /// variants are built from SCIR names that are escaped as they are resolved. Result
+    /// lookup continues to use the unescaped [`SimSignal::to_string`], since Spectre
+    /// reports the unescaped name.
+    pub(crate) fn to_netlist_string(
+        &self,
+        lib: &Library<Spectre>,
+        conv: &NetlistLibConversion,
+    ) -> ArcStr {
+        match self {
+            SimSignal::Raw(raw) => ArcStr::from(Spectre::escape_path(raw)),
+            _ => self.to_string(lib, conv),
+        }
     }
 
     pub(crate) fn to_string(&self, lib: &Library<Spectre>, conv: &NetlistLibConversion) -> ArcStr {
@@ -605,13 +650,13 @@ impl Spectre {
             writeln!(w, "settemp1 options temp={}", temp)?;
         }
         for save in saves {
-            writeln!(w, "save {}", save.to_string(&ctx.lib.scir, &conv))?;
+            writeln!(w, "save {}", save.to_netlist_string(&ctx.lib.scir, &conv))?;
         }
         if let Some(save) = options.save {
             writeln!(w, "setsave1 options save={}", save)?;
         }
         for (k, v) in ics {
-            writeln!(w, "ic {}={}", k.to_string(&ctx.lib.scir, &conv), v)?;
+            writeln!(w, "ic {}={}", k.to_netlist_string(&ctx.lib.scir, &conv), v)?;
         }
 
         writeln!(w)?;
@@ -687,6 +732,33 @@ impl Spectre {
             }
         }
         escaped_name
+    }
+
+    /// Escapes a hierarchical signal path for use in `save` and `ic` statements.
+    ///
+    /// Unlike [`Spectre::escape_identifier`], this preserves the characters that give a
+    /// path its structure: `.` separates hierarchy and `:` selects a terminal. Everything
+    /// else that cannot appear in a bare identifier -- `[` and `]` around bus indices, `#`
+    /// in names extracted from layout, and so on -- is backslash escaped, which is what
+    /// Spectre requires. The `*` and `?` wildcards accepted by `save` are also preserved. A character already preceded by a backslash is left alone so that
+    /// escaping an escaped path is a no-op.
+    pub fn escape_path(path: &str) -> String {
+        let mut escaped = String::with_capacity(path.len());
+        let mut chars = path.chars();
+        while let Some(c) = chars.next() {
+            if c == '\\' {
+                escaped.push(c);
+                if let Some(next) = chars.next() {
+                    escaped.push(next);
+                }
+            } else if c.is_alphanumeric() || matches!(c, '_' | '.' | ':' | '*' | '?') {
+                escaped.push(c);
+            } else {
+                escaped.push('\\');
+                escaped.push(c);
+            }
+        }
+        escaped
     }
 
     /// Converts a [`scir::InstancePath`] to a Spectre path string corresponding to

@@ -161,6 +161,7 @@ macro_rules! define_mosfets {
                 let mut prim = substrate::schematic::PrimitiveBinding::new(crate::Primitive::Mos {
                     kind: MosKind::$typ,
                     params: self.params.clone(),
+                    extra: Default::default(),
                 });
                 prim.connect("D", io.d);
                 prim.connect("G", io.g);
