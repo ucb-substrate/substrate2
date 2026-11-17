@@ -817,8 +817,8 @@ impl Client {
         namespace: String,
         key: Vec<u8>,
         assign: bool,
-    ) -> Result<local::get_reply::EntryStatus> {
-        let out: Result<local::GetReply> = self.inner.handle.block_on(async {
+    ) -> Result<local::GetReply> {
+        self.inner.handle.block_on(async {
             let mut client = self.connect_local().await?;
             Ok(client
                 .get(local::GetRequest {
@@ -829,8 +829,7 @@ impl Client {
                 .await
                 .map_err(Box::new)?
                 .into_inner())
-        });
-        Ok(out?.entry_status.unwrap())
+        })
     }
 
     /// Issues a `Heartbeat` RPC to a local cache gRPC server.
@@ -938,16 +937,16 @@ impl Client {
 
         let status = self.run_backoff_loop(|| {
             let status = self.get_rpc_local(namespace.clone().into_inner(), hash.clone(), true)?;
-            let retry = matches!(status, local::get_reply::EntryStatus::Loading(_));
+            let retry = matches!(status, local::GetReply::Loading);
 
             Ok((status, retry))
         })?;
 
         match status {
-            local::get_reply::EntryStatus::Unassigned(_) => {
+            local::GetReply::Unassigned => {
                 Client::handle_unassigned(handle, key, generate_fn);
             }
-            local::get_reply::EntryStatus::Assign(local::AssignReply {
+            local::GetReply::Assign(local::AssignReply {
                 id,
                 path,
                 heartbeat_interval_ms,
@@ -961,8 +960,8 @@ impl Client {
                 write_generated_value(self, id, path, &v)?;
                 handle.set(v);
             }
-            local::get_reply::EntryStatus::Loading(_) => unreachable!(),
-            local::get_reply::EntryStatus::Ready(local::ReadyReply { id, path }) => {
+            local::GetReply::Loading => unreachable!(),
+            local::GetReply::Ready(local::ReadyReply { id, path }) => {
                 tracing::debug!("entry is ready, reading from cache");
                 let mut file = std::fs::File::open(path)?;
                 let mut buf = Vec::new();
@@ -1027,8 +1026,8 @@ impl Client {
         namespace: String,
         key: Vec<u8>,
         assign: bool,
-    ) -> Result<remote::get_reply::EntryStatus> {
-        let out: Result<remote::GetReply> = self.inner.handle.block_on(async {
+    ) -> Result<remote::GetReply> {
+        self.inner.handle.block_on(async {
             let mut client = self.connect_remote().await?;
             Ok(client
                 .get(remote::GetRequest {
@@ -1039,8 +1038,7 @@ impl Client {
                 .await
                 .map_err(Box::new)?
                 .into_inner())
-        });
-        Ok(out?.entry_status.unwrap())
+        })
     }
 
     /// Issues a `Heartbeat` RPC to a remote cache gRPC server.
@@ -1111,16 +1109,16 @@ impl Client {
 
         let status = self.run_backoff_loop(|| {
             let status = self.get_rpc_remote(namespace.clone().into_inner(), hash.clone(), true)?;
-            let retry = matches!(status, remote::get_reply::EntryStatus::Loading(_));
+            let retry = matches!(status, remote::GetReply::Loading);
 
             Ok((status, retry))
         })?;
 
         match status {
-            remote::get_reply::EntryStatus::Unassigned(_) => {
+            remote::GetReply::Unassigned => {
                 Client::handle_unassigned(handle, key, generate_fn);
             }
-            remote::get_reply::EntryStatus::Assign(remote::AssignReply {
+            remote::GetReply::Assign(remote::AssignReply {
                 id,
                 heartbeat_interval_ms,
             }) => {
@@ -1133,8 +1131,8 @@ impl Client {
                 write_generated_value(self, id, &v)?;
                 handle.set(v);
             }
-            remote::get_reply::EntryStatus::Loading(_) => unreachable!(),
-            remote::get_reply::EntryStatus::Ready(data) => {
+            remote::GetReply::Loading => unreachable!(),
+            remote::GetReply::Ready(data) => {
                 tracing::debug!("entry is ready");
                 handle.set(Ok(deserialize_cache_data(&data)?));
             }

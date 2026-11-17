@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: main
     steps:
+      # The `release` tag builds cache 0.7.2 or earlier, which needs protoc.
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
         with:

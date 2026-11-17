@@ -471,7 +471,7 @@ enum DbEntryStatus {
 }
 
 impl DbEntryStatus {
-    fn to_int(self) -> u64 {
+    fn to_int(self) -> i64 {
         match self {
             Self::Loading => 0,
             Self::Ready => 1,
@@ -479,7 +479,7 @@ impl DbEntryStatus {
         }
     }
 
-    fn from_int(val: u64) -> Option<Self> {
+    fn from_int(val: i64) -> Option<Self> {
         match val {
             0 => Some(Self::Loading),
             1 => Some(Self::Ready),
@@ -505,34 +505,28 @@ enum GetReplyStatus {
 }
 
 impl GetReplyStatus {
-    fn into_local(self, path: String) -> local::get_reply::EntryStatus {
+    fn into_local(self, path: String) -> local::GetReply {
         match self {
-            Self::Unassigned => local::get_reply::EntryStatus::Unassigned(()),
-            Self::Assign(id, heartbeat_interval) => {
-                local::get_reply::EntryStatus::Assign(local::AssignReply {
-                    id: id.0,
-                    path,
-                    heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
-                })
-            }
-            Self::Loading => local::get_reply::EntryStatus::Loading(()),
-            Self::ReadyLocal(id) => {
-                local::get_reply::EntryStatus::Ready(local::ReadyReply { id: id.0, path })
-            }
+            Self::Unassigned => local::GetReply::Unassigned,
+            Self::Assign(id, heartbeat_interval) => local::GetReply::Assign(local::AssignReply {
+                id: id.0,
+                path,
+                heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
+            }),
+            Self::Loading => local::GetReply::Loading,
+            Self::ReadyLocal(id) => local::GetReply::Ready(local::ReadyReply { id: id.0, path }),
             Self::ReadyRemote(_) => panic!("cannot convert remote statuses to local statuses"),
         }
     }
-    fn into_remote(self) -> remote::get_reply::EntryStatus {
+    fn into_remote(self) -> remote::GetReply {
         match self {
-            Self::Unassigned => remote::get_reply::EntryStatus::Unassigned(()),
-            Self::Assign(id, heartbeat_interval) => {
-                remote::get_reply::EntryStatus::Assign(remote::AssignReply {
-                    id: id.0,
-                    heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
-                })
-            }
-            Self::Loading => remote::get_reply::EntryStatus::Loading(()),
-            Self::ReadyRemote(val) => remote::get_reply::EntryStatus::Ready(val),
+            Self::Unassigned => remote::GetReply::Unassigned,
+            Self::Assign(id, heartbeat_interval) => remote::GetReply::Assign(remote::AssignReply {
+                id: id.0,
+                heartbeat_interval_ms: heartbeat_interval.as_millis() as u64,
+            }),
+            Self::Loading => remote::GetReply::Loading,
+            Self::ReadyRemote(val) => remote::GetReply::Ready(val),
             Self::ReadyLocal(_) => panic!("cannot convert local statuses to remote statuses"),
         }
     }
@@ -777,9 +771,7 @@ impl LocalCache for CacheImpl {
             .await?
             .into_local(path);
 
-        Ok(Response::new(local::GetReply {
-            entry_status: Some(entry_status),
-        }))
+        Ok(Response::new(entry_status))
     }
 
     async fn heartbeat(
@@ -853,9 +845,7 @@ impl RemoteCache for CacheImpl {
             .await?
             .into_remote();
 
-        Ok(Response::new(remote::GetReply {
-            entry_status: Some(entry_status),
-        }))
+        Ok(Response::new(entry_status))
     }
 
     async fn heartbeat(
