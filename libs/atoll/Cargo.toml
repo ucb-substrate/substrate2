@@ -19,6 +19,6 @@ indexmap = "2"
 rustc-hash = "2"
 cache = { version = "0.7.2", registry = "substrate", path = "../cache" }
 arcstr = { version = "1.2.0", features = ["serde"] }
-itertools = "0.14"
+itertools = "0.15"
 downcast-rs = "2"
 slotmap = "1"
