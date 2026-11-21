@@ -18,16 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: main
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: substrate
       - name: Clone `release-please`
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: rohanku/release-please
           path: release-please
           ref: dev
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: 'npm'
@@ -53,11 +53,11 @@ jobs:
     environment: main
     needs: [ release-please, check-repo ]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: substrate
       - name: Clone `cargo-workspaces`
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: rohanku/cargo-workspaces
           path: cargo-workspaces

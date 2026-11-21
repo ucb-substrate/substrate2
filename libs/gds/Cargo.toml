@@ -8,7 +8,7 @@ byteorder = "1"
 chrono = { version = "0.4", features = ["serde"] }
 derive_builder = "0.20"
 derive_more = { version = "2", features = ["full"] }
-num-derive = "0.4"
+num-derive = "0.5"
 num-traits = "0.2"
 serde = { workspace = true, features = ["derive"] }
 serde_derive = "1"
