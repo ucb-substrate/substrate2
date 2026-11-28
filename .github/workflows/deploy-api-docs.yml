@@ -21,13 +21,13 @@ jobs:
     steps:
       # The `release` tag builds cache 0.7.2 or earlier, which needs protoc.
       - name: Install Protoc
-        uses: arduino/setup-protoc@v2
+        uses: arduino/setup-protoc@v3.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: main
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: release
           ref: refs/tags/release
@@ -39,7 +39,7 @@ jobs:
           cache-on-failure: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
         with:
-          version: 0.4.6
+          version: 0.5.19
       - run: ./build.sh . ${{ inputs.name || github.ref_name }}
         working-directory: main/docs/api
       - run: ../../../main/docs/api/build.sh ../../../main/docs/api release

@@ -4,7 +4,7 @@ version = "0.2.2"
 edition = "2024"
 
 [dependencies]
-tera = "1"
+tera = "2"
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"

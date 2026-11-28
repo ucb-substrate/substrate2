@@ -8,11 +8,11 @@ rust_decimal = "1"
 rust_decimal_macros = "1"
 thiserror = "2"
 arcstr = { version = "1", features = ["serde"] }
-tera = "1"
+tera = "2"
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
-itertools = "0.14"
+itertools = "0.15"
 regex = "1"
 indexmap = "2"
 num = { version = "0.4", features = ["serde"] }
